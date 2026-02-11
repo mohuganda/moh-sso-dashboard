@@ -36,7 +36,7 @@ spec:
         - name: postgres
           image: {{ .Values.postgresApp.image.repository }}:{{ .Values.postgresApp.image.tag }}
           ports:
-            - containerPort: {{ .Values.postgresApp.service.port }}
+            - containerPort: 5432
           envFrom:
             - secretRef:
                 name: {{ .Release.Name }}-app-db
@@ -69,7 +69,7 @@ spec:
     app: {{ .Release.Name }}-postgres-app
   ports:
     - name: postgres
-      port: {{ .Values.postgresApp.service.port }}
-      targetPort: {{ .Values.postgresApp.service.port }}
+      port: 5432
+      targetPort: 5432
   type: ClusterIP
 {{- end }}

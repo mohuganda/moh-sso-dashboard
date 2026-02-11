@@ -6,9 +6,34 @@ metadata:
   labels:
     {{- include "moh-sso.labels" . | nindent 4 }}
 data:
-  PORT: {{ .Values.backend.env.PORT | quote }}
+  ENVIRONMENT: "development"
+  GIN_MODE: "debug"
+
+  FRONTEND_BASE_URL: "http://localhost:3000"
+
   KEYCLOAK_BASE_URL: {{ printf "http://%s-keycloak:%d" .Release.Name (.Values.keycloak.service.port | int) | quote }}
-  ALLOWED_ORIGINS: {{ .Values.api.env.ALLOWED_ORIGINS | quote }}
+  KEYCLOAK_REALM: "moh-realm"
+
+  KEYCLOAK_ADMIN_CLIENT_ID: "dashboard-admin"
+  KEYCLOAK_WEB_CLIENT_ID: "dashboard-web"
+  KEYCLOAK_REDIRECT_URI: "http://localhost:9000/api/v1/auth/callback"
+
+  SERVER_PORT: {{ .Values.backend.service.port | quote }}
+
+  DB_DRIVER: "postgres"
+  DB_HOST: {{ printf "%s-postgres-app" .Release.Name | quote }}
+  DB_PORT: "5432"
+  DB_NAME: {{ .Values.postgresApp.auth.db | quote }}
+  DB_ENABLE_SSL: "false"
+
+  REDIS_HOST: {{ printf "%s-redis" .Release.Name | quote }}
+  REDIS_PORT: "6379"
+
+  ACCESS_TOKEN_DURATION: "15m"
+  REFRESH_TOKEN_DURATION: "720h"
+
+  ENABLE_TLS: "false"
+
 ---
 apiVersion: v1
 kind: Secret
@@ -18,6 +43,12 @@ metadata:
     {{- include "moh-sso.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  JWT_SECRET: {{ .Values.backend.secrets.JWT_SECRET | quote }}
-  DB_DSN: {{ printf "postgres://%s:%s@%s-postgres-app:%d/%s?sslmode=disable" .Values.postgresApp.auth.user .Values.postgresApp.auth.password .Release.Name (.Values.postgresApp.service.port | int) .Values.postgresApp.auth.db | quote }}
+  KEYCLOAK_ADMIN_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_ADMIN_CLIENT_SECRET | quote }}
+  KEYCLOAK_WEB_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_WEB_CLIENT_SECRET | quote }}
+
+  DB_USER: {{ .Values.postgresApp.auth.user | quote }}
+  DB_PASSWORD: {{ .Values.postgresApp.auth.password | quote }}
+
+  TOKEN_SYMMETRIC_KEY: {{ .Values.backend.secrets.TOKEN_SYMMETRIC_KEY | quote }}
+
 {{- end }}

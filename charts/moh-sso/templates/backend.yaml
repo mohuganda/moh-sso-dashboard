@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "moh-sso.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.api.replicas }}
+  replicas: {{ .Values.backend.replicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-backend

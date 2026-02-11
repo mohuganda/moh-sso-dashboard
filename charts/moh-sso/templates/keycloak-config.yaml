@@ -1,0 +1,45 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-keycloak-config
+  labels:
+    {{- include "moh-sso.labels" . | nindent 4 }}
+data:
+  KC_DB: {{ .Values.keycloak.config.KC_DB | quote }}
+  KC_DB_URL: {{ printf "jdbc:postgresql://%s-postgres-keycloak:5432/%s" .Release.Name .Values.postgresKeycloak.auth.db | quote }}
+
+  KC_HTTP_ENABLED: {{ .Values.keycloak.config.KC_HTTP_ENABLED | quote }}
+  KC_PROXY: {{ .Values.keycloak.config.KC_PROXY | quote }}
+
+  KC_HOSTNAME: {{ .Values.keycloak.config.KC_HOSTNAME | quote }}
+  KC_HOSTNAME_STRICT: {{ .Values.keycloak.config.KC_HOSTNAME_STRICT | quote }}
+  KC_HOSTNAME_STRICT_HTTPS: {{ .Values.keycloak.config.KC_HOSTNAME_STRICT_HTTPS | quote }}
+
+  KC_LOG_LEVEL: {{ .Values.keycloak.config.KC_LOG_LEVEL | quote }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-keycloak-admin
+  labels:
+    {{- include "moh-sso.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  KEYCLOAK_ADMIN: {{ .Values.keycloak.admin.username | quote }}
+  KEYCLOAK_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-keycloak-db
+  labels:
+    {{- include "moh-sso.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  KC_DB_USERNAME: {{ .Values.postgresKeycloak.auth.user | quote }}
+  KC_DB_PASSWORD: {{ .Values.postgresKeycloak.auth.password | quote }}
+
+{{- end }}

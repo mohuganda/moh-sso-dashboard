@@ -26,20 +26,33 @@ spec:
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.frontend.service.port }}
+
+          volumeMounts:
+            - name: frontend-config
+              mountPath: /usr/share/nginx/html/config.js
+              subPath: config.js
+
           readinessProbe:
             httpGet:
               path: /
               port: {{ .Values.frontend.service.port }}
             initialDelaySeconds: 5
             periodSeconds: 10
+
           livenessProbe:
             httpGet:
               path: /
               port: {{ .Values.frontend.service.port }}
             initialDelaySeconds: 10
             periodSeconds: 15
+
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
+
+      volumes:
+        - name: frontend-config
+          configMap:
+            name: {{ .Release.Name }}-frontend-config
 ---
 apiVersion: v1
 kind: Service

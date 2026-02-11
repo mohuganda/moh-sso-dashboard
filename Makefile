@@ -98,3 +98,139 @@ dev:
 .PHONY: all
 all: tidy build frontend-build
 	@echo "✅ All components built successfully!"
+
+# -----------------------------
+# Kubernetes Local (Docker Desktop)
+# -----------------------------
+
+K8S_NAMESPACE = sso-local
+HELM_RELEASE = moh-sso-dashboard
+HELM_CHART = ./charts/moh-sso
+VALUES_LOCAL = charts/moh-sso/values-local.yaml
+
+BACKEND_IMAGE = moh-sso-dashboard-backend:local
+FRONTEND_IMAGE = moh-sso-dashboard-frontend:local
+
+.PHONY: local-namespace
+local-namespace:
+	@echo "📦 Ensuring namespace exists..."
+	kubectl get namespace $(K8S_NAMESPACE) >/dev/null 2>&1 || kubectl create namespace $(K8S_NAMESPACE)
+
+.PHONY: local-build
+local-build:
+	@echo "🐳 Building backend (Dockerfile.dev) for arm64..."
+	docker buildx build \
+		--platform linux/arm64 \
+		-f backend/Dockerfile.dev \
+		-t $(BACKEND_IMAGE) \
+		--load \
+		./backend
+	@echo "🐳 Building frontend (Dockerfile.dev) for arm64..."
+	docker buildx build \
+		--platform linux/arm64 \
+		-f frontend/Dockerfile.dev \
+		-t $(FRONTEND_IMAGE) \
+		--load \
+		./frontend
+	@echo "✅ Local arm64 images built and loaded into containerd"
+
+
+.PHONY: local-up
+local-up: local-namespace
+	@echo "🚀 Deploying to Kubernetes (local)..."
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+		-n $(K8S_NAMESPACE) \
+		-f $(VALUES_LOCAL)
+	@echo "✅ Deployment applied"
+
+.PHONY: local-down
+local-down:
+	@echo "🧯 Uninstalling local release..."
+	helm uninstall $(HELM_RELEASE) -n $(K8S_NAMESPACE) || true
+
+.PHONY: local-restart
+local-restart:
+	@echo "🔄 Restarting backend & frontend..."
+	kubectl rollout restart deployment $(HELM_RELEASE)-backend -n $(K8S_NAMESPACE)
+	kubectl rollout restart deployment $(HELM_RELEASE)-frontend -n $(K8S_NAMESPACE)
+
+.PHONY: local-logs
+local-logs:
+	kubectl get pods -n $(K8S_NAMESPACE)
+
+.PHONY: local-backend-logs
+local-backend-logs:
+	kubectl logs -f deployment/$(HELM_RELEASE)-backend -n $(K8S_NAMESPACE)
+
+.PHONY: local-keycloak-logs
+local-keycloak-logs:
+	kubectl logs -f statefulset/$(HELM_RELEASE)-keycloak -n $(K8S_NAMESPACE)
+
+.PHONY: local-forward
+local-forward:
+	@echo "🌐 Port forwarding..."
+	@echo "Frontend:  http://localhost:3000"
+	@echo "Backend:   http://localhost:9000"
+	@echo "Keycloak:  http://localhost:8081"
+	kubectl port-forward svc/$(HELM_RELEASE)-frontend 3000:80 -n $(K8S_NAMESPACE) & \
+	kubectl port-forward svc/$(HELM_RELEASE)-backend 9000:9000 -n $(K8S_NAMESPACE) & \
+	kubectl port-forward svc/$(HELM_RELEASE)-keycloak 8081:8080 -n $(K8S_NAMESPACE)
+
+.PHONY: local
+local: local-build local-up
+	@echo "🎉 Local stack deployed!"
+	@echo "Run 'make local-forward' to access services."
+
+# -----------------------------
+# Kubernetes DEV (Cluster)
+# -----------------------------
+
+DEV_NAMESPACE = sso-dev
+DEV_VALUES = charts/moh-sso/values-dev.yaml
+
+.PHONY: dev-up
+dev-up:
+	@echo "🚀 Deploying DEV environment..."
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+		-n $(DEV_NAMESPACE) \
+		-f $(DEV_VALUES)
+
+.PHONY: dev-down
+dev-down:
+	@echo "🧯 Removing DEV release..."
+	helm uninstall $(HELM_RELEASE) -n $(DEV_NAMESPACE) || true
+
+.PHONY: dev-logs
+dev-logs:
+	kubectl get pods -n $(DEV_NAMESPACE)
+
+.PHONY: dev-backend-logs
+dev-backend-logs:
+	kubectl logs -f deployment/$(HELM_RELEASE)-backend -n $(DEV_NAMESPACE)
+
+# -----------------------------
+# Kubernetes PROD
+# -----------------------------
+
+PROD_NAMESPACE = sso-prod
+PROD_VALUES = charts/moh-sso/values-prod.yaml
+
+.PHONY: prod-up
+prod-up:
+	@echo "🚀 Deploying PROD environment..."
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+		-n $(PROD_NAMESPACE) \
+		-f $(PROD_VALUES)
+
+.PHONY: prod-down
+prod-down:
+	@echo "🧯 Removing PROD release..."
+	helm uninstall $(HELM_RELEASE) -n $(PROD_NAMESPACE) || true
+
+.PHONY: prod-logs
+prod-logs:
+	kubectl get pods -n $(PROD_NAMESPACE)
+
+.PHONY: prod-backend-logs
+prod-backend-logs:
+	kubectl logs -f deployment/$(HELM_RELEASE)-backend -n $(PROD_NAMESPACE)

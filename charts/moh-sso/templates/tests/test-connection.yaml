@@ -1,7 +1,8 @@
+{{- if .Values.backend.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "moh-sso.fullname" . }}-test-connection"
+  name: "{{ include "moh-sso.fullname" . }}-backend-test"
   labels:
     {{- include "moh-sso.labels" . | nindent 4 }}
   annotations:
@@ -11,5 +12,7 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "moh-sso.fullname" . }}:{{ .Values.service.port }}']
+      args:
+        - "{{ include "moh-sso.fullname" . }}-backend:{{ .Values.backend.service.port }}"
   restartPolicy: Never
+{{- end }}

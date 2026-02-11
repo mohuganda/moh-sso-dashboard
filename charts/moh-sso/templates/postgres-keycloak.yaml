@@ -36,7 +36,7 @@ spec:
         - name: postgres
           image: {{ .Values.postgresKeycloak.image.repository }}:{{ .Values.postgresKeycloak.image.tag }}
           ports:
-            - containerPort: {{ .Values.postgresKeycloak.service.port }}
+            - containerPort: 5432
           env:
             - name: POSTGRES_DB
               value: {{ .Values.postgresKeycloak.auth.db | quote }}
@@ -73,7 +73,7 @@ spec:
     app: {{ .Release.Name }}-postgres-keycloak
   ports:
     - name: postgres
-      port: {{ .Values.postgresKeycloak.service.port }}
-      targetPort: {{ .Values.postgresKeycloak.service.port }}
+      port: 5432
+      targetPort: 5432
   type: ClusterIP
 {{- end }}

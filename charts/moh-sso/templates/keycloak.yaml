@@ -1,20 +1,4 @@
 {{- if .Values.keycloak.enabled }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ .Release.Name }}-keycloak-config
-  labels:
-    {{- include "moh-sso.labels" . | nindent 4 }}
-data:
-  KC_DB: {{ .Values.keycloak.config.KC_DB | quote }}
-  KC_DB_URL_HOST: {{ printf "%s-postgres-keycloak" .Release.Name | quote }}
-  KC_DB_URL_DATABASE: {{ .Values.keycloak.config.KC_DB_URL_DATABASE | quote }}
-  KC_HTTP_ENABLED: {{ .Values.keycloak.config.KC_HTTP_ENABLED | quote }}
-  KC_PROXY: {{ .Values.keycloak.config.KC_PROXY | quote }}
-  KC_HOSTNAME_STRICT: {{ .Values.keycloak.config.KC_HOSTNAME_STRICT | quote }}
-  KC_HOSTNAME_STRICT_HTTPS: {{ .Values.keycloak.config.KC_HOSTNAME_STRICT_HTTPS | quote }}
-  KC_LOG_LEVEL: {{ .Values.keycloak.config.KC_LOG_LEVEL | quote }}
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -38,24 +22,25 @@ spec:
           image: {{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}
           imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
           args: ["start"]
+
           ports:
             - containerPort: {{ .Values.keycloak.service.port }}
+
           envFrom:
             - configMapRef:
                 name: {{ .Release.Name }}-keycloak-config
             - secretRef:
                 name: {{ .Release.Name }}-keycloak-admin
-          env:
-            - name: KC_DB_USERNAME
-              value: {{ .Values.postgresKeycloak.auth.user | quote }}
-            - name: KC_DB_PASSWORD
-              value: {{ .Values.postgresKeycloak.auth.password | quote }}
+            - secretRef:
+                name: {{ .Release.Name }}-keycloak-db
+
           readinessProbe:
             httpGet:
               path: /health/ready
               port: {{ .Values.keycloak.service.port }}
             initialDelaySeconds: 25
             periodSeconds: 10
+
           livenessProbe:
             httpGet:
               path: /health/live

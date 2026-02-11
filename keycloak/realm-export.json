@@ -221,13 +221,12 @@
           "description": "Surveillance officer with monitoring access"
         }
       ],
-
-     "report-browser":[
-       {
+      "report-browser": [
+        {
           "name": "report-browser_access",
           "description": "Access MOH Report browser"
         }
-     ]
+      ]
     }
   },
   "clients": [
@@ -328,9 +327,9 @@
         "roles"
       ]
     },
-     {
+    {
       "clientId": "integrated-outbreak-system",
-      "name": "Integrated Outbreak System",
+      "name": "IOS",
       "description": "Integrated Outbreak System Backend API",
       "rootUrl": "http://localhost:3001",
       "baseUrl": "http://localhost:3001",
@@ -416,8 +415,10 @@
         ],
         "integrated-outbreak-system": [
           "integrated-outbreak-system_access",
-          "report-browser_access",
           "viewer"
+        ],
+        "report-browser" : [
+          "report-browser_access"
         ]
       }
     },

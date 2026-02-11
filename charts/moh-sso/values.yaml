@@ -102,7 +102,7 @@ postgresApp:
 
   image:
     repository: postgres
-    tag: 16-alpine
+    tag: 15-alpine
 
   auth:
     db: sso
@@ -123,7 +123,7 @@ postgresKeycloak:
 
   image:
     repository: postgres
-    tag: 16-alpine
+    tag: 15-alpine
 
   auth:
     db: keycloak
@@ -162,4 +162,39 @@ keycloak:
     KC_PROXY: edge
     KC_HOSTNAME_STRICT: "false"
     KC_HOSTNAME_STRICT_HTTPS: "false"
+    KC_HOSTNAME: "localhost"
     KC_LOG_LEVEL: INFO
+
+# --------------------------------------------------
+# Redis
+# --------------------------------------------------
+redis:
+  enabled: false
+
+  replicas: 1
+
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 6379
+
+  auth:
+    enabled: false
+    password: "" # overridden per environment if enabled
+
+  persistence:
+    enabled: true
+    size: 5Gi
+    accessModes:
+      - ReadWriteOnce
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

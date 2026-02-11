@@ -1,20 +1,15 @@
 # ===============================
-# Production values (CI-safe)
+# Local Laptop (Docker Desktop)
 # ===============================
 
 global:
-  namespace: sso-prod
+  namespace: sso-local
 
 # --------------------------------------------------
-# Ingress
+# Ingress (DISABLED FOR LOCAL)
 # --------------------------------------------------
 ingress:
-  enabled: true
-  className: nginx
-  host: sso.moh.go.ug
-  tls:
-    enabled: true
-    secretName: sso-prod-tls
+  enabled: false
 
 # --------------------------------------------------
 # Backend API
@@ -23,39 +18,34 @@ backend:
   enabled: true
 
   image:
-    repository: "" # injected by CI
-    tag: "" # injected by CI
-    pullPolicy: IfNotPresent
+    repository: moh-sso-dashboard-backend
+    tag: local
+    pullPolicy: Never
 
-  replicas: 3
+  replicas: 1
 
   env:
     PORT: "9000"
-    ALLOWED_ORIGINS: "https://sso.moh.go.ug"
+    ALLOWED_ORIGINS: "http://localhost:3000"
 
-  # These align with the updated backend Secret template we discussed
   secrets:
-    KEYCLOAK_ADMIN_CLIENT_SECRET: "prod-dashboard-admin-secret-rotate"
-    KEYCLOAK_WEB_CLIENT_SECRET: "prod-dashboard-web-secret-rotate"
-    TOKEN_SYMMETRIC_KEY: "prod-rotate-me-super-long-random"
+    KEYCLOAK_ADMIN_CLIENT_SECRET: dashboard-admin-secret
+    KEYCLOAK_WEB_CLIENT_SECRET: dashboard-web-secret
+    TOKEN_SYMMETRIC_KEY: local-dev-super-secret-key-123456789
 
   resources:
     requests:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 50m
+      memory: 128Mi
     limits:
-      cpu: 1000m
-      memory: 1Gi
+      cpu: 300m
+      memory: 512Mi
 
   hpa:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
+    enabled: false
 
   pdb:
-    enabled: true
-    minAvailable: 2
+    enabled: false
 
 # --------------------------------------------------
 # Frontend
@@ -64,29 +54,25 @@ frontend:
   enabled: true
 
   image:
-    repository: "" # injected by CI
-    tag: "" # injected by CI
-    pullPolicy: IfNotPresent
+    repository: moh-sso-dashboard-frontend
+    tag: local
+    pullPolicy: Never
 
-  replicas: 3
+  replicas: 1
 
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 20m
+      memory: 64Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 150m
+      memory: 256Mi
 
   hpa:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 6
-    targetCPUUtilizationPercentage: 70
+    enabled: false
 
   pdb:
-    enabled: true
-    minAvailable: 2
+    enabled: false
 
 # --------------------------------------------------
 # Application Postgres
@@ -94,13 +80,13 @@ frontend:
 postgresApp:
   enabled: true
   auth:
-    db: sso
-    user: sso_user
-    password: prod_app_db_password # prefer sealed secret / external secret later
+    db: sso_dashboard
+    user: postgres
+    password: postgres
 
   persistence:
     enabled: true
-    size: 50Gi
+    size: 2Gi
 
 # --------------------------------------------------
 # Keycloak Postgres
@@ -109,32 +95,32 @@ postgresKeycloak:
   enabled: true
   auth:
     db: keycloak
-    user: keycloak_user
-    password: prod_keycloak_db_password # prefer sealed secret / external secret later
+    user: keycloak
+    password: keycloak
 
   persistence:
     enabled: true
-    size: 50Gi
+    size: 2Gi
 
 # --------------------------------------------------
 # Keycloak
 # --------------------------------------------------
 keycloak:
   enabled: true
-  replicas: 2
+  replicas: 1
 
   admin:
     username: admin
-    password: prod-keycloak-admin-rotate
+    password: admin
 
   config:
-    KC_LOG_LEVEL: INFO
+    KC_LOG_LEVEL: DEBUG
     KC_DB: postgres
     KC_HTTP_ENABLED: "true"
     KC_PROXY: edge
-    KC_HOSTNAME: "sso.moh.go.ug"
+    KC_HOSTNAME: "localhost"
     KC_HOSTNAME_STRICT: "false"
-    KC_HOSTNAME_STRICT_HTTPS: "true"
+    KC_HOSTNAME_STRICT_HTTPS: "false"
 
 # --------------------------------------------------
 # Redis
@@ -151,12 +137,12 @@ redis:
 
   persistence:
     enabled: true
-    size: 10Gi
+    size: 1Gi
 
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 20m
+      memory: 64Mi
     limits:
-      cpu: 300m
-      memory: 512Mi
+      cpu: 150m
+      memory: 256Mi

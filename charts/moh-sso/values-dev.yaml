@@ -1,10 +1,19 @@
 # ===============================
-# Development values (CI-safe)
+# Development values (Cluster)
 # ===============================
 
 global:
   namespace: sso-dev
 
+# --------------------------------------------------
+# Private GHCR Pull Secret
+# --------------------------------------------------
+imagePullSecrets:
+  - name: ghcr-secret
+
+# --------------------------------------------------
+# Ingress
+# --------------------------------------------------
 ingress:
   enabled: true
   className: nginx
@@ -13,16 +22,16 @@ ingress:
     enabled: true
     secretName: sso-dev-tls
 
-# -------------------------------
+# --------------------------------------------------
 # Backend API
-# -------------------------------
-backends:
+# --------------------------------------------------
+backend:
   enabled: true
 
   image:
-    repository: "" # injected by CI
-    tag: "" # injected by CI
-    pullPolicy: IfNotPresent
+    repository: ghcr.io/jabahum/moh-sso-dashboard-backend
+    tag: "latest"
+    pullPolicy: Always
 
   replicas: 1
 
@@ -31,8 +40,9 @@ backends:
     ALLOWED_ORIGINS: "https://sso-dev.moh.go.ug"
 
   secrets:
-    JWT_SECRET: dev-change-me
-    DB_DSN: "" # auto-generated in template
+    KEYCLOAK_ADMIN_CLIENT_SECRET: dashboard-admin-secret
+    KEYCLOAK_WEB_CLIENT_SECRET: dashboard-web-secret
+    TOKEN_SYMMETRIC_KEY: supersecretkey12345678901234567890
 
   resources:
     requests:
@@ -48,16 +58,16 @@ backends:
   pdb:
     enabled: false
 
-# -------------------------------
+# --------------------------------------------------
 # Frontend
-# -------------------------------
+# --------------------------------------------------
 frontend:
   enabled: true
 
   image:
-    repository: "" # injected by CI
-    tag: "" # injected by CI
-    pullPolicy: IfNotPresent
+    repository: ghcr.io/jabahum/moh-sso-dashboard-frontend
+    tag: "latest"
+    pullPolicy: Always
 
   replicas: 1
 
@@ -75,41 +85,75 @@ frontend:
   pdb:
     enabled: false
 
-# -------------------------------
+# --------------------------------------------------
 # Application Postgres
-# -------------------------------
+# --------------------------------------------------
 postgresApp:
   enabled: true
   auth:
-    db: sso
-    user: sso_user
-    password: dev_app_db_password
+    db: sso_dashboard
+    user: postgres
+    password: postgres
 
   persistence:
     enabled: true
     size: 5Gi
 
-# -------------------------------
-# Keycloak
-# -------------------------------
+# --------------------------------------------------
+# Keycloak Postgres
+# --------------------------------------------------
 postgresKeycloak:
   enabled: true
   auth:
     db: keycloak
-    user: keycloak_user
-    password: dev_keycloak_db_password
+    user: keycloak
+    password: keycloak
 
   persistence:
     enabled: true
     size: 5Gi
 
+# --------------------------------------------------
+# Keycloak
+# --------------------------------------------------
 keycloak:
   enabled: true
   replicas: 1
 
   admin:
     username: admin
-    password: dev-keycloak-admin
+    password: admin
 
   config:
     KC_LOG_LEVEL: DEBUG
+    KC_DB: postgres
+    KC_HTTP_ENABLED: "true"
+    KC_PROXY: edge
+    KC_HOSTNAME: "sso-dev.moh.go.ug"
+    KC_HOSTNAME_STRICT: "false"
+    KC_HOSTNAME_STRICT_HTTPS: "true"
+
+# --------------------------------------------------
+# Redis
+# --------------------------------------------------
+redis:
+  enabled: true
+
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+
+  persistence:
+    enabled: true
+    size: 2Gi
+
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 256Mi
