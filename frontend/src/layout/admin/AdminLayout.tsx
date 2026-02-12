@@ -1,3 +1,4 @@
+import { Notification, Logout, UserAvatarFilled } from "@carbon/react/icons";
 import {
   HeaderGlobalAction,
   Content,
@@ -8,24 +9,23 @@ import {
   SideNavItems,
   SideNavLink,
 } from "@carbon/react";
-import { Notification, Logout, UserAvatarFilled } from "@carbon/icons-react";
 import { useSelector } from "react-redux";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 
 import "./admin-layout.css";
-import { selectUser } from "../../store/auth/auth.selectors";
+import imagePath from "../../assets/logo.png";
 import {
   HeaderPanelProvider,
   useHeaderPanel,
 } from "../../components/header-panel/header-panel.context";
+import { NotificationsPanel } from "../../components/notifications/notifications-panel.component";
+import { ToastProvider } from "../../components/notifications/toast/ToastProvider";
+import { API } from "../../lib/constants/api.constants";
 import {
   useGetNotificationsQuery,
   useGetUnreadNotificationsCountQuery,
 } from "../../store/api/notifications.api";
-import { NotificationsPanel } from "../../components/notifications/notifications-panel.component";
-import { API } from "../../lib/constants/api.constants";
-import { ToastProvider } from "../../components/notifications/toast/ToastProvider";
-import imagePath from "../../assets/logo.png";
+import { selectUser } from "../../store/auth/auth.selectors";
 
 function HeaderActions() {
   const user = useSelector(selectUser);
@@ -49,12 +49,12 @@ function HeaderActions() {
       <HeaderGlobalAction
         aria-label="Notifications"
         tooltipAlignment="end"
-        onClick={() =>
+        onClick={() => {
           openPanel({
             title: "Notifications",
             content: <NotificationsPanel notifications={notifications} />,
-          })
-        }
+          });
+        }}
       >
         <Notification size={20} />
         {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
@@ -85,7 +85,7 @@ export default function AdminLayout() {
       <HeaderPanelProvider>
         {/* ================= Header ================= */}
         <Header aria-label="MOH Integrated Health Portal">
-          <img src={`${imagePath}`} className={`moh-image-style`} />
+          <img src={imagePath} className={`moh-image-style`} />
 
           <HeaderName prefix="MOH" onClick={() => navigate("/admin")} style={{ cursor: "pointer" }}>
             Integrated Health Portal

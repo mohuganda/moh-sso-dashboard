@@ -1,5 +1,6 @@
 import { API } from "../../lib/constants/api.constants";
 import type { GetNotificationsParams, Notification } from "../types/notifications.types";
+
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {

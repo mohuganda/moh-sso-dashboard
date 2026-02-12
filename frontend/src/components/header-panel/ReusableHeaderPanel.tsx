@@ -1,5 +1,6 @@
 // src/components/header-panel/ReusableHeaderPanel.tsx
 import { HeaderPanel, Button } from "@carbon/react";
+
 import type { PanelSize } from "./header-panel.context";
 import "./reusable-header-panel.css";
 

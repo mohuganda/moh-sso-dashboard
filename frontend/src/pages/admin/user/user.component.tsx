@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import {
   DataTable,
   Table,
@@ -14,19 +13,22 @@ import {
   Tag,
   Pagination,
 } from "@carbon/react";
+import { useEffect, useMemo, useState } from "react";
 
-import { UserFilters } from "../../../components/user/UserFilters";
+import { ErrorState } from "../../../components/errorstate/ErrorState";
 import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
-import { useListUsersQuery, useToggleUserMutation } from "../../../store/api/users.api";
-import type { User } from "../../../store/types/user.types";
+import { useToast } from "../../../components/notifications/toast/useToast";
 import { UserFormPanel } from "../../../components/panels/create-user-panel";
+import { UserClientRolesPanel } from "../../../components/panels/user-client-roles-panel";
 import { useEnableUserModal } from "../../../components/user/useEnableUserModal";
 import { useResetPasswordModal } from "../../../components/user/useResetPasswordModal";
-import { UserClientRolesPanel } from "../../../components/panels/user-client-roles-panel";
+import { UserFilters } from "../../../components/user/UserFilters";
+import { useListUsersQuery, useToggleUserMutation } from "../../../store/api/users.api";
+import type { User } from "../../../store/types/user.types";
+
 import { UserActionsMenu } from "./user-actions-menu.component";
 import { UserBulkActions } from "./user-bulk-actions.component";
-import { ErrorState } from "../../../components/errorstate/ErrorState";
-import { useToast } from "../../../components/notifications/toast/useToast";
+
 
 /* -----------------------------
  * Table headers
@@ -80,7 +82,7 @@ export default function UsersPage() {
    * ----------------------------- */
   const roles = useMemo(() => {
     const set = new Set<string>();
-    users.forEach((u) => u.realmRoles?.forEach((r) => set.add(r)));
+    users.forEach((u) => { u.realmRoles?.forEach((r) => set.add(r)); });
     return ["all", ...Array.from(set)];
   }, [users]);
 
@@ -154,7 +156,7 @@ export default function UsersPage() {
           neverLoggedIn={neverLoggedIn}
           onStatusChange={setStatusFilter}
           onRoleChange={setRoleFilter}
-          onToggleNeverLoggedIn={() => setNeverLoggedIn((v) => !v)}
+          onToggleNeverLoggedIn={() => { setNeverLoggedIn((v) => !v); }}
         />
       </Tile>
 
@@ -267,7 +269,7 @@ export default function UsersPage() {
                                     <UserActionsMenu
                                       user={user}
                                       onEdit={() =>
-                                        openPanel({
+                                        { openPanel({
                                           title: "Edit user",
                                           content: (
                                             <UserFormPanel
@@ -277,17 +279,17 @@ export default function UsersPage() {
                                             />
                                           ),
                                           size: "md",
-                                        })
+                                        }); }
                                       }
                                       onManageRoles={() =>
-                                        openPanel({
+                                        { openPanel({
                                           title: `Roles: ${user.username}`,
                                           size: "lg",
                                           content: <UserClientRolesPanel userId={user.id} />,
-                                        })
+                                        }); }
                                       }
                                       onToggleStatus={() =>
-                                        openEnableUserModal({
+                                        { openEnableUserModal({
                                           username: user.username,
                                           enabled: user.isActive ?? false,
                                           onConfirm: async () => {
@@ -310,10 +312,10 @@ export default function UsersPage() {
                                               });
                                             }
                                           },
-                                        })
+                                        }); }
                                       }
                                       onResetPassword={() =>
-                                        openResetPasswordModal({
+                                        { openResetPasswordModal({
                                           username: user.username,
                                           email: user.email,
                                           onConfirm: () => {
@@ -322,7 +324,7 @@ export default function UsersPage() {
                                               subtitle: `Reset email sent to ${user.email}`,
                                             });
                                           },
-                                        })
+                                        }); }
                                       }
                                     />
                                   )}

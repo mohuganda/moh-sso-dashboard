@@ -1,4 +1,5 @@
 import { useModal } from "../modal/modal.context";
+
 import { ResetPasswordModal } from "./ResetPasswordModal";
 
 type OpenResetPasswordModalArgs = {

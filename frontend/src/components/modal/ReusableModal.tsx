@@ -1,7 +1,7 @@
-import React from "react";
 import { ComposedModal, ModalHeader, ModalBody, ModalFooter, Button } from "@carbon/react";
+import React from "react";
 
-export type ModalSize = "sm" | "md" | "lg" | "xl";
+export type ModalSize = "sm" | "md" | "lg";
 
 export type ReusableModalProps = {
   open: boolean;

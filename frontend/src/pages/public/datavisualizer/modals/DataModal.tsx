@@ -1,13 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
-import API from "../../helpers/api";
 import { Modal, Select, SelectItem } from "@carbon/react";
-import { useToast } from "../../../../components/notifications/toast/useToast.ts";
+import { useEffect, useMemo, useState } from "react";
+
+import API from "../../helpers/api";
+
+type DataElement = {
+  id: string;
+  name: string;
+};
+
+type ElementsMap = Record<string, DataElement[]>;
 
 export default function DataModal({ onClose, selected, onSave }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDataset, setSelectedDataset] = useState("");
+  const [selectedDataset] = useState("");
   const [datasets, setDatasets] = useState([]);
-  const [datasetToElements, setDatasetToElements] = useState({});
+  const [datasetToElements] = useState({});
   const [selectedItems, setSelectedItems] = useState(selected);
   const [availableDataSetElements, setAvailableDataSetElements] = useState([]);
   // const toast = useToast();
@@ -27,19 +34,16 @@ export default function DataModal({ onClose, selected, onSave }) {
 
   const filteredItems = useMemo(() => {
     // 1. Ensure a valid map object exists
-    const elementsMap = datasetToElements || {};
+    const elementsMap: ElementsMap = datasetToElements ?? {};
 
-    // 2. Determine the source list of elements
     let elements;
+
     if (selectedDataset) {
-      // Get elements for the selected dataset, or an empty array
-      elements = elementsMap[selectedDataset] || [];
+      elements = elementsMap[selectedDataset] ?? [];
     } else {
-      // Get elements from all datasets using Object.entries on the checked map
-      elements = Object.entries(elementsMap).flatMap(([ds, list]) => {
-        // Ensure 'list' is an array before mapping
-        return (list || []).map((de) => ({ ds, de }));
-      });
+      elements = Object.entries(elementsMap).flatMap(([ds, list]) =>
+        list.map((de) => ({ ds, de })),
+      );
     }
 
     // 3. Normalize to common shape { ds, de }
@@ -139,7 +143,9 @@ export default function DataModal({ onClose, selected, onSave }) {
               className="form-control"
               placeholder="Search by dataelement"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+              }}
             />
           </div>
 
@@ -151,7 +157,7 @@ export default function DataModal({ onClose, selected, onSave }) {
               onChange={onChangeSelectedDataSet}
             >
               <SelectItem text="" value="" />
-              {datasets?.map((dataset) => (
+              {datasets?.map((dataset: any) => (
                 <SelectItem value={dataset?.theme_id} text={dataset?.theme_name} />
               ))}
             </Select>
@@ -162,12 +168,14 @@ export default function DataModal({ onClose, selected, onSave }) {
         <div className="col-md-6">
           <h6 className="mb-3">Available Data Elements</h6>
           <div className="border" style={{ height: "300px", overflowY: "auto" }}>
-            {availableDataSetElements?.map((item) => (
+            {availableDataSetElements?.map((item: any) => (
               <div
                 key={item?.data_element_id}
                 className="p-2 border-bottom d-flex align-items-center"
                 style={{ cursor: "pointer" }}
-                onClick={() => addItem(item)}
+                onClick={() => {
+                  addItem(item);
+                }}
               >
                 <span className="me-2">•</span>
                 <div className="small">{item?.data_element_short_name}</div>
@@ -237,7 +245,9 @@ export default function DataModal({ onClose, selected, onSave }) {
                   </div>
                   <button
                     className="btn btn-sm btn-outline-danger"
-                    onClick={() => removeItem(item)}
+                    onClick={() => {
+                      removeItem(item);
+                    }}
                   >
                     <i className="fas fa-times"></i>
                   </button>

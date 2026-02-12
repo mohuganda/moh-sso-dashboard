@@ -1,8 +1,9 @@
-import React, { useState } from "react";
 import { ContentSwitcher, Modal, Switch } from "@carbon/react";
+import { useState } from "react";
+
 import DataModal from "./DataModal.tsx";
-import PeriodModal from "./PeriodModal.tsx";
 import OrgUnitModal from "./OrgUnitModal.tsx";
+import PeriodModal from "./PeriodModal.tsx";
 import "./general-modal.css";
 export default function GeneralModal({
   onClose,
@@ -47,12 +48,7 @@ export default function GeneralModal({
             <PeriodModal onClose={close} selected={selectedPeriods} onSave={onSavePeriods} />
           )}
           {selectedDimension === "orgunit" && (
-            <OrgUnitModal
-              show={true}
-              onClose={close}
-              selected={selectedOrgUnits}
-              onSave={onSaveOrgUnits}
-            />
+            <OrgUnitModal onClose={close} selected={selectedOrgUnits} onSave={onSaveOrgUnits} />
           )}
         </div>
       </Modal>

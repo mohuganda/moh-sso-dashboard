@@ -1,4 +1,4 @@
-import type React from "react";
+import { Login } from "@carbon/react/icons";
 import {
   Header,
   HeaderName,
@@ -6,8 +6,9 @@ import {
   HeaderGlobalAction,
   SkipToContent,
 } from "@carbon/react";
-import { Login } from "@carbon/icons-react";
+import type React from "react";
 import { useNavigate } from "react-router-dom";
+
 import { API } from "../../lib/constants/api.constants";
 import "./public-header.css";
 
@@ -24,7 +25,7 @@ const PublicHeader: React.FC = () => {
       <SkipToContent />
 
       {/* Brand / Home */}
-      <img src={`${imagePath}`} className={`moh-image-style`} />
+      <img src={imagePath} className={`moh-image-style`} />
       <HeaderName prefix="MOH" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
         Integrated Health Portal
       </HeaderName>

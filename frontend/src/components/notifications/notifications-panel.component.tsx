@@ -7,6 +7,7 @@ import {
   Button,
   Stack,
 } from "@carbon/react";
+
 import type { Notification } from "../../store/types/notifications.types";
 
 import "./notifications-panel.css";

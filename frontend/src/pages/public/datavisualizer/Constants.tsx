@@ -95,7 +95,7 @@ export const getYearRangeDescending = () => {
   const currentYear = new Date().getFullYear();
   const endYear = 2016;
 
-  const years = [];
+  const years: number[] = [];
   for (let year = currentYear; year >= endYear; year--) {
     years.push(year);
   }
@@ -118,8 +118,23 @@ export const periodType = [
   },
 ];
 
-export const getWeeksOfYear = (year = new Date().getFullYear()) => {
-  const weeks = [];
+type YearOption = {
+  id: string;
+  name: string;
+};
+
+type QuarterOption = {
+  id: string;
+  label: string;
+  disabled: boolean;
+};
+type PeriodOption = {
+  id: string;
+  name: string;
+};
+
+export const getWeeksOfYear = (year: string = new Date().getFullYear().toString()) => {
+  const weeks: QuarterOption[] = [];
   const startYear = parseInt(year);
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -137,7 +152,7 @@ export const getWeeksOfYear = (year = new Date().getFullYear()) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   };
 
   const currentDate = new Date(startYear, 0, 1);
@@ -178,8 +193,8 @@ export const getWeeksOfYear = (year = new Date().getFullYear()) => {
   return weeks;
 };
 
-export const getBiWeeksOfYear = (year = new Date().getFullYear()) => {
-  const biWeeks = [];
+export const getBiWeeksOfYear = (year: string = new Date().getFullYear().toString()) => {
+  const biWeeks: PeriodOption[] = [];
   const startYear = parseInt(year);
 
   const formatDate = (date) => {
@@ -195,7 +210,7 @@ export const getBiWeeksOfYear = (year = new Date().getFullYear()) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   };
 
   const currentDate = new Date(startYear, 0, 1);
@@ -229,8 +244,8 @@ export const getBiWeeksOfYear = (year = new Date().getFullYear()) => {
   return biWeeks;
 };
 
-export const getMonthsOfYear = (year = new Date().getFullYear()) => {
-  const months = [];
+export const getMonthsOfYear = (year: string = new Date().getFullYear().toString()) => {
+  const months: QuarterOption[] = [];
   const startYear = parseInt(year);
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -264,8 +279,8 @@ export const getMonthsOfYear = (year = new Date().getFullYear()) => {
   return months;
 };
 
-export const getBiMonthsOfYear = (year = new Date().getFullYear()) => {
-  const biMonths = [];
+export const getBiMonthsOfYear = (year: string = new Date().getFullYear().toString()) => {
+  const biMonths: PeriodOption[] = [];
   const startYear = parseInt(year);
 
   const getMonthFullName = (monthIndex) => {
@@ -288,8 +303,8 @@ export const getBiMonthsOfYear = (year = new Date().getFullYear()) => {
   return biMonths;
 };
 
-export const getQuarterlyPeriodsOfYear = (year = new Date().getFullYear()) => {
-  const quarters = [];
+export const getQuarterlyPeriodsOfYear = (year: string = new Date().getFullYear().toString()) => {
+  const quarters: QuarterOption[] = [];
   const startYear = parseInt(year);
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -325,8 +340,8 @@ export const getQuarterlyPeriodsOfYear = (year = new Date().getFullYear()) => {
   return quarters;
 };
 
-export const getLastTenYears = (startYear = new Date().getFullYear()) => {
-  const years = [];
+export const getLastTenYears = (startYear: string = new Date().getFullYear().toString()) => {
+  const years: YearOption[] = [];
   const endYear = parseInt(startYear) - 9;
 
   for (let currentYear = parseInt(startYear); currentYear >= endYear; currentYear--) {
@@ -354,7 +369,7 @@ export const getPeriodType = (periodId) => {
 };
 
 export const getAvailablePeriods = (periodType, year) => {
-  let availablePeriodArray = [];
+  let availablePeriodArray: QuarterOption[] = [];
   if (periodType === "Weekly") {
     availablePeriodArray = getWeeksOfYear(year);
   } else if (periodType === "Monthly") {

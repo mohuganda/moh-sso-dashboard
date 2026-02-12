@@ -1,12 +1,13 @@
-import React, { useEffect } from "react";
+import { Document, Calendar, Email, Menu, User, App, IbmJrs } from "@carbon/react/icons";
 import { InlineLoading, Tile } from "@carbon/react";
-import { Document, Calendar, Email, Menu, User, App, IbmJrs } from "@carbon/icons-react";
+import React, { useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import AppTile from "./AppMenuItem.component";
 import { useListClientsQuery } from "../../store/api/clients.api";
 import { setClients } from "../../store/clients/clients.slice";
 import type { Client } from "../../store/types/client.types";
+
+import AppTile from "./AppMenuItem.component";
 import "./AppMenu.css";
 
 const ICON_MAP: Record<string, React.ElementType> = {

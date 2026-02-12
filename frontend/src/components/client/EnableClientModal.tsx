@@ -1,5 +1,5 @@
-import React, { useState } from "react";
 import { Button, InlineLoading } from "@carbon/react";
+import React, { useState } from "react";
 
 type EnableClientModalProps = {
   clientName: string;

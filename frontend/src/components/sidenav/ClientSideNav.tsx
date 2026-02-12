@@ -1,6 +1,6 @@
 import { SideNav, SideNavItems, SideNavLink, SideNavMenu } from "@carbon/react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { selectClients, selectActiveClient } from "../../store/clients/clients.selectors";
 import type { Client } from "../../store/types/client.types";

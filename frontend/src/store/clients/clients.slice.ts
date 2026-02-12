@@ -1,4 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+
 import type { Client, ClientsState } from "../types/client.types";
 
 const initialState: ClientsState = {

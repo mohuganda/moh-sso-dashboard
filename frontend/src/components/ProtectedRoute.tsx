@@ -1,9 +1,11 @@
-import { Outlet } from "react-router-dom";
-import { useSelector } from "react-redux";
 import { InlineLoading } from "@carbon/react";
-import { selectAuthenticated, selectAuthLoaded } from "../store/auth/auth.selectors";
-import { API } from "../lib/constants/api.constants";
 import type { JSX } from "react";
+import { useSelector } from "react-redux";
+import { Outlet } from "react-router-dom";
+
+import { API } from "../lib/constants/api.constants";
+import { selectAuthenticated, selectAuthLoaded } from "../store/auth/auth.selectors";
+
 
 export const ProtectedRoute = ({ children }: { children?: JSX.Element }) => {
   const authenticated = useSelector(selectAuthenticated);

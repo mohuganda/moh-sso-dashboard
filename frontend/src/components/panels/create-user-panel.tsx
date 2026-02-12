@@ -13,8 +13,8 @@ import { useMemo, useState } from "react";
 
 import { useCreateUserMutation, useUpdateUserMutation } from "../../store/api/users.api";
 import type { User } from "../../store/types/user.types";
-import { useToast } from "../notifications/toast/useToast";
 import { FormInlineAlert } from "../notifications/in-line-alerts/FormInlineAlert";
+import { useToast } from "../notifications/toast/useToast";
 
 export type UserFormMode = "create" | "edit";
 
@@ -149,7 +149,7 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
               disabled={mode === "edit"}
               helperText={mode === "edit" ? "Username cannot be changed" : undefined}
               value={form.username}
-              onChange={(e) => handleChange("username", e.target.value.toLowerCase())}
+              onChange={(e) => { handleChange("username", e.target.value.toLowerCase()); }}
             />
 
             <TextInput
@@ -160,7 +160,7 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
               value={form.email}
               invalid={Boolean(form.email) && !isValidEmail(form.email)}
               invalidText="Enter a valid email address"
-              onChange={(e) => handleChange("email", e.target.value)}
+              onChange={(e) => { handleChange("email", e.target.value); }}
             />
 
             <TextInput
@@ -168,7 +168,7 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
               labelText="First name"
               required
               value={form.firstName}
-              onChange={(e) => handleChange("firstName", e.target.value)}
+              onChange={(e) => { handleChange("firstName", e.target.value); }}
             />
 
             <TextInput
@@ -176,7 +176,7 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
               labelText="Last name"
               required
               value={form.lastName}
-              onChange={(e) => handleChange("lastName", e.target.value)}
+              onChange={(e) => { handleChange("lastName", e.target.value); }}
             />
           </Stack>
         </FormGroup>
@@ -194,10 +194,10 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
               itemToString={(item) => item?.text ?? ""}
               selectedItems={REALM_ROLES.filter((r) => form.realmRoles.includes(r.id))}
               onChange={({ selectedItems }) =>
-                handleChange(
+                { handleChange(
                   "realmRoles",
                   (selectedItems ?? []).map((r) => r.id),
-                )
+                ); }
               }
             />
 
@@ -205,14 +205,14 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
               id="enabled"
               labelText="User enabled"
               checked={form.enabled}
-              onChange={(_, { checked }) => handleChange("enabled", checked)}
+              onChange={(_, { checked }) => { handleChange("enabled", checked); }}
             />
 
             <Checkbox
               id="emailVerified"
               labelText="Email verified"
               checked={form.emailVerified}
-              onChange={(_, { checked }) => handleChange("emailVerified", checked)}
+              onChange={(_, { checked }) => { handleChange("emailVerified", checked); }}
             />
           </Stack>
         </FormGroup>

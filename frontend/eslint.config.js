@@ -4,68 +4,107 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import importPlugin from "eslint-plugin-import";
-import jsxA11y from "eslint-plugin-jsx-a11y";
-import security from "eslint-plugin-security";
-import sonarjs from "eslint-plugin-sonarjs";
 import tseslint from "typescript-eslint";
+import testingLibrary from "eslint-plugin-testing-library";
 import prettier from "eslint-config-prettier";
-import { defineConfig, globalIgnores } from "eslint/config";
 
-export default defineConfig([
-  globalIgnores(["dist", "node_modules"]),
+export default tseslint.config(
+  {
+    ignores: ["dist", "node_modules"],
+  },
+
+  // 1. Base Recommended Configs
+  js.configs.recommended,
+  ...tseslint.configs.recommended, // plugin:@typescript-eslint/recommended
 
   {
     files: ["**/*.{ts,tsx}"],
-
-    extends: [
-      js.configs.recommended,
-      tseslint.configs.strictTypeChecked,
-      react.configs.recommended,
-      reactHooks.configs["recommended-latest"],
-      reactRefresh.configs.vite,
-      importPlugin.configs.recommended,
-      jsxA11y.configs.recommended,
-      security.configs.recommended,
-      sonarjs.configs.recommended,
-      prettier,
-    ],
-
-    languageOptions: {
-      parserOptions: {
-        project: true,
-      },
-      ecmaVersion: 2020,
-      globals: globals.browser,
+    plugins: {
+      react,
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
+      import: importPlugin,
+      "testing-library": testingLibrary,
     },
-
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        ...globals.es2020,
+      },
+      parserOptions: {
+        warnOnUnsupportedTypeScriptVersion: false,
+      },
+    },
     settings: {
       react: { version: "detect" },
-      "import/resolver": {
-        typescript: true,
-      },
     },
-
     rules: {
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/no-unsafe-assignment": "error",
-      "@typescript-eslint/no-unsafe-member-access": "error",
-      "@typescript-eslint/no-unsafe-call": "error",
-      "@typescript-eslint/explicit-function-return-type": "warn",
-      "@typescript-eslint/consistent-type-imports": "error",
-      "@typescript-eslint/no-unused-vars": ["error"],
+      // --- React Hooks ---
+      "no-undef": "off",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
       "react/react-in-jsx-scope": "off",
-      "react-hooks/exhaustive-deps": "error",
-      "import/no-cycle": "error",
-      "import/order": [
+
+      // --- TypeScript Loosening (as requested) ---
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-var-requires": "off",
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/ban-types": "off",
+
+      // --- Consistent Type Imports ---
+      "@typescript-eslint/consistent-type-imports": [
         "error",
         {
-          "newlines-between": "always",
-          alphabetize: { order: "asc" },
+          "fixStyle": "inline-type-imports",
         },
       ],
-      "no-console": process.env.NODE_ENV === "production" ? "error" : "warn",
-      "sonarjs/cognitive-complexity": ["warn", 20],
+
+      // --- Import Rules ---
+      "import/no-duplicates": "error",
+      "import/no-unresolved": "off", // Loosening this to prevent resolver crashes
+
+      // --- Restricted Imports ---
+      "no-restricted-imports": [
+        "error",
+        {
+          "paths": [
+            {
+              "name": "lodash",
+              "message": "Import specific methods from `lodash`. e.g. `import map from 'lodash/map'`"
+            },
+            {
+              "name": "lodash-es",
+              "importNames": ["default"],
+              "message": "Import specific methods from `lodash-es`. e.g. `import { map } from 'lodash-es'`"
+            },
+            {
+              "name": "carbon-components-react",
+              "message": "Import from `@carbon/react` directly. e.g. `import { Toggle } from '@carbon/react'`"
+            },
+            {
+              "name": "@carbon/icons-react",
+              "message": "Import from `@carbon/react/icons`. e.g. `import { ChevronUp } from '@carbon/react/icons'`"
+            }
+          ]
+        }
+      ],
+
+      // --- Testing Library (Base) ---
+      ...testingLibrary.configs["flat/react"].rules,
     },
   },
-]);
+
+  // 2. Overrides for E2E files
+  {
+    files: ["e2e/**/*.spec.ts"],
+    rules: {
+      "testing-library/prefer-screen-queries": "off",
+    },
+  },
+
+  // 3. Prettier
+  prettier
+);

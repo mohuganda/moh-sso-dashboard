@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import {
   DataTable,
   Table,
@@ -14,17 +13,20 @@ import {
   Tag,
   Pagination,
 } from "@carbon/react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ClientFilters } from "../../../components/client/ClientFilters";
-import { useListClientsQuery, useToggleClientMutation } from "../../../store/api/clients.api";
-import type { Client } from "../../../store/types/client.types";
-import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
-import { ClientFormPanel } from "../../../components/panels/client-form-panel";
 import { useEnableClientModal } from "../../../components/client/useEnableClientModal";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
-import { ClientBulkActions } from "./client-bulk-actions.component";
-import { ClientActionsMenu } from "./client-actions-menu.component";
+import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
 import { useToast } from "../../../components/notifications/toast/useToast";
+import { ClientFormPanel } from "../../../components/panels/client-form-panel";
+import { useListClientsQuery, useToggleClientMutation } from "../../../store/api/clients.api";
+import type { Client } from "../../../store/types/client.types";
+
+import { ClientActionsMenu } from "./client-actions-menu.component";
+import { ClientBulkActions } from "./client-bulk-actions.component";
+
 
 /* -----------------------------
  * Filters
@@ -272,7 +274,7 @@ export default function ClientsPage() {
                                     <ClientActionsMenu
                                       client={client}
                                       onEdit={() =>
-                                        openPanel({
+                                        { openPanel({
                                           title: "Edit client",
                                           content: (
                                             <ClientFormPanel
@@ -282,10 +284,10 @@ export default function ClientsPage() {
                                             />
                                           ),
                                           size: "md",
-                                        })
+                                        }); }
                                       }
                                       onToggleStatus={() =>
-                                        openEnableClientModal({
+                                        { openEnableClientModal({
                                           clientName: client.name,
                                           enabled: client.enabled,
                                           onConfirm: async () => {
@@ -306,7 +308,7 @@ export default function ClientsPage() {
                                               });
                                             }
                                           },
-                                        })
+                                        }); }
                                       }
                                     />
                                   )}

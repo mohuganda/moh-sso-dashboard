@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
 import { Modal, MultiSelect, NumberInput, Select, SelectItem } from "@carbon/react";
+import { useMemo, useState } from "react";
+
 import { getAvailablePeriods, getPeriodType, periodType } from "../Constants";
 
 export default function PeriodModal({ onClose, selected, onSave }) {
@@ -32,7 +33,7 @@ export default function PeriodModal({ onClose, selected, onSave }) {
     setSelectedPeriods([]);
   };
 
-  const onChangeYear = (event, numberOption) => {
+  const onChangeYear = (numberOption) => {
     const paramYear = numberOption?.value;
     setSelectedYear(paramYear);
     const newPeriods = getAvailablePeriods(selectedPeriodType, paramYear);
@@ -69,7 +70,7 @@ export default function PeriodModal({ onClose, selected, onSave }) {
               id={`period-type-select`}
               labelText="Period Type"
               onChange={onChangePeriod}
-              value={selectedPeriodType}
+              value={selectedPeriodType ?? ""}
             >
               <SelectItem text="" value="" />
               {periodType?.map((dataset) => (

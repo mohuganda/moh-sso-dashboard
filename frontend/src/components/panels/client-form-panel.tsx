@@ -12,9 +12,9 @@ import {
 import { useMemo, useState } from "react";
 
 import { useCreateClientMutation, useUpdateClientMutation } from "../../store/api/clients.api";
+import { ClientRolesPanel } from "../client/roles/client-roles-panel";
 import { FormInlineAlert } from "../notifications/in-line-alerts/FormInlineAlert";
 import { useToast } from "../notifications/toast/useToast";
-import { ClientRolesPanel } from "../client/roles/client-roles-panel";
 
 export type ClientFormMode = "create" | "edit";
 
@@ -178,7 +178,7 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
               value={form.clientId}
               invalid={mode === "create" && form.clientId.length > 0 && !isClientIdValid}
               invalidText="Only lowercase letters, numbers, and dashes allowed"
-              onChange={(e) => handleChange("clientId", e.target.value.toLowerCase())}
+              onChange={(e) => { handleChange("clientId", e.target.value.toLowerCase()); }}
             />
 
             <TextInput
@@ -186,21 +186,21 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
               labelText="Client name"
               required
               value={form.name}
-              onChange={(e) => handleChange("name", e.target.value)}
+              onChange={(e) => { handleChange("name", e.target.value); }}
             />
 
             <TextArea
               id="description"
               labelText="Description"
               value={form.description}
-              onChange={(e) => handleChange("description", e.target.value)}
+              onChange={(e) => { handleChange("description", e.target.value); }}
             />
 
             <TextInput
               id="icon"
               labelText="Icon (optional)"
               value={form.icon}
-              onChange={(e) => handleChange("icon", e.target.value)}
+              onChange={(e) => { handleChange("icon", e.target.value); }}
             />
           </Stack>
         </FormGroup>
@@ -214,14 +214,14 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
               id="rootUrl"
               labelText="Root URL"
               value={form.rootUrl}
-              onChange={(e) => handleChange("rootUrl", e.target.value)}
+              onChange={(e) => { handleChange("rootUrl", e.target.value); }}
             />
 
             <TextInput
               id="baseUrl"
               labelText="Base URL"
               value={form.baseUrl}
-              onChange={(e) => handleChange("baseUrl", e.target.value)}
+              onChange={(e) => { handleChange("baseUrl", e.target.value); }}
             />
 
             <TextArea
@@ -229,7 +229,7 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
               labelText="Redirect URIs"
               helperText="One per line"
               value={form.redirectUrisText}
-              onChange={(e) => handleChange("redirectUrisText", e.target.value)}
+              onChange={(e) => { handleChange("redirectUrisText", e.target.value); }}
             />
 
             <TextArea
@@ -237,7 +237,7 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
               labelText="Web origins"
               helperText="One per line"
               value={form.webOriginsText}
-              onChange={(e) => handleChange("webOriginsText", e.target.value)}
+              onChange={(e) => { handleChange("webOriginsText", e.target.value); }}
             />
           </Stack>
         </FormGroup>
@@ -251,14 +251,14 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
               id="publicClient"
               labelText="Public client (no client secret)"
               checked={form.publicClient}
-              onChange={(_, { checked }) => handleChange("publicClient", checked)}
+              onChange={(_, { checked }) => { handleChange("publicClient", checked); }}
             />
 
             <Checkbox
               id="enabled"
               labelText="Client enabled"
               checked={form.enabled}
-              onChange={(_, { checked }) => handleChange("enabled", checked)}
+              onChange={(_, { checked }) => { handleChange("enabled", checked); }}
             />
           </Stack>
         </FormGroup>

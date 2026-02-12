@@ -1,37 +1,35 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
+import { AdminRoute } from "./components/AdminRoute";
 import { ModalProvider } from "./components/modal/modal.context";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { AdminRoute } from "./components/AdminRoute";
 import { UserRoute } from "./components/UserRoute";
-
+import AdminLayout from "./layout/admin/AdminLayout";
 import PublicLayout from "./layout/public/PublicLayout";
 import UserLayout from "./layout/user/UserLayout";
-import AdminLayout from "./layout/admin/AdminLayout";
 
 /* -----------------------------
  * Public pages
  * ----------------------------- */
+import AuditLogsPage from "./pages/admin/audit/audit_component";
+import ClientsPage from "./pages/admin/clients/client.component";
+import HomePage from "./pages/admin/home/home.component";
+import UsersPage from "./pages/admin/user/user.component";
+import DataVisualizer from "./pages/public/datavisualizer/data-visualizer";
 import NewsFeedPage from "./pages/public/newsfeed/news_feed.component";
 
 /* -----------------------------
  * User / client pages
  * ----------------------------- */
-import DataVisualizer from "./pages/public/datavisualizer/data-visualizer";
 
 /* -----------------------------
  * Admin pages
  * ----------------------------- */
-import HomePage from "./pages/admin/home/home.component";
-import UsersPage from "./pages/admin/user/user.component";
-import ClientsPage from "./pages/admin/clients/client.component";
-import AuditLogsPage from "./pages/admin/audit/audit_component";
-
-import MyTimeSheet from "./pages/user/utilities/my-timesheet.component";
+import AbsenceRequests from "./pages/user/utilities/absence-requests.component";
 import Elearning from "./pages/user/utilities/elearning.component";
 import LeavePlan from "./pages/user/utilities/leave-plan.component";
-import AbsenceRequests from "./pages/user/utilities/absence-requests.component";
 import MyAbsenceDashboard from "./pages/user/utilities/my-absence-dashboard.component";
+import MyTimeSheet from "./pages/user/utilities/my-timesheet.component";
 
 function App() {
   return (

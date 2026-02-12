@@ -1,18 +1,20 @@
-import React, { useState, useRef, useEffect } from "react";
+import { Switcher } from "@carbon/react/icons";
 import { HeaderGlobalAction } from "@carbon/react";
-import { Switcher } from "@carbon/icons-react";
+import React, { useState, useRef, useEffect } from "react";
+
 import AppGridContent from "./AppGridContent";
 import "./AppMenu.css";
 
 const AppMenuAction: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  // 🔥 Change ref to DIV
+  const triggerRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  /* -----------------------------
-   * Close helpers
-   * ----------------------------- */
-  const closeMenu = () => setExpanded(false);
+  const closeMenu = () => {
+    setExpanded(false);
+  };
 
   /* -----------------------------
    * Click outside & ESC to close
@@ -21,11 +23,13 @@ const AppMenuAction: React.FC = () => {
     if (!expanded) return;
 
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+
       if (
         panelRef.current &&
-        !panelRef.current.contains(e.target as Node) &&
+        !panelRef.current.contains(target) &&
         triggerRef.current &&
-        !triggerRef.current.contains(e.target as Node)
+        !triggerRef.current.contains(target)
       ) {
         closeMenu();
       }
@@ -58,16 +62,19 @@ const AppMenuAction: React.FC = () => {
 
   return (
     <>
-      <HeaderGlobalAction
-        ref={triggerRef}
-        aria-label="Open application menu"
-        aria-haspopup="dialog"
-        aria-expanded={expanded}
-        isActive={expanded}
-        onClick={() => setExpanded((prev) => !prev)}
-      >
-        <Switcher size={20} />
-      </HeaderGlobalAction>
+      <div ref={triggerRef}>
+        <HeaderGlobalAction
+          aria-label="Open application menu"
+          aria-haspopup="dialog"
+          aria-expanded={expanded}
+          isActive={expanded}
+          onClick={() => {
+            setExpanded((prev) => !prev);
+          }}
+        >
+          <Switcher size={20} />
+        </HeaderGlobalAction>
+      </div>
 
       {expanded && (
         <div

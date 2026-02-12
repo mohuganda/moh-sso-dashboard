@@ -2,6 +2,7 @@ import React from "react";
 import { useDispatch } from "react-redux";
 
 import { setActiveClient } from "../../store/clients/clients.slice";
+
 import "./AppMenu.css";
 import { ClickableTile } from "@carbon/react";
 

@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from "react";
-import API from "../../helpers/api";
 import { Modal } from "@carbon/react";
+import { useEffect, useState } from "react";
+
+import API from "../../helpers/api";
 
 function TreeNode({ node, level = 0, selectedUnits, onToggle, onExpand, expandedNodes }) {
   const childrenObj = node.children || {};
 
   const uniqueChildren = Object.values(childrenObj).filter(
-    (child, index, self) => index === self.findIndex((c) => c.id === child.id),
+    (child: any, index, self) => index === self.findIndex((c: any) => c.id === child.id),
   );
 
   const hasChildren = uniqueChildren.length > 0;
@@ -69,7 +70,7 @@ function TreeNode({ node, level = 0, selectedUnits, onToggle, onExpand, expanded
             borderLeft: "1px solid #eee",
           }}
         >
-          {uniqueChildren.map((child) => (
+          {uniqueChildren.map((child: any) => (
             <TreeNode
               key={child.uid}
               node={child}
@@ -98,7 +99,7 @@ export default function OrgUnitModal({ onClose, selected, onSave }) {
       // if (!show) return;
 
       setLoading(true);
-      setError(null);
+      setError("");
 
       try {
         const response = await API.get("/visualizer/hierarchy");
@@ -203,7 +204,7 @@ export default function OrgUnitModal({ onClose, selected, onSave }) {
               </div>
             </div>
           ) : (
-            Object.values(orgUnits).map((unit) => (
+            Object.values(orgUnits).map((unit: any) => (
               <TreeNode
                 key={unit.uid}
                 node={unit}

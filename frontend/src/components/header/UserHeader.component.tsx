@@ -1,4 +1,4 @@
-import type React from "react";
+import { UserAvatarFilled, Logout } from "@carbon/react/icons";
 import {
   Header,
   HeaderName,
@@ -6,13 +6,13 @@ import {
   HeaderGlobalAction,
   SkipToContent,
 } from "@carbon/react";
-import { UserAvatarFilled, Logout } from "@carbon/icons-react";
-import { useNavigate } from "react-router-dom";
+import type React from "react";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 
+import { API } from "../../lib/constants/api.constants";
 import { selectUser } from "../../store/auth/auth.selectors";
 import AppMenuAction from "../appmenu/AppMenu.component";
-import { API } from "../../lib/constants/api.constants";
 import "./public-header.css";
 
 import imagePath from "../../assets/logo.png";
@@ -29,7 +29,7 @@ const UserHeader: React.FC = () => {
       <SkipToContent />
 
       {/* Brand / Home */}
-      <img src={`${imagePath}`} className={`moh-image-style`} />
+      <img src={imagePath} className={`moh-image-style`} />
       <HeaderName prefix="MOH" onClick={() => navigate("/apps")} style={{ cursor: "pointer" }}>
         Integrated Health Portal
       </HeaderName>
@@ -51,7 +51,9 @@ const UserHeader: React.FC = () => {
         <HeaderGlobalAction
           aria-label="Logout"
           tooltipAlignment="end"
-          onClick={() => handleLogout()}
+          onClick={() => {
+            handleLogout();
+          }}
         >
           <Logout size={20} />
         </HeaderGlobalAction>

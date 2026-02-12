@@ -1,7 +1,7 @@
-import { Navigate } from "react-router-dom";
-import { useSelector } from "react-redux";
 import { InlineLoading } from "@carbon/react";
 import type { JSX } from "react";
+import { useSelector } from "react-redux";
+import { Navigate } from "react-router-dom";
 
 import { selectAuthenticated, selectAuthLoaded, selectIsAdmin } from "../store/auth/auth.selectors";
 

@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Button, InlineLoading } from "@carbon/react";
+import { useState } from "react";
 
 type ResetPasswordModalProps = {
   username: string;

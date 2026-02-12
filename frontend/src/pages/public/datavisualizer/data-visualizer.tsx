@@ -1,12 +1,21 @@
 import React, { useState } from "react";
+
 import DataModal from "./modals/DataModal";
 import PeriodModal from "./modals/PeriodModal";
 import OrgUnitModal from "./modals/OrgUnitModal";
+
 import "./data-visualizer.css";
 import { Button, OverflowMenu, OverflowMenuItem } from "@carbon/react";
 import { UpdateNow } from "@carbon/react/icons";
-import ChartRenderer from "./ChartRenderer/ChartRenderer";
+
 import GeneralModal from "./modals/GeneralModal.tsx";
+import ChartRenderer from "./chartrenderer/ChartRenderer.tsx";
+
+type VisualizerQuery = {
+  dx: string[];
+  pe: string[];
+  ou: string[];
+};
 
 const DataVisualizer = () => {
   const [selectedData, setSelectedData] = useState([]);
@@ -15,7 +24,7 @@ const DataVisualizer = () => {
   const [loadedChartData, setLoadedChartData] = useState([]);
   const [pivotChartData, setPivotChartData] = useState([]);
   const [showModal, setShowModal] = useState(null);
-  const [appliedQuery, setAppliedQuery] = useState(null);
+  const [appliedQuery, setAppliedQuery] = useState<VisualizerQuery | null>(null);
 
   // Load saved state from localStorage on component mount
   React.useEffect(() => {
@@ -53,8 +62,12 @@ const DataVisualizer = () => {
     localStorage.setItem("pivotChartData", JSON.stringify(pivotChartData));
   }, [pivotChartData]);
 
-  const open = (which) => setShowModal(which);
-  const close = () => setShowModal(null);
+  const open = (which) => {
+    setShowModal(which);
+  };
+  const close = () => {
+    setShowModal(null);
+  };
 
   // Function to clear all selections
   const clearAllSelections = () => {
@@ -69,10 +82,10 @@ const DataVisualizer = () => {
   const isDataReady =
     selectedData?.length > 0 && selectedPeriods?.length > 0 && selectedOrgUnits?.length > 0;
 
-  const query = isDataReady
+  const query: VisualizerQuery | null = isDataReady
     ? {
-        dx: selectedData.map((item: any) => item?.data_element_id),
-        pe: selectedPeriods.map((item: any) => item?.id),
+        dx: selectedData.map((item: any) => item.data_element_id),
+        pe: selectedPeriods.map((item: any) => item.id),
         ou: selectedOrgUnits,
       }
     : null;
@@ -177,7 +190,9 @@ const DataVisualizer = () => {
                     {selectedData.length >= 0 ? (
                       <div
                         className="dv-badge"
-                        onClick={() => open("data")}
+                        onClick={() => {
+                          open("data");
+                        }}
                         style={{ cursor: "pointer" }}
                       >
                         <i className="fas fa-database dv-badge-icon"></i>
@@ -198,7 +213,9 @@ const DataVisualizer = () => {
                     {selectedPeriods.length >= 0 ? (
                       <div
                         className="dv-badge"
-                        onClick={() => open("period")}
+                        onClick={() => {
+                          open("period");
+                        }}
                         style={{ cursor: "pointer" }}
                       >
                         <i className="fas fa-clock dv-badge-icon"></i>
@@ -219,7 +236,9 @@ const DataVisualizer = () => {
                     {selectedOrgUnits.length >= 0 ? (
                       <div
                         className="dv-badge"
-                        onClick={() => open("orgunit")}
+                        onClick={() => {
+                          open("orgunit");
+                        }}
                         style={{ cursor: "pointer" }}
                       >
                         <i className="fas fa-sitemap dv-badge-icon"></i>

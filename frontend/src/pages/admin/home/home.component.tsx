@@ -1,27 +1,26 @@
+import { Add, UserFollow, Security, Notification } from "@carbon/react/icons";
 import { Tile, Button, Tag, Stack, InlineLoading } from "@carbon/react";
-import { Add, UserFollow, Security, Notification } from "@carbon/icons-react";
 import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import "./home.css";
 
-import { SignalTile } from "../../../components/home/signal-tile/signal-tile.component";
 import { EmptyState } from "../../../components/emptystate/EmptyState";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
-
-import { selectUser } from "../../../store/auth/auth.selectors";
+import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
+import { ApplicationTile } from "../../../components/home/app/ApplicationTile";
+import { QuickAction } from "../../../components/home/quick-action/quick-action.component";
+import { SignalTile } from "../../../components/home/signal-tile/signal-tile.component";
+import { ClientFormPanel } from "../../../components/panels/client-form-panel";
+import { UserFormPanel } from "../../../components/panels/create-user-panel";
+import { ImportUsersPanel } from "../../../components/panels/import-users-panel";
+import { UserClientRolesPanel } from "../../../components/panels/user-client-roles-panel";
 import { useListClientsQuery } from "../../../store/api/clients.api";
 import { useAuditOverviewQuery } from "../../../store/api/metrics.api";
 import {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
 } from "../../../store/api/notifications.api";
-import { QuickAction } from "../../../components/home/quick-action/quick-action.component";
-import { ImportUsersPanel } from "../../../components/panels/import-users-panel";
-import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
-import { ClientFormPanel } from "../../../components/panels/client-form-panel";
-import { UserFormPanel } from "../../../components/panels/create-user-panel";
-import { ApplicationTile } from "../../../components/home/app/ApplicationTile";
-import { UserClientRolesPanel } from "../../../components/panels/user-client-roles-panel";
+import { selectUser } from "../../../store/auth/auth.selectors";
 import { getSeverityTagType } from "../../../ui/severity";
 
 /* -----------------------------
@@ -247,13 +246,13 @@ export default function HomePage() {
             icon={<Add size={20} />}
             label="Create user"
             description="Add a new user to the system"
-            onClick={() =>
+            onClick={() => {
               openPanel({
                 title: "Create user",
                 content: <UserFormPanel mode="create" />,
                 size: "md",
-              })
-            }
+              });
+            }}
             tone="warning"
           />
 
@@ -287,13 +286,13 @@ export default function HomePage() {
             icon={<UserFollow size={20} />}
             label="Create client"
             description="Register a new application client"
-            onClick={() =>
+            onClick={() => {
               openPanel({
                 title: "Create client",
                 content: <ClientFormPanel mode="create" />,
                 size: "md",
-              })
-            }
+              });
+            }}
           />
 
           {/* Import users */}
@@ -301,13 +300,13 @@ export default function HomePage() {
             icon={<UserFollow size={20} />}
             label="Import users"
             description="Bulk upload users via CSV"
-            onClick={() =>
+            onClick={() => {
               openPanel({
                 title: "Import users",
                 content: <ImportUsersPanel />,
                 size: "lg",
-              })
-            }
+              });
+            }}
           />
 
           {/* Security alerts */}

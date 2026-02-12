@@ -1,6 +1,7 @@
+import { Information, Time, Add, ChevronRight } from "@carbon/react/icons";
 import { Tile, Link, Tag, SkeletonText } from "@carbon/react";
-import { Information, Time, Add, ChevronRight } from "@carbon/icons-react";
 import { useNavigate } from "react-router-dom";
+
 import { EmptyState } from "../../../components/emptystate/EmptyState";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
 import "./news-feed.css";
@@ -134,7 +135,9 @@ export default function NewsFeedPage() {
               description={error}
               primaryAction={{
                 label: "Retry",
-                onClick: () => window.location.reload(),
+                onClick: () => {
+                  window.location.reload();
+                },
               }}
               secondaryAction={{
                 label: "Contact support",

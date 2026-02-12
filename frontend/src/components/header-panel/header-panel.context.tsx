@@ -1,11 +1,12 @@
 // src/components/header-panel/header-panel.context.tsx
 import React, { createContext, useContext, useState } from "react";
+
 import { ReusableHeaderPanel } from "./ReusableHeaderPanel";
 
 /* ---------------------------------
  * Types
  * --------------------------------- */
-export type PanelSize = "sm" | "md" | "lg" | "xl";
+export type PanelSize = "sm" | "md" | "lg";
 
 type HeaderPanelState = {
   isOpen: boolean;

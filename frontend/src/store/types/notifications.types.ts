@@ -1,8 +1,10 @@
+import type { Severity } from "../../ui/severity";
+
 export type Notification = {
   id: string;
   title: string;
   message: string;
-  severity: "info" | "warning" | "critical";
+  severity: Severity;
   created_at: string;
   read: boolean;
 };

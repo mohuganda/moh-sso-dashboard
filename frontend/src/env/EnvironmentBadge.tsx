@@ -1,5 +1,6 @@
 // src/components/env/EnvironmentBadge.tsx
 import { Tag } from "@carbon/react";
+
 import { APP_ENV } from "../config/appMeta";
 
 const ENV_COLORS: Record<string, "red" | "purple" | "blue" | "gray"> = {

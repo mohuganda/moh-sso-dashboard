@@ -1,5 +1,5 @@
+import { Warning } from "@carbon/react/icons";
 import { Button, Tile } from "@carbon/react";
-import { Warning } from "@carbon/icons-react";
 
 interface ErrorStateProps {
   title?: string;

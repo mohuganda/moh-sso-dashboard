@@ -1,13 +1,17 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
 import { ToastNotification } from "@carbon/react";
+import { createContext, useContext, useState, type ReactNode } from "react";
+import type { ToastAction } from "./useToast";
 
-type ToastKind = "success" | "error" | "info" | "warning";
+export type ToastKind = "success" | "error" | "info" | "warning";
 
-type Toast = {
+export type Toast = {
   id: string;
   kind: ToastKind;
   title: string;
   subtitle?: string;
+  timeout: number; // Added this
+  dismissible: boolean; // Added this
+  actions?: ToastAction[];
 };
 
 type ToastContextType = {
@@ -23,9 +27,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = crypto.randomUUID();
     setToasts((t) => [...t, { ...toast, id }]);
 
+    // Uses the custom timeout passed from the hook
     setTimeout(() => {
       setToasts((t) => t.filter((x) => x.id !== id));
-    }, 5000);
+    }, toast.timeout);
+  };
+
+  const remove = (id: string) => {
+    setToasts((t) => t.filter((x) => x.id !== id));
   };
 
   return (
@@ -49,6 +58,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             kind={t.kind}
             title={t.title}
             subtitle={t.subtitle}
+            // Allow manual dismissal if dismissible is true
+            onCloseButtonClick={() => remove(t.id)}
+            hideCloseButton={!t.dismissible}
             lowContrast
           />
         ))}

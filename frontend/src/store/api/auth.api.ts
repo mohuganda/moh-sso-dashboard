@@ -1,4 +1,4 @@
-import { baseApi } from "./baseApi";
+import { API } from "../../lib/constants/api.constants";
 import {
   loginSuccess,
   logout as logoutAction,
@@ -6,7 +6,8 @@ import {
   setAccessToken,
 } from "../auth/auth.slice";
 import type { AuthUser } from "../auth/auth.types";
-import { API } from "../../lib/constants/api.constants";
+
+import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {
   success: boolean;

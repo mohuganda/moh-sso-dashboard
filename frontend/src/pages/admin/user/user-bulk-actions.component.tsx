@@ -1,4 +1,5 @@
 import { Button, ButtonSet, InlineLoading } from "@carbon/react";
+
 import type { User } from "../../../store/types/user.types";
 
 type BulkAction = "enable" | "disable" | "roles" | null;

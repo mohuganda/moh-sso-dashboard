@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import {
   DataTable,
   InlineLoading,
@@ -15,15 +14,16 @@ import {
   OverflowMenu,
   OverflowMenuItem,
 } from "@carbon/react";
+import { useEffect, useMemo, useState } from "react";
 
+import { AuditLogPanel } from "../../../components/audit/AuditLogDrawer";
+import { AuditLogFilters } from "../../../components/audit/AuditLogFilters";
 import { AuditMetricsPanel } from "../../../components/audit/AuditMetricsPanel";
 import { EmptyState } from "../../../components/emptystate/EmptyState";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
-import { AuditLogFilters } from "../../../components/audit/AuditLogFilters";
-import type { AuditFilters, AuditLog, Cursor } from "../../../store/types/audit.types";
-import { useListAuditLogsQuery } from "../../../store/api/audit.api";
 import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
-import { AuditLogPanel } from "../../../components/audit/AuditLogDrawer";
+import { useListAuditLogsQuery } from "../../../store/api/audit.api";
+import type { AuditFilters, AuditLog, Cursor } from "../../../store/types/audit.types";
 
 type SuccessFilter = "true" | "false";
 
@@ -81,7 +81,7 @@ export default function AuditLogs() {
     if (data.next_cursor) {
       setCursor(data.next_cursor);
     }
-  }, [data]);
+  }, [data, setItems, setCursor, cursor]);
 
   useEffect(() => {
     setCursor(null);
@@ -224,12 +224,12 @@ export default function AuditLogs() {
                               <OverflowMenu size="sm" flipped>
                                 <OverflowMenuItem
                                   itemText="View"
-                                  onClick={() =>
+                                  onClick={() => {
                                     openPanel({
                                       title: "Audit Log",
                                       content: <AuditLogPanel log={raw} onClose={closePanel} />,
-                                    })
-                                  }
+                                    });
+                                  }}
                                 />
                               </OverflowMenu>
                             </TableCell>

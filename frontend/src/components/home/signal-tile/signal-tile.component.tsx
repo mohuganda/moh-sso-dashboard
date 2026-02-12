@@ -1,4 +1,5 @@
 import { Tile, Tag, Stack } from "@carbon/react";
+
 import { getSeverityTagType, type Severity } from "../../../ui/severity";
 
 type Props = {

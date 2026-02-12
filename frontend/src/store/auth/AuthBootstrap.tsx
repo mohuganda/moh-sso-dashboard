@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+
 import { useRefreshMutation } from "../api/auth.api";
 
 export default function AuthBootstrap() {

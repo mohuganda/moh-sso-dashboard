@@ -1,5 +1,5 @@
-import type React from "react";
 import { Tile, InlineLoading } from "@carbon/react";
+import type React from "react";
 
 import { useAuditOverviewQuery } from "../../store/api/metrics.api";
 

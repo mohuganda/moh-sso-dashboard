@@ -1,5 +1,5 @@
-import React from "react";
 import { Modal } from "@carbon/react";
+
 import { chartTypes } from "../Constants";
 
 export default function VisualizationModal({ show, onClose, onChoose, selectedType }) {
@@ -38,7 +38,7 @@ export default function VisualizationModal({ show, onClose, onChoose, selectedTy
                       {IconComponent && (
                         <IconComponent
                           size={40}
-                          className={`${selectedType === chart.id ? "text-info" : "text-muted"}`}
+                          className={selectedType === chart.id ? "text-info" : "text-muted"}
                         />
                       )}
                     </div>

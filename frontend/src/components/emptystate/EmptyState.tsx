@@ -1,5 +1,5 @@
+import { Information } from "@carbon/react/icons";
 import { Button, Tile } from "@carbon/react";
-import { Information } from "@carbon/icons-react";
 
 interface EmptyStateProps {
   title: string;

@@ -20,7 +20,7 @@ export function ImportUsersPanel() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [options, setOptions] = useState<ImportOptions>({
+  const [options] = useState<ImportOptions>({
     enabled: true,
     emailVerified: true,
     sendResetEmail: true,
@@ -84,13 +84,21 @@ export function ImportUsersPanel() {
         labelText="Drag and drop CSV file here or click to upload"
         accept={[".csv"]}
         multiple={false}
-        onAddFiles={(evt) => {
-          const f = evt.addedFiles?.[0];
-          if (f) setFile(f);
+        onAddFiles={(_event, { addedFiles }: { addedFiles: File[] }) => {
+          const file = addedFiles?.[0];
+          if (file) setFile(file);
         }}
       />
 
-      {file && <FileUploaderItem name={file.name} status="edit" onDelete={() => setFile(null)} />}
+      {file && (
+        <FileUploaderItem
+          name={file.name}
+          status="edit"
+          onDelete={() => {
+            setFile(null);
+          }}
+        />
+      )}
 
       {/* -----------------------------
        * Import Options
@@ -100,21 +108,21 @@ export function ImportUsersPanel() {
           id="enabled"
           labelText="Enable users after import"
           checked={options.enabled}
-          onChange={(checked) => {}}
+          onChange={() => {}}
         />
 
         <Checkbox
           id="emailVerified"
           labelText="Mark email as verified"
           checked={options.emailVerified}
-          onChange={(checked) => {}}
+          onChange={() => {}}
         />
 
         <Checkbox
           id="sendResetEmail"
           labelText="Send password reset email"
           checked={options.sendResetEmail}
-          onChange={(checked) => {}}
+          onChange={() => {}}
         />
       </Stack>
 

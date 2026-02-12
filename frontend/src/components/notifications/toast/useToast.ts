@@ -30,6 +30,9 @@ const DEFAULT_TIMEOUT = 5000;
 export function useToast() {
   const { push } = useToastContext();
 
+  /**
+   * Main show function that bridges the options to the context
+   */
   const show = (options: ToastOptions) => {
     push({
       kind: options.kind ?? "info",
@@ -42,28 +45,38 @@ export function useToast() {
   };
 
   return {
-    /* Generic */
     show,
 
-    /* Shorthands (non-breaking) */
-    success: (options: Omit<ToastOptions, "kind"> | string, subtitle?: string) =>
-      typeof options === "string"
-        ? show({ kind: "success", title: options, subtitle })
-        : show({ ...options, kind: "success" }),
+    success: (options: Omit<ToastOptions, "kind"> | string, subtitle?: string) => {
+      if (typeof options === "string") {
+        show({ kind: "success", title: options, subtitle });
+      } else {
+        show({ ...options, kind: "success" });
+      }
+    },
 
-    error: (options: Omit<ToastOptions, "kind"> | string, subtitle?: string) =>
-      typeof options === "string"
-        ? show({ kind: "error", title: options, subtitle })
-        : show({ ...options, kind: "error" }),
+    error: (options: Omit<ToastOptions, "kind"> | string, subtitle?: string) => {
+      if (typeof options === "string") {
+        show({ kind: "error", title: options, subtitle });
+      } else {
+        show({ ...options, kind: "error" });
+      }
+    },
 
-    info: (options: Omit<ToastOptions, "kind"> | string, subtitle?: string) =>
-      typeof options === "string"
-        ? show({ kind: "info", title: options, subtitle })
-        : show({ ...options, kind: "info" }),
+    info: (options: Omit<ToastOptions, "kind"> | string, subtitle?: string) => {
+      if (typeof options === "string") {
+        show({ kind: "info", title: options, subtitle });
+      } else {
+        show({ ...options, kind: "info" });
+      }
+    },
 
-    warning: (options: Omit<ToastOptions, "kind"> | string, subtitle?: string) =>
-      typeof options === "string"
-        ? show({ kind: "warning", title: options, subtitle })
-        : show({ ...options, kind: "warning" }),
+    warning: (options: Omit<ToastOptions, "kind"> | string, subtitle?: string) => {
+      if (typeof options === "string") {
+        show({ kind: "warning", title: options, subtitle });
+      } else {
+        show({ ...options, kind: "warning" });
+      }
+    },
   };
 }

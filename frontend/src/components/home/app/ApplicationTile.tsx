@@ -1,5 +1,5 @@
+import { Launch } from "@carbon/react/icons";
 import { Tile, Stack, Tag, Button } from "@carbon/react";
-import { Launch } from "@carbon/icons-react";
 import "./application-tile.css";
 
 export type ApplicationTileProps = {

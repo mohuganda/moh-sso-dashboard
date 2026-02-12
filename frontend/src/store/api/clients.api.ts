@@ -1,6 +1,7 @@
-import { baseApi } from "./baseApi";
-import type { Client, CreateClientPayload } from "../types/client.types";
 import { API } from "../../lib/constants/api.constants";
+import type { Client, CreateClientPayload } from "../types/client.types";
+
+import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {
   success: boolean;

@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react";
 import {
   Button,
   FileUploaderDropContainer,
@@ -14,6 +13,7 @@ import {
   Tag,
   Loading,
 } from "@carbon/react";
+import { useMemo, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
@@ -205,7 +205,7 @@ export default function UserBulkImportPage() {
             subtitle={notice.subtitle}
             lowContrast
             hideCloseButton={false}
-            onCloseButtonClick={() => setNotice(null)}
+            onCloseButtonClick={() => { setNotice(null); }}
           />
         </div>
       )}

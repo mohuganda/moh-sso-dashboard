@@ -1,6 +1,7 @@
 import { Dropdown, Button, Stack } from "@carbon/react";
-import { ImportUsersPanel } from "../panels/import-users-panel";
+
 import { useHeaderPanel } from "../header-panel/header-panel.context";
+import { ImportUsersPanel } from "../panels/import-users-panel";
 
 interface UserFiltersProps {
   status: string;
@@ -42,7 +43,7 @@ export function UserFilters({
         items={["all", "active", "disabled"]}
         selectedItem={status}
         style={{ width: 160 }}
-        onChange={({ selectedItem }) => onStatusChange(selectedItem as string)}
+        onChange={({ selectedItem }) => { onStatusChange(selectedItem!); }}
       />
 
       {/* Role */}
@@ -54,7 +55,7 @@ export function UserFilters({
         items={roles}
         selectedItem={selectedRole}
         style={{ width: 200 }}
-        onChange={({ selectedItem }) => onRoleChange(selectedItem as string)}
+        onChange={({ selectedItem }) => { onRoleChange(selectedItem!); }}
       />
 
       {/* Never logged in toggle */}

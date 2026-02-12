@@ -18,9 +18,7 @@ export interface Client {
   updatedAt?: string;
 }
 
-export type ClientAttributes = {
-  [key: string]: string | undefined;
-};
+export type ClientAttributes = Record<string, string | undefined>;
 
 export interface CreateClientPayload {
   clientId: string;
