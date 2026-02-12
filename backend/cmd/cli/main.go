@@ -89,8 +89,7 @@ func newAdminKC() *keycloak.Client {
 		adminSecret,
 		"", // web client id (unused)
 		"", // web client secret (unused)
-		"",
-		"",
+		nil,
 	)
 
 	if err := kc.Authenticate(); err != nil {
@@ -133,20 +132,20 @@ var createClientCmd = &cobra.Command{
 		kc := newAdminKC()
 
 		params := keycloak.CreateClientParams{
-			ClientID:               clientName,
-			Name:                   clientName,
-			Description:            "Created via CLI",
-			BaseURL:                clientBaseURL,
-			RootURL:                clientBaseURL,
-			RedirectURIs:           []string{redirectURI},
-			WebOrigins:             []string{clientBaseURL},
-			PublicClient:           true,
-			Protocol:               "openid-connect",
-			StandardFlowEnabled:    true,
-			ImplicitFlowEnabled:    false,
-			DirectAccessGrants:     false,
-			ServiceAccountsEnabled: false,
-			Enabled:                true,
+			ClientID:                  clientName,
+			Name:                      clientName,
+			Description:               "Created via CLI",
+			BaseURL:                   clientBaseURL,
+			RootURL:                   clientBaseURL,
+			RedirectURIs:              []string{redirectURI},
+			WebOrigins:                []string{clientBaseURL},
+			PublicClient:              true,
+			Protocol:                  "openid-connect",
+			StandardFlowEnabled:       true,
+			ImplicitFlowEnabled:       false,
+			DirectAccessGrantsEnabled: false,
+			ServiceAccountsEnabled:    false,
+			Enabled:                   true,
 		}
 
 		if _, err := kc.CreateClient(params); err != nil {

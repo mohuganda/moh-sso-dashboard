@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -26,8 +27,8 @@ func Middleware(
 		)
 
 		// headers (nice for frontend)
-		c.Header("X-RateLimit-Limit", string(limit))
-		c.Header("X-RateLimit-Remaining", string(remaining))
+		c.Header("X-RateLimit-Limit", fmt.Sprint(limit))
+		c.Header("X-RateLimit-Remaining", fmt.Sprint(remaining))
 		c.Header("X-RateLimit-Reset", reset.Format(time.RFC3339))
 
 		if err != nil {

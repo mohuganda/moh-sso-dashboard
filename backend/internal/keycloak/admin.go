@@ -352,9 +352,10 @@ func (c *Client) ListClientsWithBaselineCheck() ([]ClientInfo, error) {
 	for _, client := range clients {
 		if err := c.EnsureClientBaseline(ctx, client.ID); err != nil {
 			return nil, fmt.Errorf(
-				"client baseline check (clientId %d) with (error %d): %s %s",
+				"client baseline check (clientId %s) failed: %w",
 				client.ClientID,
-				err)
+				err,
+			)
 
 		}
 	}
@@ -896,12 +897,13 @@ func (c *Client) AssignClientRolesToUser(
 		role, err := c.GetClientRoleByName(ctx, clientID, clientUUID, roleName)
 		if err != nil {
 			return fmt.Errorf(
-				"failed to resolve role %q for client %q: %w",
+				"failed to resolve role %q for client %q (uuid: %q): %w",
 				roleName,
 				clientID,
 				clientUUID,
 				err,
 			)
+
 		}
 
 		payload = append(payload, ClientRoleRequest{
