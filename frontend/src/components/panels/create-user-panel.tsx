@@ -196,7 +196,7 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
               onChange={({ selectedItems }) =>
                 handleChange(
                   "realmRoles",
-                  selectedItems.map((r) => r.id),
+                  (selectedItems ?? []).map((r) => r.id),
                 )
               }
             />

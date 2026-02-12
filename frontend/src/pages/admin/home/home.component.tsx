@@ -22,6 +22,7 @@ import { ClientFormPanel } from "../../../components/panels/client-form-panel";
 import { UserFormPanel } from "../../../components/panels/create-user-panel";
 import { ApplicationTile } from "../../../components/home/app/ApplicationTile";
 import { UserClientRolesPanel } from "../../../components/panels/user-client-roles-panel";
+import { getSeverityTagType } from "../../../ui/severity";
 
 /* -----------------------------
  * Utils
@@ -70,15 +71,15 @@ export default function HomePage() {
   /* -----------------------------
    * Security Health Score
    * ----------------------------- */
-  const securityScore = useMemo(() => {
-    if (!metrics) return 100;
+  // const securityScore = useMemo(() => {
+  //   if (!metrics) return 100;
 
-    let score = 100;
-    score -= Math.min(metrics.failed_logins * 2, 40);
-    score -= Math.min((metrics.suspicious_logins ?? 0) * 5, 40);
+  //   let score = 100;
+  //   score -= Math.min(metrics.failed_logins * 2, 40);
+  //   score -= Math.min((metrics.suspicious_logins ?? 0) * 5, 40);
 
-    return Math.max(score, 0);
-  }, [metrics]);
+  //   return Math.max(score, 0);
+  // }, [metrics]);
 
   /* -----------------------------
    * Notifications
@@ -140,21 +141,17 @@ export default function HomePage() {
 
         {metrics && (
           <div className="home-grid">
-            <SignalTile
+            {/* <SignalTile
               label="Security health score"
               value={`${securityScore}%`}
               severity={securityScore > 80 ? "success" : securityScore > 50 ? "warning" : "danger"}
-            />
+            /> */}
             <SignalTile
               label="Failed logins (24h)"
               value={metrics.failed_logins}
               severity="warning"
             />
-            <SignalTile
-              label="Suspicious logins"
-              value={metrics.suspicious_logins ?? 0}
-              severity="danger"
-            />
+            <SignalTile label="Suspicious logins" value={0} severity="danger" />
           </div>
         )}
       </Tile>
@@ -207,14 +204,14 @@ export default function HomePage() {
       <Tile>
         <h4>Client usage (last 7 days)</h4>
 
-        {!metrics?.top_clients?.length && (
+        {/* {!metrics?.top_clients?.length && (
           <EmptyState
             title="No usage data"
             description="No client activity recorded for this period."
           />
-        )}
+        )} */}
 
-        {metrics?.top_clients?.length > 0 && (
+        {/* {metrics?.top_clients?.length > 0 && (
           <Stack gap={3}>
             {metrics.top_clients.map((c) => (
               <div
@@ -230,7 +227,7 @@ export default function HomePage() {
               </div>
             ))}
           </Stack>
-        )}
+        )} */}
       </Tile>
       {/* ==================================================
        * QUICK ACTIONS
@@ -358,9 +355,6 @@ export default function HomePage() {
         {!notificationsLoading && notifications.length > 0 && (
           <Stack gap={3}>
             {notifications.map((n) => {
-              const severityTagType =
-                n.severity === "critical" ? "red" : n.severity === "warning" ? "yellow" : "blue";
-
               return (
                 <div
                   key={n.id}
@@ -387,7 +381,7 @@ export default function HomePage() {
                       }}
                     >
                       <strong>{n.title}</strong>
-                      <Tag size="sm" type={severityTagType}>
+                      <Tag size="sm" type={getSeverityTagType(n.severity)}>
                         {n.severity}
                       </Tag>
                     </div>

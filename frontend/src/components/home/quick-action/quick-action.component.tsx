@@ -60,7 +60,6 @@ export function QuickAction({
 
   return (
     <Tile
-      as="div"
       role={isInteractive ? "button" : undefined}
       tabIndex={isInteractive ? 0 : -1}
       aria-disabled={disabled}

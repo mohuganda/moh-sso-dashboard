@@ -1,6 +1,5 @@
 import { Tile, Tag, Stack } from "@carbon/react";
-
-type Severity = "success" | "warning" | "danger";
+import { getSeverityTagType, type Severity } from "../../../ui/severity";
 
 type Props = {
   label: string;
@@ -20,7 +19,7 @@ export function SignalTile({ label, value, severity, helperText }: Props) {
         {(severity || helperText) && (
           <Stack orientation="horizontal" gap={2}>
             {severity && (
-              <Tag size="sm" type={mapSeverity(severity)}>
+              <Tag size="sm" type={getSeverityTagType(severity)}>
                 {severity}
               </Tag>
             )}
@@ -31,18 +30,4 @@ export function SignalTile({ label, value, severity, helperText }: Props) {
       </Stack>
     </Tile>
   );
-}
-
-/* -----------------------------
- * Severity → Carbon mapping
- * ----------------------------- */
-function mapSeverity(severity: Severity): "green" | "yellow" | "red" {
-  switch (severity) {
-    case "success":
-      return "green";
-    case "warning":
-      return "yellow";
-    case "danger":
-      return "red";
-  }
 }

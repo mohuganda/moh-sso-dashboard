@@ -42,7 +42,7 @@ export function ClientRolesPanel({ id, clientId }: Props) {
     if (!confirm(`Delete role "${roleName}"?`)) return;
 
     try {
-      await deleteRole({ clientId, roleId }).unwrap();
+      await deleteRole({ clientId, role: roleId }).unwrap();
       toast.success("Role deleted", `"${roleName}" was removed`);
     } catch {
       toast.error("Failed to delete role", "Please try again");
@@ -82,16 +82,14 @@ export function ClientRolesPanel({ id, clientId }: Props) {
               <TableHead>
                 <TableRow>
                   {headers.map((header) => (
-                    <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                      {header.header}
-                    </TableHeader>
+                    <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
                   ))}
                 </TableRow>
               </TableHead>
 
               <TableBody>
                 {rows.map((row) => (
-                  <TableRow key={row.id} {...getRowProps({ row })}>
+                  <TableRow {...getRowProps({ row })}>
                     {row.cells.map((cell) => {
                       if (cell.info.header === "actions") {
                         return (
