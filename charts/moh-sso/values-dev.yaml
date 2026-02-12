@@ -29,7 +29,7 @@ backend:
   enabled: true
 
   image:
-    repository: ghcr.io/jabahum/moh-sso-dashboard-backend
+    repository: ghcr.io/mohuganda/moh-sso-dashboard-backend
     tag: "latest"
     pullPolicy: Always
 
@@ -65,7 +65,7 @@ frontend:
   enabled: true
 
   image:
-    repository: ghcr.io/jabahum/moh-sso-dashboard-frontend
+    repository: ghcr.io/mohuganda/moh-sso-dashboard-frontend
     tag: "latest"
     pullPolicy: Always
 
