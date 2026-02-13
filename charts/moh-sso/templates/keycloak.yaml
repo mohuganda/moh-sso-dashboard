@@ -1,4 +1,4 @@
-{{- if .Values.keycloak.enabled }}
+{{- if and .Values.keycloak.enabled (not .Values.keycloak.external.enabled) }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -33,20 +33,6 @@ spec:
                 name: {{ .Release.Name }}-keycloak-admin
             - secretRef:
                 name: {{ .Release.Name }}-keycloak-db
-
-          readinessProbe:
-            httpGet:
-              path: /health/ready
-              port: {{ .Values.keycloak.service.port }}
-            initialDelaySeconds: 25
-            periodSeconds: 10
-
-          livenessProbe:
-            httpGet:
-              path: /health/live
-              port: {{ .Values.keycloak.service.port }}
-            initialDelaySeconds: 40
-            periodSeconds: 15
 ---
 apiVersion: v1
 kind: Service
