@@ -1,62 +1,37 @@
-# ===============================
-# Development values (Cluster)
-# ===============================
+# ==================================================
+# DEV VALUES (Ingress Disabled)
+# Port-forward based development
+# ==================================================
 
 global:
   namespace: sso-dev
+  environment: development
 
-# --------------------------------------------------
-# Private GHCR Pull Secret
-# --------------------------------------------------
 imagePullSecrets:
   - name: ghcr-secret
 
 # --------------------------------------------------
-# Ingress
+# Ingress (Disabled in Dev)
 # --------------------------------------------------
 ingress:
-  enabled: true
-  className: nginx
-  host: sso-dev.moh.go.ug
-  tls:
-    enabled: true
-    secretName: sso-dev-tls
+  enabled: false
+
+keycloakIngress:
+  enabled: false
 
 # --------------------------------------------------
-# Backend API
+# Backend
 # --------------------------------------------------
 backend:
-  enabled: true
-
-  image:
-    repository: ghcr.io/mohuganda/moh-sso-dashboard-backend
-    tag: "latest"
-    pullPolicy: Always
-
-  replicas: 1
-
   env:
-    PORT: "9000"
-    ALLOWED_ORIGINS: "https://sso-dev.moh.go.ug"
+    # Frontend will be accessed via localhost:3000
+    ALLOWED_ORIGINS: "http://localhost:3000"
+
+  baseUrl: "http://localhost:9000"
 
   secrets:
-    KEYCLOAK_ADMIN_CLIENT_SECRET: dashboard-admin-secret
-    KEYCLOAK_WEB_CLIENT_SECRET: dashboard-web-secret
-    TOKEN_SYMMETRIC_KEY: supersecretkey12345678901234567890
-
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      cpu: 300m
-      memory: 512Mi
-
-  hpa:
-    enabled: false
-
-  pdb:
-    enabled: false
+    KEYCLOAK_ADMIN_CLIENT_SECRET: "dev-dashboard-admin-secret"
+    KEYCLOAK_WEB_CLIENT_SECRET: "dev-dashboard-web-secret"
 
 # --------------------------------------------------
 # Frontend
@@ -64,96 +39,45 @@ backend:
 frontend:
   enabled: true
 
-  image:
-    repository: ghcr.io/mohuganda/moh-sso-dashboard-frontend
-    tag: "latest"
-    pullPolicy: Always
-
-  replicas: 1
-
-  resources:
-    requests:
-      cpu: 20m
-      memory: 64Mi
-    limits:
-      cpu: 150m
-      memory: 256Mi
-
-  hpa:
-    enabled: false
-
-  pdb:
-    enabled: false
+  # Browser will hit backend via port-forward
+  apiBaseUrl: "http://localhost:9000"
 
 # --------------------------------------------------
-# Application Postgres
+# Postgres (App DB)
 # --------------------------------------------------
 postgresApp:
-  enabled: true
   auth:
-    db: sso_dashboard
-    user: postgres
     password: postgres
 
-  persistence:
-    enabled: true
-    size: 5Gi
-
 # --------------------------------------------------
-# Keycloak Postgres
+# Postgres (Keycloak DB)
 # --------------------------------------------------
 postgresKeycloak:
-  enabled: true
   auth:
-    db: keycloak
-    user: keycloak
     password: keycloak
 
-  persistence:
-    enabled: true
-    size: 5Gi
-
 # --------------------------------------------------
-# Keycloak
+# Keycloak (Internal for Dev)
 # --------------------------------------------------
 keycloak:
-  enabled: true
-  replicas: 1
-
   admin:
-    username: admin
     password: admin
 
+  external:
+    enabled: false
+
   config:
-    KC_LOG_LEVEL: DEBUG
-    KC_DB: postgres
     KC_HTTP_ENABLED: "true"
     KC_PROXY: edge
-    KC_HOSTNAME: "sso-dev.moh.go.ug"
+    KC_HEALTH_ENABLED: "true"
+    KC_METRICS_ENABLED: "true"
+
+    # Dev: disable strict hostname validation
     KC_HOSTNAME_STRICT: "false"
-    KC_HOSTNAME_STRICT_HTTPS: "true"
+    KC_HOSTNAME_STRICT_HTTPS: "false"
 
 # --------------------------------------------------
 # Redis
 # --------------------------------------------------
 redis:
   enabled: true
-
-  image:
-    repository: redis
-    tag: "7-alpine"
-    pullPolicy: IfNotPresent
-
-  replicas: 1
-
-  persistence:
-    enabled: true
-    size: 2Gi
-
-  resources:
-    requests:
-      cpu: 20m
-      memory: 64Mi
-    limits:
-      cpu: 150m
-      memory: 256Mi
