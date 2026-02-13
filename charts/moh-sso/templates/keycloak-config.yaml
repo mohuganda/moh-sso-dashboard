@@ -27,8 +27,8 @@ metadata:
     {{- include "moh-sso.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  KEYCLOAK_ADMIN: {{ .Values.keycloak.admin.username | quote }}
-  KEYCLOAK_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
+  KC_BOOTSTRAP_ADMIN_USERNAME: {{ .Values.keycloak.admin.username | quote }}
+  KC_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
 
 ---
 apiVersion: v1
