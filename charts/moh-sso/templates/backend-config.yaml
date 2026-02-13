@@ -6,17 +6,18 @@ metadata:
   labels:
     {{- include "moh-sso.labels" . | nindent 4 }}
 data:
-  ENVIRONMENT: "development"
-  GIN_MODE: "debug"
+  ENVIRONMENT: {{ include "moh-sso.environment" . | quote }}
+  GIN_MODE: {{ include "moh-sso.ginMode" . | quote }}
 
-  FRONTEND_BASE_URL: "http://localhost:3000"
 
-  KEYCLOAK_BASE_URL: {{ printf "http://%s-keycloak:%d" .Release.Name (.Values.keycloak.service.port | int) | quote }}
-  KEYCLOAK_REALM: "moh-realm"
+  FRONTEND_BASE_URL: {{ include "moh-sso.frontend.baseUrl" . | quote }}
+
+  KEYCLOAK_BASE_URL: {{ include "moh-sso.keycloak.baseUrl" . | quote }}
+  KEYCLOAK_REALM: {{ include "moh-sso.keycloak.realm" . | quote }}
 
   KEYCLOAK_ADMIN_CLIENT_ID: "dashboard-admin"
   KEYCLOAK_WEB_CLIENT_ID: "dashboard-web"
-  KEYCLOAK_REDIRECT_URI: "http://localhost:9000/api/v1/auth/callback"
+  KEYCLOAK_REDIRECT_URI: {{ include "moh-sso.keycloak.redirectUri" . | quote }}
 
   SERVER_PORT: {{ .Values.backend.service.port | quote }}
 
@@ -34,6 +35,35 @@ data:
 
   ENABLE_TLS: "false"
 
+  app.env: |
+    ENVIRONMENT: {{ include "moh-sso.environment" . | quote }}
+    GIN_MODE: {{ include "moh-sso.ginMode" . | quote }}
+
+    FRONTEND_BASE_URL: {{ include "moh-sso.frontend.baseUrl" . | quote }}
+
+    KEYCLOAK_BASE_URL={{ include "moh-sso.keycloak.baseUrl" . }}
+    KEYCLOAK_REALM={{ include "moh-sso.keycloak.realm" . }}
+
+    KEYCLOAK_ADMIN_CLIENT_ID=dashboard-admin
+    KEYCLOAK_WEB_CLIENT_ID=dashboard-web
+    KEYCLOAK_REDIRECT_URI={{ include "moh-sso.keycloak.redirectUri" . }}
+
+    SERVER_PORT={{ .Values.backend.service.port }}
+
+    DB_DRIVER=postgres
+    DB_HOST={{ printf "%s-postgres-app" .Release.Name }}
+    DB_PORT=5432
+    DB_NAME={{ .Values.postgresApp.auth.db }}
+    DB_ENABLE_SSL=false
+
+    REDIS_HOST={{ printf "%s-redis" .Release.Name }}
+    REDIS_PORT=6379
+
+    ACCESS_TOKEN_DURATION=15m
+    REFRESH_TOKEN_DURATION=720h
+
+    ENABLE_TLS=false
+
 ---
 apiVersion: v1
 kind: Secret
@@ -48,7 +78,5 @@ stringData:
 
   DB_USER: {{ .Values.postgresApp.auth.user | quote }}
   DB_PASSWORD: {{ .Values.postgresApp.auth.password | quote }}
-
-  TOKEN_SYMMETRIC_KEY: {{ .Values.backend.secrets.TOKEN_SYMMETRIC_KEY | quote }}
 
 {{- end }}

@@ -1,4 +1,5 @@
 {{- if .Values.frontend.enabled }}
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,10 +9,8 @@ metadata:
 data:
   config.js: |
     window.__APP_CONFIG__ = {
-      API_BASE_URL: "http://{{ .Release.Name }}-backend:{{ .Values.backend.service.port }}",
-      KEYCLOAK_BASE_URL: "http://{{ .Release.Name }}-keycloak:{{ .Values.keycloak.service.port }}",
-      KEYCLOAK_REALM: "moh-realm",
-      KEYCLOAK_CLIENT_ID: "dashboard-web"
-      KEYCLOAK_REDIRECT_URI:"http://localhost:9000/api/v1/auth/callback"
+      API_BASE_URL: "{{ include "moh-sso.backend.publicUrl" . }}",
+      ENVIRONMENT: "{{ include "moh-sso.environment" . }}"
     };
+
 {{- end }}
