@@ -1,197 +1,197 @@
-name: Build, Push & Deploy (Kubernetes)
+# name: Build, Push & Deploy (Kubernetes)
 
-on:
-  push:
-    branches: [main]
-    tags:
-      - "v*.*.*"
+# on:
+#   push:
+#     branches: [main]
+#     tags:
+#       - "v*.*.*"
 
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+# concurrency:
+#   group: deploy-${{ github.ref }}
+#   cancel-in-progress: true
 
-permissions:
-  contents: read
-  packages: write
+# permissions:
+#   contents: read
+#   packages: write
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: ${{ github.repository_owner }}
-  IMAGE_REPO: ${{ github.event.repository.name }}
-  HELM_RELEASE: moh-sso
+# env:
+#   REGISTRY: ghcr.io
+#   IMAGE_NAMESPACE: ${{ github.repository_owner }}
+#   IMAGE_REPO: ${{ github.event.repository.name }}
+#   HELM_RELEASE: moh-sso
 
-jobs:
-  # =====================================
-  # BUILD & PUSH IMAGES
-  # =====================================
-  docker-build-push:
-    name: Build & Push (${{ matrix.service }})
-    runs-on: ubuntu-latest
+# jobs:
+#   # =====================================
+#   # BUILD & PUSH IMAGES
+#   # =====================================
+#   docker-build-push:
+#     name: Build & Push (${{ matrix.service }})
+#     runs-on: ubuntu-latest
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service: backend
-            context: backend
-            dockerfile: backend/Dockerfile
-            suffix: backend
-          - service: frontend
-            context: frontend
-            dockerfile: frontend/Dockerfile
-            suffix: frontend
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         include:
+#           - service: backend
+#             context: backend
+#             dockerfile: backend/Dockerfile
+#             suffix: backend
+#           - service: frontend
+#             context: frontend
+#             dockerfile: frontend/Dockerfile
+#             suffix: frontend
 
-    outputs:
-      image_tag: ${{ steps.sha.outputs.tag }}
+#     outputs:
+#       image_tag: ${{ steps.sha.outputs.tag }}
 
-    steps:
-      - uses: actions/checkout@v4
+#     steps:
+#       - uses: actions/checkout@v4
 
-      - name: Set image tag (short SHA)
-        id: sha
-        run: echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+#       - name: Set image tag (short SHA)
+#         id: sha
+#         run: echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-      # -------------------------------
-      # Multi-arch only on tag
-      # -------------------------------
-      - name: Set up QEMU
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/setup-qemu-action@v3
+#       # -------------------------------
+#       # Multi-arch only on tag
+#       # -------------------------------
+#       - name: Set up QEMU
+#         if: startsWith(github.ref, 'refs/tags/v')
+#         uses: docker/setup-qemu-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+#       - name: Log in to GHCR
+#         uses: docker/login-action@v3
+#         with:
+#           registry: ${{ env.REGISTRY }}
+#           username: ${{ github.actor }}
+#           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # -------------------------------
-      # Image metadata
-      # -------------------------------
-      - name: Extract image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}
-          tags: |
-            type=sha,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
+#       # -------------------------------
+#       # Image metadata
+#       # -------------------------------
+#       - name: Extract image metadata
+#         id: meta
+#         uses: docker/metadata-action@v5
+#         with:
+#           images: |
+#             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}
+#           tags: |
+#             type=sha,format=short
+#             type=raw,value=latest,enable={{is_default_branch}}
+#             type=semver,pattern={{version}}
 
-      # -------------------------------
-      # Build & Push (WITH CACHE)
-      # -------------------------------
-      - name: Build & push
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+#       # -------------------------------
+#       # Build & Push (WITH CACHE)
+#       # -------------------------------
+#       - name: Build & push
+#         uses: docker/build-push-action@v6
+#         with:
+#           context: ${{ matrix.context }}
+#           file: ${{ matrix.dockerfile }}
 
-          # ⚡ Skip arm64 unless it's a production tag
-          platforms: ${{ startsWith(github.ref, 'refs/tags/v') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+#           # ⚡ Skip arm64 unless it's a production tag
+#           platforms: ${{ startsWith(github.ref, 'refs/tags/v') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
 
-          push: true
-          provenance: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+#           push: true
+#           provenance: false
+#           tags: ${{ steps.meta.outputs.tags }}
+#           labels: ${{ steps.meta.outputs.labels }}
 
-          # 🚀 Registry layer cache
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}:buildcache,mode=max
+#           # 🚀 Registry layer cache
+#           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}:buildcache
+#           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}:buildcache,mode=max
 
-    # =====================================
-    # DEPLOY TO DEV (AUTO)
-    # =====================================
-  deploy-dev:
-    name: Deploy to Dev (Kubernetes)
-    needs: docker-build-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+#     # =====================================
+#     # DEPLOY TO DEV (AUTO)
+#     # =====================================
+#   deploy-dev:
+#     name: Deploy to Dev (Kubernetes)
+#     needs: docker-build-push
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/main'
 
-    environment:
-      name: dev
+#     environment:
+#       name: dev
 
-    steps:
-      - uses: actions/checkout@v4
+#     steps:
+#       - uses: actions/checkout@v4
 
-      - uses: azure/setup-kubectl@v4
-        with:
-          version: v1.29.0
+#       - uses: azure/setup-kubectl@v4
+#         with:
+#           version: v1.29.0
 
-      - uses: azure/setup-helm@v4
-        with:
-          version: v3.15.0
+#       - uses: azure/setup-helm@v4
+#         with:
+#           version: v3.15.0
 
-      - name: Configure kubeconfig (Dev)
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_DEV }}" | base64 --decode > ~/.kube/config
-          chmod 600 ~/.kube/config
+#       - name: Configure kubeconfig (Dev)
+#         run: |
+#           mkdir -p ~/.kube
+#           echo "${{ secrets.KUBECONFIG_DEV }}" | base64 --decode > ~/.kube/config
+#           chmod 600 ~/.kube/config
 
-      - name: Helm lint
-        run: helm lint charts/moh-sso
+#       - name: Helm lint
+#         run: helm lint charts/moh-sso
 
-      - name: Deploy via Helm (Dev)
-        run: |
-          helm upgrade --install $HELM_RELEASE charts/moh-sso \
-            -n sso-dev \
-            --create-namespace \
-            -f charts/moh-sso/values-dev.yaml \
-            --set backend.image.tag=${{ needs.docker-build-push.outputs.image_tag }} \
-            --set frontend.image.tag=${{ needs.docker-build-push.outputs.image_tag }} \
-            --wait \
-            --timeout 4m
+#       - name: Deploy via Helm (Dev)
+#         run: |
+#           helm upgrade --install $HELM_RELEASE charts/moh-sso \
+#             -n sso-dev \
+#             --create-namespace \
+#             -f charts/moh-sso/values-dev.yaml \
+#             --set backend.image.tag=${{ needs.docker-build-push.outputs.image_tag }} \
+#             --set frontend.image.tag=${{ needs.docker-build-push.outputs.image_tag }} \
+#             --wait \
+#             --timeout 4m
 
-  # =====================================
-  # DEPLOY TO PROD (TAG + APPROVAL)
-  # =====================================
-  deploy-prod:
-    name: Deploy to Production (Kubernetes)
-    needs: docker-build-push
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+#   # =====================================
+#   # DEPLOY TO PROD (TAG + APPROVAL)
+#   # =====================================
+#   deploy-prod:
+#     name: Deploy to Production (Kubernetes)
+#     needs: docker-build-push
+#     runs-on: ubuntu-latest
+#     if: startsWith(github.ref, 'refs/tags/v')
 
-    environment:
-      name: production
+#     environment:
+#       name: production
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout repo
+#         uses: actions/checkout@v4
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: v1.29.0
+#       - name: Setup kubectl
+#         uses: azure/setup-kubectl@v4
+#         with:
+#           version: v1.29.0
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: v3.15.0
+#       - name: Setup Helm
+#         uses: azure/setup-helm@v4
+#         with:
+#           version: v3.15.0
 
-      - name: Configure kubeconfig (Prod)
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_PROD }}" | base64 --decode > ~/.kube/config
-          chmod 600 ~/.kube/config
+#       - name: Configure kubeconfig (Prod)
+#         run: |
+#           mkdir -p ~/.kube
+#           echo "${{ secrets.KUBECONFIG_PROD }}" | base64 --decode > ~/.kube/config
+#           chmod 600 ~/.kube/config
 
-      - name: Verify cluster access
-        run: |
-          kubectl config current-context
-          kubectl get nodes
+#       - name: Verify cluster access
+#         run: |
+#           kubectl config current-context
+#           kubectl get nodes
 
-      - name: Deploy via Helm (Prod)
-        run: |
-          helm upgrade --install $HELM_RELEASE charts/moh-sso \
-            -n sso-prod \
-            --create-namespace \
-            -f charts/moh-sso/values-prod.yaml \
-            --set backend.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-backend \
-            --set backend.image.tag=${{ needs.docker-build-push.outputs.image_tag }} \
-            --set frontend.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-frontend \
-            --set frontend.image.tag=${{ needs.docker-build-push.outputs.image_tag }} \
-            --wait \
-            --timeout 10m
+#       - name: Deploy via Helm (Prod)
+#         run: |
+#           helm upgrade --install $HELM_RELEASE charts/moh-sso \
+#             -n sso-prod \
+#             --create-namespace \
+#             -f charts/moh-sso/values-prod.yaml \
+#             --set backend.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-backend \
+#             --set backend.image.tag=${{ needs.docker-build-push.outputs.image_tag }} \
+#             --set frontend.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-frontend \
+#             --set frontend.image.tag=${{ needs.docker-build-push.outputs.image_tag }} \
+#             --wait \
+#             --timeout 10m

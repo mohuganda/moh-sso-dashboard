@@ -1,0 +1,30 @@
+name: Helm Lint
+
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+  push:
+    branches: [main]
+    paths:
+      - "charts/**"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.15.0
+
+      - name: Helm Lint (base)
+        run: helm lint charts/moh-sso
+
+      - name: Helm Template (Dev)
+        run: helm template test charts/moh-sso -f charts/moh-sso/values-dev.yaml
+
+      - name: Helm Template (Prod)
+        run: helm template test charts/moh-sso -f charts/moh-sso/values-prod.yaml
