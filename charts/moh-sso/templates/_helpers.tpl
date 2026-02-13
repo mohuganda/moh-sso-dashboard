@@ -97,8 +97,13 @@ http://localhost:9000
 ========================================================= */}}
 
 {{- define "moh-sso.environment" -}}
-{{- default "development" .Values.global.environment -}}
+{{- if .Values.global }}
+{{- .Values.global.environment | default "dev" -}}
+{{- else -}}
+dev
 {{- end -}}
+{{- end -}}
+
 
 
 {{- define "moh-sso.ginMode" -}}
