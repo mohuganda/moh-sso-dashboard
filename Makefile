@@ -208,6 +208,10 @@ dev-logs:
 dev-backend-logs:
 	kubectl logs -f deployment/$(HELM_RELEASE)-backend -n $(DEV_NAMESPACE)
 
+.PHONY: dev-frontend-logs
+dev-frontend-logs:
+	kubectl logs -f deployment/$(HELM_RELEASE)-frontend -n $(DEV_NAMESPACE)
+
 # -----------------------------
 # Kubernetes PROD
 # -----------------------------
@@ -234,3 +238,7 @@ prod-logs:
 .PHONY: prod-backend-logs
 prod-backend-logs:
 	kubectl logs -f deployment/$(HELM_RELEASE)-backend -n $(PROD_NAMESPACE)
+
+.PHONY: prod-frontend-logs
+prod-frontend-logs:
+	kubectl logs -f deployment/$(HELM_RELEASE)-frontend -n $(DEV_NAMESPACE)
