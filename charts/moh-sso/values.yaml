@@ -61,8 +61,8 @@ backend:
   baseUrl: "" # optional override (used for redirect URI)
 
   probes:
-    readinessPath: /ready
-    livenessPath: /health
+    readinessPath: /health/ready
+    livenessPath: /health/live
 
   resources:
     requests:
