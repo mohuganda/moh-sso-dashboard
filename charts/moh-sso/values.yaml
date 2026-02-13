@@ -19,6 +19,18 @@ ingress:
     secretName: ""
 
 # --------------------------------------------------
+# Keycloak Ingress (separate host recommended)
+# --------------------------------------------------
+keycloakIngress:
+  enabled: false
+  className: nginx
+  host: ""
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: ""
+
+# --------------------------------------------------
 # Backend (Go API)
 # --------------------------------------------------
 backend:
@@ -27,8 +39,8 @@ backend:
   replicas: 1
 
   image:
-    repository: "" # injected by CI
-    tag: "" # injected by CI
+    repository: "ghcr.io/mohuganda/moh-sso-dashboard-backend" # injected by CI
+    tag: "latest" # injected by CI
     pullPolicy: IfNotPresent
 
   service:
@@ -37,6 +49,8 @@ backend:
   env:
     PORT: "9000"
     ALLOWED_ORIGINS: ""
+
+  baseUrl: "" # optional override (used for redirect URI)
 
   probes:
     readinessPath: /ready
@@ -69,12 +83,15 @@ frontend:
   replicas: 1
 
   image:
-    repository: "" # injected by CI
-    tag: "" # injected by CI
+    repository: "ghcr.io/mohuganda/moh-sso-dashboard-frontend" # injected by CI
+    tag: "latest" # injected by CI
     pullPolicy: IfNotPresent
 
   service:
     port: 80
+
+  baseUrl: "" # optional override
+  apiBaseUrl: "" # optional override
 
   resources:
     requests:
@@ -105,8 +122,8 @@ postgresApp:
     tag: 15-alpine
 
   auth:
-    db: sso
-    user: sso_user
+    db: sso_dashboard
+    user: postgres
     password: "" # overridden per environment
 
   persistence:
@@ -127,7 +144,7 @@ postgresKeycloak:
 
   auth:
     db: keycloak
-    user: keycloak_user
+    user: keycloak
     password: "" # overridden per environment
 
   persistence:
@@ -156,20 +173,30 @@ keycloak:
     username: admin
     password: "" # overridden per environment
 
+  baseUrl: ""
+  realm: ""
+
+  external:
+    enabled: false
+    baseUrl: "" # https://sso.myorg.com
+    realm: "" # moh-realm
+
   config:
     KC_DB: postgres
     KC_HTTP_ENABLED: "true"
     KC_PROXY: edge
-    KC_HOSTNAME_STRICT: "false"
-    KC_HOSTNAME_STRICT_HTTPS: "false"
-    KC_HOSTNAME: "localhost"
+    KC_HEALTH_ENABLED: "true"
+    KC_METRICS_ENABLED: "true"
+    KC_HOSTNAME_STRICT: true
+    KC_HOSTNAME_STRICT_HTTPS: true
+    KC_HOSTNAME: localhost
     KC_LOG_LEVEL: INFO
 
 # --------------------------------------------------
 # Redis
 # --------------------------------------------------
 redis:
-  enabled: false
+  enabled: true
 
   replicas: 1
 
