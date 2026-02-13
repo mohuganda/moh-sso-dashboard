@@ -1,8 +1,10 @@
 import { APP_CONFIG } from "../../config";
 
-const API_ROOT = APP_CONFIG.API_BASE_URL + "/api";
-const API_VERSION = "v1";
+const API_BASE_URL =
+  APP_CONFIG?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:9000";
 
+const API_ROOT = `${API_BASE_URL}/api`;
+const API_VERSION = "v1";
 const API_BASE = `${API_ROOT}/${API_VERSION}`;
 
 export const API = {
