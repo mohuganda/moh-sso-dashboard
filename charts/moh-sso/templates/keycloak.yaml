@@ -1,4 +1,8 @@
 {{- if and .Values.keycloak.enabled (not .Values.keycloak.external.enabled) }}
+
+# =====================================================
+# Keycloak StatefulSet (Internal / Dev Only)
+# =====================================================
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -11,20 +15,26 @@ spec:
   selector:
     matchLabels:
       app: {{ .Release.Name }}-keycloak
+
   template:
     metadata:
       labels:
         app: {{ .Release.Name }}-keycloak
         {{- include "moh-sso.labels" . | nindent 8 }}
+
     spec:
       containers:
         - name: keycloak
           image: {{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}
           imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
-          args: ["start"]
+
+          args:
+            - start
+            - --import-realm
 
           ports:
-            - containerPort: {{ .Values.keycloak.service.port }}
+            - name: http
+              containerPort: {{ .Values.keycloak.service.port }}
 
           envFrom:
             - configMapRef:
@@ -33,7 +43,21 @@ spec:
                 name: {{ .Release.Name }}-keycloak-admin
             - secretRef:
                 name: {{ .Release.Name }}-keycloak-db
+
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+
+      volumes:
+        - name: realm-import
+          configMap:
+            name: {{ .Release.Name }}-keycloak-realm
+
 ---
+# =====================================================
+# Keycloak Service
+# =====================================================
 apiVersion: v1
 kind: Service
 metadata:
@@ -48,4 +72,5 @@ spec:
       port: {{ .Values.keycloak.service.port }}
       targetPort: {{ .Values.keycloak.service.port }}
   type: ClusterIP
+
 {{- end }}

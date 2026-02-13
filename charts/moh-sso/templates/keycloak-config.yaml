@@ -1,4 +1,8 @@
 {{- if .Values.keycloak.enabled }}
+
+# =====================================================
+# Keycloak Base Configuration
+# =====================================================
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,6 +23,9 @@ data:
   KC_LOG_LEVEL: {{ .Values.keycloak.config.KC_LOG_LEVEL | quote }}
 
 ---
+# =====================================================
+# Keycloak Admin Credentials
+# =====================================================
 apiVersion: v1
 kind: Secret
 metadata:
@@ -31,6 +38,9 @@ stringData:
   KC_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.keycloak.admin.password | quote }}
 
 ---
+# =====================================================
+# Keycloak Database Credentials
+# =====================================================
 apiVersion: v1
 kind: Secret
 metadata:
@@ -42,4 +52,20 @@ stringData:
   KC_DB_USERNAME: {{ .Values.postgresKeycloak.auth.user | quote }}
   KC_DB_PASSWORD: {{ .Values.postgresKeycloak.auth.password | quote }}
 
+{{- end }}
+
+# =====================================================
+# DEV ONLY — Realm Import ConfigMap
+# =====================================================
+{{- if and .Values.keycloak.enabled (eq .Values.global.environment "development") }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-keycloak-realm
+  labels:
+    {{- include "moh-sso.labels" . | nindent 4 }}
+data:
+  realm-export.json: |
+{{ .Files.Get "files/dev/realm-export.json" | indent 4 }}
 {{- end }}
