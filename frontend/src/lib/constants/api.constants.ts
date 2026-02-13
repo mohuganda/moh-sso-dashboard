@@ -1,4 +1,6 @@
-const API_ROOT = import.meta.env.VITE_API_BASE_URL + "/api";
+import { APP_CONFIG } from "../../config";
+
+const API_ROOT = APP_CONFIG.API_BASE_URL + "/api";
 const API_VERSION = "v1";
 
 const API_BASE = `${API_ROOT}/${API_VERSION}`;
