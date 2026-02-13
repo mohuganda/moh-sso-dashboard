@@ -6,6 +6,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -63,7 +66,7 @@ func main() {
 	}
 
 	// ---------------------------------------------------------------------
-	// Redis (CACHE + RATELIMIT)
+	// Redis
 	// ---------------------------------------------------------------------
 	rdb := cache.NewRedisClient(cache.RedisConfig{
 		Host:         cfg.RedisHost,
@@ -79,14 +82,10 @@ func main() {
 	appLogger.Info("Successfully connected to Redis")
 
 	cacheAdapter := cache.NewRedisCache(rdb)
-
-	// ---------------------------------------------------------------------
-	// Rate Limiter (Redis-backed)
-	// ---------------------------------------------------------------------
 	rateLimiter := ratelimit.New(rdb)
 
 	// ---------------------------------------------------------------------
-	// Keycloak (ADMIN + WEB clients, CACHE-AWARE)
+	// Keycloak
 	// ---------------------------------------------------------------------
 	keycloakClient := kcClientPkg.NewClient(
 		cfg.KeycloakBaseUrl,
@@ -99,10 +98,7 @@ func main() {
 	)
 
 	if err := keycloakClient.Authenticate(); err != nil {
-		appLogger.Fatal(
-			"Failed to authenticate Keycloak admin service account: ",
-			err,
-		)
+		appLogger.Fatal("Failed to authenticate Keycloak admin service account: ", err)
 	}
 	appLogger.Info("Successfully authenticated Keycloak admin service account")
 
@@ -147,13 +143,7 @@ func main() {
 	// ---------------------------------------------------------------------
 	// Handlers
 	// ---------------------------------------------------------------------
-	authHandler := handler.NewAuthHandler(
-		authService,
-		auditService,
-		notificationsService,
-		cfg,
-	)
-
+	authHandler := handler.NewAuthHandler(authService, auditService, notificationsService, cfg)
 	clientHandler := handler.NewClientHandler(clientService, auditService, cacheAdapter)
 	userHandler := handler.NewUserHandler(userService, auditService, cacheAdapter)
 	metricsHandler := handler.NewMetricsHandler(metricsService)
@@ -162,7 +152,20 @@ func main() {
 	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
 
 	// ---------------------------------------------------------------------
-	// Router (RATE-LIMIT AWARE)
+	// ✅ Health Handler (NEW)
+	// ---------------------------------------------------------------------
+	healthHandler := handler.NewHealthHandler(
+		func(ctx context.Context) error {
+			return conn.PingContext(ctx)
+		},
+		func(ctx context.Context) error {
+			return keycloakClient.Authenticate()
+		},
+		rdb,
+	)
+
+	// ---------------------------------------------------------------------
+	// Router
 	// ---------------------------------------------------------------------
 	r := router.SetupRouter(
 		keycloakClient,
@@ -177,6 +180,11 @@ func main() {
 		notificationsHandler,
 	)
 
+	// ✅ Register health routes (outside auth)
+	r.GET("/health/live", healthHandler.HandleLive)
+	r.GET("/health/ready", healthHandler.HandleReady)
+	r.GET("/health", healthHandler.HandleHealth)
+
 	addr := ":" + cfg.ServerPort
 
 	ln, err := net.Listen("tcp4", addr)
@@ -190,7 +198,27 @@ func main() {
 		Handler: r,
 	}
 
-	if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
-		appLogger.Fatal("Gin server failed: ", err)
+	// ---------------------------------------------------------------------
+	// ✅ Graceful Shutdown (Production Safe)
+	// ---------------------------------------------------------------------
+	go func() {
+		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+			appLogger.Fatal("Gin server failed: ", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	appLogger.Info("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		appLogger.Fatal("Server forced to shutdown:", err)
 	}
+
+	appLogger.Info("Server exiting")
 }
