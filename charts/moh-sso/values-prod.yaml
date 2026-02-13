@@ -1,12 +1,17 @@
-# ===============================
-# Production values (CI-safe)
-# ===============================
+# ==================================================
+# PRODUCTION VALUES
+# External Enterprise Keycloak
+# ==================================================
 
 global:
   namespace: sso-prod
+  environment: production
+
+imagePullSecrets:
+  - name: ghcr-secret
 
 # --------------------------------------------------
-# Ingress
+# Frontend + Backend Ingress
 # --------------------------------------------------
 ingress:
   enabled: true
@@ -17,146 +22,50 @@ ingress:
     secretName: sso-prod-tls
 
 # --------------------------------------------------
-# Backend API
+# Backend
 # --------------------------------------------------
 backend:
-  enabled: true
-
-  image:
-    repository: "" # injected by CI
-    tag: "" # injected by CI
-    pullPolicy: IfNotPresent
-
   replicas: 3
 
   env:
-    PORT: "9000"
     ALLOWED_ORIGINS: "https://sso.moh.go.ug"
 
-  # These align with the updated backend Secret template we discussed
   secrets:
     KEYCLOAK_ADMIN_CLIENT_SECRET: "prod-dashboard-admin-secret-rotate"
     KEYCLOAK_WEB_CLIENT_SECRET: "prod-dashboard-web-secret-rotate"
-    TOKEN_SYMMETRIC_KEY: "prod-rotate-me-super-long-random"
-
-  resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-
-  hpa:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-
-  pdb:
-    enabled: true
-    minAvailable: 2
 
 # --------------------------------------------------
 # Frontend
 # --------------------------------------------------
 frontend:
-  enabled: true
-
-  image:
-    repository: "" # injected by CI
-    tag: "" # injected by CI
-    pullPolicy: IfNotPresent
-
   replicas: 3
 
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
-  hpa:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 6
-    targetCPUUtilizationPercentage: 70
-
-  pdb:
-    enabled: true
-    minAvailable: 2
-
 # --------------------------------------------------
-# Application Postgres
+# Postgres (App DB)
 # --------------------------------------------------
 postgresApp:
-  enabled: true
   auth:
-    db: sso
-    user: sso_user
-    password: prod_app_db_password # prefer sealed secret / external secret later
-
-  persistence:
-    enabled: true
-    size: 50Gi
+    password: prod_app_db_password
 
 # --------------------------------------------------
-# Keycloak Postgres
+# Disable Keycloak DB (external)
 # --------------------------------------------------
 postgresKeycloak:
-  enabled: true
-  auth:
-    db: keycloak
-    user: keycloak_user
-    password: prod_keycloak_db_password # prefer sealed secret / external secret later
-
-  persistence:
-    enabled: true
-    size: 50Gi
+  enabled: false
 
 # --------------------------------------------------
-# Keycloak
+# Keycloak (EXTERNAL)
 # --------------------------------------------------
 keycloak:
-  enabled: true
-  replicas: 2
+  enabled: false
 
-  admin:
-    username: admin
-    password: prod-keycloak-admin-rotate
-
-  config:
-    KC_LOG_LEVEL: INFO
-    KC_DB: postgres
-    KC_HTTP_ENABLED: "true"
-    KC_PROXY: edge
-    KC_HOSTNAME: "sso.moh.go.ug"
-    KC_HOSTNAME_STRICT: "false"
-    KC_HOSTNAME_STRICT_HTTPS: "true"
+  external:
+    enabled: true
+    baseUrl: "https://auth.moh.go.ug"
+    realm: "MoH"
 
 # --------------------------------------------------
 # Redis
 # --------------------------------------------------
 redis:
   enabled: true
-
-  image:
-    repository: redis
-    tag: "7-alpine"
-    pullPolicy: IfNotPresent
-
-  replicas: 1
-
-  persistence:
-    enabled: true
-    size: 10Gi
-
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      cpu: 300m
-      memory: 512Mi
