@@ -20,7 +20,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_HTTP_ENABLED: "true"
       KC_PROXY: "edge"
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-https://auth.health.go.ug}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-http://localhost:8081}
       KC_HOSTNAME_STRICT_HTTPS: "false"
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
@@ -98,8 +98,8 @@ services:
     container_name: sso-backend
     environment:
       SERVER_PORT: 9000
-      KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL:-https://auth.health.go.ug}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-MoH}
+      KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-moh-realm}
       KEYCLOAK_REDIRECT_URI: ${KEYCLOAK_REDIRECT_URI:-http://localhost:9000/api/v1/auth/callback}
       KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID:-dashboard-admin}
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-dashboard-admin-secret}
@@ -136,8 +136,8 @@ services:
     container_name: sso-frontend
     environment:
       VITE_API_BASE_URL: http://localhost:9000
-      VITE_KEYCLOAK_URL: https://auth.health.go.ug
-      VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-MoH}
+      VITE_KEYCLOAK_URL: http://localhost:8081
+      VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-moh-realm}
       VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_WEB_CLIENT_ID:-dashboard-web}
       VITE_KEYCLOAK_REDIRECT_URI: ${VITE_KEYCLOAK_REDIRECT_URI:-http://localhost:9000/api/v1/auth/callback}
     ports:
