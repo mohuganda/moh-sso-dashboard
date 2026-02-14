@@ -35,8 +35,10 @@ type Config struct {
 	// ==================================================
 	// Keycloak (Application usage)
 	// ==================================================
-	KeycloakBaseUrl string `mapstructure:"KEYCLOAK_BASE_URL"`
-	KeycloakRealm   string `mapstructure:"KEYCLOAK_REALM"`
+	KeycloakInternalURL string `mapstructure:"KEYCLOAK_INTERNAL_URL"`
+	KeycloakExternalURL string `mapstructure:"KEYCLOAK_EXTERNAL_URL"`
+	KeycloakBaseUrl     string `mapstructure:"KEYCLOAK_BASE_URL"`
+	KeycloakRealm       string `mapstructure:"KEYCLOAK_REALM"`
 
 	// 🔐 Backend automation (client_credentials)
 	KeycloakAdminClientID     string `mapstructure:"KEYCLOAK_ADMIN_CLIENT_ID"`

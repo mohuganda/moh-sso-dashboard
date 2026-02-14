@@ -129,3 +129,24 @@ https://{{ .Values.ingress.host }}
 http://{{ .Release.Name }}-backend:{{ .Values.backend.service.port }}
 {{- end -}}
 {{- end -}}
+
+
+{{/* =========================================================
+   Keycloak external  URL f
+========================================================= */}}
+
+{{- define "moh-sso.keycloakPublicURL" -}}
+
+{{- if and .Values.keycloak.enabled (not .Values.keycloak.external.enabled) -}}
+http://localhost:8081
+
+{{- else if and (not .Values.keycloak.enabled) .Values.keycloak.external.enabled -}}
+{{- printf "https://%s" .Values.keycloakIngress.host -}}
+
+{{- else -}}
+{{- fail "Invalid Keycloak configuration. Exactly one of keycloak.enabled or keycloak.external.enabled must be true." -}}
+
+{{- end -}}
+
+{{- end -}}
+

@@ -9,9 +9,12 @@ data:
   ENVIRONMENT: {{ include "moh-sso.environment" . | quote }}
   GIN_MODE: {{ include "moh-sso.ginMode" . | quote }}
 
-
   FRONTEND_BASE_URL: {{ include "moh-sso.frontend.baseUrl" . | quote }}
 
+  # --------------------------------------------------
+  # Keycloak
+  # --------------------------------------------------
+  KEYCLOAK_EXTERNAL_URL: {{ include "moh-sso.keycloakPublicURL" . | quote }}
   KEYCLOAK_BASE_URL: {{ include "moh-sso.keycloak.baseUrl" . | quote }}
   KEYCLOAK_REALM: {{ include "moh-sso.keycloak.realm" . | quote }}
 
@@ -19,28 +22,44 @@ data:
   KEYCLOAK_WEB_CLIENT_ID: "dashboard-web"
   KEYCLOAK_REDIRECT_URI: {{ include "moh-sso.keycloak.redirectUri" . | quote }}
 
+  # --------------------------------------------------
+  # Server
+  # --------------------------------------------------
   SERVER_PORT: {{ .Values.backend.service.port | quote }}
 
+  # --------------------------------------------------
+  # Database
+  # --------------------------------------------------
   DB_DRIVER: "postgres"
   DB_HOST: {{ printf "%s-postgres-app" .Release.Name | quote }}
   DB_PORT: "5432"
   DB_NAME: {{ .Values.postgresApp.auth.db | quote }}
   DB_ENABLE_SSL: "false"
 
+  # --------------------------------------------------
+  # Redis
+  # --------------------------------------------------
   REDIS_HOST: {{ printf "%s-redis" .Release.Name | quote }}
   REDIS_PORT: "6379"
 
+  # --------------------------------------------------
+  # Token Settings
+  # --------------------------------------------------
   ACCESS_TOKEN_DURATION: "15m"
   REFRESH_TOKEN_DURATION: "720h"
 
   ENABLE_TLS: "false"
 
+  # --------------------------------------------------
+  # app.env (Flat file format)
+  # --------------------------------------------------
   app.env: |
-    ENVIRONMENT: {{ include "moh-sso.environment" . | quote }}
-    GIN_MODE: {{ include "moh-sso.ginMode" . | quote }}
+    ENVIRONMENT={{ include "moh-sso.environment" . }}
+    GIN_MODE={{ include "moh-sso.ginMode" . }}
 
-    FRONTEND_BASE_URL: {{ include "moh-sso.frontend.baseUrl" . | quote }}
+    FRONTEND_BASE_URL={{ include "moh-sso.frontend.baseUrl" . }}
 
+    KEYCLOAK_EXTERNAL_URL={{ include "moh-sso.keycloakPublicURL" . }}
     KEYCLOAK_BASE_URL={{ include "moh-sso.keycloak.baseUrl" . }}
     KEYCLOAK_REALM={{ include "moh-sso.keycloak.realm" . }}
 
@@ -63,7 +82,6 @@ data:
     REFRESH_TOKEN_DURATION=720h
 
     ENABLE_TLS=false
-
 ---
 apiVersion: v1
 kind: Secret
@@ -78,5 +96,4 @@ stringData:
 
   DB_USER: {{ .Values.postgresApp.auth.user | quote }}
   DB_PASSWORD: {{ .Values.postgresApp.auth.password | quote }}
-
 {{- end }}

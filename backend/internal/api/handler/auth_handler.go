@@ -63,7 +63,7 @@ func (h *AuthHandler) HandleAuthLogin(c *gin.Context) {
 	})
 
 	authURL, err := url.Parse(
-		h.config.KeycloakHostname +
+		h.config.KeycloakExternalURL +
 			"/realms/" + h.config.KeycloakRealm +
 			"/protocol/openid-connect/auth",
 	)
