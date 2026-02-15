@@ -33,4 +33,4 @@ USER appuser
 
 EXPOSE 9000
 
-ENTRYPOINT ["/app/sso-server"]
+ENTRYPOINT ["./sso-server"]
