@@ -33,7 +33,7 @@ data:
   DB_DRIVER: "postgres"
   DB_HOST: {{ printf "%s-postgres-app" .Release.Name | quote }}
   DB_PORT: "5432"
-  DB_NAME: {{ .Values.postgresApp.auth.db | quote }}
+  DB_NAME: {{ .Values.postgresApp.auth.database | quote }}
   DB_ENABLE_SSL: "false"
 
   # --------------------------------------------------
@@ -72,7 +72,7 @@ data:
     DB_DRIVER=postgres
     DB_HOST={{ printf "%s-postgres-app" .Release.Name }}
     DB_PORT=5432
-    DB_NAME={{ .Values.postgresApp.auth.db }}
+    DB_NAME={{ .Values.postgresApp.auth.database }}
     DB_ENABLE_SSL=false
 
     REDIS_HOST={{ printf "%s-redis" .Release.Name }}
@@ -94,6 +94,6 @@ stringData:
   KEYCLOAK_ADMIN_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_ADMIN_CLIENT_SECRET | quote }}
   KEYCLOAK_WEB_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_WEB_CLIENT_SECRET | quote }}
 
-  DB_USER: {{ .Values.postgresApp.auth.user | quote }}
+  DB_USER: {{ .Values.postgresApp.auth.username | quote }}
   DB_PASSWORD: {{ .Values.postgresApp.auth.password | quote }}
 {{- end }}

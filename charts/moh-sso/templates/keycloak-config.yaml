@@ -11,7 +11,7 @@ metadata:
     {{- include "moh-sso.labels" . | nindent 4 }}
 data:
   KC_DB: {{ .Values.keycloak.config.KC_DB | quote }}
-  KC_DB_URL: {{ printf "jdbc:postgresql://%s-postgres-keycloak:5432/%s" .Release.Name .Values.postgresKeycloak.auth.db | quote }}
+  KC_DB_URL: {{ printf "jdbc:postgresql://%s-postgres-keycloak:5432/%s" .Release.Name .Values.postgresKeycloak.auth.database | quote }}
 
   KC_HTTP_ENABLED: {{ .Values.keycloak.config.KC_HTTP_ENABLED | quote }}
   KC_PROXY: {{ .Values.keycloak.config.KC_PROXY | quote }}
@@ -49,7 +49,7 @@ metadata:
     {{- include "moh-sso.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  KC_DB_USERNAME: {{ .Values.postgresKeycloak.auth.user | quote }}
+  KC_DB_USERNAME: {{ .Values.postgresKeycloak.auth.username | quote }}
   KC_DB_PASSWORD: {{ .Values.postgresKeycloak.auth.password | quote }}
 
 {{- end }}

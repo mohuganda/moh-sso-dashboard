@@ -1,8 +1,10 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -40,27 +42,24 @@ type Config struct {
 	KeycloakBaseUrl     string `mapstructure:"KEYCLOAK_BASE_URL"`
 	KeycloakRealm       string `mapstructure:"KEYCLOAK_REALM"`
 
-	// 🔐 Backend automation (client_credentials)
 	KeycloakAdminClientID     string `mapstructure:"KEYCLOAK_ADMIN_CLIENT_ID"`
 	KeycloakAdminClientSecret string `mapstructure:"KEYCLOAK_ADMIN_CLIENT_SECRET"`
 
-	// 🌍 Web login (authorization_code)
 	KeycloakWebClientID     string `mapstructure:"KEYCLOAK_WEB_CLIENT_ID"`
 	KeycloakWebClientSecret string `mapstructure:"KEYCLOAK_WEB_CLIENT_SECRET"`
 	KeycloakRedirectUri     string `mapstructure:"KEYCLOAK_REDIRECT_URI"`
 
 	// ==================================================
-	// Backend (Go / Gin)
+	// Backend
 	// ==================================================
 	ServerPort string `mapstructure:"SERVER_PORT"`
 
 	// ==================================================
 	// TLS
 	// ==================================================
-	EnableTls          bool   `mapstructure:"ENABLE_TLS"`
-	TlsCert            string `mapstructure:"TLS_CERT"`
-	TlsKey             string `mapstructure:"TLS_KEY"`
-	KeycloakCACertPath string `mapstructure:"TLS_KEYCLOAK_CA_CERT_PATH"`
+	EnableTls bool   `mapstructure:"ENABLE_TLS"`
+	TlsCert   string `mapstructure:"TLS_CERT"`
+	TlsKey    string `mapstructure:"TLS_KEY"`
 
 	// ==================================================
 	// Database
@@ -81,7 +80,7 @@ type Config struct {
 	RedisPassword string `mapstructure:"REDIS_PASSWORD"`
 
 	// ==================================================
-	// App-level JWT (NOT Keycloak)
+	// JWT
 	// ==================================================
 	TokenSymmetricKey    string        `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 	AccessTokenDuration  time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`
@@ -89,13 +88,35 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	viper.AddConfigPath(path)
+
 	viper.SetConfigName("app")
 	viper.SetConfigType("env")
-	viper.AutomaticEnv()
+	viper.AddConfigPath(path)
 
+	// Optional config file
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, err
+		// Only warn if file missing
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, err
+		}
+	}
+
+	// ENV ALWAYS WINS
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	// Explicit binding (bulletproof for K8s)
+	requiredKeys := []string{
+		"DB_USER",
+		"DB_PASSWORD",
+		"DB_HOST",
+		"DB_PORT",
+		"DB_NAME",
+		"KEYCLOAK_WEB_CLIENT_SECRET",
+	}
+
+	for _, key := range requiredKeys {
+		_ = viper.BindEnv(key)
 	}
 
 	var config Config
@@ -103,24 +124,47 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	if err := validateConfig(&config); err != nil {
+		return nil, err
+	}
+
 	return &config, nil
 }
 
-func (config *Config) DbSource() string {
-	dbPassEscaped := url.QueryEscape(config.DbPassword)
+func (c *Config) DbSource() string {
+
+	if c.DbUser == "" {
+		panic("DB_USER is empty")
+	}
+
+	dbPassEscaped := url.QueryEscape(c.DbPassword)
 
 	sslMode := "disable"
-	if config.DbEnableSsl {
+	if c.DbEnableSsl {
 		sslMode = "require"
 	}
 
 	return fmt.Sprintf(
 		"postgresql://%s:%s@%s:%s/%s?sslmode=%s",
-		config.DbUser,
+		c.DbUser,
 		dbPassEscaped,
-		config.DbHost,
-		config.DbPort,
-		config.DbName,
+		c.DbHost,
+		c.DbPort,
+		c.DbName,
 		sslMode,
 	)
+}
+
+func validateConfig(c *Config) error {
+
+	if c.DbUser == "" {
+		return errors.New("DB_USER is required")
+	}
+	if c.DbPassword == "" {
+		return errors.New("DB_PASSWORD is required")
+	}
+	if c.DbHost == "" {
+		return errors.New("DB_HOST is required")
+	}
+	return nil
 }

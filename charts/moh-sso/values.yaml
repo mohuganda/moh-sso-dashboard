@@ -130,8 +130,8 @@ postgresApp:
     tag: 15-alpine
 
   auth:
-    db: sso_dashboard
-    user: postgres
+    database: sso_dashboard
+    username: postgres
     password: "" # overridden per environment
 
   persistence:
@@ -151,8 +151,8 @@ postgresKeycloak:
     tag: 15-alpine
 
   auth:
-    db: keycloak
-    user: keycloak
+    database: keycloak
+    username: keycloak
     password: "" # overridden per environment
 
   persistence:
