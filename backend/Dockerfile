@@ -25,14 +25,13 @@ RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
 
-COPY --from=builder /app/internal/db/migrations .internal/db/migrations
-
-COPY --from=builder /app/sso-server /app/sso-server
+# ✅ Correct path
+COPY --from=builder /app/internal/db/migrations ./internal/db/migrations
+COPY --from=builder /app/sso-server ./sso-server
 
 RUN adduser -D appuser
 USER appuser
 
 EXPOSE 9000
 
-# ✅ THIS IS THE FIX
-ENTRYPOINT ["/app/sso-server"]
+ENTRYPOINT ["./sso-server"]
