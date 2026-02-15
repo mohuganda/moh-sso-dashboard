@@ -34,6 +34,8 @@ data:
   DB_HOST: {{ printf "%s-postgres-app" .Release.Name | quote }}
   DB_PORT: "5432"
   DB_NAME: {{ .Values.postgresApp.auth.database | quote }}
+  DB_USER: {{ .Values.postgresApp.auth.username }}
+  DB_PASSWORD: {{ .Values.postgresApp.auth.password }}
   DB_ENABLE_SSL: "false"
 
   # --------------------------------------------------
@@ -73,6 +75,8 @@ data:
     DB_HOST={{ printf "%s-postgres-app" .Release.Name }}
     DB_PORT=5432
     DB_NAME={{ .Values.postgresApp.auth.database }}
+    DB_USER={{ .Values.postgresApp.auth.username }}
+    DB_PASSWORD={{ .Values.postgresApp.auth.password }}
     DB_ENABLE_SSL=false
 
     REDIS_HOST={{ printf "%s-redis" .Release.Name }}

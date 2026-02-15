@@ -21,6 +21,23 @@ spec:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
 
+      # 🔥 Init container — wait for Postgres
+      initContainers:
+      - name: wait-for-db
+        image: postgres:15-alpine
+        command:
+          - sh
+          - -c
+          - >
+            echo "Waiting for database...";
+            until pg_isready -h {{ printf "%s-postgres-app" .Release.Name }} -p 5432;
+            do
+              echo "Database not ready yet...";
+              sleep 2;
+            done;
+            echo "Database is ready!"
+
+
       containers:
         - name: api
           image: {{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}
@@ -29,14 +46,12 @@ spec:
           ports:
             - containerPort: {{ .Values.backend.service.port }}
 
-          # 🔹 Mount app.env as file
           volumeMounts:
             - name: app-config
               mountPath: /app/app.env
               subPath: app.env
               readOnly: true
 
-          # 🔹 (Optional) keep envFrom if you still want extra vars
           envFrom:
             - configMapRef:
                 name: {{ .Release.Name }}-backend-config
@@ -60,7 +75,6 @@ spec:
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
 
-      # 🔹 Define the ConfigMap volume
       volumes:
         - name: app-config
           configMap:
