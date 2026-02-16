@@ -148,7 +148,8 @@ func (h *AuthHandler) HandleAuthCallback(c *gin.Context) {
 	if err != nil || codeVerifier == "" {
 		h.auditLoginFailure(c)
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "missing pkce verifier",
+			"error":   "missing pkce verifier",
+			"details": err.Error(),
 		})
 		return
 	}
@@ -167,7 +168,7 @@ func (h *AuthHandler) HandleAuthCallback(c *gin.Context) {
 
 		c.AbortWithStatusJSON(
 			http.StatusInternalServerError,
-			gin.H{"error": "authentication failed"},
+			gin.H{"error": "authentication failed", "details": err.Error()},
 		)
 		return
 	}
@@ -321,7 +322,7 @@ func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
 
 	c.Redirect(
 		http.StatusTemporaryRedirect,
-		"http://localhost:9000/api/v1/auth/login",
+		h.config.LoginUrl,
 	)
 }
 

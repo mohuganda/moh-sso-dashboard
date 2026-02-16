@@ -21,6 +21,7 @@ type Config struct {
 	// Frontend
 	// ==================================================
 	FrontendBaseURL string `mapstructure:"FRONTEND_BASE_URL"`
+	LoginUrl        string `mapstructure:"LOGIN_URL"`
 
 	// ==================================================
 	// Keycloak (Infrastructure)

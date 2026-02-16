@@ -10,6 +10,8 @@ data:
   GIN_MODE: {{ include "moh-sso.ginMode" . | quote }}
 
   FRONTEND_BASE_URL: {{ include "moh-sso.frontend.baseUrl" . | quote }}
+  LOGIN_URL: {{ include "moh-sso.keycloak.loginRedirectUri" . | quote }}
+
 
   # --------------------------------------------------
   # Keycloak
@@ -60,6 +62,9 @@ data:
     GIN_MODE={{ include "moh-sso.ginMode" . }}
 
     FRONTEND_BASE_URL={{ include "moh-sso.frontend.baseUrl" . }}
+
+    LOGIN_URL={{ include "moh-sso.keycloak.loginRedirectUri" . }}
+
 
     KEYCLOAK_EXTERNAL_URL={{ include "moh-sso.keycloakPublicURL" . }}
     KEYCLOAK_BASE_URL={{ include "moh-sso.keycloak.baseUrl" . }}

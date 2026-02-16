@@ -16,6 +16,8 @@ import (
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
+// Client represents the Keycloak API client
+// - Admin operations use dashboard-admin (client_credentials)
 type ClientInfo struct {
 	ID                        string            `json:"id"`                        // Internal unique ID (UUID)
 	ClientID                  string            `json:"clientId"`                  // The client ID used for OAuth/OIDC protocol
@@ -178,7 +180,70 @@ var defaultClientScopes = []string{
 	"roles",
 }
 
-func (c *Client) EnsureRealmExists(realmName string) error {
+type KeyAdminClient struct {
+	BaseURL      string
+	Realm        string
+	ClientID     string
+	ClientSecret string
+	httpClient   *http.Client
+	Token        string
+}
+
+func NewAdminClient(
+	baseURL string,
+	realm string,
+	clientID string,
+	clientSecret string,
+) *KeyAdminClient {
+	return &KeyAdminClient{
+		BaseURL:      strings.TrimSuffix(baseURL, "/"),
+		Realm:        realm,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		httpClient:   &http.Client{Timeout: 15 * time.Second},
+	}
+}
+
+// ----------------------------------------------------
+// ADMIN AUTH (client_credentials)
+// ----------------------------------------------------
+func (c *KeyAdminClient) Authenticate() error {
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", c.ClientID)
+	form.Set("client_secret", c.ClientSecret)
+
+	tokenURL := fmt.Sprintf(
+		"%s/realms/%s/protocol/openid-connect/token",
+		c.BaseURL,
+		c.Realm,
+	)
+
+	res, err := c.httpClient.PostForm(tokenURL, form)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	bodyBytes, _ := io.ReadAll(res.Body)
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("admin authentication failed [%d]: %s", res.StatusCode, string(bodyBytes))
+	}
+
+	var body struct {
+		AccessToken string `json:"access_token"`
+	}
+
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+		return err
+	}
+
+	c.Token = body.AccessToken
+	return nil
+}
+
+func (c *KeyAdminClient) EnsureRealmExists(realmName string) error {
 	res, err := c.Get(fmt.Sprintf("admin/realms/%s", realmName))
 	if err == nil && res.StatusCode == http.StatusOK {
 		res.Body.Close()
@@ -210,7 +275,7 @@ func (c *Client) EnsureRealmExists(realmName string) error {
 // client management
 //------------------------------------------
 
-func (c *Client) CreateClient(opts CreateClientParams) (string, error) {
+func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 
 	if opts.Protocol == "" {
 		opts.Protocol = "openid-connect"
@@ -275,7 +340,7 @@ func (c *Client) CreateClient(opts CreateClientParams) (string, error) {
 	return clientUUID, nil
 }
 
-func (c *Client) GetClientByClientID(clientID string) (*ClientInfo, error) {
+func (c *KeyAdminClient) GetClientByClientID(clientID string) (*ClientInfo, error) {
 	query := url.Values{}
 	query.Set("clientId", clientID)
 
@@ -302,7 +367,7 @@ func (c *Client) GetClientByClientID(clientID string) (*ClientInfo, error) {
 	return &clients[0], nil
 }
 
-func (c *Client) GetClientByID(id string) (*ClientInfo, error) {
+func (c *KeyAdminClient) GetClientByID(id string) (*ClientInfo, error) {
 	res, err := c.Get("clients/" + id)
 	if err != nil {
 		return nil, err
@@ -322,7 +387,7 @@ func (c *Client) GetClientByID(id string) (*ClientInfo, error) {
 	return &cli, nil
 }
 
-func (c *Client) ListClients() ([]ClientInfo, error) {
+func (c *KeyAdminClient) ListClients() ([]ClientInfo, error) {
 	res, err := c.Get("clients")
 	if err != nil {
 		return nil, err
@@ -342,7 +407,7 @@ func (c *Client) ListClients() ([]ClientInfo, error) {
 	return clients, nil
 }
 
-func (c *Client) ListClientsWithBaselineCheck() ([]ClientInfo, error) {
+func (c *KeyAdminClient) ListClientsWithBaselineCheck() ([]ClientInfo, error) {
 	ctx := context.Background()
 	clients, err := c.ListClients()
 	if err != nil {
@@ -363,7 +428,7 @@ func (c *Client) ListClientsWithBaselineCheck() ([]ClientInfo, error) {
 	return clients, nil
 }
 
-func (c *Client) UpdateClient(id string, payload *model.Client) error {
+func (c *KeyAdminClient) UpdateClient(id string, payload *model.Client) error {
 	res, err := c.Put("clients/"+id, payload)
 	if err != nil {
 		return err
@@ -382,7 +447,7 @@ func (c *Client) UpdateClient(id string, payload *model.Client) error {
 	return nil
 }
 
-func (c *Client) UpdateClientEnabled(
+func (c *KeyAdminClient) UpdateClientEnabled(
 	ctx context.Context,
 	clientId string,
 	enabled bool,
@@ -427,7 +492,7 @@ func (c *Client) UpdateClientEnabled(
 	return nil
 }
 
-func (c *Client) DeleteClient(id string) error {
+func (c *KeyAdminClient) DeleteClient(id string) error {
 	res, err := c.Delete("clients/" + id)
 	if err != nil {
 		return err
@@ -446,7 +511,7 @@ func (c *Client) DeleteClient(id string) error {
 // user management
 // -----------------------------------------
 
-func (c *Client) CreateUser(user *model.User) (string, error) {
+func (c *KeyAdminClient) CreateUser(user *model.User) (string, error) {
 	payload := map[string]any{
 		"username":      user.Username,
 		"email":         user.Email,
@@ -497,7 +562,7 @@ func (c *Client) CreateUser(user *model.User) (string, error) {
 	return kcID, nil
 }
 
-func (c *Client) FindUsers(ctx context.Context, q string, exact bool) ([]UserRep, error) {
+func (c *KeyAdminClient) FindUsers(ctx context.Context, q string, exact bool) ([]UserRep, error) {
 	u := fmt.Sprintf("realms/%s/users", c.Realm)
 
 	v := url.Values{}
@@ -524,7 +589,7 @@ func (c *Client) FindUsers(ctx context.Context, q string, exact bool) ([]UserRep
 	return out, json.NewDecoder(res.Body).Decode(&out)
 }
 
-func (c *Client) ListUsers() ([]UserInfo, error) {
+func (c *KeyAdminClient) ListUsers() ([]UserInfo, error) {
 	res, err := c.Get("users")
 	if err != nil {
 		return nil, err
@@ -544,7 +609,7 @@ func (c *Client) ListUsers() ([]UserInfo, error) {
 	return users, nil
 }
 
-func (c *Client) GetUser(userID string) (*UserInfo, error) {
+func (c *KeyAdminClient) GetUser(userID string) (*UserInfo, error) {
 	res, err := c.Get("users/" + userID)
 	if err != nil {
 		return nil, err
@@ -564,7 +629,7 @@ func (c *Client) GetUser(userID string) (*UserInfo, error) {
 	return &user, nil
 }
 
-func (c *Client) UpdateUser(user *model.User) error {
+func (c *KeyAdminClient) UpdateUser(user *model.User) error {
 	if user.ID == "" {
 		return fmt.Errorf("missing Keycloak user ID")
 	}
@@ -593,7 +658,7 @@ func (c *Client) UpdateUser(user *model.User) error {
 	return nil
 }
 
-func (c *Client) DeleteUser(userID string) error {
+func (c *KeyAdminClient) DeleteUser(userID string) error {
 	if userID == "" {
 		return fmt.Errorf("invalid user ID")
 	}
@@ -615,7 +680,7 @@ func (c *Client) DeleteUser(userID string) error {
 // Realm roles Management
 // -------------------------------------------------------------------
 
-func (c *Client) CreateRealmRole(ctx context.Context, roleName, description string) error {
+func (c *KeyAdminClient) CreateRealmRole(ctx context.Context, roleName, description string) error {
 	u := "roles"
 	payload := CreateRoleRequest{
 		Name:        roleName,
@@ -643,7 +708,7 @@ func (c *Client) CreateRealmRole(ctx context.Context, roleName, description stri
 	return nil
 }
 
-func (c *Client) ListRealmRoles(ctx context.Context) ([]RoleRep, error) {
+func (c *KeyAdminClient) ListRealmRoles(ctx context.Context) ([]RoleRep, error) {
 	u := "roles"
 
 	res, err := c.Get(u)
@@ -661,7 +726,7 @@ func (c *Client) ListRealmRoles(ctx context.Context) ([]RoleRep, error) {
 	return roles, json.NewDecoder(res.Body).Decode(&roles)
 }
 
-func (c *Client) GetRealmRoleByName(ctx context.Context, roleName string) (*RoleRep, error) {
+func (c *KeyAdminClient) GetRealmRoleByName(ctx context.Context, roleName string) (*RoleRep, error) {
 	res, err := c.Get(fmt.Sprintf("roles/%s", url.PathEscape(roleName)))
 	if err != nil {
 		return nil, err
@@ -680,7 +745,7 @@ func (c *Client) GetRealmRoleByName(ctx context.Context, roleName string) (*Role
 	return &out, nil
 }
 
-func (c *Client) AddRealmRoleToUser(ctx context.Context, userID string, role RoleRep) error {
+func (c *KeyAdminClient) AddRealmRoleToUser(ctx context.Context, userID string, role RoleRep) error {
 	payload := []RoleRep{role}
 	bs, _ := json.Marshal(payload)
 
@@ -701,7 +766,7 @@ func (c *Client) AddRealmRoleToUser(ctx context.Context, userID string, role Rol
 	return nil
 }
 
-func (c *Client) RemoveRealmRoleFromUser(
+func (c *KeyAdminClient) RemoveRealmRoleFromUser(
 	ctx context.Context,
 	userID string,
 	role RoleRep,
@@ -730,7 +795,7 @@ func (c *Client) RemoveRealmRoleFromUser(
 	return nil
 }
 
-func (c *Client) BootstrapRealmRoles(ctx context.Context) error {
+func (c *KeyAdminClient) BootstrapRealmRoles(ctx context.Context) error {
 	roles := []string{
 		"admin",
 		"user",
@@ -750,7 +815,7 @@ func (c *Client) BootstrapRealmRoles(ctx context.Context) error {
 // ROLES: Client roles
 // -------------------------------------------------------------------
 
-func (c *Client) CreateClientRole(
+func (c *KeyAdminClient) CreateClientRole(
 	ctx context.Context,
 	clientId string,
 	req *model.CreateClientRoleRequest,
@@ -792,7 +857,7 @@ func (c *Client) CreateClientRole(
 	return nil
 }
 
-func (c *Client) GetClientRoleByName(
+func (c *KeyAdminClient) GetClientRoleByName(
 	ctx context.Context,
 	clientID string,
 	clientUUID string,
@@ -835,7 +900,7 @@ func (c *Client) GetClientRoleByName(
 	return &role, nil
 }
 
-func (c *Client) GetUserClientRoles(
+func (c *KeyAdminClient) GetUserClientRoles(
 	ctx context.Context,
 	userID string,
 	clientId string,
@@ -875,7 +940,7 @@ func (c *Client) GetUserClientRoles(
 	return roles, nil
 }
 
-func (c *Client) AssignClientRolesToUser(
+func (c *KeyAdminClient) AssignClientRolesToUser(
 	ctx context.Context,
 	userID string,
 	clientID string,
@@ -936,7 +1001,7 @@ func (c *Client) AssignClientRolesToUser(
 	return nil
 }
 
-func (c *Client) RemoveClientRoleFromUser(
+func (c *KeyAdminClient) RemoveClientRoleFromUser(
 	ctx context.Context,
 	userID, clientID string,
 	role ClientRoleRep,
@@ -962,7 +1027,7 @@ func (c *Client) RemoveClientRoleFromUser(
 	return nil
 }
 
-func (c *Client) RemoveClientRolesFromUser(
+func (c *KeyAdminClient) RemoveClientRolesFromUser(
 	ctx context.Context,
 	userID string,
 	clientId string,
@@ -1027,7 +1092,7 @@ func (c *Client) RemoveClientRolesFromUser(
 	return nil
 }
 
-func (c *Client) ListClientRoles(
+func (c *KeyAdminClient) ListClientRoles(
 	ctx context.Context,
 	clientId string,
 ) ([]ClientRoleRep, error) {
@@ -1062,7 +1127,7 @@ func (c *Client) ListClientRoles(
 	return roles, nil
 }
 
-func (c *Client) DeleteClientRole(
+func (c *KeyAdminClient) DeleteClientRole(
 	ctx context.Context,
 	clientId string,
 	role string,
@@ -1097,7 +1162,7 @@ func (c *Client) DeleteClientRole(
 	return nil
 }
 
-func (c *Client) resolveClientUUID(
+func (c *KeyAdminClient) resolveClientUUID(
 	ctx context.Context,
 	clientId string,
 ) (string, error) {
@@ -1143,7 +1208,7 @@ func (c *Client) resolveClientUUID(
 }
 
 // support helper functions
-func (c *Client) SendUserOnboardingEmail(
+func (c *KeyAdminClient) SendUserOnboardingEmail(
 	ctx context.Context,
 	userID string,
 ) error {
@@ -1177,7 +1242,7 @@ func (c *Client) SendUserOnboardingEmail(
 // USERS: Reset password (ADMIN)
 // -------------------------------------------------------------------
 
-func (c *Client) ResetUserPassword(
+func (c *KeyAdminClient) ResetUserPassword(
 	ctx context.Context,
 	userID string,
 ) error {
@@ -1235,7 +1300,7 @@ func generateTemporaryPassword() string {
 	return utils.RandomString(16) + "!A1"
 }
 
-func (c *Client) attachDefaultClientScopes(
+func (c *KeyAdminClient) attachDefaultClientScopes(
 	ctx context.Context,
 	clientUUID string,
 ) error {
@@ -1271,7 +1336,7 @@ func (c *Client) attachDefaultClientScopes(
 	return nil
 }
 
-func (c *Client) ListClientScopes(ctx context.Context) ([]ClientScope, error) {
+func (c *KeyAdminClient) ListClientScopes(ctx context.Context) ([]ClientScope, error) {
 	res, err := c.Get("client-scopes")
 	if err != nil {
 		return nil, err
@@ -1294,7 +1359,7 @@ func (c *Client) ListClientScopes(ctx context.Context) ([]ClientScope, error) {
 	return scopes, nil
 }
 
-func (c *Client) EnsureClientScopes(
+func (c *KeyAdminClient) EnsureClientScopes(
 	ctx context.Context,
 	required []string,
 ) (map[string]string, error) {
@@ -1342,7 +1407,7 @@ func (c *Client) EnsureClientScopes(
 	return scopeByName, nil
 }
 
-func (c *Client) DetectMissingClientScopes(
+func (c *KeyAdminClient) DetectMissingClientScopes(
 	ctx context.Context,
 	clientUUID string,
 	required map[string]string,
@@ -1407,7 +1472,7 @@ func ApplyClientTemplate(
 	}
 }
 
-func (c *Client) CreateClientWithTemplate(
+func (c *KeyAdminClient) CreateClientWithTemplate(
 	ctx context.Context,
 	opts CreateClientParams,
 	template ClientTemplate,
@@ -1458,7 +1523,7 @@ func (c *Client) CreateClientWithTemplate(
 	return clientUUID, nil
 }
 
-func (c *Client) FixClientScopeDrift(
+func (c *KeyAdminClient) FixClientScopeDrift(
 	ctx context.Context,
 	clientUUID string,
 	scopeIDs map[string]string,
@@ -1494,7 +1559,7 @@ func (c *Client) FixClientScopeDrift(
 	return nil
 }
 
-func (c *Client) EnsureClientBaseline(
+func (c *KeyAdminClient) EnsureClientBaseline(
 	ctx context.Context,
 	clientUUID string,
 ) error {
@@ -1531,4 +1596,74 @@ func (c *Client) EnsureClientBaseline(
 	}
 
 	return nil
+}
+
+// ----------------------------------------------------
+// ADMIN API HELPERS
+// ----------------------------------------------------
+
+func (c *KeyAdminClient) doRequest(
+	method string,
+	path string,
+	body any,
+	rawBody io.Reader,
+) (*http.Response, error) {
+
+	adminURL := fmt.Sprintf(
+		"%s/admin/realms/%s/%s",
+		c.BaseURL,
+		c.Realm,
+		path,
+	)
+
+	var reqBody io.Reader
+
+	if rawBody != nil {
+		reqBody = rawBody
+	} else if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		reqBody = bytes.NewBuffer(jsonBody)
+	}
+
+	req, err := http.NewRequest(method, adminURL, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	return c.httpClient.Do(req)
+}
+
+func (c *KeyAdminClient) DeleteWithBody(
+	path string,
+	body io.Reader,
+) (*http.Response, error) {
+
+	return c.doRequest(
+		http.MethodDelete,
+		path,
+		nil,
+		body,
+	)
+}
+
+func (c *KeyAdminClient) Get(path string) (*http.Response, error) {
+	return c.doRequest(http.MethodGet, path, nil, nil)
+}
+
+func (c *KeyAdminClient) Post(path string, body any) (*http.Response, error) {
+	return c.doRequest(http.MethodPost, path, body, nil)
+}
+
+func (c *KeyAdminClient) Put(path string, body any) (*http.Response, error) {
+	return c.doRequest(http.MethodPut, path, body, nil)
+}
+
+func (c *KeyAdminClient) Delete(path string) (*http.Response, error) {
+	return c.doRequest(http.MethodDelete, path, nil, nil)
 }

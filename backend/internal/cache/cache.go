@@ -12,6 +12,12 @@ type RedisCache struct {
 	client *redis.Client
 }
 
+type Cache interface {
+	Get(ctx context.Context, key string, dest any) (bool, error)
+	Set(ctx context.Context, key string, value any, ttl time.Duration) error
+	Del(ctx context.Context, key string) error
+}
+
 func NewRedisCache(client *redis.Client) *RedisCache {
 	return &RedisCache{client: client}
 }

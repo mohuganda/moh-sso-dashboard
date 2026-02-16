@@ -81,15 +81,12 @@ func main() {
 // ------------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------------
-func newAdminKC() *keycloak.Client {
-	kc := keycloak.NewClient(
+func newAdminKC() *keycloak.KeyAdminClient {
+	kc := keycloak.NewAdminClient(
 		baseURL,
 		realm,
 		adminID,
 		adminSecret,
-		"", // web client id (unused)
-		"", // web client secret (unused)
-		nil,
 	)
 
 	if err := kc.Authenticate(); err != nil {

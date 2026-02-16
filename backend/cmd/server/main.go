@@ -35,6 +35,7 @@ import (
 )
 
 func main() {
+
 	// ---------------------------------------------------------------------
 	// Load configuration
 	// ---------------------------------------------------------------------
@@ -85,22 +86,30 @@ func main() {
 	rateLimiter := ratelimit.New(rdb)
 
 	// ---------------------------------------------------------------------
-	// Keycloak
+	// 🔐 Keycloak
 	// ---------------------------------------------------------------------
-	keycloakClient := kcClientPkg.NewClient(
+	// ADMIN client (used for users, clients, roles, import, etc.)
+	adminKC := kcClientPkg.NewAdminClient(
 		cfg.KeycloakBaseUrl,
 		cfg.KeycloakRealm,
 		cfg.KeycloakAdminClientID,
 		cfg.KeycloakAdminClientSecret,
+	)
+
+	if err := adminKC.Authenticate(); err != nil {
+		appLogger.Fatal("Failed to authenticate Keycloak admin service account: ", err)
+	}
+
+	// WEB client (used for login, callback, token exchange)
+	webKC := kcClientPkg.NewWebClient(
+		cfg.KeycloakBaseUrl,
+		cfg.KeycloakRealm,
 		cfg.KeycloakWebClientID,
 		cfg.KeycloakWebClientSecret,
 		cacheAdapter,
 	)
 
-	if err := keycloakClient.Authenticate(); err != nil {
-		appLogger.Fatal("Failed to authenticate Keycloak admin service account: ", err)
-	}
-	appLogger.Info("Successfully authenticated Keycloak admin service account")
+	appLogger.Info("Keycloak clients initialized successfully")
 
 	// ---------------------------------------------------------------------
 	// Infrastructure
@@ -110,19 +119,25 @@ func main() {
 	// ---------------------------------------------------------------------
 	// Repositories
 	// ---------------------------------------------------------------------
-	authRepository := authRepo.NewAuthRepository(keycloakClient, cfg)
+
+	// Auth repo uses WEB client
+	authRepository := authRepo.NewAuthRepository(webKC, cfg)
+
+	// Client/User repos use ADMIN client
 	clientRepository := clientRepo.NewClientRepository(
-		keycloakClient,
+		adminKC,
 		cfg,
 		store,
 		*appLogger,
 	)
+
 	userRepository := userRepo.NewUserRepository(
-		keycloakClient,
+		adminKC,
 		cfg,
 		store,
 		*appLogger,
 	)
+
 	metricsRepository := metricsRepo.NewMetricsRepository(cfg, store, *appLogger)
 	notificationsRepository := notifications.NewNotificationsRepository(store, *appLogger)
 
@@ -132,7 +147,9 @@ func main() {
 	authService := service.NewAuthService(authRepository, rdb)
 	metricsService := service.NewMetricsService(metricsRepository)
 	auditService := service.NewAuditService(store, cacheAdapter)
-	importService := service.NewImportService(store, keycloakClient)
+
+	// Import service requires ADMIN client
+	importService := service.NewImportService(store, adminKC)
 
 	publisher := cache.NewNotificationPublisher(rdb)
 	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
@@ -152,14 +169,14 @@ func main() {
 	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
 
 	// ---------------------------------------------------------------------
-	// ✅ Health Handler (NEW)
+	// ✅ Health Handler
 	// ---------------------------------------------------------------------
 	healthHandler := handler.NewHealthHandler(
 		func(ctx context.Context) error {
 			return conn.PingContext(ctx)
 		},
 		func(ctx context.Context) error {
-			return keycloakClient.Authenticate()
+			return adminKC.Authenticate() // health checks admin connectivity
 		},
 		rdb,
 	)
@@ -168,7 +185,7 @@ func main() {
 	// Router
 	// ---------------------------------------------------------------------
 	r := router.SetupRouter(
-		keycloakClient,
+		webKC, // router only needs web client for token validation
 		rateLimiter,
 		importHandler,
 		authHandler,
@@ -180,7 +197,7 @@ func main() {
 		notificationsHandler,
 	)
 
-	// ✅ Register health routes (outside auth)
+	// Health routes (outside auth)
 	r.GET("/health/live", healthHandler.HandleLive)
 	r.GET("/health/ready", healthHandler.HandleReady)
 	r.GET("/health", healthHandler.HandleHealth)
@@ -199,7 +216,7 @@ func main() {
 	}
 
 	// ---------------------------------------------------------------------
-	// ✅ Graceful Shutdown (Production Safe)
+	// Graceful Shutdown
 	// ---------------------------------------------------------------------
 	go func() {
 		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {

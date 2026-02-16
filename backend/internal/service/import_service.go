@@ -20,10 +20,10 @@ import (
 
 type ImportService struct {
 	store db.Store
-	kc    *keycloak.Client
+	kc    *keycloak.KeyAdminClient
 }
 
-func NewImportService(store db.Store, kc *keycloak.Client) *ImportService {
+func NewImportService(store db.Store, kc *keycloak.KeyAdminClient) *ImportService {
 	return &ImportService{
 		store: store,
 		kc:    kc,
