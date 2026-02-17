@@ -195,8 +195,8 @@ keycloak:
     KC_PROXY: edge
     KC_HEALTH_ENABLED: "true"
     KC_METRICS_ENABLED: "true"
-    KC_HOSTNAME_STRICT: true
-    KC_HOSTNAME_STRICT_HTTPS: true
+    KC_HOSTNAME_STRICT: "true"
+    KC_HOSTNAME_STRICT_HTTPS: "true"
     KC_HOSTNAME: localhost
     KC_LOG_LEVEL: INFO
 

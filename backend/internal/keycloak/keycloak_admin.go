@@ -210,8 +210,8 @@ func NewAdminClient(
 func (c *KeyAdminClient) Authenticate() error {
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", c.ClientID)
-	form.Set("client_secret", c.ClientSecret)
+	form.Set("client_id", strings.TrimSpace(c.ClientID))
+	form.Set("client_secret", strings.TrimSpace(c.ClientSecret))
 
 	tokenURL := fmt.Sprintf(
 		"%s/realms/%s/protocol/openid-connect/token",

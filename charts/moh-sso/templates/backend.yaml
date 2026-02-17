@@ -21,53 +21,77 @@ spec:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
 
-      # 🔥 Init container — wait for Postgres
       initContainers:
-      - name: wait-for-db
-        image: postgres:15-alpine
-        command:
-          - sh
-          - -c
-          - >
-            echo "Waiting for database...";
-            until pg_isready -h {{ printf "%s-postgres-app" .Release.Name }} -p 5432;
-            do
-              echo "Database not ready yet...";
-              sleep 2;
-            done;
-            echo "Database is ready!"
+        # 1. Wait for Postgres first
+        - name: wait-for-db
+          image: postgres:15-alpine
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for database..."
+              until pg_isready -h {{ .Release.Name }}-postgres-app -p 5432; do
+                echo "Database not ready yet..."
+                sleep 2
+              done
+              echo "Database is ready!"
 
+        # 2. Wait for Keycloak (checking the Management Port 9000)
+        - name: wait-for-keycloak
+          image: postgres:15-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Keycloak on application port 8080..."
+              
+              # 1. Check if the main application port is open
+              until nc -z -v -w5 {{ .Release.Name }}-keycloak 8080; do
+                echo "Keycloak port 8080 not reachable yet - sleeping 5s"
+                sleep 5
+              done
+              
+              echo "Port 8080 is open! Verifying if Keycloak is responding..."
+              
+              # 2. Ping the base health path on 8080. 
+              # Even if management is on 9000, 8080 will return a response once the engine is up.
+              until printf "GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" | nc -w 2 {{ .Release.Name }}-keycloak 8080 | grep -q "HTTP/1.1"; do
+                echo "Keycloak port 8080 is open, but not serving traffic yet - sleeping 5s"
+                sleep 5
+              done
+              
+              echo "Keycloak is RESPONDING! Handing off to backend..."
 
       containers:
         - name: api
           image: {{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
-
           ports:
             - containerPort: {{ .Values.backend.service.port }}
-
+          
+          # Environment and Config
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-backend-config
+            - secretRef:
+                name: {{ .Release.Name }}-backend-secret
+          
           volumeMounts:
             - name: app-config
               mountPath: /app/app.env
               subPath: app.env
               readOnly: true
 
-          envFrom:
-            - configMapRef:
-                name: {{ .Release.Name }}-backend-config
-            - secretRef:
-                name: {{ .Release.Name }}-backend-secret
-
           readinessProbe:
             httpGet:
-              path: {{ .Values.backend.probes.readinessPath }}
+              path: {{ .Values.backend.probes.readinessPath | default "/health" }}
               port: {{ .Values.backend.service.port }}
             initialDelaySeconds: 8
             periodSeconds: 10
 
           livenessProbe:
             httpGet:
-              path: {{ .Values.backend.probes.livenessPath }}
+              path: {{ .Values.backend.probes.livenessPath | default "/health" }}
               port: {{ .Values.backend.service.port }}
             initialDelaySeconds: 15
             periodSeconds: 15
@@ -82,7 +106,6 @@ spec:
             items:
               - key: app.env
                 path: app.env
-
 ---
 apiVersion: v1
 kind: Service

@@ -19,6 +19,7 @@ data:
   KC_HOSTNAME: {{ .Values.keycloak.config.KC_HOSTNAME | quote }}
   KC_HOSTNAME_STRICT: {{ .Values.keycloak.config.KC_HOSTNAME_STRICT | quote }}
   KC_HOSTNAME_STRICT_HTTPS: {{ .Values.keycloak.config.KC_HOSTNAME_STRICT_HTTPS | quote }}
+  KC_HEALTH_ENABLED: {{.Values.keycloak.config.KC_HEALTH_ENABLED | quote}}
 
   KC_LOG_LEVEL: {{ .Values.keycloak.config.KC_LOG_LEVEL | quote }}
 
