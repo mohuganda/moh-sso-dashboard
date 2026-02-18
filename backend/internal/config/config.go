@@ -114,6 +114,7 @@ func LoadConfig(path string) (*Config, error) {
 		"DB_PORT",
 		"DB_NAME",
 		"KEYCLOAK_WEB_CLIENT_SECRET",
+		"KEYCLOAK_ADMIN_CLIENT_SECRET",
 	}
 
 	for _, key := range requiredKeys {
