@@ -219,6 +219,7 @@ func (c *KeyAdminClient) Authenticate() error {
 	log.Println("BaseURL:", c.BaseURL)
 	log.Println("Realm:", c.Realm)
 	log.Println("ClientID:", clientID)
+	log.Println("ClientSecret:", clientSecret)
 
 	if len(clientSecret) > 4 {
 		log.Println("ClientSecret:", clientSecret[:4]+"****")
