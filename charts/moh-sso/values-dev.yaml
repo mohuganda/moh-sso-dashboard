@@ -30,8 +30,8 @@ backend:
   baseUrl: "http://localhost:9000"
 
   secrets:
-    KEYCLOAK_ADMIN_CLIENT_SECRET: pL9xWf3QvT7mZc2Rs8Kd1Hy6Bn4Gj5Ua0Xq3Lp8Vt9Zm2Wc7Rf1Sk6Nd4Hy8Qa2drQUpAnNoiB9zH97korUiNCDTCHRAJFz
-    KEYCLOAK_WEB_CLIENT_SECRET: sVxwfsy1iFtxUjzORWaJjsUpNynBdTQIpL9xWf3QvT7mZc2Rs8Kd1Hy6Bn4Gj5Ua0Xq3Lp8Vt9Zm2Wc7Rf1Sk6Nd4Hy8Qa2
+    KEYCLOAK_ADMIN_CLIENT_SECRET: dashboard-admin-secret
+    KEYCLOAK_WEB_CLIENT_SECRET: dashboard-web-secret
 
 # --------------------------------------------------
 # Frontend

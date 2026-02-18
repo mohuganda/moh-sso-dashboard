@@ -212,24 +212,6 @@ func (c *KeyAdminClient) Authenticate() error {
 	clientID := strings.TrimSpace(c.ClientID)
 	clientSecret := strings.TrimSpace(c.ClientSecret)
 
-	// -----------------------------
-	// Debug logs (SAFE)
-	// -----------------------------
-	log.Println("🔐 Authenticating Keycloak Admin Client")
-	log.Println("BaseURL:", c.BaseURL)
-	log.Println("Realm:", c.Realm)
-	log.Println("ClientID:", clientID)
-	log.Println("ClientSecret:", clientSecret)
-
-	if len(clientSecret) > 4 {
-		log.Println("ClientSecret:", clientSecret[:4]+"****")
-	} else {
-		log.Println("ClientSecret: (too short)")
-	}
-
-	// -----------------------------
-	// Validate config early
-	// -----------------------------
 	if clientID == "" || clientSecret == "" {
 		return fmt.Errorf("client_id or client_secret is empty")
 	}
@@ -245,8 +227,6 @@ func (c *KeyAdminClient) Authenticate() error {
 		c.Realm,
 	)
 
-	log.Println("TokenURL:", tokenURL)
-
 	res, err := c.httpClient.PostForm(tokenURL, form)
 	if err != nil {
 		return fmt.Errorf("failed to call token endpoint: %w", err)
@@ -255,10 +235,7 @@ func (c *KeyAdminClient) Authenticate() error {
 
 	bodyBytes, _ := io.ReadAll(res.Body)
 
-	log.Println("StatusCode:", res.StatusCode)
-
 	if res.StatusCode != http.StatusOK {
-		log.Println("ResponseBody:", string(bodyBytes))
 		return fmt.Errorf("admin authentication failed [%d]: %s",
 			res.StatusCode,
 			string(bodyBytes),
