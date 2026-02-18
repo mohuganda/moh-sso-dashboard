@@ -184,6 +184,7 @@ keycloak:
   baseUrl: ""
   realm: ""
 
+  publicBaseUrl: ""
   external:
     enabled: false
     baseUrl: "" # https://sso.myorg.com
@@ -192,12 +193,11 @@ keycloak:
   config:
     KC_DB: postgres
     KC_HTTP_ENABLED: "true"
-    KC_PROXY: edge
+    KC_PROXY: ""
     KC_HEALTH_ENABLED: "true"
     KC_METRICS_ENABLED: "true"
-    KC_HOSTNAME_STRICT: "true"
-    KC_HOSTNAME_STRICT_HTTPS: "true"
-    KC_HOSTNAME: localhost
+    KC_HOSTNAME_STRICT: "false"
+    KC_HOSTNAME_STRICT_HTTPS: "false"
     KC_LOG_LEVEL: INFO
 
 # --------------------------------------------------

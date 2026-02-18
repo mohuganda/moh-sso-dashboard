@@ -136,19 +136,23 @@ http://{{ .Release.Name }}-backend:{{ .Values.backend.service.port }}
 ========================================================= */}}
 
 {{- define "moh-sso.keycloakPublicURL" -}}
+{{- include "moh-sso.keycloak.validate" . -}}
 
-{{- if and .Values.keycloak.enabled (not .Values.keycloak.external.enabled) -}}
-http://localhost:8081
+{{- if .Values.keycloak.external.enabled -}}
+{{- .Values.keycloak.external.baseUrl -}}
 
-{{- else if and (not .Values.keycloak.enabled) .Values.keycloak.external.enabled -}}
-{{- printf "https://%s" .Values.keycloakIngress.host -}}
+{{- else if .Values.keycloakIngress.enabled -}}
+https://{{ .Values.keycloakIngress.host }}
+
+{{- else if .Values.keycloak.publicBaseUrl -}}
+{{- .Values.keycloak.publicBaseUrl -}}
 
 {{- else -}}
-{{- fail "Invalid Keycloak configuration. Exactly one of keycloak.enabled or keycloak.external.enabled must be true." -}}
+{{- printf "http://%s-keycloak:%d" .Release.Name (.Values.keycloak.service.port | int) -}}
 
 {{- end -}}
-
 {{- end -}}
+
 
 
 #  login redirect url

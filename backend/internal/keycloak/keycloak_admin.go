@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -208,10 +209,34 @@ func NewAdminClient(
 // ADMIN AUTH (client_credentials)
 // ----------------------------------------------------
 func (c *KeyAdminClient) Authenticate() error {
+	clientID := strings.TrimSpace(c.ClientID)
+	clientSecret := strings.TrimSpace(c.ClientSecret)
+
+	// -----------------------------
+	// Debug logs (SAFE)
+	// -----------------------------
+	log.Println("🔐 Authenticating Keycloak Admin Client")
+	log.Println("BaseURL:", c.BaseURL)
+	log.Println("Realm:", c.Realm)
+	log.Println("ClientID:", clientID)
+
+	if len(clientSecret) > 4 {
+		log.Println("ClientSecret:", clientSecret[:4]+"****")
+	} else {
+		log.Println("ClientSecret: (too short)")
+	}
+
+	// -----------------------------
+	// Validate config early
+	// -----------------------------
+	if clientID == "" || clientSecret == "" {
+		return fmt.Errorf("client_id or client_secret is empty")
+	}
+
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", strings.TrimSpace(c.ClientID))
-	form.Set("client_secret", strings.TrimSpace(c.ClientSecret))
+	form.Set("client_id", clientID)
+	form.Set("client_secret", clientSecret)
 
 	tokenURL := fmt.Sprintf(
 		"%s/realms/%s/protocol/openid-connect/token",
@@ -219,16 +244,24 @@ func (c *KeyAdminClient) Authenticate() error {
 		c.Realm,
 	)
 
+	log.Println("TokenURL:", tokenURL)
+
 	res, err := c.httpClient.PostForm(tokenURL, form)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to call token endpoint: %w", err)
 	}
 	defer res.Body.Close()
 
 	bodyBytes, _ := io.ReadAll(res.Body)
 
+	log.Println("StatusCode:", res.StatusCode)
+
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("admin authentication failed [%d]: %s", res.StatusCode, string(bodyBytes))
+		log.Println("ResponseBody:", string(bodyBytes))
+		return fmt.Errorf("admin authentication failed [%d]: %s",
+			res.StatusCode,
+			string(bodyBytes),
+		)
 	}
 
 	var body struct {
@@ -236,8 +269,14 @@ func (c *KeyAdminClient) Authenticate() error {
 	}
 
 	if err := json.Unmarshal(bodyBytes, &body); err != nil {
-		return err
+		return fmt.Errorf("failed to parse token response: %w", err)
 	}
+
+	if body.AccessToken == "" {
+		return fmt.Errorf("access token empty in response")
+	}
+
+	log.Println("✅ Admin client authenticated successfully")
 
 	c.Token = body.AccessToken
 	return nil

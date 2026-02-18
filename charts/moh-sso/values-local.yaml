@@ -29,9 +29,8 @@ backend:
     ALLOWED_ORIGINS: "http://localhost:3000"
 
   secrets:
-    KEYCLOAK_ADMIN_CLIENT_SECRET: dashboard-admin-secret
-    KEYCLOAK_WEB_CLIENT_SECRET: dashboard-web-secret
-    TOKEN_SYMMETRIC_KEY: local-dev-super-secret-key-123456789
+    KEYCLOAK_ADMIN_CLIENT_SECRET: ""
+    KEYCLOAK_WEB_CLIENT_SECRET: ""
 
   resources:
     requests:

@@ -200,9 +200,19 @@ dev-down:
 	@echo "🧯 Removing DEV release..."
 	helm uninstall $(HELM_RELEASE) -n $(DEV_NAMESPACE) || true
 
+.PHONY: dev-restart
+dev-restart:
+	@echo "🔄 Restarting backend & frontend..."
+	kubectl rollout restart deployment $(HELM_RELEASE)-backend -n $(DEV_NAMESPACE)
+	kubectl rollout restart deployment $(HELM_RELEASE)-frontend -n $(DEV_NAMESPACE)
+
 .PHONY: dev-logs
 dev-logs:
 	kubectl get pods -n $(DEV_NAMESPACE)
+
+.PHONY: dev-logs-watch
+dev-logs-watch:
+	kubectl get pods -n $(DEV_NAMESPACE) -w
 
 .PHONY: dev-backend-logs
 dev-backend-logs:
@@ -230,6 +240,13 @@ prod-up:
 prod-down:
 	@echo "🧯 Removing PROD release..."
 	helm uninstall $(HELM_RELEASE) -n $(PROD_NAMESPACE) || true
+
+
+.PHONY: prod-restart
+prod-restart:
+	@echo "🔄 Restarting backend & frontend..."
+	kubectl rollout restart deployment $(HELM_RELEASE)-backend -n $(PROD_NAMESPACE)
+	kubectl rollout restart deployment $(HELM_RELEASE)-frontend -n $(PROD_NAMESPACE)
 
 .PHONY: prod-logs
 prod-logs:

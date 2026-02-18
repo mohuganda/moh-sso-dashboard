@@ -281,6 +281,11 @@
         "email",
         "roles"
       ],
+      "attributes": {
+        "access.token.lifespan": "1800",
+        "ui.icon": "reporting",
+        "ui.home": "/dashboard"
+      },
       "protocolMappers": [
         {
           "name": "audience-mapper",
@@ -417,7 +422,7 @@
           "integrated-outbreak-system_access",
           "viewer"
         ],
-        "report-browser" : [
+        "report-browser": [
           "report-browser_access"
         ]
       }

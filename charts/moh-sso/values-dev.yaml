@@ -30,8 +30,8 @@ backend:
   baseUrl: "http://localhost:9000"
 
   secrets:
-    KEYCLOAK_ADMIN_CLIENT_SECRET: "dashboard-admin-secret"
-    KEYCLOAK_WEB_CLIENT_SECRET: "dashboard-web-secret"
+    KEYCLOAK_ADMIN_CLIENT_SECRET: dashboard-admin-secret
+    KEYCLOAK_WEB_CLIENT_SECRET: dashboard-web-secret
 
 # --------------------------------------------------
 # Frontend
@@ -63,12 +63,12 @@ keycloak:
   admin:
     password: admin
 
+  publicBaseUrl: "http://localhost:8081"
   external:
     enabled: false
 
   config:
     KC_HTTP_ENABLED: "true"
-    KC_PROXY: edge
     KC_HEALTH_ENABLED: "true"
     KC_METRICS_ENABLED: "true"
 
