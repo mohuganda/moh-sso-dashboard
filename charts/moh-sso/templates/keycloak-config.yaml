@@ -10,17 +10,33 @@ metadata:
   labels:
     {{- include "moh-sso.labels" . | nindent 4 }}
 data:
+
+  # -----------------------------
+  # Database
+  # -----------------------------
   KC_DB: {{ .Values.keycloak.config.KC_DB | quote }}
   KC_DB_URL: {{ printf "jdbc:postgresql://%s-postgres-keycloak:5432/%s" .Release.Name .Values.postgresKeycloak.auth.database | quote }}
 
+  # -----------------------------
+  # HTTP / Proxy
+  # -----------------------------
   KC_HTTP_ENABLED: {{ .Values.keycloak.config.KC_HTTP_ENABLED | quote }}
   KC_PROXY: {{ .Values.keycloak.config.KC_PROXY | quote }}
 
+  # -----------------------------
+  # Hostname (🔥 Critical for Issuer)
+  # -----------------------------
   KC_HOSTNAME: {{ .Values.keycloak.config.KC_HOSTNAME | quote }}
+  KC_HOSTNAME_URL: {{ printf "https://%s" .Values.keycloak.config.KC_HOSTNAME | quote }}
+  KC_HOSTNAME_PORT: "443"
+
   KC_HOSTNAME_STRICT: {{ .Values.keycloak.config.KC_HOSTNAME_STRICT | quote }}
   KC_HOSTNAME_STRICT_HTTPS: {{ .Values.keycloak.config.KC_HOSTNAME_STRICT_HTTPS | quote }}
-  KC_HEALTH_ENABLED: {{.Values.keycloak.config.KC_HEALTH_ENABLED | quote}}
 
+  # -----------------------------
+  # Observability
+  # -----------------------------
+  KC_HEALTH_ENABLED: {{ .Values.keycloak.config.KC_HEALTH_ENABLED | quote }}
   KC_LOG_LEVEL: {{ .Values.keycloak.config.KC_LOG_LEVEL | quote }}
 
 ---
@@ -56,7 +72,7 @@ stringData:
 {{- end }}
 
 # =====================================================
-# DEV ONLY — Realm Import ConfigMap
+# DEV ONLY — Realm Import
 # =====================================================
 {{- if and .Values.keycloak.enabled (eq .Values.global.environment "development") }}
 ---

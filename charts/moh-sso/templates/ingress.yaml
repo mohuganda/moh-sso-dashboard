@@ -23,13 +23,31 @@ spec:
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-          - path: /auth
+
+          # ---------------------------
+          # Keycloak routes
+          # ---------------------------
+          - path: /realms
             pathType: Prefix
             backend:
               service:
                 name: {{ .Release.Name }}-keycloak
                 port:
                   number: {{ .Values.keycloak.service.port }}
+
+          - path: /resources
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-keycloak
+                port:
+                  number: {{ .Values.keycloak.service.port }}
+
+        
+
+          # ---------------------------
+          # Backend API
+          # ---------------------------
           - path: /api
             pathType: Prefix
             backend:
@@ -37,6 +55,10 @@ spec:
                 name: {{ .Release.Name }}-backend
                 port:
                   number: {{ .Values.backend.service.port }}
+
+          # ---------------------------
+          # Frontend (catch-all LAST)
+          # ---------------------------
           - path: /
             pathType: Prefix
             backend:

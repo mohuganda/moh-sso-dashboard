@@ -17,28 +17,39 @@ import (
 	"github.com/moh-sso-dashboard/internal/api/handler"
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
-	store "github.com/moh-sso-dashboard/internal/db/sqlc"
+	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
 	kcClientPkg "github.com/moh-sso-dashboard/internal/keycloak"
 	logger "github.com/moh-sso-dashboard/internal/log"
-	db "github.com/moh-sso-dashboard/internal/migrate"
+	migrate "github.com/moh-sso-dashboard/internal/migrate"
+	"github.com/moh-sso-dashboard/internal/worker"
 
 	authRepo "github.com/moh-sso-dashboard/internal/repository/auth"
 	clientRepo "github.com/moh-sso-dashboard/internal/repository/client"
+	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
 	metricsRepo "github.com/moh-sso-dashboard/internal/repository/metrics"
-	"github.com/moh-sso-dashboard/internal/repository/notifications"
+	notificationsRepo "github.com/moh-sso-dashboard/internal/repository/notifications"
+	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
 	userRepo "github.com/moh-sso-dashboard/internal/repository/user"
 
 	"github.com/moh-sso-dashboard/internal/ratelimit"
 	"github.com/moh-sso-dashboard/internal/service"
+
+	importSvc "github.com/moh-sso-dashboard/internal/service/import"
 
 	"github.com/rs/zerolog"
 )
 
 func main() {
 
-	// ---------------------------------------------------------------------
-	// Load configuration
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
+	// Root Context (shared by server + worker)
+	// --------------------------------------------------
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// --------------------------------------------------
+	// Load Configuration
+	// --------------------------------------------------
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		log.Fatalf("cannot load config: %v", err)
@@ -46,29 +57,35 @@ func main() {
 
 	appLogger := logger.NewLogger()
 	appLogger.SetLevel(zerolog.InfoLevel)
-	appLogger.Info("Starting server in environment:", cfg.Environment)
+	appLogger.Info("Starting server in environment: " + cfg.Environment)
 
-	// ---------------------------------------------------------------------
-	// Database
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
+	// Database (pq + database/sql)
+	// --------------------------------------------------
 	conn, err := sql.Open(cfg.DbDriver, cfg.DbSource())
 	if err != nil {
-		appLogger.Fatal("Cannot open database connection:", err)
+		appLogger.Fatal("Cannot open database connection: ", err)
 	}
 	defer conn.Close()
 
-	if err := conn.Ping(); err != nil {
+	// Connection pool tuning (important in production)
+	conn.SetMaxOpenConns(25)
+	conn.SetMaxIdleConns(10)
+	conn.SetConnMaxLifetime(30 * time.Minute)
+
+	if err := conn.PingContext(ctx); err != nil {
 		appLogger.Fatal("Cannot connect to database: ", err)
 	}
 	appLogger.Info("Successfully connected to database")
 
-	if err := db.MigrateDB(conn, "file://internal/db/migrations"); err != nil {
-		appLogger.Fatal("Cannot migrate db:", err)
+	// Run migrations
+	if err := migrate.MigrateDB(conn, "file://internal/db/migrations"); err != nil {
+		appLogger.Fatal("Cannot migrate db: ", err)
 	}
 
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
 	// Redis
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
 	rdb := cache.NewRedisClient(cache.RedisConfig{
 		Host:         cfg.RedisHost,
 		Port:         cfg.RedisPort,
@@ -79,16 +96,15 @@ func main() {
 		WriteTimeout: 3 * time.Second,
 	})
 
-	cache.MustPing(context.Background(), rdb)
+	cache.MustPing(ctx, rdb)
 	appLogger.Info("Successfully connected to Redis")
 
 	cacheAdapter := cache.NewRedisCache(rdb)
 	rateLimiter := ratelimit.New(rdb)
 
-	// ---------------------------------------------------------------------
-	// 🔐 Keycloak
-	// ---------------------------------------------------------------------
-	// ADMIN client (used for users, clients, roles, import, etc.)
+	// --------------------------------------------------
+	// Keycloak
+	// --------------------------------------------------
 	adminKC := kcClientPkg.NewAdminClient(
 		cfg.KeycloakBaseUrl,
 		cfg.KeycloakRealm,
@@ -100,7 +116,6 @@ func main() {
 		appLogger.Fatal("Failed to authenticate Keycloak admin service account: ", err)
 	}
 
-	// WEB client (used for login, callback, token exchange)
 	webKC := kcClientPkg.NewWebClient(
 		cfg.KeycloakBaseUrl,
 		cfg.KeycloakRealm,
@@ -111,83 +126,83 @@ func main() {
 
 	appLogger.Info("Keycloak clients initialized successfully")
 
-	// ---------------------------------------------------------------------
-	// Infrastructure
-	// ---------------------------------------------------------------------
-	store := store.NewStore(conn)
+	// --------------------------------------------------
+	// Infrastructure Store
+	// --------------------------------------------------
+	store := storepkg.NewStore(conn)
 
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
 	// Repositories
-	// ---------------------------------------------------------------------
-
-	// Auth repo uses WEB client
+	// --------------------------------------------------
 	authRepository := authRepo.NewAuthRepository(webKC, cfg)
-
-	// Client/User repos use ADMIN client
-	clientRepository := clientRepo.NewClientRepository(
-		adminKC,
-		cfg,
-		store,
-		*appLogger,
-	)
-
-	userRepository := userRepo.NewUserRepository(
-		adminKC,
-		cfg,
-		store,
-		*appLogger,
-	)
-
+	clientRepository := clientRepo.NewClientRepository(adminKC, cfg, store, *appLogger)
+	userRepository := userRepo.NewUserRepository(adminKC, cfg, store, *appLogger)
 	metricsRepository := metricsRepo.NewMetricsRepository(cfg, store, *appLogger)
-	notificationsRepository := notifications.NewNotificationsRepository(store, *appLogger)
+	notificationsRepository := notificationsRepo.NewNotificationsRepository(store, *appLogger)
+	documentRepository := documentRepo.NewDocumentRepository(cfg, store, *appLogger)
+	processRepository := processRepo.NewProcessRepository(cfg, store, *appLogger)
 
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
 	// Services
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
 	authService := service.NewAuthService(authRepository, rdb)
 	metricsService := service.NewMetricsService(metricsRepository)
 	auditService := service.NewAuditService(store, cacheAdapter)
 
-	// Import service requires ADMIN client
-	importService := service.NewImportService(store, adminKC)
-
 	publisher := cache.NewNotificationPublisher(rdb)
 	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
 
+	documentService := service.NewDocumentService(documentRepository, notificationsService)
 	clientService := service.NewClientService(clientRepository, notificationsService)
 	userService := service.NewUserService(userRepository, notificationsService)
 
-	// ---------------------------------------------------------------------
+	importService := importSvc.NewService(
+		documentRepository,
+		processRepository,
+	)
+
+	// --------------------------------------------------
+	// Background Worker (NON-BLOCKING)
+	// --------------------------------------------------
+	w := worker.NewWorker(
+		processRepository,
+		importService,
+		3*time.Second,
+	)
+
+	go func() {
+		appLogger.Info("Background worker started")
+		w.Start(ctx)
+	}()
+
+	// --------------------------------------------------
 	// Handlers
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
 	authHandler := handler.NewAuthHandler(authService, auditService, notificationsService, cfg)
 	clientHandler := handler.NewClientHandler(clientService, auditService, cacheAdapter)
 	userHandler := handler.NewUserHandler(userService, auditService, cacheAdapter)
 	metricsHandler := handler.NewMetricsHandler(metricsService)
-	importHandler := handler.NewImportHandler(importService, cfg)
 	auditHandler := handler.NewAuditHandler(store, cacheAdapter)
 	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
+	documentHandler := handler.NewDocumentHandler(documentService, auditService)
 
-	// ---------------------------------------------------------------------
-	// ✅ Health Handler
-	// ---------------------------------------------------------------------
+	// Health handler
 	healthHandler := handler.NewHealthHandler(
 		func(ctx context.Context) error {
 			return conn.PingContext(ctx)
 		},
 		func(ctx context.Context) error {
-			return adminKC.Authenticate() // health checks admin connectivity
+			return adminKC.Authenticate()
 		},
 		rdb,
 	)
 
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
 	// Router
-	// ---------------------------------------------------------------------
+	// --------------------------------------------------
 	r := router.SetupRouter(
-		webKC, // router only needs web client for token validation
+		webKC,
 		rateLimiter,
-		importHandler,
 		authHandler,
 		clientHandler,
 		userHandler,
@@ -195,9 +210,9 @@ func main() {
 		auditService,
 		auditHandler,
 		notificationsHandler,
+		documentHandler,
 	)
 
-	// Health routes (outside auth)
 	r.GET("/health/live", healthHandler.HandleLive)
 	r.GET("/health/ready", healthHandler.HandleReady)
 	r.GET("/health", healthHandler.HandleHealth)
@@ -209,33 +224,36 @@ func main() {
 		appLogger.Fatal("Failed to bind IPv4 listener: ", err)
 	}
 
-	appLogger.Info("Gin server listening on IPv4 ", addr)
-
 	server := &http.Server{
 		Handler: r,
 	}
 
-	// ---------------------------------------------------------------------
-	// Graceful Shutdown
-	// ---------------------------------------------------------------------
+	// Start HTTP server
 	go func() {
+		appLogger.Info("Server listening on ", addr)
 		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
-			appLogger.Fatal("Gin server failed: ", err)
+			appLogger.Fatal("Server failed: ", err)
 		}
 	}()
 
+	// --------------------------------------------------
+	// Graceful Shutdown
+	// --------------------------------------------------
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	appLogger.Info("Shutting down server...")
+	appLogger.Info("Shutdown signal received")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Stop worker
+	cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
-		appLogger.Fatal("Server forced to shutdown:", err)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		appLogger.Fatal("Server forced to shutdown: ", err)
 	}
 
-	appLogger.Info("Server exiting")
+	appLogger.Info("Server exited properly")
 }

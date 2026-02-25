@@ -16,7 +16,6 @@ import (
 func SetupRouter(
 	keycloakClient *keycloak.Client,
 	limiter *ratelimit.Limiter,
-	importHandler *handler.ImportHandler,
 	authHandler *handler.AuthHandler,
 	clientHandler *handler.ClientHandler,
 	userHandler *handler.UserHandler,
@@ -24,6 +23,7 @@ func SetupRouter(
 	auditService *service.AuditService,
 	auditHandler *handler.AuditHandler,
 	notificationsHandler *handler.NotificationsHandler,
+	documentHandler *handler.DocumentHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -145,6 +145,17 @@ func SetupRouter(
 			users.PATCH("/:id/toggle", userHandler.SetUserEnabled)
 		}
 
+		// -----------------------
+		// Document Management
+		// -----------------------
+		documents := protected.Group("/documents")
+		{
+			documents.GET("")
+			documents.GET("/:id", documentHandler.GetDocument)
+			documents.POST("", documentHandler.CreateDocument)
+			documents.DELETE("/:id", documentHandler.DeleteDocument)
+		}
+
 		// --------------------------------------------------
 		// Admin (ADMIN ONLY + STRICTER LIMITS)
 		// --------------------------------------------------
@@ -171,13 +182,6 @@ func SetupRouter(
 			admin.GET("/users/:id/client-roles", userHandler.GetUserClientRoles)
 			admin.PUT("/users/:id/client-roles", userHandler.UpdateUserClientRoles)
 			admin.POST("/users/:id/reset-password", userHandler.ResetUserPassword)
-
-			// -------- User Import --------
-			admin.POST("/users/import/preview", importHandler.Preview)
-			admin.POST("/users/import/execute", importHandler.Execute)
-			admin.GET("/users/import/:jobId", importHandler.GetJob)
-			admin.GET("/users/import/:jobId/errors.csv", importHandler.DownloadErrorsCSV)
-			admin.GET("/users/import/template.csv", importHandler.DownloadTemplateCSV)
 
 			// -------- Client Roles --------
 			admin.POST("/clients/:id/roles", clientHandler.CreateClientRole)

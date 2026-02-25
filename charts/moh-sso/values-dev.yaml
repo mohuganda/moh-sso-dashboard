@@ -14,10 +14,10 @@ imagePullSecrets:
 # Ingress (Disabled in Dev)
 # --------------------------------------------------
 ingress:
-  enabled: false
+  enabled: true
 
 keycloakIngress:
-  enabled: false
+  enabled: true
 
 # --------------------------------------------------
 # Backend
@@ -25,9 +25,9 @@ keycloakIngress:
 backend:
   env:
     # Frontend will be accessed via localhost:3000
-    ALLOWED_ORIGINS: "http://localhost:3000"
+    ALLOWED_ORIGINS: "https//portal.local"
 
-  baseUrl: "http://localhost:9000"
+  baseUrl: "https://portal.local"
 
   secrets:
     KEYCLOAK_ADMIN_CLIENT_SECRET: dashboard-admin-secret
@@ -39,8 +39,9 @@ backend:
 frontend:
   enabled: true
 
+  baseUrl: "https://portal.local"
   # Browser will hit backend via port-forward
-  apiBaseUrl: "http://localhost:9000"
+  apiBaseUrl: "https://portal.local"
 
 # --------------------------------------------------
 # Postgres (App DB)
@@ -63,18 +64,18 @@ keycloak:
   admin:
     password: admin
 
-  publicBaseUrl: "http://localhost:8081"
+  publicBaseUrl: "https://portal.local"
   external:
     enabled: false
 
   config:
-    KC_HTTP_ENABLED: "true"
+    KC_HTTP_ENABLED: "false"
     KC_HEALTH_ENABLED: "true"
     KC_METRICS_ENABLED: "true"
 
     # Dev: disable strict hostname validation
-    KC_HOSTNAME_STRICT: "false"
-    KC_HOSTNAME_STRICT_HTTPS: "false"
+    KC_HOSTNAME_STRICT: "true"
+    KC_HOSTNAME_STRICT_HTTPS: "true"
 
 # --------------------------------------------------
 # Redis

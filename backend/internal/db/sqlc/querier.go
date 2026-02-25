@@ -18,7 +18,10 @@ type Querier interface {
 	ActiveUsersToday(ctx context.Context) (int64, error)
 	ApproximateActiveSessions(ctx context.Context) (int64, error)
 	AuditMetricsOverview(ctx context.Context, arg AuditMetricsOverviewParams) (AuditMetricsOverviewRow, error)
+	CancelProcess(ctx context.Context, id uuid.UUID) error
+	ClaimNextPendingProcess(ctx context.Context) (Process, error)
 	ClientUsageForUserInRange(ctx context.Context, arg ClientUsageForUserInRangeParams) ([]ClientUsageForUserInRangeRow, error)
+	CompleteProcess(ctx context.Context, id uuid.UUID) error
 	CountActiveUsers(ctx context.Context) (int64, error)
 	CountActiveUsersInRange(ctx context.Context, arg CountActiveUsersInRangeParams) (int64, error)
 	CountClients(ctx context.Context) (int64, error)
@@ -41,6 +44,7 @@ type Querier interface {
 	// Clients
 	// =====================================================
 	CreateClient(ctx context.Context, arg CreateClientParams) error
+	CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error)
 	// =====================================================
 	// Import Jobs
 	// =====================================================
@@ -49,23 +53,32 @@ type Querier interface {
 	// Notifications
 	// =====================================================
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	CreateProcess(ctx context.Context, arg CreateProcessParams) (Process, error)
+	CreateStorageLocation(ctx context.Context, arg CreateStorageLocationParams) (StorageLocation, error)
 	// =====================================================
 	// Users
 	// =====================================================
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeleteClient(ctx context.Context, id uuid.UUID) error
+	DeleteDocument(ctx context.Context, id uuid.UUID) error
 	DeleteNotificationByID(ctx context.Context, id uuid.UUID) error
 	DeleteOldNotifications(ctx context.Context) error
+	DeleteStorageLocation(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	ExportAuditLogs(ctx context.Context, arg ExportAuditLogsParams) ([]ExportAuditLogsRow, error)
+	FailProcess(ctx context.Context, arg FailProcessParams) error
 	FailedLoginsByDay(ctx context.Context, arg FailedLoginsByDayParams) ([]FailedLoginsByDayRow, error)
 	FailedLoginsByUserInRange(ctx context.Context, arg FailedLoginsByUserInRangeParams) ([]FailedLoginsByUserInRangeRow, error)
 	FirstLoginForUser(ctx context.Context, userID uuid.UUID) (sql.NullTime, error)
 	GetAuditLog(ctx context.Context, id uuid.UUID) (GetAuditLogRow, error)
 	GetClientByClientID(ctx context.Context, clientID string) (Client, error)
 	GetClientByID(ctx context.Context, id uuid.UUID) (Client, error)
+	GetDocumentByID(ctx context.Context, id uuid.UUID) (Document, error)
 	GetImportJob(ctx context.Context, id uuid.UUID) (ImportJob, error)
 	GetNotificationByID(ctx context.Context, id uuid.UUID) (Notification, error)
+	GetProcessByID(ctx context.Context, id uuid.UUID) (Process, error)
+	GetStorageLocationByCode(ctx context.Context, code string) (StorageLocation, error)
+	GetStorageLocationByID(ctx context.Context, id uuid.UUID) (StorageLocation, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetUsersByRole(ctx context.Context, roles []string) ([]User, error)
@@ -73,15 +86,19 @@ type Querier interface {
 	InsertImportJobItem(ctx context.Context, arg InsertImportJobItemParams) error
 	LastLoginForAllUsers(ctx context.Context) ([]LastLoginForAllUsersRow, error)
 	LastLoginForUser(ctx context.Context, userID uuid.UUID) (sql.NullTime, error)
+	ListActiveStorageLocations(ctx context.Context) ([]StorageLocation, error)
 	ListAuditActions(ctx context.Context) ([]string, error)
 	ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([]ListAuditLogsRow, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	ListClientsPaged(ctx context.Context, arg ListClientsPagedParams) ([]Client, error)
+	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]Document, error)
+	ListDocumentsByUser(ctx context.Context, arg ListDocumentsByUserParams) ([]Document, error)
 	ListEnabledClients(ctx context.Context) ([]Client, error)
 	ListImportJobFailedItems(ctx context.Context, jobID uuid.UUID) ([]ImportJobItem, error)
 	ListImportJobItems(ctx context.Context, jobID uuid.UUID) ([]ImportJobItem, error)
 	ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error)
 	ListNotificationsByCursor(ctx context.Context, arg ListNotificationsByCursorParams) ([]Notification, error)
+	ListProcesses(ctx context.Context, arg ListProcessesParams) ([]Process, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	ListUsersPaged(ctx context.Context, arg ListUsersPagedParams) ([]User, error)
 	LoginCountForClientInRange(ctx context.Context, arg LoginCountForClientInRangeParams) (int64, error)
@@ -107,9 +124,12 @@ type Querier interface {
 	TotalLoginsInRange(ctx context.Context, arg TotalLoginsInRangeParams) (int64, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientEnabled(ctx context.Context, arg UpdateClientEnabledParams) error
+	UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (Document, error)
 	UpdateImportJobCounts(ctx context.Context, arg UpdateImportJobCountsParams) error
 	UpdateImportJobItemStatus(ctx context.Context, arg UpdateImportJobItemStatusParams) error
 	UpdateImportJobStatus(ctx context.Context, arg UpdateImportJobStatusParams) error
+	UpdateProcessProgress(ctx context.Context, arg UpdateProcessProgressParams) error
+	UpdateStorageLocation(ctx context.Context, arg UpdateStorageLocationParams) (StorageLocation, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error
 	UpdateUserEnabled(ctx context.Context, arg UpdateUserEnabledParams) error
 	UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error
