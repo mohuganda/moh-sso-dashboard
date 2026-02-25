@@ -30,6 +30,7 @@ import Elearning from "./pages/user/utilities/elearning.component";
 import LeavePlan from "./pages/user/utilities/leave-plan.component";
 import MyAbsenceDashboard from "./pages/user/utilities/my-absence-dashboard.component";
 import MyTimeSheet from "./pages/user/utilities/my-timesheet.component";
+import FileUpload from "./pages/public/fileupload/file-upload.tsx";
 
 function App() {
   return (
@@ -103,6 +104,14 @@ function App() {
                   <UserRoute>
                     <div>Data Exports</div>
                   </UserRoute>
+                }
+              />
+              <Route
+                path="filesvr"
+                element={
+                    <UserRoute>
+                        <FileUpload />
+                    </UserRoute>
                 }
               />
             </Route>

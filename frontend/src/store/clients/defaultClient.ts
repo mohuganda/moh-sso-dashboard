@@ -43,6 +43,11 @@ export const defaultClient: Client = {
         label: "Data Exports",
         path: "/apps/dwh/exports",
       },
+      {
+        id: "file-svr",
+        label: "File Upload",
+        path: "/apps/dwh/filesvr",
+      },
     ]),
   },
 };
