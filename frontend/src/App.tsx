@@ -30,6 +30,8 @@ import Elearning from "./pages/user/utilities/elearning.component";
 import LeavePlan from "./pages/user/utilities/leave-plan.component";
 import MyAbsenceDashboard from "./pages/user/utilities/my-absence-dashboard.component";
 import MyTimeSheet from "./pages/user/utilities/my-timesheet.component";
+import DocumentPage from "./pages/user/e-services/documents/documents.component";
+import DocumentDetailsPage from "./pages/user/e-services/documents/document-details.component";
 
 function App() {
   return (
@@ -392,7 +394,24 @@ function App() {
                 />
 
                 <Route path="eservice">
-                  <Route path="document-upload" element={<div>Document Upload</div>} />
+                  <Route
+                    path="document-upload"
+                    element={
+                      <UserRoute>
+                        <DocumentPage />
+                      </UserRoute>
+                    }
+                  />
+
+                  <Route
+                    path="document-upload/:id"
+                    element={
+                      <UserRoute>
+                        <DocumentDetailsPage />
+                      </UserRoute>
+                    }
+                  />
+
                   <Route path="service-access" element={<div>Service Access</div>} />
                   <Route path="equipment-request" element={<div>Equipment Request</div>} />
                 </Route>

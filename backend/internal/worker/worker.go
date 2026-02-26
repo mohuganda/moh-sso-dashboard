@@ -44,6 +44,10 @@ func (w *Worker) Start(ctx context.Context) {
 	}
 }
 
+func (w *Worker) idle() {
+	time.Sleep(w.pollDelay)
+}
+
 func (w *Worker) processNext(ctx context.Context) {
 
 	proc, err := w.processRepo.ClaimNextPending(ctx)
@@ -52,7 +56,7 @@ func (w *Worker) processNext(ctx context.Context) {
 		// No rows available
 		// 1️⃣ No pending jobs (normal situation)
 		if errors.Is(err, sql.ErrNoRows) {
-			time.Sleep(w.pollDelay)
+			w.idle()
 			return
 		}
 

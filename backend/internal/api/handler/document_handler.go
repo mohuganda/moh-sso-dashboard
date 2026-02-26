@@ -178,6 +178,11 @@ func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	})
 }
 
+func (h *DocumentHandler) UpdateDocument(c *gin.Context)        {}
+func (h *DocumentHandler) DownloadDocument(c *gin.Context)      {}
+func (h *DocumentHandler) ListDocuments(c *gin.Context)         {}
+func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {}
+
 func computeSHA256(r io.Reader) (string, error) {
 	hasher := sha256.New()
 

@@ -150,9 +150,14 @@ func SetupRouter(
 		// -----------------------
 		documents := protected.Group("/documents")
 		{
-			documents.GET("")
+			documents.GET("", documentHandler.ListDocuments)
+
+			documents.GET("/:id/download", documentHandler.DownloadDocument)
+			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
 			documents.GET("/:id", documentHandler.GetDocument)
+
 			documents.POST("", documentHandler.CreateDocument)
+			documents.PUT("/:id", documentHandler.UpdateDocument)
 			documents.DELETE("/:id", documentHandler.DeleteDocument)
 		}
 
