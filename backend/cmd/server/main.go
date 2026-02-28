@@ -21,6 +21,7 @@ import (
 	kcClientPkg "github.com/moh-sso-dashboard/internal/keycloak"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	migrate "github.com/moh-sso-dashboard/internal/migrate"
+	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/moh-sso-dashboard/internal/worker"
 
 	authRepo "github.com/moh-sso-dashboard/internal/repository/auth"
@@ -78,6 +79,23 @@ func main() {
 	}
 	appLogger.Info("Successfully connected to database")
 
+	remoteConn, err := sql.Open(cfg.DbDriver, cfg.RemoteDbSource())
+
+	if err != nil {
+		appLogger.Fatal("Cannot open remote database connection: ", err)
+	}
+	defer conn.Close()
+
+	// Connection pool tuning (important in production)
+	conn.SetMaxOpenConns(25)
+	conn.SetMaxIdleConns(10)
+	conn.SetConnMaxLifetime(30 * time.Minute)
+
+	if err := conn.PingContext(ctx); err != nil {
+		appLogger.Fatal("Cannot connect to  remote database: ", err)
+	}
+	appLogger.Info("Successfully connected to remote database")
+
 	// Run migrations
 	if err := migrate.MigrateDB(conn, "file://internal/db/migrations"); err != nil {
 		appLogger.Fatal("Cannot migrate db: ", err)
@@ -127,6 +145,18 @@ func main() {
 	appLogger.Info("Keycloak clients initialized successfully")
 
 	// --------------------------------------------------
+	// Initialize Storage
+	// --------------------------------------------------
+	storageProvider := cfg.StorageProvider
+
+	fileStorage, err := storage.NewFileStorage(storageProvider, cfg)
+	if err != nil {
+		appLogger.Fatal("failed to initialize storage: ", err)
+	}
+
+	appLogger.Info("Storage provider initialized: " + storageProvider)
+
+	// --------------------------------------------------
 	// Infrastructure Store
 	// --------------------------------------------------
 	store := storepkg.NewStore(conn)
@@ -141,6 +171,7 @@ func main() {
 	notificationsRepository := notificationsRepo.NewNotificationsRepository(store, *appLogger)
 	documentRepository := documentRepo.NewDocumentRepository(cfg, store, *appLogger)
 	processRepository := processRepo.NewProcessRepository(cfg, store, *appLogger)
+	fileRepository := documentRepo.NewFileRepository(remoteConn)
 
 	// --------------------------------------------------
 	// Services
@@ -152,13 +183,14 @@ func main() {
 	publisher := cache.NewNotificationPublisher(rdb)
 	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
 
-	documentService := service.NewDocumentService(documentRepository, notificationsService)
+	documentService := service.NewDocumentService(documentRepository, notificationsService, fileStorage)
 	clientService := service.NewClientService(clientRepository, notificationsService)
 	userService := service.NewUserService(userRepository, notificationsService)
 
 	importService := importSvc.NewService(
 		documentRepository,
 		processRepository,
+		fileStorage,
 	)
 
 	// --------------------------------------------------
@@ -168,6 +200,7 @@ func main() {
 		processRepository,
 		importService,
 		3*time.Second,
+		fileStorage,
 	)
 
 	go func() {
@@ -184,7 +217,7 @@ func main() {
 	metricsHandler := handler.NewMetricsHandler(metricsService)
 	auditHandler := handler.NewAuditHandler(store, cacheAdapter)
 	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
-	documentHandler := handler.NewDocumentHandler(documentService, auditService)
+	documentHandler := handler.NewDocumentHandler(documentService, auditService, fileStorage)
 
 	// Health handler
 	healthHandler := handler.NewHealthHandler(

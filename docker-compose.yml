@@ -1,118 +1,148 @@
 version: "3.9"
 
-services:
-  # -----------------------------
-  # Keycloak Authentication Server
-  # -----------------------------
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.0.5
-    container_name: keycloak
-    command: start-dev --import-realm
-    environment:
-      KC_DB: postgres
-      KC_DB_URL_HOST: keycloak-db
-      KC_DB_URL_DATABASE: keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloak
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_HOSTNAME_STRICT_HTTPS: "false"
-      KC_PROXY: "edge"
-    volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
-    ports:
-      - "8081:8080"
-    depends_on:
-      - keycloak-db
-    networks:
-      - sso_network
+name: moh-sso-dashboard
 
-  # -----------------------------
-  # Keycloak Database (PostgreSQL)
-  # -----------------------------
-  keycloak-db:
-    image: postgres:15
-    container_name: keycloak-db
-    environment:
-      POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak
-    volumes:
-      - keycloak_data:/var/lib/postgresql/data
-    networks:
-      - sso_network
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
 
-  # -----------------------------
-  # Go Backend Service
-  # -----------------------------
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: sso-backend
-    environment:
-      - PORT=8080
-      - KEYCLOAK_URL=http://keycloak:8080
-      - KEYCLOAK_REALM=moh-realm
-      - KEYCLOAK_CLIENT_ID=dashboard
-      - DB_HOST=backend-db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=sso_dashboard
-    depends_on:
-      - keycloak
-      - backend-db
-    ports:
-      - "9000:9000"
-    networks:
-      - sso_network
+networks:
+  sso:
+    driver: bridge
 
-  # -----------------------------
-  # Backend Database
-  # -----------------------------
-  backend-db:
-    image: postgres:15
-    container_name: backend-db
-    environment:
-      POSTGRES_DB: sso_dashboard
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - backend_data:/var/lib/postgresql/data
-    networks:
-      - sso_network
-
-  # -----------------------------
-  # React Frontend
-  # -----------------------------
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: sso-frontend
-    environment:
-      - REACT_APP_API_URL=http://localhost:8080
-      - REACT_APP_KEYCLOAK_URL=http://localhost:8081
-      - REACT_APP_KEYCLOAK_REALM=moh-realm
-      - REACT_APP_KEYCLOAK_CLIENT_ID=dashboard
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-      - keycloak
-    networks:
-      - sso_network
-
-# -----------------------------
-# Persistent Volumes
-# -----------------------------
 volumes:
-  keycloak_data:
   backend_data:
 
-# -----------------------------
-# Network
-# -----------------------------
-networks:
-  sso_network:
-    driver: bridge
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  keycloak_admin_client_secret:
+    file: ./secrets/keycloak_admin_client_secret.txt
+  keycloak_web_client_secret:
+    file: ./secrets/keycloak_web_client_secret.txt
+
+services:
+  # --------------------------------------------------
+  # NGINX (Reverse Proxy)
+  # --------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sso-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./ops/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ops/nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    networks:
+      - sso
+    logging: *default-logging
+
+  # --------------------------------------------------
+  # Redis
+  # --------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: sso-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - sso
+    logging: *default-logging
+
+  # --------------------------------------------------
+  # Postgres
+  # --------------------------------------------------
+  backend-db:
+    image: postgres:15-alpine
+    container_name: sso-backend-db
+    restart: unless-stopped
+    env_file:
+      - ./app.env
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - db_password
+    volumes:
+      - backend_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${DB_USER} -d $${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks:
+      - sso
+    logging: *default-logging
+
+  # --------------------------------------------------
+  # Go Backend (Gin)
+  # --------------------------------------------------
+  backend:
+    image: ghcr.io/mohuganda/moh-sso-dashboard-backend:${BACKEND_TAG:-latest}
+    container_name: sso-backend
+    working_dir: /app
+    volumes:
+      - ./app.env:/app/app.env:ro
+    restart: unless-stopped
+    env_file:
+      - ./app.env
+    secrets:
+      - db_password
+      - keycloak_admin_client_secret
+      - keycloak_web_client_secret
+    depends_on:
+      backend-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    expose:
+      - "9000"
+
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -qO- http://localhost:9000/health/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - sso
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+
+  # --------------------------------------------------
+  # Frontend
+  # --------------------------------------------------
+  frontend:
+    image: ghcr.io/mohuganda/moh-sso-dashboard-frontend:${FRONTEND_TAG:-latest}
+    container_name: sso-frontend
+    restart: unless-stopped
+    env_file:
+      - ./app.env
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sso
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true

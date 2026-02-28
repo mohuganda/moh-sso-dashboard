@@ -4,36 +4,41 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
-	repository "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
+	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type Service struct {
-	repository  documentRepo.DocumentRepository
-	processRepo processRepo.ProcessRepository
-	registry    *Registry
+	documentRepo documentRepo.DocumentRepository
+	processRepo  processRepo.ProcessRepository
+	registry     *Registry
+	storage      storage.Storage
+	db           db.Store
 }
 
-func NewService(repository repository.DocumentRepository, processRepo processRepo.ProcessRepository) *Service {
+func NewService(documentRepo documentRepo.DocumentRepository, processRepo processRepo.ProcessRepository, storage storage.Storage, db db.Store) *Service {
 	reg := NewRegistry()
 
 	s := &Service{
-		repository:  repository,
-		processRepo: processRepo,
-		registry:    reg,
+		documentRepo: documentRepo,
+		processRepo:  processRepo,
+		registry:     reg,
+		storage:      storage,
+		db:           db,
 	}
 
 	// Register processors
-	reg.Register("CSV_IMPORT", NewCSVProcessor(repository, processRepo))
-	reg.Register("EXCEL_IMPORT", NewExcelProcessor(repository))
-	reg.Register("FHIR_IMPORT", NewFhirBundlerProcessor(repository))
-	reg.Register("USER_BULK_IMPORT", NewUserBulkProcessor(repository))
+	reg.Register("CSV_IMPORT", NewCSVProcessor(documentRepo, processRepo, storage, db))
+	reg.Register("EXCEL_IMPORT", NewExcelProcessor(documentRepo, storage, db))
+	reg.Register("FHIR_IMPORT", NewFhirBundlerProcessor(documentRepo, storage, db))
+	reg.Register("USER_BULK_IMPORT", NewUserBulkProcessor(documentRepo, storage, db))
 
 	return s
 }
 
-func (s *Service) Execute(ctx context.Context, processID uuid.UUID) error {
+func (s *Service) Execute(ctx context.Context, processID uuid.UUID, storage storage.Storage, db db.Store) error {
 
 	// 1️⃣ Load process
 	proc, err := s.processRepo.GetProcessByID(ctx, processID)

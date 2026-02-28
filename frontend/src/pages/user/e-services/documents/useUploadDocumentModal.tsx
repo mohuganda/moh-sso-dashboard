@@ -1,12 +1,10 @@
 import { useModal } from "../../../../components/modal/modal.context";
 import { UploadDocumentModal } from "./UploadDocumentModal";
 
-type UploadDocumentModalArgs = {};
-
 export function useUploadDocumentModal() {
   const { openModal, closeModal } = useModal();
 
-  function openUploadDocumentModal(UploadDocumentModalArgs) {
+  function openUploadDocumentModal() {
     openModal({
       title: "Upload Document",
       size: "sm",

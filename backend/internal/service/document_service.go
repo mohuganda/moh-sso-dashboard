@@ -8,6 +8,7 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	models "github.com/moh-sso-dashboard/internal/model"
 	repository "github.com/moh-sso-dashboard/internal/repository/document"
+	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type CreateDocumentInput struct {
@@ -29,13 +30,16 @@ type EditDocumentInput struct {
 type DocumentService struct {
 	repo          repository.DocumentRepository
 	notifications NotificationsService
+	storage       storage.Storage
 }
 
 func NewDocumentService(repo repository.DocumentRepository,
-	notifications NotificationsService) *DocumentService {
+	notifications NotificationsService, storage storage.Storage,
+) *DocumentService {
 	return &DocumentService{
 		repo:          repo,
 		notifications: notifications,
+		storage:       storage,
 	}
 }
 

@@ -55,7 +55,7 @@ export default function DocumentDetailsPage() {
     error: docError,
   } = useGetDocumentQuery(id!, { skip: !id });
 
-  const { data: processes, isFetching: processesFetching } = useGetDocumentProcessesQuery(id!, {
+  const { data: processes } = useGetDocumentProcessesQuery(id!, {
     skip: !id,
     pollingInterval: 3000,
     refetchOnFocus: true,

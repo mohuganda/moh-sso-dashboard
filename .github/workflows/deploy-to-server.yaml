@@ -1,0 +1,31 @@
+name: Deploy Integrated Health Portal to Server
+
+on:
+  workflow_run:
+    workflows: ["Build and Push UgandaEMR Docker Images"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Set up SSH Key for secure communication 
+      - name: Set up SSH Key 
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+
+      # Step 2: SSH into the server, pull the latest image, and restart services
+      - name: Update and Restart Services on Server
+        run: |
+          echo "Testing SSH connectivity..."
+          ssh -o StrictHostKeyChecking=no "${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}" "echo Connected"
+          
+          echo "Updating and restarting services..."
+          ssh "${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}" << 'EOF'
+            cd "${{ secrets.DEPLOY_FOLDER }}"
+            ./restart
+          EOF

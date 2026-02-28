@@ -90,9 +90,20 @@ type Config struct {
 	// =================================================
 	// storage
 	// =================================================
-	S3Client      string `mapstructure:"S3_CLIENT"`
-	S3Bucket      string `mapstructure:"S3_BUCKET"`
-	LocalBasePath string `mapstructure:"LOCAL_BASE_PATH"`
+	StorageProvider string `mapstructure:"STORAGE_PROVIDER"`
+	LocalBasePath   string `mapstructure:"LOCAL_BASE_PATH"`
+	NFSBasePath     string `mapstructure:"NFS_BASE_PATH"`
+
+	// remote db
+	RemoteDBHost     string `mapstructure:"REMOTE_DB_HOST"`
+	RemoteDBPort     string `mapstructure:"REMOTE_DB_PORT"`
+	RemoteDBUser     string `mapstructure:"REMOTE_DB_USER"`
+	RemoteDBPassword string `mapstructure:"REMOTE_DB_PASSWORD"`
+	RemoteDBName     string `mapstructure:"REMOTE_DB_NAME"`
+
+	// s3 / minio
+	S3Client string `mapstructure:"S3_CLIENT"`
+	S3Bucket string `mapstructure:"S3_BUCKET"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -112,6 +123,7 @@ func LoadConfig(path string) (*Config, error) {
 	// ENV ALWAYS WINS
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AllowEmptyEnv(true)
 
 	// Explicit binding (bulletproof for K8s)
 	requiredKeys := []string{
@@ -160,6 +172,30 @@ func (c *Config) DbSource() string {
 		c.DbHost,
 		c.DbPort,
 		c.DbName,
+		sslMode,
+	)
+}
+
+func (c *Config) RemoteDbSource() string {
+
+	if c.RemoteDBUser == "" {
+		panic("REMOTE_DB_USER is empty")
+	}
+
+	dbPassEscaped := url.QueryEscape(c.RemoteDBPassword)
+
+	sslMode := "disable"
+	if c.DbEnableSsl {
+		sslMode = "require"
+	}
+
+	return fmt.Sprintf(
+		"postgresql://%s:%s@%s:%s/%s?sslmode=%s",
+		c.RemoteDBUser,
+		dbPassEscaped,
+		c.RemoteDBHost,
+		c.RemoteDBPort,
+		c.RemoteDBName,
 		sslMode,
 	)
 }

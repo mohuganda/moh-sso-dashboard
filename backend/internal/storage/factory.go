@@ -1,14 +1,26 @@
 package storage
 
-import "github.com/moh-sso-dashboard/internal/config"
+import (
+	"fmt"
 
-func New(provider string, cfg config.Config) Storage {
+	"github.com/moh-sso-dashboard/internal/config"
+)
 
+func NewFileStorage(provider string, cfg *config.Config) (Storage, error) {
 	switch provider {
 	case "local":
-		return NewLocalStorage(cfg.LocalBasePath)
+		if cfg.LocalBasePath == "" {
+			return nil, fmt.Errorf("LOCAL_BASE_PATH is required for local storage")
+		}
+		return NewLocalStorage(cfg.LocalBasePath), nil
+
+	case "nfs":
+		if cfg.NFSBasePath == "" {
+			return nil, fmt.Errorf("NFS_BASE_PATH is required for nfs storage")
+		}
+		return NewLocalStorage(cfg.NFSBasePath), nil
 
 	default:
-		panic("unsupported storage provider")
+		return nil, fmt.Errorf("unsupported storage provider: %s", provider)
 	}
 }

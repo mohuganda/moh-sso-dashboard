@@ -9,23 +9,27 @@ import (
 
 	processRepository "github.com/moh-sso-dashboard/internal/repository/processes"
 	importService "github.com/moh-sso-dashboard/internal/service/import"
+	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type Worker struct {
 	processRepo processRepository.ProcessRepository
 	importSvc   *importService.Service
 	pollDelay   time.Duration
+	storage     storage.Storage
 }
 
 func NewWorker(
 	processRepo processRepository.ProcessRepository,
 	importSvc *importService.Service,
 	pollDelay time.Duration,
+	storage storage.Storage,
 ) *Worker {
 	return &Worker{
 		processRepo: processRepo,
 		importSvc:   importSvc,
 		pollDelay:   pollDelay,
+		storage:     storage,
 	}
 }
 
@@ -68,7 +72,7 @@ func (w *Worker) processNext(ctx context.Context) {
 
 	log.Printf("🚀 Processing %s (%s)\n", proc.ID, proc.ProcessType)
 
-	err = w.importSvc.Execute(ctx, proc.ID)
+	err = w.importSvc.Execute(ctx, proc.ID, w.storage)
 	if err != nil {
 		log.Printf("❌ execution failed: %v\n", err)
 		// Fail already handled inside Execute

@@ -12,11 +12,13 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/service"
+	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type DocumentHandler struct {
 	documentService *service.DocumentService
 	auditService    *service.AuditService
+	storage         storage.Storage
 }
 
 type UpdateDocumentRequest struct {
@@ -53,10 +55,13 @@ func toDocumentResponse(doc db.Document) DocumentResponse {
 func NewDocumentHandler(
 	documentService *service.DocumentService,
 	auditService *service.AuditService,
+	storage storage.Storage,
+
 ) *DocumentHandler {
 	return &DocumentHandler{
 		documentService: documentService,
 		auditService:    auditService,
+		storage:         storage,
 	}
 }
 
