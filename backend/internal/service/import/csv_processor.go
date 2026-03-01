@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -18,20 +19,22 @@ type CSVProcessor struct {
 	processRepository  processRepository.ProcessRepository
 	fileRepository     documentRepository.FileRepository
 	storage            storage.Storage
-	db                 db.Store
+	remoteDB           *sql.DB
 }
 
-func NewCSVProcessor(documentRepository documentRepository.DocumentRepository, processRepository processRepository.ProcessRepository, storage storage.Storage, db db.Store) *CSVProcessor {
+func NewCSVProcessor(documentRepository documentRepository.DocumentRepository, processRepository processRepository.ProcessRepository, fileRepository documentRepository.FileRepository, storage storage.Storage, remoteDB *sql.DB) *CSVProcessor {
 	return &CSVProcessor{
 		documentRepository: documentRepository,
 		processRepository:  processRepository,
+		fileRepository:     fileRepository,
 		storage:            storage,
-		db:                 db}
+		remoteDB:           remoteDB,
+	}
 }
 
 func (c *CSVProcessor) Process(
 	ctx context.Context,
-	p db.Process,
+	p db.Process, // you can keep this type if it's local DB
 ) error {
 
 	// --------------------------------------------------
@@ -69,75 +72,86 @@ func (c *CSVProcessor) Process(
 	}
 
 	// --------------------------------------------------
-	// 4️⃣ Execute Transaction Properly
+	// 4️⃣ Begin SQL Transaction (STANDARD WAY)
 	// --------------------------------------------------
-	err = c.db.ExecTx(ctx, func(q db.DBTX) error {
+	tx, err := c.remoteDB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
-		// 5️⃣ Create File Record
-		fileKey, err := c.fileRepository.CreateCustomFile(
-			ctx,
-			q, // pass Querier instead of *sql.Tx
-			doc.OriginalFilename,
-			doc.ObjectKey,
-		)
+	// --------------------------------------------------
+	// 5️⃣ Create File Record
+	// --------------------------------------------------
+	fileKey, err := c.fileRepository.CreateCustomFile(
+		ctx,
+		tx,
+		doc.OriginalFilename,
+		doc.ObjectKey,
+	)
+	if err != nil {
+		return err
+	}
+
+	// --------------------------------------------------
+	// 6️⃣ Stream + Insert Rows
+	// --------------------------------------------------
+	rowCount := 0
+	batchSize := 500
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			return err
 		}
 
-		// 6️⃣ Stream + Insert
-		rowCount := 0
-		batchSize := 500
+		rowJSON := make(map[string]interface{})
 
-		for {
-			record, err := reader.Read()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-
-			rowJSON := make(map[string]interface{})
-
-			for i, value := range record {
-				if i < len(headers) {
-					rowJSON[headers[i]] = value
-				}
-			}
-
-			jsonBytes, err := json.Marshal(rowJSON)
-			if err != nil {
-				return err
-			}
-
-			if err := c.fileRepository.InsertCustomData(
-				ctx,
-				q, // pass Querier
-				fileKey,
-				jsonBytes,
-			); err != nil {
-				return err
-			}
-
-			rowCount++
-
-			if rowCount%batchSize == 0 {
-				progress := int32(10 + (rowCount / 100))
-				if progress > 85 {
-					progress = 85
-				}
-				msg := fmt.Sprintf("Processed %d rows", rowCount)
-				_ = c.processRepository.UpdateProgress(ctx, p.ID, progress, &msg)
+		for i, value := range record {
+			if i < len(headers) {
+				rowJSON[headers[i]] = value
 			}
 		}
 
-		msg := fmt.Sprintf("Inserted rows successfully")
-		_ = c.processRepository.UpdateProgress(ctx, p.ID, 90, &msg)
+		jsonBytes, err := json.Marshal(rowJSON)
+		if err != nil {
+			return err
+		}
 
-		return nil
-	})
+		if err := c.fileRepository.InsertCustomData(
+			ctx,
+			tx,
+			fileKey,
+			jsonBytes,
+		); err != nil {
+			return err
+		}
 
-	if err != nil {
+		rowCount++
+
+		// --------------------------------------------------
+		// Progress Update (outside DB transaction risk)
+		// --------------------------------------------------
+		if rowCount%batchSize == 0 {
+			progress := int32(10 + (rowCount / 100))
+			if progress > 85 {
+				progress = 85
+			}
+			msg := fmt.Sprintf("Processed %d rows", rowCount)
+			_ = c.processRepository.UpdateProgress(ctx, p.ID, progress, &msg)
+		}
+	}
+
+	msg = fmt.Sprintf("Inserted %d rows successfully", rowCount)
+	_ = c.processRepository.UpdateProgress(ctx, p.ID, 90, &msg)
+
+	// --------------------------------------------------
+	// 7️⃣ Commit Transaction
+	// --------------------------------------------------
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 

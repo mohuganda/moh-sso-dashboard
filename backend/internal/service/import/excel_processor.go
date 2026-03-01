@@ -11,11 +11,10 @@ import (
 type ExcelProcessor struct {
 	repository repository.DocumentRepository
 	storage    storage.Storage
-	db         db.Store
 }
 
-func NewExcelProcessor(repository repository.DocumentRepository, storage storage.Storage, db db.Store) *ExcelProcessor {
-	return &ExcelProcessor{repository: repository, storage: storage, db: db}
+func NewExcelProcessor(repository repository.DocumentRepository, storage storage.Storage) *ExcelProcessor {
+	return &ExcelProcessor{repository: repository, storage: storage}
 }
 
 func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {

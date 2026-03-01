@@ -99,6 +99,22 @@ type Querier interface {
 	ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error)
 	ListNotificationsByCursor(ctx context.Context, arg ListNotificationsByCursorParams) ([]Notification, error)
 	ListProcesses(ctx context.Context, arg ListProcessesParams) ([]Process, error)
+	// -- name: InsertProcessEvent :one
+	// INSERT INTO process_events (
+	//     id,
+	//     process_id,
+	//     status,
+	//     message
+	// ) VALUES (
+	//     $1, $2, $3, $4
+	// )
+	// RETURNING *;
+	// -- name: ListProcessEvents :many
+	// SELECT *
+	// FROM process_events
+	// WHERE process_id = $1
+	// ORDER BY created_at ASC;
+	ListProcessesByDocument(ctx context.Context, documentID uuid.UUID) ([]Process, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	ListUsersPaged(ctx context.Context, arg ListUsersPagedParams) ([]User, error)
 	LoginCountForClientInRange(ctx context.Context, arg LoginCountForClientInRangeParams) (int64, error)

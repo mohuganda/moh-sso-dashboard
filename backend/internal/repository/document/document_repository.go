@@ -18,6 +18,10 @@ type DocumentRepository interface {
 		arg db.CreateDocumentParams) (db.Document, error)
 	GetDocument(context.Context, uuid.UUID) (db.Document, error)
 	ListDocuments(ctx context.Context, page model.Pagination) ([]db.Document, error)
+	ListProcessesByDocument(
+		ctx context.Context,
+		documentID uuid.UUID,
+	) ([]db.Process, error)
 	ListDocumentsByUser(ctx context.Context, userID uuid.UUID, page model.Pagination) ([]db.Document, error)
 	EditDocument(context.Context, db.UpdateDocumentParams) (db.Document, error)
 	DeleteDocument(context.Context, uuid.UUID) error

@@ -2,8 +2,7 @@ package document
 
 import (
 	"context"
-
-	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	"database/sql"
 )
 
 type fileRepository struct{}
@@ -14,13 +13,13 @@ func NewFileRepository() FileRepository {
 
 func (r *fileRepository) CreateCustomFile(
 	ctx context.Context,
-	q db.DBTX,
+	tx *sql.Tx,
 	fileName, filePath string,
 ) (int64, error) {
 
 	var fileKey int64
 
-	err := q.QueryRowContext(ctx, `
+	err := tx.QueryRowContext(ctx, `
 		INSERT INTO custom_files 
 			(file_name, file_path, effective_start_date)
 		VALUES ($1, $2, NOW())
@@ -36,12 +35,12 @@ func (r *fileRepository) CreateCustomFile(
 
 func (r *fileRepository) InsertCustomData(
 	ctx context.Context,
-	q db.DBTX,
+	tx *sql.Tx,
 	fileKey int64,
 	data []byte,
 ) error {
 
-	_, err := q.ExecContext(ctx, `
+	_, err := tx.ExecContext(ctx, `
 		INSERT INTO custom_data_files
 			(file_data, file_key, effective_start_date)
 		VALUES ($1, $2, NOW())

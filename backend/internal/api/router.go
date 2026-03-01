@@ -157,7 +157,7 @@ func SetupRouter(
 			documents.GET("/:id", documentHandler.GetDocument)
 
 			documents.POST("", documentHandler.CreateDocument)
-			documents.PUT("/:id", documentHandler.UpdateDocument)
+			documents.PUT("/:id", documentHandler.EditDocument)
 			documents.DELETE("/:id", documentHandler.DeleteDocument)
 		}
 

@@ -11,14 +11,13 @@ import (
 type FacilityProcessor struct {
 	repository repository.DocumentRepository
 	storage    storage.Storage
-	db         db.Store
 }
 
-func NewFacilityProcessor(repository repository.DocumentRepository, storage storage.Storage, db db.Store) *FacilityProcessor {
-	return &FacilityProcessor{repository: repository, storage: storage, db: db}
+func NewFacilityProcessor(repository repository.DocumentRepository, storage storage.Storage) *FacilityProcessor {
+	return &FacilityProcessor{repository: repository, storage: storage}
 }
 
-func (c *FacilityProcessor) Process(ctx context.Context, p db.Process, storage storage.Storage, db db.Store) error {
+func (c *FacilityProcessor) Process(ctx context.Context, p db.Process, storage storage.Storage) error {
 	_, err := c.repository.GetDocument(ctx, p.DocumentID)
 	if err != nil {
 		return err

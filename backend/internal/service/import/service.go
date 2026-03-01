@@ -2,43 +2,45 @@ package service
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
-	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
 	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type Service struct {
-	documentRepo documentRepo.DocumentRepository
-	processRepo  processRepo.ProcessRepository
-	registry     *Registry
-	storage      storage.Storage
-	db           db.Store
+	documentRepo   documentRepo.DocumentRepository
+	processRepo    processRepo.ProcessRepository
+	fileRepository documentRepo.FileRepository
+	registry       *Registry
+	storage        storage.Storage
+	remoteDB       *sql.DB
 }
 
-func NewService(documentRepo documentRepo.DocumentRepository, processRepo processRepo.ProcessRepository, storage storage.Storage, db db.Store) *Service {
+func NewService(documentRepo documentRepo.DocumentRepository, processRepo processRepo.ProcessRepository, fileRepository documentRepo.FileRepository, storage storage.Storage, remote *sql.DB) *Service {
 	reg := NewRegistry()
 
 	s := &Service{
-		documentRepo: documentRepo,
-		processRepo:  processRepo,
-		registry:     reg,
-		storage:      storage,
-		db:           db,
+		documentRepo:   documentRepo,
+		processRepo:    processRepo,
+		fileRepository: fileRepository,
+		registry:       reg,
+		storage:        storage,
+		remoteDB:       remote,
 	}
 
 	// Register processors
-	reg.Register("CSV_IMPORT", NewCSVProcessor(documentRepo, processRepo, storage, db))
-	reg.Register("EXCEL_IMPORT", NewExcelProcessor(documentRepo, storage, db))
-	reg.Register("FHIR_IMPORT", NewFhirBundlerProcessor(documentRepo, storage, db))
-	reg.Register("USER_BULK_IMPORT", NewUserBulkProcessor(documentRepo, storage, db))
+	reg.Register("CSV_IMPORT", NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))
+	reg.Register("EXCEL_IMPORT", NewExcelProcessor(documentRepo, storage))
+	reg.Register("FHIR_IMPORT", NewFhirBundlerProcessor(documentRepo, storage))
+	reg.Register("USER_BULK_IMPORT", NewUserBulkProcessor(documentRepo, storage))
 
 	return s
 }
 
-func (s *Service) Execute(ctx context.Context, processID uuid.UUID, storage storage.Storage, db db.Store) error {
+func (s *Service) Execute(ctx context.Context, processID uuid.UUID) error {
 
 	// 1️⃣ Load process
 	proc, err := s.processRepo.GetProcessByID(ctx, processID)

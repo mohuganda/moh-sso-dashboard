@@ -3,14 +3,17 @@ package handler
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
+	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/storage"
 )
@@ -66,6 +69,7 @@ func NewDocumentHandler(
 }
 
 func (h *DocumentHandler) CreateDocument(c *gin.Context) {
+	ctx := c.Request.Context()
 
 	userIDStr := c.GetString("user_id")
 	userID, err := uuid.Parse(userIDStr)
@@ -74,11 +78,15 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		return
 	}
 
-	// Parse form
 	storageLocationStr := c.PostForm("storage_location")
 	storageLocation, err := uuid.Parse(storageLocationStr)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_STORAGE_LOCATION", "invalid storage location")
+		return
+	}
+
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil { // 32MB
+		response.Fail(c, http.StatusBadRequest, "INVALID_MULTIPART", "invalid multipart form")
 		return
 	}
 
@@ -89,28 +97,44 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Generate object key
-	objectKey := uuid.New().String()
-
-	// Compute checksum
-	checksum, err := computeSHA256(file)
-	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "CHECKSUM_FAILED", err.Error())
+	if header.Size == 0 {
+		response.Fail(c, http.StatusBadRequest, "EMPTY_FILE", "file is empty")
 		return
 	}
+
+	objectKey := uuid.New().String()
+
+	hasher := sha256.New()
+	teeReader := io.TeeReader(file, hasher)
+
+	if err := h.storage.Upload(
+		ctx,
+		objectKey,
+		teeReader,
+		header.Size,
+		header.Header.Get("Content-Type"),
+	); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "UPLOAD_FAILED", "failed to upload file")
+		return
+	}
+
+	checksumStr := hex.EncodeToString(hasher.Sum(nil))
 
 	input := service.CreateDocumentInput{
 		OriginalFilename: header.Filename,
 		ContentType:      header.Header.Get("Content-Type"),
 		SizeBytes:        header.Size,
-		ChecksumSHA256:   &checksum,
+		ChecksumSHA256:   &checksumStr,
 		StorageLocation:  storageLocation,
 		ObjectKey:        objectKey,
 		UploadedBy:       userID,
 	}
 
-	doc, err := h.documentService.CreateDocument(c.Request.Context(), input)
+	doc, err := h.documentService.CreateDocument(ctx, input)
 	if err != nil {
+		// 🔥 IMPORTANT: Rollback uploaded file if DB fails
+		_ = h.storage.Delete(ctx, objectKey)
+
 		response.Fail(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error())
 		return
 	}
@@ -183,18 +207,67 @@ func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	})
 }
 
-func (h *DocumentHandler) UpdateDocument(c *gin.Context)        {}
-func (h *DocumentHandler) DownloadDocument(c *gin.Context)      {}
-func (h *DocumentHandler) ListDocuments(c *gin.Context)         {}
-func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {}
+func (h *DocumentHandler) DownloadDocument(c *gin.Context) {
+	ctx := c.Request.Context()
+	id := c.Param("id")
 
-func computeSHA256(r io.Reader) (string, error) {
-	hasher := sha256.New()
-
-	if _, err := io.Copy(hasher, r); err != nil {
-		return "", err
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INVALID_UUID", "Invalid Uuid")
+		return
 	}
 
-	sum := hasher.Sum(nil)
-	return hex.EncodeToString(sum), nil
+	doc, err := h.documentService.GetDocument(ctx, uid)
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Document not found")
+		return
+	}
+
+	reader, err := h.storage.Download(ctx, doc.ObjectKey)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "DOWNLOAD_FAILED", "Failed to retrieve file")
+		return
+	}
+	defer reader.Close()
+
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", doc.OriginalFilename))
+	c.Header("Content-Type", "application/octet-stream")
+
+	io.Copy(c.Writer, reader)
+}
+
+func (h *DocumentHandler) ListDocuments(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	limitStr := c.DefaultQuery("limit", "20")
+	offsetStr := c.DefaultQuery("offset", "0")
+
+	limit, _ := strconv.Atoi(limitStr)
+	offset, _ := strconv.Atoi(offsetStr)
+
+	model := model.Pagination{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	}
+
+	docs, err := h.documentService.ListDocuments(ctx, model)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", "Failed to list documents")
+		return
+	}
+
+	response.OK(c, http.StatusOK, docs)
+}
+
+func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {
+	ctx := c.Request.Context()
+	documentID := c.Param("id")
+
+	processes, err := h.documentService.ListProcessesByDocument(ctx, documentID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "PROCESS_LIST_FAILED", "Failed to list processes")
+		return
+	}
+
+	response.OK(c, http.StatusOK, processes)
 }

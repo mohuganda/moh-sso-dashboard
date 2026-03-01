@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	"github.com/moh-sso-dashboard/internal/model"
 	models "github.com/moh-sso-dashboard/internal/model"
 	repository "github.com/moh-sso-dashboard/internal/repository/document"
 	"github.com/moh-sso-dashboard/internal/storage"
@@ -164,4 +165,43 @@ func (s *DocumentService) DeleteDocument(
 	}
 
 	return nil
+}
+
+func (s *DocumentService) ListDocuments(
+	ctx context.Context,
+	page model.Pagination,
+) ([]db.Document, error) {
+
+	docs, err := s.repo.ListDocuments(ctx, page)
+	if err != nil {
+		return nil, err
+	}
+
+	return docs, nil
+}
+
+func (s *DocumentService) ListProcessesByDocument(
+	ctx context.Context,
+	documentID string,
+) ([]db.Process, error) {
+
+	// 1️⃣ Validate UUID
+	docUUID, err := uuid.Parse(documentID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2️⃣ (Optional but recommended) Ensure document exists
+	_, err = s.repo.GetDocument(ctx, docUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3️⃣ Fetch processes
+	processes, err := s.repo.ListProcessesByDocument(ctx, docUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	return processes, nil
 }

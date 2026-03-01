@@ -156,3 +156,12 @@ func (r *documentRepository) DeleteDocument(
 
 	return nil
 }
+
+func (r *documentRepository) ListProcessesByDocument(ctx context.Context, id uuid.UUID) ([]db.Process, error) {
+	processes, err := r.db.ListProcessesByDocument(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return processes, nil
+}

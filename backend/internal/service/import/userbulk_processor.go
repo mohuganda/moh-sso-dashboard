@@ -11,11 +11,10 @@ import (
 type UserBulkProcessor struct {
 	repository repository.DocumentRepository
 	storage    storage.Storage
-	db         db.Store
 }
 
-func NewUserBulkProcessor(repository repository.DocumentRepository, storage storage.Storage, db db.Store) *UserBulkProcessor {
-	return &UserBulkProcessor{repository: repository, storage: storage, db: db}
+func NewUserBulkProcessor(repository repository.DocumentRepository, storage storage.Storage) *UserBulkProcessor {
+	return &UserBulkProcessor{repository: repository, storage: storage}
 }
 
 func (c *UserBulkProcessor) Process(ctx context.Context, p db.Process) error {

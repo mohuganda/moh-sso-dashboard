@@ -72,7 +72,7 @@ func (w *Worker) processNext(ctx context.Context) {
 
 	log.Printf("🚀 Processing %s (%s)\n", proc.ID, proc.ProcessType)
 
-	err = w.importSvc.Execute(ctx, proc.ID, w.storage)
+	err = w.importSvc.Execute(ctx, proc.ID)
 	if err != nil {
 		log.Printf("❌ execution failed: %v\n", err)
 		// Fail already handled inside Execute

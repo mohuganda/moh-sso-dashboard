@@ -217,6 +217,72 @@ func (q *Queries) ListProcesses(ctx context.Context, arg ListProcessesParams) ([
 	return items, nil
 }
 
+const listProcessesByDocument = `-- name: ListProcessesByDocument :many
+
+
+
+SELECT id, document_id, process_type, status, progress, message, error, attempts, created_by, started_at, finished_at, created_at, updated_at
+FROM processes
+WHERE document_id = $1
+ORDER BY created_at DESC
+`
+
+// -- name: InsertProcessEvent :one
+// INSERT INTO process_events (
+//
+//	id,
+//	process_id,
+//	status,
+//	message
+//
+// ) VALUES (
+//
+//	$1, $2, $3, $4
+//
+// )
+// RETURNING *;
+// -- name: ListProcessEvents :many
+// SELECT *
+// FROM process_events
+// WHERE process_id = $1
+// ORDER BY created_at ASC;
+func (q *Queries) ListProcessesByDocument(ctx context.Context, documentID uuid.UUID) ([]Process, error) {
+	rows, err := q.db.QueryContext(ctx, listProcessesByDocument, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Process{}
+	for rows.Next() {
+		var i Process
+		if err := rows.Scan(
+			&i.ID,
+			&i.DocumentID,
+			&i.ProcessType,
+			&i.Status,
+			&i.Progress,
+			&i.Message,
+			&i.Error,
+			&i.Attempts,
+			&i.CreatedBy,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateProcessProgress = `-- name: UpdateProcessProgress :exec
 UPDATE processes
 SET progress = $2,

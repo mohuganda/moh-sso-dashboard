@@ -11,11 +11,10 @@ import (
 type FhirBundlerProcessor struct {
 	repository repository.DocumentRepository
 	storage    storage.Storage
-	db         db.Store
 }
 
-func NewFhirBundlerProcessor(repository repository.DocumentRepository, storage storage.Storage, db db.Store) *FhirBundlerProcessor {
-	return &FhirBundlerProcessor{repository: repository, storage: storage, db: db}
+func NewFhirBundlerProcessor(repository repository.DocumentRepository, storage storage.Storage) *FhirBundlerProcessor {
+	return &FhirBundlerProcessor{repository: repository, storage: storage}
 }
 
 func (c *FhirBundlerProcessor) Process(ctx context.Context, p db.Process) error {

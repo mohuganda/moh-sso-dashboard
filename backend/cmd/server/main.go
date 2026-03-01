@@ -80,19 +80,18 @@ func main() {
 	appLogger.Info("Successfully connected to database")
 
 	remoteConn, err := sql.Open(cfg.DbDriver, cfg.RemoteDbSource())
-
 	if err != nil {
 		appLogger.Fatal("Cannot open remote database connection: ", err)
 	}
-	defer conn.Close()
+	defer remoteConn.Close()
 
-	// Connection pool tuning (important in production)
-	conn.SetMaxOpenConns(25)
-	conn.SetMaxIdleConns(10)
-	conn.SetConnMaxLifetime(30 * time.Minute)
+	// Remote pool tuning
+	remoteConn.SetMaxOpenConns(25)
+	remoteConn.SetMaxIdleConns(10)
+	remoteConn.SetConnMaxLifetime(30 * time.Minute)
 
-	if err := conn.PingContext(ctx); err != nil {
-		appLogger.Fatal("Cannot connect to  remote database: ", err)
+	if err := remoteConn.PingContext(ctx); err != nil {
+		appLogger.Fatal("Cannot connect to remote database: ", err)
 	}
 	appLogger.Info("Successfully connected to remote database")
 
@@ -171,7 +170,7 @@ func main() {
 	notificationsRepository := notificationsRepo.NewNotificationsRepository(store, *appLogger)
 	documentRepository := documentRepo.NewDocumentRepository(cfg, store, *appLogger)
 	processRepository := processRepo.NewProcessRepository(cfg, store, *appLogger)
-	fileRepository := documentRepo.NewFileRepository(remoteConn)
+	fileRepository := documentRepo.NewFileRepository()
 
 	// --------------------------------------------------
 	// Services
@@ -190,7 +189,9 @@ func main() {
 	importService := importSvc.NewService(
 		documentRepository,
 		processRepository,
+		fileRepository,
 		fileStorage,
+		remoteConn,
 	)
 
 	// --------------------------------------------------
@@ -224,6 +225,11 @@ func main() {
 		func(ctx context.Context) error {
 			return conn.PingContext(ctx)
 		},
+
+		func(ctx context.Context) error {
+			return remoteConn.PingContext(ctx)
+		},
+
 		func(ctx context.Context) error {
 			return adminKC.Authenticate()
 		},

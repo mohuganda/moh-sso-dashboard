@@ -12,6 +12,7 @@ import (
 
 type HealthHandler struct {
 	DBCheck       func(ctx context.Context) error
+	RemoteDBCheck func(ctx context.Context) error
 	KeycloakCheck func(ctx context.Context) error
 	Redis         *redis.Client
 	startedAt     time.Time
@@ -19,11 +20,13 @@ type HealthHandler struct {
 
 func NewHealthHandler(
 	dbCheck func(ctx context.Context) error,
+	remoteDbCheck func(ctx context.Context) error,
 	kcCheck func(ctx context.Context) error,
 	redis *redis.Client,
 ) *HealthHandler {
 	return &HealthHandler{
 		DBCheck:       dbCheck,
+		RemoteDBCheck: remoteDbCheck,
 		KeycloakCheck: kcCheck,
 		startedAt:     time.Now(),
 		Redis:         redis,
@@ -59,6 +62,16 @@ func (h *HealthHandler) HandleReady(c *gin.Context) {
 			})
 			return
 		}
+	}
+
+	if err := h.RemoteDBCheck(ctx); err != nil {
+		response.OK(c, http.StatusServiceUnavailable, gin.H{
+			"status":         "not_ready",
+			"reason":         "database_unavailable",
+			"error":          err.Error(),
+			"uptime_seconds": int(time.Since(h.startedAt).Seconds()),
+		})
+		return
 	}
 
 	if err := h.DBCheck(ctx); err != nil {
@@ -104,6 +117,12 @@ func (h *HealthHandler) HandleHealth(c *gin.Context) {
 		status = "degraded"
 	}
 
+	remoteDb := "ok"
+	if err := h.RemoteDBCheck(ctx); err != nil {
+		remoteDb = "unavailable"
+		status = "degraded"
+	}
+
 	keycloak := "ok"
 	if err := h.KeycloakCheck(ctx); err != nil {
 		keycloak = "unavailable"
@@ -125,6 +144,7 @@ func (h *HealthHandler) HandleHealth(c *gin.Context) {
 		"status": status,
 		"components": gin.H{
 			"database": db,
+			"remoteDB": remoteDb,
 			"keycloak": keycloak,
 			"redis":    redis,
 		},
