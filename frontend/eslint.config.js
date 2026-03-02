@@ -58,7 +58,7 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": [
         "error",
         {
-          "fixStyle": "inline-type-imports",
+          fixStyle: "inline-type-imports",
         },
       ],
 
@@ -70,26 +70,29 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          "paths": [
+          paths: [
             {
-              "name": "lodash",
-              "message": "Import specific methods from `lodash`. e.g. `import map from 'lodash/map'`"
+              name: "lodash",
+              message: "Import specific methods from `lodash`. e.g. `import map from 'lodash/map'`",
             },
             {
-              "name": "lodash-es",
-              "importNames": ["default"],
-              "message": "Import specific methods from `lodash-es`. e.g. `import { map } from 'lodash-es'`"
+              name: "lodash-es",
+              importNames: ["default"],
+              message:
+                "Import specific methods from `lodash-es`. e.g. `import { map } from 'lodash-es'`",
             },
             {
-              "name": "carbon-components-react",
-              "message": "Import from `@carbon/react` directly. e.g. `import { Toggle } from '@carbon/react'`"
+              name: "carbon-components-react",
+              message:
+                "Import from `@carbon/react` directly. e.g. `import { Toggle } from '@carbon/react'`",
             },
             {
-              "name": "@carbon/icons-react",
-              "message": "Import from `@carbon/react/icons`. e.g. `import { ChevronUp } from '@carbon/react/icons'`"
-            }
-          ]
-        }
+              name: "@carbon/icons-react",
+              message:
+                "Import from `@carbon/react/icons`. e.g. `import { ChevronUp } from '@carbon/react/icons'`",
+            },
+          ],
+        },
       ],
 
       // --- Testing Library (Base) ---
@@ -106,5 +109,5 @@ export default tseslint.config(
   },
 
   // 3. Prettier
-  prettier
+  prettier,
 );

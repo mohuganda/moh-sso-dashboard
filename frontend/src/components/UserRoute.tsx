@@ -6,7 +6,6 @@ import { Navigate } from "react-router-dom";
 
 import { selectAuthenticated, selectAuthLoaded, selectIsUser } from "../store/auth/auth.selectors";
 
-
 export const UserRoute = ({ children }: { children: JSX.Element }) => {
   const loaded = useSelector(selectAuthLoaded);
   const authenticated = useSelector(selectAuthenticated);

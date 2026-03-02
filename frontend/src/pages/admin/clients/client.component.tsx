@@ -27,7 +27,6 @@ import type { Client } from "../../../store/types/client.types";
 import { ClientActionsMenu } from "./client-actions-menu.component";
 import { ClientBulkActions } from "./client-bulk-actions.component";
 
-
 /* -----------------------------
  * Filters
  * ----------------------------- */
@@ -273,8 +272,8 @@ export default function ClientsPage() {
                                   {row.isSelected && (
                                     <ClientActionsMenu
                                       client={client}
-                                      onEdit={() =>
-                                        { openPanel({
+                                      onEdit={() => {
+                                        openPanel({
                                           title: "Edit client",
                                           content: (
                                             <ClientFormPanel
@@ -284,10 +283,10 @@ export default function ClientsPage() {
                                             />
                                           ),
                                           size: "md",
-                                        }); }
-                                      }
-                                      onToggleStatus={() =>
-                                        { openEnableClientModal({
+                                        });
+                                      }}
+                                      onToggleStatus={() => {
+                                        openEnableClientModal({
                                           clientName: client.name,
                                           enabled: client.enabled,
                                           onConfirm: async () => {
@@ -308,8 +307,8 @@ export default function ClientsPage() {
                                               });
                                             }
                                           },
-                                        }); }
-                                      }
+                                        });
+                                      }}
                                     />
                                   )}
                                 </TableCell>

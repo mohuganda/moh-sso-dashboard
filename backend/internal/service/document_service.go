@@ -78,7 +78,7 @@ func (s *DocumentService) CreateDocument(
 		db.CreateProcessParams{
 			ID:          processID,
 			DocumentID:  docID,
-			ProcessType: string(models.ProcessTypeDocumentImport),
+			ProcessType: string(models.ProcessTypeCSVImport),
 			CreatedBy:   input.UploadedBy,
 		},
 	)

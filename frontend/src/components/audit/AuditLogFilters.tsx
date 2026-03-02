@@ -69,7 +69,9 @@ export function AuditLogFilters({
         labelText="Client"
         placeholder="Client ID"
         style={{ width: 180 }}
-        onChange={(e) => { onClientChange(e.target.value || undefined); }}
+        onChange={(e) => {
+          onClientChange(e.target.value || undefined);
+        }}
       />
 
       {/* Result */}
@@ -83,9 +85,9 @@ export function AuditLogFilters({
           { id: "false", label: "Failure" },
         ]}
         itemToString={(item) => item?.label ?? ""}
-        onChange={({ selectedItem }) =>
-          { onSuccessChange(selectedItem?.id as SuccessFilter | undefined); }
-        }
+        onChange={({ selectedItem }) => {
+          onSuccessChange(selectedItem?.id as SuccessFilter | undefined);
+        }}
       />
 
       {/* Actions */}

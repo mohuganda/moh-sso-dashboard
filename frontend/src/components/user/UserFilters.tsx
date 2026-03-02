@@ -43,7 +43,9 @@ export function UserFilters({
         items={["all", "active", "disabled"]}
         selectedItem={status}
         style={{ width: 160 }}
-        onChange={({ selectedItem }) => { onStatusChange(selectedItem!); }}
+        onChange={({ selectedItem }) => {
+          onStatusChange(selectedItem!);
+        }}
       />
 
       {/* Role */}
@@ -55,7 +57,9 @@ export function UserFilters({
         items={roles}
         selectedItem={selectedRole}
         style={{ width: 200 }}
-        onChange={({ selectedItem }) => { onRoleChange(selectedItem!); }}
+        onChange={({ selectedItem }) => {
+          onRoleChange(selectedItem!);
+        }}
       />
 
       {/* Never logged in toggle */}

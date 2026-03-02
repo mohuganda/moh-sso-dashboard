@@ -205,7 +205,9 @@ export default function UserBulkImportPage() {
             subtitle={notice.subtitle}
             lowContrast
             hideCloseButton={false}
-            onCloseButtonClick={() => { setNotice(null); }}
+            onCloseButtonClick={() => {
+              setNotice(null);
+            }}
           />
         </div>
       )}

@@ -242,11 +242,10 @@ const (
 type ProcessType string
 
 const (
-	ProcessTypeDocumentImport     ProcessType = "DOCUMENT_IMPORT"
-	ProcessTypeDocumentValidation ProcessType = "DOCUMENT_VALIDATION"
-	ProcessTypeDocumentExport     ProcessType = "DOCUMENT_EXPORT"
-	ProcessTypeBulkUserImport     ProcessType = "BULK_USER_IMPORT"
-	ProcessTypeBulkUserExport     ProcessType = "BULK_USER_EXPORT"
+	ProcessTypeCSVImport      ProcessType = "CSV_IMPORT"
+	ProcessTypeExcelImport    ProcessType = "EXCEL_IMPORT"
+	ProcessTypeFHIRImport     ProcessType = "FHIR_IMPORT"
+	ProcessTypeUserBulkImport ProcessType = "USER_BULK_IMPORT"
 )
 
 func (t NotificationType) Severity() string {

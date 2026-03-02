@@ -46,7 +46,9 @@ export function ClientFilters({
         selectedItem={statusOptions.find((i) => i.id === status)}
         itemToString={(item) => item?.label ?? ""}
         style={{ width: 180 }}
-        onChange={({ selectedItem }) => { onStatusChange(selectedItem?.id as StatusFilter); }}
+        onChange={({ selectedItem }) => {
+          onStatusChange(selectedItem?.id as StatusFilter);
+        }}
       />
 
       {/* Type */}
@@ -59,7 +61,9 @@ export function ClientFilters({
         selectedItem={typeOptions.find((i) => i.id === type)}
         itemToString={(item) => item?.label ?? ""}
         style={{ width: 200 }}
-        onChange={({ selectedItem }) => { onTypeChange(selectedItem?.id as TypeFilter); }}
+        onChange={({ selectedItem }) => {
+          onTypeChange(selectedItem?.id as TypeFilter);
+        }}
       />
     </Stack>
   );

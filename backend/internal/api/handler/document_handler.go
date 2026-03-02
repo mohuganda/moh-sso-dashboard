@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -47,13 +48,47 @@ func toDocumentResponse(doc db.Document) DocumentResponse {
 	return DocumentResponse{
 		ID:               doc.ID,
 		OriginalFilename: doc.OriginalFilename,
-		ContentType:      doc.ContentType.String,
+		ContentType:      nullStringValue(doc.ContentType),
 		SizeBytes:        doc.SizeBytes,
-		ChecksumSHA256:   &doc.ChecksumSha256.String,
+		ChecksumSHA256:   nullStringPtr(doc.ChecksumSha256),
 		StorageLocation:  doc.StorageLocationID,
 		ObjectKey:        doc.ObjectKey,
 		UploadedBy:       doc.UploadedBy,
-		CreatedAt:        doc.CreatedAt.Time.Format(time.RFC3339),
+		CreatedAt:        nullTimeRFC3339(doc.CreatedAt),
+	}
+}
+
+type ProcessResponse struct {
+	ID          uuid.UUID  `json:"id"`
+	DocumentID  uuid.UUID  `json:"document_id"`
+	ProcessType string     `json:"process_type"`
+	Status      string     `json:"status"`
+	Progress    int32      `json:"progress"`
+	Message     *string    `json:"message,omitempty"`
+	Error       *string    `json:"error,omitempty"`
+	Attempts    int32      `json:"attempts"`
+	CreatedBy   uuid.UUID  `json:"created_by"`
+	StartedAt   *time.Time `json:"started_at,omitempty"`
+	FinishedAt  *time.Time `json:"finished_at,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+}
+
+func toProcessResponse(process db.Process) ProcessResponse {
+	return ProcessResponse{
+		ID:          process.ID,
+		DocumentID:  process.DocumentID,
+		ProcessType: process.ProcessType,
+		Status:      normalizeStatus(process.Status),
+		Progress:    process.Progress,
+		Message:     nullStringPtr(process.Message),
+		Error:       nullStringPtr(process.Error),
+		Attempts:    process.Attempts,
+		CreatedBy:   process.CreatedBy,
+		StartedAt:   nullTimePtr(process.StartedAt),
+		FinishedAt:  nullTimePtr(process.FinishedAt),
+		CreatedAt:   nullTimePtr(process.CreatedAt),
+		UpdatedAt:   nullTimePtr(process.UpdatedAt),
 	}
 }
 
@@ -180,7 +215,7 @@ func (h *DocumentHandler) GetDocument(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, doc)
+	response.OK(c, http.StatusOK, toDocumentResponse(doc))
 }
 
 func (h *DocumentHandler) EditDocument(c *gin.Context) {
@@ -284,13 +319,66 @@ func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 
 func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {
 	ctx := c.Request.Context()
-	documentID := c.Param("id")
 
-	processes, err := h.documentService.ListProcessesByDocument(ctx, documentID)
+	idParam := c.Param("id")
+	if idParam == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_DOCUMENT_ID", "Document ID is required")
+		return
+	}
+
+	processes, err := h.documentService.ListProcessesByDocument(ctx, idParam)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "PROCESS_LIST_FAILED", "Failed to list processes")
 		return
 	}
 
-	response.OK(c, http.StatusOK, processes)
+	out := make([]ProcessResponse, 0, len(processes))
+	for _, p := range processes {
+		out = append(out, toProcessResponse(p))
+	}
+
+	response.OK(c, http.StatusOK, out)
+}
+
+func normalizeStatus(v any) string {
+	switch s := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return s
+	case []byte:
+		return string(s)
+	case fmt.Stringer:
+		return s.String()
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
+func nullStringPtr(ns sql.NullString) *string {
+	if !ns.Valid {
+		return nil
+	}
+	return &ns.String
+}
+
+func nullTimePtr(nt sql.NullTime) *time.Time {
+	if !nt.Valid {
+		return nil
+	}
+	return &nt.Time
+}
+
+func nullStringValue(ns sql.NullString) string {
+	if !ns.Valid {
+		return ""
+	}
+	return ns.String
+}
+
+func nullTimeRFC3339(nt sql.NullTime) string {
+	if !nt.Valid {
+		return ""
+	}
+	return nt.Time.UTC().Format(time.RFC3339)
 }

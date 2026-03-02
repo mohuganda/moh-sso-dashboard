@@ -46,14 +46,18 @@ export function CreateClientRoleForm({ clientId, onSuccess }: Props) {
         labelText="Role name"
         helperText="Format: resource:action (e.g. users:view)"
         value={name}
-        onChange={(e) => { setName(e.target.value); }}
+        onChange={(e) => {
+          setName(e.target.value);
+        }}
       />
 
       <TextInput
         id="role-description"
         labelText="Description (optional)"
         value={description}
-        onChange={(e) => { setDescription(e.target.value); }}
+        onChange={(e) => {
+          setDescription(e.target.value);
+        }}
       />
 
       <Button kind="primary" size="sm" disabled={!isValid || isLoading} onClick={handleSubmit}>

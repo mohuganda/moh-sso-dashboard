@@ -1,28 +1,29 @@
 .file-upload-btn-container {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
+  margin-top: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .uploader-form-item {
-    align-items: center !important;
+  align-items: center !important;
 }
 
 .preview-container {
-    margin-top: 2rem;
+  margin-top: 2rem;
 }
 
-.uploader-form-item, .preview-container {
-    background: #fff;
-    padding: 2rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+.uploader-form-item,
+.preview-container {
+  background: #fff;
+  padding: 2rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
 }
 
 .uploader-form-item .cds--file-browse-btn {
-    max-inline-size: unset;
-    block-size: 8rem;
-    justify-content: center;
+  max-inline-size: unset;
+  block-size: 8rem;
+  justify-content: center;
 }

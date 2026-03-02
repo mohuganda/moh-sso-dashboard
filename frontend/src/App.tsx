@@ -111,9 +111,9 @@ function App() {
               <Route
                 path="filesvr"
                 element={
-                    <UserRoute>
-                        <FileUpload />
-                    </UserRoute>
+                  <UserRoute>
+                    <FileUpload />
+                  </UserRoute>
                 }
               />
             </Route>

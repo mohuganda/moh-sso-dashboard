@@ -108,9 +108,9 @@ export function UserClientRolesPanel({ userId }: Props) {
             selectedItems={
               selectedClient ? [{ id: selectedClient.clientId, text: selectedClient.name }] : []
             }
-            onChange={({ selectedItems }) =>
-              { setSelectedClientId((selectedItems ?? [])[0]?.id ?? null); }
-            }
+            onChange={({ selectedItems }) => {
+              setSelectedClientId((selectedItems ?? [])[0]?.id ?? null);
+            }}
           />
         </Stack>
       </Tile>
@@ -134,9 +134,9 @@ export function UserClientRolesPanel({ userId }: Props) {
                 items={roleItems}
                 itemToString={(item) => item?.text ?? ""}
                 selectedItems={roleItems.filter((r) => selectedRoles.includes(r.id))}
-                onChange={({ selectedItems }) =>
-                  { setSelectedRoles((selectedItems ?? []).map((r) => r.id)); }
-                }
+                onChange={({ selectedItems }) => {
+                  setSelectedRoles((selectedItems ?? []).map((r) => r.id));
+                }}
               />
             )}
 
