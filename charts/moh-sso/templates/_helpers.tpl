@@ -156,7 +156,6 @@ https://{{ .Values.keycloakIngress.host }}
 
 
 #  login redirect url
-
 {{- define "moh-sso.keycloak.loginRedirectUri" -}}
 {{ include "moh-sso.backend.baseUrl" . }}/api/v1/auth/login
 {{- end -}}

@@ -93,6 +93,18 @@ type ClientSecret struct {
 	ExpiresAt  sql.NullTime `json:"expires_at"`
 }
 
+type Document struct {
+	ID                uuid.UUID      `json:"id"`
+	OriginalFilename  string         `json:"original_filename"`
+	ContentType       sql.NullString `json:"content_type"`
+	SizeBytes         int64          `json:"size_bytes"`
+	ChecksumSha256    sql.NullString `json:"checksum_sha256"`
+	StorageLocationID uuid.UUID      `json:"storage_location_id"`
+	ObjectKey         string         `json:"object_key"`
+	UploadedBy        uuid.UUID      `json:"uploaded_by"`
+	CreatedAt         sql.NullTime   `json:"created_at"`
+}
+
 type ImportJob struct {
 	ID           uuid.UUID       `json:"id"`
 	Filename     string          `json:"filename"`
@@ -136,6 +148,22 @@ type Notification struct {
 	CreatedAt  sql.NullTime          `json:"created_at"`
 }
 
+type Process struct {
+	ID          uuid.UUID      `json:"id"`
+	DocumentID  uuid.UUID      `json:"document_id"`
+	ProcessType string         `json:"process_type"`
+	Status      interface{}    `json:"status"`
+	Progress    int32          `json:"progress"`
+	Message     sql.NullString `json:"message"`
+	Error       sql.NullString `json:"error"`
+	Attempts    int32          `json:"attempts"`
+	CreatedBy   uuid.UUID      `json:"created_by"`
+	StartedAt   sql.NullTime   `json:"started_at"`
+	FinishedAt  sql.NullTime   `json:"finished_at"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+}
+
 type RevokedToken struct {
 	ID        int64        `json:"id"`
 	TokenHash string       `json:"token_hash"`
@@ -157,6 +185,16 @@ type Session struct {
 	IpAddress    sql.NullString `json:"ip_address"`
 	CreatedAt    sql.NullTime   `json:"created_at"`
 	ExpiresAt    time.Time      `json:"expires_at"`
+}
+
+type StorageLocation struct {
+	ID        uuid.UUID    `json:"id"`
+	Code      string       `json:"code"`
+	Name      string       `json:"name"`
+	Provider  string       `json:"provider"`
+	BaseUri   string       `json:"base_uri"`
+	IsActive  sql.NullBool `json:"is_active"`
+	CreatedAt sql.NullTime `json:"created_at"`
 }
 
 type User struct {

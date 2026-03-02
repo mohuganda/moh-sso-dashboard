@@ -194,6 +194,14 @@ const (
 	ClientEnabled       NotificationType = "CLIENT_ENABLED"
 	ClientSecretRotated NotificationType = "CLIENT_SECRET_ROTATED"
 )
+
+const (
+	DocumentCreated NotificationType = "DOCUMENT_CREATED"
+	DocumentUpdated NotificationType = "DOCUMENT_UPDATED"
+	DocumentDeleted NotificationType = "DOCUMENT_DELETED"
+	DocumentEdited  NotificationType = "DOCUMENT_EDITED"
+)
+
 const (
 	SystemStartup   NotificationType = "SYSTEM_STARTUP"
 	SystemShutdown  NotificationType = "SYSTEM_SHUTDOWN"
@@ -219,6 +227,26 @@ const (
 	ClientRoleAssigned NotificationType = "CLIENT_ROLE_ASSIGNED"
 	ClientRolesUpdated NotificationType = "CLIENT_TOLE_UPDATED"
 	ClientRoleRemoved  NotificationType = "CLIENT_ROLE_REMOVED"
+)
+
+type ProcessStatus string
+
+const (
+	ProcessStatusPENDING    ProcessStatus = "PENDING"
+	ProcessStatusPROCESSING ProcessStatus = "PROCESSING"
+	ProcessStatusCOMPLETED  ProcessStatus = "COMPLETED"
+	ProcessStatusFAILED     ProcessStatus = "FAILED"
+	ProcessStatusCANCELLED  ProcessStatus = "CANCELLED"
+)
+
+type ProcessType string
+
+const (
+	ProcessTypeDocumentImport     ProcessType = "DOCUMENT_IMPORT"
+	ProcessTypeDocumentValidation ProcessType = "DOCUMENT_VALIDATION"
+	ProcessTypeDocumentExport     ProcessType = "DOCUMENT_EXPORT"
+	ProcessTypeBulkUserImport     ProcessType = "BULK_USER_IMPORT"
+	ProcessTypeBulkUserExport     ProcessType = "BULK_USER_EXPORT"
 )
 
 func (t NotificationType) Severity() string {
@@ -278,4 +306,14 @@ func (t NotificationType) Title() string {
 	default:
 		return "System notification"
 	}
+}
+
+type ProcessFilters struct {
+	Status      *ProcessStatus
+	ProcessType *string
+}
+
+type Pagination struct {
+	Limit  int32
+	Offset int32
 }

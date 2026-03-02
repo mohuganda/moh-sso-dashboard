@@ -14,25 +14,28 @@ fullnameOverride: ""
 # Ingress (overridden per environment)
 # --------------------------------------------------
 ingress:
-  enabled: false
+  enabled: true
   className: nginx
-  host: ""
-  annotations: {}
+  host: portal.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: "/"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
   tls:
-    enabled: false
-    secretName: ""
+    enabled: true
+    secretName: portal-local-tls
 
 # --------------------------------------------------
 # Keycloak Ingress (separate host recommended)
 # --------------------------------------------------
 keycloakIngress:
-  enabled: false
+  enabled: true
   className: nginx
-  host: ""
+  host: auth.portal.local
   annotations: {}
   tls:
-    enabled: false
-    secretName: ""
+    enabled: true
+    secretName: auth-local-tls
 
 # --------------------------------------------------
 # Backend (Go API)
@@ -193,12 +196,13 @@ keycloak:
   config:
     KC_DB: postgres
     KC_HTTP_ENABLED: "true"
-    KC_PROXY: ""
+    KC_PROXY: "edge"
     KC_HEALTH_ENABLED: "true"
     KC_METRICS_ENABLED: "true"
-    KC_HOSTNAME_STRICT: "false"
-    KC_HOSTNAME_STRICT_HTTPS: "false"
+    KC_HOSTNAME_STRICT: "true"
+    KC_HOSTNAME_STRICT_HTTPS: "true"
     KC_LOG_LEVEL: INFO
+    KC_HOSTNAME: "portal.local"
 
 # --------------------------------------------------
 # Redis

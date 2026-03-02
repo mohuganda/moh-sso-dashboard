@@ -86,6 +86,13 @@ type Config struct {
 	TokenSymmetricKey    string        `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 	AccessTokenDuration  time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`
 	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`
+
+	// =================================================
+	// storage
+	// =================================================
+	S3Client      string `mapstructure:"S3_CLIENT"`
+	S3Bucket      string `mapstructure:"S3_BUCKET"`
+	LocalBasePath string `mapstructure:"LOCAL_BASE_PATH"`
 }
 
 func LoadConfig(path string) (*Config, error) {

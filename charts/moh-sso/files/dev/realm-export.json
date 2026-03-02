@@ -270,10 +270,10 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "http://localhost:9000/api/v1/auth/callback"
+        "https://portal.local/api/v1/auth/callback"
       ],
       "webOrigins": [
-        "http://localhost:3000"
+        "https://portal.local"
       ],
       "defaultClientScopes": [
         "openid",
