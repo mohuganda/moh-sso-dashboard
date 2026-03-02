@@ -15,9 +15,8 @@ import {
   SelectItem,
   Loading,
 } from "@carbon/react";
-import { Upload } from "@carbon/icons-react";
+import { Upload } from "@carbon/react/icons";
 import { EmptyState } from "../../../../components/emptystate/EmptyState";
-import { useNavigate } from "react-router-dom";
 import { useHeaderPanel } from "../../../../components/header-panel/header-panel.context";
 import { UploadDocumentModal } from "./UploadDocumentModal";
 import { useListDocumentsQuery } from "../../../../store/api/document.api";
@@ -25,7 +24,6 @@ import { DocumentRow } from "./document-row.component";
 
 export default function DocumentPage() {
   const { openPanel } = useHeaderPanel();
-  const navigate = useNavigate();
 
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 

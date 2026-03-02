@@ -152,7 +152,7 @@ export default function DocumentDetailsPage() {
             gap: "1rem",
           }}
         >
-          <InfoItem label="Content Type" value={document.content_type.String} />
+          <InfoItem label="Content Type" value={document.content_type} />
           <InfoItem label="Size" value={`${(document.size_bytes / 1024 / 1024).toFixed(2)} MB`} />
           <InfoItem label="Object Key" value={document.object_key} />
           <InfoItem label="Created At" value={new Date(document.created_at).toLocaleString()} />
