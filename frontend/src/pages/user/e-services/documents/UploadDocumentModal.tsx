@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Button,
   FileUploaderDropContainer,
@@ -8,8 +8,13 @@ import {
   SelectItem,
   InlineNotification,
   Stack,
+  Loading,
+  Tag,
 } from "@carbon/react";
-import { useCreateDocumentMutation } from "../../../../store/api/document.api";
+import {
+  useCreateDocumentMutation,
+  useListStorageLocationsQuery,
+} from "../../../../store/api/document.api";
 
 type UploadDocumentModalProps = {
   onClose: () => void;
@@ -20,7 +25,11 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
   const [storageLocation, setStorageLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const [createDocument, { isLoading }] = useCreateDocumentMutation();
+  const [createDocument, { isLoading: isUploading }] = useCreateDocumentMutation();
+
+  const { data: locations = [], isLoading: isLocationsLoading } = useListStorageLocationsQuery();
+
+  const activeLocations = useMemo(() => locations.filter((loc) => loc.is_active), [locations]);
 
   const handleFileChange = (event: any) => {
     const selected = event?.target?.files?.[0];
@@ -31,8 +40,15 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ];
 
-    if (!allowedTypes.includes(selected.type)) {
-      setError("Only CSV or Excel files are allowed.");
+    const allowedExtensions = [".csv", ".xlsx"];
+
+    const hasValidType = allowedTypes.includes(selected.type);
+    const hasValidExtension = allowedExtensions.some((ext) =>
+      selected.name.toLowerCase().endsWith(ext),
+    );
+
+    if (!hasValidType && !hasValidExtension) {
+      setError("Only CSV or Excel (.xlsx) files are allowed.");
       return;
     }
 
@@ -84,19 +100,32 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
             />
           </FormGroup>
 
-          <Select
-            id="storage-location"
-            labelText="Storage Location"
-            value={storageLocation}
-            onChange={(e) => setStorageLocation(e.target.value)}
-          >
-            <SelectItem value="" text="Select location" />
-            <SelectItem value="550e8400-e29b-41d4-a716-446655440000" text="Default Storage" />
-            <SelectItem value="550e8400-e29b-41d4-a716-446655440111" text="Archive Storage" />
-          </Select>
+          {isLocationsLoading ? (
+            <Loading description="Loading storage locations..." />
+          ) : (
+            <Select
+              id="storage-location"
+              labelText="Storage Location"
+              value={storageLocation}
+              onChange={(e) => setStorageLocation(e.target.value)}
+              disabled={activeLocations.length === 0}
+            >
+              <SelectItem value="" text="Select location" />
 
-          <Button onClick={handleUpload} disabled={isLoading}>
-            {isLoading ? "Uploading..." : "Upload Document"}
+              {activeLocations.map((loc) => (
+                <SelectItem
+                  key={loc.id}
+                  value={loc.id}
+                  text={`${loc.name} (${loc.provider.toUpperCase()})`}
+                />
+              ))}
+            </Select>
+          )}
+
+          {file && <Tag type="blue">Selected: {file.name}</Tag>}
+
+          <Button onClick={handleUpload} disabled={isUploading || isLocationsLoading}>
+            {isUploading ? "Uploading..." : "Upload Document"}
           </Button>
         </Stack>
       </Form>

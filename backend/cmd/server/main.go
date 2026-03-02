@@ -2,16 +2,11 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	_ "github.com/lib/pq"
 
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/api/handler"
@@ -20,7 +15,10 @@ import (
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
 	kcClientPkg "github.com/moh-sso-dashboard/internal/keycloak"
 	logger "github.com/moh-sso-dashboard/internal/log"
-	migrate "github.com/moh-sso-dashboard/internal/migrate"
+	db "github.com/moh-sso-dashboard/internal/migrate"
+	"github.com/moh-sso-dashboard/internal/ratelimit"
+	"github.com/moh-sso-dashboard/internal/service"
+	importSvc "github.com/moh-sso-dashboard/internal/service/import"
 	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/moh-sso-dashboard/internal/worker"
 
@@ -30,79 +28,74 @@ import (
 	metricsRepo "github.com/moh-sso-dashboard/internal/repository/metrics"
 	notificationsRepo "github.com/moh-sso-dashboard/internal/repository/notifications"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
+	storageLocationRepo "github.com/moh-sso-dashboard/internal/repository/storage_locations"
 	userRepo "github.com/moh-sso-dashboard/internal/repository/user"
-
-	"github.com/moh-sso-dashboard/internal/ratelimit"
-	"github.com/moh-sso-dashboard/internal/service"
-
-	importSvc "github.com/moh-sso-dashboard/internal/service/import"
 
 	"github.com/rs/zerolog"
 )
 
 func main() {
 
-	// --------------------------------------------------
-	// Root Context (shared by server + worker)
-	// --------------------------------------------------
+	// ==================================================
+	// Root Context
+	// ==================================================
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// --------------------------------------------------
-	// Load Configuration
-	// --------------------------------------------------
+	// ==================================================
+	// Load Config
+	// ==================================================
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
-		log.Fatalf("cannot load config: %v", err)
+		panic("cannot load config: " + err.Error())
 	}
 
 	appLogger := logger.NewLogger()
 	appLogger.SetLevel(zerolog.InfoLevel)
-	appLogger.Info("Starting server in environment: " + cfg.Environment)
+	appLogger.Info("Starting MOH SSO Dashboard - Environment: " + cfg.Environment)
 
-	// --------------------------------------------------
-	// Database (pq + database/sql)
-	// --------------------------------------------------
-	conn, err := sql.Open(cfg.DbDriver, cfg.DbSource())
+	// ==================================================
+	// Initialize Primary DB
+	// ==================================================
+	primaryDB, err := db.InitDB(ctx, db.DBConfig{
+		Driver:          cfg.DbDriver,
+		DSN:             cfg.DbSource(),
+		MaxOpenConns:    25,
+		MaxIdleConns:    10,
+		ConnMaxLifetime: 30 * time.Minute,
+		WaitTimeout:     30 * time.Second,
+	})
 	if err != nil {
-		appLogger.Fatal("Cannot open database connection: ", err)
+		appLogger.Fatal("Failed to initialize primary DB: ", err)
 	}
-	defer conn.Close()
+	defer primaryDB.Close()
 
-	// Connection pool tuning (important in production)
-	conn.SetMaxOpenConns(25)
-	conn.SetMaxIdleConns(10)
-	conn.SetConnMaxLifetime(30 * time.Minute)
-
-	if err := conn.PingContext(ctx); err != nil {
-		appLogger.Fatal("Cannot connect to database: ", err)
-	}
-	appLogger.Info("Successfully connected to database")
-
-	remoteConn, err := sql.Open(cfg.DbDriver, cfg.RemoteDbSource())
+	// ==================================================
+	// Initialize Remote DB
+	// ==================================================
+	remoteDB, err := db.InitDB(ctx, db.DBConfig{
+		Driver:          cfg.DbDriver,
+		DSN:             cfg.RemoteDbSource(),
+		MaxOpenConns:    25,
+		MaxIdleConns:    10,
+		ConnMaxLifetime: 30 * time.Minute,
+		WaitTimeout:     30 * time.Second,
+	})
 	if err != nil {
-		appLogger.Fatal("Cannot open remote database connection: ", err)
+		appLogger.Fatal("Failed to initialize remote DB: ", err)
 	}
-	defer remoteConn.Close()
+	defer remoteDB.Close()
 
-	// Remote pool tuning
-	remoteConn.SetMaxOpenConns(25)
-	remoteConn.SetMaxIdleConns(10)
-	remoteConn.SetConnMaxLifetime(30 * time.Minute)
-
-	if err := remoteConn.PingContext(ctx); err != nil {
-		appLogger.Fatal("Cannot connect to remote database: ", err)
-	}
-	appLogger.Info("Successfully connected to remote database")
-
-	// Run migrations
-	if err := migrate.MigrateDB(conn, "file://internal/db/migrations"); err != nil {
-		appLogger.Fatal("Cannot migrate db: ", err)
+	// ==================================================
+	// Run Migrations
+	// ==================================================
+	if err := db.MigrateDB(primaryDB, "file://internal/db/migrations"); err != nil {
+		appLogger.Fatal("Migration failed: ", err)
 	}
 
-	// --------------------------------------------------
+	// ==================================================
 	// Redis
-	// --------------------------------------------------
+	// ==================================================
 	rdb := cache.NewRedisClient(cache.RedisConfig{
 		Host:         cfg.RedisHost,
 		Port:         cfg.RedisPort,
@@ -114,14 +107,14 @@ func main() {
 	})
 
 	cache.MustPing(ctx, rdb)
-	appLogger.Info("Successfully connected to Redis")
-
 	cacheAdapter := cache.NewRedisCache(rdb)
 	rateLimiter := ratelimit.New(rdb)
 
-	// --------------------------------------------------
+	appLogger.Info("Redis connected")
+
+	// ==================================================
 	// Keycloak
-	// --------------------------------------------------
+	// ==================================================
 	adminKC := kcClientPkg.NewAdminClient(
 		cfg.KeycloakBaseUrl,
 		cfg.KeycloakRealm,
@@ -130,7 +123,7 @@ func main() {
 	)
 
 	if err := adminKC.Authenticate(); err != nil {
-		appLogger.Fatal("Failed to authenticate Keycloak admin service account: ", err)
+		appLogger.Fatal("Keycloak admin authentication failed: ", err)
 	}
 
 	webKC := kcClientPkg.NewWebClient(
@@ -141,28 +134,27 @@ func main() {
 		cacheAdapter,
 	)
 
-	appLogger.Info("Keycloak clients initialized successfully")
+	appLogger.Info("Keycloak clients initialized")
 
-	// --------------------------------------------------
-	// Initialize Storage
-	// --------------------------------------------------
-	storageProvider := cfg.StorageProvider
-
-	fileStorage, err := storage.NewFileStorage(storageProvider, cfg)
+	// ==================================================
+	// Storage
+	// ==================================================
+	fileStorage, err := storage.NewFileStorage(cfg.StorageProvider, cfg)
 	if err != nil {
-		appLogger.Fatal("failed to initialize storage: ", err)
+		appLogger.Fatal("Storage initialization failed: ", err)
 	}
 
-	appLogger.Info("Storage provider initialized: " + storageProvider)
+	storageFactory := storage.NewStorageFactory(cfg)
+	appLogger.Info("Storage provider initialized: " + cfg.StorageProvider)
 
-	// --------------------------------------------------
-	// Infrastructure Store
-	// --------------------------------------------------
-	store := storepkg.NewStore(conn)
+	// ==================================================
+	// Store (SQLC)
+	// ==================================================
+	store := storepkg.NewStore(primaryDB)
 
-	// --------------------------------------------------
+	// ==================================================
 	// Repositories
-	// --------------------------------------------------
+	// ==================================================
 	authRepository := authRepo.NewAuthRepository(webKC, cfg)
 	clientRepository := clientRepo.NewClientRepository(adminKC, cfg, store, *appLogger)
 	userRepository := userRepo.NewUserRepository(adminKC, cfg, store, *appLogger)
@@ -171,13 +163,15 @@ func main() {
 	documentRepository := documentRepo.NewDocumentRepository(cfg, store, *appLogger)
 	processRepository := processRepo.NewProcessRepository(cfg, store, *appLogger)
 	fileRepository := documentRepo.NewFileRepository()
+	storageRepo := storageLocationRepo.NewStorageRepositoryRepository(cfg, store, *appLogger)
 
-	// --------------------------------------------------
+	// ==================================================
 	// Services
-	// --------------------------------------------------
+	// ==================================================
 	authService := service.NewAuthService(authRepository, rdb)
 	metricsService := service.NewMetricsService(metricsRepository)
 	auditService := service.NewAuditService(store, cacheAdapter)
+	storageLocationService := service.NewStorageLocationService(storageRepo)
 
 	publisher := cache.NewNotificationPublisher(rdb)
 	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
@@ -191,12 +185,12 @@ func main() {
 		processRepository,
 		fileRepository,
 		fileStorage,
-		remoteConn,
+		remoteDB,
 	)
 
-	// --------------------------------------------------
-	// Background Worker (NON-BLOCKING)
-	// --------------------------------------------------
+	// ==================================================
+	// Background Worker
+	// ==================================================
 	w := worker.NewWorker(
 		processRepository,
 		importService,
@@ -206,39 +200,33 @@ func main() {
 
 	go func() {
 		appLogger.Info("Background worker started")
-		w.Start(ctx)
+		if err := w.Start(ctx); err != nil {
+			appLogger.Error("Worker stopped with error: ", err)
+		}
 	}()
 
-	// --------------------------------------------------
+	// ==================================================
 	// Handlers
-	// --------------------------------------------------
+	// ==================================================
 	authHandler := handler.NewAuthHandler(authService, auditService, notificationsService, cfg)
 	clientHandler := handler.NewClientHandler(clientService, auditService, cacheAdapter)
 	userHandler := handler.NewUserHandler(userService, auditService, cacheAdapter)
 	metricsHandler := handler.NewMetricsHandler(metricsService)
 	auditHandler := handler.NewAuditHandler(store, cacheAdapter)
 	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
-	documentHandler := handler.NewDocumentHandler(documentService, auditService, fileStorage)
+	documentHandler := handler.NewDocumentHandler(documentService, auditService, storageLocationService, fileStorage, storageFactory)
+	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
 
-	// Health handler
 	healthHandler := handler.NewHealthHandler(
-		func(ctx context.Context) error {
-			return conn.PingContext(ctx)
-		},
-
-		func(ctx context.Context) error {
-			return remoteConn.PingContext(ctx)
-		},
-
-		func(ctx context.Context) error {
-			return adminKC.Authenticate()
-		},
+		func(ctx context.Context) error { return db.PingDB(ctx, primaryDB) },
+		func(ctx context.Context) error { return db.PingDB(ctx, remoteDB) },
+		func(ctx context.Context) error { return adminKC.Authenticate() },
 		rdb,
 	)
 
-	// --------------------------------------------------
+	// ==================================================
 	// Router
-	// --------------------------------------------------
+	// ==================================================
 	r := router.SetupRouter(
 		webKC,
 		rateLimiter,
@@ -250,49 +238,50 @@ func main() {
 		auditHandler,
 		notificationsHandler,
 		documentHandler,
+		storageLocationHandler,
 	)
 
 	r.GET("/health/live", healthHandler.HandleLive)
 	r.GET("/health/ready", healthHandler.HandleReady)
 	r.GET("/health", healthHandler.HandleHealth)
 
-	addr := ":" + cfg.ServerPort
-
-	ln, err := net.Listen("tcp4", addr)
-	if err != nil {
-		appLogger.Fatal("Failed to bind IPv4 listener: ", err)
-	}
-
+	// ==================================================
+	// HTTP Server (Hardened)
+	// ==================================================
 	server := &http.Server{
-		Handler: r,
+		Addr:              ":" + cfg.ServerPort,
+		Handler:           r,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
-	// Start HTTP server
 	go func() {
-		appLogger.Info("Server listening on ", addr)
-		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+		appLogger.Info("Server listening on :" + cfg.ServerPort)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			appLogger.Fatal("Server failed: ", err)
 		}
 	}()
 
-	// --------------------------------------------------
+	// ==================================================
 	// Graceful Shutdown
-	// --------------------------------------------------
+	// ==================================================
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	appLogger.Info("Shutdown signal received")
 
-	// Stop worker
 	cancel()
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		appLogger.Fatal("Server forced to shutdown: ", err)
+		appLogger.Error("Server shutdown error: ", err)
 	}
 
-	appLogger.Info("Server exited properly")
+	appLogger.Info("MOH SSO Dashboard exited cleanly")
 }

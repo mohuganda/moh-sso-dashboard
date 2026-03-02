@@ -102,8 +102,17 @@ type Config struct {
 	RemoteDBName     string `mapstructure:"REMOTE_DB_NAME"`
 
 	// s3 / minio
-	S3Client string `mapstructure:"S3_CLIENT"`
-	S3Bucket string `mapstructure:"S3_BUCKET"`
+	S3Client          string `mapstructure:"S3_CLIENT"`
+	S3Bucket          string `mapstructure:"S3_BUCKET"`
+	S3Region          string `mapstructure:"S3_REGION"`
+	S3AccessKeyID     string `mapstructure:"S3_ACCESS_KEY_ID"`
+	S3SecretAccessKey string `mapstructure:"S3_SECRET_ACCESS_KEY"`
+
+	MinioEndpoint        string `mapstructure:"MINIO_ENDPOINT"`
+	MinioRegion          string `mapstructure:"MINIO_REGION"`
+	MinioBucket          string `mapstructure:"MINIO_BUCKER"`
+	MinioAccessKeyID     string `mapstructure:"MINIO_ACCESS_KEY_ID"`
+	MinioSecretAccessKey string `mapstructure:"MINIO_SECRET_ACCESS_KEY"`
 }
 
 func LoadConfig(path string) (*Config, error) {

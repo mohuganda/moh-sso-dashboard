@@ -1,4 +1,5 @@
 import type { DocumentProcess, DocumentResponse } from "../types/documents.types";
+import type { StorageLocation } from "../types/storage.types";
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {
@@ -115,6 +116,30 @@ export const documentsApi = baseApi.injectEndpoints({
         responseHandler: (response) => response.blob(),
       }),
     }),
+
+    // -----------------------------
+    // LIST STORAGE LOCATIONS
+    // -----------------------------
+    listStorageLocations: builder.query<StorageLocation[], void>({
+      query: () => ({
+        url: `/storage-locations`,
+        method: "GET",
+      }),
+      transformResponse: (response: ApiEnvelope<StorageLocation[]>) => response.data,
+      providesTags: [{ type: "StorageLocations", id: "LIST" }],
+    }),
+
+    // -----------------------------
+    // GET SINGLE STORAGE LOCATION
+    // -----------------------------
+    getStorageLocation: builder.query<StorageLocation, string>({
+      query: (id) => ({
+        url: `/storage-locations/${id}`,
+        method: "GET",
+      }),
+      transformResponse: (response: ApiEnvelope<StorageLocation>) => response.data,
+      providesTags: (_res, _err, id) => [{ type: "StorageLocation", id }],
+    }),
   }),
 });
 
@@ -127,4 +152,6 @@ export const {
   useDeleteDocumentMutation,
   useDownloadDocumentQuery,
   useLazyDownloadDocumentQuery,
+  useListStorageLocationsQuery,
+  useGetStorageLocationQuery,
 } = documentsApi;

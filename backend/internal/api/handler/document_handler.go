@@ -19,9 +19,11 @@ import (
 )
 
 type DocumentHandler struct {
-	documentService *service.DocumentService
-	auditService    *service.AuditService
-	storage         storage.Storage
+	documentService        *service.DocumentService
+	auditService           *service.AuditService
+	storageLocationService service.StorageLocationService
+	storage                storage.Storage
+	storageFactory         *storage.StorageFactory
 }
 
 type UpdateDocumentRequest struct {
@@ -58,13 +60,16 @@ func toDocumentResponse(doc db.Document) DocumentResponse {
 func NewDocumentHandler(
 	documentService *service.DocumentService,
 	auditService *service.AuditService,
+	storageLocationService service.StorageLocationService,
 	storage storage.Storage,
-
+	storageFactory *storage.StorageFactory,
 ) *DocumentHandler {
 	return &DocumentHandler{
-		documentService: documentService,
-		auditService:    auditService,
-		storage:         storage,
+		documentService:        documentService,
+		auditService:           auditService,
+		storageLocationService: storageLocationService,
+		storage:                storage,
+		storageFactory:         storageFactory,
 	}
 }
 
@@ -79,7 +84,7 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	}
 
 	storageLocationStr := c.PostForm("storage_location")
-	storageLocation, err := uuid.Parse(storageLocationStr)
+	storageLocationID, err := uuid.Parse(storageLocationStr)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_STORAGE_LOCATION", "invalid storage location")
 		return
@@ -102,17 +107,35 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		return
 	}
 
+	loc, err := h.storageLocationService.GetByID(ctx, storageLocationStr)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_STORAGE", err.Error())
+		return
+	}
+
+	storageProvider, err := h.storageFactory.Get(loc.Provider)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PROVIDER", err.Error())
+		return
+	}
+
+	// 5️⃣ Upload while computing checksum (streaming)
 	objectKey := uuid.New().String()
 
 	hasher := sha256.New()
 	teeReader := io.TeeReader(file, hasher)
 
-	if err := h.storage.Upload(
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	if err := storageProvider.Upload(
 		ctx,
 		objectKey,
 		teeReader,
 		header.Size,
-		header.Header.Get("Content-Type"),
+		contentType,
 	); err != nil {
 		response.Fail(c, http.StatusInternalServerError, "UPLOAD_FAILED", "failed to upload file")
 		return
@@ -122,18 +145,18 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 
 	input := service.CreateDocumentInput{
 		OriginalFilename: header.Filename,
-		ContentType:      header.Header.Get("Content-Type"),
+		ContentType:      contentType,
 		SizeBytes:        header.Size,
 		ChecksumSHA256:   &checksumStr,
-		StorageLocation:  storageLocation,
+		StorageLocation:  storageLocationID,
 		ObjectKey:        objectKey,
 		UploadedBy:       userID,
 	}
 
 	doc, err := h.documentService.CreateDocument(ctx, input)
 	if err != nil {
-		// 🔥 IMPORTANT: Rollback uploaded file if DB fails
-		_ = h.storage.Delete(ctx, objectKey)
+		// 🔥 Rollback uploaded file if DB fails (same provider!)
+		_ = storageProvider.Delete(ctx, objectKey)
 
 		response.Fail(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error())
 		return

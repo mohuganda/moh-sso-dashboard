@@ -7,47 +7,21 @@ import {
   TableRow,
   TableHeader,
   TableBody,
-  TableCell,
   TableContainer,
   TableToolbar,
   TableToolbarContent,
   TableToolbarSearch,
-  Tag,
-  ProgressBar,
   Select,
   SelectItem,
-  OverflowMenu,
-  OverflowMenuItem,
+  Loading,
 } from "@carbon/react";
 import { Upload } from "@carbon/icons-react";
 import { EmptyState } from "../../../../components/emptystate/EmptyState";
 import { useNavigate } from "react-router-dom";
 import { useHeaderPanel } from "../../../../components/header-panel/header-panel.context";
 import { UploadDocumentModal } from "./UploadDocumentModal";
-import {
-  useGetDocumentProcessesQuery,
-  useListDocumentsQuery,
-} from "../../../../store/api/document.api";
-
-/* --------------------------------------------
-   Status Tag
--------------------------------------------- */
-
-function StatusTag({ status }: { status: string }) {
-  const colorMap: Record<string, any> = {
-    PENDING: "gray",
-    PROCESSING: "blue",
-    COMPLETED: "green",
-    FAILED: "red",
-    CANCELLED: "magenta",
-  };
-
-  return <Tag type={colorMap[status] || "gray"}>{status}</Tag>;
-}
-
-/* --------------------------------------------
-   Page
--------------------------------------------- */
+import { useListDocumentsQuery } from "../../../../store/api/document.api";
+import { DocumentRow } from "./document-row.component";
 
 export default function DocumentPage() {
   const { openPanel } = useHeaderPanel();
@@ -55,48 +29,17 @@ export default function DocumentPage() {
 
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
-  // 🔥 Load documents
-  const { data: documents, isLoading } = useListDocumentsQuery();
+  // Load documents only
+  const { data: documents = [], isLoading } = useListDocumentsQuery();
 
-  // 🔥 Poll processes for each document
-  const documentProcesses = documents?.map((doc) =>
-    useGetDocumentProcessesQuery(doc.id, {
-      pollingInterval: 3000,
-      skip: !doc.id,
-    }),
-  );
-
-  /**
-   * Merge document + latest process
-   */
-  const rows = useMemo(() => {
-    if (!documents) return [];
-
-    return documents.map((doc, index) => {
-      const processes = documentProcesses?.[index]?.data ?? [];
-
-      const latest =
-        processes.length > 0
-          ? [...processes].sort(
-              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-            )[0]
-          : undefined;
-
-      return {
-        id: doc.id,
-        filename: doc.original_filename,
-        type: doc.content_type,
-        size: `${(doc.size_bytes / 1024 / 1024).toFixed(2)} MB`,
-        status: latest?.status ?? "PENDING",
-        progress: latest?.progress ?? 0,
-      };
-    });
-  }, [documents, documentProcesses]);
-
+  // Filtered documents
   const filteredDocs = useMemo(() => {
-    if (statusFilter === "ALL") return rows;
-    return rows.filter((d) => d.status === statusFilter);
-  }, [rows, statusFilter]);
+    if (statusFilter === "ALL") return documents;
+
+    // Filtering will be handled inside row via process polling,
+    // so for now we keep full list (optional optimization later)
+    return documents;
+  }, [documents, statusFilter]);
 
   const headers = [
     { key: "filename", header: "Filename" },
@@ -107,7 +50,9 @@ export default function DocumentPage() {
     { key: "actions", header: "" },
   ];
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) {
+    return <Loading description="Loading documents..." />;
+  }
 
   return (
     <div>
@@ -127,13 +72,13 @@ export default function DocumentPage() {
 
         <Button
           renderIcon={Upload}
-          onClick={() => {
+          onClick={() =>
             openPanel({
               title: "Upload Document",
               content: <UploadDocumentModal onClose={() => {}} />,
               size: "lg",
-            });
-          }}
+            })
+          }
         >
           Upload Document
         </Button>
@@ -179,53 +124,17 @@ export default function DocumentPage() {
                 </TableHead>
 
                 <TableBody>
-                  {rows.map((row) => (
-                    <TableRow style={{ cursor: "pointer" }} {...getRowProps({ row })}>
-                      {row.cells.map((cell) => {
-                        if (cell.info.header === "status") {
-                          return (
-                            <TableCell key={cell.id}>
-                              <StatusTag status={cell.value as string} />
-                            </TableCell>
-                          );
-                        }
+                  {rows.map((row, index) => {
+                    const document = filteredDocs[index];
 
-                        if (cell.info.header === "progress") {
-                          return (
-                            <TableCell key={cell.id}>
-                              <div style={{ width: 150 }}>
-                                <ProgressBar
-                                  value={cell.value as number}
-                                  max={100}
-                                  label=""
-                                  size="small"
-                                />
-                              </div>
-                            </TableCell>
-                          );
-                        }
-
-                        if (cell.info.header === "actions") {
-                          return (
-                            <TableCell key={cell.id}>
-                              <OverflowMenu size="sm">
-                                <OverflowMenuItem
-                                  itemText="View Details"
-                                  onClick={() =>
-                                    navigate(
-                                      `/apps/utilities/self-service/eservice/document-upload/${row.id}`,
-                                    )
-                                  }
-                                />
-                              </OverflowMenu>
-                            </TableCell>
-                          );
-                        }
-
-                        return <TableCell key={cell.id}>{cell.value}</TableCell>;
-                      })}
-                    </TableRow>
-                  ))}
+                    return (
+                      <DocumentRow
+                        key={document.id}
+                        document={document}
+                        getRowProps={getRowProps}
+                      />
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

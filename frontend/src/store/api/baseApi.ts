@@ -51,11 +51,11 @@ export const baseApi = createApi({
     "Notification",
     "ClientRole",
     "UserClientRole",
-
-    // 🔥 NEW
     "Document",
     "Documents",
     "DocumentProcesses",
+    "StorageLocations",
+    "StorageLocation",
   ],
 
   endpoints: () => ({}),

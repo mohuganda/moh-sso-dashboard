@@ -24,6 +24,7 @@ func SetupRouter(
 	auditHandler *handler.AuditHandler,
 	notificationsHandler *handler.NotificationsHandler,
 	documentHandler *handler.DocumentHandler,
+	storageLocationHandler *handler.StorageLocationHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -159,6 +160,18 @@ func SetupRouter(
 			documents.POST("", documentHandler.CreateDocument)
 			documents.PUT("/:id", documentHandler.EditDocument)
 			documents.DELETE("/:id", documentHandler.DeleteDocument)
+		}
+
+		// --------------------------
+		// Storage Locations Management
+		// --------------------------
+		storageLocation := protected.Group("/storage-locations")
+		{
+			storageLocation.POST("", storageLocationHandler.Create)
+			storageLocation.GET("", storageLocationHandler.ListActive)
+			storageLocation.GET("/:id", storageLocationHandler.GetByID)
+			storageLocation.PUT("/:id", storageLocationHandler.Update)
+			storageLocation.DELETE("/:id", storageLocationHandler.Delete)
 		}
 
 		// --------------------------------------------------

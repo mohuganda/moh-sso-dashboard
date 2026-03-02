@@ -33,7 +33,7 @@ func NewWorker(
 	}
 }
 
-func (w *Worker) Start(ctx context.Context) {
+func (w *Worker) Start(ctx context.Context) error {
 
 	log.Println("📦 Document worker started")
 
@@ -41,9 +41,11 @@ func (w *Worker) Start(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			log.Println("🛑 Worker shutting down")
-			return
+			return nil
 		default:
-			w.processNext(ctx)
+			if err := w.processNext(ctx); err != nil {
+				return err
+			}
 		}
 	}
 }
@@ -52,32 +54,44 @@ func (w *Worker) idle() {
 	time.Sleep(w.pollDelay)
 }
 
-func (w *Worker) processNext(ctx context.Context) {
+func (w *Worker) processNext(ctx context.Context) error {
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("🔥 worker panic recovered: %v", r)
+		}
+	}()
+
+	// Stop immediately if shutting down
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 
 	proc, err := w.processRepo.ClaimNextPending(ctx)
 	if err != nil {
 
-		// No rows available
-		// 1️⃣ No pending jobs (normal situation)
+		// No pending jobs (normal idle state)
 		if errors.Is(err, sql.ErrNoRows) {
 			w.idle()
-			return
+			return nil
 		}
 
 		// Unexpected DB error
-		log.Printf("❌ claim error: %v\n", err)
+		log.Printf("❌ claim error: %v", err)
 		time.Sleep(w.pollDelay)
-		return
+		return err
 	}
 
-	log.Printf("🚀 Processing %s (%s)\n", proc.ID, proc.ProcessType)
+	log.Printf("🚀 Processing %s (%s)", proc.ID, proc.ProcessType)
 
-	err = w.importSvc.Execute(ctx, proc.ID)
-	if err != nil {
-		log.Printf("❌ execution failed: %v\n", err)
-		// Fail already handled inside Execute
-		return
+	if err := w.importSvc.Execute(ctx, proc.ID); err != nil {
+		log.Printf("❌ execution failed for %s: %v", proc.ID, err)
+		// Execution already marks failure internally
+		return err
 	}
 
-	log.Printf("✅ Completed %s\n", proc.ID)
+	log.Printf("✅ Completed %s", proc.ID)
+	return nil
 }
