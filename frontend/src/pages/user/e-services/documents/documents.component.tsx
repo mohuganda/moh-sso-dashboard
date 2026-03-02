@@ -89,7 +89,7 @@ export default function DocumentPage() {
         />
       ) : (
         <DataTable rows={filteredDocs} headers={headers}>
-          {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
+          {({ headers, getTableProps, getHeaderProps, getRowProps }) => (
             <TableContainer>
               <TableToolbar>
                 <TableToolbarContent>
@@ -122,17 +122,9 @@ export default function DocumentPage() {
                 </TableHead>
 
                 <TableBody>
-                  {rows.map((row, index) => {
-                    const document = filteredDocs[index];
-
-                    return (
-                      <DocumentRow
-                        key={document.id}
-                        document={document}
-                        getRowProps={getRowProps}
-                      />
-                    );
-                  })}
+                  {filteredDocs.map((document) => (
+                    <DocumentRow key={document.id} document={document} getRowProps={getRowProps} />
+                  ))}
                 </TableBody>
               </Table>
             </TableContainer>
