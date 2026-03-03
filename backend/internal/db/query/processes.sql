@@ -100,6 +100,13 @@ FROM processes
 WHERE document_id = $1
 ORDER BY created_at DESC;
 
+-- name: GetLatestProcessByDocumentID :one
+SELECT *
+FROM processes
+WHERE document_id = $1
+ORDER BY created_at DESC
+LIMIT 1;
+
 
 CREATE INDEX IF NOT EXISTS idx_process_status_created
 ON processes(status, created_at);

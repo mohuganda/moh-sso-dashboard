@@ -340,6 +340,34 @@ func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {
 	response.OK(c, http.StatusOK, out)
 }
 
+func (h *DocumentHandler) ReprocessDocument(c *gin.Context) {
+
+	documentID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c,
+			http.StatusBadRequest,
+			"error",
+			"invalid document id",
+		)
+		return
+	}
+
+	err = h.documentService.Reprocess(c.Request.Context(), documentID)
+	if err != nil {
+		response.Fail(c,
+			http.StatusBadRequest,
+			"error",
+			err.Error(),
+		)
+		return
+	}
+
+	response.OK(c,
+		http.StatusOK,
+		gin.H{"message": "reprocessing started"},
+	)
+}
+
 func normalizeStatus(v any) string {
 	switch s := v.(type) {
 	case nil:

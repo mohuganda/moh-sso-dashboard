@@ -155,6 +155,7 @@ func SetupRouter(
 
 			documents.GET("/:id/download", documentHandler.DownloadDocument)
 			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
+			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
 			documents.GET("/:id", documentHandler.GetDocument)
 
 			documents.POST("", documentHandler.CreateDocument)

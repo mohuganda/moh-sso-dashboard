@@ -25,4 +25,9 @@ type DocumentRepository interface {
 	ListDocumentsByUser(ctx context.Context, userID uuid.UUID, page model.Pagination) ([]db.Document, error)
 	EditDocument(context.Context, db.UpdateDocumentParams) (db.Document, error)
 	DeleteDocument(context.Context, uuid.UUID) error
+
+	GetLatestByDocumentID(
+		ctx context.Context,
+		documentID uuid.UUID,
+	) (db.Process, error)
 }

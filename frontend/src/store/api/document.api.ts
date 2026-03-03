@@ -140,6 +140,13 @@ export const documentsApi = baseApi.injectEndpoints({
       transformResponse: (response: ApiEnvelope<StorageLocation>) => response.data,
       providesTags: (_res, _err, id) => [{ type: "StorageLocation", id }],
     }),
+
+    reprocessDocument: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/documents/${id}/reprocess`,
+        method: "POST",
+      }),
+    }),
   }),
 });
 
@@ -151,6 +158,7 @@ export const {
   useUpdateDocumentMutation,
   useDeleteDocumentMutation,
   useDownloadDocumentQuery,
+  useReprocessDocumentMutation,
   useLazyDownloadDocumentQuery,
   useListStorageLocationsQuery,
   useGetStorageLocationQuery,

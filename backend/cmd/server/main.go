@@ -176,7 +176,7 @@ func main() {
 	publisher := cache.NewNotificationPublisher(rdb)
 	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
 
-	documentService := service.NewDocumentService(documentRepository, notificationsService, fileStorage)
+	documentService := service.NewDocumentService(documentRepository, processRepository, notificationsService, fileStorage)
 	clientService := service.NewClientService(clientRepository, notificationsService)
 	userService := service.NewUserService(userRepository, notificationsService)
 

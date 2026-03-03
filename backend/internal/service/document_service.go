@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 	models "github.com/moh-sso-dashboard/internal/model"
-	repository "github.com/moh-sso-dashboard/internal/repository/document"
+	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
+	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
 	"github.com/moh-sso-dashboard/internal/storage"
 )
 
@@ -29,16 +31,21 @@ type EditDocumentInput struct {
 }
 
 type DocumentService struct {
-	repo          repository.DocumentRepository
+	repo          documentRepo.DocumentRepository
+	processRepo   processRepo.ProcessRepository
 	notifications NotificationsService
 	storage       storage.Storage
 }
 
-func NewDocumentService(repo repository.DocumentRepository,
-	notifications NotificationsService, storage storage.Storage,
+func NewDocumentService(
+	repo documentRepo.DocumentRepository,
+	processRepo processRepo.ProcessRepository,
+	notifications NotificationsService,
+	storage storage.Storage,
 ) *DocumentService {
 	return &DocumentService{
 		repo:          repo,
+		processRepo:   processRepo, // 🔥 THIS WAS MISSING
 		notifications: notifications,
 		storage:       storage,
 	}
@@ -204,4 +211,37 @@ func (s *DocumentService) ListProcessesByDocument(
 	}
 
 	return processes, nil
+}
+
+func (s *DocumentService) Reprocess(
+	ctx context.Context,
+	documentID uuid.UUID,
+) error {
+
+	// 1️⃣ Ensure document exists
+	_, err := s.repo.GetDocument(ctx, documentID)
+	if err != nil {
+		return err
+	}
+
+	// 2️⃣ Get latest process
+	proc, err := s.repo.GetLatestByDocumentID(ctx, documentID)
+	if err != nil {
+		return err
+	}
+
+	// 3️⃣ Prevent duplicate processing
+	if proc.Status == model.ProcessStatusPROCESSING {
+		return fmt.Errorf("document already processing")
+	}
+
+	// 4️⃣ Create new process attempt (PENDING)
+	_, err = s.processRepo.CreateProcess(ctx, db.CreateProcessParams{
+		ID:          uuid.New(),
+		DocumentID:  documentID,
+		ProcessType: proc.ProcessType,
+		CreatedBy:   proc.CreatedBy,
+	})
+
+	return err
 }

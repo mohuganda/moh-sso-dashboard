@@ -75,6 +75,7 @@ type Querier interface {
 	GetClientByID(ctx context.Context, id uuid.UUID) (Client, error)
 	GetDocumentByID(ctx context.Context, id uuid.UUID) (Document, error)
 	GetImportJob(ctx context.Context, id uuid.UUID) (ImportJob, error)
+	GetLatestProcessByDocumentID(ctx context.Context, documentID uuid.UUID) (Process, error)
 	GetNotificationByID(ctx context.Context, id uuid.UUID) (Notification, error)
 	GetProcessByID(ctx context.Context, id uuid.UUID) (Process, error)
 	GetStorageLocationByCode(ctx context.Context, code string) (StorageLocation, error)

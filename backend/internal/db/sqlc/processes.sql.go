@@ -141,6 +141,35 @@ func (q *Queries) FailProcess(ctx context.Context, arg FailProcessParams) error 
 	return err
 }
 
+const getLatestProcessByDocumentID = `-- name: GetLatestProcessByDocumentID :one
+SELECT id, document_id, process_type, status, progress, message, error, attempts, created_by, started_at, finished_at, created_at, updated_at
+FROM processes
+WHERE document_id = $1
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestProcessByDocumentID(ctx context.Context, documentID uuid.UUID) (Process, error) {
+	row := q.db.QueryRowContext(ctx, getLatestProcessByDocumentID, documentID)
+	var i Process
+	err := row.Scan(
+		&i.ID,
+		&i.DocumentID,
+		&i.ProcessType,
+		&i.Status,
+		&i.Progress,
+		&i.Message,
+		&i.Error,
+		&i.Attempts,
+		&i.CreatedBy,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getProcessByID = `-- name: GetProcessByID :one
 SELECT id, document_id, process_type, status, progress, message, error, attempts, created_by, started_at, finished_at, created_at, updated_at
 FROM processes

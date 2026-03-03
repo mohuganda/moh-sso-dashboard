@@ -165,3 +165,11 @@ func (r *documentRepository) ListProcessesByDocument(ctx context.Context, id uui
 
 	return processes, nil
 }
+
+func (r *documentRepository) GetLatestByDocumentID(
+	ctx context.Context,
+	documentID uuid.UUID,
+) (db.Process, error) {
+
+	return r.db.GetLatestProcessByDocumentID(ctx, documentID)
+}

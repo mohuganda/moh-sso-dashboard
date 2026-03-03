@@ -15,7 +15,9 @@ import {
   Stack,
   Breadcrumb,
   BreadcrumbItem,
+  InlineNotification,
 } from "@carbon/react";
+import { useToast } from "../../../../components/notifications/toast/useToast";
 
 import { useMemo } from "react";
 import {
@@ -23,6 +25,7 @@ import {
   useGetDocumentProcessesQuery,
   useGetDocumentQuery,
   useLazyDownloadDocumentQuery,
+  useReprocessDocumentMutation,
 } from "../../../../store/api/document.api";
 
 /* --------------------------------------------
@@ -46,6 +49,7 @@ function StatusTag({ status }: { status: string }) {
 -------------------------------------------- */
 
 export default function DocumentDetailsPage() {
+  const toast = useToast();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -64,6 +68,8 @@ export default function DocumentDetailsPage() {
   const [deleteDocument, { isLoading: deleting }] = useDeleteDocumentMutation();
 
   const [triggerDownload] = useLazyDownloadDocumentQuery();
+
+  const [reprocessDocument, { isLoading: reprocessing }] = useReprocessDocumentMutation();
 
   const latestProcess = useMemo(() => {
     if (!processes || processes.length === 0) return undefined;
@@ -92,6 +98,18 @@ export default function DocumentDetailsPage() {
     link.click();
 
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleReprocess = async () => {
+    if (!id) return;
+
+    try {
+      await reprocessDocument(id).unwrap();
+
+      toast.success("Reprocess success", "Reprocessing started successfully");
+    } catch (err: any) {
+      toast.error("error", err?.data?.error || "Failed to reprocess document");
+    }
   };
 
   if (docLoading) return <div>Loading...</div>;
@@ -136,14 +154,26 @@ export default function DocumentDetailsPage() {
         <div>
           <h2 style={{ marginBottom: "0.5rem" }}>{document.original_filename}</h2>
 
-          {latestProcess && <StatusTag status={latestProcess.status} />}
+          {latestProcess && (
+            <>
+              <StatusTag status={latestProcess.status} />
+              {processes && (
+                <div
+                  style={{
+                    marginTop: "0.5rem",
+                    fontSize: "0.85rem",
+                    color: "#6f6f6f",
+                  }}
+                >
+                  Attempts: {processes.length}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* --------------------------------------------
-         Metadata Tile
-      -------------------------------------------- */}
-
+      {/* Metadata */}
       <Tile style={{ marginBottom: "2rem" }}>
         <div
           style={{
@@ -159,10 +189,7 @@ export default function DocumentDetailsPage() {
         </div>
       </Tile>
 
-      {/* --------------------------------------------
-         Latest Process
-      -------------------------------------------- */}
-
+      {/* Latest Process */}
       {latestProcess && (
         <Tile style={{ marginBottom: "2rem" }}>
           <h4 style={{ marginBottom: "1rem" }}>Latest Processing Attempt</h4>
@@ -179,10 +206,7 @@ export default function DocumentDetailsPage() {
         </Tile>
       )}
 
-      {/* --------------------------------------------
-         Action Buttons
-      -------------------------------------------- */}
-
+      {/* Actions */}
       <Stack orientation="horizontal" gap={4} style={{ marginBottom: "2rem" }}>
         <Button
           kind="primary"
@@ -192,8 +216,12 @@ export default function DocumentDetailsPage() {
           Download
         </Button>
 
-        <Button kind="secondary" disabled={latestProcess?.status === "PROCESSING"}>
-          Reprocess
+        <Button
+          kind="secondary"
+          disabled={!latestProcess || latestProcess.status === "PROCESSING" || reprocessing}
+          onClick={handleReprocess}
+        >
+          {reprocessing ? "Reprocessing..." : "Reprocess"}
         </Button>
 
         <Button kind="danger--tertiary" onClick={handleDelete} disabled={deleting}>
@@ -201,10 +229,7 @@ export default function DocumentDetailsPage() {
         </Button>
       </Stack>
 
-      {/* --------------------------------------------
-         Process History Table
-      -------------------------------------------- */}
-
+      {/* History */}
       <h3 style={{ marginBottom: "1rem" }}>Process History</h3>
 
       <DataTable rows={historyRows} headers={headers}>
@@ -266,7 +291,14 @@ export default function DocumentDetailsPage() {
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: "0.75rem", color: "#6f6f6f" }}>{label}</div>
+      <div
+        style={{
+          fontSize: "0.75rem",
+          color: "#6f6f6f",
+        }}
+      >
+        {label}
+      </div>
       <div style={{ fontWeight: 500 }}>{value}</div>
     </div>
   );

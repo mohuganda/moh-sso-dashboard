@@ -46,6 +46,7 @@ func (w *Worker) Start(ctx context.Context) error {
 			if err := w.processNext(ctx); err != nil {
 				return err
 			}
+			w.idle()
 		}
 	}
 }
