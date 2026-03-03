@@ -5,28 +5,23 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Install ALL deps (including dev deps)
 COPY package*.json ./
 RUN npm ci
 
-# Copy all source code
 COPY . .
-
-# Build the app
 RUN npm run build
 
 # ======================
-# Stage 2: Production (Nginx)
+# Stage 2: Production (Static server)
 # ======================
-FROM nginx:1.27-alpine
+FROM node:20-alpine
 
-# Remove default nginx website
-RUN rm -rf /usr/share/nginx/html/*
+WORKDIR /app
 
-# Copy build output
-COPY --from=build /app/dist /usr/share/nginx/html
+RUN npm install -g serve
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist ./dist
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 3000
+
+CMD ["serve", "-s", "dist", "-l", "3000"]
