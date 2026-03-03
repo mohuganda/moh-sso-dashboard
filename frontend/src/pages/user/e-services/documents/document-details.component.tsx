@@ -15,7 +15,6 @@ import {
   Stack,
   Breadcrumb,
   BreadcrumbItem,
-  InlineNotification,
 } from "@carbon/react";
 import { useToast } from "../../../../components/notifications/toast/useToast";
 
