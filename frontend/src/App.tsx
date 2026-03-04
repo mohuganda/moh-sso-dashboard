@@ -37,7 +37,7 @@ import DocumentDetailsPage from "./pages/user/e-services/documents/document-deta
 function App() {
   return (
     <ModalProvider>
-      <Router>
+      <Router basename={"/portal/"}>
         <Routes>
           {/* ================================================== */}
           {/* PUBLIC */}
