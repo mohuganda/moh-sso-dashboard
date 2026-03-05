@@ -32,6 +32,18 @@ export const authApi = baseApi.injectEndpoints({
     }),
 
     /* -----------------------------
+     * Update profile
+     * ----------------------------- */
+    updateProfile: builder.mutation<AuthUser, { firstName?: string; lastName?: string }>({
+      query: (body) => ({
+        url: API.auth.me(),
+        method: "PUT",
+        body,
+        credentials: "include",
+      }),
+    }),
+
+    /* -----------------------------
      * Refresh session
      * ----------------------------- */
     refresh: builder.mutation<RefreshResponse, void>({
@@ -45,17 +57,14 @@ export const authApi = baseApi.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
 
-          // 1️⃣ Update access token
           dispatch(setAccessToken(data.data.access_token));
 
-          // 2️⃣ Fetch current user
           const user = await dispatch(
             authApi.endpoints.me.initiate(undefined, {
               forceRefetch: true,
             }),
           ).unwrap();
 
-          // 3️⃣ Restore authenticated state
           dispatch(
             loginSuccess({
               accessToken: data.data.access_token,
@@ -63,10 +72,8 @@ export const authApi = baseApi.injectEndpoints({
             }),
           );
         } catch {
-          // Refresh failed → clear session
           dispatch(logoutAction());
         } finally {
-          // 🚨 Always mark auth bootstrap as done
           dispatch(authLoaded());
         }
       },
@@ -74,4 +81,4 @@ export const authApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useMeQuery, useRefreshMutation } = authApi;
+export const { useMeQuery, useUpdateProfileMutation, useRefreshMutation } = authApi;
