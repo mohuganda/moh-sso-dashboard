@@ -5,26 +5,21 @@ import {
   Form,
   Stack,
   Tile,
-  InlineLoading,
   Tag,
   Grid,
   Column,
-  Loading,
-  ToastNotification,
-  ActionableNotification,
+  InlineLoading,
 } from "@carbon/react";
-import { Save, Undo } from "@carbon/icons-react";
+import { Save } from "@carbon/icons-react"; // Nice-to-have icons
 
 import { useMeQuery, useUpdateProfileMutation } from "../../../../store/api/auth.api";
 
 export default function MyProfilePage() {
-  const { data: user, isLoading, isError, refetch } = useMeQuery();
+  const { data: user, isLoading } = useMeQuery();
   const [updateProfile, { isLoading: isSaving }] = useUpdateProfileMutation();
 
   const [form, setForm] = useState({ firstName: "", lastName: "" });
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
 
-  // Initial data sync
   useEffect(() => {
     if (user) {
       setForm({
@@ -34,187 +29,225 @@ export default function MyProfilePage() {
     }
   }, [user]);
 
-  // Derived State: Check if the form has changed compared to server data
-  const isDirty = useMemo(() => {
-    if (!user) return false;
-    return form.firstName !== (user.firstName || "") || form.lastName !== (user.lastName || "");
-  }, [form, user]);
+  // Check if form changed to avoid unnecessary saves
+  const isDirty = useMemo(
+    () => form.firstName !== (user?.firstName || "") || form.lastName !== (user?.lastName || ""),
+    [form, user],
+  );
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setForm((prev) => ({ ...prev, [id]: value }));
-  };
-
-  const handleReset = () => {
-    if (user) {
-      setForm({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-      });
-      setStatus("idle");
-    }
-  };
+  const formatDate = (date?: string) =>
+    date
+      ? new Date(date).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+      : "—";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isDirty) return;
-
-    setStatus("idle");
     try {
       await updateProfile(form).unwrap();
-      setStatus("success");
     } catch (err) {
-      setStatus("error");
+      console.error(err);
     }
   };
 
-  if (isLoading) return <Loading description="Loading profile..." withOverlay={true} />;
+  if (isLoading) return <InlineLoading />;
 
-  if (isError) {
-    return (
-      <ActionableNotification
-        kind="error"
-        title="Connection Error"
-        subtitle="Could not load profile data."
-        actionButtonLabel="Retry"
-        onActionButtonClick={() => refetch()}
-      />
-    );
-  }
+  const initials =
+    user?.firstName && user?.lastName
+      ? `${user.firstName[0]}${user.lastName[0]}`
+      : user?.username?.slice(0, 2).toUpperCase();
 
   return (
-    <Stack gap={7} className="profile-page-container">
-      {status === "success" && (
-        <ToastNotification
-          kind="success"
-          title="Profile updated"
-          subtitle="Your changes have been saved."
-          onClose={() => setStatus("idle")}
-          timeout={3000}
-          style={{ position: "fixed", top: "1rem", right: "1rem", zIndex: 9999 }}
-        />
-      )}
+    // Reduced main gap from 7 to 5
+    <Stack gap={5} style={{ paddingBottom: "2rem" }}>
+      {/* PROFILE HEADER - Tightened */}
+      <Tile style={{ padding: "1rem" }}>
+        <Grid condensed>
+          <Column sm={1} md={1} lg={1}>
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                background: "#0f62fe",
+                color: "white",
+                fontWeight: 600,
+                fontSize: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {initials}
+            </div>
+          </Column>
 
-      <Grid narrow>
-        <Column lg={16}>
-          <h2 style={{ marginBottom: "1.5rem" }}>My Profile</h2>
+          <Column sm={3} md={7} lg={7}>
+            <Stack gap={1}>
+              <h4 style={{ lineHeight: 1 }}>{user?.fullName || user?.username}</h4>
+              <div style={{ fontSize: 14 }}>{user?.email}</div>
+              <div style={{ fontSize: 12, opacity: 0.6 }}>
+                Last login: {formatDate(user?.lastLoginAt)}
+              </div>
+            </Stack>
+          </Column>
+        </Grid>
+      </Tile>
+
+      {/* DASHBOARD SUMMARY - Compact Cards */}
+      <Grid fullWidth>
+        <Column sm={4} md={4} lg={5}>
+          <Tile style={{ padding: "12px", height: "100%" }}>
+            <p style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: "8px" }}>
+              Activity Summary
+            </p>
+            <Stack gap={2} style={{ fontSize: "0.875rem" }}>
+              <div>Created: {formatDate(user?.createdAt)}</div>
+              <div>
+                Total Roles:{" "}
+                <Tag size="sm" type="cool-gray" style={{ margin: 0 }}>
+                  {user?.realmRoles?.length || 0}
+                </Tag>
+              </div>
+            </Stack>
+          </Tile>
         </Column>
 
-        {/* Read Only Account Info */}
-        <Column lg={8} md={4}>
-          <Tile>
-            <h5 style={{ marginBottom: "1.5rem" }}>Account Information</h5>
-            <Stack gap={6}>
-              <TextInput id="username" labelText="Username" value={user?.username || ""} readOnly />
-              <TextInput id="email" labelText="Email" value={user?.email || ""} readOnly />
+        <Column sm={4} md={4} lg={5}>
+          <Tile style={{ padding: "12px", height: "100%" }}>
+            <p style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: "8px" }}>
+              Security Alerts
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+              {!user?.emailVerified && (
+                <Tag size="sm" type="red">
+                  Email Unverified
+                </Tag>
+              )}
+              {user?.requirePwdChange && (
+                <Tag size="sm" type="purple">
+                  PW Change Due
+                </Tag>
+              )}
+              {user?.enabled && user?.emailVerified && !user?.requirePwdChange && (
+                <Tag size="sm" type="green">
+                  Secure
+                </Tag>
+              )}
+            </div>
+          </Tile>
+        </Column>
+
+        <Column sm={4} md={4} lg={6}>
+          <Tile style={{ padding: "12px", height: "100%" }}>
+            <p style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: "8px" }}>Session</p>
+            <Stack gap={3}>
+              <div style={{ fontSize: "0.875rem" }}>Active: Current Browser</div>
+              <Button size="sm" kind="ghost" style={{ padding: 0, minHeight: "unset" }}>
+                Manage Sessions
+              </Button>
+            </Stack>
+          </Tile>
+        </Column>
+      </Grid>
+
+      {/* FORM SECTION - size="sm" for density */}
+      <Grid fullWidth>
+        <Column sm={4} md={4} lg={7}>
+          <Tile style={{ padding: "1rem" }}>
+            <h5 style={{ marginBottom: "1rem" }}>Account Details</h5>
+            <Stack gap={4}>
+              <TextInput
+                id="username"
+                labelText="Username"
+                value={user?.username || ""}
+                readOnly
+                size="sm"
+              />
+              <TextInput
+                id="email"
+                labelText="Email"
+                value={user?.email || ""}
+                readOnly
+                size="sm"
+              />
               <TextInput
                 id="fullName"
                 labelText="Full Name"
-                value={`${user?.firstName || ""} ${user?.lastName || ""}`}
+                value={user?.fullName || ""}
                 readOnly
+                size="sm"
               />
             </Stack>
           </Tile>
         </Column>
 
-        {/* Editable Profile */}
-        <Column lg={8} md={4}>
-          <Tile>
-            <h5 style={{ marginBottom: "1.5rem" }}>Update Details</h5>
+        <Column sm={4} md={4} lg={9}>
+          <Tile style={{ padding: "1rem" }}>
+            <h5 style={{ marginBottom: "1rem" }}>Update Profile</h5>
             <Form onSubmit={handleSubmit}>
-              <Stack gap={6}>
+              <Stack gap={4}>
                 <TextInput
                   id="firstName"
                   labelText="First Name"
                   value={form.firstName}
-                  onChange={handleInputChange}
+                  size="sm"
+                  onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                 />
                 <TextInput
                   id="lastName"
                   labelText="Last Name"
                   value={form.lastName}
-                  onChange={handleInputChange}
+                  size="sm"
+                  onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                 />
-
-                <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+                <div style={{ marginTop: "0.5rem" }}>
                   <Button
+                    size="sm"
                     type="submit"
                     disabled={isSaving || !isDirty}
-                    renderIcon={isSaving ? () => <InlineLoading /> : Save}
+                    renderIcon={isSaving ? undefined : Save}
                   >
                     {isSaving ? "Saving..." : "Save Changes"}
                   </Button>
-
-                  {isDirty && !isSaving && (
-                    <Button kind="ghost" onClick={handleReset} renderIcon={Undo}>
-                      Reset
-                    </Button>
-                  )}
                 </div>
               </Stack>
             </Form>
           </Tile>
         </Column>
-
-        {/* Permission Visualization */}
-        <Column lg={16} style={{ marginTop: "1.5rem" }}>
-          <Tile>
-            <h5 style={{ marginBottom: "1.25rem" }}>Roles & Permissions</h5>
-            <Grid condensed>
-              <Column lg={4} md={4} sm={4}>
-                <Stack gap={3}>
-                  <p style={{ fontSize: "0.75rem", fontWeight: "bold" }}>ACCOUNT STATUS</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <Tag type={user?.enabled ? "green" : "red"}>
-                      {user?.enabled ? "Active" : "Disabled"}
-                    </Tag>
-                    {user?.emailVerified && <Tag type="blue">Verified</Tag>}
-                  </div>
-                </Stack>
-              </Column>
-
-              <Column lg={12} md={4} sm={4}>
-                <Stack gap={5}>
-                  <section>
-                    <p style={{ fontSize: "0.75rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
-                      ROLES
-                    </p>
-                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                      {user?.realmRoles?.map((role) => (
-                        <Tag key={role} type="magenta" size="sm">
-                          {role}
-                        </Tag>
-                      ))}
-                    </div>
-                  </section>
-
-                  {user?.clientRoles &&
-                    Object.entries(user.clientRoles).map(([client, roles]) => (
-                      <div key={client}>
-                        <p
-                          style={{
-                            fontSize: "0.875rem",
-                            color: "#525252",
-                            marginBottom: "0.25rem",
-                          }}
-                        >
-                          {client}
-                        </p>
-                        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                          {roles.map((role) => (
-                            <Tag key={role} type="cyan" size="sm">
-                              {role}
-                            </Tag>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                </Stack>
-              </Column>
-            </Grid>
-          </Tile>
-        </Column>
       </Grid>
+
+      {/* ROLES - Compact Layout */}
+      <Tile style={{ padding: "1rem" }}>
+        <h5 style={{ marginBottom: "1rem" }}>Roles & Access</h5>
+        <Grid>
+          <Column lg={4} md={8} sm={4}>
+            <p style={{ fontSize: "12px", fontWeight: "bold", color: "#525252" }}>REALM ROLES</p>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 8 }}>
+              {user?.realmRoles?.map((role) => (
+                <Tag key={role} size="sm">
+                  {role}
+                </Tag>
+              ))}
+            </div>
+          </Column>
+          <Column lg={12} md={8} sm={4}>
+            <p style={{ fontSize: "12px", fontWeight: "bold", color: "#525252" }}>CLIENT ROLES</p>
+            {user?.clientRoles &&
+              Object.entries(user.clientRoles).map(([client, roles]) => (
+                <div key={client} style={{ marginTop: 8 }}>
+                  <span style={{ fontSize: 12 }}>{client}:</span>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                    {roles.map((role) => (
+                      <Tag key={role} type="cyan" size="sm">
+                        {role}
+                      </Tag>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </Column>
+        </Grid>
+      </Tile>
     </Stack>
   );
 }
