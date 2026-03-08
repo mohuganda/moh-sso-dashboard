@@ -13,7 +13,7 @@ type keycloakAuthRepository struct {
 	redirectURI    string
 }
 
-func NewAuthRepository(kcClient *keycloak.Client, config *config.Config) AuthRepository {
+func NewAuthRepository(kcClient *keycloak.Client, keycloakAdminClient *keycloak.KeyAdminClient, config *config.Config) AuthRepository {
 	return &keycloakAuthRepository{
 		keycloakClient: kcClient,
 		redirectURI:    config.KeycloakRedirectUri,
@@ -72,3 +72,5 @@ func (r *keycloakAuthRepository) Logout(refreshToken string) error {
 	}
 	return nil
 }
+
+

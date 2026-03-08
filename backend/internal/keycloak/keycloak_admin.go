@@ -1615,6 +1615,65 @@ func (c *KeyAdminClient) EnsureClientBaseline(
 	return nil
 }
 
+// --------------------------------------------------
+// session management
+// -------------------------------------------------
+
+func (c *KeyAdminClient) GetUserSessions(userId string) ([]Session, error) {
+	path := fmt.Sprintf(
+		"users/%s/sessions",
+		url.PathEscape(userId),
+	)
+
+	res, err := c.Get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// If request failed log the full body
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to list sessions: %s", string(body))
+	}
+
+	var sessions []Session
+
+	if err := json.Unmarshal(body, &sessions); err != nil {
+		return nil, err
+	}
+
+	return sessions, nil
+}
+
+func (c *KeyAdminClient) LogoutSession(sessionId string) error {
+	path := fmt.Sprintf(
+		"sessions/%s",
+		url.PathEscape(sessionId),
+	)
+	res, err := c.Delete(path)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent {
+		b, _ := io.ReadAll(res.Body)
+		return fmt.Errorf(
+			"delete session  failed [%d]: %s",
+			res.StatusCode,
+			string(b),
+		)
+	}
+
+	return nil
+
+}
+
 // ----------------------------------------------------
 // ADMIN API HELPERS
 // ----------------------------------------------------

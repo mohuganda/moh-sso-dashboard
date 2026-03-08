@@ -56,6 +56,8 @@ export const baseApi = createApi({
     "DocumentProcesses",
     "StorageLocations",
     "StorageLocation",
+    "UserSession",
+    "UserSessions",
   ],
 
   endpoints: () => ({}),

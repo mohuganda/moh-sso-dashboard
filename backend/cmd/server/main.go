@@ -28,6 +28,7 @@ import (
 	metricsRepo "github.com/moh-sso-dashboard/internal/repository/metrics"
 	notificationsRepo "github.com/moh-sso-dashboard/internal/repository/notifications"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
+	sessionRepository "github.com/moh-sso-dashboard/internal/repository/session"
 	storageLocationRepo "github.com/moh-sso-dashboard/internal/repository/storage_locations"
 	userRepo "github.com/moh-sso-dashboard/internal/repository/user"
 
@@ -155,7 +156,7 @@ func main() {
 	// ==================================================
 	// Repositories
 	// ==================================================
-	authRepository := authRepo.NewAuthRepository(webKC, cfg)
+	authRepository := authRepo.NewAuthRepository(webKC, adminKC, cfg)
 	clientRepository := clientRepo.NewClientRepository(adminKC, cfg, store, *appLogger)
 	userRepository := userRepo.NewUserRepository(adminKC, cfg, store, *appLogger)
 	metricsRepository := metricsRepo.NewMetricsRepository(cfg, store, *appLogger)
@@ -164,6 +165,7 @@ func main() {
 	processRepository := processRepo.NewProcessRepository(cfg, store, *appLogger)
 	fileRepository := documentRepo.NewFileRepository()
 	storageRepo := storageLocationRepo.NewStorageRepositoryRepository(cfg, store, *appLogger)
+	sessionRepository := sessionRepository.NewSessionRepository(adminKC, cfg, *appLogger)
 
 	// ==================================================
 	// Services
@@ -172,6 +174,7 @@ func main() {
 	metricsService := service.NewMetricsService(metricsRepository)
 	auditService := service.NewAuditService(store, cacheAdapter)
 	storageLocationService := service.NewStorageLocationService(storageRepo)
+	sessionService := service.NewSessionService(sessionRepository)
 
 	publisher := cache.NewNotificationPublisher(rdb)
 	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
@@ -216,6 +219,7 @@ func main() {
 	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
 	documentHandler := handler.NewDocumentHandler(documentService, auditService, storageLocationService, fileStorage, storageFactory)
 	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
+	sessionHandler := handler.NewSessionHandler(sessionService)
 
 	healthHandler := handler.NewHealthHandler(
 		func(ctx context.Context) error { return db.PingDB(ctx, primaryDB) },
@@ -239,6 +243,7 @@ func main() {
 		notificationsHandler,
 		documentHandler,
 		storageLocationHandler,
+		sessionHandler,
 	)
 
 	r.GET("/health/live", healthHandler.HandleLive)

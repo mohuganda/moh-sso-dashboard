@@ -36,6 +36,14 @@ type TokenResponse struct {
 	IDToken          string `json:"id_token"`
 }
 
+type Session struct {
+	ID         string            `json:"id"`
+	IP         string            `json:"ipAddress"`
+	Start      int64             `json:"start"`
+	LastAccess int64             `json:"lastAccess"`
+	Clients    map[string]string `json:"clients"`
+}
+
 type AuthUser struct {
 	ID            string              `json:"id"`
 	Username      string              `json:"username"`

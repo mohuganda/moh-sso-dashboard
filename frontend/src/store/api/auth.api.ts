@@ -6,6 +6,7 @@ import {
   setAccessToken,
 } from "../auth/auth.slice";
 import type { AuthUser } from "../auth/auth.types";
+import type { UserSession } from "../types/sessions.types";
 
 import { baseApi } from "./baseApi";
 

@@ -25,6 +25,7 @@ func SetupRouter(
 	notificationsHandler *handler.NotificationsHandler,
 	documentHandler *handler.DocumentHandler,
 	storageLocationHandler *handler.StorageLocationHandler,
+	sessionHandler *handler.SessionHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -173,6 +174,15 @@ func SetupRouter(
 			storageLocation.GET("/:id", storageLocationHandler.GetByID)
 			storageLocation.PUT("/:id", storageLocationHandler.Update)
 			storageLocation.DELETE("/:id", storageLocationHandler.Delete)
+		}
+
+		// ------------------------------
+		// Session Management
+		// --------------------------------
+		sessions := protected.Group("/sessions")
+		{
+			sessions.GET("", sessionHandler.GetUserSessions)
+			sessions.DELETE("/:id", sessionHandler.LogoutSession)
 		}
 
 		// --------------------------------------------------
