@@ -9,6 +9,8 @@ services:
     container_name: keycloak
     command:
       - start-dev
+      - --spi-theme-cache-themes=false
+      - --spi-theme-cache-templates=false
       - --import-realm
     environment:
       KC_DB: ${KEYCLOAK_DB:-postgres}
@@ -24,6 +26,7 @@ services:
       KC_HOSTNAME_STRICT_HTTPS: "false"
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+      - ./keycloak/themes:/opt/keycloak/themes
     ports:
       - "8081:8080"
     depends_on:

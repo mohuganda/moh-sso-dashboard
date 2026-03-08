@@ -1,0 +1,372 @@
+:root {
+  --moh-bg: #f4f4f4;
+  --moh-surface: #ffffff;
+  --moh-text: #161616;
+  --moh-text-secondary: #525252;
+  --moh-border: #dcdcdc;
+  --moh-primary: #0f62fe;
+  --moh-primary-hover: #0043ce;
+  --moh-danger-bg: #fff1f1;
+  --moh-danger-text: #a2191f;
+  --moh-success-bg: #defbe6;
+  --moh-success-text: #198038;
+  --moh-info-bg: #edf5ff;
+  --moh-info-text: #0043ce;
+  --moh-warning-bg: #fff8e1;
+  --moh-warning-text: #8a6a00;
+  --moh-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --moh-radius: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--moh-bg);
+  color: var(--moh-text);
+  font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+}
+
+body.moh-login-body {
+  min-height: 100vh;
+}
+
+.moh-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+}
+
+.moh-brand-panel {
+  background:
+    linear-gradient(180deg, rgba(15, 98, 254, 0.06), rgba(15, 98, 254, 0.02)),
+    #ffffff;
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid var(--moh-border);
+}
+
+.moh-brand-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.moh-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: white;
+}
+
+.moh-brand-kicker {
+  font-size: 0.8rem;
+  color: var(--moh-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.moh-brand-text h1 {
+  margin: 0.15rem 0;
+  font-size: 1.6rem;
+}
+
+.moh-brand-text p {
+  margin: 0;
+  color: var(--moh-text-secondary);
+}
+
+.moh-brand-content {
+  max-width: 34rem;
+}
+
+.moh-brand-content h2 {
+  margin: 0 0 1rem;
+  font-size: 2.2rem;
+  line-height: 1.15;
+}
+
+.moh-brand-content p {
+  margin: 0 0 1.25rem;
+  color: var(--moh-text-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.moh-feature-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--moh-text-secondary);
+  line-height: 1.9;
+}
+
+.moh-brand-footer {
+  color: var(--moh-text-secondary);
+  font-size: 0.9rem;
+}
+
+.moh-form-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.moh-form-card {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--moh-surface);
+  border: 1px solid #e8e8e8;
+  border-radius: var(--moh-radius);
+  box-shadow: var(--moh-shadow);
+  padding: 2rem;
+}
+
+.moh-form-header {
+  margin-bottom: 1.5rem;
+}
+
+.moh-form-eyebrow {
+  color: var(--moh-primary);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
+}
+
+.moh-form-header h2 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.moh-form-header p {
+  margin: 0.5rem 0 0;
+  color: var(--moh-text-secondary);
+}
+
+.moh-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.moh-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.moh-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.moh-label {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.moh-inline-link,
+.moh-footer a {
+  color: var(--moh-primary);
+  text-decoration: none;
+}
+
+.moh-inline-link:hover,
+.moh-footer a:hover {
+  text-decoration: underline;
+}
+
+.moh-input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--moh-border);
+  border-radius: 12px;
+  padding: 0.8rem 0.95rem;
+  font-size: 1rem;
+  outline: none;
+  background: white;
+}
+
+.moh-input:focus {
+  border-color: var(--moh-primary);
+  box-shadow: 0 0 0 2px rgba(15, 98, 254, 0.15);
+}
+
+.moh-password-wrap {
+  position: relative;
+}
+
+.moh-password-wrap .moh-input {
+  padding-right: 5rem;
+}
+
+.moh-password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--moh-primary);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.moh-form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.moh-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--moh-text-secondary);
+  font-size: 0.95rem;
+}
+
+.moh-actions {
+  margin-top: 0.5rem;
+}
+
+.moh-primary-btn,
+.moh-idp-btn {
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.moh-primary-btn {
+  width: 100%;
+  border: 0;
+  background: var(--moh-primary);
+  color: white;
+  cursor: pointer;
+}
+
+.moh-primary-btn:hover {
+  background: var(--moh-primary-hover);
+}
+
+.moh-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--moh-text-secondary);
+  font-size: 0.9rem;
+  margin: 0.25rem 0;
+}
+
+.moh-divider::before,
+.moh-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--moh-border);
+}
+
+.moh-idp-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.moh-idp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border: 1px solid var(--moh-border);
+  color: var(--moh-text);
+  background: white;
+}
+
+.moh-idp-btn:hover {
+  border-color: var(--moh-primary);
+}
+
+.moh-alert {
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.moh-alert-error {
+  background: var(--moh-danger-bg);
+  color: var(--moh-danger-text);
+}
+
+.moh-alert-success {
+  background: var(--moh-success-bg);
+  color: var(--moh-success-text);
+}
+
+.moh-alert-info {
+  background: var(--moh-info-bg);
+  color: var(--moh-info-text);
+}
+
+.moh-alert-warning {
+  background: var(--moh-warning-bg);
+  color: var(--moh-warning-text);
+}
+
+.moh-meta {
+  max-width: 480px;
+  margin: 1rem auto 0;
+  color: var(--moh-text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.moh-footer {
+  border-top: 1px solid var(--moh-border);
+  background: #ffffff;
+}
+
+.moh-footer-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0.9rem 1.25rem;
+  color: var(--moh-text-secondary);
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.moh-footer-sep {
+  color: #a8a8a8;
+}
+
+@media (max-width: 960px) {
+  .moh-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .moh-brand-panel {
+    display: none;
+  }
+
+  .moh-form-panel {
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  .moh-form-card {
+    padding: 1.5rem;
+  }
+}
