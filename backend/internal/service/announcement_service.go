@@ -47,7 +47,6 @@ func (s *AnnouncementService) CreateAnnouncement(
 	if err != nil {
 		return db.Announcement{}, fmt.Errorf("create announcement: %w", err)
 	}
-	// Notify users about new announcement
 	nt := models.AnnouncementCreated
 	s.notifications.Notify(ctx, models.Notification{
 		Type:       string(nt),

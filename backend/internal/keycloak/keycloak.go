@@ -220,7 +220,6 @@ func (c *Client) GetLogoutURL(idTokenHint, postLogoutRedirectURI string) string 
 	params := url.Values{}
 	params.Set("client_id", c.ClientID)
 
-	// Most modern Keycloak versions prefer id_token_hint for redirects
 	if idTokenHint != "" {
 		params.Set("id_token_hint", idTokenHint)
 	}
