@@ -16,7 +16,7 @@ type AuthService interface {
 	GetAccessToken(refreshToken string) (*keycloak.TokenResponse, error)
 	GetMe(accessToken string) (*keycloak.AuthUser, error)
 	SaveSession(userID, access, refresh string, expires int) error
-	LogOut(refreshToken string) error
+	LogOut(refreshToken string, post_logout_uri string) (string, error)
 }
 
 type authService struct {
@@ -76,9 +76,11 @@ func (s *authService) SaveSession(userID, access, refresh string, expires int) e
 	return nil
 }
 
-func (s *authService) LogOut(refreshToken string) error {
-	if err := s.authRepo.Logout(refreshToken); err != nil {
-		return fmt.Errorf("failed to logout user: %w", err)
+func (s *authService) LogOut(refreshToken, postLogoutURI string) (string, error) {
+	url, err := s.authRepo.Logout(refreshToken, postLogoutURI)
+	if err != nil {
+		return "", fmt.Errorf("failed to logout user: %w", err)
 	}
-	return nil
+
+	return url, nil
 }

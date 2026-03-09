@@ -62,15 +62,14 @@ func (r *keycloakAuthRepository) GetMe(accessToken string) (*keycloak.AuthUser, 
 	return user, nil
 }
 
-func (r *keycloakAuthRepository) Logout(refreshToken string) error {
+func (r *keycloakAuthRepository) Logout(refreshToken string, post_redirect_uri string) (string, error) {
 	if refreshToken == "" {
-		return errors.New("refresh token not provided")
+		return "", errors.New("refresh token not provided")
 	}
-	err := r.keycloakClient.LogOut(refreshToken)
+	url, err := r.keycloakClient.LogOut(refreshToken, post_redirect_uri)
 	if err != nil {
-		return fmt.Errorf("keycloak exchange failed: %w", err)
+		return "", fmt.Errorf("keycloak exchange failed: %w", err)
 	}
-	return nil
+
+	return url, nil
 }
-
-

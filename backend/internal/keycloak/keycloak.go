@@ -65,13 +65,14 @@ type AuthUser struct {
 // ----------------------------------------------------
 
 type Client struct {
-	BaseURL      string
-	Realm        string
-	ClientID     string
-	ClientSecret string
-	Token        string
-	httpClient   *http.Client
-	cache        *cache.RedisCache
+	BaseURL                 string
+	Realm                   string
+	ClientID                string
+	ClientSecret            string
+	Token                   string
+	httpClient              *http.Client
+	cache                   *cache.RedisCache
+	externalKeycloakBaseUrl string
 }
 
 func NewWebClient(
@@ -80,17 +81,19 @@ func NewWebClient(
 	clientID string,
 	clientSecret string,
 	cache *cache.RedisCache, // <-- FIXED (pointer)
+	externalKeycloakBaseUrl string,
 ) *Client {
 
 	baseURL = strings.TrimSuffix(baseURL, "/")
 
 	return &Client{
-		BaseURL:      baseURL,
-		Realm:        realm,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		httpClient:   &http.Client{Timeout: 10 * time.Second},
-		cache:        cache,
+		BaseURL:                 baseURL,
+		Realm:                   realm,
+		ClientID:                clientID,
+		ClientSecret:            clientSecret,
+		httpClient:              &http.Client{Timeout: 10 * time.Second},
+		cache:                   cache,
+		externalKeycloakBaseUrl: externalKeycloakBaseUrl,
 	}
 }
 
@@ -176,34 +179,52 @@ func (c *Client) AccessToken(refreshToken string) (*TokenResponse, error) {
 // ----------------------------------------------------
 // LOGOUT (WEB CLIENT)
 // ----------------------------------------------------
-func (c *Client) LogOut(refreshToken string) error {
+func (c *Client) LogOut(refreshToken, postLogoutRedirectURI string) (string, error) {
+
 	if refreshToken == "" {
-		return fmt.Errorf("missing refresh token for logout")
+		return "", fmt.Errorf("missing refresh token for logout")
 	}
 
-	logoutURL := fmt.Sprintf(
+	logoutEndpoint := fmt.Sprintf(
 		"%s/realms/%s/protocol/openid-connect/logout",
-		c.BaseURL,
+		c.externalKeycloakBaseUrl,
 		c.Realm,
 	)
+
+	/* ------------------------------------------------
+	   1️⃣ Invalidate refresh token (server logout)
+	------------------------------------------------ */
 
 	form := url.Values{}
 	form.Set("client_id", c.ClientID)
 	form.Set("client_secret", c.ClientSecret)
 	form.Set("refresh_token", refreshToken)
 
-	res, err := c.httpClient.PostForm(logoutURL, form)
+	res, err := c.httpClient.PostForm(logoutEndpoint, form)
 	if err != nil {
-		return fmt.Errorf("logout request failed: %w", err)
+		return "", fmt.Errorf("logout request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("logout failed [%d]: %s", res.StatusCode, string(body))
+		return "", fmt.Errorf("logout failed [%d]: %s", res.StatusCode, string(body))
 	}
 
-	return nil
+	/* ------------------------------------------------
+	   2️⃣ Build browser redirect logout
+	------------------------------------------------ */
+
+	params := url.Values{}
+	params.Set("client_id", c.ClientID)
+
+	if postLogoutRedirectURI != "" {
+		params.Set("post_logout_redirect_uri", postLogoutRedirectURI)
+	}
+
+	redirectURL := fmt.Sprintf("%s?%s", logoutEndpoint, params.Encode())
+
+	return redirectURL, nil
 }
 
 // ----------------------------------------------------

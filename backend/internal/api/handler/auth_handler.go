@@ -291,19 +291,32 @@ func (h *AuthHandler) HandleAuthRefreshToken(c *gin.Context) {
 // LOGOUT
 // ----------------------------------------------------
 func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
+	ctx := c.Request.Context()
+
 	userID := utils.ToNullUUID(c.GetString("user_id"))
 
+	// Audit logout event
 	_ = h.auditService.Logout(
-		c.Request.Context(),
+		ctx,
 		userID,
 		c.ClientIP(),
 		c.Request.UserAgent(),
 	)
 
+	var redirectURL string
+
+	// If refresh token exists, invalidate session and build redirect
 	if refreshToken, _ := c.Cookie("refresh_token"); refreshToken != "" {
-		_ = h.authService.LogOut(refreshToken)
+		url, err := h.authService.LogOut(
+			refreshToken,
+			h.config.FrontendBaseURL,
+		)
+		if err == nil {
+			redirectURL = url
+		}
 	}
 
+	// Clear auth cookies
 	clear := func(name string, httpOnly bool) {
 		http.SetCookie(c.Writer, &http.Cookie{
 			Name:     name,
@@ -320,10 +333,12 @@ func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
 	clear("access_token", false)
 	clear("refresh_token", true)
 
-	c.Redirect(
-		http.StatusTemporaryRedirect,
-		h.config.LoginUrl,
-	)
+	// Fallback redirect if logout service failed
+	if redirectURL == "" {
+		redirectURL = h.config.FrontendBaseURL
+	}
+
+	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // ----------------------------------------------------

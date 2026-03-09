@@ -133,6 +133,7 @@ func main() {
 		cfg.KeycloakWebClientID,
 		cfg.KeycloakWebClientSecret,
 		cacheAdapter,
+		cfg.KeycloakExternalURL,
 	)
 
 	appLogger.Info("Keycloak clients initialized")
