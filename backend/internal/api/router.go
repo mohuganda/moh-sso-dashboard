@@ -26,6 +26,7 @@ func SetupRouter(
 	documentHandler *handler.DocumentHandler,
 	storageLocationHandler *handler.StorageLocationHandler,
 	sessionHandler *handler.SessionHandler,
+	announcementHandler *handler.AnnouncementHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -99,6 +100,16 @@ func SetupRouter(
 		)
 
 		auth.GET("/logout", authHandler.HandleAuthLogout)
+	}
+
+	// -------------------------------------
+	// announcements
+	// -----------------------------------------
+	announcements := api.Group("/announcements")
+	{
+		announcements.GET("", announcementHandler.ListAnnouncements)
+		announcements.POST("", announcementHandler.CreateAnnouncement)
+		announcements.DELETE("/:id", announcementHandler.DeleteAnnouncement)
 	}
 
 	// --------------------------------------------------

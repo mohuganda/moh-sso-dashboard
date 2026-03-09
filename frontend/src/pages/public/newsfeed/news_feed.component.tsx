@@ -5,81 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { EmptyState } from "../../../components/emptystate/EmptyState";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
 import "./news-feed.css";
-
-/* --------------------------------
- * Types
- * -------------------------------- */
-interface FeedItem {
-  id: string;
-  title: string;
-  message: string;
-  tag: {
-    label: string;
-    type: "blue" | "red" | "green" | "gray";
-  };
-  timestamp: string;
-}
-
-/* --------------------------------
- * Mock data
- * -------------------------------- */
-const FEED_ITEMS: FeedItem[] = [
-  {
-    id: "1",
-    title: "System Updates",
-    message:
-      "We have upgraded our authentication engine to support faster logins. You may now manage active sessions directly from your profile settings.",
-    tag: {
-      label: "New",
-      type: "blue",
-    },
-    timestamp: "Posted today",
-  },
-  {
-    id: "2",
-    title: "Maintenance Notice",
-    message:
-      "To ensure database stability, the MOH Portal will undergo routine optimization this Saturday. Access to the Reporting module may be intermittent between 10:00 PM and 12:00 AM.",
-    tag: {
-      label: "Scheduled",
-      type: "red",
-    },
-    timestamp: "Scheduled",
-  },
-  {
-    id: "3",
-    title: "Upcoming Events",
-    message:
-      "Join us for the National Digital Health Summit next month. We will be discussing the future of EMR integration across regional referral hospitals.",
-    tag: {
-      label: "Event",
-      type: "blue",
-    },
-    timestamp: "Posted today",
-  },
-  {
-    id: "4",
-    title: "MOH Activity Listing",
-    message:
-      "The Ministry of Health will conduct a public sickle cell screening for children aged 10-15 starting next Monday at all district health centers.",
-    tag: {
-      label: "Action",
-      type: "red",
-    },
-    timestamp: "Scheduled",
-  },
-  {
-    id: "5",
-    title: "Daily Feeds",
-    message:
-      "Did you know? Consistent use of the iIHMS system has reduced patient wait times by 15% this quarter. Check the Insights tab for more performance data.",
-    tag: {
-      label: "Info",
-      type: "blue",
-    },
-    timestamp: "Posted today",
-  },
-];
+import { useListAnnouncementsQuery } from "../../../store/api/announcement.api";
+import type { Announcement } from "../../../store/types/announcements.types";
 
 const CASE_REPORTING = [
   {
@@ -104,39 +31,114 @@ const CASE_REPORTING = [
   },
 ];
 
+type CarbonTagType =
+  | "red"
+  | "magenta"
+  | "purple"
+  | "blue"
+  | "cyan"
+  | "teal"
+  | "green"
+  | "gray"
+  | "cool-gray"
+  | "warm-gray"
+  | "high-contrast"
+  | "outline";
+
+function mapTag(tag: string): { label: string; type: CarbonTagType } {
+  const normalized = tag.trim().toLowerCase();
+
+  switch (normalized) {
+    case "critical":
+    case "urgent":
+    case "alert":
+    case "action":
+      return { label: tag, type: "red" };
+
+    case "scheduled":
+    case "maintenance":
+    case "warning":
+      return { label: tag, type: "warm-gray" };
+
+    case "event":
+    case "new":
+    case "update":
+      return { label: tag, type: "blue" };
+
+    case "success":
+    case "resolved":
+      return { label: tag, type: "green" };
+
+    case "info":
+    default:
+      return { label: tag || "Info", type: "gray" };
+  }
+}
+
+function formatTimestamp(dateString: string): string {
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Recently posted";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function renderAnnouncementLink(item: Announcement) {
+  if (!item.link_url) return null;
+
+  return (
+    <div className="feed-link-row">
+      <Link href={item.link_url} target="_blank" rel="noopener noreferrer" className="feed-link">
+        Read more
+        <ChevronRight size={16} />
+      </Link>
+    </div>
+  );
+}
+
 export default function NewsFeedPage() {
   const navigate = useNavigate();
 
-  const loading = false;
-  const error: string | null = null;
-  const isEmpty = FEED_ITEMS.length === 0;
+  const {
+    data: announcements = [],
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useListAnnouncementsQuery({ limit: 20 });
+
+  const isEmpty = !isLoading && !isFetching && announcements.length === 0;
+
+  const errorMessage =
+    typeof error === "object" && error !== null && "status" in error
+      ? "Unable to load announcements at the moment."
+      : "Something went wrong while loading announcements.";
 
   return (
     <div className="page-container">
-      {/* ------------------------------
-       * Header
-       * ------------------------------ */}
       <header className="page-header">
         <h3 className="page-title">News & Updates</h3>
         <p className="page-subtitle">Latest system updates, announcements, and notices.</p>
       </header>
 
-      {/* ------------------------------
-       * Main content
-       * ------------------------------ */}
       <section className="page-content">
-        {/* ---------------- Feed ---------------- */}
         <main className="news-feed">
-          {loading && <SkeletonText paragraph lineCount={4} />}
+          {(isLoading || isFetching) && <SkeletonText paragraph lineCount={4} />}
 
-          {error && (
+          {isError && !isLoading && (
             <ErrorState
               title="Failed to load announcements"
-              description={error}
+              description={errorMessage}
               primaryAction={{
                 label: "Retry",
                 onClick: () => {
-                  window.location.reload();
+                  refetch();
                 },
               }}
               secondaryAction={{
@@ -146,7 +148,7 @@ export default function NewsFeedPage() {
             />
           )}
 
-          {!error && !loading && isEmpty && (
+          {!isError && isEmpty && (
             <EmptyState
               title="No announcements yet"
               description="System updates and important notices will appear here."
@@ -158,30 +160,34 @@ export default function NewsFeedPage() {
             />
           )}
 
-          {!error &&
-            !loading &&
-            !isEmpty &&
-            FEED_ITEMS.map((item) => (
-              <Tile key={item.id} className="feed-item">
-                <div className="feed-header">
-                  <Information size={16} />
-                  <h4>{item.title}</h4>
-                  <Tag type={item.tag.type} size="sm">
-                    {item.tag.label}
-                  </Tag>
-                </div>
+          {!isError &&
+            !isLoading &&
+            announcements.map((item) => {
+              const uiTag = mapTag(item.tag);
 
-                <p className="feed-message">{item.message}</p>
+              return (
+                <Tile key={item.id} className="feed-item">
+                  <div className="feed-header">
+                    <Information size={16} />
+                    <h4>{item.title}</h4>
+                    <Tag type={uiTag.type} size="sm">
+                      {uiTag.label}
+                    </Tag>
+                  </div>
 
-                <div className="feed-timestamp">
-                  <Time size={14} />
-                  <span>{item.timestamp}</span>
-                </div>
-              </Tile>
-            ))}
+                  <p className="feed-message">{item.message}</p>
+
+                  {renderAnnouncementLink(item)}
+
+                  <div className="feed-timestamp">
+                    <Time size={14} />
+                    <span>{formatTimestamp(item.created_at)}</span>
+                  </div>
+                </Tile>
+              );
+            })}
         </main>
 
-        {/* ---------------- Sidebar ---------------- */}
         <aside className="news-sidebar">
           <Tile>
             <h4>Case Reporting</h4>
@@ -190,7 +196,9 @@ export default function NewsFeedPage() {
               {CASE_REPORTING.map((item) => (
                 <li key={item.href}>
                   <Link
-                    onClick={() => window.open(item.href, "_blank", "noopener,noreferrer")}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="case-reporting-link"
                   >
                     {item.label}

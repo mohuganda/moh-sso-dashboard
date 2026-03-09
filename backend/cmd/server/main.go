@@ -22,6 +22,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/moh-sso-dashboard/internal/worker"
 
+	announcementRepo "github.com/moh-sso-dashboard/internal/repository/announcements"
 	authRepo "github.com/moh-sso-dashboard/internal/repository/auth"
 	clientRepo "github.com/moh-sso-dashboard/internal/repository/client"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
@@ -133,7 +134,7 @@ func main() {
 		cfg.KeycloakWebClientID,
 		cfg.KeycloakWebClientSecret,
 		cacheAdapter,
-		cfg.KeycloakExternalURL,
+		cfg,
 	)
 
 	appLogger.Info("Keycloak clients initialized")
@@ -167,6 +168,7 @@ func main() {
 	fileRepository := documentRepo.NewFileRepository()
 	storageRepo := storageLocationRepo.NewStorageRepositoryRepository(cfg, store, *appLogger)
 	sessionRepository := sessionRepository.NewSessionRepository(adminKC, cfg, *appLogger)
+	announcementRepository := announcementRepo.NewAnnouncementRepository(store, *appLogger)
 
 	// ==================================================
 	// Services
@@ -183,6 +185,7 @@ func main() {
 	documentService := service.NewDocumentService(documentRepository, processRepository, notificationsService, fileStorage)
 	clientService := service.NewClientService(clientRepository, notificationsService)
 	userService := service.NewUserService(userRepository, notificationsService)
+	announcementService := service.NewAnnouncementService(announcementRepository, notificationsService)
 
 	importService := importSvc.NewService(
 		documentRepository,
@@ -221,6 +224,7 @@ func main() {
 	documentHandler := handler.NewDocumentHandler(documentService, auditService, storageLocationService, fileStorage, storageFactory)
 	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
 	sessionHandler := handler.NewSessionHandler(sessionService)
+	announcementHandler := handler.NewAnnouncementHandler(announcementService, auditService)
 
 	healthHandler := handler.NewHealthHandler(
 		func(ctx context.Context) error { return db.PingDB(ctx, primaryDB) },
@@ -245,6 +249,7 @@ func main() {
 		documentHandler,
 		storageLocationHandler,
 		sessionHandler,
+		announcementHandler,
 	)
 
 	r.GET("/health/live", healthHandler.HandleLive)

@@ -58,6 +58,7 @@ export const baseApi = createApi({
     "StorageLocation",
     "UserSession",
     "UserSessions",
+    "Announcements",
   ],
 
   endpoints: () => ({}),

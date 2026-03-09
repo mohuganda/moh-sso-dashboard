@@ -38,6 +38,7 @@ type Querier interface {
 	CountPasswordResetsInRange(ctx context.Context, arg CountPasswordResetsInRangeParams) (int64, error)
 	CountUnreadNotifications(ctx context.Context, targetRole string) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
+	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (Announcement, error)
 	// =====================================================
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
 	// =====================================================
@@ -59,6 +60,7 @@ type Querier interface {
 	// Users
 	// =====================================================
 	CreateUser(ctx context.Context, arg CreateUserParams) error
+	DeleteAnnouncement(ctx context.Context, id uuid.UUID) error
 	DeleteClient(ctx context.Context, id uuid.UUID) error
 	DeleteDocument(ctx context.Context, id uuid.UUID) error
 	DeleteNotificationByID(ctx context.Context, id uuid.UUID) error
@@ -88,6 +90,7 @@ type Querier interface {
 	LastLoginForAllUsers(ctx context.Context) ([]LastLoginForAllUsersRow, error)
 	LastLoginForUser(ctx context.Context, userID uuid.UUID) (sql.NullTime, error)
 	ListActiveStorageLocations(ctx context.Context) ([]StorageLocation, error)
+	ListAnnouncements(ctx context.Context, limit int32) ([]ListAnnouncementsRow, error)
 	ListAuditActions(ctx context.Context) ([]string, error)
 	ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([]ListAuditLogsRow, error)
 	ListClients(ctx context.Context) ([]Client, error)

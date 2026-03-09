@@ -229,6 +229,12 @@ const (
 	ClientRoleRemoved  NotificationType = "CLIENT_ROLE_REMOVED"
 )
 
+const (
+	AnnouncementCreated NotificationType = "ANNOUNCEMENT_CREATED"
+	AnnouncementUpdated NotificationType = "ANNOUNCEMENT_UPDATED"
+	AnnouncementDeleted NotificationType = "ANNOUNCEMENT_DELETED"
+)
+
 type ProcessStatus string
 
 const (
@@ -246,6 +252,14 @@ const (
 	ProcessTypeExcelImport    ProcessType = "EXCEL_IMPORT"
 	ProcessTypeFHIRImport     ProcessType = "FHIR_IMPORT"
 	ProcessTypeUserBulkImport ProcessType = "USER_BULK_IMPORT"
+)
+
+type NotificationCategory string
+
+const (
+	SystemNotification       NotificationCategory = "SYSTEM"
+	SecurityNotification     NotificationCategory = "SECURITY"
+	AnnouncementNotification NotificationCategory = "ANNOUNCEMENT"
 )
 
 func (t NotificationType) Severity() string {

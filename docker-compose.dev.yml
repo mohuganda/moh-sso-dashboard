@@ -9,8 +9,6 @@ services:
     container_name: keycloak
     command:
       - start-dev
-      - --spi-theme-cache-themes=false
-      - --spi-theme-cache-templates=false
       - --import-realm
     environment:
       KC_DB: ${KEYCLOAK_DB:-postgres}

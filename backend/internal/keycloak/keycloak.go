@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/moh-sso-dashboard/internal/cache"
+	"github.com/moh-sso-dashboard/internal/config"
 )
 
 // Client represents the Keycloak API client
@@ -65,14 +66,14 @@ type AuthUser struct {
 // ----------------------------------------------------
 
 type Client struct {
-	BaseURL                 string
-	Realm                   string
-	ClientID                string
-	ClientSecret            string
-	Token                   string
-	httpClient              *http.Client
-	cache                   *cache.RedisCache
-	externalKeycloakBaseUrl string
+	BaseURL      string
+	Realm        string
+	ClientID     string
+	ClientSecret string
+	Token        string
+	httpClient   *http.Client
+	cache        *cache.RedisCache
+	config       *config.Config
 }
 
 func NewWebClient(
@@ -81,19 +82,19 @@ func NewWebClient(
 	clientID string,
 	clientSecret string,
 	cache *cache.RedisCache, // <-- FIXED (pointer)
-	externalKeycloakBaseUrl string,
+	config *config.Config,
 ) *Client {
 
 	baseURL = strings.TrimSuffix(baseURL, "/")
 
 	return &Client{
-		BaseURL:                 baseURL,
-		Realm:                   realm,
-		ClientID:                clientID,
-		ClientSecret:            clientSecret,
-		httpClient:              &http.Client{Timeout: 10 * time.Second},
-		cache:                   cache,
-		externalKeycloakBaseUrl: externalKeycloakBaseUrl,
+		BaseURL:      baseURL,
+		Realm:        realm,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		cache:        cache,
+		config:       config,
 	}
 }
 
@@ -179,52 +180,56 @@ func (c *Client) AccessToken(refreshToken string) (*TokenResponse, error) {
 // ----------------------------------------------------
 // LOGOUT (WEB CLIENT)
 // ----------------------------------------------------
-func (c *Client) LogOut(refreshToken, postLogoutRedirectURI string) (string, error) {
-
+func (c *Client) LogOut(refreshToken string) error {
 	if refreshToken == "" {
-		return "", fmt.Errorf("missing refresh token for logout")
+		return fmt.Errorf("missing refresh token for logout")
 	}
 
-	logoutEndpoint := fmt.Sprintf(
+	logoutURL := fmt.Sprintf(
 		"%s/realms/%s/protocol/openid-connect/logout",
-		c.externalKeycloakBaseUrl,
+		c.BaseURL,
 		c.Realm,
 	)
-
-	/* ------------------------------------------------
-	   1️⃣ Invalidate refresh token (server logout)
-	------------------------------------------------ */
 
 	form := url.Values{}
 	form.Set("client_id", c.ClientID)
 	form.Set("client_secret", c.ClientSecret)
 	form.Set("refresh_token", refreshToken)
 
-	res, err := c.httpClient.PostForm(logoutEndpoint, form)
+	res, err := c.httpClient.PostForm(logoutURL, form)
 	if err != nil {
-		return "", fmt.Errorf("logout request failed: %w", err)
+		return fmt.Errorf("logout request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
-		return "", fmt.Errorf("logout failed [%d]: %s", res.StatusCode, string(body))
+		return fmt.Errorf("logout failed [%d]: %s", res.StatusCode, string(body))
 	}
 
-	/* ------------------------------------------------
-	   2️⃣ Build browser redirect logout
-	------------------------------------------------ */
+	return nil
+}
+
+func (c *Client) GetLogoutURL(idTokenHint, postLogoutRedirectURI string) string {
+	publicLogoutEndpoint := fmt.Sprintf(
+		"%s/realms/%s/protocol/openid-connect/logout",
+		c.config.KeycloakExternalURL,
+		c.Realm,
+	)
 
 	params := url.Values{}
 	params.Set("client_id", c.ClientID)
+
+	// Most modern Keycloak versions prefer id_token_hint for redirects
+	if idTokenHint != "" {
+		params.Set("id_token_hint", idTokenHint)
+	}
 
 	if postLogoutRedirectURI != "" {
 		params.Set("post_logout_redirect_uri", postLogoutRedirectURI)
 	}
 
-	redirectURL := fmt.Sprintf("%s?%s", logoutEndpoint, params.Encode())
-
-	return redirectURL, nil
+	return fmt.Sprintf("%s?%s", publicLogoutEndpoint, params.Encode())
 }
 
 // ----------------------------------------------------

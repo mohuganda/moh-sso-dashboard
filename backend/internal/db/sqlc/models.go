@@ -59,6 +59,17 @@ func (ns NullImportJobStatus) Value() (driver.Value, error) {
 	return string(ns.ImportJobStatus), nil
 }
 
+type Announcement struct {
+	ID        uuid.UUID      `json:"id"`
+	Title     string         `json:"title"`
+	Message   string         `json:"message"`
+	Tag       string         `json:"tag"`
+	Priority  sql.NullInt32  `json:"priority"`
+	LinkUrl   sql.NullString `json:"link_url"`
+	CreatedBy uuid.NullUUID  `json:"created_by"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
 type AuditLog struct {
 	ID        uuid.UUID             `json:"id"`
 	UserID    uuid.NullUUID         `json:"user_id"`

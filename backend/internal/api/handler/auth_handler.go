@@ -198,7 +198,7 @@ func (h *AuthHandler) HandleAuthCallback(c *gin.Context) {
 
 	h.setSecureAccessTokenCookie(c, tokens.AccessToken, tokens.ExpiresIn)
 	h.setSecureRefreshTokenCookie(c, tokens.RefreshToken, tokens.RefreshExpiresIn)
-
+	h.setSecureIDTokenCookie(c, tokens.IDToken, int(tokens.ExpiresIn))
 	// ------------------------------------------------------------------
 	// Role-based redirect (authoritative)
 	// ------------------------------------------------------------------
@@ -295,7 +295,7 @@ func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
 
 	userID := utils.ToNullUUID(c.GetString("user_id"))
 
-	// Audit logout event
+	// Audit logout
 	_ = h.auditService.Logout(
 		ctx,
 		userID,
@@ -303,26 +303,31 @@ func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
 		c.Request.UserAgent(),
 	)
 
-	var redirectURL string
+	// Read tokens from cookies
+	refreshToken, _ := c.Cookie("refresh_token")
+	idTokenHint, _ := c.Cookie("id_token")
 
-	// If refresh token exists, invalidate session and build redirect
-	if refreshToken, _ := c.Cookie("refresh_token"); refreshToken != "" {
-		url, err := h.authService.LogOut(
+	// Revoke refresh token (server-side logout)
+	if refreshToken != "" {
+		if err := h.authService.LogOut(
 			refreshToken,
-			h.config.FrontendBaseURL,
-		)
-		if err == nil {
-			redirectURL = url
+		); err != nil {
+			log.Printf("[AUTH LOGOUT] token revocation failed: %v", err)
 		}
 	}
 
-	// Clear auth cookies
+	// Build Keycloak logout redirect URL
+	redirectURL := h.authService.GetLogoutURL(
+		idTokenHint,
+		h.config.FrontendBaseURL,
+	)
+
+	// Clear cookies
 	clear := func(name string, httpOnly bool) {
 		http.SetCookie(c.Writer, &http.Cookie{
 			Name:     name,
 			Value:    "",
 			Path:     "/",
-			Expires:  time.Unix(0, 0),
 			MaxAge:   -1,
 			HttpOnly: httpOnly,
 			Secure:   false,
@@ -330,13 +335,9 @@ func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
 		})
 	}
 
-	clear("access_token", false)
 	clear("refresh_token", true)
-
-	// Fallback redirect if logout service failed
-	if redirectURL == "" {
-		redirectURL = h.config.FrontendBaseURL
-	}
+	clear("access_token", false)
+	clear("id_token", false)
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
@@ -387,6 +388,18 @@ func (h *AuthHandler) setSecureRefreshTokenCookie(
 		Expires:  time.Now().Add(time.Duration(maxAge) * time.Second),
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (h *AuthHandler) setSecureIDTokenCookie(c *gin.Context, token string, expiresIn int) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "id_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   expiresIn,
+		HttpOnly: false, // Keycloak logout redirect may require browser visibility
 		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 	})
