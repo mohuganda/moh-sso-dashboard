@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
-	"github.com/moh-sso-dashboard/internal/model"
 	models "github.com/moh-sso-dashboard/internal/model"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
@@ -176,7 +175,7 @@ func (s *DocumentService) DeleteDocument(
 
 func (s *DocumentService) ListDocuments(
 	ctx context.Context,
-	page model.Pagination,
+	page models.Pagination,
 ) ([]db.Document, error) {
 
 	docs, err := s.repo.ListDocuments(ctx, page)
@@ -231,7 +230,7 @@ func (s *DocumentService) Reprocess(
 	}
 
 	// 3️⃣ Prevent duplicate processing
-	if proc.Status == model.ProcessStatusPROCESSING {
+	if proc.Status == models.ProcessStatusPROCESSING {
 		return fmt.Errorf("document already processing")
 	}
 
