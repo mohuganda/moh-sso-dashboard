@@ -35,7 +35,7 @@
                 <div class="moh-brand-text">
                     <div class="moh-brand-kicker">Republic of Uganda</div>
                     <h1>Ministry of Health</h1>
-                    <p>Single Sign-On Dashboard</p>
+                    <p>Integrated Health Portal</p>
                 </div>
             </div>
 
