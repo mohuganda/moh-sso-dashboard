@@ -20,7 +20,7 @@ func (r *fileRepository) CreateCustomFile(
 	var fileKey int64
 
 	err := tx.QueryRowContext(ctx, `
-		INSERT INTO custom_files 
+		INSERT INTO import.custom_files 
 			(file_name, file_path, effective_start_date)
 		VALUES ($1, $2, NOW())
 		RETURNING file_key
@@ -41,7 +41,7 @@ func (r *fileRepository) InsertCustomData(
 ) error {
 
 	_, err := tx.ExecContext(ctx, `
-		INSERT INTO custom_data_files
+		INSERT INTO import.custom_data_files
 			(file_data, file_key, effective_start_date)
 		VALUES ($1, $2, NOW())
 	`, data, fileKey)
