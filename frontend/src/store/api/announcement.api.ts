@@ -214,6 +214,24 @@ export const announcementApi = baseApi.injectEndpoints({
             ]
           : [{ type: "Announcements" as const, id: "MY_LIST" }],
     }),
+
+    listPublicAnnouncements: builder.query<Announcement[], ListAnnouncementsParams>({
+      query: ({ limit = 20, offset = 0 }) => ({
+        url: "/announcements/public",
+        params: { limit, offset },
+      }),
+      transformResponse: (response: ApiEnvelope<Announcement[]>) => response.data,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Announcements" as const,
+                id: item.id,
+              })),
+              { type: "Announcements" as const, id: "MY_LIST" },
+            ]
+          : [{ type: "Announcements" as const, id: "MY_LIST" }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -232,4 +250,5 @@ export const {
   useSetAnnouncementPinnedMutation,
   useSetAnnouncementPriorityMutation,
   useListMyAnnouncementsQuery,
+  useListPublicAnnouncementsQuery,
 } = announcementApi;

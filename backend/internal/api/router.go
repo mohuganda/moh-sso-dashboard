@@ -108,8 +108,10 @@ func SetupRouter(
 	// -------------------------------------
 	// user / published announcements
 	// -------------------------------------
+
 	userAnnouncements := api.Group("/announcements")
 	{
+		userAnnouncements.GET("/public", announcementHandler.ListPublicAnnouncements)
 		userAnnouncements.GET("/me", announcementHandler.ListMyAnnouncements)
 		userAnnouncements.GET("/active", announcementHandler.ListActivePublishedAnnouncements)
 		userAnnouncements.GET("/user", announcementHandler.ListAnnouncementsForUser)

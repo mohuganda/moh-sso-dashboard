@@ -599,6 +599,17 @@ func (r *announcementsRepository) ListForUser(
 	return items, nil
 }
 
+func (r *announcementsRepository) ListPublicAnnouncements(
+	ctx context.Context,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return r.db.ListPublicAnnouncements(ctx, db.ListPublicAnnouncementsParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+}
+
 // ---------------------------------
 // Reporting
 // ---------------------------------

@@ -979,6 +979,71 @@ func (q *Queries) ListAnnouncementsForUser(ctx context.Context, arg ListAnnounce
 	return items, nil
 }
 
+const listPublicAnnouncements = `-- name: ListPublicAnnouncements :many
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = 'PUBLISHED'
+  AND (publish_at IS NULL OR publish_at <= now())
+  AND (expires_at IS NULL OR expires_at > now())
+  AND audience_type = 'ALL_USERS'
+ORDER BY is_pinned DESC, priority DESC, publish_at DESC NULLS LAST, created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListPublicAnnouncementsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListPublicAnnouncements(ctx context.Context, arg ListPublicAnnouncementsParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicAnnouncements, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const publishAnnouncementNow = `-- name: PublishAnnouncementNow :one
 UPDATE announcements
 SET

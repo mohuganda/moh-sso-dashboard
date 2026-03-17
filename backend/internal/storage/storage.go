@@ -11,3 +11,4 @@ type Storage interface {
 	Delete(ctx context.Context, objectKey string) error
 	Exists(ctx context.Context, objectKey string) (bool, error)
 }
+ 

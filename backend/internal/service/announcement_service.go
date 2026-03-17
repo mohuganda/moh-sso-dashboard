@@ -348,6 +348,35 @@ func (s *AnnouncementService) ListMyAnnouncements(
 	return items, nil
 }
 
+func (s *AnnouncementService) ListPublicAnnouncements(
+	ctx context.Context,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	limit = normalizeLimit(limit)
+	offset = normalizeOffset(offset)
+
+	return s.repo.ListPublicAnnouncements(ctx, limit, offset)
+}
+func normalizeLimit(limit int32) int32 {
+	switch {
+	case limit <= 0:
+		return 20
+	case limit > 100:
+		return 100
+	default:
+		return limit
+	}
+}
+
+func normalizeOffset(offset int32) int32 {
+	if offset < 0 {
+		return 0
+	}
+
+	return offset
+}
+
 // ---------------------------------
 // Lifecycle actions
 // ---------------------------------

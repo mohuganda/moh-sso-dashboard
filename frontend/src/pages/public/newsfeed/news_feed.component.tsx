@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Information, Time, ChevronRight, Pin } from "@carbon/react/icons";
 import { Tile, Link, Tag, SkeletonText } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 import { EmptyState } from "../../../components/emptystate/EmptyState";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
@@ -11,7 +12,11 @@ import type {
   AnnouncementLevel,
   AnnouncementStatus,
 } from "../../../store/types/announcements.types";
-import { useListMyAnnouncementsQuery } from "../../../store/api/announcement.api";
+import {
+  useListMyAnnouncementsQuery,
+  useListPublicAnnouncementsQuery,
+} from "../../../store/api/announcement.api";
+import { selectAuthenticated } from "../../../store/auth/auth.selectors";
 
 const CASE_REPORTING = [
   {
@@ -136,17 +141,79 @@ function renderAnnouncementLink(item: Announcement) {
   );
 }
 
+function AnnouncementCard({ item, authenticated }: { item: Announcement; authenticated: boolean }) {
+  const levelTag = mapLevelTag(item.level);
+  const customTag = mapCustomTag(item.tag);
+  const statusTag = authenticated ? mapStatusTag(item.status) : null;
+
+  return (
+    <Tile className={`feed-item ${item.is_pinned ? "feed-item-pinned" : ""}`}>
+      <div className="feed-header">
+        <Information size={16} />
+        <h4>{item.title}</h4>
+
+        {item.is_pinned && (
+          <Tag type="warm-gray" size="sm">
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Pin size={12} />
+              Pinned
+            </span>
+          </Tag>
+        )}
+
+        <Tag type={levelTag.type} size="sm">
+          {levelTag.label}
+        </Tag>
+
+        {customTag ? (
+          <Tag type={customTag.type} size="sm">
+            {customTag.label}
+          </Tag>
+        ) : null}
+
+        {statusTag ? (
+          <Tag type={statusTag.type} size="sm">
+            {statusTag.label}
+          </Tag>
+        ) : null}
+      </div>
+
+      {item.summary ? <p className="feed-summary">{item.summary}</p> : null}
+
+      <p className="feed-message">{item.message}</p>
+
+      {renderAnnouncementLink(item)}
+
+      <div className="feed-timestamp">
+        <Time size={14} />
+        <span>{formatTimestamp(item.publish_at || item.created_at)}</span>
+      </div>
+    </Tile>
+  );
+}
+
 export default function NewsFeedPage() {
   const navigate = useNavigate();
+  const authenticated = useSelector(selectAuthenticated);
 
-  const {
-    data: announcements = [],
-    isLoading,
-    isFetching,
-    isError,
-    error,
-    refetch,
-  } = useListMyAnnouncementsQuery({ limit: 20, offset: 0 });
+  const queryArgs = { limit: 20, offset: 0 };
+
+  const publicQuery = useListPublicAnnouncementsQuery(queryArgs, {
+    refetchOnMountOrArgChange: true,
+  });
+
+  const myQuery = useListMyAnnouncementsQuery(queryArgs, {
+    skip: !authenticated,
+    refetchOnMountOrArgChange: true,
+  });
+
+  const announcements = useMemo<Announcement[]>(() => {
+    if (authenticated) {
+      return myQuery.data ?? publicQuery.data ?? [];
+    }
+
+    return publicQuery.data ?? [];
+  }, [authenticated, myQuery.data, publicQuery.data]);
 
   const sortedAnnouncements = useMemo(() => {
     return [...announcements].sort((a, b) => {
@@ -154,16 +221,46 @@ export default function NewsFeedPage() {
         return a.is_pinned ? -1 : 1;
       }
 
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      const aTime = new Date(a.publish_at || a.created_at).getTime();
+      const bTime = new Date(b.publish_at || b.created_at).getTime();
+
+      return bTime - aTime;
     });
   }, [announcements]);
 
-  const isEmpty = !isLoading && !isFetching && sortedAnnouncements.length === 0;
+  const pinnedAnnouncements = useMemo(
+    () => sortedAnnouncements.filter((item) => item.is_pinned),
+    [sortedAnnouncements],
+  );
 
-  const errorMessage =
-    typeof error === "object" && error !== null && "status" in error
-      ? "Unable to load announcements at the moment."
-      : "Something went wrong while loading announcements.";
+  const regularAnnouncements = useMemo(
+    () => sortedAnnouncements.filter((item) => !item.is_pinned),
+    [sortedAnnouncements],
+  );
+
+  const isLoading =
+    publicQuery.isLoading || (authenticated && myQuery.isLoading && !publicQuery.data?.length);
+
+  const isFetching = publicQuery.isFetching || (authenticated && myQuery.isFetching);
+
+  const hasError =
+    !publicQuery.data?.length && (publicQuery.isError || (authenticated && myQuery.isError));
+
+  const errorMessage = "Unable to load announcements at the moment.";
+
+  const isEmpty =
+    !isLoading &&
+    !isFetching &&
+    pinnedAnnouncements.length === 0 &&
+    regularAnnouncements.length === 0;
+
+  const handleRetry = () => {
+    publicQuery.refetch();
+
+    if (authenticated) {
+      myQuery.refetch();
+    }
+  };
 
   return (
     <div className="page-container">
@@ -176,15 +273,13 @@ export default function NewsFeedPage() {
         <main className="news-feed">
           {(isLoading || isFetching) && <SkeletonText paragraph lineCount={4} />}
 
-          {isError && !isLoading && (
+          {hasError && !isLoading && (
             <ErrorState
               title="Failed to load announcements"
               description={errorMessage}
               primaryAction={{
                 label: "Retry",
-                onClick: () => {
-                  refetch();
-                },
+                onClick: handleRetry,
               }}
               secondaryAction={{
                 label: "Contact support",
@@ -193,65 +288,49 @@ export default function NewsFeedPage() {
             />
           )}
 
-          {!isError && isEmpty && (
+          {!hasError && isEmpty && (
             <EmptyState
               title="No announcements yet"
               description="System updates and important notices will appear here when available."
             />
           )}
 
-          {!isError &&
-            !isLoading &&
-            sortedAnnouncements.map((item) => {
-              const levelTag = mapLevelTag(item.level);
-              const customTag = mapCustomTag(item.tag);
-              const statusTag = mapStatusTag(item.status);
+          {!hasError && !isLoading && pinnedAnnouncements.length > 0 && (
+            <section className="feed-section">
+              <div className="feed-section-header">
+                <div className="feed-section-title">
+                  <Pin size={18} />
+                  <h4>Pinned Announcements</h4>
+                </div>
+                <p className="feed-section-subtitle">
+                  Important notices highlighted for quick access.
+                </p>
+              </div>
 
-              return (
-                <Tile key={item.id} className="feed-item">
-                  <div className="feed-header">
-                    <Information size={16} />
-                    <h4>{item.title}</h4>
+              <div className="feed-section-list">
+                {pinnedAnnouncements.map((item) => (
+                  <AnnouncementCard key={item.id} item={item} authenticated={authenticated} />
+                ))}
+              </div>
+            </section>
+          )}
 
-                    {item.is_pinned && (
-                      <Tag type="warm-gray" size="sm">
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          <Pin size={12} />
-                          Pinned
-                        </span>
-                      </Tag>
-                    )}
+          {!hasError && !isLoading && regularAnnouncements.length > 0 && (
+            <section className="feed-section">
+              <div className="feed-section-header">
+                <div className="feed-section-title">
+                  <Information size={18} />
+                  <h4>All Announcements</h4>
+                </div>
+              </div>
 
-                    <Tag type={levelTag.type} size="sm">
-                      {levelTag.label}
-                    </Tag>
-
-                    {customTag ? (
-                      <Tag type={customTag.type} size="sm">
-                        {customTag.label}
-                      </Tag>
-                    ) : null}
-
-                    {statusTag ? (
-                      <Tag type={statusTag.type} size="sm">
-                        {statusTag.label}
-                      </Tag>
-                    ) : null}
-                  </div>
-
-                  {item.summary ? <p className="feed-summary">{item.summary}</p> : null}
-
-                  <p className="feed-message">{item.message}</p>
-
-                  {renderAnnouncementLink(item)}
-
-                  <div className="feed-timestamp">
-                    <Time size={14} />
-                    <span>{formatTimestamp(item.publish_at || item.created_at)}</span>
-                  </div>
-                </Tile>
-              );
-            })}
+              <div className="feed-section-list">
+                {regularAnnouncements.map((item) => (
+                  <AnnouncementCard key={item.id} item={item} authenticated={authenticated} />
+                ))}
+              </div>
+            </section>
+          )}
         </main>
 
         <aside className="news-sidebar">
@@ -273,6 +352,42 @@ export default function NewsFeedPage() {
                 </li>
               ))}
             </ul>
+          </Tile>
+
+          <Tile>
+            <h4>Quick Links</h4>
+
+            <ul className="case-reporting-list">
+              <li>
+                <Link href="/support" className="case-reporting-link">
+                  Support
+                  <ChevronRight size={16} />
+                </Link>
+              </li>
+              <li>
+                <Link href="/faq" className="case-reporting-link">
+                  FAQ
+                  <ChevronRight size={16} />
+                </Link>
+              </li>
+              <li>
+                <Link href="/documents" className="case-reporting-link">
+                  Guidelines & Documents
+                  <ChevronRight size={16} />
+                </Link>
+              </li>
+            </ul>
+          </Tile>
+
+          <Tile>
+            <h4>Need Help?</h4>
+            <p className="sidebar-help-text">
+              Reach out to support for account issues, access requests, or reporting assistance.
+            </p>
+            <Link href="/support" className="feed-link">
+              Contact support
+              <ChevronRight size={16} />
+            </Link>
           </Tile>
         </aside>
       </section>

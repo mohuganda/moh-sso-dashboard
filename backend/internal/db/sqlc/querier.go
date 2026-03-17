@@ -142,6 +142,7 @@ type Querier interface {
 	// WHERE process_id = $1
 	// ORDER BY created_at ASC;
 	ListProcessesByDocument(ctx context.Context, documentID uuid.UUID) ([]Process, error)
+	ListPublicAnnouncements(ctx context.Context, arg ListPublicAnnouncementsParams) ([]Announcement, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	ListUsersPaged(ctx context.Context, arg ListUsersPagedParams) ([]User, error)
 	LoginCountForClientInRange(ctx context.Context, arg LoginCountForClientInRangeParams) (int64, error)

@@ -17,6 +17,7 @@ export interface Announcement {
   level: AnnouncementLevel;
   tag: string | null;
   link_url: string | null;
+  link_label: string | null;
   priority: number;
   is_pinned: boolean;
   status: AnnouncementStatus;
@@ -50,6 +51,7 @@ export interface CreateAnnouncementRequest {
   level: AnnouncementLevel;
   tag?: string | null;
   link_url?: string | null;
+  link_label?: string | null;
   priority?: number;
   is_pinned?: boolean;
   status?: AnnouncementStatus;
@@ -68,8 +70,10 @@ export interface UpdateAnnouncementRequest {
   level: AnnouncementLevel;
   tag?: string | null;
   link_url?: string | null;
+  link_label?: string | null;
   priority?: number;
   is_pinned?: boolean;
+  status?: AnnouncementStatus;
   publish_at?: string | null;
   expires_at?: string | null;
   audience_type?: AnnouncementAudienceType;

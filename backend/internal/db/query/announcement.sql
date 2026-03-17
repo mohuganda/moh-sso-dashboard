@@ -359,6 +359,19 @@ ORDER BY a.is_pinned DESC, a.priority DESC, a.publish_at DESC NULLS LAST, a.crea
 LIMIT $2 OFFSET $3;
 
 
+
+-- name: ListPublicAnnouncements :many
+SELECT *
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = 'PUBLISHED'
+  AND (publish_at IS NULL OR publish_at <= now())
+  AND (expires_at IS NULL OR expires_at > now())
+  AND audience_type = 'ALL_USERS'
+ORDER BY is_pinned DESC, priority DESC, publish_at DESC NULLS LAST, created_at DESC
+LIMIT $1 OFFSET $2;
+
+
 -- name: GetAnnouncementStats :one
 SELECT
     COUNT(*)::bigint AS total,

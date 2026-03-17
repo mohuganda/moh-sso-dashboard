@@ -100,15 +100,15 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 		Title:        a.Title,
 		Message:      a.Message,
 		Summary:      nullStringPtr(a.Summary),
-		Level:        normalizeLevel(a.Level),
+		Level:        normalizeLevel(model.AnnouncementLevel(interfaceToString(a.Level))),
 		Tag:          nullStringPtr(a.Tag),
 		LinkURL:      nullStringPtr(a.LinkUrl),
 		Priority:     a.Priority,
 		IsPinned:     a.IsPinned,
-		Status:       normalizeStatus(a.Status),
+		Status:       normalizeAnnouncementStatus(model.AnnouncementStatus(interfaceToString(a.Status))),
 		PublishAt:    nullTimePtr(a.PublishAt),
 		ExpiresAt:    nullTimePtr(a.ExpiresAt),
-		AudienceType: normalizeAudienceType(a.AudienceType),
+		AudienceType: normalizeAudienceType(model.AnnouncementAudienceType(interfaceToString(a.AudienceType))),
 		CreatedBy:    a.CreatedBy.String(),
 		UpdatedBy:    nullUUIDString(a.UpdatedBy),
 		PublishedBy:  nullableUUID(a.PublishedBy),
@@ -170,6 +170,14 @@ func nullableTime(s *string) (sql.NullTime, error) {
 		Time:  t,
 		Valid: true,
 	}, nil
+}
+
+func nullableUUID(u uuid.NullUUID) *string {
+	if !u.Valid {
+		return nil
+	}
+	s := u.UUID.String()
+	return &s
 }
 
 func parseUUIDList(values []string) ([]uuid.UUID, error) {
@@ -257,7 +265,12 @@ func (h *AnnouncementHandler) ListAnnouncementsAdmin(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, items)
+	res := make([]AnnouncementResponse, len(items))
+	for i, item := range items {
+		res[i] = toAnnouncementResponse(item)
+	}
+
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *AnnouncementHandler) GetAnnouncementByID(c *gin.Context) {
@@ -272,7 +285,39 @@ func (h *AnnouncementHandler) GetAnnouncementByID(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
+}
+
+func (h *AnnouncementHandler) ListPublicAnnouncements(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	limit, err := strconv.ParseInt(c.DefaultQuery("limit", "20"), 10, 32)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "", err.Error())
+		return
+	}
+
+	offset, err := strconv.ParseInt(c.DefaultQuery("offset", "0"), 10, 32)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "", err.Error())
+		return
+	}
+
+	announcements, err := h.announcementService.ListPublicAnnouncements(
+		ctx,
+		int32(limit),
+		int32(offset),
+	)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to load public announcements", "")
+		return
+	}
+	res := make([]AnnouncementResponse, len(announcements))
+	for i, item := range announcements {
+		res[i] = toAnnouncementResponse(item)
+	}
+
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *AnnouncementHandler) CreateAnnouncement(c *gin.Context) {
@@ -831,9 +876,9 @@ func (h *AnnouncementHandler) ListAnnouncementsForRole(c *gin.Context) {
 	items, err := h.announcementService.ListAnnouncementsForRole(
 		c.Request.Context(),
 		db.ListAnnouncementsForRoleParams{
-			RoleName: roleName,
-			Limit:    limit,
-			Offset:   offset,
+			RoleName:   roleName,
+			PageLimit:  limit,
+			PageOffset: offset,
 		},
 	)
 	if err != nil {
@@ -911,10 +956,21 @@ func normalizeLevel(v model.AnnouncementLevel) string {
 	return strings.ToLower(string(v))
 }
 
-func normalizeStatus(v model.AnnouncementStatus) string {
+func normalizeAnnouncementStatus(v model.AnnouncementStatus) string {
 	return strings.ToLower(string(v))
 }
 
 func normalizeAudienceType(v model.AnnouncementAudienceType) string {
 	return strings.ToLower(string(v))
+}
+
+func interfaceToString(v interface{}) string {
+	switch val := v.(type) {
+	case []byte:
+		return string(val)
+	case string:
+		return val
+	default:
+		return ""
+	}
 }

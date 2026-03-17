@@ -212,6 +212,12 @@ type AnnouncementRepository interface {
 		params db.ListAnnouncementsForUserParams,
 	) ([]db.Announcement, error)
 
+	ListPublicAnnouncements(
+		ctx context.Context,
+		limit int32,
+		offset int32,
+	) ([]db.Announcement, error)
+
 	// ---------------------------------
 	// Reporting
 	// ---------------------------------
