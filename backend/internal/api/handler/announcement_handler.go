@@ -561,6 +561,45 @@ func (h *AnnouncementHandler) PublishAnnouncementNow(c *gin.Context) {
 
 	response.OK(c, http.StatusOK, item)
 }
+func (h *AnnouncementHandler) MoveAnnouncementToDraft(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+
+	userID, ok := getCurrentUserID(c)
+	if !ok {
+		return
+	}
+
+	item, err := h.announcementService.MoveAnnouncementToDraft(
+		c.Request.Context(),
+		db.DraftAnnouncementParams{
+			ID: announcementID,
+			UpdatedBy: uuid.NullUUID{
+				UUID:  userID,
+				Valid: true,
+			},
+		},
+	)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to draft announcement")
+		return
+	}
+
+	if h.auditService != nil {
+		_ = h.auditService.Log(
+			c.Request.Context(),
+			uuid.NullUUID{UUID: userID, Valid: true},
+			"ANNOUNCEMENT_DRAFTED",
+			map[string]any{
+				"announcement_id": item.ID.String(),
+			},
+		)
+	}
+
+	response.OK(c, http.StatusOK, item)
+}
 
 func (h *AnnouncementHandler) ScheduleAnnouncement(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)

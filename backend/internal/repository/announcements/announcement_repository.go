@@ -102,6 +102,11 @@ type AnnouncementRepository interface {
 		publishedBy uuid.UUID,
 	) (db.Announcement, error)
 
+	Draft(
+		ctx context.Context,
+		params db.DraftAnnouncementParams,
+	) (db.Announcement, error)
+
 	Schedule(
 		ctx context.Context,
 		params db.ScheduleAnnouncementParams,

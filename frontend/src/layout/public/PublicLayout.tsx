@@ -3,41 +3,42 @@ import { Outlet } from "react-router-dom";
 
 import { PublicFooter } from "../../components/footer/PublicFooter";
 import PublicHeader from "../../components/header/PublicHeader.component";
+import { ToastProvider } from "../../components/notifications/toast/ToastProvider";
+import { HeaderPanelProvider } from "../../components/header-panel/header-panel.context";
 
 export default function PublicLayout() {
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* 🔹 Global Header */}
-      <PublicHeader />
-
-      {/* 🔹 SideNav + Content row */}
-      <div
-        style={{
-          display: "flex",
-          flex: 1,
-        }}
-      >
-        {/* 🔹 Main content */}
-        <Content
-          id="main-content"
+    <ToastProvider>
+      <HeaderPanelProvider>
+        <div
           style={{
-            marginTop: "3rem", // Carbon header offset
-            flex: 1,
-            background: "#f9fafb",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <Outlet />
-        </Content>
-      </div>
+          <PublicHeader />
+          <div
+            style={{
+              display: "flex",
+              flex: 1,
+            }}
+          >
+            <Content
+              id="main-content"
+              style={{
+                marginTop: "3rem",
+                flex: 1,
+                background: "#f9fafb",
+              }}
+            >
+              <Outlet />
+            </Content>
+          </div>
 
-      {/* 🔹 Footer */}
-      <PublicFooter />
-    </div>
+          <PublicFooter />
+        </div>
+      </HeaderPanelProvider>
+    </ToastProvider>
   );
 }

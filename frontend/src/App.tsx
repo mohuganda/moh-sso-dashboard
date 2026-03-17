@@ -504,7 +504,7 @@ function App() {
           {/* ================================================== */}
           {/* FALLBACK */}
           {/* ================================================== */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/portal/" replace />} />
         </Routes>
       </Router>
     </ModalProvider>

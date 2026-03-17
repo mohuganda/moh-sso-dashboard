@@ -18,24 +18,20 @@ export default function PublicLayout() {
             flexDirection: "column",
           }}
         >
-          {/* 🔹 Global Header */}
           <UserHeader />
 
-          {/* 🔹 SideNav + Content row */}
           <div
             style={{
               display: "flex",
               flex: 1,
             }}
           >
-            {/* 🔹 Dynamic client SideNav */}
             <ClientSideNav />
 
-            {/* 🔹 Main content */}
             <Content
               id="main-content"
               style={{
-                marginTop: "3rem", // Carbon header offset
+                marginTop: "3rem",
                 flex: 1,
                 background: "#f9fafb",
               }}
@@ -43,8 +39,6 @@ export default function PublicLayout() {
               <Outlet />
             </Content>
           </div>
-
-          {/* 🔹 Footer */}
           <PublicFooter />
         </div>
       </HeaderPanelProvider>

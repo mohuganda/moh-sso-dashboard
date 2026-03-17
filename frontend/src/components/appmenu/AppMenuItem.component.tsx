@@ -17,12 +17,9 @@ const AppTile: React.FC<AppTileProps> = ({ icon: Icon, name, href, clientId }) =
   const dispatch = useDispatch();
 
   const handleClick = () => {
-    // 🔑 Activate client if provided
     if (clientId) {
       dispatch(setActiveClient(clientId));
     }
-
-    // 🌍 Open in new tab (safe defaults)
     window.open(href, "_blank", "noopener,noreferrer");
   };
 

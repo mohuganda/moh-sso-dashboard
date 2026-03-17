@@ -23,6 +23,8 @@ import {
   useDeleteAnnouncementMutation,
   useUpdateAnnouncementMutation,
   useCreateAnnouncementMutation,
+  useSetAnnouncementPinnedMutation,
+  useDraftAnnouncementMutation,
 } from "../../../store/api/announcement.api";
 import type {
   Announcement,
@@ -67,12 +69,14 @@ export function AnnouncementsPage() {
 
   const [publishAnnouncement, publishState] = usePublishAnnouncementMutation();
   const [archiveAnnouncement, archiveState] = useArchiveAnnouncementMutation();
+  const [setAnnouncementPinned, pinnedState] = useSetAnnouncementPinnedMutation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
 
   const [createAnnouncement, createState] = useCreateAnnouncementMutation();
   const [updateAnnouncement, updateState] = useUpdateAnnouncementMutation();
   const [deleteAnnouncement, deleteState] = useDeleteAnnouncementMutation();
+  const [draftAnnouncement, draftState] = useDraftAnnouncementMutation();
 
   useEffect(() => {
     if (!selectedId && announcements.length > 0) {
@@ -174,10 +178,7 @@ export function AnnouncementsPage() {
 
   const handleMoveToDraft = async (item: Announcement) => {
     try {
-      await updateAnnouncement({
-        id: item.id,
-        status: "DRAFT",
-      }).unwrap();
+      await draftAnnouncement(item.id).unwrap();
     } catch (err) {
       console.error("Failed to move announcement to draft", err);
     }
@@ -209,9 +210,11 @@ export function AnnouncementsPage() {
 
   const handleTogglePin = async (item: Announcement) => {
     try {
-      await updateAnnouncement({
+      await setAnnouncementPinned({
         id: item.id,
-        is_pinned: !item.is_pinned,
+        body: {
+          is_pinned: !item.is_pinned,
+        },
       }).unwrap();
     } catch (err) {
       console.error("Failed to update pin state", err);
@@ -222,7 +225,9 @@ export function AnnouncementsPage() {
     publishState.isLoading ||
     archiveState.isLoading ||
     deleteState.isLoading ||
-    updateState.isLoading;
+    updateState.isLoading ||
+    pinnedState.isLoading ||
+    draftState.isLoading;
 
   if (isLoading) {
     return (
@@ -735,7 +740,7 @@ export function AnnouncementsPage() {
 
       <AnnouncementFormModal
         open={Boolean(editingAnnouncement)}
-        mode={"create"}
+        mode={"edit"}
         announcement={editingAnnouncement}
         isSubmitting={updateState.isLoading}
         onRequestClose={() => setEditingAnnouncement(null)}

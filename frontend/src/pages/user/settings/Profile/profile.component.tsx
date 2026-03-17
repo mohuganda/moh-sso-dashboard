@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { TextInput, Button, Form, Stack, Tile, Tag, InlineLoading } from "@carbon/react";
-import { Save } from "@carbon/icons-react";
+import { Save } from "@carbon/react/icons";
 
 import { useMeQuery, useUpdateProfileMutation } from "../../../../store/api/auth.api";
 import UserSessionsTable from "../../../../components/session/UserSessionsTable";

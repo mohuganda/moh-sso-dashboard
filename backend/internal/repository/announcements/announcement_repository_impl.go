@@ -277,6 +277,19 @@ func (r *announcementsRepository) PublishNow(
 	return item, nil
 }
 
+func (r *announcementsRepository) Draft(
+	ctx context.Context,
+	params db.DraftAnnouncementParams,
+) (db.Announcement, error) {
+	item, err := r.db.DraftAnnouncement(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to draft announcement", err)
+		return db.Announcement{}, fmt.Errorf("draft announcement: %w", err)
+	}
+
+	return item, nil
+}
+
 func (r *announcementsRepository) Schedule(
 	ctx context.Context,
 	params db.ScheduleAnnouncementParams,

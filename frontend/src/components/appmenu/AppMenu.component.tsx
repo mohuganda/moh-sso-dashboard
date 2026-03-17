@@ -8,7 +8,6 @@ import "./AppMenu.css";
 const AppMenuAction: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
 
-  // 🔥 Change ref to DIV
   const triggerRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
@@ -16,9 +15,6 @@ const AppMenuAction: React.FC = () => {
     setExpanded(false);
   };
 
-  /* -----------------------------
-   * Click outside & ESC to close
-   * ----------------------------- */
   useEffect(() => {
     if (!expanded) return;
 
@@ -51,9 +47,6 @@ const AppMenuAction: React.FC = () => {
     };
   }, [expanded]);
 
-  /* -----------------------------
-   * Focus management
-   * ----------------------------- */
   useEffect(() => {
     if (expanded) {
       panelRef.current?.focus();

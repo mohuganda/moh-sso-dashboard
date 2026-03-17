@@ -1,5 +1,5 @@
 import { Button, Tile, Stack, Section, Heading } from "@carbon/react";
-import { Launch, Security } from "@carbon/icons-react";
+import { Launch, Security } from "@carbon/react/icons";
 
 export default function SecurityPage() {
   // Tip: In production, pull this from your config or env variables

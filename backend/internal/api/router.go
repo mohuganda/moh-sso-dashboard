@@ -314,6 +314,7 @@ func SetupRouter(
 				announcements.POST("/:id/restore", announcementHandler.RestoreAnnouncement)
 
 				announcements.POST("/:id/publish", announcementHandler.PublishAnnouncementNow)
+				announcements.POST("/:id/draft", announcementHandler.MoveAnnouncementToDraft)
 				announcements.POST("/:id/schedule", announcementHandler.ScheduleAnnouncement)
 				announcements.POST("/:id/archive", announcementHandler.ArchiveAnnouncement)
 

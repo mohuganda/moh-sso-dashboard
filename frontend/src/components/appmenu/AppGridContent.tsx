@@ -25,18 +25,11 @@ const AppGridContent: React.FC = () => {
 
   const { data: clients = [], isLoading, isError, refetch } = useListClientsQuery();
 
-  /* -----------------------------
-   * 🔑 Sync clients into Redux
-   * ----------------------------- */
   useEffect(() => {
     if (clients.length > 0) {
       dispatch(setClients(clients));
     }
   }, [clients, dispatch]);
-
-  /* -----------------------------
-   * Loading state
-   * ----------------------------- */
   if (isLoading) {
     return (
       <div className="app-grid-state">
@@ -44,10 +37,6 @@ const AppGridContent: React.FC = () => {
       </div>
     );
   }
-
-  /* -----------------------------
-   * Error state
-   * ----------------------------- */
   if (isError) {
     return (
       <div className="app-grid-state">
@@ -60,10 +49,6 @@ const AppGridContent: React.FC = () => {
       </div>
     );
   }
-
-  /* -----------------------------
-   * Empty state
-   * ----------------------------- */
   if (clients.length === 0) {
     return (
       <div className="app-grid-state">
@@ -75,7 +60,6 @@ const AppGridContent: React.FC = () => {
   return (
     <>
       {clients.map((client: Client) => {
-        // 🔑 Attribute-driven icon
         const iconKey = client.attributes?.["ui.icon"];
         const Icon = ICON_MAP[iconKey ?? ""] ?? App;
         return (

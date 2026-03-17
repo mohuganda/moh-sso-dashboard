@@ -236,6 +236,7 @@ const (
 	AnnouncementArchived  NotificationType = "ANNOUNCEMENT_ARCHIVED"
 	AnnouncementScheduled NotificationType = "ANNOUNCEMENT_SCHEDULED"
 	AnnouncementPublished NotificationType = "ANNOUNCEMENT_PUBLISHED"
+	AnnouncementDrafted   NotificationType = "ANNOUNCEMENT_DRAFTED"
 )
 
 type ProcessStatus string

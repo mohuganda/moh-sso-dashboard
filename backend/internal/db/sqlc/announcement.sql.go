@@ -251,6 +251,53 @@ func (q *Queries) DeleteAnnouncementUsers(ctx context.Context, announcementID uu
 	return err
 }
 
+const draftAnnouncement = `-- name: DraftAnnouncement :one
+UPDATE announcements
+SET
+    status = 'DRAFT',
+    updated_by = $2
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type DraftAnnouncementParams struct {
+	ID        uuid.UUID     `json:"id"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+}
+
+func (q *Queries) DraftAnnouncement(ctx context.Context, arg DraftAnnouncementParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, draftAnnouncement, arg.ID, arg.UpdatedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
 const getAnnouncementByID = `-- name: GetAnnouncementByID :one
 SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
 FROM announcements

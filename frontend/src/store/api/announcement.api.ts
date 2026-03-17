@@ -127,6 +127,19 @@ export const announcementApi = baseApi.injectEndpoints({
       ],
     }),
 
+    draftAnnouncement: builder.mutation<Announcement, string>({
+      query: (id) => ({
+        url: `/admin/announcements/${id}/draft`,
+        method: "POST",
+      }),
+      transformResponse: (response: ApiEnvelope<Announcement>) => response.data,
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Announcements", id },
+        { type: "Announcements", id: "LIST" },
+        { type: "Announcements", id: "STATS" },
+      ],
+    }),
+
     scheduleAnnouncement: builder.mutation<
       Announcement,
       { id: string; body: ScheduleAnnouncementRequest }
@@ -246,6 +259,7 @@ export const {
   useRestoreAnnouncementMutation,
   usePublishAnnouncementMutation,
   useScheduleAnnouncementMutation,
+  useDraftAnnouncementMutation,
   useArchiveAnnouncementMutation,
   useSetAnnouncementPinnedMutation,
   useSetAnnouncementPriorityMutation,

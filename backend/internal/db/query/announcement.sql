@@ -156,6 +156,15 @@ WHERE id = $1
 RETURNING *;
 
 
+-- name: DraftAnnouncement :one
+UPDATE announcements
+SET
+    status = 'DRAFT',
+    updated_by = $2
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING *;
+
 -- name: ScheduleAnnouncement :one
 UPDATE announcements
 SET

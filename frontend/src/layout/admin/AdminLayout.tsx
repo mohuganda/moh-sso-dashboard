@@ -45,7 +45,6 @@ function HeaderActions() {
 
   return (
     <HeaderGlobalBar>
-      {/* 🔔 Notifications */}
       <HeaderGlobalAction
         aria-label="Notifications"
         tooltipAlignment="end"
@@ -59,16 +58,12 @@ function HeaderActions() {
         <Notification size={20} />
         {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
       </HeaderGlobalAction>
-
-      {/* 👤 User */}
       <HeaderGlobalAction
         aria-label={`Signed in as ${user?.username ?? "user"}`}
         tooltipAlignment="end"
       >
         <UserAvatarFilled size={20} />
       </HeaderGlobalAction>
-
-      {/* 🚪 Logout */}
       <HeaderGlobalAction aria-label="Logout" tooltipAlignment="end" onClick={handleLogout}>
         <Logout size={20} />
       </HeaderGlobalAction>
@@ -83,7 +78,6 @@ export default function AdminLayout() {
   return (
     <ToastProvider>
       <HeaderPanelProvider>
-        {/* ================= Header ================= */}
         <Header aria-label="MOH Integrated Health Portal">
           <img src={imagePath} className={`moh-image-style`} />
 
@@ -94,7 +88,6 @@ export default function AdminLayout() {
           <HeaderActions />
         </Header>
 
-        {/* ================= Side Nav ================= */}
         <SideNav isFixedNav expanded aria-label="Admin navigation">
           <SideNavItems>
             <SideNavLink
@@ -134,7 +127,6 @@ export default function AdminLayout() {
           </SideNavItems>
         </SideNav>
 
-        {/* ================= Content ================= */}
         <Content style={{ marginLeft: 256, paddingTop: "3rem" }}>
           <Outlet />
         </Content>

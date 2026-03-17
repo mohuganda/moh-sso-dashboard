@@ -1,4 +1,4 @@
-import { Pin } from "@carbon/icons-react";
+import { Pin } from "@carbon/react/icons";
 import { Stack, Tag, OverflowMenu, OverflowMenuItem } from "@carbon/react";
 import type { Announcement } from "../../../store/types/announcements.types";
 import {

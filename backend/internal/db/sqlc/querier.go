@@ -75,6 +75,7 @@ type Querier interface {
 	DeleteOldNotifications(ctx context.Context) error
 	DeleteStorageLocation(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
+	DraftAnnouncement(ctx context.Context, arg DraftAnnouncementParams) (Announcement, error)
 	ExportAuditLogs(ctx context.Context, arg ExportAuditLogsParams) ([]ExportAuditLogsRow, error)
 	FailProcess(ctx context.Context, arg FailProcessParams) error
 	FailedLoginsByDay(ctx context.Context, arg FailedLoginsByDayParams) ([]FailedLoginsByDayRow, error)

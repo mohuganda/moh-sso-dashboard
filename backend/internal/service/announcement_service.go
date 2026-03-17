@@ -403,6 +403,27 @@ func (s *AnnouncementService) PublishAnnouncementNow(
 	return item, nil
 }
 
+func (s *AnnouncementService) MoveAnnouncementToDraft(
+	ctx context.Context,
+	params db.DraftAnnouncementParams,
+) (db.Announcement, error) {
+	item, err := s.repo.Draft(ctx, params)
+	if err != nil {
+		return db.Announcement{}, fmt.Errorf("drafted announcement: %w", err)
+	}
+
+	nt := models.AnnouncementDrafted
+	s.notifications.Notify(ctx, models.Notification{
+		Type:       string(nt),
+		Title:      nt.Title(),
+		Severity:   nt.Severity(),
+		Message:    fmt.Sprintf("Announcement %q drafted", item.Title),
+		TargetRole: "admin",
+	})
+
+	return item, nil
+}
+
 func (s *AnnouncementService) ScheduleAnnouncement(
 	ctx context.Context,
 	params db.ScheduleAnnouncementParams,
