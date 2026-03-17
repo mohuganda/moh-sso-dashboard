@@ -230,9 +230,12 @@ const (
 )
 
 const (
-	AnnouncementCreated NotificationType = "ANNOUNCEMENT_CREATED"
-	AnnouncementUpdated NotificationType = "ANNOUNCEMENT_UPDATED"
-	AnnouncementDeleted NotificationType = "ANNOUNCEMENT_DELETED"
+	AnnouncementCreated   NotificationType = "ANNOUNCEMENT_CREATED"
+	AnnouncementUpdated   NotificationType = "ANNOUNCEMENT_UPDATED"
+	AnnouncementDeleted   NotificationType = "ANNOUNCEMENT_DELETED"
+	AnnouncementArchived  NotificationType = "ANNOUNCEMENT_ARCHIVED"
+	AnnouncementScheduled NotificationType = "ANNOUNCEMENT_SCHEDULED"
+	AnnouncementPublished NotificationType = "ANNOUNCEMENT_PUBLISHED"
 )
 
 type ProcessStatus string
@@ -260,6 +263,34 @@ const (
 	SystemNotification       NotificationCategory = "SYSTEM"
 	SecurityNotification     NotificationCategory = "SECURITY"
 	AnnouncementNotification NotificationCategory = "ANNOUNCEMENT"
+)
+
+type AnnouncementStatus string
+
+const (
+	AnnouncementStatusDRAFT     AnnouncementStatus = "DRAFT"
+	AnnouncementStatusSCHEDULED AnnouncementStatus = "SCHEDULED"
+	AnnouncementStatusPUBLISHED AnnouncementStatus = "PUBLISHED"
+	AnnouncementStatusARCHIVED  AnnouncementStatus = "ARCHIVED"
+)
+
+type AnnouncementLevel string
+
+const (
+	AnnouncementLevelINFO     AnnouncementLevel = "INFO"
+	AnnouncementLevelSUCCESS  AnnouncementLevel = "SUCCESS"
+	AnnouncementLevelWARNING  AnnouncementLevel = "WARNING"
+	AnnouncementLevelCRITICAL AnnouncementLevel = "CRITICAL"
+)
+
+type AnnouncementAudienceType string
+
+const (
+	AnnouncementAudienceTypeALLUSERS        AnnouncementAudienceType = "ALL_USERS"
+	AnnouncementAudienceTypeADMINSONLY      AnnouncementAudienceType = "ADMINS_ONLY"
+	AnnouncementAudienceTypeSPECIFICCLIENTS AnnouncementAudienceType = "SPECIFIC_CLIENTS"
+	AnnouncementAudienceTypeSPECIFICROLES   AnnouncementAudienceType = "SPECIFIC_ROLES"
+	AnnouncementAudienceTypeSPECIFICUSERS   AnnouncementAudienceType = "SPECIFIC_USERS"
 )
 
 func (t NotificationType) Severity() string {

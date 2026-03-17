@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
+	"time"
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	documentRepository "github.com/moh-sso-dashboard/internal/repository/document"
@@ -34,12 +36,9 @@ func NewCSVProcessor(documentRepository documentRepository.DocumentRepository, p
 
 func (c *CSVProcessor) Process(
 	ctx context.Context,
-	p db.Process, // you can keep this type if it's local DB
+	p db.Process,
 ) error {
-
-	// --------------------------------------------------
-	// 1️⃣ Get Document
-	// --------------------------------------------------
+	// 1. Get document
 	doc, err := c.documentRepository.GetDocument(ctx, p.DocumentID)
 	if err != nil {
 		return err
@@ -48,9 +47,7 @@ func (c *CSVProcessor) Process(
 	msg := "Opening file"
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 5, &msg)
 
-	// --------------------------------------------------
-	// 2️⃣ Download file
-	// --------------------------------------------------
+	// 2. Download file
 	fileReader, err := c.storage.Download(ctx, doc.ObjectKey)
 	if err != nil {
 		return err
@@ -60,44 +57,76 @@ func (c *CSVProcessor) Process(
 	msg = "Parsing CSV"
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 10, &msg)
 
-	// --------------------------------------------------
-	// 3️⃣ CSV Reader
-	// --------------------------------------------------
+	// 3. CSV reader
 	reader := csv.NewReader(fileReader)
 	reader.TrimLeadingSpace = true
+	reader.ReuseRecord = true
 
 	headers, err := reader.Read()
 	if err != nil {
 		return err
 	}
 
-	// --------------------------------------------------
-	// 4️⃣ Begin SQL Transaction (STANDARD WAY)
-	// --------------------------------------------------
-	tx, err := c.remoteDB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	// --------------------------------------------------
-	// 5️⃣ Create File Record
-	// --------------------------------------------------
-	fileKey, err := c.fileRepository.CreateCustomFile(
-		ctx,
-		tx,
-		doc.OriginalFilename,
-		doc.ObjectKey,
-	)
-	if err != nil {
-		return err
+	// Normalize headers once
+	for i := range headers {
+		headers[i] = strings.TrimSpace(headers[i])
 	}
 
-	// --------------------------------------------------
-	// 6️⃣ Stream + Insert Rows
-	// --------------------------------------------------
+	// 4. Create file record in a short transaction
+	var fileKey int64
+	{
+		tx, err := c.remoteDB.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+
+		fileKey, err = c.fileRepository.CreateCustomFile(
+			ctx,
+			tx,
+			doc.OriginalFilename,
+			doc.ObjectKey,
+		)
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+
+		if err := tx.Commit(); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	// 5. Batch rows
+	const batchSize = 2000
 	rowCount := 0
-	batchSize := 500
+	lastProgressUpdate := time.Now()
+
+	batch := make([][]byte, 0, batchSize)
+
+	flushBatch := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+
+		tx, err := c.remoteDB.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+
+		if err := c.fileRepository.InsertCustomDataBatch(ctx, tx, fileKey, batch); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+
+		if err := tx.Commit(); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+
+		batch = batch[:0]
+		return nil
+	}
 
 	for {
 		record, err := reader.Read()
@@ -108,11 +137,12 @@ func (c *CSVProcessor) Process(
 			return err
 		}
 
-		rowJSON := make(map[string]interface{})
-
-		for i, value := range record {
-			if i < len(headers) {
-				rowJSON[headers[i]] = value
+		rowJSON := make(map[string]string, len(headers))
+		for i, header := range headers {
+			if i < len(record) {
+				rowJSON[header] = record[i]
+			} else {
+				rowJSON[header] = ""
 			}
 		}
 
@@ -121,39 +151,32 @@ func (c *CSVProcessor) Process(
 			return err
 		}
 
-		if err := c.fileRepository.InsertCustomData(
-			ctx,
-			tx,
-			fileKey,
-			jsonBytes,
-		); err != nil {
-			return err
-		}
-
+		batch = append(batch, jsonBytes)
 		rowCount++
 
-		// --------------------------------------------------
-		// Progress Update (outside DB transaction risk)
-		// --------------------------------------------------
-		if rowCount%batchSize == 0 {
-			progress := int32(10 + (rowCount / 100))
+		if len(batch) >= batchSize {
+			if err := flushBatch(); err != nil {
+				return err
+			}
+		}
+
+		if rowCount%5000 == 0 || time.Since(lastProgressUpdate) > 3*time.Second {
+			progress := int32(10 + (rowCount / 1000))
 			if progress > 85 {
 				progress = 85
 			}
 			msg := fmt.Sprintf("Processed %d rows", rowCount)
 			_ = c.processRepository.UpdateProgress(ctx, p.ID, progress, &msg)
+			lastProgressUpdate = time.Now()
 		}
+	}
+
+	if err := flushBatch(); err != nil {
+		return err
 	}
 
 	msg = fmt.Sprintf("Inserted %d rows successfully", rowCount)
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 90, &msg)
-
-	// --------------------------------------------------
-	// 7️⃣ Commit Transaction
-	// --------------------------------------------------
-	if err := tx.Commit(); err != nil {
-		return err
-	}
 
 	msg = "Finished processing"
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 100, &msg)

@@ -17,13 +17,18 @@ type Querier interface {
 	ActiveUsersThisWeek(ctx context.Context) (int64, error)
 	ActiveUsersToday(ctx context.Context) (int64, error)
 	ApproximateActiveSessions(ctx context.Context) (int64, error)
+	ArchiveAnnouncement(ctx context.Context, arg ArchiveAnnouncementParams) (Announcement, error)
 	AuditMetricsOverview(ctx context.Context, arg AuditMetricsOverviewParams) (AuditMetricsOverviewRow, error)
 	CancelProcess(ctx context.Context, id uuid.UUID) error
 	ClaimNextPendingProcess(ctx context.Context) (Process, error)
 	ClientUsageForUserInRange(ctx context.Context, arg ClientUsageForUserInRangeParams) ([]ClientUsageForUserInRangeRow, error)
 	CompleteProcess(ctx context.Context, id uuid.UUID) error
+	CountActivePublishedAnnouncements(ctx context.Context) (int64, error)
 	CountActiveUsers(ctx context.Context) (int64, error)
 	CountActiveUsersInRange(ctx context.Context, arg CountActiveUsersInRangeParams) (int64, error)
+	CountAnnouncementsAdmin(ctx context.Context) (int64, error)
+	CountAnnouncementsByStatus(ctx context.Context, status interface{}) (int64, error)
+	CountAnnouncementsCreatedByUser(ctx context.Context, createdBy uuid.UUID) (int64, error)
 	CountClients(ctx context.Context) (int64, error)
 	CountDisabledClients(ctx context.Context) (int64, error)
 	CountDisabledUsers(ctx context.Context) (int64, error)
@@ -36,6 +41,7 @@ type Querier interface {
 	CountNewUsersToday(ctx context.Context) (int64, error)
 	CountNotifications(ctx context.Context, targetRole string) (int64, error)
 	CountPasswordResetsInRange(ctx context.Context, arg CountPasswordResetsInRangeParams) (int64, error)
+	CountSearchAnnouncementsAdmin(ctx context.Context, searchText sql.NullString) (int64, error)
 	CountUnreadNotifications(ctx context.Context, targetRole string) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (Announcement, error)
@@ -60,7 +66,9 @@ type Querier interface {
 	// Users
 	// =====================================================
 	CreateUser(ctx context.Context, arg CreateUserParams) error
-	DeleteAnnouncement(ctx context.Context, id uuid.UUID) error
+	DeleteAnnouncementClients(ctx context.Context, announcementID uuid.UUID) error
+	DeleteAnnouncementRoles(ctx context.Context, announcementID uuid.UUID) error
+	DeleteAnnouncementUsers(ctx context.Context, announcementID uuid.UUID) error
 	DeleteClient(ctx context.Context, id uuid.UUID) error
 	DeleteDocument(ctx context.Context, id uuid.UUID) error
 	DeleteNotificationByID(ctx context.Context, id uuid.UUID) error
@@ -72,6 +80,9 @@ type Querier interface {
 	FailedLoginsByDay(ctx context.Context, arg FailedLoginsByDayParams) ([]FailedLoginsByDayRow, error)
 	FailedLoginsByUserInRange(ctx context.Context, arg FailedLoginsByUserInRangeParams) ([]FailedLoginsByUserInRangeRow, error)
 	FirstLoginForUser(ctx context.Context, userID uuid.UUID) (sql.NullTime, error)
+	GetAnnouncementByID(ctx context.Context, id uuid.UUID) (Announcement, error)
+	GetAnnouncementByIDForUpdate(ctx context.Context, id uuid.UUID) (Announcement, error)
+	GetAnnouncementStats(ctx context.Context) (GetAnnouncementStatsRow, error)
 	GetAuditLog(ctx context.Context, id uuid.UUID) (GetAuditLogRow, error)
 	GetClientByClientID(ctx context.Context, clientID string) (Client, error)
 	GetClientByID(ctx context.Context, id uuid.UUID) (Client, error)
@@ -86,11 +97,23 @@ type Querier interface {
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetUsersByRole(ctx context.Context, roles []string) ([]User, error)
 	InactiveUsersSince(ctx context.Context) ([]User, error)
+	InsertAnnouncementClient(ctx context.Context, arg InsertAnnouncementClientParams) error
+	InsertAnnouncementRole(ctx context.Context, arg InsertAnnouncementRoleParams) error
+	InsertAnnouncementUser(ctx context.Context, arg InsertAnnouncementUserParams) error
 	InsertImportJobItem(ctx context.Context, arg InsertImportJobItemParams) error
 	LastLoginForAllUsers(ctx context.Context) ([]LastLoginForAllUsersRow, error)
 	LastLoginForUser(ctx context.Context, userID uuid.UUID) (sql.NullTime, error)
+	ListActivePublishedAnnouncements(ctx context.Context, arg ListActivePublishedAnnouncementsParams) ([]Announcement, error)
 	ListActiveStorageLocations(ctx context.Context) ([]StorageLocation, error)
-	ListAnnouncements(ctx context.Context, limit int32) ([]ListAnnouncementsRow, error)
+	ListAnnouncementClients(ctx context.Context, announcementID uuid.UUID) ([]uuid.UUID, error)
+	ListAnnouncementRoles(ctx context.Context, announcementID uuid.UUID) ([]string, error)
+	ListAnnouncementUsers(ctx context.Context, announcementID uuid.UUID) ([]uuid.UUID, error)
+	ListAnnouncementsAdmin(ctx context.Context, arg ListAnnouncementsAdminParams) ([]Announcement, error)
+	ListAnnouncementsByStatus(ctx context.Context, arg ListAnnouncementsByStatusParams) ([]Announcement, error)
+	ListAnnouncementsCreatedByUser(ctx context.Context, arg ListAnnouncementsCreatedByUserParams) ([]Announcement, error)
+	ListAnnouncementsForClient(ctx context.Context, arg ListAnnouncementsForClientParams) ([]Announcement, error)
+	ListAnnouncementsForRole(ctx context.Context, arg ListAnnouncementsForRoleParams) ([]Announcement, error)
+	ListAnnouncementsForUser(ctx context.Context, arg ListAnnouncementsForUserParams) ([]Announcement, error)
 	ListAuditActions(ctx context.Context) ([]string, error)
 	ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([]ListAuditLogsRow, error)
 	ListClients(ctx context.Context) ([]Client, error)
@@ -134,14 +157,24 @@ type Querier interface {
 	NewClientsInRange(ctx context.Context, arg NewClientsInRangeParams) ([]NewClientsInRangeRow, error)
 	NewUsersInRange(ctx context.Context, arg NewUsersInRangeParams) ([]User, error)
 	NewUsersTrend(ctx context.Context, arg NewUsersTrendParams) ([]NewUsersTrendRow, error)
+	PublishAnnouncementNow(ctx context.Context, arg PublishAnnouncementNowParams) (Announcement, error)
 	RecentlyCreatedClients(ctx context.Context, rowLimit int32) ([]RecentlyCreatedClientsRow, error)
+	RestoreAnnouncement(ctx context.Context, arg RestoreAnnouncementParams) (Announcement, error)
 	RoleDistribution(ctx context.Context) ([]RoleDistributionRow, error)
+	ScheduleAnnouncement(ctx context.Context, arg ScheduleAnnouncementParams) (Announcement, error)
+	SearchAnnouncementsAdmin(ctx context.Context, arg SearchAnnouncementsAdminParams) ([]Announcement, error)
 	SearchClients(ctx context.Context, query sql.NullString) ([]Client, error)
 	SearchUsers(ctx context.Context, dollar_1 sql.NullString) ([]User, error)
+	SetAnnouncementPinned(ctx context.Context, arg SetAnnouncementPinnedParams) (Announcement, error)
+	SetAnnouncementPriority(ctx context.Context, arg SetAnnouncementPriorityParams) (Announcement, error)
+	SoftDeleteAnnouncement(ctx context.Context, arg SoftDeleteAnnouncementParams) error
 	SuspiciousLoginsInRange(ctx context.Context, arg SuspiciousLoginsInRangeParams) ([]SuspiciousLoginsInRangeRow, error)
 	TopFailureIPs(ctx context.Context, arg TopFailureIPsParams) ([]TopFailureIPsRow, error)
 	TopTenantsByLogins(ctx context.Context, arg TopTenantsByLoginsParams) ([]TopTenantsByLoginsRow, error)
 	TotalLoginsInRange(ctx context.Context, arg TotalLoginsInRangeParams) (int64, error)
+	UnarchiveAnnouncementToDraft(ctx context.Context, arg UnarchiveAnnouncementToDraftParams) (Announcement, error)
+	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (Announcement, error)
+	UpdateAnnouncementStatus(ctx context.Context, arg UpdateAnnouncementStatusParams) (Announcement, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientEnabled(ctx context.Context, arg UpdateClientEnabledParams) error
 	UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (Document, error)

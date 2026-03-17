@@ -76,6 +76,13 @@
   opacity: 0.7;
 }
 
+.feed-summary {
+  margin: 0 0 0.5rem;
+  color: #525252;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 /* Optional future state */
 .feed-item--unread {
   background-color: var(--cds-layer-hover);

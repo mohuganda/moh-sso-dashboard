@@ -8,47 +8,187 @@ package db
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/google/uuid"
 )
+
+const archiveAnnouncement = `-- name: ArchiveAnnouncement :one
+UPDATE announcements
+SET
+    status = 'ARCHIVED',
+    archived_at = now(),
+    archived_by = $2,
+    updated_by = $2
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type ArchiveAnnouncementParams struct {
+	ID         uuid.UUID     `json:"id"`
+	ArchivedBy uuid.NullUUID `json:"archived_by"`
+}
+
+func (q *Queries) ArchiveAnnouncement(ctx context.Context, arg ArchiveAnnouncementParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, archiveAnnouncement, arg.ID, arg.ArchivedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const countActivePublishedAnnouncements = `-- name: CountActivePublishedAnnouncements :one
+SELECT COUNT(*)::bigint
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = 'PUBLISHED'
+  AND (publish_at IS NULL OR publish_at <= now())
+  AND (expires_at IS NULL OR expires_at > now())
+`
+
+func (q *Queries) CountActivePublishedAnnouncements(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countActivePublishedAnnouncements)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countAnnouncementsAdmin = `-- name: CountAnnouncementsAdmin :one
+SELECT COUNT(*)::bigint
+FROM announcements
+WHERE deleted_at IS NULL
+`
+
+func (q *Queries) CountAnnouncementsAdmin(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAnnouncementsAdmin)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countAnnouncementsByStatus = `-- name: CountAnnouncementsByStatus :one
+SELECT COUNT(*)::bigint
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = $1
+`
+
+func (q *Queries) CountAnnouncementsByStatus(ctx context.Context, status interface{}) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAnnouncementsByStatus, status)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countAnnouncementsCreatedByUser = `-- name: CountAnnouncementsCreatedByUser :one
+SELECT COUNT(*)::bigint
+FROM announcements
+WHERE deleted_at IS NULL
+  AND created_by = $1
+`
+
+func (q *Queries) CountAnnouncementsCreatedByUser(ctx context.Context, createdBy uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAnnouncementsCreatedByUser, createdBy)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countSearchAnnouncementsAdmin = `-- name: CountSearchAnnouncementsAdmin :one
+SELECT COUNT(*)::bigint
+FROM announcements
+WHERE deleted_at IS NULL
+  AND (
+      title ILIKE '%' || $1 || '%'
+      OR message ILIKE '%' || $1 || '%'
+      OR COALESCE(summary, '') ILIKE '%' || $1 || '%'
+      OR COALESCE(tag, '') ILIKE '%' || $1 || '%'
+  )
+`
+
+func (q *Queries) CountSearchAnnouncementsAdmin(ctx context.Context, searchText sql.NullString) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSearchAnnouncementsAdmin, searchText)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
 
 const createAnnouncement = `-- name: CreateAnnouncement :one
 INSERT INTO announcements (
     title,
     message,
+    summary,
+    level,
     tag,
-    priority,
     link_url,
-    created_by
+    priority,
+    is_pinned,
+    status,
+    publish_at,
+    expires_at,
+    audience_type,
+    created_by,
+    updated_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13
 )
-VALUES (
-    $1,
-    $2,
-    $3,
-    $4,
-    $5,
-    $6
-)
-RETURNING id, title, message, tag, priority, link_url, created_by, created_at
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
 `
 
 type CreateAnnouncementParams struct {
-	Title     string         `json:"title"`
-	Message   string         `json:"message"`
-	Tag       string         `json:"tag"`
-	Priority  sql.NullInt32  `json:"priority"`
-	LinkUrl   sql.NullString `json:"link_url"`
-	CreatedBy uuid.NullUUID  `json:"created_by"`
+	Title        string         `json:"title"`
+	Message      string         `json:"message"`
+	Summary      sql.NullString `json:"summary"`
+	Level        interface{}    `json:"level"`
+	Tag          sql.NullString `json:"tag"`
+	LinkUrl      sql.NullString `json:"link_url"`
+	Priority     int32          `json:"priority"`
+	IsPinned     bool           `json:"is_pinned"`
+	Status       interface{}    `json:"status"`
+	PublishAt    sql.NullTime   `json:"publish_at"`
+	ExpiresAt    sql.NullTime   `json:"expires_at"`
+	AudienceType interface{}    `json:"audience_type"`
+	CreatedBy    uuid.UUID      `json:"created_by"`
 }
 
 func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (Announcement, error) {
 	row := q.db.QueryRowContext(ctx, createAnnouncement,
 		arg.Title,
 		arg.Message,
+		arg.Summary,
+		arg.Level,
 		arg.Tag,
-		arg.Priority,
 		arg.LinkUrl,
+		arg.Priority,
+		arg.IsPinned,
+		arg.Status,
+		arg.PublishAt,
+		arg.ExpiresAt,
+		arg.AudienceType,
 		arg.CreatedBy,
 	)
 	var i Announcement
@@ -56,66 +196,284 @@ func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncement
 		&i.ID,
 		&i.Title,
 		&i.Message,
+		&i.Summary,
+		&i.Level,
 		&i.Tag,
-		&i.Priority,
 		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
 		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
 	)
 	return i, err
 }
 
-const deleteAnnouncement = `-- name: DeleteAnnouncement :exec
-DELETE FROM announcements
-WHERE id = $1
+const deleteAnnouncementClients = `-- name: DeleteAnnouncementClients :exec
+DELETE FROM announcement_clients
+WHERE announcement_id = $1
 `
 
-func (q *Queries) DeleteAnnouncement(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteAnnouncement, id)
+func (q *Queries) DeleteAnnouncementClients(ctx context.Context, announcementID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteAnnouncementClients, announcementID)
 	return err
 }
 
-const listAnnouncements = `-- name: ListAnnouncements :many
-SELECT
-    id,
-    title,
-    message,
-    tag,
-    priority,
-    link_url,
-    created_at
-FROM announcements
-ORDER BY created_at DESC
-LIMIT $1
+const deleteAnnouncementRoles = `-- name: DeleteAnnouncementRoles :exec
+DELETE FROM announcement_roles
+WHERE announcement_id = $1
 `
 
-type ListAnnouncementsRow struct {
-	ID        uuid.UUID      `json:"id"`
-	Title     string         `json:"title"`
-	Message   string         `json:"message"`
-	Tag       string         `json:"tag"`
-	Priority  sql.NullInt32  `json:"priority"`
-	LinkUrl   sql.NullString `json:"link_url"`
-	CreatedAt time.Time      `json:"created_at"`
+func (q *Queries) DeleteAnnouncementRoles(ctx context.Context, announcementID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteAnnouncementRoles, announcementID)
+	return err
 }
 
-func (q *Queries) ListAnnouncements(ctx context.Context, limit int32) ([]ListAnnouncementsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAnnouncements, limit)
+const deleteAnnouncementUsers = `-- name: DeleteAnnouncementUsers :exec
+DELETE FROM announcement_users
+WHERE announcement_id = $1
+`
+
+func (q *Queries) DeleteAnnouncementUsers(ctx context.Context, announcementID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteAnnouncementUsers, announcementID)
+	return err
+}
+
+const getAnnouncementByID = `-- name: GetAnnouncementByID :one
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+FROM announcements
+WHERE id = $1
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+func (q *Queries) GetAnnouncementByID(ctx context.Context, id uuid.UUID) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, getAnnouncementByID, id)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const getAnnouncementByIDForUpdate = `-- name: GetAnnouncementByIDForUpdate :one
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+FROM announcements
+WHERE id = $1
+  AND deleted_at IS NULL
+FOR UPDATE
+`
+
+func (q *Queries) GetAnnouncementByIDForUpdate(ctx context.Context, id uuid.UUID) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, getAnnouncementByIDForUpdate, id)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const getAnnouncementStats = `-- name: GetAnnouncementStats :one
+SELECT
+    COUNT(*)::bigint AS total,
+    COUNT(*) FILTER (WHERE status = 'DRAFT')::bigint AS draft_count,
+    COUNT(*) FILTER (WHERE status = 'SCHEDULED')::bigint AS scheduled_count,
+    COUNT(*) FILTER (WHERE status = 'PUBLISHED')::bigint AS published_count,
+    COUNT(*) FILTER (WHERE status = 'ARCHIVED')::bigint AS archived_count,
+    COUNT(*) FILTER (
+        WHERE status = 'PUBLISHED'
+          AND (publish_at IS NULL OR publish_at <= now())
+          AND (expires_at IS NULL OR expires_at > now())
+    )::bigint AS active_count
+FROM announcements
+WHERE deleted_at IS NULL
+`
+
+type GetAnnouncementStatsRow struct {
+	Total          int64 `json:"total"`
+	DraftCount     int64 `json:"draft_count"`
+	ScheduledCount int64 `json:"scheduled_count"`
+	PublishedCount int64 `json:"published_count"`
+	ArchivedCount  int64 `json:"archived_count"`
+	ActiveCount    int64 `json:"active_count"`
+}
+
+func (q *Queries) GetAnnouncementStats(ctx context.Context) (GetAnnouncementStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getAnnouncementStats)
+	var i GetAnnouncementStatsRow
+	err := row.Scan(
+		&i.Total,
+		&i.DraftCount,
+		&i.ScheduledCount,
+		&i.PublishedCount,
+		&i.ArchivedCount,
+		&i.ActiveCount,
+	)
+	return i, err
+}
+
+const insertAnnouncementClient = `-- name: InsertAnnouncementClient :exec
+INSERT INTO announcement_clients (
+    announcement_id,
+    client_id
+) VALUES ($1, $2)
+ON CONFLICT (announcement_id, client_id) DO NOTHING
+`
+
+type InsertAnnouncementClientParams struct {
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+	ClientID       uuid.UUID `json:"client_id"`
+}
+
+func (q *Queries) InsertAnnouncementClient(ctx context.Context, arg InsertAnnouncementClientParams) error {
+	_, err := q.db.ExecContext(ctx, insertAnnouncementClient, arg.AnnouncementID, arg.ClientID)
+	return err
+}
+
+const insertAnnouncementRole = `-- name: InsertAnnouncementRole :exec
+INSERT INTO announcement_roles (
+    announcement_id,
+    role_name
+) VALUES ($1, $2)
+ON CONFLICT (announcement_id, role_name) DO NOTHING
+`
+
+type InsertAnnouncementRoleParams struct {
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+	RoleName       string    `json:"role_name"`
+}
+
+func (q *Queries) InsertAnnouncementRole(ctx context.Context, arg InsertAnnouncementRoleParams) error {
+	_, err := q.db.ExecContext(ctx, insertAnnouncementRole, arg.AnnouncementID, arg.RoleName)
+	return err
+}
+
+const insertAnnouncementUser = `-- name: InsertAnnouncementUser :exec
+INSERT INTO announcement_users (
+    announcement_id,
+    user_id
+) VALUES ($1, $2)
+ON CONFLICT (announcement_id, user_id) DO NOTHING
+`
+
+type InsertAnnouncementUserParams struct {
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+	UserID         uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) InsertAnnouncementUser(ctx context.Context, arg InsertAnnouncementUserParams) error {
+	_, err := q.db.ExecContext(ctx, insertAnnouncementUser, arg.AnnouncementID, arg.UserID)
+	return err
+}
+
+const listActivePublishedAnnouncements = `-- name: ListActivePublishedAnnouncements :many
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = 'PUBLISHED'
+  AND (publish_at IS NULL OR publish_at <= now())
+  AND (expires_at IS NULL OR expires_at > now())
+ORDER BY is_pinned DESC, priority DESC, publish_at DESC NULLS LAST, created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListActivePublishedAnnouncementsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListActivePublishedAnnouncements(ctx context.Context, arg ListActivePublishedAnnouncementsParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listActivePublishedAnnouncements, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListAnnouncementsRow{}
+	items := []Announcement{}
 	for rows.Next() {
-		var i ListAnnouncementsRow
+		var i Announcement
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
 			&i.Message,
+			&i.Summary,
+			&i.Level,
 			&i.Tag,
-			&i.Priority,
 			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
 			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
 		); err != nil {
 			return nil, err
 		}
@@ -128,4 +486,1004 @@ func (q *Queries) ListAnnouncements(ctx context.Context, limit int32) ([]ListAnn
 		return nil, err
 	}
 	return items, nil
+}
+
+const listAnnouncementClients = `-- name: ListAnnouncementClients :many
+SELECT client_id
+FROM announcement_clients
+WHERE announcement_id = $1
+ORDER BY client_id
+`
+
+func (q *Queries) ListAnnouncementClients(ctx context.Context, announcementID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementClients, announcementID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var client_id uuid.UUID
+		if err := rows.Scan(&client_id); err != nil {
+			return nil, err
+		}
+		items = append(items, client_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementRoles = `-- name: ListAnnouncementRoles :many
+SELECT role_name
+FROM announcement_roles
+WHERE announcement_id = $1
+ORDER BY role_name
+`
+
+func (q *Queries) ListAnnouncementRoles(ctx context.Context, announcementID uuid.UUID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementRoles, announcementID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var role_name string
+		if err := rows.Scan(&role_name); err != nil {
+			return nil, err
+		}
+		items = append(items, role_name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementUsers = `-- name: ListAnnouncementUsers :many
+SELECT user_id
+FROM announcement_users
+WHERE announcement_id = $1
+ORDER BY user_id
+`
+
+func (q *Queries) ListAnnouncementUsers(ctx context.Context, announcementID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementUsers, announcementID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementsAdmin = `-- name: ListAnnouncementsAdmin :many
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+FROM announcements
+WHERE deleted_at IS NULL
+ORDER BY is_pinned DESC, priority DESC, created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListAnnouncementsAdminParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListAnnouncementsAdmin(ctx context.Context, arg ListAnnouncementsAdminParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementsAdmin, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementsByStatus = `-- name: ListAnnouncementsByStatus :many
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = $1
+ORDER BY is_pinned DESC, priority DESC, created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAnnouncementsByStatusParams struct {
+	Status interface{} `json:"status"`
+	Limit  int32       `json:"limit"`
+	Offset int32       `json:"offset"`
+}
+
+func (q *Queries) ListAnnouncementsByStatus(ctx context.Context, arg ListAnnouncementsByStatusParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementsByStatus, arg.Status, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementsCreatedByUser = `-- name: ListAnnouncementsCreatedByUser :many
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+FROM announcements
+WHERE deleted_at IS NULL
+  AND created_by = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAnnouncementsCreatedByUserParams struct {
+	CreatedBy uuid.UUID `json:"created_by"`
+	Limit     int32     `json:"limit"`
+	Offset    int32     `json:"offset"`
+}
+
+func (q *Queries) ListAnnouncementsCreatedByUser(ctx context.Context, arg ListAnnouncementsCreatedByUserParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementsCreatedByUser, arg.CreatedBy, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementsForClient = `-- name: ListAnnouncementsForClient :many
+SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version
+FROM announcements a
+LEFT JOIN announcement_clients ac
+    ON ac.announcement_id = a.id
+WHERE a.deleted_at IS NULL
+  AND a.status = 'PUBLISHED'
+  AND (a.publish_at IS NULL OR a.publish_at <= now())
+  AND (a.expires_at IS NULL OR a.expires_at > now())
+  AND (
+      a.audience_type = 'ALL_USERS'
+      OR (a.audience_type = 'SPECIFIC_CLIENTS' AND ac.client_id = $1)
+  )
+ORDER BY a.is_pinned DESC, a.priority DESC, a.publish_at DESC NULLS LAST, a.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAnnouncementsForClientParams struct {
+	ClientID uuid.UUID `json:"client_id"`
+	Limit    int32     `json:"limit"`
+	Offset   int32     `json:"offset"`
+}
+
+func (q *Queries) ListAnnouncementsForClient(ctx context.Context, arg ListAnnouncementsForClientParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementsForClient, arg.ClientID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementsForRole = `-- name: ListAnnouncementsForRole :many
+SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version
+FROM announcements a
+LEFT JOIN announcement_roles ar
+    ON ar.announcement_id = a.id
+WHERE a.deleted_at IS NULL
+  AND a.status = 'PUBLISHED'
+  AND (a.publish_at IS NULL OR a.publish_at <= now())
+  AND (a.expires_at IS NULL OR a.expires_at > now())
+  AND (
+      a.audience_type = 'ALL_USERS'
+      OR (a.audience_type = 'ADMINS_ONLY' AND $1::text = 'admin')
+      OR (a.audience_type = 'SPECIFIC_ROLES' AND ar.role_name = $1::text)
+  )
+ORDER BY a.is_pinned DESC, a.priority DESC, a.publish_at DESC NULLS LAST, a.created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListAnnouncementsForRoleParams struct {
+	RoleName   string `json:"role_name"`
+	PageOffset int32  `json:"page_offset"`
+	PageLimit  int32  `json:"page_limit"`
+}
+
+func (q *Queries) ListAnnouncementsForRole(ctx context.Context, arg ListAnnouncementsForRoleParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementsForRole, arg.RoleName, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementsForUser = `-- name: ListAnnouncementsForUser :many
+SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version
+FROM announcements a
+LEFT JOIN announcement_users au
+    ON au.announcement_id = a.id
+WHERE a.deleted_at IS NULL
+  AND a.status = 'PUBLISHED'
+  AND (a.publish_at IS NULL OR a.publish_at <= now())
+  AND (a.expires_at IS NULL OR a.expires_at > now())
+  AND (
+      a.audience_type = 'ALL_USERS'
+      OR (a.audience_type = 'SPECIFIC_USERS' AND au.user_id = $1)
+  )
+ORDER BY a.is_pinned DESC, a.priority DESC, a.publish_at DESC NULLS LAST, a.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAnnouncementsForUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+}
+
+func (q *Queries) ListAnnouncementsForUser(ctx context.Context, arg ListAnnouncementsForUserParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementsForUser, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const publishAnnouncementNow = `-- name: PublishAnnouncementNow :one
+UPDATE announcements
+SET
+    status = 'PUBLISHED',
+    publish_at = COALESCE(publish_at, now()),
+    published_at = now(),
+    published_by = $2,
+    updated_by = $2
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type PublishAnnouncementNowParams struct {
+	ID          uuid.UUID     `json:"id"`
+	PublishedBy uuid.NullUUID `json:"published_by"`
+}
+
+func (q *Queries) PublishAnnouncementNow(ctx context.Context, arg PublishAnnouncementNowParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, publishAnnouncementNow, arg.ID, arg.PublishedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const restoreAnnouncement = `-- name: RestoreAnnouncement :one
+UPDATE announcements
+SET
+    deleted_at = NULL,
+    deleted_by = NULL,
+    updated_by = $2
+WHERE id = $1
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type RestoreAnnouncementParams struct {
+	ID        uuid.UUID     `json:"id"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+}
+
+func (q *Queries) RestoreAnnouncement(ctx context.Context, arg RestoreAnnouncementParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, restoreAnnouncement, arg.ID, arg.UpdatedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const scheduleAnnouncement = `-- name: ScheduleAnnouncement :one
+UPDATE announcements
+SET
+    status = 'SCHEDULED',
+    publish_at = $2,
+    updated_by = $3
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type ScheduleAnnouncementParams struct {
+	ID        uuid.UUID     `json:"id"`
+	PublishAt sql.NullTime  `json:"publish_at"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+}
+
+func (q *Queries) ScheduleAnnouncement(ctx context.Context, arg ScheduleAnnouncementParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, scheduleAnnouncement, arg.ID, arg.PublishAt, arg.UpdatedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const searchAnnouncementsAdmin = `-- name: SearchAnnouncementsAdmin :many
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+FROM announcements
+WHERE deleted_at IS NULL
+  AND (
+      title ILIKE '%' || $1 || '%'
+      OR message ILIKE '%' || $1 || '%'
+      OR COALESCE(summary, '') ILIKE '%' || $1 || '%'
+      OR COALESCE(tag, '') ILIKE '%' || $1 || '%'
+  )
+ORDER BY is_pinned DESC, priority DESC, created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type SearchAnnouncementsAdminParams struct {
+	SearchText sql.NullString `json:"search_text"`
+	PageOffset int32          `json:"page_offset"`
+	PageLimit  int32          `json:"page_limit"`
+}
+
+func (q *Queries) SearchAnnouncementsAdmin(ctx context.Context, arg SearchAnnouncementsAdminParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, searchAnnouncementsAdmin, arg.SearchText, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAnnouncementPinned = `-- name: SetAnnouncementPinned :one
+UPDATE announcements
+SET
+    is_pinned = $2,
+    updated_by = $3
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type SetAnnouncementPinnedParams struct {
+	ID        uuid.UUID     `json:"id"`
+	IsPinned  bool          `json:"is_pinned"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+}
+
+func (q *Queries) SetAnnouncementPinned(ctx context.Context, arg SetAnnouncementPinnedParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, setAnnouncementPinned, arg.ID, arg.IsPinned, arg.UpdatedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const setAnnouncementPriority = `-- name: SetAnnouncementPriority :one
+UPDATE announcements
+SET
+    priority = $2,
+    updated_by = $3
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type SetAnnouncementPriorityParams struct {
+	ID        uuid.UUID     `json:"id"`
+	Priority  int32         `json:"priority"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+}
+
+func (q *Queries) SetAnnouncementPriority(ctx context.Context, arg SetAnnouncementPriorityParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, setAnnouncementPriority, arg.ID, arg.Priority, arg.UpdatedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const softDeleteAnnouncement = `-- name: SoftDeleteAnnouncement :exec
+UPDATE announcements
+SET
+    deleted_at = now(),
+    deleted_by = $2,
+    updated_by = $2
+WHERE id = $1
+  AND deleted_at IS NULL
+`
+
+type SoftDeleteAnnouncementParams struct {
+	ID        uuid.UUID     `json:"id"`
+	DeletedBy uuid.NullUUID `json:"deleted_by"`
+}
+
+func (q *Queries) SoftDeleteAnnouncement(ctx context.Context, arg SoftDeleteAnnouncementParams) error {
+	_, err := q.db.ExecContext(ctx, softDeleteAnnouncement, arg.ID, arg.DeletedBy)
+	return err
+}
+
+const unarchiveAnnouncementToDraft = `-- name: UnarchiveAnnouncementToDraft :one
+UPDATE announcements
+SET
+    status = 'DRAFT',
+    archived_at = NULL,
+    archived_by = NULL,
+    updated_by = $2
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type UnarchiveAnnouncementToDraftParams struct {
+	ID        uuid.UUID     `json:"id"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+}
+
+func (q *Queries) UnarchiveAnnouncementToDraft(ctx context.Context, arg UnarchiveAnnouncementToDraftParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, unarchiveAnnouncementToDraft, arg.ID, arg.UpdatedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const updateAnnouncement = `-- name: UpdateAnnouncement :one
+UPDATE announcements
+SET
+    title = $2,
+    message = $3,
+    summary = $4,
+    level = $5,
+    tag = $6,
+    link_url = $7,
+    priority = $8,
+    is_pinned = $9,
+    publish_at = $10,
+    expires_at = $11,
+    audience_type = $12,
+    updated_by = $13
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type UpdateAnnouncementParams struct {
+	ID           uuid.UUID      `json:"id"`
+	Title        string         `json:"title"`
+	Message      string         `json:"message"`
+	Summary      sql.NullString `json:"summary"`
+	Level        interface{}    `json:"level"`
+	Tag          sql.NullString `json:"tag"`
+	LinkUrl      sql.NullString `json:"link_url"`
+	Priority     int32          `json:"priority"`
+	IsPinned     bool           `json:"is_pinned"`
+	PublishAt    sql.NullTime   `json:"publish_at"`
+	ExpiresAt    sql.NullTime   `json:"expires_at"`
+	AudienceType interface{}    `json:"audience_type"`
+	UpdatedBy    uuid.NullUUID  `json:"updated_by"`
+}
+
+func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, updateAnnouncement,
+		arg.ID,
+		arg.Title,
+		arg.Message,
+		arg.Summary,
+		arg.Level,
+		arg.Tag,
+		arg.LinkUrl,
+		arg.Priority,
+		arg.IsPinned,
+		arg.PublishAt,
+		arg.ExpiresAt,
+		arg.AudienceType,
+		arg.UpdatedBy,
+	)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
+}
+
+const updateAnnouncementStatus = `-- name: UpdateAnnouncementStatus :one
+UPDATE announcements
+SET
+    status = $2,
+    updated_by = $3
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+`
+
+type UpdateAnnouncementStatusParams struct {
+	ID        uuid.UUID     `json:"id"`
+	Status    interface{}   `json:"status"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+}
+
+func (q *Queries) UpdateAnnouncementStatus(ctx context.Context, arg UpdateAnnouncementStatusParams) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, updateAnnouncementStatus, arg.ID, arg.Status, arg.UpdatedBy)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+	)
+	return i, err
 }

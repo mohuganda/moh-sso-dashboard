@@ -2,11 +2,13 @@ package announcements
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
+	"github.com/moh-sso-dashboard/internal/model"
 )
 
 type announcementsRepository struct {
@@ -15,29 +17,38 @@ type announcementsRepository struct {
 }
 
 func NewAnnouncementRepository(
-	db db.Store,
-	log logger.Logger) AnnouncementRepository {
+	store db.Store,
+	log logger.Logger,
+) AnnouncementRepository {
 	return &announcementsRepository{
-		db:     db,
+		db:     store,
 		logger: &log,
 	}
 }
 
-func (r *announcementsRepository) List(ctx context.Context, limit int32) ([]db.ListAnnouncementsRow, error) {
-	items, err := r.db.ListAnnouncements(ctx, limit)
-	if err != nil {
-		r.logger.Error("failed to list announcements", err)
-		return nil, fmt.Errorf("list announcements: %w", err)
-	}
-
-	return items, nil
+type txStore interface {
+	ExecTx(ctx context.Context, fn func(*db.Queries) error) error
 }
+
+func (r *announcementsRepository) execTx(
+	ctx context.Context,
+	fn func(*db.Queries) error,
+) error {
+	tx, ok := r.db.(txStore)
+	if !ok {
+		return fmt.Errorf("store does not support transactions")
+	}
+	return tx.ExecTx(ctx, fn)
+}
+
+// ---------------------------------
+// Core CRUD
+// ---------------------------------
 
 func (r *announcementsRepository) Create(
 	ctx context.Context,
 	params db.CreateAnnouncementParams,
 ) (db.Announcement, error) {
-
 	item, err := r.db.CreateAnnouncement(ctx, params)
 	if err != nil {
 		r.logger.Error("failed to create announcement", err)
@@ -47,16 +58,559 @@ func (r *announcementsRepository) Create(
 	return item, nil
 }
 
-func (r *announcementsRepository) Delete(
+func (r *announcementsRepository) GetByID(
 	ctx context.Context,
-	announcementID uuid.UUID,
-) error {
-
-	err := r.db.DeleteAnnouncement(ctx, announcementID)
+	id uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.GetAnnouncementByID(ctx, id)
 	if err != nil {
-		r.logger.Error("failed to delete announcement", err)
-		return fmt.Errorf("delete announcement: %w", err)
+		r.logger.Error("failed to get announcement by id", err)
+		return db.Announcement{}, fmt.Errorf("get announcement by id: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) Update(
+	ctx context.Context,
+	params db.UpdateAnnouncementParams,
+) (db.Announcement, error) {
+	item, err := r.db.UpdateAnnouncement(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to update announcement", err)
+		return db.Announcement{}, fmt.Errorf("update announcement: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) SoftDelete(
+	ctx context.Context,
+	id uuid.UUID,
+	deletedBy uuid.UUID,
+) error {
+	err := r.db.SoftDeleteAnnouncement(ctx, db.SoftDeleteAnnouncementParams{
+		ID:        id,
+		DeletedBy: uuid.NullUUID{UUID: deletedBy, Valid: true},
+	})
+	if err != nil {
+		r.logger.Error("failed to soft delete announcement", err)
+		return fmt.Errorf("soft delete announcement: %w", err)
 	}
 
 	return nil
+}
+
+func (r *announcementsRepository) Restore(
+	ctx context.Context,
+	id uuid.UUID,
+	updatedBy uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.RestoreAnnouncement(ctx, db.RestoreAnnouncementParams{
+		ID:        id,
+		UpdatedBy: uuid.NullUUID{UUID: updatedBy, Valid: true},
+	})
+	if err != nil {
+		r.logger.Error("failed to restore announcement", err)
+		return db.Announcement{}, fmt.Errorf("restore announcement: %w", err)
+	}
+
+	return item, nil
+}
+
+// ---------------------------------
+// Listing / search
+// ---------------------------------
+
+func (r *announcementsRepository) ListAdmin(
+	ctx context.Context,
+	params db.ListAnnouncementsAdminParams,
+) ([]db.Announcement, error) {
+	items, err := r.db.ListAnnouncementsAdmin(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to list announcements for admin", err)
+		return nil, fmt.Errorf("list announcements admin: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) CountAdmin(
+	ctx context.Context,
+) (int64, error) {
+	count, err := r.db.CountAnnouncementsAdmin(ctx)
+	if err != nil {
+		r.logger.Error("failed to count announcements for admin", err)
+		return 0, fmt.Errorf("count announcements admin: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *announcementsRepository) ListByStatus(
+	ctx context.Context,
+	params db.ListAnnouncementsByStatusParams,
+) ([]db.Announcement, error) {
+	items, err := r.db.ListAnnouncementsByStatus(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to list announcements by status", err)
+		return nil, fmt.Errorf("list announcements by status: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) CountByStatus(
+	ctx context.Context,
+	status model.AnnouncementStatus,
+) (int64, error) {
+	count, err := r.db.CountAnnouncementsByStatus(ctx, status)
+	if err != nil {
+		r.logger.Error("failed to count announcements by status", err)
+		return 0, fmt.Errorf("count announcements by status: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *announcementsRepository) SearchAdmin(
+	ctx context.Context,
+	params db.SearchAnnouncementsAdminParams,
+) ([]db.Announcement, error) {
+	items, err := r.db.SearchAnnouncementsAdmin(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to search announcements for admin", err)
+		return nil, fmt.Errorf("search announcements admin: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) CountSearchAdmin(
+	ctx context.Context,
+	search string,
+) (int64, error) {
+
+	searchText := sql.NullString{
+		String: search,
+		Valid:  true,
+	}
+
+	count, err := r.db.CountSearchAnnouncementsAdmin(ctx, searchText)
+	if err != nil {
+		r.logger.Error("failed to count searched announcements for admin", err)
+		return 0, fmt.Errorf("count search announcements admin: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *announcementsRepository) ListActivePublished(
+	ctx context.Context,
+	params db.ListActivePublishedAnnouncementsParams,
+) ([]db.Announcement, error) {
+	items, err := r.db.ListActivePublishedAnnouncements(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to list active published announcements", err)
+		return nil, fmt.Errorf("list active published announcements: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) CountActivePublished(
+	ctx context.Context,
+) (int64, error) {
+	count, err := r.db.CountActivePublishedAnnouncements(ctx)
+	if err != nil {
+		r.logger.Error("failed to count active published announcements", err)
+		return 0, fmt.Errorf("count active published announcements: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *announcementsRepository) ListCreatedByUser(
+	ctx context.Context,
+	params db.ListAnnouncementsCreatedByUserParams,
+) ([]db.Announcement, error) {
+	items, err := r.db.ListAnnouncementsCreatedByUser(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to list announcements created by user", err)
+		return nil, fmt.Errorf("list announcements created by user: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) CountCreatedByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+) (int64, error) {
+	count, err := r.db.CountAnnouncementsCreatedByUser(ctx, userID)
+	if err != nil {
+		r.logger.Error("failed to count announcements created by user", err)
+		return 0, fmt.Errorf("count announcements created by user: %w", err)
+	}
+
+	return count, nil
+}
+
+// ---------------------------------
+// Lifecycle actions
+// ---------------------------------
+
+func (r *announcementsRepository) PublishNow(
+	ctx context.Context,
+	id uuid.UUID,
+	publishedBy uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.PublishAnnouncementNow(ctx, db.PublishAnnouncementNowParams{
+		ID:          id,
+		PublishedBy: uuid.NullUUID{UUID: publishedBy, Valid: true},
+	})
+	if err != nil {
+		r.logger.Error("failed to publish announcement", err)
+		return db.Announcement{}, fmt.Errorf("publish announcement: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) Schedule(
+	ctx context.Context,
+	params db.ScheduleAnnouncementParams,
+) (db.Announcement, error) {
+	item, err := r.db.ScheduleAnnouncement(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to schedule announcement", err)
+		return db.Announcement{}, fmt.Errorf("schedule announcement: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) Archive(
+	ctx context.Context,
+	id uuid.UUID,
+	archivedBy uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.ArchiveAnnouncement(ctx, db.ArchiveAnnouncementParams{
+		ID:         id,
+		ArchivedBy: uuid.NullUUID{UUID: archivedBy, Valid: true},
+	})
+	if err != nil {
+		r.logger.Error("failed to archive announcement", err)
+		return db.Announcement{}, fmt.Errorf("archive announcement: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) UnarchiveToDraft(
+	ctx context.Context,
+	id uuid.UUID,
+	updatedBy uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.UnarchiveAnnouncementToDraft(ctx, db.UnarchiveAnnouncementToDraftParams{
+		ID:        id,
+		UpdatedBy: uuid.NullUUID{UUID: updatedBy, Valid: true},
+	})
+	if err != nil {
+		r.logger.Error("failed to unarchive announcement to draft", err)
+		return db.Announcement{}, fmt.Errorf("unarchive announcement to draft: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) UpdateStatus(
+	ctx context.Context,
+	params db.UpdateAnnouncementStatusParams,
+) (db.Announcement, error) {
+	item, err := r.db.UpdateAnnouncementStatus(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to update announcement status", err)
+		return db.Announcement{}, fmt.Errorf("update announcement status: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) SetPinned(
+	ctx context.Context,
+	id uuid.UUID,
+	isPinned bool,
+	updatedBy uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.SetAnnouncementPinned(ctx, db.SetAnnouncementPinnedParams{
+		ID:        id,
+		IsPinned:  isPinned,
+		UpdatedBy: uuid.NullUUID{UUID: updatedBy, Valid: true},
+	})
+	if err != nil {
+		r.logger.Error("failed to set announcement pinned state", err)
+		return db.Announcement{}, fmt.Errorf("set announcement pinned state: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) SetPriority(
+	ctx context.Context,
+	id uuid.UUID,
+	priority int32,
+	updatedBy uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.SetAnnouncementPriority(ctx, db.SetAnnouncementPriorityParams{
+		ID:        id,
+		Priority:  priority,
+		UpdatedBy: uuid.NullUUID{UUID: updatedBy, Valid: true},
+	})
+	if err != nil {
+		r.logger.Error("failed to set announcement priority", err)
+		return db.Announcement{}, fmt.Errorf("set announcement priority: %w", err)
+	}
+
+	return item, nil
+}
+
+// ---------------------------------
+// Audience mappings
+// ---------------------------------
+
+func (r *announcementsRepository) AddClientAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	clientID uuid.UUID,
+) error {
+	err := r.db.InsertAnnouncementClient(ctx, db.InsertAnnouncementClientParams{
+		AnnouncementID: announcementID,
+		ClientID:       clientID,
+	})
+	if err != nil {
+		r.logger.Error("failed to add client audience", err)
+		return fmt.Errorf("add client audience: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ReplaceClientAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	clientIDs []uuid.UUID,
+) error {
+	err := r.execTx(ctx, func(q *db.Queries) error {
+		if err := q.DeleteAnnouncementClients(ctx, announcementID); err != nil {
+			return fmt.Errorf("delete existing client audience: %w", err)
+		}
+
+		for _, clientID := range clientIDs {
+			if err := q.InsertAnnouncementClient(ctx, db.InsertAnnouncementClientParams{
+				AnnouncementID: announcementID,
+				ClientID:       clientID,
+			}); err != nil {
+				return fmt.Errorf("insert client audience [%s]: %w", clientID, err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to replace client audience", err)
+		return fmt.Errorf("replace client audience: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ListClientAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]uuid.UUID, error) {
+	items, err := r.db.ListAnnouncementClients(ctx, announcementID)
+	if err != nil {
+		r.logger.Error("failed to list client audience", err)
+		return nil, fmt.Errorf("list client audience: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) AddRoleAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	roleName string,
+) error {
+	err := r.db.InsertAnnouncementRole(ctx, db.InsertAnnouncementRoleParams{
+		AnnouncementID: announcementID,
+		RoleName:       roleName,
+	})
+	if err != nil {
+		r.logger.Error("failed to add role audience", err)
+		return fmt.Errorf("add role audience: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ReplaceRoleAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	roleNames []string,
+) error {
+	err := r.execTx(ctx, func(q *db.Queries) error {
+		if err := q.DeleteAnnouncementRoles(ctx, announcementID); err != nil {
+			return fmt.Errorf("delete existing role audience: %w", err)
+		}
+
+		for _, roleName := range roleNames {
+			if err := q.InsertAnnouncementRole(ctx, db.InsertAnnouncementRoleParams{
+				AnnouncementID: announcementID,
+				RoleName:       roleName,
+			}); err != nil {
+				return fmt.Errorf("insert role audience [%s]: %w", roleName, err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to replace role audience", err)
+		return fmt.Errorf("replace role audience: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ListRoleAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]string, error) {
+	items, err := r.db.ListAnnouncementRoles(ctx, announcementID)
+	if err != nil {
+		r.logger.Error("failed to list role audience", err)
+		return nil, fmt.Errorf("list role audience: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) AddUserAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	userID uuid.UUID,
+) error {
+	err := r.db.InsertAnnouncementUser(ctx, db.InsertAnnouncementUserParams{
+		AnnouncementID: announcementID,
+		UserID:         userID,
+	})
+	if err != nil {
+		r.logger.Error("failed to add user audience", err)
+		return fmt.Errorf("add user audience: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ReplaceUserAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	userIDs []uuid.UUID,
+) error {
+	err := r.execTx(ctx, func(q *db.Queries) error {
+		if err := q.DeleteAnnouncementUsers(ctx, announcementID); err != nil {
+			return fmt.Errorf("delete existing user audience: %w", err)
+		}
+
+		for _, userID := range userIDs {
+			if err := q.InsertAnnouncementUser(ctx, db.InsertAnnouncementUserParams{
+				AnnouncementID: announcementID,
+				UserID:         userID,
+			}); err != nil {
+				return fmt.Errorf("insert user audience [%s]: %w", userID, err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to replace user audience", err)
+		return fmt.Errorf("replace user audience: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ListUserAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]uuid.UUID, error) {
+	items, err := r.db.ListAnnouncementUsers(ctx, announcementID)
+	if err != nil {
+		r.logger.Error("failed to list user audience", err)
+		return nil, fmt.Errorf("list user audience: %w", err)
+	}
+
+	return items, nil
+}
+
+// ---------------------------------
+// End-user targeting queries
+// ---------------------------------
+
+func (r *announcementsRepository) ListForClient(
+	ctx context.Context,
+	params db.ListAnnouncementsForClientParams,
+) ([]db.Announcement, error) {
+	items, err := r.db.ListAnnouncementsForClient(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to list announcements for client", err)
+		return nil, fmt.Errorf("list announcements for client: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) ListForRole(
+	ctx context.Context,
+	params db.ListAnnouncementsForRoleParams,
+) ([]db.Announcement, error) {
+	items, err := r.db.ListAnnouncementsForRole(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to list announcements for role", err)
+		return nil, fmt.Errorf("list announcements for role: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) ListForUser(
+	ctx context.Context,
+	params db.ListAnnouncementsForUserParams,
+) ([]db.Announcement, error) {
+	items, err := r.db.ListAnnouncementsForUser(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to list announcements for user", err)
+		return nil, fmt.Errorf("list announcements for user: %w", err)
+	}
+
+	return items, nil
+}
+
+// ---------------------------------
+// Reporting
+// ---------------------------------
+
+func (r *announcementsRepository) GetStats(
+	ctx context.Context,
+) (db.GetAnnouncementStatsRow, error) {
+	stats, err := r.db.GetAnnouncementStats(ctx)
+	if err != nil {
+		r.logger.Error("failed to get announcement stats", err)
+		return db.GetAnnouncementStatsRow{}, fmt.Errorf("get announcement stats: %w", err)
+	}
+
+	return stats, nil
 }

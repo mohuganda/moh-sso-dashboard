@@ -105,11 +105,16 @@ func SetupRouter(
 	// -------------------------------------
 	// announcements
 	// -----------------------------------------
-	announcements := api.Group("/announcements")
+	// -------------------------------------
+	// user / published announcements
+	// -------------------------------------
+	userAnnouncements := api.Group("/announcements")
 	{
-		announcements.GET("", announcementHandler.ListAnnouncements)
-		announcements.POST("", announcementHandler.CreateAnnouncement)
-		announcements.DELETE("/:id", announcementHandler.DeleteAnnouncement)
+		userAnnouncements.GET("/me", announcementHandler.ListMyAnnouncements)
+		userAnnouncements.GET("/active", announcementHandler.ListActivePublishedAnnouncements)
+		userAnnouncements.GET("/user", announcementHandler.ListAnnouncementsForUser)
+		userAnnouncements.GET("/role/:role_name", announcementHandler.ListAnnouncementsForRole)
+		userAnnouncements.GET("/client/:client_id", announcementHandler.ListAnnouncementsForClient)
 	}
 
 	// --------------------------------------------------
@@ -289,6 +294,29 @@ func SetupRouter(
 				notifications.GET("/count/unread", notificationsHandler.CountUnreadNotificationsCount)
 
 				notifications.DELETE("/cleanup", notificationsHandler.DeleteOldNotifications)
+			}
+
+			//  -------- announements --------------------
+			// -------------------------------------
+			// admin announcements
+			// -------------------------------------
+			announcements := admin.Group("/announcements")
+			{
+				announcements.GET("", announcementHandler.ListAnnouncementsAdmin)
+				announcements.GET("/stats", announcementHandler.GetAnnouncementStats)
+				announcements.GET("/:id", announcementHandler.GetAnnouncementByID)
+
+				announcements.POST("", announcementHandler.CreateAnnouncement)
+				announcements.PUT("/:id", announcementHandler.UpdateAnnouncement)
+				announcements.DELETE("/:id", announcementHandler.DeleteAnnouncement)
+				announcements.POST("/:id/restore", announcementHandler.RestoreAnnouncement)
+
+				announcements.POST("/:id/publish", announcementHandler.PublishAnnouncementNow)
+				announcements.POST("/:id/schedule", announcementHandler.ScheduleAnnouncement)
+				announcements.POST("/:id/archive", announcementHandler.ArchiveAnnouncement)
+
+				announcements.PATCH("/:id/pin", announcementHandler.SetAnnouncementPinned)
+				announcements.PATCH("/:id/priority", announcementHandler.SetAnnouncementPriority)
 			}
 		}
 	}

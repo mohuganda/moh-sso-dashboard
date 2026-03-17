@@ -1,12 +1,17 @@
-import { Information, Time, Add, ChevronRight } from "@carbon/react/icons";
+import { useMemo } from "react";
+import { Information, Time, ChevronRight, Pin } from "@carbon/react/icons";
 import { Tile, Link, Tag, SkeletonText } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
 
 import { EmptyState } from "../../../components/emptystate/EmptyState";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
 import "./news-feed.css";
-import { useListAnnouncementsQuery } from "../../../store/api/announcement.api";
-import type { Announcement } from "../../../store/types/announcements.types";
+import type {
+  Announcement,
+  AnnouncementLevel,
+  AnnouncementStatus,
+} from "../../../store/types/announcements.types";
+import { useListMyAnnouncementsQuery } from "../../../store/api/announcement.api";
 
 const CASE_REPORTING = [
   {
@@ -45,7 +50,38 @@ type CarbonTagType =
   | "high-contrast"
   | "outline";
 
-function mapTag(tag: string): { label: string; type: CarbonTagType } {
+function mapLevelTag(level: AnnouncementLevel): { label: string; type: CarbonTagType } {
+  switch (level) {
+    case "CRITICAL":
+      return { label: "Critical", type: "red" };
+    case "WARNING":
+      return { label: "Warning", type: "warm-gray" };
+    case "SUCCESS":
+      return { label: "Success", type: "green" };
+    case "INFO":
+    default:
+      return { label: "Info", type: "blue" };
+  }
+}
+
+function mapStatusTag(status: AnnouncementStatus): { label: string; type: CarbonTagType } | null {
+  switch (status) {
+    case "PUBLISHED":
+      return null;
+    case "SCHEDULED":
+      return { label: "Scheduled", type: "purple" };
+    case "DRAFT":
+      return { label: "Draft", type: "cool-gray" };
+    case "ARCHIVED":
+      return { label: "Archived", type: "gray" };
+    default:
+      return null;
+  }
+}
+
+function mapCustomTag(tag?: string | null): { label: string; type: CarbonTagType } | null {
+  if (!tag?.trim()) return null;
+
   const normalized = tag.trim().toLowerCase();
 
   switch (normalized) {
@@ -69,9 +105,8 @@ function mapTag(tag: string): { label: string; type: CarbonTagType } {
     case "resolved":
       return { label: tag, type: "green" };
 
-    case "info":
     default:
-      return { label: tag || "Info", type: "gray" };
+      return { label: tag, type: "gray" };
   }
 }
 
@@ -111,9 +146,19 @@ export default function NewsFeedPage() {
     isError,
     error,
     refetch,
-  } = useListAnnouncementsQuery({ limit: 20 });
+  } = useListMyAnnouncementsQuery({ limit: 20, offset: 0 });
 
-  const isEmpty = !isLoading && !isFetching && announcements.length === 0;
+  const sortedAnnouncements = useMemo(() => {
+    return [...announcements].sort((a, b) => {
+      if (a.is_pinned !== b.is_pinned) {
+        return a.is_pinned ? -1 : 1;
+      }
+
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [announcements]);
+
+  const isEmpty = !isLoading && !isFetching && sortedAnnouncements.length === 0;
 
   const errorMessage =
     typeof error === "object" && error !== null && "status" in error
@@ -151,29 +196,50 @@ export default function NewsFeedPage() {
           {!isError && isEmpty && (
             <EmptyState
               title="No announcements yet"
-              description="System updates and important notices will appear here."
-              primaryAction={{
-                label: "Create announcement",
-                icon: Add,
-                onClick: () => navigate("/admin/announcements/new"),
-              }}
+              description="System updates and important notices will appear here when available."
             />
           )}
 
           {!isError &&
             !isLoading &&
-            announcements.map((item) => {
-              const uiTag = mapTag(item.tag);
+            sortedAnnouncements.map((item) => {
+              const levelTag = mapLevelTag(item.level);
+              const customTag = mapCustomTag(item.tag);
+              const statusTag = mapStatusTag(item.status);
 
               return (
                 <Tile key={item.id} className="feed-item">
                   <div className="feed-header">
                     <Information size={16} />
                     <h4>{item.title}</h4>
-                    <Tag type={uiTag.type} size="sm">
-                      {uiTag.label}
+
+                    {item.is_pinned && (
+                      <Tag type="warm-gray" size="sm">
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <Pin size={12} />
+                          Pinned
+                        </span>
+                      </Tag>
+                    )}
+
+                    <Tag type={levelTag.type} size="sm">
+                      {levelTag.label}
                     </Tag>
+
+                    {customTag ? (
+                      <Tag type={customTag.type} size="sm">
+                        {customTag.label}
+                      </Tag>
+                    ) : null}
+
+                    {statusTag ? (
+                      <Tag type={statusTag.type} size="sm">
+                        {statusTag.label}
+                      </Tag>
+                    ) : null}
                   </div>
+
+                  {item.summary ? <p className="feed-summary">{item.summary}</p> : null}
 
                   <p className="feed-message">{item.message}</p>
 
@@ -181,7 +247,7 @@ export default function NewsFeedPage() {
 
                   <div className="feed-timestamp">
                     <Time size={14} />
-                    <span>{formatTimestamp(item.created_at)}</span>
+                    <span>{formatTimestamp(item.publish_at || item.created_at)}</span>
                   </div>
                 </Tile>
               );

@@ -18,4 +18,11 @@ type FileRepository interface {
 		fileKey int64,
 		data []byte,
 	) error
+
+	InsertCustomDataBatch(
+		ctx context.Context,
+		tx *sql.Tx,
+		fileKey int64,
+		data [][]byte,
+	) error
 }

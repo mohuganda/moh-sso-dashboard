@@ -36,6 +36,7 @@ import DocumentDetailsPage from "./pages/user/e-services/documents/document-deta
 import MyProfilePage from "./pages/user/settings/Profile/profile.component.tsx";
 import SecurityPage from "./pages/user/settings/security/security.component.tsx";
 import ActiveSessionsPage from "./pages/user/settings/sessions/active-sesssions.component.tsx";
+import { AnnouncementsPage } from "./pages/admin/announcements/announcements.components.tsx";
 
 function App() {
   return (
@@ -486,6 +487,15 @@ function App() {
               element={
                 <AdminRoute>
                   <AuditLogsPage />
+                </AdminRoute>
+              }
+            />
+
+            <Route
+              path="announcements"
+              element={
+                <AdminRoute>
+                  <AnnouncementsPage />
                 </AdminRoute>
               }
             />

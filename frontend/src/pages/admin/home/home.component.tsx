@@ -1,4 +1,4 @@
-import { Add, UserFollow, Security, Notification } from "@carbon/react/icons";
+import { Add, UserFollow, Security, Notification, Need } from "@carbon/react/icons";
 import { Tile, Button, Tag, Stack, InlineLoading } from "@carbon/react";
 import { useMemo } from "react";
 import { useSelector } from "react-redux";
@@ -22,6 +22,7 @@ import {
 } from "../../../store/api/notifications.api";
 import { selectUser } from "../../../store/auth/auth.selectors";
 import { getSeverityTagType } from "../../../ui/severity";
+import { ManageAnnouncementsPanel } from "../../../components/panels/manage-announcement-panel";
 
 /* -----------------------------
  * Utils
@@ -256,6 +257,20 @@ export default function HomePage() {
             tone="warning"
           />
 
+          {/* Create client */}
+          <QuickAction
+            icon={<UserFollow size={20} />}
+            label="Create client"
+            description="Register a new application client"
+            onClick={() => {
+              openPanel({
+                title: "Create client",
+                content: <ClientFormPanel mode="create" />,
+                size: "md",
+              });
+            }}
+          />
+
           {/* Manage user roles */}
           <QuickAction
             icon={<Security size={20} />}
@@ -281,16 +296,16 @@ export default function HomePage() {
             }}
           />
 
-          {/* Create client */}
+          {/* Add and announcement */}
           <QuickAction
-            icon={<UserFollow size={20} />}
-            label="Create client"
-            description="Register a new application client"
+            icon={<Need size={20} />}
+            label="Manage  announcement"
+            description="View and manage announcements"
             onClick={() => {
               openPanel({
-                title: "Create client",
-                content: <ClientFormPanel mode="create" />,
-                size: "md",
+                title: "Create Announcement",
+                content: <ManageAnnouncementsPanel />,
+                size: "lg",
               });
             }}
           />

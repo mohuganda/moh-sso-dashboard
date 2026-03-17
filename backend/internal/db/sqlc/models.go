@@ -60,14 +60,48 @@ func (ns NullImportJobStatus) Value() (driver.Value, error) {
 }
 
 type Announcement struct {
-	ID        uuid.UUID      `json:"id"`
-	Title     string         `json:"title"`
-	Message   string         `json:"message"`
-	Tag       string         `json:"tag"`
-	Priority  sql.NullInt32  `json:"priority"`
-	LinkUrl   sql.NullString `json:"link_url"`
-	CreatedBy uuid.NullUUID  `json:"created_by"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID           uuid.UUID      `json:"id"`
+	Title        string         `json:"title"`
+	Message      string         `json:"message"`
+	Summary      sql.NullString `json:"summary"`
+	Level        interface{}    `json:"level"`
+	Tag          sql.NullString `json:"tag"`
+	LinkUrl      sql.NullString `json:"link_url"`
+	Priority     int32          `json:"priority"`
+	IsPinned     bool           `json:"is_pinned"`
+	Status       interface{}    `json:"status"`
+	PublishAt    sql.NullTime   `json:"publish_at"`
+	ExpiresAt    sql.NullTime   `json:"expires_at"`
+	AudienceType interface{}    `json:"audience_type"`
+	CreatedBy    uuid.UUID      `json:"created_by"`
+	UpdatedBy    uuid.NullUUID  `json:"updated_by"`
+	PublishedBy  uuid.NullUUID  `json:"published_by"`
+	ArchivedBy   uuid.NullUUID  `json:"archived_by"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	PublishedAt  sql.NullTime   `json:"published_at"`
+	ArchivedAt   sql.NullTime   `json:"archived_at"`
+	DeletedAt    sql.NullTime   `json:"deleted_at"`
+	DeletedBy    uuid.NullUUID  `json:"deleted_by"`
+	Version      int32          `json:"version"`
+}
+
+type AnnouncementClient struct {
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+	ClientID       uuid.UUID `json:"client_id"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type AnnouncementRole struct {
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+	RoleName       string    `json:"role_name"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type AnnouncementUser struct {
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+	UserID         uuid.UUID `json:"user_id"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type AuditLog struct {
