@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Information, Time, ChevronRight, Pin } from "@carbon/react/icons";
 import { Tile, Link, Tag, SkeletonText } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
 
 import { EmptyState } from "../../../components/emptystate/EmptyState";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
@@ -12,11 +11,6 @@ import type {
   AnnouncementLevel,
   AnnouncementStatus,
 } from "../../../store/types/announcements.types";
-import {
-  useListMyAnnouncementsQuery,
-  useListPublicAnnouncementsQuery,
-} from "../../../store/api/announcement.api";
-import { selectAuthenticated } from "../../../store/auth/auth.selectors";
 
 const CASE_REPORTING = [
   {
@@ -141,10 +135,15 @@ function renderAnnouncementLink(item: Announcement) {
   );
 }
 
-function AnnouncementCard({ item }: { item: Announcement }) {
+interface AnnouncementCardProps {
+  item: Announcement;
+  showStatusTags?: boolean;
+}
+
+function AnnouncementCard({ item, showStatusTags = false }: AnnouncementCardProps) {
   const levelTag = mapLevelTag(item.level);
   const customTag = mapCustomTag(item.tag);
-  const statusTag = mapStatusTag(item.status);
+  const statusTag = showStatusTags ? mapStatusTag(item.status) : null;
 
   return (
     <Tile className={`feed-item ${item.is_pinned ? "feed-item-pinned" : ""}`}>
@@ -192,19 +191,26 @@ function AnnouncementCard({ item }: { item: Announcement }) {
   );
 }
 
-export default function NewsFeedPage() {
+export interface NewsFeedViewProps {
+  announcements: Announcement[];
+  isLoading: boolean;
+  isFetching?: boolean;
+  hasError: boolean;
+  errorMessage?: string;
+  onRetry: () => void;
+  showStatusTags?: boolean;
+}
+
+export default function NewsFeedView({
+  announcements,
+  isLoading,
+  isFetching = false,
+  hasError,
+  errorMessage = "Unable to load announcements at the moment.",
+  onRetry,
+  showStatusTags = false,
+}: NewsFeedViewProps) {
   const navigate = useNavigate();
-  const authenticated = useSelector(selectAuthenticated);
-
-  const queryArgs = { limit: 20, offset: 0 };
-
-  const publicQuery = useListPublicAnnouncementsQuery(queryArgs, {
-    refetchOnMountOrArgChange: true,
-  });
-
-  const announcements = useMemo<Announcement[]>(() => {
-    return publicQuery.data ?? [];
-  }, [authenticated, publicQuery.data]);
 
   const sortedAnnouncements = useMemo(() => {
     return [...announcements].sort((a, b) => {
@@ -229,23 +235,12 @@ export default function NewsFeedPage() {
     [sortedAnnouncements],
   );
 
-  const isLoading = publicQuery.isLoading || !publicQuery.data?.length;
-
-  const isFetching = publicQuery.isFetching || publicQuery.isFetching;
-
-  const hasError = !publicQuery.data?.length && (publicQuery.isError || publicQuery.isError);
-
-  const errorMessage = "Unable to load announcements at the moment.";
-
   const isEmpty =
     !isLoading &&
     !isFetching &&
+    !hasError &&
     pinnedAnnouncements.length === 0 &&
     regularAnnouncements.length === 0;
-
-  const handleRetry = () => {
-    publicQuery.refetch();
-  };
 
   return (
     <div className="page-container">
@@ -264,7 +259,7 @@ export default function NewsFeedPage() {
               description={errorMessage}
               primaryAction={{
                 label: "Retry",
-                onClick: handleRetry,
+                onClick: onRetry,
               }}
               secondaryAction={{
                 label: "Contact support",
@@ -273,7 +268,7 @@ export default function NewsFeedPage() {
             />
           )}
 
-          {!hasError && isEmpty && (
+          {isEmpty && (
             <EmptyState
               title="No announcements yet"
               description="System updates and important notices will appear here when available."
@@ -294,7 +289,7 @@ export default function NewsFeedPage() {
 
               <div className="feed-section-list">
                 {pinnedAnnouncements.map((item) => (
-                  <AnnouncementCard key={item.id} item={item} />
+                  <AnnouncementCard key={item.id} item={item} showStatusTags={showStatusTags} />
                 ))}
               </div>
             </section>
@@ -311,7 +306,7 @@ export default function NewsFeedPage() {
 
               <div className="feed-section-list">
                 {regularAnnouncements.map((item) => (
-                  <AnnouncementCard key={item.id} item={item} />
+                  <AnnouncementCard key={item.id} item={item} showStatusTags={showStatusTags} />
                 ))}
               </div>
             </section>
@@ -356,7 +351,10 @@ export default function NewsFeedPage() {
                 </Link>
               </li>
               <li>
-                <Link href="/documents" className="case-reporting-link">
+                <Link
+                  href="https://mohuganda.github.io/digital-guidelines-and-documentation"
+                  className="case-reporting-link"
+                >
                   Guidelines & Documents
                   <ChevronRight size={16} />
                 </Link>
