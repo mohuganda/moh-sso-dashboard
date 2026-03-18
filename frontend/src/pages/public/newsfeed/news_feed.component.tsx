@@ -12,10 +12,7 @@ import type {
   AnnouncementLevel,
   AnnouncementStatus,
 } from "../../../store/types/announcements.types";
-import {
-  useListMyAnnouncementsQuery,
-  useListPublicAnnouncementsQuery,
-} from "../../../store/api/announcement.api";
+import { useListPublicAnnouncementsQuery } from "../../../store/api/announcement.api";
 import { selectAuthenticated } from "../../../store/auth/auth.selectors";
 
 const CASE_REPORTING = [
