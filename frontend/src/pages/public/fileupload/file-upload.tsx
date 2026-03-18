@@ -7,39 +7,115 @@ import {
   FileUploaderDropContainer,
   FileUploaderItem,
   FormItem,
+  InlineLoading,
   InlineNotification,
-  Stack,
   Select,
   SelectItem,
-  Loading,
+  Stack,
+  Tag,
 } from "@carbon/react";
 import {
   useCreateDocumentMutation,
   useListStorageLocationsQuery,
 } from "../../../store/api/document.api";
 
-type UploadStatus = "edit" | "complete" | "uploading";
 type Row = Record<string, unknown>;
+type FileItemStatus = "edit" | "complete" | "uploading";
 
-const ACCEPTED_EXTS = [".csv", ".xlsx", ".xls"] as const;
+const ACCEPTED_EXTENSIONS = [".csv", ".xlsx", ".xls"] as const;
+const ACCEPTED_MIME_TYPES = [
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
 
 function getExtension(name: string): string {
-  const idx = name.lastIndexOf(".");
-  return idx >= 0 ? name.slice(idx).toLowerCase() : "";
+  const index = name.lastIndexOf(".");
+  return index >= 0 ? name.slice(index).toLowerCase() : "";
+}
+
+function isAcceptedFile(file: File) {
+  const extension = getExtension(file.name);
+  const hasValidExtension = ACCEPTED_EXTENSIONS.includes(
+    extension as (typeof ACCEPTED_EXTENSIONS)[number],
+  );
+  const hasValidMimeType = ACCEPTED_MIME_TYPES.includes(file.type);
+
+  return hasValidExtension || hasValidMimeType;
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function getPreviewHeaders(rows: Row[]) {
+  return Object.keys(rows[0] || {});
+}
+
+async function parseCsvFile(file: File): Promise<Row[]> {
+  return new Promise((resolve, reject) => {
+    Papa.parse<Row>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const rows = results.data || [];
+        if (!rows.length) {
+          reject(new Error("CSV file contains no rows."));
+          return;
+        }
+        resolve(rows);
+      },
+      error: (error) => reject(error),
+    });
+  });
+}
+
+async function parseExcelFile(file: File): Promise<Row[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => reject(new Error("Failed to read Excel file."));
+
+    reader.onload = (event) => {
+      try {
+        const binary = event?.target?.result;
+        if (!binary) {
+          throw new Error("Invalid Excel file.");
+        }
+
+        const workbook = XLSX.read(binary, { type: "binary" });
+        const firstSheetName = workbook.SheetNames[0];
+
+        if (!firstSheetName) {
+          throw new Error("Excel file has no sheets.");
+        }
+
+        const firstSheet = workbook.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json<Row>(firstSheet, { defval: "" });
+
+        if (!rows.length) {
+          throw new Error("Excel sheet contains no rows.");
+        }
+
+        resolve(rows);
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    reader.readAsBinaryString(file);
+  });
 }
 
 const FileUpload = () => {
-  const [data, setData] = useState<Row[]>([]);
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [fileName, setFileName] = useState("");
   const [file, setFile] = useState<File | null>(null);
-
-  const [showUploader, setShowUploader] = useState(true);
-  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("edit");
+  const [fileStatus, setFileStatus] = useState<FileItemStatus>("edit");
+  const [parsedData, setParsedData] = useState<Row[]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [storageLocation, setStorageLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  // storage location selection
-  const [storageLocation, setStorageLocation] = useState<string>("");
 
   const {
     data: locations = [],
@@ -47,117 +123,74 @@ const FileUpload = () => {
     isError: isLocationsError,
   } = useListStorageLocationsQuery();
 
-  const activeLocations = useMemo(() => locations.filter((l) => l.is_active), [locations]);
-
   const [createDocument, { isLoading: isUploading }] = useCreateDocumentMutation();
 
-  const previewRows = useMemo(() => data.slice(0, 10), [data]);
+  const activeLocations = useMemo(
+    () => locations.filter((location) => location.is_active),
+    [locations],
+  );
 
-  const reset = () => {
-    setData([]);
-    setHeaders([]);
-    setFileName("");
+  const hasActiveLocations = activeLocations.length > 0;
+  const previewRows = useMemo(() => parsedData.slice(0, 10), [parsedData]);
+
+  const resetUploader = () => {
     setFile(null);
-    setShowUploader(true);
-    setUploadStatus("edit");
-    setError(null);
+    setFileStatus("edit");
+    setParsedData([]);
+    setHeaders([]);
     setStorageLocation("");
+    setError(null);
   };
 
-  const parseCSV = (f: File) =>
-    new Promise<void>((resolve, reject) => {
-      Papa.parse<Row>(f, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const rows = results.data || [];
-          if (!rows.length) {
-            reject(new Error("CSV file contains no rows."));
-            return;
-          }
-          const cols = Object.keys(rows[0] || {});
-          setHeaders(cols);
-          setData(rows);
-          resolve();
-        },
-        error: (err) => reject(err),
-      });
-    });
-
-  const parseExcel = (f: File) =>
-    new Promise<void>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error("Failed to read Excel file."));
-      reader.onload = (e) => {
-        try {
-          const binaryStr = e?.target?.result;
-          if (!binaryStr) throw new Error("Invalid Excel file.");
-
-          const workbook = XLSX.read(binaryStr, { type: "binary" });
-          const sheetName = workbook.SheetNames[0];
-          if (!sheetName) throw new Error("Excel file has no sheets.");
-
-          const sheet = workbook.Sheets[sheetName];
-          const json = XLSX.utils.sheet_to_json<Row>(sheet, { defval: "" });
-
-          if (!json.length) throw new Error("Excel sheet contains no rows.");
-
-          const cols = Object.keys(json[0] || {});
-          setHeaders(cols);
-          setData(json);
-          resolve();
-        } catch (err: any) {
-          reject(err);
-        }
-      };
-      reader.readAsBinaryString(f);
-    });
-
-  // Carbon FileUploaderDropContainer calls onAddFiles({ addedFiles })
-  const handleFileUpload = async (evt: { addedFiles?: File[] } | any) => {
-    const selected: File | undefined =
-      evt?.addedFiles?.[0] ?? evt?.target?.files?.[0] ?? evt?.dataTransfer?.files?.[0];
-
-    if (!selected) return;
+  const handleFileSelection = async (
+    _event: React.DragEvent<HTMLElement>,
+    { addedFiles }: { addedFiles: File[] },
+  ) => {
+    const selectedFile = addedFiles?.[0];
+    if (!selectedFile) return;
 
     setError(null);
-    setUploadStatus("uploading");
-    setShowUploader(false);
-    setFile(selected);
-    setFileName(selected.name);
+    setFileStatus("uploading");
 
-    const ext = getExtension(selected.name);
-    if (!ACCEPTED_EXTS.includes(ext as any)) {
-      setError("Please upload a CSV or Excel file (.csv, .xlsx, .xls).");
-      setUploadStatus("edit");
-      setShowUploader(true);
+    if (!isAcceptedFile(selectedFile)) {
       setFile(null);
-      setFileName("");
+      setFileStatus("edit");
+      setParsedData([]);
+      setHeaders([]);
+      setError("Please upload a CSV or Excel file (.csv, .xlsx, .xls).");
       return;
     }
 
     try {
-      if (ext === ".csv") await parseCSV(selected);
-      else await parseExcel(selected);
+      const extension = getExtension(selectedFile.name);
+      const rows =
+        extension === ".csv"
+          ? await parseCsvFile(selectedFile)
+          : await parseExcelFile(selectedFile);
 
-      setUploadStatus("complete");
-      window.setTimeout(() => setUploadStatus("edit"), 1500);
-    } catch (e: any) {
-      setError(e?.message || "Failed to parse file. Please try again.");
-      setUploadStatus("edit");
-      setShowUploader(true);
+      setFile(selectedFile);
+      setParsedData(rows);
+      setHeaders(getPreviewHeaders(rows));
+      setFileStatus("complete");
+
+      window.setTimeout(() => {
+        setFileStatus("edit");
+      }, 1200);
+    } catch (err: any) {
       setFile(null);
-      setFileName("");
+      setParsedData([]);
+      setHeaders([]);
+      setFileStatus("edit");
+      setError(err?.message || "Failed to parse file. Please try again.");
     }
   };
-
-  const handleFileDelete = () => reset();
 
   const handleUploadToBackend = async () => {
     if (!file) {
       setError("Please select a file first.");
       return;
     }
+
     if (!storageLocation) {
       setError("Please select a storage location.");
       return;
@@ -168,11 +201,10 @@ const FileUpload = () => {
 
       await createDocument({
         file,
-        storageLocation, // IMPORTANT: this is what your API expects (string)
+        storageLocation,
       }).unwrap();
 
-      // Reset after successful upload
-      reset();
+      resetUploader();
     } catch (err: any) {
       setError(err?.data?.message || "Upload failed. Please try again.");
     }
@@ -181,89 +213,164 @@ const FileUpload = () => {
   return (
     <>
       <FormItem className="uploader-form-item">
-        <p className="cds--file--label">UPLOAD A FILE & PREVIEW DATA</p>
-        <p className="cds--label-description">Supported file types are .csv .xlsx and .xls.</p>
+        <div style={{ marginBottom: "1rem" }}>
+          <p className="cds--file--label">UPLOAD A FILE & PREVIEW DATA</p>
+          <p className="cds--label-description">Supported file types are .csv, .xlsx, and .xls.</p>
+        </div>
 
-        <Stack gap={4}>
+        <Stack gap={5}>
           {error && (
             <InlineNotification
               kind="error"
-              title="Upload Error"
+              title="Upload error"
               subtitle={error}
               lowContrast
               onCloseButtonClick={() => setError(null)}
             />
           )}
 
-          {showUploader ? (
-            <FileUploaderDropContainer
-              accept={[".csv", ".xlsx", ".xls"]}
-              labelText="Drag and drop a file here or click to upload"
-              onAddFiles={handleFileUpload}
-              tabIndex={0}
-            />
-          ) : (
-            <FileUploaderItem
-              iconDescription="Delete file"
-              name={fileName}
-              onDelete={handleFileDelete}
-              size="lg"
-              status={uploadStatus}
+          {!isLocationsLoading && !hasActiveLocations && (
+            <InlineNotification
+              kind="warning"
+              title="No active storage locations"
+              subtitle="Activate or configure a storage location before uploading a file."
+              lowContrast
             />
           )}
 
-          {isLocationsLoading ? (
-            <Loading description="Loading storage locations..." />
-          ) : isLocationsError ? (
+          {!file ? (
+            <FileUploaderDropContainer
+              accept={[...ACCEPTED_EXTENSIONS]}
+              labelText="Drag and drop a file here or click to upload"
+              onAddFiles={handleFileSelection}
+              disabled={isUploading}
+            />
+          ) : (
+            <FileUploaderItem
+              name={file.name}
+              size="lg"
+              status={fileStatus}
+              iconDescription="Remove file"
+              onDelete={resetUploader}
+            />
+          )}
+
+          {file && (
+            <div
+              style={{
+                display: "flex",
+                gap: "0.75rem",
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <Tag type="blue">Selected file</Tag>
+              <span>{file.name}</span>
+              <span style={{ color: "#6f6f6f" }}>{formatFileSize(file.size)}</span>
+              <span style={{ color: "#6f6f6f" }}>{parsedData.length} rows parsed</span>
+            </div>
+          )}
+
+          <Select
+            id="storage-location"
+            labelText="Storage location"
+            value={storageLocation}
+            onChange={(e) => setStorageLocation(e.target.value)}
+            disabled={isLocationsLoading || !hasActiveLocations || isUploading}
+          >
+            <SelectItem
+              value=""
+              text={
+                isLocationsLoading
+                  ? "Loading locations..."
+                  : hasActiveLocations
+                    ? "Select storage location"
+                    : "No active locations available"
+              }
+            />
+            {activeLocations.map((location) => (
+              <SelectItem
+                key={location.id}
+                value={location.id}
+                text={`${location.name} (${location.provider.toUpperCase()})`}
+              />
+            ))}
+          </Select>
+
+          {isLocationsError && (
             <InlineNotification
               kind="error"
-              title="Storage Locations Error"
+              title="Storage locations error"
               subtitle="Failed to load storage locations."
               lowContrast
             />
-          ) : (
-            <Select
-              id="storage-location"
-              labelText="Storage Location"
-              value={storageLocation}
-              onChange={(e) => setStorageLocation(e.target.value)}
-              disabled={activeLocations.length === 0}
-            >
-              <SelectItem value="" text="Select location" />
-              {activeLocations.map((loc) => (
-                <SelectItem
-                  key={loc.id}
-                  value={loc.id}
-                  text={`${loc.name} (${loc.provider.toUpperCase()})`}
-                />
-              ))}
-            </Select>
           )}
         </Stack>
       </FormItem>
 
-      {data.length > 0 && (
+      {parsedData.length > 0 && (
         <div className="preview-container">
-          <p className="cds--file--label">PREVIEW: {fileName}</p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: "1rem",
+              flexWrap: "wrap",
+              marginBottom: "1rem",
+            }}
+          >
+            <div>
+              <p className="cds--file--label" style={{ marginBottom: "0.5rem" }}>
+                PREVIEW: {file?.name}
+              </p>
+              <p className="cds--label-description">
+                Showing first {previewRows.length} rows of {parsedData.length} total rows.
+              </p>
+            </div>
+          </div>
 
-          <div style={{ overflowX: "auto", maxHeight: 400, border: "1px solid #ddd" }}>
+          <div
+            style={{
+              overflowX: "auto",
+              maxHeight: 400,
+              border: "1px solid #e0e0e0",
+              borderRadius: 4,
+              background: "#fff",
+            }}
+          >
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead style={{ backgroundColor: "#f4f4f4", position: "sticky", top: 0 }}>
+              <thead style={{ backgroundColor: "#f4f4f4", position: "sticky", top: 0, zIndex: 1 }}>
                 <tr>
-                  {headers.map((h) => (
-                    <th key={h} style={{ border: "1px solid #ddd", padding: 8, textAlign: "left" }}>
-                      {h}
+                  {headers.map((header) => (
+                    <th
+                      key={header}
+                      style={{
+                        borderBottom: "1px solid #e0e0e0",
+                        padding: 8,
+                        textAlign: "left",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {header}
                     </th>
                   ))}
                 </tr>
               </thead>
 
               <tbody>
-                {previewRows.map((row, i) => (
-                  <tr key={i}>
-                    {headers.map((h) => (
-                      <td key={h} style={{ border: "1px solid #ddd", padding: 8 }}>
-                        {String(row[h] ?? "")}
+                {previewRows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {headers.map((header) => (
+                      <td
+                        key={header}
+                        style={{
+                          borderBottom: "1px solid #f0f0f0",
+                          padding: 8,
+                          verticalAlign: "top",
+                        }}
+                      >
+                        {String(row[header] ?? "")}
                       </td>
                     ))}
                   </tr>
@@ -272,22 +379,35 @@ const FileUpload = () => {
             </table>
           </div>
 
-          <p>
-            <i>Showing first 10 rows of {data.length} total rows.</i>
-          </p>
+          <div
+            className="file-upload-btn-container"
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: "1rem",
+              marginTop: "1rem",
+              flexWrap: "wrap",
+            }}
+          >
+            {isUploading && <InlineLoading description="Uploading to backend..." />}
 
-          <div className="file-upload-btn-container">
-            <Button
-              size="md"
-              kind="tertiary"
-              onClick={handleUploadToBackend}
-              disabled={isUploading || isLocationsLoading || !storageLocation}
-            >
-              {isUploading ? "Uploading..." : "Upload to Backend"}
+            <Button kind="secondary" onClick={resetUploader} disabled={isUploading}>
+              Cancel
             </Button>
 
-            <Button size="md" kind="secondary" onClick={handleFileDelete} disabled={isUploading}>
-              Cancel
+            <Button
+              kind="primary"
+              onClick={handleUploadToBackend}
+              disabled={
+                isUploading ||
+                isLocationsLoading ||
+                !storageLocation ||
+                !file ||
+                !hasActiveLocations
+              }
+            >
+              Upload to Backend
             </Button>
           </div>
         </div>
