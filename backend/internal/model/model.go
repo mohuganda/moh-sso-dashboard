@@ -294,6 +294,20 @@ const (
 	AnnouncementAudienceTypeSPECIFICUSERS   AnnouncementAudienceType = "SPECIFIC_USERS"
 )
 
+type SurveillanceSubjectType string
+
+const (
+	SurveillanceSubjectTypeDisease   SurveillanceSubjectType = "DISEASE"
+	SurveillanceSubjectTypeIndicator SurveillanceSubjectType = "INDICATOR"
+)
+
+type WeeklySubjectStatus struct {
+	SubjectID   string
+	SubjectName string
+	SubjectType SurveillanceSubjectType
+	Status      string
+}
+
 func (t NotificationType) Severity() string {
 	switch t {
 

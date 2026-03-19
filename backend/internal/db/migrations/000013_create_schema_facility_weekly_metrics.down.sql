@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS facility_weekly_metrics;
