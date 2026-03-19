@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import "./file-upload.css";
 import {
+  Breadcrumb,
+  BreadcrumbItem,
   Button,
   FileUploaderDropContainer,
   FileUploaderItem,
@@ -212,6 +215,18 @@ const FileUpload = () => {
 
   return (
     <>
+      <div style={{ marginBottom: "1rem" }}>
+        <Breadcrumb noTrailingSlash>
+          <BreadcrumbItem>
+            <RouterLink to="/">Home</RouterLink>
+          </BreadcrumbItem>
+          <BreadcrumbItem>
+            <RouterLink to="/documents">Documents</RouterLink>
+          </BreadcrumbItem>
+          <BreadcrumbItem isCurrentPage>Upload & Preview</BreadcrumbItem>
+        </Breadcrumb>
+      </div>
+
       <FormItem className="uploader-form-item">
         <div style={{ marginBottom: "1rem" }}>
           <p className="cds--file--label">UPLOAD A FILE & PREVIEW DATA</p>
