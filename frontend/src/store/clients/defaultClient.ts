@@ -48,6 +48,11 @@ export const defaultClient: Client = {
         label: "File Upload",
         path: "/apps/dwh/filesvr",
       },
+      {
+        id: "surveillance",
+        label: "Surveillance",
+        path: "/apps/dwh/surveillance",
+      },
     ]),
   },
 };

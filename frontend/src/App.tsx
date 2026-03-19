@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 import { AdminRoute } from "./components/AdminRoute";
 import { ModalProvider } from "./components/modal/modal.context";
@@ -37,6 +37,8 @@ import MyProfilePage from "./pages/user/settings/Profile/profile.component.tsx";
 import SecurityPage from "./pages/user/settings/security/security.component.tsx";
 import ActiveSessionsPage from "./pages/user/settings/sessions/active-sesssions.component.tsx";
 import { AnnouncementsPage } from "./pages/admin/announcements/announcements.components.tsx";
+import SurveillancePage from "./pages/user/surveillence/surveillance.component.tsx";
+import DiseaseDetailsPage from "./pages/user/surveillence/surveillance-details/surveillance-details.component.tsx";
 
 function App() {
   return (
@@ -120,6 +122,18 @@ function App() {
                   </UserRoute>
                 }
               />
+
+              <Route
+                path="surveillance"
+                element={
+                  <UserRoute>
+                    <Outlet />
+                  </UserRoute>
+                }
+              >
+                <Route index element={<SurveillancePage />} />
+                <Route path=":diseaseName" element={<DiseaseDetailsPage />} />
+              </Route>
             </Route>
 
             {/* --------------------------
