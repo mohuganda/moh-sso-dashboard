@@ -10,12 +10,9 @@ import (
 type RegionWeeklyStatusRepository interface {
 	CreateDiseaseStatus(ctx context.Context, arg db.CreateRegionWeeklyDiseaseStatusParams) (db.RegionWeeklyStatus, error)
 	UpsertDiseaseStatus(ctx context.Context, arg db.UpsertRegionWeeklyDiseaseStatusParams) (db.RegionWeeklyStatus, error)
-
 	CreateIndicatorStatus(ctx context.Context, arg db.CreateRegionWeeklyIndicatorStatusParams) (db.RegionWeeklyStatus, error)
 	UpsertIndicatorStatus(ctx context.Context, arg db.UpsertRegionWeeklyIndicatorStatusParams) (db.RegionWeeklyStatus, error)
-
-	ListDiseaseStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.RegionWeeklyStatus, error)
-	ListIndicatorStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.RegionWeeklyStatus, error)
-
+	ListDiseaseStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListRegionWeeklyDiseaseStatusesByWeekRow, error)
+	ListIndicatorStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListRegionWeeklyIndicatorStatusesByWeekRow, error)
 	DeleteByWeek(ctx context.Context, epiWeekID uuid.UUID) error
 }
