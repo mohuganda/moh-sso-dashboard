@@ -52,8 +52,22 @@ func (r *FacilityRepository) List(ctx context.Context) ([]db.ListFacilitiesRow, 
 	return r.db.ListFacilities(ctx)
 }
 
-func (r *FacilityRepository) ListByDistrict(ctx context.Context, districtID uuid.NullUUID) ([]db.Facility, error) {
-	return r.db.ListFacilitiesByDistrict(ctx, districtID)
+func (r *FacilityRepository) ListByDistrict(ctx context.Context, districtID uuid.UUID) ([]db.Facility, error) {
+	if districtID == uuid.Nil {
+		return []db.Facility{}, errors.New("district id is required")
+	}
+
+	param := uuid.NullUUID{
+		UUID:  districtID,
+		Valid: true,
+	}
+
+	facility, err := r.db.ListFacilitiesByDistrict(ctx, param)
+	if err != nil {
+		return []db.Facility{}, err
+	}
+
+	return facility, nil
 }
 
 func (r *FacilityRepository) UpsertByExternalID(ctx context.Context, arg db.UpsertFacilityByExternalIDParams) (db.Facility, error) {
