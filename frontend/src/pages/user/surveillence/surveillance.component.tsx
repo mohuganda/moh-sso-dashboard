@@ -31,35 +31,44 @@ export default function SurveillanceDashboardPage() {
   const [region, setRegion] = useState("");
   const [district, setDistrict] = useState("");
   const [subCounty, setSubCounty] = useState("");
+  const [selectedYear] = useState(new Date().getFullYear());
 
-  const { data: weeks = [], isLoading: weeksLoading } = useListEpiWeeksQuery();
-  const { data: diseases = [], isLoading: diseasesLoading } = useListDiseasesQuery();
+  const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(selectedYear);
+  const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
+
+  const weeks = Array.isArray(weeksResponse) ? weeksResponse : [];
+  const diseases = Array.isArray(diseasesResponse) ? diseasesResponse : [];
+
+  const { data: districtStatusesResponse, isFetching: districtsLoading } =
+    useListDistrictWeeklyStatusesByWeekQuery(selectedWeekId, {
+      skip: !selectedWeekId,
+    });
+
+  const { data: regionStatusesResponse, isFetching: regionsLoading } =
+    useListRegionWeeklyStatusesByWeekQuery(selectedWeekId, {
+      skip: !selectedWeekId,
+    });
+
+  const { data: nationalStatusesResponse, isFetching: nationalLoading } =
+    useListNationalWeeklyStatusesByWeekQuery(selectedWeekId, {
+      skip: !selectedWeekId,
+    });
+
+  const { data: facilityMetricsResponse, isFetching: facilitiesLoading } =
+    useListFacilityWeeklyMetricsByWeekQuery(selectedWeekId, {
+      skip: !selectedWeekId,
+    });
+
+  const districtStatuses = Array.isArray(districtStatusesResponse) ? districtStatusesResponse : [];
+  const regionStatuses = Array.isArray(regionStatusesResponse) ? regionStatusesResponse : [];
+  const nationalStatuses = Array.isArray(nationalStatusesResponse) ? nationalStatusesResponse : [];
+  const facilityMetrics = Array.isArray(facilityMetricsResponse) ? facilityMetricsResponse : [];
 
   useEffect(() => {
     if (!selectedWeekId && weeks.length > 0) {
       setSelectedWeekId(weeks[0].id);
     }
   }, [weeks, selectedWeekId]);
-
-  const { data: districtStatuses = [], isFetching: districtsLoading } =
-    useListDistrictWeeklyStatusesByWeekQuery(selectedWeekId, {
-      skip: !selectedWeekId,
-    });
-
-  const { data: regionStatuses = [], isFetching: regionsLoading } =
-    useListRegionWeeklyStatusesByWeekQuery(selectedWeekId, {
-      skip: !selectedWeekId,
-    });
-
-  const { data: nationalStatuses = [], isFetching: nationalLoading } =
-    useListNationalWeeklyStatusesByWeekQuery(selectedWeekId, {
-      skip: !selectedWeekId,
-    });
-
-  const { data: facilityMetrics = [], isFetching: facilitiesLoading } =
-    useListFacilityWeeklyMetricsByWeekQuery(selectedWeekId, {
-      skip: !selectedWeekId,
-    });
 
   const loading =
     weeksLoading ||
@@ -95,7 +104,7 @@ export default function SurveillanceDashboardPage() {
       new Set(
         regionStatuses
           .map((item) => item.region_name)
-          .filter((value): value is string => Boolean(value)),
+          .filter((value): value is string => Boolean(value?.trim())),
       ),
     ).sort();
 
@@ -113,7 +122,7 @@ export default function SurveillanceDashboardPage() {
       new Set(
         districtStatuses
           .map((item) => item.district_name)
-          .filter((value): value is string => Boolean(value)),
+          .filter((value): value is string => Boolean(value?.trim())),
       ),
     ).sort();
 
@@ -131,7 +140,7 @@ export default function SurveillanceDashboardPage() {
       new Set(
         facilityMetrics
           .map((item) => item.subcounty_name)
-          .filter((value): value is string => Boolean(value)),
+          .filter((value): value is string => Boolean(value?.trim())),
       ),
     ).sort();
 
@@ -153,34 +162,42 @@ export default function SurveillanceDashboardPage() {
       label: disease.name,
       onClick: () => handleOpenDisease(slugifyDiseaseName(disease.name)),
     }));
-  }, [diseases]);
+  }, [diseases, navigate]);
 
   const takeActionItems = useMemo(() => {
     return diseases.slice(4, 8).map((disease) => ({
       label: disease.name,
       onClick: () => handleOpenDisease(slugifyDiseaseName(disease.name)),
     }));
-  }, [diseases]);
+  }, [diseases, navigate]);
 
   const alertItems = useMemo(() => {
-    const redDiseases = districtStatuses.flatMap((item) => item.red ?? []);
-    return Array.from(new Set(redDiseases))
+    const redDiseases = districtStatuses.flatMap((item) =>
+      Array.isArray(item.red) ? item.red : [],
+    );
+
+    return Array.from(new Set(redDiseases.filter((name): name is string => Boolean(name?.trim()))))
       .slice(0, 6)
       .map((name) => ({
         label: name,
         onClick: () => handleOpenDisease(slugifyDiseaseName(name)),
       }));
-  }, [districtStatuses]);
+  }, [districtStatuses, navigate]);
 
   const watchItems = useMemo(() => {
-    const yellowDiseases = districtStatuses.flatMap((item) => item.yellow ?? []);
-    return Array.from(new Set(yellowDiseases))
+    const yellowDiseases = districtStatuses.flatMap((item) =>
+      Array.isArray(item.yellow) ? item.yellow : [],
+    );
+
+    return Array.from(
+      new Set(yellowDiseases.filter((name): name is string => Boolean(name?.trim()))),
+    )
       .slice(0, 6)
       .map((name) => ({
         label: name,
         onClick: () => handleOpenDisease(slugifyDiseaseName(name)),
       }));
-  }, [districtStatuses]);
+  }, [districtStatuses, navigate]);
 
   useEffect(() => {
     setDistrict("");

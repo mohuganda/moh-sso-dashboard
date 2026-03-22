@@ -19,6 +19,7 @@ import {
   useListDistrictWeeklyStatusesByWeekQuery,
   useListFacilityWeeklyMetricsByWeekQuery,
 } from "../../../../store/api/surveillance.api";
+import WeeklyCasesChart from "./surveillance-weekly-cases.component";
 
 function formatDiseaseName(value?: string) {
   if (!value) return "Disease";
@@ -38,77 +39,87 @@ type RelevantDocument = {
 };
 
 export default function DiseaseDetailsPage() {
-  const { diseaseName } = useParams();
+  const { diseaseName } = useParams<{ diseaseName: string }>();
+
+  const normalizedDiseaseSlug = normalize(diseaseName).replace(/-/g, " ");
   const title = formatDiseaseName(diseaseName);
+  const currentYear = new Date().getFullYear();
 
-  const { data: weeks = [], isLoading: weeksLoading } = useListEpiWeeksQuery();
-
-  const selectedWeekId = useMemo(() => {
-    return weeks.length > 0 ? weeks[0].id : "";
-  }, [weeks]);
+  const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(currentYear);
+  const weeks = Array.isArray(weeksResponse) ? weeksResponse : [];
 
   const selectedWeek = useMemo(() => {
-    return weeks.find((week) => week.id === selectedWeekId);
-  }, [weeks, selectedWeekId]);
+    if (weeks.length === 0) return undefined;
 
-  const { data: districtStatuses = [], isFetching: districtStatusesLoading } =
+    return [...weeks].sort((a, b) => {
+      const yearDiff = Number(b.year ?? 0) - Number(a.year ?? 0);
+      if (yearDiff !== 0) return yearDiff;
+      return Number(b.week ?? 0) - Number(a.week ?? 0);
+    })[0];
+  }, [weeks]);
+
+  const selectedWeekId = selectedWeek?.id ?? "";
+
+  const { data: districtStatusesResponse, isFetching: districtStatusesLoading } =
     useListDistrictWeeklyStatusesByWeekQuery(selectedWeekId, {
       skip: !selectedWeekId,
     });
 
-  const { data: facilityMetrics = [], isFetching: facilityMetricsLoading } =
+  const { data: facilityMetricsResponse, isFetching: facilityMetricsLoading } =
     useListFacilityWeeklyMetricsByWeekQuery(selectedWeekId, {
       skip: !selectedWeekId,
     });
 
+  const districtStatuses = Array.isArray(districtStatusesResponse) ? districtStatusesResponse : [];
+  const facilityMetrics = Array.isArray(facilityMetricsResponse) ? facilityMetricsResponse : [];
+
   const loading = weeksLoading || districtStatusesLoading || facilityMetricsLoading;
 
   const filteredFacilityMetrics = useMemo(() => {
-    const disease = normalize(title);
-
     return facilityMetrics.filter((item) => {
-      const diseaseLabel = normalize(item.disease_name ?? item.indicator_name);
-      return diseaseLabel.includes(disease);
+      const diseaseLabel = normalize(item.disease_name ?? item.indicator_name).replace(/-/g, " ");
+      return diseaseLabel.includes(normalizedDiseaseSlug);
     });
-  }, [facilityMetrics, title]);
+  }, [facilityMetrics, normalizedDiseaseSlug]);
 
   const relevantDocuments = useMemo<RelevantDocument[]>(() => {
-    const disease = normalize(title);
-
     const documents: Record<string, RelevantDocument[]> = {
       malaria: [
-        { label: "Malaria Surveillance Guidelines", href: "#" },
-        { label: "Malaria Case Investigation Form", href: "#" },
+        { label: "Malaria Surveillance Guidelines", href: "/documents/malaria-guidelines" },
+        { label: "Malaria Case Investigation Form", href: "/documents/malaria-cif" },
       ],
       measles: [
-        { label: "Measles Surveillance Guidelines", href: "#" },
-        { label: "Measles Case Investigation Form", href: "#" },
+        { label: "Measles Surveillance Guidelines", href: "/documents/measles-guidelines" },
+        { label: "Measles Case Investigation Form", href: "/documents/measles-cif" },
       ],
       mpox: [
-        { label: "Mpox Surveillance Guidelines", href: "#" },
-        { label: "Mpox Case Investigation Form", href: "#" },
+        { label: "Mpox Surveillance Guidelines", href: "/documents/mpox-guidelines" },
+        { label: "Mpox Case Investigation Form", href: "/documents/mpox-cif" },
       ],
       "yellow fever": [
-        { label: "Yellow Fever Surveillance Guidelines", href: "#" },
-        { label: "Yellow Fever Case Investigation Form", href: "#" },
+        {
+          label: "Yellow Fever Surveillance Guidelines",
+          href: "/documents/yellow-fever-guidelines",
+        },
+        { label: "Yellow Fever Case Investigation Form", href: "/documents/yellow-fever-cif" },
       ],
       anthrax: [
-        { label: "Anthrax Surveillance Guidelines", href: "#" },
-        { label: "Anthrax Case Investigation Form", href: "#" },
+        { label: "Anthrax Surveillance Guidelines", href: "/documents/anthrax-guidelines" },
+        { label: "Anthrax Case Investigation Form", href: "/documents/anthrax-cif" },
       ],
       plague: [
-        { label: "Plague Surveillance Guidelines", href: "#" },
-        { label: "Plague Case Investigation Form", href: "#" },
+        { label: "Plague Surveillance Guidelines", href: "/documents/plague-guidelines" },
+        { label: "Plague Case Investigation Form", href: "/documents/plague-cif" },
       ],
     };
 
     return (
-      documents[disease] ?? [
-        { label: `${title} Surveillance Guidelines`, href: "#" },
-        { label: `${title} Data Collection Tools`, href: "#" },
+      documents[normalizedDiseaseSlug] ?? [
+        { label: `${title} Surveillance Guidelines`, href: "/documents" },
+        { label: `${title} Data Collection Tools`, href: "/documents" },
       ]
     );
-  }, [title]);
+  }, [normalizedDiseaseSlug, title]);
 
   const totalCases = useMemo(() => {
     return filteredFacilityMetrics.reduce((sum, item) => sum + Number(item.value ?? 0), 0);
@@ -118,7 +129,7 @@ export default function DiseaseDetailsPage() {
     const uniqueFacilities = new Set(
       filteredFacilityMetrics
         .map((item) => item.facility_name)
-        .filter((value): value is string => Boolean(value)),
+        .filter((value): value is string => Boolean(value?.trim())),
     );
 
     return uniqueFacilities.size;
@@ -151,7 +162,9 @@ export default function DiseaseDetailsPage() {
               <ul className="disease-details-page__links">
                 {relevantDocuments.map((doc) => (
                   <li key={doc.label}>
-                    <Link href={doc.href}>{doc.label}</Link>
+                    <Link as={RouterLink} to={doc.href}>
+                      {doc.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -174,7 +187,6 @@ export default function DiseaseDetailsPage() {
           <Tile className="disease-details-page__tile">
             <div className="disease-details-page__section">
               <h3>{title} Weekly Cases</h3>
-
               <div className="disease-details-page__stats">
                 <p>
                   <strong>Reporting Week:</strong>{" "}
@@ -187,10 +199,18 @@ export default function DiseaseDetailsPage() {
                   <strong>Facilities Reporting:</strong> {facilitiesCount}
                 </p>
               </div>
-
               <p className="disease-details-page__placeholder">
                 Weekly trend chart will appear here once the chart component is connected.
               </p>
+              <WeeklyCasesChart
+                diseaseName={title}
+                data={[
+                  { week: 1, value: 2000 },
+                  { week: 2, value: 1500 },
+                  { week: 3, value: 2800 },
+                  { week: 4, value: 1800 },
+                ]}
+              />{" "}
             </div>
           </Tile>
         </Column>
