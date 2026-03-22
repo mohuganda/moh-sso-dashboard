@@ -31,6 +31,7 @@ import (
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
 	sessionRepository "github.com/moh-sso-dashboard/internal/repository/session"
 	storageLocationRepo "github.com/moh-sso-dashboard/internal/repository/storage_locations"
+	repository "github.com/moh-sso-dashboard/internal/repository/surveillance"
 	userRepo "github.com/moh-sso-dashboard/internal/repository/user"
 
 	"github.com/rs/zerolog"
@@ -187,6 +188,17 @@ func main() {
 	sessionRepository := sessionRepository.NewSessionRepository(adminKC, cfg, *appLogger)
 	announcementRepository := announcementRepo.NewAnnouncementRepository(store, *appLogger)
 
+	// surveillance
+	regionRepository := repository.NewRepositories(store).Regions
+	districtRepository := repository.NewRepositories(store).Districts
+	subCountyRepository := repository.NewRepositories(store).SubCounties
+	diseaseRepository := repository.NewRepositories(store).Diseases
+	epiWeekRepository := repository.NewRepositories(store).EpiWeeks
+	facilityWeeklyMetricsRepository := repository.NewRepositories(store).FacilityMetrics
+	districtWeeklyStatusRepository := repository.NewRepositories(store).DistrictStatuses
+	regionWeeklyStatusRepository := repository.NewRepositories(store).RegionStatuses
+	nationalWeeklyStatusRepository := repository.NewRepositories(store).NationalStatuses
+
 	// ==================================================
 	// Services
 	// ==================================================
@@ -211,6 +223,15 @@ func main() {
 		fileStorage,
 		remoteDB,
 	)
+
+	// surveillance
+	diseaseService := service.NewSurveillanceDiseaseService(appLogger, diseaseRepository)
+	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
+	locationService := service.NewSurveillanceLocationService(appLogger, regionRepository, districtRepository, subCountyRepository)
+	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(appLogger, facilityWeeklyMetricsRepository)
+	districtWeeklyStatusService := service.NewSurveillanceDistrictWeeklyStatusService(appLogger, districtWeeklyStatusRepository)
+	regionWeeklyStatusService := service.NewSurveillanceRegionWeeklyStatusService(appLogger, regionWeeklyStatusRepository)
+	nationalWeeklyStatusService := service.NewSurveillanceNationalWeeklyStatusService(appLogger, nationalWeeklyStatusRepository)
 
 	// ==================================================
 	// Background Worker
@@ -245,6 +266,17 @@ func main() {
 	adminunitsHandler := handler.NewAdminUnitsHandler(cfg, dwhDB)
 	visualiserHandler := handler.NewVisualiserHandler(cfg, dwhDB)
 
+	// surveillance
+	surveillanceHandler := handler.NewSurveillanceHandler(
+		epiWeekService,
+		diseaseService,
+		locationService,
+		facilityWeeklyMetricsService,
+		districtWeeklyStatusService,
+		regionWeeklyStatusService,
+		nationalWeeklyStatusService,
+	)
+
 	healthHandler := handler.NewHealthHandler(
 		func(ctx context.Context) error { return db.PingDB(ctx, primaryDB) },
 		func(ctx context.Context) error { return db.PingDB(ctx, remoteDB) },
@@ -271,6 +303,7 @@ func main() {
 		announcementHandler,
 		adminunitsHandler,
 		visualiserHandler,
+		surveillanceHandler,
 	)
 
 	r.GET("/health/live", healthHandler.HandleLive)

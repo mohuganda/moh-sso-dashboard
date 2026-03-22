@@ -29,6 +29,7 @@ func SetupRouter(
 	announcementHandler *handler.AnnouncementHandler,
 	adminunitsHandler *handler.AdminUnitsHandler,
 	visualiserHandler *handler.VisualiserHandler,
+	surveillanceHandler *handler.SurveillanceHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -234,6 +235,31 @@ func SetupRouter(
 
 		}
 
+		// ------------------------------
+		// Surveillance
+		// --------------------------------
+		surveillance := protected.Group("surveillance")
+		{
+			surveillance.GET("weeks", surveillanceHandler.ListEpiWeeksByYear)
+			surveillance.GET("/diseases", surveillanceHandler.ListDiseases)
+
+			surveillance.POST("/districts", surveillanceHandler.UpsertDistrict)
+
+			surveillance.GET("/districts/:districtID/subcounties", surveillanceHandler.ListSubcountiesByDistrict)
+			surveillance.GET("/subcounties/:id", surveillanceHandler.GetSubcountyByID)
+			surveillance.POST("/subcounties", surveillanceHandler.UpsertSubcounty)
+			surveillance.DELETE("/subcounties/:id", surveillanceHandler.DeleteSubcounty)
+
+			surveillance.GET("/facility-weekly-metrics/week/:epiWeekID", surveillanceHandler.ListFacilityWeeklyMetricsByWeek)
+			surveillance.GET("/facility-weekly-metrics/facility/:facilityID", surveillanceHandler.ListFacilityWeeklyMetricsByFacility)
+
+			surveillance.GET("/district-weekly-statuses/week/:epiWeekID", surveillanceHandler.ListDistrictWeeklyStatusesByWeek)
+			surveillance.GET("/district-weekly-statuses", surveillanceHandler.ListDistrictWeeklyStatusesByDistrictAndWeek)
+
+			surveillance.GET("/region-weekly-statuses/week/:epiWeekID", surveillanceHandler.ListRegionWeeklyStatusesByWeek)
+			surveillance.GET("/national-weekly-statuses/week/:epiWeekID", surveillanceHandler.ListNationalWeeklyStatusesByWeek)
+		}
+
 		// --------------------------------------------------
 		// Admin (ADMIN ONLY + STRICTER LIMITS)
 		// --------------------------------------------------
@@ -329,10 +355,7 @@ func SetupRouter(
 				notifications.DELETE("/cleanup", notificationsHandler.DeleteOldNotifications)
 			}
 
-			//  -------- announements --------------------
-			// -------------------------------------
-			// admin announcements
-			// -------------------------------------
+			//  -------- announcements --------------------
 			announcements := admin.Group("/announcements")
 			{
 				announcements.GET("", announcementHandler.ListAnnouncementsAdmin)
