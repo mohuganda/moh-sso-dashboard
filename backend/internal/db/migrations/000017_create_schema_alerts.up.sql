@@ -1,3 +1,11 @@
+CREATE TYPE alert_status AS ENUM (
+    'NEW',
+    'ACKNOWLEDGE',
+    'INVESTIGATING',
+    'RESOLVED',
+    'CLOSED'
+);
+
 CREATE TABLE alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   external_id TEXT UNIQUE,

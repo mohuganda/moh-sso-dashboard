@@ -1,3 +1,5 @@
+CREATE TYPE risk_level AS ENUM ('MAROON', 'RED', 'YELLOW', 'GREEN');
+
 CREATE TABLE district_weekly_status (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   district_id UUID NOT NULL REFERENCES districts(id) ON DELETE CASCADE,

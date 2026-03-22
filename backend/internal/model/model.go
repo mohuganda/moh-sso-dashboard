@@ -308,6 +308,25 @@ type WeeklySubjectStatus struct {
 	Status      string
 }
 
+type RiskLevel string
+
+const (
+	RiskLevelMaroon RiskLevel = "MAROON"
+	RiskLevelRed    RiskLevel = "RED"
+	RiskLevelYellow RiskLevel = "YELLOW"
+	RiskLevelGreen  RiskLevel = "GREEN"
+)
+
+type AlertStatus string
+
+const (
+	AlertStatusNew           AlertStatus = "NEW"
+	AlertStatusAcknowledged  AlertStatus = "ACKNOWLEDGED"
+	AlertStatusInvestigating AlertStatus = "INVESTIGATING"
+	AlertStatusResolved      AlertStatus = "RESOLVED"
+	AlertStatusClosed        AlertStatus = "CLOSED"
+)
+
 func (t NotificationType) Severity() string {
 	switch t {
 
