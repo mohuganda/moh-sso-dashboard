@@ -159,12 +159,36 @@ services:
     networks:
       - sso_network
 
+  # -------------------------------------------------
+  # remote db
+  # --------------------------------------------------
+  remote-postgres:
+    image: postgres:16
+    container_name: remote-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jaba
+      POSTGRES_PASSWORD: 12345678=j
+      POSTGRES_DB: file_upload
+    ports:
+      - "5433:5432"
+    volumes:
+      - remote_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jaba -d file_upload"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sso_network
+
 # --------------------------------------------------
 # Volumes
 # --------------------------------------------------
 volumes:
   keycloak_data:
   backend_data:
+  remote_pg_data:
 
 # --------------------------------------------------
 # Network
