@@ -242,6 +242,8 @@ func main() {
 	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
 	sessionHandler := handler.NewSessionHandler(sessionService)
 	announcementHandler := handler.NewAnnouncementHandler(announcementService, auditService)
+	adminunitsHandler := handler.NewAdminUnitsHandler(cfg, dwhDB)
+	visualiserHandler := handler.NewVisualiserHandler(cfg, dwhDB)
 
 	healthHandler := handler.NewHealthHandler(
 		func(ctx context.Context) error { return db.PingDB(ctx, primaryDB) },
@@ -267,6 +269,8 @@ func main() {
 		storageLocationHandler,
 		sessionHandler,
 		announcementHandler,
+		adminunitsHandler,
+		visualiserHandler,
 	)
 
 	r.GET("/health/live", healthHandler.HandleLive)

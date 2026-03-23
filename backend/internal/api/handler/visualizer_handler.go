@@ -6,14 +6,29 @@ import (
 	"net/http"
 	"strings"
 
-	"go-api/configs"
-
 	"github.com/gin-gonic/gin"
+	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/dto"
 )
 
+type VisualiserHandler struct {
+	config *config.Config
+	db     *sql.DB
+}
+
+func NewVisualiserHandler(
+	config *config.Config,
+	db *sql.DB,
+) *VisualiserHandler {
+	return &VisualiserHandler{
+		config: config,
+		db:     db,
+	}
+}
+
 // GetDatasets gets all datasets
-func GetDatasets(c *gin.Context) {
+func (h *VisualiserHandler) GetDatasets(c *gin.Context) {
+	ctx := c.Request.Context()
 	query := `
 		SELECT dataset_key, dataset_id, display_name, is_current, create_date
 		FROM dwh.dim_dataset
@@ -21,7 +36,7 @@ func GetDatasets(c *gin.Context) {
 		AND dataset_key <> -1
 	`
 
-	rows, err := configs.DWH.Query(query)
+	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -42,7 +57,8 @@ func GetDatasets(c *gin.Context) {
 }
 
 // GetDataElements gets data elements, optionally filtered by data_set_id
-func GetDataElements(c *gin.Context) {
+func (h *VisualiserHandler) GetDataElements(c *gin.Context) {
+	ctx := c.Request.Context()
 	type Request struct {
 		DataSetID *string `json:"data_set_id"`
 	}
@@ -71,9 +87,9 @@ func GetDataElements(c *gin.Context) {
 
 	if req.DataSetID != nil && *req.DataSetID != "" {
 		query += ` AND data_set_id = $1`
-		rows, err = configs.DWH.Query(query, *req.DataSetID)
+		rows, err = h.db.QueryContext(ctx, query, *req.DataSetID)
 	} else {
-		rows, err = configs.DWH.Query(query)
+		rows, err = h.db.QueryContext(ctx, query)
 	}
 
 	if err != nil {
@@ -96,7 +112,8 @@ func GetDataElements(c *gin.Context) {
 }
 
 // GetDataValues gets data values with optional filters
-func GetDataValues(c *gin.Context) {
+func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
+	ctx := c.Request.Context()
 	type Request struct {
 		OU           []string `json:"ou"`
 		PE           []string `json:"pe"`
@@ -174,7 +191,7 @@ func GetDataValues(c *gin.Context) {
 			category_combo
 	`
 
-	rows, err := configs.DWH.Query(query, values...)
+	rows, err := h.db.QueryContext(ctx, query, values...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -195,13 +212,14 @@ func GetDataValues(c *gin.Context) {
 }
 
 // GetThemes gets all themes
-func GetThemes(c *gin.Context) {
+func (h *VisualiserHandler) GetThemes(c *gin.Context) {
+	ctx := c.Request.Context()
 	query := `
 		SELECT theme_id, theme_name 
 		FROM report.themes
 	`
 
-	rows, err := configs.DWH.Query(query)
+	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -222,7 +240,8 @@ func GetThemes(c *gin.Context) {
 }
 
 // GetDataElementsByTheme gets data elements for a specific theme
-func GetDataElementsByTheme(c *gin.Context) {
+func (h *VisualiserHandler) GetDataElementsByTheme(c *gin.Context) {
+	ctx := c.Request.Context()
 	type Request struct {
 		ThemeID string `json:"theme_id" binding:"required"`
 	}
@@ -247,7 +266,7 @@ func GetDataElementsByTheme(c *gin.Context) {
 		WHERE t.theme_id = $1
 	`
 
-	rows, err := configs.DWH.Query(query, req.ThemeID)
+	rows, err := h.db.QueryContext(ctx, query, req.ThemeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -268,7 +287,8 @@ func GetDataElementsByTheme(c *gin.Context) {
 }
 
 // GetHIVSummary gets HIV summary data
-func GetHIVSummary(c *gin.Context) {
+func (h *VisualiserHandler) GetHIVSummary(c *gin.Context) {
+	ctx := c.Request.Context()
 	query := `
 		SELECT
 			year,
@@ -290,7 +310,7 @@ func GetHIVSummary(c *gin.Context) {
 		ORDER BY year
 	`
 
-	rows, err := configs.DWH.Query(query)
+	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -311,7 +331,8 @@ func GetHIVSummary(c *gin.Context) {
 }
 
 // GetHIVTested gets HIV tested data
-func GetHIVTested(c *gin.Context) {
+func (h *VisualiserHandler) GetHIVTested(c *gin.Context) {
+	ctx := c.Request.Context()
 	query := `
 		SELECT year,
 			quarter,
@@ -322,7 +343,7 @@ func GetHIVTested(c *gin.Context) {
 		GROUP BY year, quarter
 	`
 
-	rows, err := configs.DWH.Query(query)
+	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -343,7 +364,10 @@ func GetHIVTested(c *gin.Context) {
 }
 
 // GetHIVRegimen gets HIV regimen data
-func GetHIVRegimen(c *gin.Context) {
+func (h *VisualiserHandler) GetHIVRegimen(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
 	query := `
 		SELECT
 			year,
@@ -359,7 +383,7 @@ func GetHIVRegimen(c *gin.Context) {
 		GROUP BY year, quarter
 	`
 
-	rows, err := configs.DWH.Query(query)
+	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

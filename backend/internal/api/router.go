@@ -27,6 +27,8 @@ func SetupRouter(
 	storageLocationHandler *handler.StorageLocationHandler,
 	sessionHandler *handler.SessionHandler,
 	announcementHandler *handler.AnnouncementHandler,
+	adminunitsHandler *handler.AdminUnitsHandler,
+	visualiserHandler *handler.VisualiserHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -206,80 +208,30 @@ func SetupRouter(
 		// ----------------------------------
 		//  Visualiser
 		// ---------------------------------------
-		visualiser := protected.Group("visualiser")
+		visualiser := protected.Group("visualizer")
 		{
-			{
-				// Posts endpoints
-				visualiser.POST("/posts", handlers.CreatePost)
-				visualiser.GET("/posts", handlers.ListPosts)
-				visualiser.GET("/posts/:id", handlers.GetPost)
-				visualiser.PUT("/posts/:id", handlers.UpdatePost)
-				visualiser.DELETE("/posts/:id", handlers.DeletePost)
 
-				// Thematic area endpoints
-				visualiser.POST("/thematic", handlers.CreateThematic)
-				visualiser.GET("/thematic", handlers.ListThematics)
-				visualiser.GET("/thematic/all", handlers.GetAllThematics)
-				visualiser.GET("/thematic/count", handlers.GetThematicCount)
-				visualiser.GET("/thematic/:id", handlers.GetThematic)
-				visualiser.PUT("/thematic/:id", handlers.UpdateThematic)
-				visualiser.DELETE("/thematic/:id", handlers.DeleteThematic)
+			// Admin units endpoints
+			visualiser.GET("/adminunits/orgunits", adminunitsHandler.GetOrgUnits)
+			visualiser.GET("/adminunits/facilities", adminunitsHandler.GetFacilities)
+			visualiser.GET("/adminunits/district", adminunitsHandler.GetDistricts)
+			visualiser.POST("/adminunits/subcounties", adminunitsHandler.GetSubCounties)
+			visualiser.POST("/adminunits/localgovt", adminunitsHandler.GetLocalGovt)
+			visualiser.POST("/adminunits/districts", adminunitsHandler.GetDistrictsByRegion)
+			visualiser.GET("/adminunits/region", adminunitsHandler.GetRegions)
+			visualiser.GET("/adminunits/national", adminunitsHandler.GetNational)
+			visualiser.GET("/adminunits/hierarchy", adminunitsHandler.GetHierarchy)
 
-				// Reports endpoints
-				visualiser.POST("/reports", handlers.CreateReport)
-				visualiser.GET("/reports", handlers.ListReports)
-				visualiser.GET("/reports/theme/:id", handlers.GetReportsByTheme)
-				visualiser.GET("/reports/theme/:id/default", handlers.GetDefaultReport)
-				visualiser.GET("/reports/:id", handlers.GetReport)
-				visualiser.PUT("/reports/:id", handlers.UpdateReport)
-				visualiser.DELETE("/reports/:id", handlers.DeleteReport)
+			// Visualizer endpoints
+			visualiser.GET("/datasets", visualiserHandler.GetDatasets)
+			visualiser.POST("/dataelements", visualiserHandler.GetDataElements)
+			visualiser.POST("/datavalues", visualiserHandler.GetDataValues)
+			visualiser.GET("/themes", visualiserHandler.GetThemes)
+			visualiser.POST("/dataelements/theme", visualiserHandler.GetDataElementsByTheme)
+			visualiser.GET("/hiv/summary", visualiserHandler.GetHIVSummary)
+			visualiser.GET("/hiv/tested", visualiserHandler.GetHIVTested)
+			visualiser.GET("/hiv/regimen", visualiserHandler.GetHIVRegimen)
 
-				// Dashboards endpoints
-				visualiser.POST("/dashboards", handlers.CreateDashboard)
-				visualiser.GET("/dashboards", handlers.ListDashboards)
-				visualiser.GET("/dashboards/theme/:id", handlers.GetDashboardsByTheme)
-				visualiser.GET("/dashboards/:id", handlers.GetDashboard)
-				visualiser.PUT("/dashboards/:id", handlers.UpdateDashboard)
-				visualiser.DELETE("/dashboards/:id", handlers.DeleteDashboard)
-
-				// Feedback endpoints
-				visualiser.POST("/feedback", handlers.CreateFeedback)
-				visualiser.GET("/feedback", handlers.ListFeedbacks)
-				visualiser.GET("/feedback/stats/overview", handlers.GetFeedbackStats)
-				visualiser.GET("/feedback/:id", handlers.GetFeedback)
-				visualiser.PUT("/feedback/:id", handlers.UpdateFeedback)
-				visualiser.DELETE("/feedback/:id", handlers.DeleteFeedback)
-
-				// Admin units endpoints
-				visualiser.GET("/adminunits/orgunits", handlers.GetOrgUnits)
-				visualiser.GET("/adminunits/facilities", handlers.GetFacilities)
-				visualiser.GET("/adminunits/district", handlers.GetDistricts)
-				visualiser.POST("/adminunits/subcounties", handlers.GetSubCounties)
-				visualiser.POST("/adminunits/localgovt", handlers.GetLocalGovt)
-				visualiser.POST("/adminunits/districts", handlers.GetDistrictsByRegion)
-				visualiser.GET("/adminunits/region", handlers.GetRegions)
-				visualiser.GET("/adminunits/national", handlers.GetNational)
-				visualiser.GET("/adminunits/hierarchy", handlers.GetHierarchy)
-
-				// Visualizer endpoints
-				visualiser.GET("/visualizer/datasets", handlers.GetDatasets)
-				visualiser.POST("/visualizer/dataelements", handlers.GetDataElements)
-				visualiser.POST("/visualizer/datavalues", handlers.GetDataValues)
-				visualiser.GET("/visualizer/themes", handlers.GetThemes)
-				visualiser.POST("/visualizer/dataelements/theme", handlers.GetDataElementsByTheme)
-				visualiser.GET("/visualizer/hiv/summary", handlers.GetHIVSummary)
-				visualiser.GET("/visualizer/hiv/tested", handlers.GetHIVTested)
-				visualiser.GET("/visualizer/hiv/regimen", handlers.GetHIVRegimen)
-
-				// R Proxy endpoint
-				visualiser.GET("/rreport", handlers.GetRProxy)
-
-				// Jasper endpoints
-				visualiser.GET("/jasper", handlers.GetJasperReport)
-				visualiser.GET("/jasper/jasperserver-pro/*path", handlers.ProxyJasperserverPro)
-				visualiser.GET("/jasper/rest_v2/*path", handlers.ProxyRestV2)
-				visualiser.GET("/jasper/reportresource", handlers.ProxyReportResource)
-			}
 		}
 
 		// --------------------------------------------------
