@@ -52,9 +52,9 @@ export default function DiseaseDetailsPage() {
     if (weeks.length === 0) return undefined;
 
     return [...weeks].sort((a, b) => {
-      const yearDiff = Number(b.year ?? 0) - Number(a.year ?? 0);
+      const yearDiff = Number(b.epi_year ?? 0) - Number(a.epi_year ?? 0);
       if (yearDiff !== 0) return yearDiff;
-      return Number(b.week ?? 0) - Number(a.week ?? 0);
+      return Number(b.epi_week ?? 0) - Number(a.epi_week ?? 0);
     })[0];
   }, [weeks]);
 
@@ -190,7 +190,7 @@ export default function DiseaseDetailsPage() {
               <div className="disease-details-page__stats">
                 <p>
                   <strong>Reporting Week:</strong>{" "}
-                  {selectedWeek ? `Week ${selectedWeek.week}, ${selectedWeek.year}` : "--"}
+                  {selectedWeek ? `Week ${selectedWeek.epi_week}, ${selectedWeek.epi_year}` : "--"}
                 </p>
                 <p>
                   <strong>Total Cases:</strong> {totalCases}
@@ -202,7 +202,7 @@ export default function DiseaseDetailsPage() {
               <p className="disease-details-page__placeholder">
                 Weekly trend chart will appear here once the chart component is connected.
               </p>
-              <WeeklyCasesChart
+              {/* <WeeklyCasesChart
                 diseaseName={title}
                 data={[
                   { week: 1, value: 2000 },
@@ -210,7 +210,7 @@ export default function DiseaseDetailsPage() {
                   { week: 3, value: 2800 },
                   { week: 4, value: 1800 },
                 ]}
-              />{" "}
+              />{" "} */}
             </div>
           </Tile>
         </Column>

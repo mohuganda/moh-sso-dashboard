@@ -1,7 +1,7 @@
 export interface EpiWeek {
   id: string;
-  year: number;
-  week: number;
+  epi_year: number;
+  epi_week: number;
   start_date?: string;
   end_date?: string;
 }
@@ -10,6 +10,20 @@ export interface Disease {
   id: string;
   name: string;
   code?: string;
+}
+
+export interface District {
+  id: string;
+  name: string;
+  region_id: string;
+  region_name?: string;
+  code: string;
+}
+
+export interface Region {
+  id: string;
+  name: string;
+  code: string;
 }
 
 export interface FacilityWeeklyMetric {
@@ -66,5 +80,3 @@ export interface Subcounty {
   name: string;
   district_id: string;
 }
-
-

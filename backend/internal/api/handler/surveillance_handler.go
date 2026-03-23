@@ -122,7 +122,53 @@ func (h *SurveillanceHandler) ListDiseases(c *gin.Context) {
 }
 
 // locations
+func (h *SurveillanceHandler) ListRegions(c *gin.Context) {
+	ctx := c.Request.Context()
 
+	data, err := h.locationService.ListRegions(ctx)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list regions", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListDistricts(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	data, err := h.locationService.ListDistricts(ctx)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list districts", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListDistrictsByRegion(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	regionIDParam := c.Param("regionID")
+	if regionIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "region id is required", "nil")
+		return
+	}
+
+	regionID, err := uuid.Parse(regionIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid region id", err.Error())
+		return
+	}
+
+	data, err := h.locationService.ListDistrictsByRegion(ctx, regionID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list districts by region", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
 func (h *SurveillanceHandler) ListSubcountiesByDistrict(c *gin.Context) {
 	ctx := c.Request.Context()
 

@@ -6,6 +6,8 @@ import type {
   DistrictWeeklyStatus,
   RegionWeeklyStatus,
   NationalWeeklyStatus,
+  District,
+  Region,
 } from "../types/surveillance.types";
 import { baseApi } from "./baseApi";
 
@@ -29,9 +31,9 @@ export const surveillanceApi = baseApi.injectEndpoints({
                 type: "Surveillance" as const,
                 id: week.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              { type: "Surveillance" as const, id: "SURVEILLANCE_WEEKS_LIST" },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [{ type: "Surveillance" as const, id: "SURVEILLANCE_WEEKS_LIST" }],
     }),
 
     listDiseases: builder.query<Disease[], void>({
@@ -46,9 +48,60 @@ export const surveillanceApi = baseApi.injectEndpoints({
                 type: "Surveillance" as const,
                 id: disease.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              { type: "Surveillance" as const, id: "SURVEILLANCE_DISEASES_LIST" },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [{ type: "Surveillance" as const, id: "SURVEILLANCE_DISEASES_LIST" }],
+    }),
+
+    listRegions: builder.query<Region[], void>({
+      query: () => ({
+        url: "/surveillance/regions",
+      }),
+      transformResponse: (res: ApiEnvelope<Region[]>) => res.data,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((region) => ({
+                type: "Surveillance" as const,
+                id: region.id,
+              })),
+              { type: "Surveillance" as const, id: "SURVEILLANCE_REGIONS_LIST" },
+            ]
+          : [{ type: "Surveillance" as const, id: "SURVEILLANCE_REGIONS_LIST" }],
+    }),
+
+    listDistricts: builder.query<District[], void>({
+      query: () => ({
+        url: "/surveillance/districts",
+      }),
+      transformResponse: (res: ApiEnvelope<District[]>) => res.data,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((district) => ({
+                type: "Surveillance" as const,
+                id: district.id,
+              })),
+              { type: "Surveillance" as const, id: "SURVEILLANCE_DISTRICTS_LIST" },
+            ]
+          : [{ type: "Surveillance" as const, id: "SURVEILLANCE_DISTRICTS_LIST" }],
+    }),
+
+    listDistrictsByRegion: builder.query<District[], string>({
+      query: (regionID) => ({
+        url: `/surveillance/regions/${regionID}/districts`,
+      }),
+      transformResponse: (res: ApiEnvelope<District[]>) => res.data,
+      providesTags: (result, _error, regionID) =>
+        result
+          ? [
+              ...result.map((district) => ({
+                type: "Surveillance" as const,
+                id: district.id,
+              })),
+              { type: "Surveillance" as const, id: `SURVEILLANCE_REGION_DISTRICTS_${regionID}` },
+            ]
+          : [{ type: "Surveillance" as const, id: `SURVEILLANCE_REGION_DISTRICTS_${regionID}` }],
     }),
 
     listSubcountiesByDistrict: builder.query<Subcounty[], string>({
@@ -56,16 +109,24 @@ export const surveillanceApi = baseApi.injectEndpoints({
         url: `/surveillance/districts/${districtID}/subcounties`,
       }),
       transformResponse: (res: ApiEnvelope<Subcounty[]>) => res.data,
-      providesTags: (result) =>
+      providesTags: (result, _error, districtID) =>
         result
           ? [
               ...result.map((subcounty) => ({
                 type: "Surveillance" as const,
                 id: subcounty.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_DISTRICT_SUBCOUNTIES_${districtID}`,
+              },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_DISTRICT_SUBCOUNTIES_${districtID}`,
+              },
+            ],
     }),
 
     getSubcountyById: builder.query<Subcounty, string>({
@@ -81,16 +142,24 @@ export const surveillanceApi = baseApi.injectEndpoints({
         url: `/surveillance/facility-weekly-metrics/week/${epiWeekID}`,
       }),
       transformResponse: (res: ApiEnvelope<FacilityWeeklyMetric[]>) => res.data,
-      providesTags: (result) =>
+      providesTags: (result, _error, epiWeekID) =>
         result
           ? [
               ...result.map((item) => ({
                 type: "Surveillance" as const,
                 id: item.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_METRICS_WEEK_${epiWeekID}`,
+              },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_METRICS_WEEK_${epiWeekID}`,
+              },
+            ],
     }),
 
     listFacilityWeeklyMetricsByFacility: builder.query<FacilityWeeklyMetric[], string>({
@@ -98,16 +167,24 @@ export const surveillanceApi = baseApi.injectEndpoints({
         url: `/surveillance/facility-weekly-metrics/facility/${facilityID}`,
       }),
       transformResponse: (res: ApiEnvelope<FacilityWeeklyMetric[]>) => res.data,
-      providesTags: (result) =>
+      providesTags: (result, _error, facilityID) =>
         result
           ? [
               ...result.map((item) => ({
                 type: "Surveillance" as const,
                 id: item.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_METRICS_FACILITY_${facilityID}`,
+              },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_METRICS_FACILITY_${facilityID}`,
+              },
+            ],
     }),
 
     listDistrictWeeklyStatusesByWeek: builder.query<DistrictWeeklyStatus[], string>({
@@ -115,16 +192,24 @@ export const surveillanceApi = baseApi.injectEndpoints({
         url: `/surveillance/district-weekly-statuses/week/${epiWeekID}`,
       }),
       transformResponse: (res: ApiEnvelope<DistrictWeeklyStatus[]>) => res.data,
-      providesTags: (result) =>
+      providesTags: (result, _error, epiWeekID) =>
         result
           ? [
               ...result.map((item) => ({
                 type: "Surveillance" as const,
                 id: item.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_DISTRICT_STATUSES_WEEK_${epiWeekID}`,
+              },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_DISTRICT_STATUSES_WEEK_${epiWeekID}`,
+              },
+            ],
     }),
 
     listDistrictWeeklyStatuses: builder.query<
@@ -143,9 +228,9 @@ export const surveillanceApi = baseApi.injectEndpoints({
                 type: "Surveillance" as const,
                 id: item.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              { type: "Surveillance" as const, id: "SURVEILLANCE_DISTRICT_STATUSES_LIST" },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [{ type: "Surveillance" as const, id: "SURVEILLANCE_DISTRICT_STATUSES_LIST" }],
     }),
 
     listRegionWeeklyStatusesByWeek: builder.query<RegionWeeklyStatus[], string>({
@@ -153,16 +238,24 @@ export const surveillanceApi = baseApi.injectEndpoints({
         url: `/surveillance/region-weekly-statuses/week/${epiWeekID}`,
       }),
       transformResponse: (res: ApiEnvelope<RegionWeeklyStatus[]>) => res.data,
-      providesTags: (result) =>
+      providesTags: (result, _error, epiWeekID) =>
         result
           ? [
               ...result.map((item) => ({
                 type: "Surveillance" as const,
                 id: item.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_REGION_STATUSES_WEEK_${epiWeekID}`,
+              },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_REGION_STATUSES_WEEK_${epiWeekID}`,
+              },
+            ],
     }),
 
     listNationalWeeklyStatusesByWeek: builder.query<NationalWeeklyStatus[], string>({
@@ -170,16 +263,24 @@ export const surveillanceApi = baseApi.injectEndpoints({
         url: `/surveillance/national-weekly-statuses/week/${epiWeekID}`,
       }),
       transformResponse: (res: ApiEnvelope<NationalWeeklyStatus[]>) => res.data,
-      providesTags: (result) =>
+      providesTags: (result, _error, epiWeekID) =>
         result
           ? [
               ...result.map((item) => ({
                 type: "Surveillance" as const,
                 id: item.id,
               })),
-              { type: "Surveillance" as const, id: "LIST" },
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_NATIONAL_STATUSES_WEEK_${epiWeekID}`,
+              },
             ]
-          : [{ type: "Surveillance" as const, id: "LIST" }],
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_NATIONAL_STATUSES_WEEK_${epiWeekID}`,
+              },
+            ],
     }),
   }),
 });
@@ -187,6 +288,9 @@ export const surveillanceApi = baseApi.injectEndpoints({
 export const {
   useListEpiWeeksQuery,
   useListDiseasesQuery,
+  useListRegionsQuery,
+  useListDistrictsQuery,
+  useListDistrictsByRegionQuery,
   useListSubcountiesByDistrictQuery,
   useGetSubcountyByIdQuery,
   useListFacilityWeeklyMetricsByWeekQuery,

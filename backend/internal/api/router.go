@@ -238,11 +238,15 @@ func SetupRouter(
 		// ------------------------------
 		// Surveillance
 		// --------------------------------
-		surveillance := protected.Group("surveillance")
+		surveillance := protected.Group("/surveillance")
 		{
-			surveillance.GET("weeks", surveillanceHandler.ListEpiWeeksByYear)
+			surveillance.GET("/weeks", surveillanceHandler.ListEpiWeeksByYear)
 			surveillance.GET("/diseases", surveillanceHandler.ListDiseases)
 
+			surveillance.GET("/regions", surveillanceHandler.ListRegions)
+
+			surveillance.GET("/districts", surveillanceHandler.ListDistricts)
+			surveillance.GET("/regions/:regionID/districts", surveillanceHandler.ListDistrictsByRegion)
 			surveillance.POST("/districts", surveillanceHandler.UpsertDistrict)
 
 			surveillance.GET("/districts/:districtID/subcounties", surveillanceHandler.ListSubcountiesByDistrict)
