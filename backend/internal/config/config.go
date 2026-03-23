@@ -101,6 +101,13 @@ type Config struct {
 	RemoteDBPassword string `mapstructure:"REMOTE_DB_PASSWORD"`
 	RemoteDBName     string `mapstructure:"REMOTE_DB_NAME"`
 
+	// DWH
+	DwhDBHost     string `mapstructure:"DWH_HOST"`
+	DwhDBPort     string `mapstructure:"DWH_PORT"`
+	DwhDBUsername string `mapstructure:"DWH_USERNAME"`
+	DwhDBPassword string `mapstructure:"DWH_PASSWORD"`
+	DwhDBName     string `mapstructure:"DWH_DB"`
+
 	// s3 / minio
 	S3Client          string `mapstructure:"S3_CLIENT"`
 	S3Bucket          string `mapstructure:"S3_BUCKET"`
@@ -205,6 +212,29 @@ func (c *Config) RemoteDbSource() string {
 		c.RemoteDBHost,
 		c.RemoteDBPort,
 		c.RemoteDBName,
+		sslMode,
+	)
+}
+
+func (c *Config) DwhDbSource() string {
+	if c.DwhDBUsername == "" {
+		panic("DWH_DB_USERNAME is empty")
+	}
+
+	dbPassEscaped := url.QueryEscape(c.DwhDBPassword)
+
+	sslMode := "disable"
+	if c.DbEnableSsl {
+		sslMode = "require"
+	}
+
+	return fmt.Sprintf(
+		"postgresql://%s:%s@%s:%s/%s?sslmode=%s",
+		c.DwhDBUsername,
+		dbPassEscaped,
+		c.DwhDBHost,
+		c.DwhDBPort,
+		c.DwhDBName,
 		sslMode,
 	)
 }

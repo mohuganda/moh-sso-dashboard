@@ -362,3 +362,76 @@ type Pagination struct {
 	Limit  int32
 	Offset int32
 }
+
+//  visualiser
+
+type Dashboard struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+	URL         *string   `json:"url,omitempty"`
+	Image       *string   `json:"image,omitempty"`
+	ThematicID  int64     `json:"thematicId"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+// DashboardWithThematic includes thematic area information
+type DashboardWithThematic struct {
+	Dashboard
+	Thematic *Thematic `json:"thematic,omitempty"`
+}
+
+type Feedback struct {
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	Email         string    `json:"email"`
+	Screenshot    *string   `json:"screenshot,omitempty"`
+	ReportID      *int64    `json:"reportId,omitempty"`
+	ReportName    *string   `json:"reportName,omitempty"`
+	DashboardID   *int64    `json:"dashboardId,omitempty"`
+	DashboardName *string   `json:"dashboardName,omitempty"`
+	Message       string    `json:"message"`
+	Status        string    `json:"status"`   // 'pending', 'reviewed', 'resolved'
+	Priority      string    `json:"priority"` // 'low', 'medium', 'high'
+	AdminNotes    *string   `json:"adminNotes,omitempty"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type Post struct {
+	ID        int64     `json:"id"`
+	UserID    int64     `json:"user_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type Report struct {
+	ID         int64     `json:"id"`
+	Title      string    `json:"title"`
+	Period     string    `json:"period"`
+	Type       string    `json:"type"`
+	Format     *string   `json:"format,omitempty"`
+	Reportname string    `json:"reportname"`
+	IsDefault  bool      `json:"isDefault"`
+	ThematicID int64     `json:"thematicId"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+// ReportWithThematic includes thematic area information
+type ReportWithThematic struct {
+	Report
+	Thematic *Thematic `json:"thematic,omitempty"`
+}
+
+type Thematic struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+	Icon        *string   `json:"icon,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}

@@ -89,6 +89,23 @@ func main() {
 	defer remoteDB.Close()
 
 	// ==================================================
+	// Initialize DWH DB
+	// ==================================================
+
+	dwhDB, err := db.InitDB(ctx, db.DBConfig{
+		Driver:          cfg.DbDriver,
+		DSN:             cfg.DwhDbSource(),
+		MaxOpenConns:    25,
+		MaxIdleConns:    10,
+		ConnMaxLifetime: 30 * time.Minute,
+		WaitTimeout:     30 * time.Second,
+	})
+	if err != nil {
+		appLogger.Fatal("Failed to initialize dwh DB: ", err)
+	}
+	defer dwhDB.Close()
+
+	// ==================================================
 	// Run Migrations
 	// ==================================================
 	if err := db.MigrateDB(primaryDB, "file://internal/db/migrations"); err != nil {
