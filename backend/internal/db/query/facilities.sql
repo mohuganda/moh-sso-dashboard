@@ -34,6 +34,12 @@ WHERE LOWER(name) = LOWER($1)
   AND district_id = $2
 LIMIT 1;
 
+-- name: GetFacilityByName :one
+SELECT *
+FROM facilities
+WHERE LOWER(name) = LOWER(sqlc.arg(name))
+LIMIT 1;
+
 -- name: ListFacilities :many
 SELECT
   f.*,

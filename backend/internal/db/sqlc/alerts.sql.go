@@ -40,7 +40,7 @@ type CreateAlertParams struct {
 	CreatedOn   sql.NullTime   `json:"created_on"`
 	Narrative   string         `json:"narrative"`
 	SubmittedBy sql.NullString `json:"submitted_by"`
-	Status      interface{}    `json:"status"`
+	Status      AlertStatus    `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 }
 
@@ -130,7 +130,7 @@ type ListAlertsRow struct {
 	CreatedOn    sql.NullTime   `json:"created_on"`
 	Narrative    string         `json:"narrative"`
 	SubmittedBy  sql.NullString `json:"submitted_by"`
-	Status       interface{}    `json:"status"`
+	Status       AlertStatus    `json:"status"`
 	SourceName   sql.NullString `json:"source_name"`
 	ImportedAt   time.Time      `json:"imported_at"`
 	CreatedAt    time.Time      `json:"created_at"`
@@ -206,7 +206,7 @@ type ListAlertsByDiseaseRow struct {
 	CreatedOn    sql.NullTime   `json:"created_on"`
 	Narrative    string         `json:"narrative"`
 	SubmittedBy  sql.NullString `json:"submitted_by"`
-	Status       interface{}    `json:"status"`
+	Status       AlertStatus    `json:"status"`
 	SourceName   sql.NullString `json:"source_name"`
 	ImportedAt   time.Time      `json:"imported_at"`
 	CreatedAt    time.Time      `json:"created_at"`
@@ -280,7 +280,7 @@ type ListAlertsByDistrictRow struct {
 	CreatedOn   sql.NullTime   `json:"created_on"`
 	Narrative   string         `json:"narrative"`
 	SubmittedBy sql.NullString `json:"submitted_by"`
-	Status      interface{}    `json:"status"`
+	Status      AlertStatus    `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -353,7 +353,7 @@ type ListAlertsByWeekRow struct {
 	CreatedOn    sql.NullTime   `json:"created_on"`
 	Narrative    string         `json:"narrative"`
 	SubmittedBy  sql.NullString `json:"submitted_by"`
-	Status       interface{}    `json:"status"`
+	Status       AlertStatus    `json:"status"`
 	SourceName   sql.NullString `json:"source_name"`
 	ImportedAt   time.Time      `json:"imported_at"`
 	CreatedAt    time.Time      `json:"created_at"`
@@ -413,7 +413,7 @@ RETURNING id, external_id, disease_id, district_id, epi_week_id, occurred_on, cr
 
 type UpdateAlertStatusParams struct {
 	ID     uuid.UUID   `json:"id"`
-	Status interface{} `json:"status"`
+	Status AlertStatus `json:"status"`
 }
 
 func (q *Queries) UpdateAlertStatus(ctx context.Context, arg UpdateAlertStatusParams) (Alert, error) {
@@ -478,7 +478,7 @@ type UpsertAlertByExternalIDParams struct {
 	CreatedOn   sql.NullTime   `json:"created_on"`
 	Narrative   string         `json:"narrative"`
 	SubmittedBy sql.NullString `json:"submitted_by"`
-	Status      interface{}    `json:"status"`
+	Status      AlertStatus    `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 }
 

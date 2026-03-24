@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"net/http"
 	"strconv"
 
@@ -20,6 +21,7 @@ type SurveillanceHandler struct {
 	districtWeeklyStatusService  *service.SurveillanceDistrictWeeklyStatusService
 	regionWeeklyStatusService    *service.SurveillanceRegionWeeklyStatusService
 	nationalWeeklyStatusService  *service.SurveillanceNationalWeeklyStatusService
+	importService                *service.SurveillanceImportService
 }
 
 func NewSurveillanceHandler(
@@ -30,6 +32,8 @@ func NewSurveillanceHandler(
 	districtWeeklyStatusService *service.SurveillanceDistrictWeeklyStatusService,
 	regionWeeklyStatusService *service.SurveillanceRegionWeeklyStatusService,
 	nationalWeeklyStatusService *service.SurveillanceNationalWeeklyStatusService,
+	importService *service.SurveillanceImportService,
+
 ) *SurveillanceHandler {
 	return &SurveillanceHandler{
 		epiWeekService:               epiWeekService,
@@ -39,6 +43,7 @@ func NewSurveillanceHandler(
 		districtWeeklyStatusService:  districtWeeklyStatusService,
 		regionWeeklyStatusService:    regionWeeklyStatusService,
 		nationalWeeklyStatusService:  nationalWeeklyStatusService,
+		importService:                importService,
 	}
 }
 
@@ -442,4 +447,154 @@ func (h *SurveillanceHandler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusOK, data)
+}
+
+// imports
+
+func (h *SurveillanceHandler) ListImportBatches(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	data, err := h.importService.ListImportBatches(ctx)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list import batches", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) GetImportBatchByID(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	batchIDParam := c.Param("batchID")
+	if batchIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "batchID is required", "nil")
+		return
+	}
+
+	batchID, err := uuid.Parse(batchIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid batchID", err.Error())
+		return
+	}
+
+	data, err := h.importService.GetImportBatchByID(ctx, batchID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to get import batch", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListImportRawRowsByBatch(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	batchIDParam := c.Param("batchID")
+	if batchIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "batchID is required", "nil")
+		return
+	}
+
+	batchID, err := uuid.Parse(batchIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid batchID", err.Error())
+		return
+	}
+
+	data, err := h.importService.ListImportRawRowsByBatch(ctx, batchID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list import raw rows", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) CreateImportBatch(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req db.CreateImportBatchParams
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid request body", err.Error())
+		return
+	}
+
+	data, err := h.importService.CreateImportBatch(ctx, req)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to create import batch", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusCreated, data)
+}
+
+func (h *SurveillanceHandler) UpdateImportBatchStatus(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	batchIDParam := c.Param("batchID")
+	if batchIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "batchID is required", "nil")
+		return
+	}
+
+	batchID, err := uuid.Parse(batchIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid batchID", err.Error())
+		return
+	}
+
+	var req struct {
+		Status string  `json:"status" binding:"required"`
+		Notes  *string `json:"notes"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid request body", err.Error())
+		return
+	}
+
+	data, err := h.importService.UpdateImportBatchStatus(ctx, db.UpdateImportBatchStatusParams{
+		ID:     batchID,
+		Status: req.Status,
+		Notes: sql.NullString{
+			String: *req.Notes,
+			Valid:  true,
+		},
+	})
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to update import batch status", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ImportSurveillanceCSV(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "file is required", err.Error())
+		return
+	}
+
+	sourceName := c.PostForm("source_name")
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "failed to open uploaded file", err.Error())
+		return
+	}
+	defer file.Close()
+
+	err = h.importService.ImportSurveillanceCSV(ctx, file, fileHeader.Filename, sourceName)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to import surveillance csv", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, gin.H{
+		"message": " Successfully imported",
+	})
 }

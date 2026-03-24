@@ -80,3 +80,42 @@ export interface Subcounty {
   name: string;
   district_id: string;
 }
+
+export type SurveillanceImportBatch = {
+  id: string;
+  source_name: string;
+  file_name?: string | null;
+  dataset_type: string;
+  imported_by?: string | null;
+  imported_at: string;
+  status: string;
+  notes?: string | null;
+};
+
+export type SurveillanceImportRawRow = {
+  id: string;
+  batch_id: string;
+  row_number: number;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
+
+export type UpdateImportBatchStatusPayload = {
+  batchID: string;
+  status: string;
+  notes?: string | null;
+};
+
+export type CreateImportBatchPayload = {
+  source_name: string;
+  file_name?: string | null;
+  dataset_type: string;
+  imported_by?: string | null;
+  status?: string;
+  notes?: string | null;
+};
+
+export type UploadSurveillanceCsvRequest = {
+  file: File;
+  storage_location?: string;
+};

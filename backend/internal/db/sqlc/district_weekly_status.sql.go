@@ -31,7 +31,7 @@ type CreateDistrictWeeklyDiseaseStatusParams struct {
 	DistrictID uuid.UUID      `json:"district_id"`
 	DiseaseID  uuid.UUID      `json:"disease_id"`
 	EpiWeekID  uuid.UUID      `json:"epi_week_id"`
-	Status     interface{}    `json:"status"`
+	Status     RiskLevel      `json:"status"`
 	SourceName sql.NullString `json:"source_name"`
 }
 
@@ -76,7 +76,7 @@ type CreateDistrictWeeklyIndicatorStatusParams struct {
 	DistrictID  uuid.UUID      `json:"district_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 }
 
@@ -155,7 +155,7 @@ type ListDistrictStatusesByDistrictAndWeekRow struct {
 	DiseaseID   uuid.UUID      `json:"disease_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -217,7 +217,7 @@ type ListDistrictWeeklyDiseaseStatusesByWeekRow struct {
 	DiseaseID    uuid.UUID      `json:"disease_id"`
 	IndicatorID  uuid.UUID      `json:"indicator_id"`
 	EpiWeekID    uuid.UUID      `json:"epi_week_id"`
-	Status       interface{}    `json:"status"`
+	Status       RiskLevel      `json:"status"`
 	SourceName   sql.NullString `json:"source_name"`
 	ImportedAt   time.Time      `json:"imported_at"`
 	CreatedAt    time.Time      `json:"created_at"`
@@ -279,7 +279,7 @@ type ListDistrictWeeklyIndicatorStatusesByWeekRow struct {
 	DiseaseID     uuid.UUID      `json:"disease_id"`
 	IndicatorID   uuid.UUID      `json:"indicator_id"`
 	EpiWeekID     uuid.UUID      `json:"epi_week_id"`
-	Status        interface{}    `json:"status"`
+	Status        RiskLevel      `json:"status"`
 	SourceName    sql.NullString `json:"source_name"`
 	ImportedAt    time.Time      `json:"imported_at"`
 	CreatedAt     time.Time      `json:"created_at"`
@@ -346,7 +346,7 @@ type UpsertDistrictWeeklyDiseaseStatusParams struct {
 	DistrictID uuid.UUID      `json:"district_id"`
 	DiseaseID  uuid.UUID      `json:"disease_id"`
 	EpiWeekID  uuid.UUID      `json:"epi_week_id"`
-	Status     interface{}    `json:"status"`
+	Status     RiskLevel      `json:"status"`
 	SourceName sql.NullString `json:"source_name"`
 }
 
@@ -397,7 +397,7 @@ type UpsertDistrictWeeklyIndicatorStatusParams struct {
 	DistrictID  uuid.UUID      `json:"district_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 }
 

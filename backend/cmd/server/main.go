@@ -198,6 +198,7 @@ func main() {
 	districtWeeklyStatusRepository := repository.NewRepositories(store).DistrictStatuses
 	regionWeeklyStatusRepository := repository.NewRepositories(store).RegionStatuses
 	nationalWeeklyStatusRepository := repository.NewRepositories(store).NationalStatuses
+	importRepository := repository.NewRepositories(store).Imports
 
 	// ==================================================
 	// Services
@@ -220,6 +221,7 @@ func main() {
 		documentRepository,
 		processRepository,
 		fileRepository,
+		importRepository,
 		fileStorage,
 		remoteDB,
 	)
@@ -232,6 +234,7 @@ func main() {
 	districtWeeklyStatusService := service.NewSurveillanceDistrictWeeklyStatusService(appLogger, districtWeeklyStatusRepository)
 	regionWeeklyStatusService := service.NewSurveillanceRegionWeeklyStatusService(appLogger, regionWeeklyStatusRepository)
 	nationalWeeklyStatusService := service.NewSurveillanceNationalWeeklyStatusService(appLogger, nationalWeeklyStatusRepository)
+	surveillanceImportService := service.NewSurveillanceImportService(importRepository)
 
 	// ==================================================
 	// Background Worker
@@ -275,6 +278,7 @@ func main() {
 		districtWeeklyStatusService,
 		regionWeeklyStatusService,
 		nationalWeeklyStatusService,
+		surveillanceImportService,
 	)
 
 	healthHandler := handler.NewHealthHandler(

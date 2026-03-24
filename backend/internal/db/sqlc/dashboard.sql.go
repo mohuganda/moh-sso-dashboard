@@ -187,8 +187,8 @@ ORDER BY
 `
 
 type GetNationalWeeklyStatusSummaryRow struct {
-	Status     interface{} `json:"status"`
-	TotalItems int64       `json:"total_items"`
+	Status     RiskLevel `json:"status"`
+	TotalItems int64     `json:"total_items"`
 }
 
 func (q *Queries) GetNationalWeeklyStatusSummary(ctx context.Context, epiWeekID uuid.UUID) ([]GetNationalWeeklyStatusSummaryRow, error) {
@@ -440,7 +440,7 @@ type ListDistrictWeeklySubjectsByWeekRow struct {
 	DistrictID   uuid.UUID      `json:"district_id"`
 	DistrictName string         `json:"district_name"`
 	EpiWeekID    uuid.UUID      `json:"epi_week_id"`
-	Status       interface{}    `json:"status"`
+	Status       RiskLevel      `json:"status"`
 	SourceName   sql.NullString `json:"source_name"`
 	SubjectID    uuid.UUID      `json:"subject_id"`
 	SubjectName  string         `json:"subject_name"`
@@ -519,7 +519,7 @@ ORDER BY status, subject_name
 type ListNationalWeeklySubjectsByWeekRow struct {
 	ID          uuid.UUID      `json:"id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -604,7 +604,7 @@ type ListRegionWeeklySubjectsByWeekRow struct {
 	RegionID    uuid.UUID      `json:"region_id"`
 	RegionName  string         `json:"region_name"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	SubjectID   uuid.UUID      `json:"subject_id"`
 	SubjectName string         `json:"subject_name"`

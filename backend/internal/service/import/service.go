@@ -10,32 +10,38 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
+	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+
 	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type Service struct {
-	documentRepo   documentRepo.DocumentRepository
-	processRepo    processRepo.ProcessRepository
-	fileRepository documentRepo.FileRepository
-	registry       *Registry
-	storage        storage.Storage
-	remoteDB       *sql.DB
-	logger         *logger.Logger
+	documentRepo     documentRepo.DocumentRepository
+	processRepo      processRepo.ProcessRepository
+	fileRepository   documentRepo.FileRepository
+	importRepository interfaces.ImportRepository
+	registry         *Registry
+	storage          storage.Storage
+	remoteDB         *sql.DB
+	logger           *logger.Logger
 }
 
-func NewService(documentRepo documentRepo.DocumentRepository, processRepo processRepo.ProcessRepository, fileRepository documentRepo.FileRepository, storage storage.Storage, remote *sql.DB) *Service {
+func NewService(documentRepo documentRepo.DocumentRepository, processRepo processRepo.ProcessRepository, fileRepository documentRepo.FileRepository, importRepository interfaces.ImportRepository, storage storage.Storage, remote *sql.DB) *Service {
 	reg := NewRegistry()
 
 	s := &Service{
-		documentRepo:   documentRepo,
-		processRepo:    processRepo,
-		fileRepository: fileRepository,
-		registry:       reg,
-		storage:        storage,
-		remoteDB:       remote,
+		documentRepo:     documentRepo,
+		processRepo:      processRepo,
+		fileRepository:   fileRepository,
+		importRepository: importRepository,
+		registry:         reg,
+		storage:          storage,
+		remoteDB:         remote,
 	}
 
 	// Register processors
+	reg.Register(model.ProcessTypeSurveillanceImport, NewSurveillanceCSVProcessor(documentRepo, processRepo, importRepository, storage))
+
 	reg.Register(model.ProcessTypeCSVImport, NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))
 
 	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, storage))

@@ -8,6 +8,11 @@ import type {
   NationalWeeklyStatus,
   District,
   Region,
+  CreateImportBatchPayload,
+  SurveillanceImportBatch,
+  SurveillanceImportRawRow,
+  UpdateImportBatchStatusPayload,
+  UploadSurveillanceCsvRequest,
 } from "../types/surveillance.types";
 import { baseApi } from "./baseApi";
 
@@ -282,6 +287,115 @@ export const surveillanceApi = baseApi.injectEndpoints({
               },
             ],
     }),
+
+    listImportBatches: builder.query<SurveillanceImportBatch[], void>({
+      query: () => ({
+        url: `/surveillance/imports`,
+      }),
+      transformResponse: (res: ApiEnvelope<SurveillanceImportBatch[]>) => res.data,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Surveillance" as const,
+                id: item.id,
+              })),
+              {
+                type: "Surveillance" as const,
+                id: "SURVEILLANCE_IMPORT_BATCHES",
+              },
+            ]
+          : [
+              {
+                type: "Surveillance" as const,
+                id: "SURVEILLANCE_IMPORT_BATCHES",
+              },
+            ],
+    }),
+
+    getImportBatchById: builder.query<SurveillanceImportBatch, string>({
+      query: (batchID) => ({
+        url: `/surveillance/imports/${batchID}`,
+      }),
+      transformResponse: (res: ApiEnvelope<SurveillanceImportBatch>) => res.data,
+      providesTags: (_result, _error, batchID) => [{ type: "Surveillance" as const, id: batchID }],
+    }),
+
+    listImportRawRowsByBatch: builder.query<SurveillanceImportRawRow[], string>({
+      query: (batchID) => ({
+        url: `/surveillance/imports/${batchID}/raw-rows`,
+      }),
+      transformResponse: (res: ApiEnvelope<SurveillanceImportRawRow[]>) => res.data,
+      providesTags: (result, _error, batchID) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Surveillance" as const,
+                id: item.id,
+              })),
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_IMPORT_RAW_ROWS_${batchID}`,
+              },
+            ]
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_IMPORT_RAW_ROWS_${batchID}`,
+              },
+            ],
+    }),
+
+    createImportBatch: builder.mutation<SurveillanceImportBatch, CreateImportBatchPayload>({
+      query: (body) => ({
+        url: `/surveillance/imports`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (res: ApiEnvelope<SurveillanceImportBatch>) => res.data,
+      invalidatesTags: [{ type: "Surveillance" as const, id: "SURVEILLANCE_IMPORT_BATCHES" }],
+    }),
+
+    updateImportBatchStatus: builder.mutation<
+      SurveillanceImportBatch,
+      UpdateImportBatchStatusPayload
+    >({
+      query: ({ batchID, ...body }) => ({
+        url: `/surveillance/imports/${batchID}/status`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (res: ApiEnvelope<SurveillanceImportBatch>) => res.data,
+      invalidatesTags: (_result, _error, { batchID }) => [
+        { type: "Surveillance" as const, id: batchID },
+        { type: "Surveillance" as const, id: "SURVEILLANCE_IMPORT_BATCHES" },
+      ],
+    }),
+
+    // upload
+    uploadSurveillanceCsv: builder.mutation<{ message?: string }, UploadSurveillanceCsvRequest>({
+      query: ({ file, storage_location }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (storage_location) {
+          formData.append("storage_location", storage_location);
+        }
+
+        return {
+          url: "/surveillance/import",
+          method: "POST",
+          body: formData,
+        };
+      },
+      transformResponse: (res: ApiEnvelope<{ message?: string }>) => res.data,
+      invalidatesTags: [
+        { type: "Surveillance", id: "SURVEILLANCE_EPI_WEEKS" },
+        { type: "Surveillance", id: "SURVEILLANCE_DISEASES" },
+        { type: "Surveillance", id: "SURVEILLANCE_INDICATORS" },
+        { type: "Surveillance", id: "SURVEILLANCE_REGIONS" },
+        { type: "Surveillance", id: "SURVEILLANCE_DISTRICTS" },
+      ],
+    }),
   }),
 });
 
@@ -299,4 +413,10 @@ export const {
   useListDistrictWeeklyStatusesQuery,
   useListRegionWeeklyStatusesByWeekQuery,
   useListNationalWeeklyStatusesByWeekQuery,
+  useListImportBatchesQuery,
+  useGetImportBatchByIdQuery,
+  useListImportRawRowsByBatchQuery,
+  useCreateImportBatchMutation,
+  useUpdateImportBatchStatusMutation,
+  useUploadSurveillanceCsvMutation,
 } = surveillanceApi;

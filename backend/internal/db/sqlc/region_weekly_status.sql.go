@@ -31,7 +31,7 @@ type CreateRegionWeeklyDiseaseStatusParams struct {
 	RegionID   uuid.UUID      `json:"region_id"`
 	DiseaseID  uuid.UUID      `json:"disease_id"`
 	EpiWeekID  uuid.UUID      `json:"epi_week_id"`
-	Status     interface{}    `json:"status"`
+	Status     RiskLevel      `json:"status"`
 	SourceName sql.NullString `json:"source_name"`
 }
 
@@ -76,7 +76,7 @@ type CreateRegionWeeklyIndicatorStatusParams struct {
 	RegionID    uuid.UUID      `json:"region_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 }
 
@@ -132,7 +132,7 @@ type ListRegionWeeklyDiseaseStatusesByWeekRow struct {
 	DiseaseID   uuid.UUID      `json:"disease_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -194,7 +194,7 @@ type ListRegionWeeklyIndicatorStatusesByWeekRow struct {
 	DiseaseID     uuid.UUID      `json:"disease_id"`
 	IndicatorID   uuid.UUID      `json:"indicator_id"`
 	EpiWeekID     uuid.UUID      `json:"epi_week_id"`
-	Status        interface{}    `json:"status"`
+	Status        RiskLevel      `json:"status"`
 	SourceName    sql.NullString `json:"source_name"`
 	ImportedAt    time.Time      `json:"imported_at"`
 	CreatedAt     time.Time      `json:"created_at"`
@@ -261,7 +261,7 @@ type UpsertRegionWeeklyDiseaseStatusParams struct {
 	RegionID   uuid.UUID      `json:"region_id"`
 	DiseaseID  uuid.UUID      `json:"disease_id"`
 	EpiWeekID  uuid.UUID      `json:"epi_week_id"`
-	Status     interface{}    `json:"status"`
+	Status     RiskLevel      `json:"status"`
 	SourceName sql.NullString `json:"source_name"`
 }
 
@@ -312,7 +312,7 @@ type UpsertRegionWeeklyIndicatorStatusParams struct {
 	RegionID    uuid.UUID      `json:"region_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 }
 

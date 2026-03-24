@@ -21,6 +21,7 @@ type Repositories struct {
 	Dashboard        interfaces.DashboardRepository
 	Alerts           interfaces.AlertRepository
 	Lookup           interfaces.LookupRepository
+	Imports          interfaces.ImportRepository
 }
 
 func NewRepositories(db db.Store) *Repositories {
@@ -39,5 +40,6 @@ func NewRepositories(db db.Store) *Repositories {
 		Dashboard:        postgres.NewDashboardRepository(db),
 		Alerts:           postgres.NewAlertRepository(db),
 		Lookup:           postgres.NewLookupRepository(db),
+		Imports:          postgres.NewImportRepository(db),
 	}
 }

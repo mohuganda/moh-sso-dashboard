@@ -142,6 +142,34 @@ func (q *Queries) GetFacilityByID(ctx context.Context, id uuid.UUID) (Facility, 
 	return i, err
 }
 
+const getFacilityByName = `-- name: GetFacilityByName :one
+SELECT id, external_id, name, district_id, sub_county_id, region_id, facility_level, facility_type, dhis2_org_unit_id, latitude, longitude, created_at, updated_at
+FROM facilities
+WHERE LOWER(name) = LOWER($1)
+LIMIT 1
+`
+
+func (q *Queries) GetFacilityByName(ctx context.Context, name string) (Facility, error) {
+	row := q.db.QueryRowContext(ctx, getFacilityByName, name)
+	var i Facility
+	err := row.Scan(
+		&i.ID,
+		&i.ExternalID,
+		&i.Name,
+		&i.DistrictID,
+		&i.SubCountyID,
+		&i.RegionID,
+		&i.FacilityLevel,
+		&i.FacilityType,
+		&i.Dhis2OrgUnitID,
+		&i.Latitude,
+		&i.Longitude,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getFacilityByNameAndDistrict = `-- name: GetFacilityByNameAndDistrict :one
 SELECT id, external_id, name, district_id, sub_county_id, region_id, facility_level, facility_type, dhis2_org_unit_id, latitude, longitude, created_at, updated_at
 FROM facilities

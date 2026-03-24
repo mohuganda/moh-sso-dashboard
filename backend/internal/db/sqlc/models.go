@@ -15,6 +15,51 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
+type AlertStatus string
+
+const (
+	AlertStatusNEW           AlertStatus = "NEW"
+	AlertStatusACKNOWLEDGE   AlertStatus = "ACKNOWLEDGE"
+	AlertStatusINVESTIGATING AlertStatus = "INVESTIGATING"
+	AlertStatusRESOLVED      AlertStatus = "RESOLVED"
+	AlertStatusCLOSED        AlertStatus = "CLOSED"
+)
+
+func (e *AlertStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AlertStatus(s)
+	case string:
+		*e = AlertStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AlertStatus: %T", src)
+	}
+	return nil
+}
+
+type NullAlertStatus struct {
+	AlertStatus AlertStatus `json:"alert_status"`
+	Valid       bool        `json:"valid"` // Valid is true if AlertStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAlertStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.AlertStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AlertStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAlertStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AlertStatus), nil
+}
+
 type ImportJobStatus string
 
 const (
@@ -59,6 +104,50 @@ func (ns NullImportJobStatus) Value() (driver.Value, error) {
 	return string(ns.ImportJobStatus), nil
 }
 
+type RiskLevel string
+
+const (
+	RiskLevelMAROON RiskLevel = "MAROON"
+	RiskLevelRED    RiskLevel = "RED"
+	RiskLevelYELLOW RiskLevel = "YELLOW"
+	RiskLevelGREEN  RiskLevel = "GREEN"
+)
+
+func (e *RiskLevel) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RiskLevel(s)
+	case string:
+		*e = RiskLevel(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RiskLevel: %T", src)
+	}
+	return nil
+}
+
+type NullRiskLevel struct {
+	RiskLevel RiskLevel `json:"risk_level"`
+	Valid     bool      `json:"valid"` // Valid is true if RiskLevel is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRiskLevel) Scan(value interface{}) error {
+	if value == nil {
+		ns.RiskLevel, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RiskLevel.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRiskLevel) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RiskLevel), nil
+}
+
 type Alert struct {
 	ID          uuid.UUID      `json:"id"`
 	ExternalID  sql.NullString `json:"external_id"`
@@ -69,7 +158,7 @@ type Alert struct {
 	CreatedOn   sql.NullTime   `json:"created_on"`
 	Narrative   string         `json:"narrative"`
 	SubmittedBy sql.NullString `json:"submitted_by"`
-	Status      interface{}    `json:"status"`
+	Status      AlertStatus    `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -181,7 +270,7 @@ type DistrictWeeklyStatus struct {
 	DiseaseID   uuid.UUID      `json:"disease_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -284,7 +373,7 @@ type NationalWeeklyStatus struct {
 	DiseaseID   uuid.UUID      `json:"disease_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -332,7 +421,7 @@ type RegionWeeklyStatus struct {
 	DiseaseID   uuid.UUID      `json:"disease_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`

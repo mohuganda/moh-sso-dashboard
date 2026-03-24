@@ -29,7 +29,7 @@ RETURNING id, disease_id, indicator_id, epi_week_id, status, source_name, import
 type CreateNationalWeeklyDiseaseStatusParams struct {
 	DiseaseID  uuid.UUID      `json:"disease_id"`
 	EpiWeekID  uuid.UUID      `json:"epi_week_id"`
-	Status     interface{}    `json:"status"`
+	Status     RiskLevel      `json:"status"`
 	SourceName sql.NullString `json:"source_name"`
 }
 
@@ -70,7 +70,7 @@ RETURNING id, disease_id, indicator_id, epi_week_id, status, source_name, import
 type CreateNationalWeeklyIndicatorStatusParams struct {
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 }
 
@@ -128,7 +128,7 @@ type ListNationalWeeklyDiseaseStatusesByWeekRow struct {
 	DiseaseID   uuid.UUID      `json:"disease_id"`
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 	ImportedAt  time.Time      `json:"imported_at"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -191,7 +191,7 @@ type ListNationalWeeklyIndicatorStatusesByWeekRow struct {
 	DiseaseID     uuid.UUID      `json:"disease_id"`
 	IndicatorID   uuid.UUID      `json:"indicator_id"`
 	EpiWeekID     uuid.UUID      `json:"epi_week_id"`
-	Status        interface{}    `json:"status"`
+	Status        RiskLevel      `json:"status"`
 	SourceName    sql.NullString `json:"source_name"`
 	ImportedAt    time.Time      `json:"imported_at"`
 	CreatedAt     time.Time      `json:"created_at"`
@@ -253,7 +253,7 @@ RETURNING id, disease_id, indicator_id, epi_week_id, status, source_name, import
 type UpsertNationalWeeklyDiseaseStatusParams struct {
 	DiseaseID  uuid.UUID      `json:"disease_id"`
 	EpiWeekID  uuid.UUID      `json:"epi_week_id"`
-	Status     interface{}    `json:"status"`
+	Status     RiskLevel      `json:"status"`
 	SourceName sql.NullString `json:"source_name"`
 }
 
@@ -300,7 +300,7 @@ RETURNING id, disease_id, indicator_id, epi_week_id, status, source_name, import
 type UpsertNationalWeeklyIndicatorStatusParams struct {
 	IndicatorID uuid.UUID      `json:"indicator_id"`
 	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      interface{}    `json:"status"`
+	Status      RiskLevel      `json:"status"`
 	SourceName  sql.NullString `json:"source_name"`
 }
 

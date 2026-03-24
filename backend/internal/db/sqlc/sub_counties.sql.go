@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -97,6 +98,36 @@ func (q *Queries) GetSubCountyByNameAndDistrict(ctx context.Context, arg GetSubC
 		&i.Name,
 		&i.DistrictID,
 		&i.Code,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSubcountyByName = `-- name: GetSubcountyByName :one
+SELECT id, name, code, district_id, created_at, updated_at
+FROM sub_counties
+WHERE LOWER(name) = LOWER($1)
+LIMIT 1
+`
+
+type GetSubcountyByNameRow struct {
+	ID         uuid.UUID      `json:"id"`
+	Name       string         `json:"name"`
+	Code       sql.NullString `json:"code"`
+	DistrictID uuid.UUID      `json:"district_id"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) GetSubcountyByName(ctx context.Context, name string) (GetSubcountyByNameRow, error) {
+	row := q.db.QueryRowContext(ctx, getSubcountyByName, name)
+	var i GetSubcountyByNameRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Code,
+		&i.DistrictID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
