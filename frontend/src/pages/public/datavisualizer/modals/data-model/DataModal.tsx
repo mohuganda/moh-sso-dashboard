@@ -1,7 +1,7 @@
 import { Modal, Select, SelectItem } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
-import API from "../../helpers/api";
+import {type Theme, type ThemeElement, useGetThemesQuery, useLazyGetThemeElementsQuery} from "./data-model.ts";
 
 type DataElement = {
   id: string;
@@ -13,24 +13,22 @@ type ElementsMap = Record<string, DataElement[]>;
 export default function DataModal({ onClose, selected, onSave }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDataset] = useState("");
-  const [datasets, setDatasets] = useState([]);
+  const [datasets, setDatasets] = useState<Theme[] | undefined>([]);
   const [datasetToElements] = useState({});
   const [selectedItems, setSelectedItems] = useState(selected);
-  const [availableDataSetElements, setAvailableDataSetElements] = useState([]);
+  const [availableDataSetElements, setAvailableDataSetElements] = useState<ThemeElement[]>([]);
+  const { data: themes, isLoading, error } = useGetThemesQuery();
+  const [ triggerGetTheme ] = useLazyGetThemeElementsQuery();
   // const toast = useToast();
 
-  const fetchData = async () => {
-    const { status, data } = await API.get("/visualizer/themes");
-    if (status === 200) {
-      setDatasets(data);
-    } else {
-      //toast.error("Error Encountered while fetching datasets");
-    }
-  };
-
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!isLoading) {
+      setDatasets(themes);
+    }
+    if (error) {
+      console.error("Error Encountered while fetching datasets:: " + error)
+    }
+  }, [error, isLoading, themes]);
 
   const filteredItems = useMemo(() => {
     // 1. Ensure a valid map object exists
@@ -110,13 +108,15 @@ export default function DataModal({ onClose, selected, onSave }) {
 
   const onChangeSelectedDataSet = async (event) => {
     const theme_id = event?.target?.value;
-    const { status, data } = await API.post("/visualizer/dataelements/theme", {
-      theme_id: theme_id,
-    });
-    if (status === 200) {
+    setAvailableDataSetElements([]);
+    if (!theme_id) return;
+
+    try {
+      const data = await triggerGetTheme(theme_id).unwrap();
       setAvailableDataSetElements(data);
-    } else {
-      // toast.error("Error Encountered while fetching data elements");
+    } catch (error) {
+      setAvailableDataSetElements([]);
+      console.error("Error Encountered while fetching data elements:: " + error);
     }
   };
 

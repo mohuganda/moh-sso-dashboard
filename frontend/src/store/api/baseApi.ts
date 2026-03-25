@@ -59,6 +59,7 @@ export const baseApi = createApi({
     "UserSession",
     "UserSessions",
     "Announcements",
+    "ThemeElement",
   ],
 
   endpoints: () => ({}),
