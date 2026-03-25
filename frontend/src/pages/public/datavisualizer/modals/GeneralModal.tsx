@@ -2,7 +2,7 @@ import { ContentSwitcher, Modal, Switch } from "@carbon/react";
 import { useState } from "react";
 
 import DataModal from "./data-model/DataModal.tsx";
-import OrgUnitModal from "./OrgUnitModal.tsx";
+import OrgUnitModal from "./orgunit/OrgUnitModal.tsx";
 import PeriodModal from "./PeriodModal.tsx";
 import "./general-modal.css";
 export default function GeneralModal({

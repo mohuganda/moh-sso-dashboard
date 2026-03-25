@@ -2,7 +2,7 @@ import React, { useState } from "react";
 
 import DataModal from "./modals/data-model/DataModal.tsx";
 import PeriodModal from "./modals/PeriodModal";
-import OrgUnitModal from "./modals/OrgUnitModal";
+import OrgUnitModal from "./modals/orgunit/OrgUnitModal.tsx";
 
 import "./data-visualizer.css";
 import { Button, OverflowMenu, OverflowMenuItem } from "@carbon/react";

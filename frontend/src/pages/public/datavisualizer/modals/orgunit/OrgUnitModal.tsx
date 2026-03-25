@@ -1,7 +1,6 @@
 import { Modal } from "@carbon/react";
 import { useEffect, useState } from "react";
-
-import API from "../../helpers/api";
+import { useGetHierarchyQuery } from "./org-unit.ts";
 
 function TreeNode({ node, level = 0, selectedUnits, onToggle, onExpand, expandedNodes }) {
   const childrenObj = node.children || {};
@@ -90,47 +89,32 @@ function TreeNode({ node, level = 0, selectedUnits, onToggle, onExpand, expanded
 export default function OrgUnitModal({ onClose, selected, onSave }) {
   const [selectedUnits, setSelectedUnits] = useState(new Set(selected));
   const [expandedNodes, setExpandedNodes] = useState(new Set());
-  const [orgUnits, setOrgUnits] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [orgUnits, setOrgUnits] = useState<any>({});
+  const { data: hierarchyData, isLoading, error} = useGetHierarchyQuery()
 
   useEffect(() => {
-    const fetchOrgUnits = async () => {
-      // if (!show) return;
+    if(!isLoading) {
+      console.log(hierarchyData);
 
-      setLoading(true);
-      setError("");
+      setOrgUnits(hierarchyData);
 
-      try {
-        const response = await API.get("/visualizer/hierarchy");
-        const hierarchyData = response?.data;
-        setOrgUnits(hierarchyData);
+      const expandIds = new Set();
+      const rootKeys = Object.keys(hierarchyData);
 
-        const expandIds = new Set();
-        const rootKeys = Object.keys(hierarchyData);
+      if (rootKeys.length > 0) {
+        const firstRootNode = hierarchyData[rootKeys[0]];
+        expandIds.add(firstRootNode.uid);
 
-        if (rootKeys.length > 0) {
-          const firstRootNode = hierarchyData[rootKeys[0]];
-          expandIds.add(firstRootNode.uid);
-
-          const firstChildKeys = Object.keys(firstRootNode.children || {});
-          if (firstChildKeys.length > 0) {
-            const firstChildNode = firstRootNode.children[firstChildKeys[0]];
-            expandIds.add(firstChildNode.uid);
-          }
+        const firstChildKeys = Object.keys(firstRootNode.children || {});
+        if (firstChildKeys.length > 0) {
+          const firstChildNode = firstRootNode.children[firstChildKeys[0]];
+          expandIds.add(firstChildNode.uid);
         }
-
-        setExpandedNodes(expandIds);
-      } catch (err) {
-        console.error("Error fetching org units:", err);
-        setError("Failed to load organizational units");
-      } finally {
-        setLoading(false);
       }
-    };
+      setExpandedNodes(expandIds);
+    }
+  }, [hierarchyData, isLoading]);
 
-    fetchOrgUnits();
-  }, []);
 
   useEffect(() => {
     setSelectedUnits(new Set(selected));
@@ -183,7 +167,7 @@ export default function OrgUnitModal({ onClose, selected, onSave }) {
         onRequestSubmit={save}
       >
         <div className="border" style={{ height: "400px", overflowY: "auto" }}>
-          {loading ? (
+          {isLoading ? (
             <div className="d-flex justify-content-center align-items-center h-100">
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading...</span>
@@ -193,7 +177,11 @@ export default function OrgUnitModal({ onClose, selected, onSave }) {
             <div className="d-flex justify-content-center align-items-center h-100">
               <div className="text-center text-danger">
                 <i className="fas fa-exclamation-triangle fa-2x mb-2"></i>
-                <div>{error}</div>
+                <div>
+                  {'status' in error
+                      ? `Error ${error.status}: ${JSON.stringify(error.data)}`
+                      : error.message}
+                </div>
               </div>
             </div>
           ) : Object.keys(orgUnits).length === 0 ? (
