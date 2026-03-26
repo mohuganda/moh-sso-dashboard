@@ -54,7 +54,7 @@ services:
       DB_NAME: ${DB_NAME:-sso_dashboard}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_EXTERNAL_URL:-http://localhost:8081}
+      KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_EXTERNAL_URL:-https://auth.health.go.ug}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
       LOGIN_URL: ${LOGIN_URL:-http://localhost:9000/api/v1/auth/login}
     depends_on:

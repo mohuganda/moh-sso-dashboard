@@ -4,9 +4,8 @@ import createPlotlyRenderers from "react-pivottable/PlotlyRenderers";
 import TableRenderers from "react-pivottable/TableRenderers";
 import Plot from "react-plotly.js";
 
-import API from "../../helpers/api";
-
 import "react-pivottable/pivottable.css";
+import {useLazyGetDataValuesQuery} from "./ChartOptions.ts";
 
 const ChartRenderer = ({
   queryParams,
@@ -21,48 +20,45 @@ const ChartRenderer = ({
   const [loading, setLoading] = useState(false);
   const [chartData, setChartData] = useState(loadedData);
   const [pivotTableData, setPivotTableData] = useState(pivotData);
+  const [ triggerGetDataValues ] = useLazyGetDataValuesQuery();
 
   useEffect(() => {
     if (!queryParams) return;
 
     const fetchChartData = async () => {
       setLoading(true);
-
+      setChartData([]);
       try {
-        const response = await API.post("/visualizer/datavalues", queryParams);
-        const { status, data } = response;
+        const data = await triggerGetDataValues(queryParams).unwrap();
+        const rows = data['rows'] || [];
 
-        if (status === 200) {
-          const rows = data.rows || [];
+        const mappedPivotData =
+          rows?.map((item) => ({
+            "Age-Sex Disaggregation": item.category_combo,
+            District: item.district,
+            "Data Element": item.dataelement,
+            "Facility Name": item.facility,
+            Period: periods.find((period) => period.id === item.period)?.label ?? "",
+            Region: item.region,
+            SubCounty: item.sub_county,
+          })) ?? [];
 
-          const mappedPivotData =
-            rows?.map((item) => ({
-              "Age-Sex Disaggregation": item.co,
-              District: item.district,
-              "Data Element": item.dxName,
-              "Facility Name": item.ouName,
-              Period: periods.find((period) => period.id === item.pe)?.label ?? "",
-              Region: item.region,
-              SubCounty: item.subCounty,
-            })) ?? [];
+        setChartData(rows);
+        onSaveLoadedData(rows);
 
-          setChartData(rows);
-          onSaveLoadedData(rows);
+        setPivotTableData(mappedPivotData);
+        onSavePivotData(mappedPivotData);
 
-          setPivotTableData(mappedPivotData);
-          onSavePivotData(mappedPivotData);
-        } else {
-          setChartData([]);
-        }
-      } catch {
+      } catch (error) {
         setChartData([]);
-      } finally {
+        console.error("Error Encountered while fetching data elements:: " + error);
+      }  finally {
         setLoading(false);
       }
     };
 
     fetchChartData();
-  }, [queryParams, onSaveLoadedData, onSavePivotData, periods]);
+  }, [queryParams, onSaveLoadedData, onSavePivotData, periods, triggerGetDataValues]);
 
   return (
     <>

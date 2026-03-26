@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/dto"
 )
@@ -114,6 +115,7 @@ func (h *VisualiserHandler) GetDataElements(c *gin.Context) {
 // GetDataValues gets data values with optional filters
 func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	type Request struct {
 		OU           []string `json:"ou"`
 		PE           []string `json:"pe"`
@@ -135,24 +137,25 @@ func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 
 	if len(req.OU) > 0 {
 		paramCounter++
-		values = append(values, req.OU)
+		values = append(values, pq.Array(req.OU))
 		conditions = append(conditions, fmt.Sprintf("org_unit_id = ANY($%d)", paramCounter))
 	}
 
 	if len(req.DX) > 0 {
 		paramCounter++
-		values = append(values, req.DX)
+		values = append(values, pq.Array(req.DX))
 		conditions = append(conditions, fmt.Sprintf("data_element_id = ANY($%d)", paramCounter))
 	}
 
 	if len(req.PE) > 0 {
 		paramCounter++
-		values = append(values, req.PE)
+		values = append(values, pq.Array(req.PE))
 		conditions = append(conditions, fmt.Sprintf(`"period" = ANY($%d)`, paramCounter))
 	} else if req.StartDate != "" && req.EndDate != "" {
 		paramCounter++
 		values = append(values, req.StartDate)
 		conditions = append(conditions, fmt.Sprintf("tperiod >= $%d", paramCounter))
+
 		paramCounter++
 		values = append(values, req.EndDate)
 		conditions = append(conditions, fmt.Sprintf("tperiod <= $%d", paramCounter))
@@ -170,46 +173,65 @@ func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 	}
 
 	query := `
-		SELECT 
-			org_unit_id,
-			data_element_id,
-			"period",
-			category_combo,
-			value,
-			facility,
-			"level",
-			region,
-			district,
-			sub_county,
-			dataelement
-		FROM report.hmis_summary
-		` + whereClause + `
-		ORDER BY 
-			"period",
-			org_unit_id,
-			data_element_id,
-			category_combo
-	`
+       SELECT 
+          org_unit_id,
+          data_element_id,
+          "period",
+          category_combo,
+          value,
+          facility,
+          "level",
+          region,
+          district,
+          sub_county,
+          dataelement
+       FROM report.hmis_summary
+       ` + whereClause + `
+       ORDER BY 
+          "period",
+          org_unit_id,
+          data_element_id,
+          category_combo
+    `
 
 	rows, err := h.db.QueryContext(ctx, query, values...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database query failed: " + err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	var rowsList []dto.DataValueRow
+	rowsList := make([]dto.DataValueRow, 0)
 	for rows.Next() {
 		var row dto.DataValueRow
-		err := rows.Scan(&row.OrgUnitID, &row.DataElementID, &row.Period, &row.CategoryCombo, &row.Value, &row.Facility, &row.Level, &row.Region, &row.District, &row.SubCounty, &row.Dataelement)
+		err := rows.Scan(
+			&row.OrgUnitID,
+			&row.DataElementID,
+			&row.Period,
+			&row.CategoryCombo,
+			&row.Value,
+			&row.Facility,
+			&row.Level,
+			&row.Region,
+			&row.District,
+			&row.SubCounty,
+			&row.Dataelement,
+		)
 		if err != nil {
-			continue
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Row scan failed: " + err.Error()})
+			return
 		}
 		rowsList = append(rowsList, row)
 	}
 
+	if err = rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Row iteration error: " + err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"rows": rowsList})
 }
+
 
 // GetThemes gets all themes
 func (h *VisualiserHandler) GetThemes(c *gin.Context) {

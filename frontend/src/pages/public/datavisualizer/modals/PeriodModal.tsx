@@ -33,8 +33,8 @@ export default function PeriodModal({ onClose, selected, onSave }) {
     setSelectedPeriods([]);
   };
 
-  const onChangeYear = (numberOption) => {
-    const paramYear = numberOption?.value;
+  const onChangeYear = (_event,{ value }) => {
+    const paramYear = value;
     setSelectedYear(paramYear);
     const newPeriods = getAvailablePeriods(selectedPeriodType, paramYear);
     setAvailablePeriods(newPeriods);
