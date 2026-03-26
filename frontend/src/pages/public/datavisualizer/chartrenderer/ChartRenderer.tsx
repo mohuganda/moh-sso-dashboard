@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import PivotTableUI from "react-pivottable/PivotTableUI";
 import createPlotlyRenderers from "react-pivottable/PlotlyRenderers";
 import TableRenderers from "react-pivottable/TableRenderers";
+import { aggregatorTemplates } from 'react-pivottable/Utilities';
 import Plot from "react-plotly.js";
 
 import "react-pivottable/pivottable.css";
@@ -16,12 +17,17 @@ const ChartRenderer = ({
   periods,
 }) => {
   const utils = createPlotlyRenderers(Plot);
-
+  const intFormat = (val) => Math.round(val).toLocaleString();
   const [loading, setLoading] = useState(false);
   const [chartData, setChartData] = useState(loadedData);
   const [pivotTableData, setPivotTableData] = useState(pivotData);
   const [ triggerGetDataValues ] = useLazyGetDataValuesQuery();
 
+  const customAggregators = {
+    "Sum": aggregatorTemplates.sum(intFormat),
+    "Average": aggregatorTemplates.average(intFormat),
+    "Count": aggregatorTemplates.count(intFormat)
+  };
   useEffect(() => {
     if (!queryParams) return;
 
@@ -41,6 +47,7 @@ const ChartRenderer = ({
             Period: periods.find((period) => period.id === item.period)?.label ?? "",
             Region: item.region,
             SubCounty: item.sub_county,
+            Value: item?.value
           })) ?? [];
 
         setChartData(rows);
@@ -79,6 +86,20 @@ const ChartRenderer = ({
               <PivotTableUI
                 data={pivotTableData}
                 cols={["Data Element"]}
+                rows={["Facility Name"]}
+                aggregators={customAggregators}
+                aggregatorName="Sum"
+                vals={["Value"]}
+                hiddenFromDragDrop={["Value"]}
+                hiddenFromAggregators={[
+                    "Data Element",
+                    "Facility Name",
+                    "Age-Sex Disaggregation",
+                    "District",
+                    "Period",
+                    "Region",
+                    "SubCounty"
+                ]}
                 onChange={(s) => {
                   setPivotTableData(s);
                 }}
