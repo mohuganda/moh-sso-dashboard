@@ -27,15 +27,6 @@ services:
       - ./keycloak/themes:/opt/keycloak/themes
     ports:
       - "8081:8080"
-    depends_on:
-      keycloak-db:
-        condition: service_healthy
-    healthcheck:
-      test:
-        ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
     networks:
       - sso_network
 
@@ -51,11 +42,6 @@ services:
       POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
     volumes:
       - keycloak_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - sso_network
 
@@ -83,11 +69,6 @@ services:
       - backend_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - sso_network
 
@@ -117,13 +98,6 @@ services:
       KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_EXTERNAL_URL:-http://localhost:8081}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
       LOGIN_URL: ${LOGIN_URL:-http://localhost:9000/api/v1/auth/login}
-    depends_on:
-      keycloak:
-        condition: service_healthy
-      backend-db:
-        condition: service_healthy
-      redis:
-        condition: service_started
     ports:
       - "9000:9000"
     volumes:
@@ -148,11 +122,6 @@ services:
       VITE_KEYCLOAK_REDIRECT_URI: ${VITE_KEYCLOAK_REDIRECT_URI:-http://localhost:9000/api/v1/auth/callback}
     ports:
       - "3000:3000"
-    depends_on:
-      backend:
-        condition: service_started
-      keycloak:
-        condition: service_healthy
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -174,11 +143,6 @@ services:
       - "5433:5432"
     volumes:
       - remote_pg_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jaba -d file_upload"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - sso_network
 
