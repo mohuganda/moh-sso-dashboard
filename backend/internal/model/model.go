@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"mime/multipart"
 	"time"
 
 	"github.com/google/uuid"
@@ -252,11 +253,116 @@ const (
 type ProcessType string
 
 const (
-	ProcessTypeCSVImport      ProcessType = "CSV_IMPORT"
-	ProcessTypeExcelImport    ProcessType = "EXCEL_IMPORT"
-	ProcessTypeFHIRImport     ProcessType = "FHIR_IMPORT"
-	ProcessTypeUserBulkImport ProcessType = "USER_BULK_IMPORT"
+	ProcessTypeSurveillanceCSVImport    ProcessType = "SURVEILLANCE_CSV_IMPORT"
+	ProcessTypeCSVImport                ProcessType = "CSV_IMPORT"
+	ProcessTypeExcelImport              ProcessType = "EXCEL_IMPORT"
+	ProcessTypeFHIRImport               ProcessType = "FHIR_IMPORT"
+	ProcessTypeUserBulkImport           ProcessType = "USER_BULK_IMPORT"
+	ProcessTypeSurveillanceExcelImport  ProcessType = "SURVEILLANCE_EXCEL_IMPORT"
+	ProcessTypeFacilityImport           ProcessType = "FACILITY_IMPORT"
+	ProcessTypeLabResultImport          ProcessType = "LAB_RESULT_IMPORT"
+	ProcessTypeInventoryImport          ProcessType = "INVENTORY_IMPORT"
+	ProcessTypeHistoricalBackfillImport ProcessType = "HISTORICAL_BACKFILL_IMPORT"
+	ProcessTypeDryRunImport             ProcessType = "DRY_RUN_IMPORT"
+	ProcessTypeETLImport                ProcessType = "ETL_IMPORT"
+	ProcessTypeArchiveImport            ProcessType = "ARCHIVE_IMPORT"
+	ProcessTypeImageProcessing          ProcessType = "IMAGE_PROCESSING"
+	ProcessTypeDocumentExtraction       ProcessType = "DOCUMENT_EXTRACTION"
+	ProcessTypeNoOpUpload               ProcessType = "NO_OP_UPLOAD"
 )
+
+var validProcessTypes = map[ProcessType]struct{}{
+	ProcessTypeSurveillanceCSVImport:    {},
+	ProcessTypeCSVImport:                {},
+	ProcessTypeExcelImport:              {},
+	ProcessTypeFHIRImport:               {},
+	ProcessTypeUserBulkImport:           {},
+	ProcessTypeSurveillanceExcelImport:  {},
+	ProcessTypeFacilityImport:           {},
+	ProcessTypeLabResultImport:          {},
+	ProcessTypeInventoryImport:          {},
+	ProcessTypeHistoricalBackfillImport: {},
+	ProcessTypeDryRunImport:             {},
+	ProcessTypeETLImport:                {},
+	ProcessTypeArchiveImport:            {},
+	ProcessTypeImageProcessing:          {},
+	ProcessTypeDocumentExtraction:       {},
+	ProcessTypeNoOpUpload:               {},
+}
+
+func (p ProcessType) IsValid() bool {
+	_, ok := validProcessTypes[p]
+	return ok
+}
+
+func (p ProcessType) String() string {
+	return string(p)
+}
+
+func AllProcessTypes() []ProcessType {
+	return []ProcessType{
+		ProcessTypeSurveillanceCSVImport,
+		ProcessTypeCSVImport,
+		ProcessTypeExcelImport,
+		ProcessTypeFHIRImport,
+		ProcessTypeUserBulkImport,
+		ProcessTypeSurveillanceExcelImport,
+		ProcessTypeFacilityImport,
+		ProcessTypeLabResultImport,
+		ProcessTypeInventoryImport,
+		ProcessTypeHistoricalBackfillImport,
+		ProcessTypeDryRunImport,
+		ProcessTypeETLImport,
+		ProcessTypeArchiveImport,
+		ProcessTypeImageProcessing,
+		ProcessTypeDocumentExtraction,
+		ProcessTypeNoOpUpload,
+	}
+}
+
+func ParseProcessType(value string) (ProcessType, bool) {
+	p := ProcessType(value)
+	return p, p.IsValid()
+}
+
+func (p ProcessType) Label() string {
+	switch p {
+	case ProcessTypeSurveillanceCSVImport:
+		return "Surveillance CSV Import"
+	case ProcessTypeCSVImport:
+		return "CSV Import"
+	case ProcessTypeExcelImport:
+		return "Excel Import"
+	case ProcessTypeFHIRImport:
+		return "FHIR Import"
+	case ProcessTypeUserBulkImport:
+		return "User Bulk Import"
+	case ProcessTypeSurveillanceExcelImport:
+		return "Surveillance Excel Import"
+	case ProcessTypeFacilityImport:
+		return "Facility Import"
+	case ProcessTypeLabResultImport:
+		return "Lab Result Import"
+	case ProcessTypeInventoryImport:
+		return "Inventory Import"
+	case ProcessTypeHistoricalBackfillImport:
+		return "Historical Backfill Import"
+	case ProcessTypeDryRunImport:
+		return "Dry Run Import"
+	case ProcessTypeETLImport:
+		return "ETL Import"
+	case ProcessTypeArchiveImport:
+		return "Archive Import"
+	case ProcessTypeImageProcessing:
+		return "Image Processing"
+	case ProcessTypeDocumentExtraction:
+		return "Document Extraction"
+	case ProcessTypeNoOpUpload:
+		return "No-op Upload"
+	default:
+		return "Unknown"
+	}
+}
 
 type NotificationCategory string
 
@@ -326,6 +432,34 @@ const (
 	AlertStatusResolved      AlertStatus = "RESOLVED"
 	AlertStatusClosed        AlertStatus = "CLOSED"
 )
+
+type ImportFileType string
+
+const (
+	FileTypeFacilityWeeklyMetrics ImportFileType = "facility_weekly_metrics"
+	FileTypeDistrictWeeklyStatus  ImportFileType = "district_weekly_status"
+	FileTypeRegionWeeklyStatus    ImportFileType = "region_weekly_status"
+	FileTypeDiseases              ImportFileType = "diseases"
+	FileTypeIndicators            ImportFileType = "indicators"
+)
+
+func (t ImportFileType) IsValid() bool {
+	switch t {
+	case FileTypeFacilityWeeklyMetrics,
+		FileTypeDistrictWeeklyStatus,
+		FileTypeRegionWeeklyStatus,
+		FileTypeDiseases,
+		FileTypeIndicators:
+		return true
+	default:
+		return false
+	}
+}
+
+type ImportSurveillanceFileInput struct {
+	File                 *multipart.FileHeader
+	SurveillanceFileType string
+}
 
 func (t NotificationType) Severity() string {
 	switch t {

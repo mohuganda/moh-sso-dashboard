@@ -1,4 +1,8 @@
-import type { DocumentProcess, DocumentResponse } from "../types/documents.types";
+import type {
+  DocumentProcess,
+  DocumentProcessType,
+  DocumentResponse,
+} from "../types/documents.types";
 import type { StorageLocation } from "../types/storage.types";
 import { baseApi } from "./baseApi";
 
@@ -57,11 +61,15 @@ export const documentsApi = baseApi.injectEndpoints({
     // -----------------------------
     // CREATE DOCUMENT (UPLOAD)
     // -----------------------------
-    createDocument: builder.mutation<DocumentResponse, { file: File; storageLocation: string }>({
-      query: ({ file, storageLocation }) => {
+    createDocument: builder.mutation<
+      DocumentResponse,
+      { file: File; storageLocation: string; processType: DocumentProcessType }
+    >({
+      query: ({ file, storageLocation, processType }) => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("storage_location", storageLocation);
+        formData.append("process_type", processType);
 
         return {
           url: `/documents`,

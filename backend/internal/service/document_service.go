@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ type CreateDocumentInput struct {
 	StorageLocation  uuid.UUID
 	ObjectKey        string
 	UploadedBy       uuid.UUID
+	ProcessType      models.ProcessType
 }
 
 type EditDocumentInput struct {
@@ -44,7 +46,7 @@ func NewDocumentService(
 ) *DocumentService {
 	return &DocumentService{
 		repo:          repo,
-		processRepo:   processRepo, // 🔥 THIS WAS MISSING
+		processRepo:   processRepo,
 		notifications: notifications,
 		storage:       storage,
 	}
@@ -54,9 +56,12 @@ func (s *DocumentService) CreateDocument(
 	ctx context.Context,
 	input CreateDocumentInput,
 ) (db.Document, error) {
-
 	docID := uuid.New()
 	processID := uuid.New()
+
+	if !input.ProcessType.IsValid() {
+		return db.Document{}, errors.New("invalid process type")
+	}
 
 	var checksum sql.NullString
 	if input.ChecksumSHA256 != nil {
@@ -73,7 +78,7 @@ func (s *DocumentService) CreateDocument(
 			OriginalFilename: input.OriginalFilename,
 			ContentType: sql.NullString{
 				String: input.ContentType,
-				Valid:  true,
+				Valid:  input.ContentType != "",
 			},
 			SizeBytes:         input.SizeBytes,
 			ChecksumSha256:    checksum,
@@ -84,16 +89,14 @@ func (s *DocumentService) CreateDocument(
 		db.CreateProcessParams{
 			ID:          processID,
 			DocumentID:  docID,
-			ProcessType: string(models.ProcessTypeCSVImport),
+			ProcessType: string(input.ProcessType),
 			CreatedBy:   input.UploadedBy,
 		},
 	)
-
 	if err != nil {
 		return db.Document{}, err
 	}
 
-	// notify AFTER success
 	if s.notifications != nil {
 		nt := models.DocumentCreated
 		s.notifications.Notify(ctx, models.Notification{

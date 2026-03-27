@@ -15,6 +15,10 @@ import {
   useCreateDocumentMutation,
   useListStorageLocationsQuery,
 } from "../../../../store/api/document.api";
+import {
+  DOCUMENT_PROCESS_TYPE_OPTIONS,
+  type DocumentProcessType,
+} from "../../../../store/types/documents.types";
 
 type UploadDocumentModalProps = {
   onClose: () => void;
@@ -41,9 +45,45 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+function getSuggestedProcessType(file: File): DocumentProcessType | "" {
+  const fileName = file.name.toLowerCase();
+
+  if (fileName.endsWith(".xlsx")) {
+    return "EXCEL_IMPORT";
+  }
+
+  if (fileName.endsWith(".csv")) {
+    return "CSV_IMPORT";
+  }
+
+  return "";
+}
+
+function validateProcessTypeAgainstFile(
+  file: File,
+  processType: DocumentProcessType,
+): string | null {
+  const fileName = file.name.toLowerCase();
+
+  if (processType === "SURVEILLANCE_CSV_IMPORT" && !fileName.endsWith(".csv")) {
+    return "Surveillance CSV import requires a .csv file.";
+  }
+
+  if (processType === "SURVEILLANCE_EXCEL_IMPORT" && !fileName.endsWith(".xlsx")) {
+    return "Surveillance Excel import requires an .xlsx file.";
+  }
+
+  if (processType === "EXCEL_IMPORT" && !fileName.endsWith(".xlsx")) {
+    return "Excel import requires an .xlsx file.";
+  }
+
+  return null;
+}
+
 export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClose }) => {
   const [file, setFile] = useState<File | null>(null);
   const [storageLocation, setStorageLocation] = useState("");
+  const [processType, setProcessType] = useState<DocumentProcessType | "">("");
   const [error, setError] = useState<string | null>(null);
 
   const [createDocument, { isLoading: isUploading }] = useCreateDocumentMutation();
@@ -66,12 +106,18 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
 
     if (!isValidDocument(selectedFile)) {
       setFile(null);
+      setProcessType("");
       setError("Only CSV or Excel (.xlsx) files are allowed.");
       return;
     }
 
     setError(null);
     setFile(selectedFile);
+    setProcessType((current) => current || getSuggestedProcessType(selectedFile));
+  };
+
+  const handleProcessTypeChange = (value: string) => {
+    setProcessType(value as DocumentProcessType | "");
   };
 
   const handleUpload = async () => {
@@ -85,12 +131,24 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       return;
     }
 
+    if (!processType) {
+      setError("Please select a process type.");
+      return;
+    }
+
+    const validationError = validateProcessTypeAgainstFile(file, processType);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     try {
       setError(null);
 
       await createDocument({
         file,
         storageLocation,
+        processType,
       }).unwrap();
 
       onClose();
@@ -100,14 +158,19 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
   };
 
   const isSubmitDisabled =
-    isUploading || isLocationsLoading || !file || !storageLocation || !hasStorageLocations;
+    isUploading ||
+    isLocationsLoading ||
+    !file ||
+    !storageLocation ||
+    !processType ||
+    !hasStorageLocations;
 
   return (
     <div style={{ maxWidth: 720 }}>
       <div style={{ marginBottom: "1.5rem" }}>
         <h2 style={{ margin: 0, marginBottom: "0.5rem" }}>Upload Document</h2>
         <p style={{ margin: 0, color: "#6f6f6f" }}>
-          Upload a CSV or Excel file and choose where it should be stored for processing.
+          Upload a CSV or Excel file, choose a process type, and select where it should be stored.
         </p>
       </div>
 
@@ -158,6 +221,19 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
           )}
 
           <Select
+            id="process-type"
+            labelText="Process type"
+            value={processType}
+            onChange={(e) => handleProcessTypeChange(e.target.value)}
+            disabled={isUploading}
+          >
+            <SelectItem value="" text="Select process type" />
+            {DOCUMENT_PROCESS_TYPE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value} text={option.label} />
+            ))}
+          </Select>
+
+          <Select
             id="storage-location"
             labelText="Storage location"
             value={storageLocation}
@@ -174,7 +250,6 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
                     : "No active locations available"
               }
             />
-
             {activeLocations.map((location) => (
               <SelectItem
                 key={location.id}

@@ -40,7 +40,7 @@ func NewService(documentRepo documentRepo.DocumentRepository, processRepo proces
 	}
 
 	// Register processors
-	reg.Register(model.ProcessTypeSurveillanceImport, NewSurveillanceCSVProcessor(documentRepo, processRepo, importRepository, storage))
+	reg.Register(model.ProcessTypeSurveillanceCSVImport, NewSurveillanceCSVProcessor(documentRepo, processRepo, importRepository, storage))
 
 	reg.Register(model.ProcessTypeCSVImport, NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))
 

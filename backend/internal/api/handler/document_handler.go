@@ -125,7 +125,14 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		return
 	}
 
-	if err := c.Request.ParseMultipartForm(32 << 20); err != nil { // 32MB
+	processTypeValue := c.PostForm("process_type")
+	processType, ok := model.ParseProcessType(processTypeValue)
+	if !ok {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PROCESS_TYPE", "invalid process type")
+		return
+	}
+
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_MULTIPART", "invalid multipart form")
 		return
 	}
@@ -154,7 +161,6 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		return
 	}
 
-	// 5️⃣ Upload while computing checksum (streaming)
 	objectKey := uuid.New().String()
 
 	hasher := sha256.New()
@@ -186,13 +192,12 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		StorageLocation:  storageLocationID,
 		ObjectKey:        objectKey,
 		UploadedBy:       userID,
+		ProcessType:      processType,
 	}
 
 	doc, err := h.documentService.CreateDocument(ctx, input)
 	if err != nil {
-		// 🔥 Rollback uploaded file if DB fails (same provider!)
 		_ = storageProvider.Delete(ctx, objectKey)
-
 		response.Fail(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error())
 		return
 	}

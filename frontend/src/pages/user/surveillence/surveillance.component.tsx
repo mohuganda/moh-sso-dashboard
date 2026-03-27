@@ -1,6 +1,7 @@
-import { Breadcrumb, BreadcrumbItem, InlineLoading } from "@carbon/react";
+import { Breadcrumb, BreadcrumbItem, Button, InlineLoading } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Upload } from "@carbon/react/icons";
 
 import SurveillanceFilters from "./surveillance-filters.component";
 import SurveillanceTiles from "./surveillance-tiles.component";
@@ -17,6 +18,8 @@ import {
   useListDistrictsByRegionQuery,
   useListSubcountiesByDistrictQuery,
 } from "../../../store/api/surveillance.api";
+import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
+import { UploadCSVModal } from "./surveillance-csv-upload.component";
 
 type FilterOption = {
   value: string;
@@ -29,6 +32,7 @@ function slugifyDiseaseName(name: string) {
 
 export default function SurveillanceDashboardPage() {
   const navigate = useNavigate();
+  const { openPanel, closePanel } = useHeaderPanel();
 
   const [selectedWeekId, setSelectedWeekId] = useState("");
   const [selectedRegionId, setSelectedRegionId] = useState("");
@@ -37,6 +41,7 @@ export default function SurveillanceDashboardPage() {
   const [selectedYear] = useState(2025);
 
   const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(selectedYear);
+
   const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
 
   const { data: regionsResponse, isLoading: regionsReferenceLoading } = useListRegionsQuery();
@@ -130,11 +135,13 @@ export default function SurveillanceDashboardPage() {
 
   const currentEpiWeekLabel = useMemo(() => {
     if (!selectedWeek) return "--";
-    return String(selectedWeek.epi_week ?? "--");
+    return selectedWeek.epi_year && selectedWeek.epi_week
+      ? `${selectedWeek.epi_year} / Week ${selectedWeek.epi_week}`
+      : `Week ${selectedWeek.epi_week ?? "--"}`;
   }, [selectedWeek]);
 
-  const epiWeekOptions: FilterOption[] = useMemo(() => {
-    return [
+  const epiWeekOptions: FilterOption[] = useMemo(
+    () => [
       { value: "", label: "Select..." },
       ...weeks.map((week) => ({
         value: week.id,
@@ -143,62 +150,61 @@ export default function SurveillanceDashboardPage() {
             ? `${week.epi_year} - Week ${week.epi_week}`
             : `Week ${week.epi_week ?? ""}`,
       })),
-    ];
-  }, [weeks]);
+    ],
+    [weeks],
+  );
 
-  const regionOptions: FilterOption[] = useMemo(() => {
-    return [
+  const regionOptions: FilterOption[] = useMemo(
+    () => [
       { value: "", label: "Select..." },
       ...regions.map((item) => ({
         value: item.id,
         label: item.name,
       })),
-    ];
-  }, [regions]);
+    ],
+    [regions],
+  );
 
-  const districtOptions: FilterOption[] = useMemo(() => {
-    return [
+  const districtOptions: FilterOption[] = useMemo(
+    () => [
       { value: "", label: "Select..." },
       ...districts.map((item) => ({
         value: item.id,
         label: item.name,
       })),
-    ];
-  }, [districts]);
+    ],
+    [districts],
+  );
 
-  const subCountyOptions: FilterOption[] = useMemo(() => {
-    return [
+  const subCountyOptions: FilterOption[] = useMemo(
+    () => [
       { value: "", label: "Select..." },
       ...subcounties.map((item) => ({
         value: item.id,
         label: item.name,
       })),
-    ];
-  }, [subcounties]);
+    ],
+    [subcounties],
+  );
 
   const filteredRegionStatuses = useMemo(() => {
     if (!selectedRegion?.name) return regionStatuses;
 
-    return regionStatuses.filter(
-      (item) => item.region_name?.trim().toLowerCase() === selectedRegion.name.trim().toLowerCase(),
-    );
+    const regionName = selectedRegion.name.trim().toLowerCase();
+    return regionStatuses.filter((item) => item.region_name?.trim().toLowerCase() === regionName);
   }, [regionStatuses, selectedRegion]);
 
   const filteredDistrictStatuses = useMemo(() => {
     let result = districtStatuses;
 
     if (selectedRegion?.name) {
-      result = result.filter(
-        (item) =>
-          item.region_name?.trim().toLowerCase() === selectedRegion.name.trim().toLowerCase(),
-      );
+      const regionName = selectedRegion.name.trim().toLowerCase();
+      result = result.filter((item) => item.region_name?.trim().toLowerCase() === regionName);
     }
 
     if (selectedDistrict?.name) {
-      result = result.filter(
-        (item) =>
-          item.district_name?.trim().toLowerCase() === selectedDistrict.name.trim().toLowerCase(),
-      );
+      const districtName = selectedDistrict.name.trim().toLowerCase();
+      result = result.filter((item) => item.district_name?.trim().toLowerCase() === districtName);
     }
 
     return result;
@@ -208,24 +214,18 @@ export default function SurveillanceDashboardPage() {
     let result = facilityMetrics;
 
     if (selectedRegion?.name) {
-      result = result.filter(
-        (item) =>
-          item.region_name?.trim().toLowerCase() === selectedRegion.name.trim().toLowerCase(),
-      );
+      const regionName = selectedRegion.name.trim().toLowerCase();
+      result = result.filter((item) => item.region_name?.trim().toLowerCase() === regionName);
     }
 
     if (selectedDistrict?.name) {
-      result = result.filter(
-        (item) =>
-          item.district_name?.trim().toLowerCase() === selectedDistrict.name.trim().toLowerCase(),
-      );
+      const districtName = selectedDistrict.name.trim().toLowerCase();
+      result = result.filter((item) => item.district_name?.trim().toLowerCase() === districtName);
     }
 
     if (selectedSubCounty?.name) {
-      result = result.filter(
-        (item) =>
-          item.subcounty_name?.trim().toLowerCase() === selectedSubCounty.name.trim().toLowerCase(),
-      );
+      const subCountyName = selectedSubCounty.name.trim().toLowerCase();
+      result = result.filter((item) => item.subcounty_name?.trim().toLowerCase() === subCountyName);
     }
 
     return result;
@@ -235,19 +235,23 @@ export default function SurveillanceDashboardPage() {
     navigate(`/portal/surveillance/${encodeURIComponent(diseaseSlug)}`);
   };
 
-  const immediateActionItems = useMemo(() => {
-    return diseases.slice(0, 4).map((disease) => ({
-      label: disease.name,
-      onClick: () => handleOpenDisease(slugifyDiseaseName(disease.name)),
-    }));
-  }, [diseases]);
+  const immediateActionItems = useMemo(
+    () =>
+      diseases.slice(0, 4).map((disease) => ({
+        label: disease.name,
+        onClick: () => handleOpenDisease(slugifyDiseaseName(disease.name)),
+      })),
+    [diseases],
+  );
 
-  const takeActionItems = useMemo(() => {
-    return diseases.slice(4, 8).map((disease) => ({
-      label: disease.name,
-      onClick: () => handleOpenDisease(slugifyDiseaseName(disease.name)),
-    }));
-  }, [diseases]);
+  const takeActionItems = useMemo(
+    () =>
+      diseases.slice(4, 8).map((disease) => ({
+        label: disease.name,
+        onClick: () => handleOpenDisease(slugifyDiseaseName(disease.name)),
+      })),
+    [diseases],
+  );
 
   const alertItems = useMemo(() => {
     const redDiseases = filteredDistrictStatuses.flatMap((item) =>
@@ -277,6 +281,14 @@ export default function SurveillanceDashboardPage() {
       }));
   }, [filteredDistrictStatuses]);
 
+  const handleOpenUpload = () => {
+    openPanel({
+      title: "Import Surveillance File",
+      content: <UploadCSVModal onClose={closePanel} />,
+      size: "lg",
+    });
+  };
+
   return (
     <div className="surveillance-dashboard-page">
       <div className="surveillance-dashboard-page__header">
@@ -286,21 +298,36 @@ export default function SurveillanceDashboardPage() {
           </BreadcrumbItem>
 
           <BreadcrumbItem isCurrentPage>
-            <span>National Surveillance Reporting Dashboard: Epi-Week: {currentEpiWeekLabel}</span>
+            <span>National Surveillance Dashboard</span>
           </BreadcrumbItem>
         </Breadcrumb>
 
         <div className="surveillance-dashboard-page__hero">
-          <h1 className="surveillance-dashboard-page__title">
-            National Surveillance Reporting Dashboard
-          </h1>
-          <p className="surveillance-dashboard-page__subtitle">
-            Monitor surveillance signals, reporting trends, alerts, and priority conditions across
-            regions, districts, and sub-counties.
-          </p>
+          <div className="surveillance-dashboard-page__hero-main">
+            <div className="surveillance-dashboard-page__hero-copy">
+              <p className="surveillance-dashboard-page__eyebrow">
+                Epi Week: {currentEpiWeekLabel}
+              </p>
+
+              <h1 className="surveillance-dashboard-page__title">
+                National Surveillance Reporting Dashboard
+              </h1>
+
+              <p className="surveillance-dashboard-page__subtitle">
+                Monitor surveillance signals, reporting trends, alerts, and priority conditions
+                across regions, districts, and sub-counties.
+              </p>
+            </div>
+
+            <div className="surveillance-dashboard-page__hero-actions">
+              <Button renderIcon={Upload} onClick={handleOpenUpload}>
+                Import File
+              </Button>
+            </div>
+          </div>
 
           {loading ? (
-            <div style={{ marginTop: "0.75rem" }}>
+            <div className="surveillance-dashboard-page__loading">
               <InlineLoading description="Loading surveillance data..." />
             </div>
           ) : null}

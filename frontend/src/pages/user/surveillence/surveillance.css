@@ -307,6 +307,35 @@
 
 .surveillance-dashboard-page__hero {
   padding: 1rem 0 0.5rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.surveillance-dashboard-page__hero-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.surveillance-dashboard-page__hero-copy {
+  flex: 1 1 42rem;
+  min-width: 18rem;
+}
+
+.surveillance-dashboard-page__hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.surveillance-dashboard-page__eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: #0f62fe;
+  font-weight: 600;
 }
 
 .surveillance-dashboard-page__title {
@@ -325,10 +354,33 @@
   color: #525252;
 }
 
+.surveillance-dashboard-page__loading {
+  margin-top: 1rem;
+}
+
 .surveillance-dashboard-page__section {
   margin-bottom: 1.5rem;
 }
 
 .surveillance-dashboard-page__section:last-child {
   margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .surveillance-dashboard-page {
+    padding: 1rem 1rem 1.5rem;
+  }
+
+  .surveillance-dashboard-page__hero-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .surveillance-dashboard-page__hero-actions {
+    justify-content: flex-start;
+  }
+
+  .surveillance-dashboard-page__title {
+    font-size: 1.75rem;
+  }
 }
