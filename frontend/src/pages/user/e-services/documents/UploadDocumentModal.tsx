@@ -19,66 +19,16 @@ import {
   DOCUMENT_PROCESS_TYPE_OPTIONS,
   type DocumentProcessType,
 } from "../../../../store/types/documents.types";
+import {
+  formatFileSize,
+  getSuggestedProcessType,
+  isAcceptedFile,
+  validateProcessTypeAgainstFile,
+} from "../../../../utils/utils";
 
 type UploadDocumentModalProps = {
   onClose: () => void;
 };
-
-const ALLOWED_MIME_TYPES = [
-  "text/csv",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-];
-
-const ALLOWED_EXTENSIONS = [".csv", ".xlsx"];
-
-function isValidDocument(file: File) {
-  const fileName = file.name.toLowerCase();
-  const hasValidType = ALLOWED_MIME_TYPES.includes(file.type);
-  const hasValidExtension = ALLOWED_EXTENSIONS.some((ext) => fileName.endsWith(ext));
-
-  return hasValidType || hasValidExtension;
-}
-
-function formatFileSize(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function getSuggestedProcessType(file: File): DocumentProcessType | "" {
-  const fileName = file.name.toLowerCase();
-
-  if (fileName.endsWith(".xlsx")) {
-    return "EXCEL_IMPORT";
-  }
-
-  if (fileName.endsWith(".csv")) {
-    return "CSV_IMPORT";
-  }
-
-  return "";
-}
-
-function validateProcessTypeAgainstFile(
-  file: File,
-  processType: DocumentProcessType,
-): string | null {
-  const fileName = file.name.toLowerCase();
-
-  if (processType === "SURVEILLANCE_CSV_IMPORT" && !fileName.endsWith(".csv")) {
-    return "Surveillance CSV import requires a .csv file.";
-  }
-
-  if (processType === "SURVEILLANCE_EXCEL_IMPORT" && !fileName.endsWith(".xlsx")) {
-    return "Surveillance Excel import requires an .xlsx file.";
-  }
-
-  if (processType === "EXCEL_IMPORT" && !fileName.endsWith(".xlsx")) {
-    return "Excel import requires an .xlsx file.";
-  }
-
-  return null;
-}
 
 export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClose }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -104,7 +54,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
     const selectedFile = addedFiles?.[0];
     if (!selectedFile) return;
 
-    if (!isValidDocument(selectedFile)) {
+    if (!isAcceptedFile(selectedFile)) {
       setFile(null);
       setProcessType("");
       setError("Only CSV or Excel (.xlsx) files are allowed.");

@@ -3,6 +3,7 @@ import type {
   AnnouncementLevel,
   AnnouncementStatus,
 } from "../store/types/announcements.types";
+import type { DocumentProcessType } from "../store/types/documents.types";
 
 export function getTagType(
   level: AnnouncementLevel,
@@ -82,3 +83,71 @@ export function isAnnouncementActive(item: Announcement) {
 
   return true;
 }
+
+export function validateProcessTypeAgainstFile(
+  file: File,
+  processType: DocumentProcessType,
+): string | null {
+  const fileName = file.name.toLowerCase();
+
+  if (processType === "SURVEILLANCE_CSV_IMPORT" && !fileName.endsWith(".csv")) {
+    return "Surveillance CSV import requires a .csv file.";
+  }
+
+  if (processType === "SURVEILLANCE_EXCEL_IMPORT" && !fileName.endsWith(".xlsx")) {
+    return "Surveillance Excel import requires an .xlsx file.";
+  }
+
+  if (processType === "EXCEL_IMPORT" && !fileName.endsWith(".xlsx")) {
+    return "Excel import requires an .xlsx file.";
+  }
+
+  return null;
+}
+
+export function getSuggestedProcessType(file: File): DocumentProcessType | "" {
+  const fileName = file.name.toLowerCase();
+
+  if (fileName.endsWith(".xlsx")) {
+    return "EXCEL_IMPORT";
+  }
+
+  if (fileName.endsWith(".csv")) {
+    return "CSV_IMPORT";
+  }
+
+  return "";
+}
+
+export function formatFileSize(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+export const ACCEPTED_EXTENSIONS = [".csv", ".xlsx", ".xls"] as const;
+export const ACCEPTED_MIME_TYPES = [
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+] as const;
+
+export function getExtension(name: string): string {
+  const index = name.lastIndexOf(".");
+  return index >= 0 ? name.slice(index).toLowerCase() : "";
+}
+
+export function isAcceptedFile(file: File): boolean {
+  const extension = getExtension(file.name);
+  const hasValidExtension = ACCEPTED_EXTENSIONS.includes(
+    extension as (typeof ACCEPTED_EXTENSIONS)[number],
+  );
+  const hasValidMimeType = ACCEPTED_MIME_TYPES.includes(
+    file.type as (typeof ACCEPTED_MIME_TYPES)[number],
+  );
+
+  return hasValidExtension || hasValidMimeType;
+}
+
+
+

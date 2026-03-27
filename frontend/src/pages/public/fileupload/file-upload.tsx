@@ -21,39 +21,23 @@ import {
   useCreateDocumentMutation,
   useListStorageLocationsQuery,
 } from "../../../store/api/document.api";
+import {
+  ACCEPTED_EXTENSIONS,
+  formatFileSize,
+  getExtension,
+  getSuggestedProcessType,
+  isAcceptedFile,
+  validateProcessTypeAgainstFile,
+} from "../../../utils/utils";
+import {
+  DOCUMENT_PROCESS_TYPE_OPTIONS,
+  type DocumentProcessType,
+} from "../../../store/types/documents.types";
 
 type Row = Record<string, unknown>;
 type FileItemStatus = "edit" | "complete" | "uploading";
 
-const ACCEPTED_EXTENSIONS = [".csv", ".xlsx", ".xls"] as const;
-const ACCEPTED_MIME_TYPES = [
-  "text/csv",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-];
-
-function getExtension(name: string): string {
-  const index = name.lastIndexOf(".");
-  return index >= 0 ? name.slice(index).toLowerCase() : "";
-}
-
-function isAcceptedFile(file: File) {
-  const extension = getExtension(file.name);
-  const hasValidExtension = ACCEPTED_EXTENSIONS.includes(
-    extension as (typeof ACCEPTED_EXTENSIONS)[number],
-  );
-  const hasValidMimeType = ACCEPTED_MIME_TYPES.includes(file.type);
-
-  return hasValidExtension || hasValidMimeType;
-}
-
-function formatFileSize(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function getPreviewHeaders(rows: Row[]) {
+export function getPreviewHeaders(rows: Row[]): string[] {
   return Object.keys(rows[0] || {});
 }
 
@@ -63,11 +47,15 @@ async function parseCsvFile(file: File): Promise<Row[]> {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const rows = results.data || [];
+        const rows = (results.data || []).filter((row) =>
+          Object.values(row).some((value) => String(value ?? "").trim() !== ""),
+        );
+
         if (!rows.length) {
           reject(new Error("CSV file contains no rows."));
           return;
         }
+
         resolve(rows);
       },
       error: (error) => reject(error),
@@ -96,7 +84,9 @@ async function parseExcelFile(file: File): Promise<Row[]> {
         }
 
         const firstSheet = workbook.Sheets[firstSheetName];
-        const rows = XLSX.utils.sheet_to_json<Row>(firstSheet, { defval: "" });
+        const rows = XLSX.utils
+          .sheet_to_json<Row>(firstSheet, { defval: "" })
+          .filter((row) => Object.values(row).some((value) => String(value ?? "").trim() !== ""));
 
         if (!rows.length) {
           throw new Error("Excel sheet contains no rows.");
@@ -112,12 +102,23 @@ async function parseExcelFile(file: File): Promise<Row[]> {
   });
 }
 
+async function parseFile(file: File): Promise<Row[]> {
+  const extension = getExtension(file.name);
+
+  if (extension === ".csv") {
+    return parseCsvFile(file);
+  }
+
+  return parseExcelFile(file);
+}
+
 const FileUpload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [fileStatus, setFileStatus] = useState<FileItemStatus>("edit");
   const [parsedData, setParsedData] = useState<Row[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [storageLocation, setStorageLocation] = useState("");
+  const [processType, setProcessType] = useState<DocumentProcessType | "">("");
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -142,7 +143,13 @@ const FileUpload = () => {
     setParsedData([]);
     setHeaders([]);
     setStorageLocation("");
+    setProcessType("");
     setError(null);
+  };
+
+  const clearPreviewData = () => {
+    setParsedData([]);
+    setHeaders([]);
   };
 
   const handleFileSelection = async (
@@ -157,23 +164,20 @@ const FileUpload = () => {
 
     if (!isAcceptedFile(selectedFile)) {
       setFile(null);
+      clearPreviewData();
+      setProcessType("");
       setFileStatus("edit");
-      setParsedData([]);
-      setHeaders([]);
       setError("Please upload a CSV or Excel file (.csv, .xlsx, .xls).");
       return;
     }
 
     try {
-      const extension = getExtension(selectedFile.name);
-      const rows =
-        extension === ".csv"
-          ? await parseCsvFile(selectedFile)
-          : await parseExcelFile(selectedFile);
+      const rows = await parseFile(selectedFile);
 
       setFile(selectedFile);
       setParsedData(rows);
       setHeaders(getPreviewHeaders(rows));
+      setProcessType((current) => current || getSuggestedProcessType(selectedFile));
       setFileStatus("complete");
 
       window.setTimeout(() => {
@@ -181,8 +185,8 @@ const FileUpload = () => {
       }, 1200);
     } catch (err: any) {
       setFile(null);
-      setParsedData([]);
-      setHeaders([]);
+      clearPreviewData();
+      setProcessType("");
       setFileStatus("edit");
       setError(err?.message || "Failed to parse file. Please try again.");
     }
@@ -199,14 +203,25 @@ const FileUpload = () => {
       return;
     }
 
+    if (!processType) {
+      setError("Please select a process type.");
+      return;
+    }
+
+    const validationError = validateProcessTypeAgainstFile(file, processType);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     try {
       setError(null);
 
       await createDocument({
         file,
         storageLocation,
+        processType,
       }).unwrap();
-
       resetUploader();
     } catch (err: any) {
       setError(err?.data?.message || "Upload failed. Please try again.");
@@ -223,13 +238,13 @@ const FileUpload = () => {
           <BreadcrumbItem>
             <RouterLink to="/documents">Documents</RouterLink>
           </BreadcrumbItem>
-          <BreadcrumbItem isCurrentPage>Upload & Preview</BreadcrumbItem>
+          <BreadcrumbItem isCurrentPage>Upload &amp; Preview</BreadcrumbItem>
         </Breadcrumb>
       </div>
 
       <FormItem className="uploader-form-item">
         <div style={{ marginBottom: "1rem" }}>
-          <p className="cds--file--label">UPLOAD A FILE & PREVIEW DATA</p>
+          <p className="cds--file--label">UPLOAD A FILE &amp; PREVIEW DATA</p>
           <p className="cds--label-description">Supported file types are .csv, .xlsx, and .xls.</p>
         </div>
 
@@ -312,6 +327,21 @@ const FileUpload = () => {
             ))}
           </Select>
 
+          {file && (
+            <Select
+              id="document-process-type"
+              labelText="Process type"
+              value={processType}
+              onChange={(e) => setProcessType(e.target.value)}
+              disabled={isUploading}
+            >
+              <SelectItem value="" text="Select process type" />
+              {DOCUMENT_PROCESS_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value} text={option.label} />
+              ))}
+            </Select>
+          )}
+
           {isLocationsError && (
             <InlineNotification
               kind="error"
@@ -355,7 +385,14 @@ const FileUpload = () => {
             }}
           >
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead style={{ backgroundColor: "#f4f4f4", position: "sticky", top: 0, zIndex: 1 }}>
+              <thead
+                style={{
+                  backgroundColor: "#f4f4f4",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                }}
+              >
                 <tr>
                   {headers.map((header) => (
                     <th
@@ -378,7 +415,7 @@ const FileUpload = () => {
                   <tr key={rowIndex}>
                     {headers.map((header) => (
                       <td
-                        key={header}
+                        key={`${rowIndex}-${header}`}
                         style={{
                           borderBottom: "1px solid #f0f0f0",
                           padding: 8,
@@ -418,6 +455,7 @@ const FileUpload = () => {
                 isUploading ||
                 isLocationsLoading ||
                 !storageLocation ||
+                !processType ||
                 !file ||
                 !hasActiveLocations
               }
