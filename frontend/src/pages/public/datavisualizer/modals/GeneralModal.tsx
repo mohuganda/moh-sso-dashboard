@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import DataModal from "./data-model/DataModal.tsx";
 import OrgUnitModal from "./orgunit/OrgUnitModal.tsx";
-import PeriodModal from "./PeriodModal.tsx";
+import PeriodModal from "./period/PeriodModal.tsx";
 import "./general-modal.css";
 export default function GeneralModal({
   onClose,

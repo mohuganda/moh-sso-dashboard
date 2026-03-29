@@ -1,7 +1,8 @@
-import { Modal, MultiSelect, NumberInput, Select, SelectItem } from "@carbon/react";
+import {Modal, MultiSelect, NumberInput, Select, SelectItem, Tag} from "@carbon/react";
 import { useMemo, useState } from "react";
 
-import { getAvailablePeriods, getPeriodType, periodType } from "../Constants";
+import { getAvailablePeriods, getPeriodType, periodType } from "../../Constants.tsx";
+import "./period.css";
 
 export default function PeriodModal({ onClose, selected, onSave }) {
   const CURRENT_YEAR = new Date().getFullYear();
@@ -47,6 +48,10 @@ export default function PeriodModal({ onClose, selected, onSave }) {
 
   const sortPeriodFunction = (periodItems) => {
     return [...periodItems]?.sort(comparePeriodItemsItems);
+  };
+
+  const handleClearTag = (periodId) => {
+    setSelectedPeriods(selectedPeriods.filter(period => period.id !== periodId));
   };
 
   // if (!show) return null;
@@ -99,7 +104,7 @@ export default function PeriodModal({ onClose, selected, onSave }) {
       <div className="row">
         <div className="mb-2 fw-bold">{selectedPeriodType} Periods</div>
 
-        <div style={{ height: "300px", overflowY: "auto" }}>
+        <div className={`multi-select-period-container`}>
           <MultiSelect
             id="period-multiselect-id"
             label=""
@@ -110,6 +115,18 @@ export default function PeriodModal({ onClose, selected, onSave }) {
             sortItems={sortPeriodFunction}
             selectedItems={selectedPeriods}
           />
+          <div className={`selected-period-container`}>
+            {selectedPeriods.map((period) => (
+                <Tag
+                    key={period.id}
+                    type="blue"
+                    filter
+                    onClose={() => handleClearTag(period.id)}
+                >
+                  {period.label}
+                </Tag>
+            ))}
+          </div>
         </div>
       </div>
     </Modal>

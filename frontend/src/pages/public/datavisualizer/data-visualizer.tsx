@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 import DataModal from "./modals/data-model/DataModal.tsx";
-import PeriodModal from "./modals/PeriodModal";
+import PeriodModal from "./modals/period/PeriodModal.tsx";
 import OrgUnitModal from "./modals/orgunit/OrgUnitModal.tsx";
 
 import "./data-visualizer.css";

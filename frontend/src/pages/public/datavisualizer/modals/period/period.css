@@ -1,0 +1,11 @@
+.multi-select-period-container {
+    height: 300px;
+    overflow-y: auto;
+}
+
+.selected-period-container {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
