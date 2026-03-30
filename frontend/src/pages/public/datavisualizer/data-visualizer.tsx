@@ -5,8 +5,8 @@ import PeriodModal from "./modals/period/PeriodModal.tsx";
 import OrgUnitModal from "./modals/orgunit/OrgUnitModal.tsx";
 
 import "./data-visualizer.css";
-import { Button, OverflowMenu, OverflowMenuItem } from "@carbon/react";
-import { UpdateNow } from "@carbon/react/icons";
+import { Button } from "@carbon/react";
+import { Download, FilterRemove, UpdateNow } from "@carbon/react/icons";
 
 import GeneralModal from "./modals/GeneralModal.tsx";
 import ChartRenderer from "./chartrenderer/ChartRenderer.tsx";
@@ -90,22 +90,78 @@ const DataVisualizer = () => {
       }
     : null;
 
-  // const downloadExcel = async () => {
-  //     if (!appliedQuery) return;
-  //     try {
-  //         // Pull pivot table by period to export a flat table (category + series columns)
-  //         const res = await fetch(`/api/analytics?dx=${encodeURIComponent(appliedQuery.dx)}&pe=${encodeURIComponent(appliedQuery.pe)}&ou=${encodeURIComponent(appliedQuery.ou)}&groupBy=period`);
-  //         const json = await res.json();
-  //         const table = json.table || [];
-  //         if (!table.length) return;
-  //         const ws = XLSX.utils.json_to_sheet(table);
-  //         const wb = XLSX.utils.book_new();
-  //         XLSX.utils.book_append_sheet(wb, ws, "Data");
-  //         XLSX.writeFile(wb, "visualization_data.xlsx");
-  //     } catch (e) {
-  //         console.error("Excel download failed", e);
-  //     }
-  // };
+  const getDynamicFileName = (baseName = "Data_Report") => {
+    const now = new Date();
+    const datePart = now.toISOString().split('T')[0];
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    return `${baseName}_${datePart}_${hours}-${minutes}-${seconds}.csv`;
+  };
+
+  const exportDataToCSV = () => {
+    const table = document.querySelector(".pvtTable");
+    if (!table) return;
+
+    const filename = getDynamicFileName();
+
+    // @ts-ignore
+    const rows = Array.from(table.rows);
+    const grid: string[][] = [];
+
+    rows.forEach((row, rowIndex) => {
+      if (!grid[rowIndex]) { // @ts-ignore
+        grid[rowIndex] = [];
+      }
+
+      let colIndex = 0;
+      // @ts-ignore
+      Array.from(row.cells).forEach((cell) => {
+        while (grid[rowIndex][colIndex] !== undefined) {
+          colIndex++;
+        }
+
+        // @ts-ignore
+        const rowspan = cell.rowSpan || 1;
+        // @ts-ignore
+        const colspan = cell.colSpan || 1;
+        // @ts-ignore
+        const content = `"${cell.innerText.trim().replace(/"/g, '""')}"`;
+
+        // Fill the grid for the current rowspan and colspan
+        for (let r = 0; r < rowspan; r++) {
+          for (let c = 0; c < colspan; c++) {
+            const targetRow = rowIndex + r;
+            const targetCol = colIndex + c;
+
+            if (!grid[targetRow]) { // @ts-ignore
+              grid[targetRow] = [];
+            }
+
+            // @ts-ignore
+            grid[targetRow][targetCol] = (r === 0 && c === 0) ? content : '""';
+          }
+        }
+        colIndex += colspan;
+      });
+    });
+
+    // @ts-ignore
+    const csvContent = grid
+        .map(row => row.join(","))
+        .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="dv-container">
@@ -144,30 +200,43 @@ const DataVisualizer = () => {
             Update
           </Button>
 
-          {/*{isDataReady && (*/}
-          {/*    <Button*/}
-          {/*        size="sm"*/}
-          {/*        kind="danger--tertiary"*/}
-          {/*        renderIcon={FilterRemove}*/}
-          {/*        className={`dwh-btn-width`}*/}
-          {/*        onClick={clearAllSelections}*/}
-          {/*    >*/}
-          {/*        Clear All*/}
-          {/*    </Button>*/}
-          {/*)}*/}
+          {isDataReady && (
+              <>
+                <Button
+                    size="sm"
+                    kind="primary"
+                    renderIcon={Download}
+                    className={`dwh-btn-width`}
+                    onClick={exportDataToCSV}
+                >
+                  Download
+                </Button>
 
-          <OverflowMenu aria-label="overflow-menu" align="bottom" flipped>
-            <OverflowMenuItem hasDivider itemText="More Options" />
-            <OverflowMenuItem hasDivider itemText="Download" />
-            {isDataReady && (
-              <OverflowMenuItem
-                hasDivider
-                isDelete
-                onClick={clearAllSelections}
-                itemText="Clear All"
-              />
-            )}
-          </OverflowMenu>
+                <Button
+                    size="sm"
+                    kind="danger--tertiary"
+                    renderIcon={FilterRemove}
+                    className={`dwh-btn-width`}
+                    onClick={clearAllSelections}
+                >
+                  Clear All
+                </Button>
+              </>
+
+          )}
+
+          {/*<OverflowMenu aria-label="overflow-menu" align="bottom" flipped>*/}
+          {/*  <OverflowMenuItem hasDivider itemText="More Options" />*/}
+          {/*  <OverflowMenuItem hasDivider itemText="Download" />*/}
+          {/*  {isDataReady && (*/}
+          {/*    <OverflowMenuItem*/}
+          {/*      hasDivider*/}
+          {/*      isDelete*/}
+          {/*      onClick={clearAllSelections}*/}
+          {/*      itemText="Clear All"*/}
+          {/*    />*/}
+          {/*  )}*/}
+          {/*</OverflowMenu>*/}
         </div>
 
         {/* Layout Area */}
