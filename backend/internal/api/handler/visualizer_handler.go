@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -134,37 +135,54 @@ func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 	var conditions []string
 	var values []interface{}
 	paramCounter := 0
+	aggregationLevel := h.resolveAggregationLevel(ctx, req.OrgunitLevel, req.OU)
 
 	if len(req.OU) > 0 {
 		paramCounter++
 		values = append(values, pq.Array(req.OU))
-		conditions = append(conditions, fmt.Sprintf("org_unit_id = ANY($%d)", paramCounter))
+		conditions = append(conditions, fmt.Sprintf(`
+			EXISTS (
+				SELECT 1
+				FROM dwh.dim_org_hierarchy h
+				WHERE h.is_current = true
+				  AND (
+					h.facility_uid = hs.org_unit_id
+					OR h.sub_county_uid = hs.org_unit_id
+					OR h.org_unit_id = hs.org_unit_id
+					OR h.district_uid = hs.org_unit_id
+					OR h.region_uid = hs.org_unit_id
+					OR h.country_uid = hs.org_unit_id
+				  )
+				  AND (
+					h.facility_uid = ANY($%d)
+					OR h.sub_county_uid = ANY($%d)
+					OR h.org_unit_id = ANY($%d)
+					OR h.district_uid = ANY($%d)
+					OR h.region_uid = ANY($%d)
+					OR h.country_uid = ANY($%d)
+				  )
+			)
+		`, paramCounter, paramCounter, paramCounter, paramCounter, paramCounter, paramCounter))
 	}
 
 	if len(req.DX) > 0 {
 		paramCounter++
 		values = append(values, pq.Array(req.DX))
-		conditions = append(conditions, fmt.Sprintf("data_element_id = ANY($%d)", paramCounter))
+		conditions = append(conditions, fmt.Sprintf("hs.data_element_id = ANY($%d)", paramCounter))
 	}
 
 	if len(req.PE) > 0 {
 		paramCounter++
 		values = append(values, pq.Array(req.PE))
-		conditions = append(conditions, fmt.Sprintf(`"period" = ANY($%d)`, paramCounter))
+		conditions = append(conditions, fmt.Sprintf(`hs."period" = ANY($%d)`, paramCounter))
 	} else if req.StartDate != "" && req.EndDate != "" {
 		paramCounter++
 		values = append(values, req.StartDate)
-		conditions = append(conditions, fmt.Sprintf("tperiod >= $%d", paramCounter))
+		conditions = append(conditions, fmt.Sprintf("hs.tperiod >= $%d", paramCounter))
 
 		paramCounter++
 		values = append(values, req.EndDate)
-		conditions = append(conditions, fmt.Sprintf("tperiod <= $%d", paramCounter))
-	}
-
-	if req.OrgunitLevel != nil && *req.OrgunitLevel != "" {
-		paramCounter++
-		values = append(values, *req.OrgunitLevel)
-		conditions = append(conditions, fmt.Sprintf(`"level" = $%d`, paramCounter))
+		conditions = append(conditions, fmt.Sprintf("hs.tperiod <= $%d", paramCounter))
 	}
 
 	whereClause := ""
@@ -172,26 +190,34 @@ func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
 	}
 
+	orgUnitExpr, facilityExpr, levelExpr, regionExpr, districtExpr, subCountyExpr := aggregationExpressions(aggregationLevel)
+
 	query := `
-       SELECT 
-          org_unit_id,
-          data_element_id,
-          "period",
-          category_combo,
-          value,
-          facility,
-          "level",
-          region,
-          district,
-          sub_county,
-          dataelement
-       FROM report.hmis_summary
+	   SELECT 
+	      ` + orgUnitExpr + ` AS org_unit_id,
+	      hs.data_element_id,
+	      hs."period",
+	      hs.category_combo,
+	      SUM(
+	        CASE
+	          WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
+	          ELSE 0
+	        END
+	      )::bigint AS value,
+	      ` + facilityExpr + ` AS facility,
+	      ` + levelExpr + ` AS "level",
+	      ` + regionExpr + ` AS region,
+          ` + districtExpr + ` AS district,
+          ` + subCountyExpr + ` AS sub_county,
+          hs.dataelement
+       FROM report.hmis_summary hs
        ` + whereClause + `
+       GROUP BY 1, 2, 3, 4, 6, 7, 8, 9, 10, 11
        ORDER BY 
-          "period",
-          org_unit_id,
-          data_element_id,
-          category_combo
+          3,
+          1,
+          2,
+          4
     `
 
 	rows, err := h.db.QueryContext(ctx, query, values...)
@@ -232,6 +258,71 @@ func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"rows": rowsList})
 }
 
+func (h *VisualiserHandler) resolveAggregationLevel(ctx context.Context, requested *string, ou []string) string {
+	if requested != nil {
+		level := strings.TrimSpace(*requested)
+		switch level {
+		case "1", "2", "3", "5", "6":
+			return level
+		}
+	}
+
+	if len(ou) == 0 {
+		return "6"
+	}
+
+	query := `
+		SELECT CASE
+			WHEN EXISTS (
+				SELECT 1 FROM dwh.dim_org_hierarchy h
+				WHERE h.is_current = true
+				  AND h.facility_uid = ANY($1)
+			) THEN '6'
+			WHEN EXISTS (
+				SELECT 1 FROM dwh.dim_org_hierarchy h
+				WHERE h.is_current = true
+				  AND (h.sub_county_uid = ANY($1) OR h.org_unit_id = ANY($1))
+			) THEN '5'
+			WHEN EXISTS (
+				SELECT 1 FROM dwh.dim_org_hierarchy h
+				WHERE h.is_current = true
+				  AND h.district_uid = ANY($1)
+			) THEN '3'
+			WHEN EXISTS (
+				SELECT 1 FROM dwh.dim_org_hierarchy h
+				WHERE h.is_current = true
+				  AND h.region_uid = ANY($1)
+			) THEN '2'
+			WHEN EXISTS (
+				SELECT 1 FROM dwh.dim_org_hierarchy h
+				WHERE h.is_current = true
+				  AND h.country_uid = ANY($1)
+			) THEN '1'
+			ELSE '6'
+		END
+	`
+
+	var level string
+	if err := h.db.QueryRowContext(ctx, query, pq.Array(ou)).Scan(&level); err != nil {
+		return "6"
+	}
+	return level
+}
+
+func aggregationExpressions(level string) (orgUnitExpr, facilityExpr, levelExpr, regionExpr, districtExpr, subCountyExpr string) {
+	switch level {
+	case "1":
+		return "'National'", "'National'", "'1'", "''", "''", "''"
+	case "2":
+		return "COALESCE(NULLIF(hs.region, ''), 'Unknown Region')", "COALESCE(NULLIF(hs.region, ''), 'Unknown Region')", "'2'", "COALESCE(NULLIF(hs.region, ''), 'Unknown Region')", "''", "''"
+	case "3":
+		return "COALESCE(NULLIF(hs.district, ''), 'Unknown District')", "COALESCE(NULLIF(hs.district, ''), 'Unknown District')", "'3'", "COALESCE(hs.region, '')", "COALESCE(NULLIF(hs.district, ''), 'Unknown District')", "''"
+	case "5":
+		return "COALESCE(NULLIF(hs.sub_county, ''), 'Unknown Subcounty')", "COALESCE(NULLIF(hs.sub_county, ''), 'Unknown Subcounty')", "'5'", "COALESCE(hs.region, '')", "COALESCE(hs.district, '')", "COALESCE(NULLIF(hs.sub_county, ''), 'Unknown Subcounty')"
+	default:
+		return "hs.org_unit_id", "COALESCE(hs.facility, hs.org_unit_id)", "COALESCE(NULLIF(hs.\"level\", ''), '6')", "COALESCE(hs.region, '')", "COALESCE(hs.district, '')", "COALESCE(hs.sub_county, '')"
+	}
+}
 
 // GetThemes gets all themes
 func (h *VisualiserHandler) GetThemes(c *gin.Context) {

@@ -22,17 +22,17 @@ type DataElement struct {
 
 // DataValueRow represents a data value row
 type DataValueRow struct {
-	OrgUnitID     string  `json:"org_unit_id"`
-	DataElementID string  `json:"data_element_id"`
-	Period        string  `json:"period"`
-	CategoryCombo string  `json:"category_combo"`
-	Value         float64 `json:"value"`
-	Facility      string  `json:"facility"`
-	Level         string  `json:"level"`
-	Region        string  `json:"region"`
-	District      string  `json:"district"`
-	SubCounty     string  `json:"sub_county"`
-	Dataelement   string  `json:"dataelement"`
+	OrgUnitID     string `json:"org_unit_id"`
+	DataElementID string `json:"data_element_id"`
+	Period        string `json:"period"`
+	CategoryCombo string `json:"category_combo"`
+	Value         int64  `json:"value"`
+	Facility      string `json:"facility"`
+	Level         string `json:"level"`
+	Region        string `json:"region"`
+	District      string `json:"district"`
+	SubCounty     string `json:"sub_county"`
+	Dataelement   string `json:"dataelement"`
 }
 
 // Theme represents a theme
