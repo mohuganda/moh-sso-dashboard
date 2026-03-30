@@ -381,6 +381,10 @@
 /*    background-color: rgba(0, 0, 0, 0.04);*/
 /*}*/
 
+.pvtVals .pvtDropdown:nth-of-type(2) {
+  display: none !important;
+}
+
 /* Action buttons */
 .dv-action-bar {
   display: flex;

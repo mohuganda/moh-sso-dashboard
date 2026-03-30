@@ -10,6 +10,7 @@ import { Download, FilterRemove, UpdateNow } from "@carbon/react/icons";
 
 import GeneralModal from "./modals/GeneralModal.tsx";
 import ChartRenderer from "./chartrenderer/ChartRenderer.tsx";
+import ClearDataConfirmationModal from "./modals/ClearDataConfirmationModal.tsx";
 
 type VisualizerQuery = {
   dx: string[];
@@ -25,6 +26,7 @@ const DataVisualizer = () => {
   const [pivotChartData, setPivotChartData] = useState([]);
   const [showModal, setShowModal] = useState(null);
   const [appliedQuery, setAppliedQuery] = useState<VisualizerQuery | null>(null);
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
   // Load saved state from localStorage on component mount
   React.useEffect(() => {
@@ -76,6 +78,8 @@ const DataVisualizer = () => {
     setSelectedOrgUnits([]);
     setPivotChartData([]);
     setLoadedChartData([]);
+    setAppliedQuery(null);
+    setIsClearModalOpen(false);
   };
 
   // Function to check if all required dimensions are selected
@@ -200,7 +204,7 @@ const DataVisualizer = () => {
             Update
           </Button>
 
-          {isDataReady && (
+          {loadedChartData?.length > 0 && (
               <>
                 <Button
                     size="sm"
@@ -217,7 +221,7 @@ const DataVisualizer = () => {
                     kind="danger--tertiary"
                     renderIcon={FilterRemove}
                     className={`dwh-btn-width`}
-                    onClick={clearAllSelections}
+                    onClick={() => setIsClearModalOpen(true)}
                 >
                   Clear All
                 </Button>
@@ -366,6 +370,13 @@ const DataVisualizer = () => {
           selectedOrgUnits={selectedOrgUnits}
           onSaveOrgUnits={setSelectedOrgUnits}
         />
+      )}
+      {isClearModalOpen && (
+          <ClearDataConfirmationModal
+              setIsClearModalOpen={setIsClearModalOpen}
+              isClearModalOpen={isClearModalOpen}
+              handleConfirmClear={clearAllSelections}
+          />
       )}
     </div>
   );
