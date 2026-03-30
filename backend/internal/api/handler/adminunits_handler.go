@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/config"
@@ -586,14 +587,14 @@ func (h *AdminUnitsHandler) GetHierarchy(c *gin.Context) {
 func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 	tree := []dto.TreeNode{}
 
-		// Group by level
+	// Group by level
 	grouped := make(map[string][]dto.OrgUnit)
 	for _, item := range data {
 		level := item.Level
 		grouped[level] = append(grouped[level], item)
 	}
 
-		// Build tree starting from level 1 (National)
+	// Build tree starting from level 1 (National)
 	if level1, ok := grouped["1"]; ok {
 		for _, national := range level1 {
 			nationalName := national.OrgUnitName
@@ -612,11 +613,18 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 			}
 
 			if level2, ok := grouped["2"]; ok {
+				seenRegions := make(map[string]struct{})
 				for _, reg := range level2 {
 					regionName := reg.Region
 					if regionName == nil {
 						continue
 					}
+
+					regionKey := dedupeKey(reg.RegionUID, reg.Region, reg.DimOrgHierarchyKey)
+					if _, exists := seenRegions[regionKey]; exists {
+						continue
+					}
+					seenRegions[regionKey] = struct{}{}
 
 					regionNode := dto.TreeNode{
 						ID:       reg.DimOrgHierarchyKey,
@@ -628,6 +636,7 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 					}
 
 					if level3, ok := grouped["3"]; ok {
+						seenDistricts := make(map[string]struct{})
 						for _, dist := range level3 {
 							if dist.Region == nil || reg.Region == nil || *dist.Region != *reg.Region {
 								continue
@@ -638,6 +647,12 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 								continue
 							}
 
+							districtKey := dedupeKey(dist.DistrictUID, dist.District, dist.DimOrgHierarchyKey)
+							if _, exists := seenDistricts[districtKey]; exists {
+								continue
+							}
+							seenDistricts[districtKey] = struct{}{}
+
 							districtNode := dto.TreeNode{
 								ID:       dist.DimOrgHierarchyKey,
 								UID:      dist.DistrictUID,
@@ -647,8 +662,9 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 								Children: []dto.TreeNode{},
 							}
 
-								// Add local govt (level 4)
+							// Add local govt (level 4)
 							if level4, ok := grouped["4"]; ok {
+								seenLocalGovts := make(map[string]struct{})
 								for _, lg := range level4 {
 									if lg.District == nil || dist.District == nil || *lg.District != *dist.District {
 										continue
@@ -658,6 +674,12 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 									if lgName == nil {
 										continue
 									}
+
+									localGovtKey := dedupeKey(lg.OrgUnitID, lg.OrgUnitName, lg.DimOrgHierarchyKey)
+									if _, exists := seenLocalGovts[localGovtKey]; exists {
+										continue
+									}
+									seenLocalGovts[localGovtKey] = struct{}{}
 
 									districtNode.Children = append(districtNode.Children, dto.TreeNode{
 										ID:    lg.DimOrgHierarchyKey,
@@ -669,8 +691,9 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 								}
 							}
 
-								// Add subcounties (level 5)
+							// Add subcounties (level 5)
 							if level5, ok := grouped["5"]; ok {
+								seenSubCounties := make(map[string]struct{})
 								for _, sc := range level5 {
 									if sc.District == nil || dist.District == nil || *sc.District != *dist.District {
 										continue
@@ -680,6 +703,12 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 									if scName == nil {
 										continue
 									}
+
+									subCountyKey := dedupeKey(sc.SubCountyUID, sc.SubCounty, sc.DimOrgHierarchyKey)
+									if _, exists := seenSubCounties[subCountyKey]; exists {
+										continue
+									}
+									seenSubCounties[subCountyKey] = struct{}{}
 
 									subcountyNode := dto.TreeNode{
 										ID:       sc.DimOrgHierarchyKey,
@@ -691,11 +720,14 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 									}
 
 									if level6, ok := grouped["6"]; ok {
+										seenFacilities := make(map[string]struct{})
 										for _, fac := range level6 {
-											if fac.SubCounty == nil || sc.SubCounty == nil || *fac.SubCounty != *sc.SubCounty {
+											sameSubCounty := ptrEqual(fac.SubCountyUID, sc.SubCountyUID) || ptrEqual(fac.SubCounty, sc.SubCounty)
+											if !sameSubCounty {
 												continue
 											}
-											if fac.District == nil || dist.District == nil || *fac.District != *dist.District {
+											sameDistrict := ptrEqual(fac.DistrictUID, dist.DistrictUID) || ptrEqual(fac.District, dist.District)
+											if !sameDistrict {
 												continue
 											}
 
@@ -703,6 +735,12 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 											if facName == nil {
 												continue
 											}
+
+											facilityKey := dedupeKey(fac.FacilityUID, fac.FacilityName, fac.DimOrgHierarchyKey)
+											if _, exists := seenFacilities[facilityKey]; exists {
+												continue
+											}
+											seenFacilities[facilityKey] = struct{}{}
 
 											subcountyNode.Children = append(subcountyNode.Children, dto.TreeNode{
 												ID:       fac.DimOrgHierarchyKey,
@@ -715,7 +753,10 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 										}
 									}
 
-									districtNode.Children = append(districtNode.Children, subcountyNode)
+									// Keep subcounties as tree containers only when they have facilities.
+									if len(subcountyNode.Children) > 0 {
+										districtNode.Children = append(districtNode.Children, subcountyNode)
+									}
 								}
 							}
 
@@ -732,4 +773,18 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 	}
 
 	return tree
+}
+
+func dedupeKey(uid *string, name *string, id int64) string {
+	if uid != nil && *uid != "" {
+		return "uid:" + *uid
+	}
+	if name != nil && *name != "" {
+		return "name:" + *name
+	}
+	return "id:" + strconv.FormatInt(id, 10)
+}
+
+func ptrEqual(a, b *string) bool {
+	return a != nil && b != nil && *a == *b
 }
