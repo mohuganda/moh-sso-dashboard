@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/config"
@@ -661,6 +662,21 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 								Type:     "district",
 								Children: []dto.TreeNode{},
 							}
+							subCountyUIDs := make(map[string]struct{})
+							subCountyNames := make(map[string]struct{})
+							if level5, ok := grouped["5"]; ok {
+								for _, sc := range level5 {
+									if sc.District == nil || dist.District == nil || *sc.District != *dist.District {
+										continue
+									}
+									if sc.SubCountyUID != nil && *sc.SubCountyUID != "" {
+										subCountyUIDs[*sc.SubCountyUID] = struct{}{}
+									}
+									if sc.SubCounty != nil && *sc.SubCounty != "" {
+										subCountyNames[normalizeName(*sc.SubCounty)] = struct{}{}
+									}
+								}
+							}
 
 							// Add local govt (level 4)
 							if level4, ok := grouped["4"]; ok {
@@ -680,6 +696,14 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 										continue
 									}
 									seenLocalGovts[localGovtKey] = struct{}{}
+									if lg.OrgUnitID != nil && *lg.OrgUnitID != "" {
+										if _, exists := subCountyUIDs[*lg.OrgUnitID]; exists {
+											continue
+										}
+									}
+									if _, exists := subCountyNames[normalizeName(*lgName)]; exists {
+										continue
+									}
 
 									districtNode.Children = append(districtNode.Children, dto.TreeNode{
 										ID:    lg.DimOrgHierarchyKey,
@@ -787,4 +811,8 @@ func dedupeKey(uid *string, name *string, id int64) string {
 
 func ptrEqual(a, b *string) bool {
 	return a != nil && b != nil && *a == *b
+}
+
+func normalizeName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }
