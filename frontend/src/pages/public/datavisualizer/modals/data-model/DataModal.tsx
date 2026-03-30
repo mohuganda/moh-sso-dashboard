@@ -1,22 +1,15 @@
 import { Modal, Select, SelectItem } from "@carbon/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {type Theme, type ThemeElement, useGetThemesQuery, useLazyGetThemeElementsQuery} from "./data-model.ts";
 
-type DataElement = {
-  id: string;
-  name: string;
-};
-
-type ElementsMap = Record<string, DataElement[]>;
-
 export default function DataModal({ onClose, selected, onSave }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDataset] = useState("");
+  const [selectedDataset, setSelectedDataset] = useState("");
   const [datasets, setDatasets] = useState<Theme[] | undefined>([]);
-  const [datasetToElements] = useState({});
   const [selectedItems, setSelectedItems] = useState(selected);
   const [availableDataSetElements, setAvailableDataSetElements] = useState<ThemeElement[]>([]);
+  const [dataSetElementsHolder, setDataSetElementsHolder] = useState<ThemeElement[]>([]);
   const { data: themes, isLoading, error } = useGetThemesQuery();
   const [ triggerGetTheme ] = useLazyGetThemeElementsQuery();
   // const toast = useToast();
@@ -30,74 +23,48 @@ export default function DataModal({ onClose, selected, onSave }) {
     }
   }, [error, isLoading, themes]);
 
-  const filteredItems = useMemo(() => {
-    // 1. Ensure a valid map object exists
-    const elementsMap: ElementsMap = datasetToElements ?? {};
-
-    let elements;
-
-    if (selectedDataset) {
-      elements = elementsMap[selectedDataset] ?? [];
-    } else {
-      elements = Object.entries(elementsMap).flatMap(([ds, list]) =>
-        list.map((de) => ({ ds, de })),
-      );
-    }
-
-    // 3. Normalize to common shape { ds, de }
-    const normalized = (elements || []).map((el) => {
-      // If element is a string, assume it's the data element from the selectedDataset context
-      if (typeof el === "string") {
-        return { ds: selectedDataset || "", de: el };
-      }
-      // If it's already an object {ds, de}, return it
-      return el;
-    });
-
-    // 4. Map to final output shape { id, name, dataset }
-    const items = normalized.map((row) => {
-      const dataElement = String(row.de || "");
-      const datasetName = row.ds || selectedDataset || "";
-
-      return { id: dataElement, name: dataElement, dataset: datasetName };
-    });
-
-    // 5. Apply Search Filter
-    const term = (searchTerm || "").toLowerCase();
-    const searched = term
-      ? items.filter((it) => (it.id || "").toLowerCase().includes(term))
-      : items;
-
-    // 6. Sort
-    searched.sort(
-      (a, b) =>
-        (a.dataset || "").localeCompare(b.dataset || "") || (a.id || "").localeCompare(b.id || ""),
-    );
-
-    return searched;
-  }, [datasetToElements, selectedDataset, searchTerm]);
 
   const addItem = (item) => {
-    if (!selectedItems?.find((selected) => selected?.data_element_id === item.data_element_id)) {
-      setSelectedItems([...selectedItems, item]);
-    }
+    const updatedAvailableParameters = availableDataSetElements.filter(
+        (parameter) => parameter !== item
+    );
+    setAvailableDataSetElements(updatedAvailableParameters);
+
+    setSelectedItems([...selectedItems, item]);
   };
 
   const removeItem = (item) => {
-    setSelectedItems(
-      selectedItems?.filter((selected) => selected?.data_element_id !== item?.data_element_id),
+    const updatedSelectedItems = selectedItems.filter(
+        (parameter) => parameter !== item
     );
+    setSelectedItems(updatedSelectedItems);
+
+    let updatedAvailableElements = [...availableDataSetElements];
+
+    dataSetElementsHolder.filter((parameter) => {
+      if (parameter === item) {
+        updatedAvailableElements = [
+          ...updatedAvailableElements,
+          item,
+        ];
+      }
+    });
+
+    setAvailableDataSetElements(updatedAvailableElements);
   };
 
   const addAll = () => {
-    const newItems = filteredItems?.filter(
-      (item) =>
-        !selectedItems?.find((selected) => selected?.data_element_id === item?.data_element_id),
+    setSelectedItems([...selectedItems, ...filteredAvailableElements]);
+
+    const remainingElements = availableDataSetElements.filter(
+        (el) => !filteredAvailableElements.includes(el)
     );
-    setSelectedItems([...selectedItems, ...newItems]);
+    setAvailableDataSetElements(remainingElements);
+    setSearchTerm(""); // Optional: clear search after adding
   };
 
   const removeAll = () => {
+    setAvailableDataSetElements([...dataSetElementsHolder])
     setSelectedItems([]);
   };
 
@@ -108,17 +75,26 @@ export default function DataModal({ onClose, selected, onSave }) {
 
   const onChangeSelectedDataSet = async (event) => {
     const theme_id = event?.target?.value;
+    setSelectedDataset(theme_id);
     setAvailableDataSetElements([]);
     if (!theme_id) return;
 
     try {
       const data = await triggerGetTheme(theme_id).unwrap();
       setAvailableDataSetElements(data);
+      setDataSetElementsHolder(data);
+
     } catch (error) {
       setAvailableDataSetElements([]);
       console.error("Error Encountered while fetching data elements:: " + error);
     }
   };
+
+  const filteredAvailableElements = availableDataSetElements.filter((item) =>
+      item.data_element_short_name
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase())
+  );
 
   // if (!show) return null;
 
@@ -137,18 +113,19 @@ export default function DataModal({ onClose, selected, onSave }) {
       <div className="row">
         {/* Left Panel - Available Items */}
         <div className="col-md-6">
-          <div className="mb-3">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by dataelement"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-              }}
-            />
-          </div>
-
+          {selectedDataset && (
+              <div className="mb-3">
+                <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search by dataelement"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                    }}
+                />
+              </div>
+          )}
           <div className="row mb-3">
             <Select
               id={`data-select`}
@@ -168,7 +145,7 @@ export default function DataModal({ onClose, selected, onSave }) {
         <div className="col-md-6">
           <h6 className="mb-3">Available Data Elements</h6>
           <div className="border" style={{ height: "300px", overflowY: "auto" }}>
-            {availableDataSetElements?.map((item: any) => (
+            {filteredAvailableElements?.map((item: any) => (
               <div
                 key={item?.data_element_id}
                 className="p-2 border-bottom d-flex align-items-center"
@@ -181,8 +158,10 @@ export default function DataModal({ onClose, selected, onSave }) {
                 <div className="small">{item?.data_element_short_name}</div>
               </div>
             ))}
-            {availableDataSetElements?.length === 0 && (
-              <div className="p-3 text-center text-muted">No items found</div>
+            {filteredAvailableElements?.length === 0 && (
+              <div className="p-3 text-center text-muted">
+                {searchTerm ? "No matches found" : "No items found"}
+              </div>
             )}
           </div>
         </div>
@@ -192,38 +171,16 @@ export default function DataModal({ onClose, selected, onSave }) {
           <button
             className="btn btn-outline-primary btn-sm mb-2"
             onClick={addAll}
-            disabled={filteredItems.length === 0}
+            disabled={availableDataSetElements?.length === 0}
           >
-            <i className="fas fa-arrow-right"></i>
-          </button>
-          <button
-            className="btn btn-primary btn-sm mb-2"
-            onClick={() => {
-              // Add first selected item from filtered list
-              const firstItem = filteredItems[0];
-              if (firstItem) addItem(firstItem);
-            }}
-            disabled={filteredItems?.length === 0}
-          >
-            <i className="fas fa-arrow-right"></i>
-          </button>
-          <button
-            className="btn btn-primary btn-sm mb-2"
-            onClick={() => {
-              // Remove first selected item
-              const firstSelected = selectedItems[0];
-              if (firstSelected) removeItem(firstSelected);
-            }}
-            disabled={selectedItems?.length === 0}
-          >
-            <i className="fas fa-arrow-left"></i>
+            <i className="fa-solid fa-angles-right"></i>
           </button>
           <button
             className="btn btn-outline-primary btn-sm"
             onClick={removeAll}
             disabled={selectedItems?.length === 0}
           >
-            <i className="fas fa-arrow-left"></i>
+            <i className="fa-solid fa-angles-left"></i>
           </button>
         </div>
 
