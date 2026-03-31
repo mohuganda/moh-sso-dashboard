@@ -8,3 +8,12 @@ CREATE TABLE surveillance_import_raw_rows (
 
 CREATE INDEX idx_surveillance_import_raw_rows_batch ON surveillance_import_raw_rows(batch_id);
 CREATE INDEX idx_surveillance_import_raw_rows_payload ON surveillance_import_raw_rows USING GIN(payload);
+
+
+ALTER TABLE surveillance_import_raw_rows
+ADD COLUMN status TEXT NOT NULL DEFAULT 'PENDING',
+ADD COLUMN error_message TEXT;
+
+ALTER TABLE surveillance_import_raw_rows
+ADD CONSTRAINT surveillance_import_raw_rows_status_chk
+CHECK (status IN ('PENDING', 'PROCESSED', 'FAILED'));

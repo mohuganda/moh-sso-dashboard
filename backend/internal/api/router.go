@@ -265,7 +265,6 @@ func SetupRouter(
 
 			surveillance.GET("/imports", surveillanceHandler.ListImportBatches)
 			surveillance.POST("/imports", surveillanceHandler.CreateImportBatch)
-			surveillance.POST("/import", surveillanceHandler.ImportSurveillanceCSV)
 			surveillance.GET("/imports/:batchID", surveillanceHandler.GetImportBatchByID)
 			surveillance.PATCH("/imports/:batchID/status", surveillanceHandler.UpdateImportBatchStatus)
 			surveillance.GET("/imports/:batchID/raw-rows", surveillanceHandler.ListImportRawRowsByBatch)

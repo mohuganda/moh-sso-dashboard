@@ -2,7 +2,6 @@ package interfaces
 
 import (
 	"context"
-	"io"
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
@@ -16,5 +15,10 @@ type ImportRepository interface {
 
 	CreateImportRawRow(ctx context.Context, arg db.CreateImportRawRowParams) (db.SurveillanceImportRawRow, error)
 	ListImportRawRowsByBatch(ctx context.Context, batchID uuid.UUID) ([]db.SurveillanceImportRawRow, error)
-	ImportCSV(ctx context.Context, reader io.Reader, fileName string, sourceName string) error
+
+	MarkRawRowProcessed(ctx context.Context, rowID uuid.UUID) error
+	MarkRawRowFailed(ctx context.Context, rowID uuid.UUID, message string) error
+	CompleteImportBatch(ctx context.Context, batchID uuid.UUID, successRows, failedRows int32) error
+	FailImportBatch(ctx context.Context, batchID uuid.UUID, notes string) error
+	DeleteProcessedRawRows(ctx context.Context, batchID uuid.UUID) error
 }

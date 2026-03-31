@@ -254,6 +254,7 @@ type ProcessType string
 
 const (
 	ProcessTypeSurveillanceCSVImport    ProcessType = "SURVEILLANCE_CSV_IMPORT"
+	ProcessTypeSurveillanceBatchProcess ProcessType = "SURVEILLANCE_BATCH_PROCESS"
 	ProcessTypeCSVImport                ProcessType = "CSV_IMPORT"
 	ProcessTypeExcelImport              ProcessType = "EXCEL_IMPORT"
 	ProcessTypeFHIRImport               ProcessType = "FHIR_IMPORT"

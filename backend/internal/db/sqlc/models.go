@@ -478,14 +478,20 @@ type SurveillanceImportBatch struct {
 	ImportedAt  time.Time      `json:"imported_at"`
 	Status      string         `json:"status"`
 	Notes       sql.NullString `json:"notes"`
+	TotalRows   int32          `json:"total_rows"`
+	SuccessRows int32          `json:"success_rows"`
+	FailedRows  int32          `json:"failed_rows"`
+	CompletedAt sql.NullTime   `json:"completed_at"`
 }
 
 type SurveillanceImportRawRow struct {
-	ID        uuid.UUID       `json:"id"`
-	BatchID   uuid.UUID       `json:"batch_id"`
-	RowNumber int32           `json:"row_number"`
-	Payload   json.RawMessage `json:"payload"`
-	CreatedAt time.Time       `json:"created_at"`
+	ID           uuid.UUID       `json:"id"`
+	BatchID      uuid.UUID       `json:"batch_id"`
+	RowNumber    int32           `json:"row_number"`
+	Payload      json.RawMessage `json:"payload"`
+	CreatedAt    time.Time       `json:"created_at"`
+	Status       string          `json:"status"`
+	ErrorMessage sql.NullString  `json:"error_message"`
 }
 
 type User struct {

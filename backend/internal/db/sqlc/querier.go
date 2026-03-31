@@ -23,6 +23,7 @@ type Querier interface {
 	ClaimNextPendingProcess(ctx context.Context) (Process, error)
 	ClientUsageForUserInRange(ctx context.Context, arg ClientUsageForUserInRangeParams) ([]ClientUsageForUserInRangeRow, error)
 	CompleteProcess(ctx context.Context, id uuid.UUID) error
+	CompleteSurveillanceImportBatch(ctx context.Context, arg CompleteSurveillanceImportBatchParams) error
 	CountActivePublishedAnnouncements(ctx context.Context) (int64, error)
 	CountActiveUsers(ctx context.Context) (int64, error)
 	CountActiveUsersInRange(ctx context.Context, arg CountActiveUsersInRangeParams) (int64, error)
@@ -98,6 +99,7 @@ type Querier interface {
 	DeleteNationalStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) error
 	DeleteNotificationByID(ctx context.Context, id uuid.UUID) error
 	DeleteOldNotifications(ctx context.Context) error
+	DeleteProcessedSurveillanceImportRawRows(ctx context.Context, batchID uuid.UUID) error
 	DeleteRegion(ctx context.Context, id uuid.UUID) error
 	DeleteRegionStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) error
 	DeleteStorageLocation(ctx context.Context, id uuid.UUID) error
@@ -106,6 +108,7 @@ type Querier interface {
 	DraftAnnouncement(ctx context.Context, arg DraftAnnouncementParams) (Announcement, error)
 	ExportAuditLogs(ctx context.Context, arg ExportAuditLogsParams) ([]ExportAuditLogsRow, error)
 	FailProcess(ctx context.Context, arg FailProcessParams) error
+	FailSurveillanceImportBatch(ctx context.Context, arg FailSurveillanceImportBatchParams) error
 	FailedLoginsByDay(ctx context.Context, arg FailedLoginsByDayParams) ([]FailedLoginsByDayRow, error)
 	FailedLoginsByUserInRange(ctx context.Context, arg FailedLoginsByUserInRangeParams) ([]FailedLoginsByUserInRangeRow, error)
 	FirstLoginForUser(ctx context.Context, userID uuid.UUID) (sql.NullTime, error)
@@ -238,6 +241,8 @@ type Querier interface {
 	LoginTrendByDay(ctx context.Context, arg LoginTrendByDayParams) ([]LoginTrendByDayRow, error)
 	MarkAllNotificationsRead(ctx context.Context, targetRole string) error
 	MarkNotificationRead(ctx context.Context, id uuid.UUID) error
+	MarkSurveillanceImportRawRowFailed(ctx context.Context, arg MarkSurveillanceImportRawRowFailedParams) error
+	MarkSurveillanceImportRawRowProcessed(ctx context.Context, id uuid.UUID) error
 	MostAccessedClients(ctx context.Context, arg MostAccessedClientsParams) ([]MostAccessedClientsRow, error)
 	MostActiveClients(ctx context.Context) ([]MostActiveClientsRow, error)
 	NeverLoggedInUsers(ctx context.Context) ([]User, error)

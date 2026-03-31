@@ -569,32 +569,3 @@ func (h *SurveillanceHandler) UpdateImportBatchStatus(c *gin.Context) {
 
 	response.OK(c, http.StatusOK, data)
 }
-
-func (h *SurveillanceHandler) ImportSurveillanceCSV(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	fileHeader, err := c.FormFile("file")
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "file is required", err.Error())
-		return
-	}
-
-	sourceName := c.PostForm("source_name")
-
-	file, err := fileHeader.Open()
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "failed to open uploaded file", err.Error())
-		return
-	}
-	defer file.Close()
-
-	err = h.importService.ImportSurveillanceCSV(ctx, file, fileHeader.Filename, sourceName)
-	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to import surveillance csv", err.Error())
-		return
-	}
-
-	response.OK(c, http.StatusOK, gin.H{
-		"message": " Successfully imported",
-	})
-}
