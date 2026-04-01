@@ -15,4 +15,5 @@ type RegionWeeklyStatusRepository interface {
 	ListDiseaseStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListRegionWeeklyDiseaseStatusesByWeekRow, error)
 	ListIndicatorStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListRegionWeeklyIndicatorStatusesByWeekRow, error)
 	DeleteByWeek(ctx context.Context, epiWeekID uuid.UUID) error
+	WithTx(ctx context.Context, fn func(q db.Querier) error) error
 }

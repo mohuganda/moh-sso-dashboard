@@ -11,6 +11,7 @@ import (
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
 	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+	"github.com/moh-sso-dashboard/internal/service"
 
 	"github.com/moh-sso-dashboard/internal/storage"
 )
@@ -20,13 +21,29 @@ type Service struct {
 	processRepo      processRepo.ProcessRepository
 	fileRepository   documentRepo.FileRepository
 	importRepository interfaces.ImportRepository
-	registry         *Registry
-	storage          storage.Storage
-	remoteDB         *sql.DB
-	logger           *logger.Logger
+
+	facilityMetricsService      *service.SurveillanceFacilityWeeklyMetricsService
+	districtWeeklyStatusService *service.SurveillanceDistrictWeeklyStatusService
+	regionWeeklyStatusService   *service.SurveillanceRegionWeeklyStatusService
+	nationalStatusService       *service.SurveillanceNationalWeeklyStatusService
+	alertsService               *service.SurveillanceAlertService
+
+	registry *Registry
+	storage  storage.Storage
+	remoteDB *sql.DB
+	logger   *logger.Logger
 }
 
-func NewService(documentRepo documentRepo.DocumentRepository, processRepo processRepo.ProcessRepository, fileRepository documentRepo.FileRepository, importRepository interfaces.ImportRepository, storage storage.Storage, remote *sql.DB) *Service {
+func NewService(documentRepo documentRepo.DocumentRepository,
+	processRepo processRepo.ProcessRepository,
+	fileRepository documentRepo.FileRepository,
+	importRepository interfaces.ImportRepository,
+	facilityMetricsService *service.SurveillanceFacilityWeeklyMetricsService,
+	districtWeeklyStatusService *service.SurveillanceDistrictWeeklyStatusService,
+	regionWeeklyStatusService *service.SurveillanceRegionWeeklyStatusService,
+	nationalStatusService *service.SurveillanceNationalWeeklyStatusService,
+	alertsService *service.SurveillanceAlertService,
+	storage storage.Storage, remote *sql.DB) *Service {
 	reg := NewRegistry()
 
 	s := &Service{
@@ -40,6 +57,14 @@ func NewService(documentRepo documentRepo.DocumentRepository, processRepo proces
 	}
 
 	// Register processors
+	reg.Register(model.ProcessTypeSurveillanceBatchProcess, NewSurveillanceBatchProcessor(
+		importRepository,
+		facilityMetricsService,
+		districtWeeklyStatusService,
+		regionWeeklyStatusService,
+		nationalStatusService,
+		alertsService))
+
 	reg.Register(model.ProcessTypeSurveillanceCSVImport, NewSurveillanceCSVProcessor(documentRepo, processRepo, importRepository, storage))
 
 	reg.Register(model.ProcessTypeCSVImport, NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))

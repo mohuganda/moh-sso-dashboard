@@ -15,4 +15,5 @@ type NationalWeeklyStatusRepository interface {
 	ListDiseaseStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListNationalWeeklyDiseaseStatusesByWeekRow, error)
 	ListIndicatorStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListNationalWeeklyIndicatorStatusesByWeekRow, error)
 	DeleteByWeek(ctx context.Context, epiWeekID uuid.UUID) error
+	WithTx(ctx context.Context, fn func(q db.Querier) error) error
 }

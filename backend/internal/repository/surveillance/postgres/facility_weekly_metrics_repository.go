@@ -71,3 +71,7 @@ func (r *FacilityWeeklyMetricsRepository) ListByFacility(ctx context.Context, fa
 func (r *FacilityWeeklyMetricsRepository) DeleteByWeek(ctx context.Context, epiWeekID uuid.UUID) error {
 	return r.db.DeleteFacilityMetricsByWeek(ctx, epiWeekID)
 }
+
+func (r *FacilityWeeklyMetricsRepository) WithTx(ctx context.Context, fn func(q db.Querier) error) error {
+	return r.db.ExecTx(ctx, fn)
+}

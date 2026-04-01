@@ -18,4 +18,5 @@ type FacilityWeeklyMetricsRepository interface {
 	ListIndicatorMetricsByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListFacilityWeeklyIndicatorMetricsByWeekRow, error)
 	ListByFacility(ctx context.Context, facilityID uuid.UUID) ([]db.ListFacilityMetricsByFacilityRow, error)
 	DeleteByWeek(ctx context.Context, epiWeekID uuid.UUID) error
+	WithTx(ctx context.Context, fn func(q db.Querier) error) error
 }

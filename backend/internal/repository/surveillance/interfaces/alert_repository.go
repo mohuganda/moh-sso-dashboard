@@ -16,4 +16,5 @@ type AlertRepository interface {
 	ListByDistrict(ctx context.Context, districtID uuid.UUID) ([]db.ListAlertsByDistrictRow, error)
 	ListByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListAlertsByWeekRow, error)
 	UpdateStatus(ctx context.Context, arg db.UpdateAlertStatusParams) (db.Alert, error)
+	WithTx(ctx context.Context, fn func(q db.Querier) error) error
 }

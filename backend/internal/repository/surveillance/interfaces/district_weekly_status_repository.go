@@ -16,4 +16,5 @@ type DistrictWeeklyStatusRepository interface {
 	ListIndicatorStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListDistrictWeeklyIndicatorStatusesByWeekRow, error)
 	ListByDistrictAndWeek(ctx context.Context, arg db.ListDistrictStatusesByDistrictAndWeekParams) ([]db.ListDistrictStatusesByDistrictAndWeekRow, error)
 	DeleteByWeek(ctx context.Context, epiWeekID uuid.UUID) error
+	WithTx(ctx context.Context, fn func(q db.Querier) error) error
 }

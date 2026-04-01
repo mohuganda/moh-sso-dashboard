@@ -42,3 +42,7 @@ func (r *NationalWeeklyStatusRepository) ListIndicatorStatusesByWeek(ctx context
 func (r *NationalWeeklyStatusRepository) DeleteByWeek(ctx context.Context, epiWeekID uuid.UUID) error {
 	return r.db.DeleteNationalStatusesByWeek(ctx, epiWeekID)
 }
+
+func (r *NationalWeeklyStatusRepository) WithTx(ctx context.Context, fn func(q db.Querier) error) error {
+	return r.db.ExecTx(ctx, fn)
+}

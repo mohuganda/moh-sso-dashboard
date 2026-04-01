@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	"github.com/moh-sso-dashboard/internal/model"
 	documentRepository "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepository "github.com/moh-sso-dashboard/internal/repository/processes"
 	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
@@ -97,8 +98,10 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 		return fmt.Errorf("csv file has no headers")
 	}
 
-	fileName := stringPtr(doc.OriginalFilename)
-	importedBy := stringPtrFromUUID(p.CreatedBy)
+	datasetType := inferDatasetType(headers)
+	if datasetType == "unknown" {
+		return fmt.Errorf("unable to infer dataset type from csv headers")
+	}
 
 	msg = "Creating import batch"
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 15, &msg)
@@ -106,17 +109,17 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 	batch, err := c.importRepository.CreateImportBatch(ctx, db.CreateImportBatchParams{
 		SourceName: "document_upload",
 		FileName: sql.NullString{
-			String: *fileName,
-			Valid:  true,
+			String: strings.TrimSpace(doc.OriginalFilename),
+			Valid:  strings.TrimSpace(doc.OriginalFilename) != "",
 		},
-		DatasetType: inferDatasetType(headers),
+		DatasetType: datasetType,
 		ImportedBy: sql.NullString{
-			String: *importedBy,
-			Valid:  true,
+			String: p.CreatedBy.String(),
+			Valid:  p.CreatedBy != uuid.Nil,
 		},
 		Status: "PROCESSING",
 		Notes: sql.NullString{
-			String: "Processing file",
+			String: "Raw import in progress",
 			Valid:  true,
 		},
 	})
@@ -124,6 +127,7 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 		return err
 	}
 
+	// Mark as created immediately after successful batch insert
 	batchID = batch.ID
 	batchCreated = true
 
@@ -131,7 +135,7 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 20, &msg)
 
 	rowCount := 0
-	rowNumber := 1 // data row number, excluding header row
+	rowNumber := 1
 
 	for {
 		record, err := reader.Read()
@@ -144,11 +148,9 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 
 		payloadMap := make(map[string]any, len(headers))
 		for i, header := range headers {
-			var value string
+			value := ""
 			if i < len(record) {
 				value = strings.TrimSpace(record[i])
-			} else {
-				value = ""
 			}
 			payloadMap[header] = value
 		}
@@ -179,20 +181,36 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 
 	_, err = c.importRepository.UpdateImportBatchStatus(ctx, db.UpdateImportBatchStatusParams{
 		ID:     batch.ID,
-		Status: "COMPLETED",
+		Status: "PENDING",
 		Notes: sql.NullString{
-			String: "Successfully uploaded file",
+			String: fmt.Sprintf("Uploaded %d raw rows. Awaiting batch processing.", rowCount),
 			Valid:  true,
 		},
 	})
 	if err != nil {
-		return failBatch(fmt.Errorf("failed to mark batch completed: %w", err))
+		return failBatch(fmt.Errorf("failed to mark batch pending: %w", err))
 	}
 
-	msg = fmt.Sprintf("Inserted %d rows successfully", rowCount)
+	_, err = json.Marshal(SurveillanceBatchProcessPayload{
+		BatchID: batch.ID,
+	})
+	if err != nil {
+		return failBatch(fmt.Errorf("failed to marshal batch process payload: %w", err))
+	}
+
+	_, err = c.processRepository.CreateProcess(ctx, db.CreateProcessParams{
+		DocumentID:  p.DocumentID,
+		ProcessType: string(model.ProcessTypeSurveillanceBatchProcess),
+		CreatedBy:   p.CreatedBy,
+	})
+	if err != nil {
+		return failBatch(fmt.Errorf("failed to queue batch processing: %w", err))
+	}
+
+	msg = fmt.Sprintf("Imported %d raw rows successfully", rowCount)
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 90, &msg)
 
-	msg = "Finished processing"
+	msg = "Raw import completed"
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 100, &msg)
 
 	return nil
@@ -212,16 +230,26 @@ func inferDatasetType(headers []string) string {
 		headerSet[h] = struct{}{}
 	}
 
-	_, hasFacility := headerSet["facility"]
-	_, hasDisease := headerSet["disease"]
-	_, hasValue := headerSet["value"]
-	_, hasRegion := headerSet["region"]
-	_, hasDistrict := headerSet["district"]
-	_, hasWeek := headerSet["weeks"]
-	_, hasMaroon := headerSet["maroon"]
-	_, hasRed := headerSet["red"]
-	_, hasYellow := headerSet["yellow"]
-	_, hasGreen := headerSet["green"]
+	hasAny := func(keys ...string) bool {
+		for _, key := range keys {
+			if _, ok := headerSet[key]; ok {
+				return true
+			}
+		}
+		return false
+	}
+
+	hasFacility := hasAny("facility", "facility_name")
+	hasDisease := hasAny("disease", "disease_name")
+	hasValue := hasAny("value", "cases", "count", "metric_value")
+	hasRegion := hasAny("region", "region_name")
+	hasDistrict := hasAny("district", "district_name")
+	hasWeek := hasAny("week", "weeks", "epi_week", "epiweek")
+	hasMaroon := hasAny("maroon")
+	hasRed := hasAny("red")
+	hasYellow := hasAny("yellow")
+	hasGreen := hasAny("green")
+	hasNational := hasAny("national", "country", "uganda")
 
 	switch {
 	case hasFacility && hasDisease && hasValue:
@@ -230,32 +258,17 @@ func inferDatasetType(headers []string) string {
 		return "district_status"
 	case hasRegion && hasDisease && hasWeek:
 		return "region_status"
+	case hasNational && hasDisease && hasWeek:
+		return "national_status"
 	default:
 		return "unknown"
 	}
 }
 
 func calculateProgress(rowCount int) int32 {
-	// keeps row import progress between 20 and 85
 	progress := int32(20 + (rowCount / 100))
 	if progress > 85 {
 		return 85
 	}
 	return progress
-}
-
-func stringPtr(value string) *string {
-	v := strings.TrimSpace(value)
-	if v == "" {
-		return nil
-	}
-	return &v
-}
-
-func stringPtrFromUUID(id uuid.UUID) *string {
-	if id == uuid.Nil {
-		return nil
-	}
-	v := id.String()
-	return &v
 }

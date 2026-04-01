@@ -46,3 +46,7 @@ func (r *DistrictWeeklyStatusRepository) ListByDistrictAndWeek(ctx context.Conte
 func (r *DistrictWeeklyStatusRepository) DeleteByWeek(ctx context.Context, epiWeekID uuid.UUID) error {
 	return r.db.DeleteDistrictStatusesByWeek(ctx, epiWeekID)
 }
+
+func (r *DistrictWeeklyStatusRepository) WithTx(ctx context.Context, fn func(q db.Querier) error) error {
+	return r.db.ExecTx(ctx, fn)
+}
