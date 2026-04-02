@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -123,46 +124,26 @@ func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 		DX           []string `json:"dx"`
 		StartDate    string   `json:"startDate"`
 		EndDate      string   `json:"endDate"`
-		OrgunitLevel *string  `json:"orgunitLevel"`
+		OrgunitLevel any      `json:"orgunitLevel"`
 	}
 
 	var req Request
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid JSON",
+			"details": err.Error(),
+		})
 		return
 	}
 
 	var conditions []string
 	var values []interface{}
 	paramCounter := 0
-	aggregationLevel := h.resolveAggregationLevel(ctx, req.OrgunitLevel, req.OU)
+	requestedLevel := normalizeOrgunitLevel(req.OrgunitLevel)
 
 	if len(req.OU) > 0 {
 		paramCounter++
 		values = append(values, pq.Array(req.OU))
-		conditions = append(conditions, fmt.Sprintf(`
-			EXISTS (
-				SELECT 1
-				FROM dwh.dim_org_hierarchy h
-				WHERE h.is_current = true
-				  AND (
-					h.facility_uid = hs.org_unit_id
-					OR h.sub_county_uid = hs.org_unit_id
-					OR h.org_unit_id = hs.org_unit_id
-					OR h.district_uid = hs.org_unit_id
-					OR h.region_uid = hs.org_unit_id
-					OR h.country_uid = hs.org_unit_id
-				  )
-				  AND (
-					h.facility_uid = ANY($%d)
-					OR h.sub_county_uid = ANY($%d)
-					OR h.org_unit_id = ANY($%d)
-					OR h.district_uid = ANY($%d)
-					OR h.region_uid = ANY($%d)
-					OR h.country_uid = ANY($%d)
-				  )
-			)
-		`, paramCounter, paramCounter, paramCounter, paramCounter, paramCounter, paramCounter))
 	}
 
 	if len(req.DX) > 0 {
@@ -190,35 +171,244 @@ func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	orgUnitExpr, facilityExpr, levelExpr, regionExpr, districtExpr, subCountyExpr := aggregationExpressions(aggregationLevel)
+	var query string
+	if len(req.OU) > 0 {
+		selectedLevelClause := ""
+		if requestedLevel != nil {
+			paramCounter++
+			values = append(values, *requestedLevel)
+			selectedLevelClause = fmt.Sprintf("WHERE su.selected_level = $%d", paramCounter)
+		}
 
-	query := `
-	   SELECT 
-	      ` + orgUnitExpr + ` AS org_unit_id,
-	      hs.data_element_id,
-	      hs."period",
-	      hs.category_combo,
-	      SUM(
-	        CASE
-	          WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
-	          ELSE 0
-	        END
-	      )::bigint AS value,
-	      ` + facilityExpr + ` AS facility,
-	      ` + levelExpr + ` AS "level",
-	      ` + regionExpr + ` AS region,
-          ` + districtExpr + ` AS district,
-          ` + subCountyExpr + ` AS sub_county,
-          hs.dataelement
-       FROM report.hmis_summary hs
-       ` + whereClause + `
-       GROUP BY 1, 2, 3, 4, 6, 7, 8, 9, 10, 11
-       ORDER BY 
-          3,
-          1,
-          2,
-          4
-    `
+		query = `
+		   WITH selected_input AS (
+		     SELECT DISTINCT unnest($1::text[]) AS selected_uid
+		   ),
+		   selected_candidates AS (
+		     SELECT
+		       si.selected_uid,
+		       '6'::text AS selected_level,
+		       COALESCE(MIN(NULLIF(h.facility_name, '')), MIN(NULLIF(h.org_unit_name, '')), si.selected_uid) AS selected_name,
+		       1 AS priority
+		     FROM selected_input si
+		     JOIN dwh.dim_org_hierarchy h
+		       ON h.is_current = true
+		      AND (h.facility_uid = si.selected_uid OR (h.level = '6' AND h.org_unit_id = si.selected_uid))
+		     GROUP BY si.selected_uid
+
+		     UNION ALL
+
+		     SELECT
+		       si.selected_uid,
+		       '5'::text AS selected_level,
+		       COALESCE(MIN(NULLIF(h.sub_county, '')), MIN(NULLIF(h.org_unit_name, '')), si.selected_uid) AS selected_name,
+		       2 AS priority
+		     FROM selected_input si
+		     JOIN dwh.dim_org_hierarchy h
+		       ON h.is_current = true
+		      AND (h.sub_county_uid = si.selected_uid OR (h.level = '5' AND h.org_unit_id = si.selected_uid))
+		     GROUP BY si.selected_uid
+
+		     UNION ALL
+
+		     SELECT
+		       si.selected_uid,
+		       '3'::text AS selected_level,
+		       COALESCE(MIN(NULLIF(h.district, '')), si.selected_uid) AS selected_name,
+		       3 AS priority
+		     FROM selected_input si
+		     JOIN dwh.dim_org_hierarchy h
+		       ON h.is_current = true
+		      AND h.district_uid = si.selected_uid
+		     GROUP BY si.selected_uid
+
+		     UNION ALL
+
+		     SELECT
+		       si.selected_uid,
+		       '2'::text AS selected_level,
+		       COALESCE(MIN(NULLIF(h.region, '')), si.selected_uid) AS selected_name,
+		       4 AS priority
+		     FROM selected_input si
+		     JOIN dwh.dim_org_hierarchy h
+		       ON h.is_current = true
+		      AND h.region_uid = si.selected_uid
+		     GROUP BY si.selected_uid
+
+		     UNION ALL
+
+		     SELECT
+		       si.selected_uid,
+		       '1'::text AS selected_level,
+		       COALESCE(MIN(CASE WHEN h.level = '1' THEN NULLIF(h.org_unit_name, '') END), 'MoH - Uganda') AS selected_name,
+		       5 AS priority
+		     FROM selected_input si
+		     JOIN dwh.dim_org_hierarchy h
+		       ON h.is_current = true
+		      AND (h.country_uid = si.selected_uid OR (h.level = '1' AND h.org_unit_id = si.selected_uid))
+		     GROUP BY si.selected_uid
+
+		     UNION ALL
+
+		     SELECT
+		       si.selected_uid,
+		       '6'::text AS selected_level,
+		       si.selected_uid AS selected_name,
+		       99 AS priority
+		     FROM selected_input si
+		   ),
+		   selected_units AS (
+		     SELECT DISTINCT ON (su.selected_uid)
+		       su.selected_uid,
+		       su.selected_level,
+		       su.selected_name
+		     FROM selected_candidates su
+		     ` + selectedLevelClause + `
+		     ORDER BY su.selected_uid, su.priority
+		   ),
+		   selected_facilities AS (
+		     SELECT DISTINCT
+		       su.selected_uid,
+		       su.selected_level,
+		       su.selected_name,
+		       h.dim_org_hierarchy_key
+		     FROM selected_units su
+		     JOIN dwh.dim_org_hierarchy h
+		       ON h.is_current = true
+		      AND (
+		        (su.selected_level = '6' AND (h.facility_uid = su.selected_uid OR (h.level = '6' AND h.org_unit_id = su.selected_uid)))
+		        OR (su.selected_level = '2' AND h.region_uid = su.selected_uid)
+		        OR (su.selected_level = '3' AND h.district_uid = su.selected_uid)
+		        OR (su.selected_level = '5' AND (h.sub_county_uid = su.selected_uid OR (h.level = '5' AND h.org_unit_id = su.selected_uid)))
+		      )
+		     WHERE su.selected_level IN ('2', '3', '5', '6')
+		   )
+		   SELECT
+		     x.org_unit_id,
+		     x.data_element_id,
+		     x."period",
+		     x.category_combo,
+		     x.value,
+		     x.facility,
+		     x."level",
+		     x.region,
+		     x.district,
+		     x.sub_county,
+		     x.dataelement
+		   FROM (
+		     SELECT
+		       sf.selected_uid AS org_unit_id,
+		       hs.data_element_id,
+		       hs."period",
+		       hs.category_combo,
+		       SUM(
+		         CASE
+		           WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
+		           ELSE 0
+		         END
+		       )::bigint AS value,
+		       sf.selected_name AS facility,
+		       sf.selected_level AS "level",
+		       CASE
+		         WHEN sf.selected_level = '2' THEN sf.selected_name
+		         WHEN sf.selected_level IN ('3', '5', '6') THEN COALESCE(MAX(hs.region), '')
+		         ELSE ''
+		       END AS region,
+		       CASE
+		         WHEN sf.selected_level = '3' THEN sf.selected_name
+		         WHEN sf.selected_level IN ('5', '6') THEN COALESCE(MAX(hs.district), '')
+		         ELSE ''
+		       END AS district,
+		       CASE
+		         WHEN sf.selected_level = '5' THEN sf.selected_name
+		         WHEN sf.selected_level = '6' THEN COALESCE(MAX(hs.sub_county), '')
+		         ELSE ''
+		       END AS sub_county,
+		       hs.dataelement
+		     FROM report.hmis_summary hs
+		     JOIN selected_facilities sf
+		       ON sf.dim_org_hierarchy_key = hs.dim_org_hierarchy_key
+		     ` + whereClause + `
+		     GROUP BY
+		       sf.selected_uid,
+		       sf.selected_name,
+		       sf.selected_level,
+		       hs.data_element_id,
+		       hs."period",
+		       hs.category_combo,
+		       hs.dataelement
+
+		     UNION ALL
+
+		     SELECT
+		       su.selected_uid AS org_unit_id,
+		       hs.data_element_id,
+		       hs."period",
+		       hs.category_combo,
+		       SUM(
+		         CASE
+		           WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
+		           ELSE 0
+		         END
+		       )::bigint AS value,
+		       su.selected_name AS facility,
+		       su.selected_level AS "level",
+		       '' AS region,
+		       '' AS district,
+		       '' AS sub_county,
+		       hs.dataelement
+		     FROM report.hmis_summary hs
+		     JOIN selected_units su
+		       ON su.selected_level = '1'
+		     ` + whereClause + `
+		     GROUP BY
+		       su.selected_uid,
+		       su.selected_name,
+		       su.selected_level,
+		       hs.data_element_id,
+		       hs."period",
+		       hs.category_combo,
+		       hs.dataelement
+		   ) x
+		   ORDER BY
+		     x."period",
+		     x."level",
+		     x.facility,
+		     x.data_element_id,
+		     x.category_combo
+		`
+	} else {
+		aggregationLevel := h.resolveAggregationLevel(ctx, requestedLevel, req.OU)
+		orgUnitExpr, facilityExpr, levelExpr, regionExpr, districtExpr, subCountyExpr := aggregationExpressions(aggregationLevel)
+
+		query = `
+		   SELECT 
+		      ` + orgUnitExpr + ` AS org_unit_id,
+		      hs.data_element_id,
+		      hs."period",
+		      hs.category_combo,
+		      SUM(
+		        CASE
+		          WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
+		          ELSE 0
+		        END
+		      )::bigint AS value,
+		      ` + facilityExpr + ` AS facility,
+		      ` + levelExpr + ` AS "level",
+		      ` + regionExpr + ` AS region,
+	          ` + districtExpr + ` AS district,
+	          ` + subCountyExpr + ` AS sub_county,
+	          hs.dataelement
+	       FROM report.hmis_summary hs
+	       ` + whereClause + `
+	       GROUP BY 1, 2, 3, 4, 6, 7, 8, 9, 10, 11
+	       ORDER BY 
+	          3,
+	          1,
+	          2,
+	          4
+	    `
+	}
 
 	rows, err := h.db.QueryContext(ctx, query, values...)
 	if err != nil {
@@ -307,6 +497,25 @@ func (h *VisualiserHandler) resolveAggregationLevel(ctx context.Context, request
 		return "6"
 	}
 	return level
+}
+
+func normalizeOrgunitLevel(v any) *string {
+	switch x := v.(type) {
+	case nil:
+		return nil
+	case string:
+		s := strings.TrimSpace(x)
+		if s == "" {
+			return nil
+		}
+		return &s
+	case float64:
+		// JSON numbers decode to float64 by default.
+		s := strconv.FormatInt(int64(x), 10)
+		return &s
+	default:
+		return nil
+	}
 }
 
 func aggregationExpressions(level string) (orgUnitExpr, facilityExpr, levelExpr, regionExpr, districtExpr, subCountyExpr string) {
