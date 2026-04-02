@@ -104,3 +104,7 @@ func (r *AlertRepository) ListByWeek(ctx context.Context, epiWeekID uuid.UUID) (
 func (r *AlertRepository) UpdateStatus(ctx context.Context, arg db.UpdateAlertStatusParams) (db.Alert, error) {
 	return r.db.UpdateAlertStatus(ctx, arg)
 }
+
+func (r *AlertRepository) WithTx(ctx context.Context, fn func(q db.Querier) error) error {
+	return r.db.ExecTx(ctx, fn)
+}

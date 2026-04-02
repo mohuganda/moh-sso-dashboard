@@ -2,21 +2,11 @@ package service
 
 import (
 	"context"
-	"io"
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 )
-
-type SurveillanceImportResult struct {
-	FileName     string `json:"fileName"`
-	SourceName   string `json:"sourceName,omitempty"`
-	RowsRead     int    `json:"rowsRead"`
-	RowsImported int    `json:"rowsImported"`
-	RowsSkipped  int    `json:"rowsSkipped"`
-	Message      string `json:"message"`
-}
 
 type SurveillanceImportService struct {
 	importRepo interfaces.ImportRepository
@@ -46,13 +36,4 @@ func (s *SurveillanceImportService) UpdateImportBatchStatus(ctx context.Context,
 
 func (s *SurveillanceImportService) ListImportRawRowsByBatch(ctx context.Context, batchID uuid.UUID) ([]db.SurveillanceImportRawRow, error) {
 	return s.importRepo.ListImportRawRowsByBatch(ctx, batchID)
-}
-
-func (s *SurveillanceImportService) ImportSurveillanceCSV(
-	ctx context.Context,
-	reader io.Reader,
-	fileName string,
-	sourceName string,
-) error {
-	return s.importRepo.ImportCSV(ctx, reader, fileName, sourceName)
 }
