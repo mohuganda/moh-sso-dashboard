@@ -138,6 +138,7 @@ type Querier interface {
 	GetIndicatorByID(ctx context.Context, id uuid.UUID) (Indicator, error)
 	GetIndicatorByName(ctx context.Context, lower string) (Indicator, error)
 	GetIndicatorDashboardSummaryByWeek(ctx context.Context, arg GetIndicatorDashboardSummaryByWeekParams) (GetIndicatorDashboardSummaryByWeekRow, error)
+	GetLatestImportBatchByDocumentID(ctx context.Context, documentID uuid.NullUUID) (SurveillanceImportBatch, error)
 	GetLatestProcessByDocumentID(ctx context.Context, documentID uuid.UUID) (Process, error)
 	GetNationalWeeklyStatusSummary(ctx context.Context, epiWeekID uuid.UUID) ([]GetNationalWeeklyStatusSummaryRow, error)
 	GetNotificationByID(ctx context.Context, id uuid.UUID) (Notification, error)
@@ -148,7 +149,7 @@ type Querier interface {
 	GetStorageLocationByID(ctx context.Context, id uuid.UUID) (StorageLocation, error)
 	GetSubCountyByID(ctx context.Context, id uuid.UUID) (SubCounty, error)
 	GetSubCountyByNameAndDistrict(ctx context.Context, arg GetSubCountyByNameAndDistrictParams) (SubCounty, error)
-	GetSubcountyByName(ctx context.Context, name string) (GetSubcountyByNameRow, error)
+	GetSubcountyByName(ctx context.Context, name string) (SubCounty, error)
 	GetTopFacilitiesByDiseaseAndWeek(ctx context.Context, arg GetTopFacilitiesByDiseaseAndWeekParams) ([]GetTopFacilitiesByDiseaseAndWeekRow, error)
 	GetTopFacilitiesByIndicatorAndWeek(ctx context.Context, arg GetTopFacilitiesByIndicatorAndWeekParams) ([]GetTopFacilitiesByIndicatorAndWeekRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
@@ -281,6 +282,7 @@ type Querier interface {
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientEnabled(ctx context.Context, arg UpdateClientEnabledParams) error
 	UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (Document, error)
+	UpdateImportBatchProgress(ctx context.Context, arg UpdateImportBatchProgressParams) error
 	UpdateImportBatchStatus(ctx context.Context, arg UpdateImportBatchStatusParams) (SurveillanceImportBatch, error)
 	UpdateImportJobCounts(ctx context.Context, arg UpdateImportJobCountsParams) error
 	UpdateImportJobItemStatus(ctx context.Context, arg UpdateImportJobItemStatusParams) error

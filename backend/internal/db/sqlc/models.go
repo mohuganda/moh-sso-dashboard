@@ -482,6 +482,7 @@ type SurveillanceImportBatch struct {
 	SuccessRows int32          `json:"success_rows"`
 	FailedRows  int32          `json:"failed_rows"`
 	CompletedAt sql.NullTime   `json:"completed_at"`
+	DocumentID  uuid.NullUUID  `json:"document_id"`
 }
 
 type SurveillanceImportRawRow struct {

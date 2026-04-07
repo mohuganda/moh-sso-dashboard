@@ -34,22 +34,35 @@ func NewSurveillanceBatchProcessor(
 	alertsService *service.SurveillanceAlertService,
 ) *SurveillanceBatchProcessor {
 	return &SurveillanceBatchProcessor{
-		repo:                   repo,
-		facilityMetricsService: facilityMetricsService,
+		repo:                        repo,
+		facilityMetricsService:      facilityMetricsService,
+		districtWeeklyStatusService: districtWeeklyStatusService,
+		regionWeeklyStatusService:   regionWeeklyStatusService,
+		nationalStatusService:       nationalStatusService,
+		alertsService:               alertsService,
 	}
 }
 
-func (s *SurveillanceBatchProcessor) Process(
-	ctx context.Context,
-	p db.Process,
-) error {
-	var payload SurveillanceBatchProcessPayload
-
-	if payload.BatchID == uuid.Nil {
-		return fmt.Errorf("batch_id is required")
+func (s *SurveillanceBatchProcessor) Process(ctx context.Context, p db.Process) error {
+	batchID, err := s.resolveBatchID(ctx, p)
+	if err != nil {
+		return err
 	}
 
-	return s.processBatch(ctx, payload.BatchID)
+	return s.processBatch(ctx, batchID)
+}
+
+func (s *SurveillanceBatchProcessor) resolveBatchID(ctx context.Context, p db.Process) (uuid.UUID, error) {
+
+	if p.DocumentID != uuid.Nil {
+		batch, err := s.repo.GetLatestImportBatchByDocumentID(ctx, p.DocumentID)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("failed to resolve latest batch by document_id: %w", err)
+		}
+		return batch.ID, nil
+	}
+
+	return uuid.Nil, fmt.Errorf("batch_id is required")
 }
 
 func (s *SurveillanceBatchProcessor) processBatch(ctx context.Context, batchID uuid.UUID) error {
@@ -62,7 +75,7 @@ func (s *SurveillanceBatchProcessor) processBatch(ctx context.Context, batchID u
 		ID:     batchID,
 		Status: "PROCESSING",
 		Notes: sql.NullString{
-			String: "Processing imported raw rows",
+			String: fmt.Sprintf("Processing imported raw rows for %s", batch.DatasetType),
 			Valid:  true,
 		},
 	})
@@ -74,40 +87,55 @@ func (s *SurveillanceBatchProcessor) processBatch(ctx context.Context, batchID u
 
 	switch batch.DatasetType {
 	case "facility_metrics":
+		if s.facilityMetricsService == nil {
+			processErr = fmt.Errorf("facility metrics service is not configured")
+			break
+		}
 		processErr = s.facilityMetricsService.ProcessFacilityMetrics(ctx, batchID)
+
 	case "district_status":
+		if s.districtWeeklyStatusService == nil {
+			processErr = fmt.Errorf("district weekly status service is not configured")
+			break
+		}
 		processErr = s.districtWeeklyStatusService.ProcessDistrictStatus(ctx, batchID)
+
 	case "region_status":
+		if s.regionWeeklyStatusService == nil {
+			processErr = fmt.Errorf("region weekly status service is not configured")
+			break
+		}
 		processErr = s.regionWeeklyStatusService.ProcessRegionWeeklyStatusesByWeek(ctx, batchID)
+
 	case "national_status":
+		if s.nationalStatusService == nil {
+			processErr = fmt.Errorf("national status service is not configured")
+			break
+		}
 		processErr = s.nationalStatusService.ProcessNationalWeeklyStatuses(ctx, batchID)
+
 	case "alerts":
+		if s.alertsService == nil {
+			processErr = fmt.Errorf("alerts service is not configured")
+			break
+		}
 		processErr = s.alertsService.ProcessAlerts(ctx, batchID)
+
 	default:
 		processErr = fmt.Errorf("unsupported dataset type: %s", batch.DatasetType)
 	}
 
 	if processErr != nil {
-		_, _ = s.repo.UpdateImportBatchStatus(ctx, db.UpdateImportBatchStatusParams{
-			ID:     batchID,
-			Status: "FAILED",
-			Notes: sql.NullString{
-				String: processErr.Error(),
-				Valid:  true,
-			},
-		})
+		_ = s.repo.FailImportBatch(ctx, batchID, processErr.Error())
 		return processErr
 	}
 
-	_, err = s.repo.UpdateImportBatchStatus(ctx, db.UpdateImportBatchStatusParams{
-		ID:     batchID,
-		Status: "COMPLETED",
-		Notes: sql.NullString{
-			String: "Batch processed successfully",
-			Valid:  true,
-		},
-	})
-	if err != nil {
+	successRows := batch.TotalRows - batch.FailedRows
+	if successRows < 0 {
+		successRows = 0
+	}
+
+	if err := s.repo.CompleteImportBatch(ctx, batchID, successRows, batch.FailedRows); err != nil {
 		return err
 	}
 

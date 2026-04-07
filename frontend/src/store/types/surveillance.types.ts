@@ -60,19 +60,19 @@ export interface RegionWeeklyStatus {
   region_id: string;
   region_name?: string;
   epi_week_id: string;
-  maroon?: number;
-  red?: number;
-  yellow?: number;
-  green?: number;
+  maroon?: string[];
+  red?: string[];
+  yellow?: string[];
+  green?: string[];
 }
 
 export interface NationalWeeklyStatus {
   id: string;
   epi_week_id: string;
-  maroon?: number;
-  red?: number;
-  yellow?: number;
-  green?: number;
+  maroon?: string[];
+  red?: string[];
+  yellow?: string[];
+  green?: string[];
 }
 
 export interface Subcounty {

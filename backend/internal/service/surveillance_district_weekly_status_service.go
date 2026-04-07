@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -22,6 +24,16 @@ type districtStatusPayload struct {
 	Red      []string `json:"red"`
 	Yellow   []string `json:"yellow"`
 	Green    []string `json:"green"`
+}
+
+type rawDistrictStatusPayload struct {
+	Week     json.RawMessage `json:"weeks"`
+	Year     json.RawMessage `json:"year"`
+	District json.RawMessage `json:"district"`
+	Maroon   json.RawMessage `json:"maroon"`
+	Red      json.RawMessage `json:"red"`
+	Yellow   json.RawMessage `json:"yellow"`
+	Green    json.RawMessage `json:"green"`
 }
 
 type SurveillanceDistrictWeeklyStatusService struct {
@@ -157,6 +169,16 @@ func (s *SurveillanceDistrictWeeklyStatusService) ProcessDistrictStatus(
 
 	s.log.Info(ctx, "processing district weekly status batch", "batch_id", batchID)
 
+	batch, err := s.surveillanceImportRepo.GetImportBatchByID(ctx, batchID)
+	if err != nil {
+		return fmt.Errorf("get import batch: %w", err)
+	}
+
+	fallbackYear, err := resolveBatchYear(batch)
+	if err != nil {
+		return fmt.Errorf("resolve batch year: %w", err)
+	}
+
 	return s.districtWeeklyStatusRepo.WithTx(ctx, func(q db.Querier) error {
 		rows, err := s.surveillanceImportRepo.ListImportRawRowsByBatch(ctx, batchID)
 		if err != nil {
@@ -167,7 +189,7 @@ func (s *SurveillanceDistrictWeeklyStatusService) ProcessDistrictStatus(
 		var failedRows int32
 
 		for _, rawRow := range rows {
-			if err := s.processDistrictStatusRow(ctx, q, rawRow); err != nil {
+			if err := s.processDistrictStatusRow(ctx, q, rawRow, fallbackYear); err != nil {
 				failedRows++
 
 				s.log.Warn(
@@ -204,7 +226,7 @@ func (s *SurveillanceDistrictWeeklyStatusService) ProcessDistrictStatus(
 
 		s.log.Info(
 			ctx,
-			"completed district weekly status batch processing",
+			"finished district weekly status batch processing",
 			"batch_id", batchID,
 			"success_rows", successRows,
 			"failed_rows", failedRows,
@@ -218,8 +240,14 @@ func (s *SurveillanceDistrictWeeklyStatusService) processDistrictStatusRow(
 	ctx context.Context,
 	q db.Querier,
 	rawRow db.SurveillanceImportRawRow,
+	fallbackYear int32,
 ) error {
 	payload, err := parseDistrictStatusPayload(rawRow.Payload)
+	if err != nil {
+		return err
+	}
+
+	year, err := resolvePayloadOrBatchYear(payload.Year, fallbackYear, true)
 	if err != nil {
 		return err
 	}
@@ -230,11 +258,11 @@ func (s *SurveillanceDistrictWeeklyStatusService) processDistrictStatusRow(
 	}
 
 	epiWeek, err := q.GetEpiWeekByYearWeek(ctx, db.GetEpiWeekByYearWeekParams{
-		EpiYear: payload.Year,
+		EpiYear: year,
 		EpiWeek: payload.Week,
 	})
 	if err != nil {
-		return fmt.Errorf("epi week not found: year=%d week=%d", payload.Year, payload.Week)
+		return fmt.Errorf("epi week not found: year=%d week=%d", year, payload.Week)
 	}
 
 	statusDiseaseMap := map[db.RiskLevel][]string{
@@ -262,7 +290,7 @@ func (s *SurveillanceDistrictWeeklyStatusService) processDistrictStatusRow(
 					payload.District,
 					diseaseName,
 					payload.Week,
-					payload.Year,
+					year,
 					err,
 				)
 			}
@@ -273,24 +301,58 @@ func (s *SurveillanceDistrictWeeklyStatusService) processDistrictStatusRow(
 }
 
 func parseDistrictStatusPayload(rawPayload []byte) (districtStatusPayload, error) {
-	var payload districtStatusPayload
-
-	if err := json.Unmarshal(rawPayload, &payload); err != nil {
+	var raw rawDistrictStatusPayload
+	if err := json.Unmarshal(rawPayload, &raw); err != nil {
 		return districtStatusPayload{}, fmt.Errorf("invalid payload json: %w", err)
 	}
 
-	payload.District = strings.TrimSpace(payload.District)
-	payload.Maroon = normalizeDiseaseNames(payload.Maroon)
-	payload.Red = normalizeDiseaseNames(payload.Red)
-	payload.Yellow = normalizeDiseaseNames(payload.Yellow)
-	payload.Green = normalizeDiseaseNames(payload.Green)
+	week, err := parseInt32Field(raw.Week, "weeks")
+	if err != nil {
+		return districtStatusPayload{}, err
+	}
+
+	year, err := parseOptionalInt32Field(raw.Year)
+	if err != nil {
+		return districtStatusPayload{}, fmt.Errorf("year has invalid format: %w", err)
+	}
+
+	district, err := parseStringField(raw.District, "district")
+	if err != nil {
+		return districtStatusPayload{}, err
+	}
+
+	maroon, err := parseStringSliceField(raw.Maroon, "maroon")
+	if err != nil {
+		return districtStatusPayload{}, err
+	}
+
+	red, err := parseStringSliceField(raw.Red, "red")
+	if err != nil {
+		return districtStatusPayload{}, err
+	}
+
+	yellow, err := parseStringSliceField(raw.Yellow, "yellow")
+	if err != nil {
+		return districtStatusPayload{}, err
+	}
+
+	green, err := parseStringSliceField(raw.Green, "green")
+	if err != nil {
+		return districtStatusPayload{}, err
+	}
+
+	payload := districtStatusPayload{
+		Week:     week,
+		Year:     year,
+		District: strings.TrimSpace(district),
+		Maroon:   normalizeDiseaseNames(maroon),
+		Red:      normalizeDiseaseNames(red),
+		Yellow:   normalizeDiseaseNames(yellow),
+		Green:    normalizeDiseaseNames(green),
+	}
 
 	if payload.District == "" {
 		return districtStatusPayload{}, errors.New("district is required")
-	}
-
-	if payload.Year <= 0 {
-		return districtStatusPayload{}, errors.New("year is required")
 	}
 
 	if payload.Week <= 0 {
@@ -305,6 +367,96 @@ func parseDistrictStatusPayload(rawPayload []byte) (districtStatusPayload, error
 	}
 
 	return payload, nil
+}
+
+func parseInt32Field(raw json.RawMessage, fieldName string) (int32, error) {
+	raw = bytesTrimSpace(raw)
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, fmt.Errorf("%s is required", fieldName)
+	}
+
+	var asInt int32
+	if err := json.Unmarshal(raw, &asInt); err == nil {
+		return asInt, nil
+	}
+
+	var asFloat float64
+	if err := json.Unmarshal(raw, &asFloat); err == nil {
+		return int32(asFloat), nil
+	}
+
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		asString = strings.TrimSpace(asString)
+		if asString == "" {
+			return 0, fmt.Errorf("%s is required", fieldName)
+		}
+
+		n, err := strconv.ParseFloat(asString, 64)
+		if err != nil {
+			return 0, fmt.Errorf("%s must be a valid number", fieldName)
+		}
+
+		return int32(n), nil
+	}
+
+	return 0, fmt.Errorf("%s must be a valid number", fieldName)
+}
+
+func parseStringField(raw json.RawMessage, field string) (string, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return "", fmt.Errorf("%s is required", field)
+	}
+
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", fmt.Errorf("%s must be a string", field)
+	}
+
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", fmt.Errorf("%s is required", field)
+	}
+
+	return value, nil
+}
+
+func parseStringSliceField(raw json.RawMessage, field string) ([]string, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+
+	var arr []string
+	if err := json.Unmarshal(raw, &arr); err == nil {
+		return normalizeDiseaseNames(arr), nil
+	}
+
+	var str string
+	if err := json.Unmarshal(raw, &str); err != nil {
+		return nil, fmt.Errorf("%s has invalid format", field)
+	}
+
+	str = strings.TrimSpace(str)
+	if str == "" || str == "[]" {
+		return nil, nil
+	}
+
+	normalized := normalizeArrayString(str)
+	if normalized == "[]" {
+		return nil, nil
+	}
+
+	if err := json.Unmarshal([]byte(normalized), &arr); err != nil {
+		return nil, fmt.Errorf("%s has invalid list format: %w", field, err)
+	}
+
+	return normalizeDiseaseNames(arr), nil
+}
+
+func normalizeArrayString(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.ReplaceAll(value, `'`, `"`)
+	return value
 }
 
 func normalizeDiseaseNames(values []string) []string {
@@ -335,4 +487,83 @@ func requireUUID(name string, value uuid.UUID) error {
 		return fmt.Errorf("%s is required", name)
 	}
 	return nil
+}
+
+func parseOptionalInt32Field(raw json.RawMessage) (int32, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, nil
+	}
+
+	var num int32
+	if err := json.Unmarshal(raw, &num); err == nil {
+		return num, nil
+	}
+
+	var str string
+	if err := json.Unmarshal(raw, &str); err == nil {
+		str = strings.TrimSpace(str)
+		if str == "" {
+			return 0, nil
+		}
+
+		value, convErr := strconv.ParseInt(str, 10, 32)
+		if convErr != nil {
+			return 0, convErr
+		}
+		return int32(value), nil
+	}
+
+	return 0, fmt.Errorf("unsupported value")
+}
+
+func resolvePayloadOrBatchYear(payloadYear, batchYear int32, allowCurrentYearFallback bool) (int32, error) {
+	if payloadYear > 0 {
+		return payloadYear, nil
+	}
+
+	if batchYear > 0 {
+		return batchYear, nil
+	}
+
+	if allowCurrentYearFallback {
+		return int32(time.Now().Year()), nil
+	}
+
+	return 0, errors.New("year is required")
+}
+
+func resolveBatchYear(batch db.SurveillanceImportBatch) (int32, error) {
+
+	candidates := []string{
+		strings.TrimSpace(batch.FileName.String),
+		strings.TrimSpace(batch.SourceName),
+	}
+
+	if batch.Notes.Valid {
+		candidates = append(candidates, strings.TrimSpace(batch.Notes.String))
+	}
+
+	for _, candidate := range candidates {
+		if year := extractYear(candidate); year > 0 {
+			return year, nil
+		}
+	}
+
+	return 0, nil
+}
+
+func extractYear(value string) int32 {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0
+	}
+
+	for year := 2035; year >= 2000; year-- {
+		token := strconv.Itoa(year)
+		if strings.Contains(value, token) {
+			return int32(year)
+		}
+	}
+
+	return 0
 }

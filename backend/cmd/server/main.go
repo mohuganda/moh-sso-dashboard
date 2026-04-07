@@ -199,6 +199,7 @@ func main() {
 	regionWeeklyStatusRepository := repository.NewRepositories(store).RegionStatuses
 	nationalWeeklyStatusRepository := repository.NewRepositories(store).NationalStatuses
 	importRepository := repository.NewRepositories(store).Imports
+	alertRepository := repository.NewRepositories(store).Alerts
 
 	// ==================================================
 	// Services
@@ -217,24 +218,30 @@ func main() {
 	userService := service.NewUserService(userRepository, notificationsService)
 	announcementService := service.NewAnnouncementService(announcementRepository, notificationsService)
 
+	// surveillance
+	diseaseService := service.NewSurveillanceDiseaseService(appLogger, diseaseRepository)
+	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
+	locationService := service.NewSurveillanceLocationService(appLogger, regionRepository, districtRepository, subCountyRepository)
+	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(appLogger, facilityWeeklyMetricsRepository, importRepository)
+	districtWeeklyStatusService := service.NewSurveillanceDistrictWeeklyStatusService(appLogger, districtWeeklyStatusRepository, importRepository)
+	regionWeeklyStatusService := service.NewSurveillanceRegionWeeklyStatusService(appLogger, regionWeeklyStatusRepository, importRepository)
+	nationalWeeklyStatusService := service.NewSurveillanceNationalWeeklyStatusService(appLogger, nationalWeeklyStatusRepository, importRepository)
+	surveillanceImportService := service.NewSurveillanceImportService(importRepository)
+	alertsService := service.NewSurveillanceAlertService(appLogger, alertRepository, importRepository)
+
 	importService := importSvc.NewService(
 		documentRepository,
 		processRepository,
 		fileRepository,
 		importRepository,
+		facilityWeeklyMetricsService,
+		districtWeeklyStatusService,
+		regionWeeklyStatusService,
+		nationalWeeklyStatusService,
+		alertsService,
 		fileStorage,
 		remoteDB,
 	)
-
-	// surveillance
-	diseaseService := service.NewSurveillanceDiseaseService(appLogger, diseaseRepository)
-	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
-	locationService := service.NewSurveillanceLocationService(appLogger, regionRepository, districtRepository, subCountyRepository)
-	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(appLogger, facilityWeeklyMetricsRepository)
-	districtWeeklyStatusService := service.NewSurveillanceDistrictWeeklyStatusService(appLogger, districtWeeklyStatusRepository)
-	regionWeeklyStatusService := service.NewSurveillanceRegionWeeklyStatusService(appLogger, regionWeeklyStatusRepository)
-	nationalWeeklyStatusService := service.NewSurveillanceNationalWeeklyStatusService(appLogger, nationalWeeklyStatusRepository)
-	surveillanceImportService := service.NewSurveillanceImportService(importRepository)
 
 	// ==================================================
 	// Background Worker

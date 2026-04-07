@@ -17,7 +17,7 @@ WHERE id = $1
 LIMIT 1;
 
 -- name: GetSubcountyByName :one
-SELECT id, name, code, district_id, created_at, updated_at
+SELECT *
 FROM sub_counties
 WHERE LOWER(name) = LOWER(sqlc.arg(name))
 LIMIT 1;

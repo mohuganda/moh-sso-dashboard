@@ -62,7 +62,7 @@ function RankingPanel({ title, items, loading }: RankingPanelProps) {
   );
 }
 
-function DefaultMapPlaceholder({
+function DefaultMapFallback({
   nationalStatuses,
   selectedWeek,
 }: {
@@ -74,12 +74,18 @@ function DefaultMapPlaceholder({
   return (
     <div className="surveillance-map">
       <div className="surveillance-map__toolbar">
-        <button type="button" className="surveillance-map__tool-button">
+        <button
+          type="button"
+          className="surveillance-map__tool-button"
+          disabled
+          aria-disabled="true"
+          title="Map not available"
+        >
           Reset
         </button>
       </div>
 
-      <div className="surveillance-map__canvas">
+      <div className="surveillance-map__canvas surveillance-map__canvas--placeholder">
         <div className="surveillance-map__placeholder-shape">Uganda Map</div>
       </div>
 
@@ -205,11 +211,10 @@ export default function SurveillancePanels({
         <RankingPanel title="Facilities Reporting" items={facilitiesReporting} loading={loading} />
 
         <section className="surveillance-panel surveillance-panel--map">
-          {mapContent ?? (
-            <DefaultMapPlaceholder
-              nationalStatuses={nationalStatuses}
-              selectedWeek={selectedWeek}
-            />
+          {mapContent ? (
+            <div className="surveillance-map surveillance-map--embedded">{mapContent}</div>
+          ) : (
+            <DefaultMapFallback nationalStatuses={nationalStatuses} selectedWeek={selectedWeek} />
           )}
         </section>
 

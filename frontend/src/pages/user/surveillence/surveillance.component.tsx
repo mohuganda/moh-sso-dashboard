@@ -6,7 +6,10 @@ import { Upload } from "@carbon/react/icons";
 import SurveillanceFilters from "./surveillance-filters.component";
 import SurveillanceTiles from "./surveillance-tiles.component";
 import SurveillancePanels from "./surveillance-panel.component";
+import SurveillanceUgandaMap from "./surveillance-uganda-map.component";
+import ugandaGeoJson from "../../../assets/maps/uganda_districts.json";
 import "./surveillance.css";
+
 import {
   useListEpiWeeksQuery,
   useListDiseasesQuery,
@@ -41,9 +44,7 @@ export default function SurveillanceDashboardPage() {
   const [selectedYear] = useState(2025);
 
   const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(selectedYear);
-
   const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
-
   const { data: regionsResponse, isLoading: regionsReferenceLoading } = useListRegionsQuery();
 
   const { data: districtsResponse, isLoading: districtsReferenceLoading } =
@@ -135,6 +136,7 @@ export default function SurveillanceDashboardPage() {
 
   const currentEpiWeekLabel = useMemo(() => {
     if (!selectedWeek) return "--";
+
     return selectedWeek.epi_year && selectedWeek.epi_week
       ? `${selectedWeek.epi_year} / Week ${selectedWeek.epi_week}`
       : `Week ${selectedWeek.epi_week ?? "--"}`;
@@ -374,8 +376,12 @@ export default function SurveillanceDashboardPage() {
 
       <section className="surveillance-dashboard-page__section">
         <SurveillancePanels
-          selectedWeekId={selectedWeekId}
-          selectedWeek={selectedWeek}
+          selectedWeekId={selectedWeek?.id}
+          selectedWeek={{
+            id: selectedWeek?.id,
+            year: selectedWeek?.epi_year,
+            week: selectedWeek?.epi_week,
+          }}
           region={selectedRegion?.name ?? ""}
           district={selectedDistrict?.name ?? ""}
           subCounty={selectedSubCounty?.name ?? ""}
@@ -384,6 +390,18 @@ export default function SurveillanceDashboardPage() {
           nationalStatuses={nationalStatuses}
           facilityMetrics={filteredFacilityMetrics}
           loading={loading}
+          mapContent={
+            <SurveillanceUgandaMap
+              geoJson={ugandaGeoJson}
+              districtStatuses={filteredDistrictStatuses}
+              regionStatuses={filteredRegionStatuses}
+              nationalStatuses={nationalStatuses}
+              selectedWeek={{
+                year: selectedWeek?.epi_year,
+                week: selectedWeek?.epi_week,
+              }}
+            />
+          }
         />
       </section>
     </div>

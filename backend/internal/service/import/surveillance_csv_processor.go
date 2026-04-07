@@ -46,65 +46,40 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 		batchCreated bool
 	)
 
+	updateProcessProgress := func(progress int32, message string) {
+		_ = c.processRepository.UpdateProgress(ctx, p.ID, progress, &message)
+	}
+
 	failBatch := func(err error) error {
 		if batchCreated {
-			notes := err.Error()
-			_, _ = c.importRepository.UpdateImportBatchStatus(ctx, db.UpdateImportBatchStatusParams{
-				ID:     batchID,
-				Status: "FAILED",
-				Notes: sql.NullString{
-					String: notes,
-					Valid:  true,
-				},
-			})
+			_ = c.importRepository.FailImportBatch(ctx, batchID, err.Error())
 		}
+
+		msg := fmt.Sprintf("Import failed: %v", err)
+		_ = c.processRepository.UpdateProgress(ctx, p.ID, 100, &msg)
+
 		return err
 	}
 
-	msg := "Loading document"
-	_ = c.processRepository.UpdateProgress(ctx, p.ID, 2, &msg)
+	updateProcessProgress(2, "Loading document")
 
 	doc, err := c.documentRepository.GetDocument(ctx, p.DocumentID)
 	if err != nil {
 		return err
 	}
 
-	msg = "Opening file"
-	_ = c.processRepository.UpdateProgress(ctx, p.ID, 5, &msg)
+	updateProcessProgress(5, "Inspecting CSV")
 
-	fileReader, err := c.storage.Download(ctx, doc.ObjectKey)
-	if err != nil {
-		return err
-	}
-	defer fileReader.Close()
-
-	msg = "Parsing CSV headers"
-	_ = c.processRepository.UpdateProgress(ctx, p.ID, 10, &msg)
-
-	reader := csv.NewReader(fileReader)
-	reader.TrimLeadingSpace = true
-	reader.ReuseRecord = false
-
-	headers, err := reader.Read()
+	headers, datasetType, totalRows, err := c.inspectCSV(ctx, doc.ObjectKey)
 	if err != nil {
 		return err
 	}
 
-	for i := range headers {
-		headers[i] = normalizeHeader(headers[i])
+	if totalRows == 0 {
+		return fmt.Errorf("csv file has no data rows")
 	}
 
-	if len(headers) == 0 {
-		return fmt.Errorf("csv file has no headers")
-	}
-
-	datasetType := inferDatasetType(headers)
-	if datasetType == "unknown" {
-		return fmt.Errorf("unable to infer dataset type from csv headers")
-	}
-
-	msg = "Creating import batch"
-	_ = c.processRepository.UpdateProgress(ctx, p.ID, 15, &msg)
+	updateProcessProgress(12, fmt.Sprintf("Creating import batch for %d rows", totalRows))
 
 	batch, err := c.importRepository.CreateImportBatch(ctx, db.CreateImportBatchParams{
 		SourceName: "document_upload",
@@ -119,23 +94,45 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 		},
 		Status: "PROCESSING",
 		Notes: sql.NullString{
-			String: "Raw import in progress",
+			String: fmt.Sprintf("Raw import in progress. Total rows: %d", totalRows),
 			Valid:  true,
+		},
+		DocumentID: uuid.NullUUID{
+			UUID:  p.DocumentID,
+			Valid: p.DocumentID != uuid.Nil,
 		},
 	})
 	if err != nil {
 		return err
 	}
 
-	// Mark as created immediately after successful batch insert
 	batchID = batch.ID
 	batchCreated = true
 
-	msg = "Importing rows"
-	_ = c.processRepository.UpdateProgress(ctx, p.ID, 20, &msg)
+	if err := c.importRepository.UpdateImportBatchProgress(ctx, batch.ID, int32(totalRows), 0, 0, fmt.Sprintf("Starting raw import of %d rows", totalRows)); err != nil {
+		return failBatch(fmt.Errorf("failed to initialize batch progress: %w", err))
+	}
+
+	updateProcessProgress(15, fmt.Sprintf("Importing %d rows", totalRows))
+
+	fileReader, err := c.storage.Download(ctx, doc.ObjectKey)
+	if err != nil {
+		return failBatch(err)
+	}
+	defer fileReader.Close()
+
+	reader := csv.NewReader(fileReader)
+	reader.TrimLeadingSpace = true
+	reader.ReuseRecord = false
+
+	_, err = reader.Read()
+	if err != nil {
+		return failBatch(fmt.Errorf("failed to re-read csv headers: %w", err))
+	}
 
 	rowCount := 0
 	rowNumber := 1
+	lastProgress := int32(15)
 
 	for {
 		record, err := reader.Read()
@@ -172,10 +169,17 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 		rowCount++
 		rowNumber++
 
-		if rowCount%100 == 0 {
-			progress := calculateProgress(rowCount)
-			msg = fmt.Sprintf("Imported %d rows", rowCount)
-			_ = c.processRepository.UpdateProgress(ctx, p.ID, progress, &msg)
+		progress := calculateImportProgress(rowCount, totalRows)
+
+		if progress > lastProgress || rowCount%25 == 0 || rowCount == totalRows {
+			msg := fmt.Sprintf("Imported %d of %d rows", rowCount, totalRows)
+			updateProcessProgress(progress, msg)
+
+			if err := c.importRepository.UpdateImportBatchProgress(ctx, batch.ID, int32(totalRows), int32(rowCount), 0, msg); err != nil {
+				return failBatch(fmt.Errorf("failed to update batch progress: %w", err))
+			}
+
+			lastProgress = progress
 		}
 	}
 
@@ -207,13 +211,57 @@ func (c *SurveillanceCSVProcessor) Process(ctx context.Context, p db.Process) er
 		return failBatch(fmt.Errorf("failed to queue batch processing: %w", err))
 	}
 
-	msg = fmt.Sprintf("Imported %d raw rows successfully", rowCount)
-	_ = c.processRepository.UpdateProgress(ctx, p.ID, 90, &msg)
-
-	msg = "Raw import completed"
-	_ = c.processRepository.UpdateProgress(ctx, p.ID, 100, &msg)
+	updateProcessProgress(95, fmt.Sprintf("Imported %d raw rows. Batch queued for processing", rowCount))
+	updateProcessProgress(100, "Raw import completed")
 
 	return nil
+}
+
+func (c *SurveillanceCSVProcessor) inspectCSV(
+	ctx context.Context,
+	objectKey string,
+) ([]string, string, int, error) {
+	fileReader, err := c.storage.Download(ctx, objectKey)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("failed to open csv for inspection: %w", err)
+	}
+	defer fileReader.Close()
+
+	reader := csv.NewReader(fileReader)
+	reader.TrimLeadingSpace = true
+	reader.ReuseRecord = false
+
+	headers, err := reader.Read()
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("failed to read csv headers: %w", err)
+	}
+
+	for i := range headers {
+		headers[i] = normalizeHeader(headers[i])
+	}
+
+	if len(headers) == 0 {
+		return nil, "", 0, fmt.Errorf("csv file has no headers")
+	}
+
+	datasetType := inferDatasetType(headers)
+	if datasetType == "unknown" {
+		return nil, "", 0, fmt.Errorf("unable to infer dataset type from csv headers")
+	}
+
+	totalRows := 0
+	for {
+		_, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, "", 0, fmt.Errorf("failed while counting csv rows: %w", err)
+		}
+		totalRows++
+	}
+
+	return headers, datasetType, totalRows, nil
 }
 
 func normalizeHeader(value string) string {
@@ -226,25 +274,36 @@ func normalizeHeader(value string) string {
 
 func inferDatasetType(headers []string) string {
 	headerSet := make(map[string]struct{}, len(headers))
+
+	normalize := func(value string) string {
+		value = strings.TrimSpace(strings.ToLower(value))
+		value = strings.ReplaceAll(value, "-", "_")
+		value = strings.ReplaceAll(value, " ", "_")
+		return value
+	}
+
 	for _, h := range headers {
-		headerSet[h] = struct{}{}
+		headerSet[normalize(h)] = struct{}{}
 	}
 
 	hasAny := func(keys ...string) bool {
 		for _, key := range keys {
-			if _, ok := headerSet[key]; ok {
+			if _, ok := headerSet[normalize(key)]; ok {
 				return true
 			}
 		}
 		return false
 	}
 
+	hasRecordID := hasAny("record_id", "external_id", "id")
 	hasFacility := hasAny("facility", "facility_name")
-	hasDisease := hasAny("disease", "disease_name")
+	hasDisease := hasAny("disease", "disease_name", "indicator", "indicator_name")
 	hasValue := hasAny("value", "cases", "count", "metric_value")
 	hasRegion := hasAny("region", "region_name")
 	hasDistrict := hasAny("district", "district_name")
+	hasSubCounty := hasAny("sub_county", "subcounty", "sub_county_name", "subcounty_name")
 	hasWeek := hasAny("week", "weeks", "epi_week", "epiweek")
+	hasYear := hasAny("year")
 	hasMaroon := hasAny("maroon")
 	hasRed := hasAny("red")
 	hasYellow := hasAny("yellow")
@@ -252,23 +311,43 @@ func inferDatasetType(headers []string) string {
 	hasNational := hasAny("national", "country", "uganda")
 
 	switch {
-	case hasFacility && hasDisease && hasValue:
+	// facility metrics CSV like:
+	// record_id,facility,region,district,sub_county,disease,value,year,weeks
+	case hasFacility && hasDisease && hasValue && hasRegion && hasDistrict && hasSubCounty && hasWeek:
 		return "facility_metrics"
-	case hasDistrict && hasMaroon && hasRed && hasYellow && hasGreen:
+
+	// looser facility metrics fallback
+	case hasFacility && hasDisease && hasValue && hasWeek:
+		return "facility_metrics"
+
+	case hasWeek && hasYear && hasDistrict && hasMaroon && hasRed && hasYellow && hasGreen:
 		return "district_status"
-	case hasRegion && hasDisease && hasWeek:
+
+	case hasWeek && hasYear && hasRegion && hasMaroon && hasRed && hasYellow && hasGreen:
 		return "region_status"
+
 	case hasNational && hasDisease && hasWeek:
 		return "national_status"
+
+	case hasRecordID && hasFacility && hasDisease && hasValue:
+		return "facility_metrics"
+
 	default:
 		return "unknown"
 	}
 }
 
-func calculateProgress(rowCount int) int32 {
-	progress := int32(20 + (rowCount / 100))
+func calculateImportProgress(processedRows, totalRows int) int32 {
+	if totalRows <= 0 {
+		return 20
+	}
+
+	progress := int32(15 + (float64(processedRows)/float64(totalRows))*70)
 	if progress > 85 {
 		return 85
+	}
+	if progress < 15 {
+		return 15
 	}
 	return progress
 }

@@ -19,18 +19,25 @@ SET
   status = 'COMPLETED',
   success_rows = $2,
   failed_rows = $3,
-  completed_at = now()
+  completed_at = now(),
+  notes = $4
 WHERE id = $1
 `
 
 type CompleteSurveillanceImportBatchParams struct {
-	ID          uuid.UUID `json:"id"`
-	SuccessRows int32     `json:"success_rows"`
-	FailedRows  int32     `json:"failed_rows"`
+	ID          uuid.UUID      `json:"id"`
+	SuccessRows int32          `json:"success_rows"`
+	FailedRows  int32          `json:"failed_rows"`
+	Notes       sql.NullString `json:"notes"`
 }
 
 func (q *Queries) CompleteSurveillanceImportBatch(ctx context.Context, arg CompleteSurveillanceImportBatchParams) error {
-	_, err := q.db.ExecContext(ctx, completeSurveillanceImportBatch, arg.ID, arg.SuccessRows, arg.FailedRows)
+	_, err := q.db.ExecContext(ctx, completeSurveillanceImportBatch,
+		arg.ID,
+		arg.SuccessRows,
+		arg.FailedRows,
+		arg.Notes,
+	)
 	return err
 }
 
@@ -41,11 +48,12 @@ INSERT INTO surveillance_import_batches (
   dataset_type,
   imported_by,
   status,
-  notes
+  notes,
+  document_id
 ) VALUES (
-  $1, $2, $3, $4, $5, $6
+  $1, $2, $3, $4, $5, $6, $7
 )
-RETURNING id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at
+RETURNING id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at, document_id
 `
 
 type CreateImportBatchParams struct {
@@ -55,6 +63,7 @@ type CreateImportBatchParams struct {
 	ImportedBy  sql.NullString `json:"imported_by"`
 	Status      string         `json:"status"`
 	Notes       sql.NullString `json:"notes"`
+	DocumentID  uuid.NullUUID  `json:"document_id"`
 }
 
 func (q *Queries) CreateImportBatch(ctx context.Context, arg CreateImportBatchParams) (SurveillanceImportBatch, error) {
@@ -65,6 +74,7 @@ func (q *Queries) CreateImportBatch(ctx context.Context, arg CreateImportBatchPa
 		arg.ImportedBy,
 		arg.Status,
 		arg.Notes,
+		arg.DocumentID,
 	)
 	var i SurveillanceImportBatch
 	err := row.Scan(
@@ -80,6 +90,7 @@ func (q *Queries) CreateImportBatch(ctx context.Context, arg CreateImportBatchPa
 		&i.SuccessRows,
 		&i.FailedRows,
 		&i.CompletedAt,
+		&i.DocumentID,
 	)
 	return i, err
 }
@@ -149,7 +160,7 @@ func (q *Queries) FailSurveillanceImportBatch(ctx context.Context, arg FailSurve
 }
 
 const getImportBatchByID = `-- name: GetImportBatchByID :one
-SELECT id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at
+SELECT id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at, document_id
 FROM surveillance_import_batches
 WHERE id = $1
 LIMIT 1
@@ -171,14 +182,44 @@ func (q *Queries) GetImportBatchByID(ctx context.Context, id uuid.UUID) (Surveil
 		&i.SuccessRows,
 		&i.FailedRows,
 		&i.CompletedAt,
+		&i.DocumentID,
+	)
+	return i, err
+}
+
+const getLatestImportBatchByDocumentID = `-- name: GetLatestImportBatchByDocumentID :one
+SELECT id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at, document_id
+FROM surveillance_import_batches
+WHERE document_id = $1
+ORDER BY imported_at DESC, id DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestImportBatchByDocumentID(ctx context.Context, documentID uuid.NullUUID) (SurveillanceImportBatch, error) {
+	row := q.db.QueryRowContext(ctx, getLatestImportBatchByDocumentID, documentID)
+	var i SurveillanceImportBatch
+	err := row.Scan(
+		&i.ID,
+		&i.SourceName,
+		&i.FileName,
+		&i.DatasetType,
+		&i.ImportedBy,
+		&i.ImportedAt,
+		&i.Status,
+		&i.Notes,
+		&i.TotalRows,
+		&i.SuccessRows,
+		&i.FailedRows,
+		&i.CompletedAt,
+		&i.DocumentID,
 	)
 	return i, err
 }
 
 const listImportBatches = `-- name: ListImportBatches :many
-SELECT id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at
+SELECT id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at, document_id
 FROM surveillance_import_batches
-ORDER BY imported_at DESC
+ORDER BY imported_at DESC, id DESC
 `
 
 func (q *Queries) ListImportBatches(ctx context.Context) ([]SurveillanceImportBatch, error) {
@@ -203,6 +244,7 @@ func (q *Queries) ListImportBatches(ctx context.Context) ([]SurveillanceImportBa
 			&i.SuccessRows,
 			&i.FailedRows,
 			&i.CompletedAt,
+			&i.DocumentID,
 		); err != nil {
 			return nil, err
 		}
@@ -257,7 +299,9 @@ func (q *Queries) ListImportRawRowsByBatch(ctx context.Context, batchID uuid.UUI
 
 const markSurveillanceImportRawRowFailed = `-- name: MarkSurveillanceImportRawRowFailed :exec
 UPDATE surveillance_import_raw_rows
-SET status = 'FAILED', error_message = $2
+SET
+  status = 'FAILED',
+  error_message = $2
 WHERE id = $1
 `
 
@@ -273,12 +317,43 @@ func (q *Queries) MarkSurveillanceImportRawRowFailed(ctx context.Context, arg Ma
 
 const markSurveillanceImportRawRowProcessed = `-- name: MarkSurveillanceImportRawRowProcessed :exec
 UPDATE surveillance_import_raw_rows
-SET status = 'PROCESSED', error_message = NULL
+SET
+  status = 'PROCESSED',
+  error_message = NULL
 WHERE id = $1
 `
 
 func (q *Queries) MarkSurveillanceImportRawRowProcessed(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, markSurveillanceImportRawRowProcessed, id)
+	return err
+}
+
+const updateImportBatchProgress = `-- name: UpdateImportBatchProgress :exec
+UPDATE surveillance_import_batches
+SET
+  total_rows = $2,
+  success_rows = $3,
+  failed_rows = $4,
+  notes = $5
+WHERE id = $1
+`
+
+type UpdateImportBatchProgressParams struct {
+	ID          uuid.UUID      `json:"id"`
+	TotalRows   int32          `json:"total_rows"`
+	SuccessRows int32          `json:"success_rows"`
+	FailedRows  int32          `json:"failed_rows"`
+	Notes       sql.NullString `json:"notes"`
+}
+
+func (q *Queries) UpdateImportBatchProgress(ctx context.Context, arg UpdateImportBatchProgressParams) error {
+	_, err := q.db.ExecContext(ctx, updateImportBatchProgress,
+		arg.ID,
+		arg.TotalRows,
+		arg.SuccessRows,
+		arg.FailedRows,
+		arg.Notes,
+	)
 	return err
 }
 
@@ -288,7 +363,7 @@ SET
   status = $2,
   notes = $3
 WHERE id = $1
-RETURNING id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at
+RETURNING id, source_name, file_name, dataset_type, imported_by, imported_at, status, notes, total_rows, success_rows, failed_rows, completed_at, document_id
 `
 
 type UpdateImportBatchStatusParams struct {
@@ -313,6 +388,7 @@ func (q *Queries) UpdateImportBatchStatus(ctx context.Context, arg UpdateImportB
 		&i.SuccessRows,
 		&i.FailedRows,
 		&i.CompletedAt,
+		&i.DocumentID,
 	)
 	return i, err
 }

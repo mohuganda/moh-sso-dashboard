@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -21,6 +22,16 @@ type regionStatusPayload struct {
 	Red    []string `json:"red"`
 	Yellow []string `json:"yellow"`
 	Green  []string `json:"green"`
+}
+
+type rawRegionStatusPayload struct {
+	Week   json.RawMessage `json:"weeks"`
+	Year   json.RawMessage `json:"year"`
+	Region json.RawMessage `json:"region"`
+	Maroon json.RawMessage `json:"maroon"`
+	Red    json.RawMessage `json:"red"`
+	Yellow json.RawMessage `json:"yellow"`
+	Green  json.RawMessage `json:"green"`
 }
 
 type SurveillanceRegionWeeklyStatusService struct {
@@ -75,6 +86,16 @@ func (s *SurveillanceRegionWeeklyStatusService) ProcessRegionWeeklyStatusesByWee
 
 	s.log.Info(ctx, "processing region weekly status batch", "batch_id", batchID)
 
+	batch, err := s.surveillanceImportRepo.GetImportBatchByID(ctx, batchID)
+	if err != nil {
+		return fmt.Errorf("get import batch: %w", err)
+	}
+
+	fallbackYear, err := resolveBatchYear(batch)
+	if err != nil {
+		return fmt.Errorf("resolve batch year: %w", err)
+	}
+
 	return s.regionWeeklyStatusRepo.WithTx(ctx, func(q db.Querier) error {
 		rows, err := s.surveillanceImportRepo.ListImportRawRowsByBatch(ctx, batchID)
 		if err != nil {
@@ -85,7 +106,7 @@ func (s *SurveillanceRegionWeeklyStatusService) ProcessRegionWeeklyStatusesByWee
 		var failedRows int32
 
 		for _, row := range rows {
-			if err := s.processRegionWeeklyStatusRow(ctx, q, row); err != nil {
+			if err := s.processRegionWeeklyStatusRow(ctx, q, row, fallbackYear); err != nil {
 				failedRows++
 
 				s.log.Warn(
@@ -122,7 +143,7 @@ func (s *SurveillanceRegionWeeklyStatusService) ProcessRegionWeeklyStatusesByWee
 
 		s.log.Info(
 			ctx,
-			"completed region weekly status batch processing",
+			"finished region weekly status batch processing",
 			"batch_id", batchID,
 			"success_rows", successRows,
 			"failed_rows", failedRows,
@@ -136,8 +157,14 @@ func (s *SurveillanceRegionWeeklyStatusService) processRegionWeeklyStatusRow(
 	ctx context.Context,
 	q db.Querier,
 	row db.SurveillanceImportRawRow,
+	fallbackYear int32,
 ) error {
 	payload, err := parseRegionStatusPayload(row.Payload)
+	if err != nil {
+		return err
+	}
+
+	year, err := resolvePayloadOrBatchYear(payload.Year, fallbackYear, true)
 	if err != nil {
 		return err
 	}
@@ -148,11 +175,11 @@ func (s *SurveillanceRegionWeeklyStatusService) processRegionWeeklyStatusRow(
 	}
 
 	epiWeek, err := q.GetEpiWeekByYearWeek(ctx, db.GetEpiWeekByYearWeekParams{
-		EpiYear: payload.Year,
+		EpiYear: year,
 		EpiWeek: payload.Week,
 	})
 	if err != nil {
-		return fmt.Errorf("epi week not found: year=%d week=%d", payload.Year, payload.Week)
+		return fmt.Errorf("epi week not found: year=%d week=%d", year, payload.Week)
 	}
 
 	statusDiseaseMap := map[db.RiskLevel][]string{
@@ -180,7 +207,7 @@ func (s *SurveillanceRegionWeeklyStatusService) processRegionWeeklyStatusRow(
 					payload.Region,
 					diseaseName,
 					payload.Week,
-					payload.Year,
+					year,
 					err,
 				)
 			}
@@ -191,28 +218,69 @@ func (s *SurveillanceRegionWeeklyStatusService) processRegionWeeklyStatusRow(
 }
 
 func parseRegionStatusPayload(rawPayload []byte) (regionStatusPayload, error) {
-	var payload regionStatusPayload
-
-	if err := json.Unmarshal(rawPayload, &payload); err != nil {
+	var raw rawRegionStatusPayload
+	if err := json.Unmarshal(rawPayload, &raw); err != nil {
 		return regionStatusPayload{}, fmt.Errorf("invalid payload json: %w", err)
 	}
 
-	payload.Region = strings.TrimSpace(payload.Region)
-	payload.Maroon = normalizeDiseaseNames(payload.Maroon)
-	payload.Red = normalizeDiseaseNames(payload.Red)
-	payload.Yellow = normalizeDiseaseNames(payload.Yellow)
-	payload.Green = normalizeDiseaseNames(payload.Green)
-
-	if payload.Region == "" {
-		return regionStatusPayload{}, fmt.Errorf("region is required")
+	week, err := parseInt32Field(raw.Week, "weeks")
+	if err != nil {
+		return regionStatusPayload{}, err
 	}
 
-	if payload.Year <= 0 {
-		return regionStatusPayload{}, fmt.Errorf("year is required")
+	year, err := parseOptionalInt32Field(raw.Year)
+	if err != nil {
+		return regionStatusPayload{}, fmt.Errorf("year has invalid format: %w", err)
+	}
+
+	region, err := parseStringField(raw.Region, "region")
+	if err != nil {
+		return regionStatusPayload{}, err
+	}
+
+	maroon, err := parseStringSliceField(raw.Maroon, "maroon")
+	if err != nil {
+		return regionStatusPayload{}, err
+	}
+
+	red, err := parseStringSliceField(raw.Red, "red")
+	if err != nil {
+		return regionStatusPayload{}, err
+	}
+
+	yellow, err := parseStringSliceField(raw.Yellow, "yellow")
+	if err != nil {
+		return regionStatusPayload{}, err
+	}
+
+	green, err := parseStringSliceField(raw.Green, "green")
+	if err != nil {
+		return regionStatusPayload{}, err
+	}
+
+	payload := regionStatusPayload{
+		Week:   week,
+		Year:   year,
+		Region: strings.TrimSpace(region),
+		Maroon: normalizeDiseaseNames(maroon),
+		Red:    normalizeDiseaseNames(red),
+		Yellow: normalizeDiseaseNames(yellow),
+		Green:  normalizeDiseaseNames(green),
+	}
+
+	if payload.Region == "" {
+		return regionStatusPayload{}, errors.New("region is required")
 	}
 
 	if payload.Week <= 0 {
-		return regionStatusPayload{}, fmt.Errorf("weeks is required")
+		return regionStatusPayload{}, errors.New("weeks is required")
+	}
+
+	if len(payload.Maroon) == 0 &&
+		len(payload.Red) == 0 &&
+		len(payload.Yellow) == 0 &&
+		len(payload.Green) == 0 {
+		return regionStatusPayload{}, errors.New("at least one disease status bucket is required")
 	}
 
 	return payload, nil
