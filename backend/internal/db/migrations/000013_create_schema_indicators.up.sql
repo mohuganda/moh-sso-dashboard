@@ -9,21 +9,49 @@ CREATE TABLE indicators (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO indicators (
-  name,
-  short_name,
-  code,
-  indicator_type,
-  is_active
-)
+INSERT INTO
+  indicators (
+    name,
+    short_name,
+    code,
+    indicator_type,
+    is_active
+  )
 VALUES
-  ('Cases', 'Cases', 'CASES', 'count', TRUE),
-  ('Cases Tested with Microscopy', 'Microscopy Tested', 'TEST_MIC', 'laboratory', TRUE),
-  ('Cases Tested with RDT', 'RDT Tested', 'TEST_RDT', 'laboratory', TRUE),
-  ('Microscopy Positive Cases', 'Microscopy Positive', 'POS_MIC', 'laboratory', TRUE),
-  ('RDT Positive Cases', 'RDT Positive', 'POS_RDT', 'laboratory', TRUE),
-  ('Maternal Deaths', 'Maternal Deaths', 'MAT_DEATH', 'mortality', TRUE),
-  ('Early Neonatal Deaths 0-7 days', 'Early Neonatal Deaths', 'ENND_0_7', 'mortality', TRUE),
-  ('Fresh Still Birth Deaths', 'Fresh Still Birth Deaths', 'FSB_DEATH', 'mortality', TRUE),
-  ('Macerated Still Births', 'Macerated Still Births', 'MSB', 'mortality', TRUE)
-ON CONFLICT (name) DO NOTHING;
+  ('Cases', NULL, NULL, NULL, TRUE),
+  (
+    'Cases Tested with Microscopy',
+    NULL,
+    NULL,
+    NULL,
+    TRUE
+  ),
+  ('Cases Tested with RDT', NULL, NULL, NULL, TRUE),
+  (
+    'Early Neonatal Deaths 0-7 days',
+    NULL,
+    NULL,
+    NULL,
+    TRUE
+  ),
+  (
+    'Fresh Still Birth Deaths',
+    NULL,
+    NULL,
+    NULL,
+    TRUE
+  ),
+  ('Macerated Still Births', NULL, NULL, NULL, TRUE),
+  ('Maternal Deaths', NULL, NULL, NULL, TRUE),
+  (
+    'Microscopy Positive Cases',
+    NULL,
+    NULL,
+    NULL,
+    TRUE
+  ),
+  ('RDT Positive Cases', NULL, NULL, NULL, TRUE) ON CONFLICT (name) DO
+UPDATE
+SET
+  is_active = TRUE,
+  updated_at = now();

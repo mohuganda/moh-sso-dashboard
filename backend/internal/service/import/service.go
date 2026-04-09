@@ -22,11 +22,9 @@ type Service struct {
 	fileRepository   documentRepo.FileRepository
 	importRepository interfaces.ImportRepository
 
-	facilityMetricsService      *service.SurveillanceFacilityWeeklyMetricsService
-	districtWeeklyStatusService *service.SurveillanceDistrictWeeklyStatusService
-	regionWeeklyStatusService   *service.SurveillanceRegionWeeklyStatusService
-	nationalStatusService       *service.SurveillanceNationalWeeklyStatusService
-	alertsService               *service.SurveillanceAlertService
+	facilityMetricsService *service.SurveillanceFacilityWeeklyMetricsService
+	weeklyStatusService    *service.SurveillanceWeeklyStatusService
+	alertsService          *service.SurveillanceAlertService
 
 	registry *Registry
 	storage  storage.Storage
@@ -39,9 +37,7 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 	fileRepository documentRepo.FileRepository,
 	importRepository interfaces.ImportRepository,
 	facilityMetricsService *service.SurveillanceFacilityWeeklyMetricsService,
-	districtWeeklyStatusService *service.SurveillanceDistrictWeeklyStatusService,
-	regionWeeklyStatusService *service.SurveillanceRegionWeeklyStatusService,
-	nationalStatusService *service.SurveillanceNationalWeeklyStatusService,
+	weeklyStatusService *service.SurveillanceWeeklyStatusService,
 	alertsService *service.SurveillanceAlertService,
 	storage storage.Storage, remote *sql.DB) *Service {
 	reg := NewRegistry()
@@ -60,9 +56,6 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 	reg.Register(model.ProcessTypeSurveillanceBatchProcess, NewSurveillanceBatchProcessor(
 		importRepository,
 		facilityMetricsService,
-		districtWeeklyStatusService,
-		regionWeeklyStatusService,
-		nationalStatusService,
 		alertsService))
 
 	reg.Register(model.ProcessTypeSurveillanceCSVImport, NewSurveillanceCSVProcessor(documentRepo, processRepo, importRepository, storage))

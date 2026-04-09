@@ -1,8 +1,1770 @@
 CREATE TABLE districts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
-  region_id UUID REFERENCES regions(id) ON DELETE SET NULL,
-  code TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  region_id UUID REFERENCES regions(id) ON DELETE
+  SET
+    NULL,
+    code TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+INSERT INTO
+  districts (name, region_id, code)
+VALUES
+  (
+    'Abim',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Adjumani',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Agago',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Alebtong',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Amolatar',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Amudat',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Amuria',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Amuru',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Apac',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Arua',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Arua City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Budaka',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bukedi'
+    ),
+    NULL
+  ),
+  (
+    'Bududa',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Bugiri',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Bugweri',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Buhweju',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Buikwe',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Bukedea',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Bukomansimbi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Bukwo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Bulambuli',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Buliisa',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Bundibugyo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Bunyangabu',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Bushenyi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Busia',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bukedi'
+    ),
+    NULL
+  ),
+  (
+    'Butaleja',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bukedi'
+    ),
+    NULL
+  ),
+  (
+    'Butambala',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Butebo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bukedi'
+    ),
+    NULL
+  ),
+  (
+    'Buvuma',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Buyende',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Dokolo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Fort Portal City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Gomba',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Gulu',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Gulu City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Hoima',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Hoima City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Ibanda',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Iganga',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Isingiro',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Jinja',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Jinja City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Kaabong',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Kabale',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Kigezi'
+    ),
+    NULL
+  ),
+  (
+    'Kabarole',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Kaberamaido',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Kagadi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Kakumiro',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Kalaki',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Kalangala',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Kaliro',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Kalungu',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Kampala',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Kampala'
+    ),
+    NULL
+  ),
+  (
+    'Kamuli',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Kamwenge',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Kanungu',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Kigezi'
+    ),
+    NULL
+  ),
+  (
+    'Kapchorwa',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Kapelebyong',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Karenga',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Kasese',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Kassanda',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Katakwi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Kayunga',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Kazo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Kibaale',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Kiboga',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Kibuku',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bukedi'
+    ),
+    NULL
+  ),
+  (
+    'Kikuube',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Kiruhura',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Kiryandongo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Kisoro',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Kigezi'
+    ),
+    NULL
+  ),
+  (
+    'Kitagwenda',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Kitgum',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Koboko',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Kole',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Kotido',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Kumi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Kwania',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Kween',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Kyankwanzi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Kyegegwa',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Kyenjojo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Kyotera',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Lamwo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Lira',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Lira City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Luuka',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Luwero',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Lwengo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Lyantonde',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Madi-Okollo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Manafwa',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Maracha',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Masaka',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Masaka City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Masindi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bunyoro'
+    ),
+    NULL
+  ),
+  (
+    'Mayuge',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Mbale',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Mbale City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Mbarara',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Mbarara City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Mitooma',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Mityana',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Moroto',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Moyo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Mpigi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Mubende',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Mukono',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Nabilatuk',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Nakapiripirit',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Nakaseke',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Nakasongola',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'North Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Namayingo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Namisindwa',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Namutumba',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Busoga'
+    ),
+    NULL
+  ),
+  (
+    'Napak',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Karamoja'
+    ),
+    NULL
+  ),
+  (
+    'Nebbi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Ngora',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Ntoroko',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Tooro'
+    ),
+    NULL
+  ),
+  (
+    'Ntungamo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Nwoya',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Obongi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Omoro',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Otuke',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Oyam',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Lango'
+    ),
+    NULL
+  ),
+  (
+    'Pader',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Acholi'
+    ),
+    NULL
+  ),
+  (
+    'Pakwach',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Pallisa',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bukedi'
+    ),
+    NULL
+  ),
+  (
+    'Rakai',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Rubanda',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Kigezi'
+    ),
+    NULL
+  ),
+  (
+    'Rubirizi',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Rukiga',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Kigezi'
+    ),
+    NULL
+  ),
+  (
+    'Rukungiri',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Kigezi'
+    ),
+    NULL
+  ),
+  (
+    'Rwampara',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Sembabule',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Serere',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Sheema',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Ankole'
+    ),
+    NULL
+  ),
+  (
+    'Sironko',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bugisu'
+    ),
+    NULL
+  ),
+  (
+    'Soroti',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Soroti City',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Teso'
+    ),
+    NULL
+  ),
+  (
+    'Terego',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Tororo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'Bukedi'
+    ),
+    NULL
+  ),
+  (
+    'Wakiso',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'South Buganda'
+    ),
+    NULL
+  ),
+  (
+    'Yumbe',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ),
+  (
+    'Zombo',
+    (
+      SELECT
+        id
+      FROM
+        regions
+      WHERE
+        name = 'West Nile'
+    ),
+    NULL
+  ) ON CONFLICT (name) DO
+UPDATE
+SET
+  region_id = EXCLUDED.region_id,
+  updated_at = now();

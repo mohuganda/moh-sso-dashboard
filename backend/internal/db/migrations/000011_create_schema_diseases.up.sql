@@ -9,29 +9,30 @@ CREATE TABLE diseases (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-
-INSERT INTO diseases (
-  name,
-  short_name,
-  code,
-  category,
-  is_active
-)
+INSERT INTO
+  diseases (name, short_name, code, category, is_active)
 VALUES
-  ('Acute Flaccid Paralysis', 'AFP', 'AFP', 'Neurological', TRUE),
-  ('Anthrax', 'Anthrax', 'ANT', 'Zoonotic', TRUE),
-  ('Cholera', 'Cholera', 'CHOL', 'Water-borne', TRUE),
-  ('Dengue Fever', 'Dengue', 'DEN', 'Vector-borne', TRUE),
-  ('Guinea Worm', 'Guinea Worm', 'GW', NULL, TRUE),
-  ('Influenza new subtype', 'Influenza New Subtype', 'INS', 'Respiratory', TRUE),
-  ('Leprosy', 'Leprosy', 'LEP', NULL, TRUE),
-  ('Lymphatic Filariasis', 'LF', 'LF', NULL, TRUE),
-  ('Malaria', 'Malaria', 'MAL', 'Vector-borne', TRUE),
-  ('Maternal Death', 'Maternal Death', 'MATD', NULL, TRUE),
-  ('Measles', 'Measles', 'MEA', 'Vaccine-preventable', TRUE),
-  ('Onchocerciasis', 'Onchocerciasis', 'ONCHO', NULL, TRUE),
-  ('Plague', 'Plague', 'PLG', 'Bacterial', TRUE),
-  ('Schistosomiasis', 'Schistosomiasis', 'SCH', NULL, TRUE),
-  ('Trachoma', 'Trachoma', 'TRA', NULL, TRUE),
-  ('Yellow Fever', 'Yellow Fever', 'YF', 'Vaccine-preventable', TRUE)
-ON CONFLICT (name) DO NOTHING;
+  (
+    'Acute Flaccid Paralysis',
+    NULL,
+    NULL,
+    NULL,
+    TRUE
+  ),
+  ('Anthrax', NULL, NULL, NULL, TRUE),
+  ('Cholera', NULL, NULL, NULL, TRUE),
+  ('Dengue Fever', NULL, NULL, NULL, TRUE),
+  ('Guinea Worm', NULL, NULL, NULL, TRUE),
+  ('Influenza new subtype', NULL, NULL, NULL, TRUE),
+  ('Leprosy', NULL, NULL, NULL, TRUE),
+  ('Lymphatic Filariasis', NULL, NULL, NULL, TRUE),
+  ('Measles', NULL, NULL, NULL, TRUE),
+  ('Onchocerciasis', NULL, NULL, NULL, TRUE),
+  ('Plague', NULL, NULL, NULL, TRUE),
+  ('Schistosomiasis', NULL, NULL, NULL, TRUE),
+  ('Trachoma', NULL, NULL, NULL, TRUE),
+  ('Yellow Fever', NULL, NULL, NULL, TRUE) ON CONFLICT (name) DO
+UPDATE
+SET
+  is_active = TRUE,
+  updated_at = now();

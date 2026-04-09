@@ -11,7 +11,6 @@ import {
 import { useMemo } from "react";
 import { useParams, Link as RouterLink } from "react-router-dom";
 
-import "../surveillance-details/surveillance-details.css";
 import { DiseaseAlertsTable } from "./surveillance-disease-alerts.component";
 import { FacilitiesActionTable } from "./surveillance-facilities-actions.component";
 import {
@@ -20,6 +19,7 @@ import {
   useListFacilityWeeklyMetricsByWeekQuery,
 } from "../../../../store/api/surveillance.api";
 import WeeklyCasesChart from "./surveillance-weekly-cases.component";
+import "./surveillance-details.css";
 
 function formatDiseaseName(value?: string) {
   if (!value) return "Disease";
@@ -135,17 +135,40 @@ export default function DiseaseDetailsPage() {
     return uniqueFacilities.size;
   }, [filteredFacilityMetrics]);
 
+  const weeklyChartData = useMemo(() => {
+    const grouped = new Map<string, number>();
+
+    filteredFacilityMetrics.forEach((item) => {
+      const weekKey =
+        item.week != null
+          ? String(item.week)
+          : item.epi_week != null
+            ? String(item.epi_week)
+            : "Unknown";
+
+      const currentValue = grouped.get(weekKey) ?? 0;
+      grouped.set(weekKey, currentValue + Number(item.value ?? 0));
+    });
+
+    return Array.from(grouped.entries())
+      .map(([week, value]) => ({
+        week,
+        value,
+      }))
+      .sort((a, b) => Number(a.week) - Number(b.week));
+  }, [filteredFacilityMetrics]);
+
   return (
     <Content className="disease-details-page">
-      <Breadcrumb noTrailingSlash>
+      <Breadcrumb className="disease-details-page__breadcrumb" noTrailingSlash>
         <BreadcrumbItem>
-          <RouterLink to="/portal/surveillance">Surveillance</RouterLink>
+          <RouterLink to="/apps/dwh/surveillance">Surveillance</RouterLink>
         </BreadcrumbItem>
         <BreadcrumbItem isCurrentPage>{title}</BreadcrumbItem>
       </Breadcrumb>
 
       <div className="disease-details-page__header">
-        <h1>Details for {title}</h1>
+        <h1>{title}</h1>
         <p>
           View disease-specific alerts, weekly case trends, relevant documents, and facilities that
           require immediate follow-up action.
@@ -175,8 +198,6 @@ export default function DiseaseDetailsPage() {
               <DiseaseAlertsTable
                 districtStatuses={districtStatuses}
                 diseaseName={title}
-                district=""
-                region=""
                 loading={loading}
               />
             </div>
@@ -187,30 +208,29 @@ export default function DiseaseDetailsPage() {
           <Tile className="disease-details-page__tile">
             <div className="disease-details-page__section">
               <h3>{title} Weekly Cases</h3>
-              <div className="disease-details-page__stats">
-                <p>
-                  <strong>Reporting Week:</strong>{" "}
-                  {selectedWeek ? `Week ${selectedWeek.epi_week}, ${selectedWeek.epi_year}` : "--"}
-                </p>
-                <p>
-                  <strong>Total Cases:</strong> {totalCases}
-                </p>
-                <p>
-                  <strong>Facilities Reporting:</strong> {facilitiesCount}
-                </p>
-              </div>
-              <p className="disease-details-page__placeholder">
-                Weekly trend chart will appear here once the chart component is connected.
-              </p>
-              {/* <WeeklyCasesChart
-                diseaseName={title}
-                data={[
-                  { week: 1, value: 2000 },
-                  { week: 2, value: 1500 },
-                  { week: 3, value: 2800 },
-                  { week: 4, value: 1800 },
-                ]}
-              />{" "} */}
+
+              <dl className="disease-details-page__stats">
+                <div>
+                  <dt>Reporting Week</dt>
+                  <dd>
+                    {selectedWeek
+                      ? `Week ${selectedWeek.epi_week}, ${selectedWeek.epi_year}`
+                      : "--"}
+                  </dd>
+                </div>
+
+                <div>
+                  <dt>Total Cases</dt>
+                  <dd>{totalCases}</dd>
+                </div>
+
+                <div>
+                  <dt>Facilities Reporting</dt>
+                  <dd>{facilitiesCount}</dd>
+                </div>
+              </dl>
+
+              <WeeklyCasesChart diseaseName={title} data={weeklyChartData} />
             </div>
           </Tile>
         </Column>
@@ -220,13 +240,7 @@ export default function DiseaseDetailsPage() {
         <Tile className="disease-details-page__tile">
           <div className="disease-details-page__section">
             <h3>Facilities requiring Action</h3>
-            <FacilitiesActionTable
-              facilityMetrics={filteredFacilityMetrics}
-              region=""
-              district=""
-              subCounty=""
-              loading={loading}
-            />
+            <FacilitiesActionTable facilityMetrics={filteredFacilityMetrics} loading={loading} />
           </div>
         </Tile>
       </div>

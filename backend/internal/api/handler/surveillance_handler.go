@@ -18,9 +18,7 @@ type SurveillanceHandler struct {
 	diseaseService               *service.SurveillanceDiseaseService
 	locationService              *service.SurveillanceLocationService
 	facilityWeeklyMetricsService *service.SurveillanceFacilityWeeklyMetricsService
-	districtWeeklyStatusService  *service.SurveillanceDistrictWeeklyStatusService
-	regionWeeklyStatusService    *service.SurveillanceRegionWeeklyStatusService
-	nationalWeeklyStatusService  *service.SurveillanceNationalWeeklyStatusService
+	weeklyStatusService          *service.SurveillanceWeeklyStatusService
 	importService                *service.SurveillanceImportService
 }
 
@@ -29,9 +27,7 @@ func NewSurveillanceHandler(
 	diseaseService *service.SurveillanceDiseaseService,
 	locationService *service.SurveillanceLocationService,
 	facilityWeeklyMetricsService *service.SurveillanceFacilityWeeklyMetricsService,
-	districtWeeklyStatusService *service.SurveillanceDistrictWeeklyStatusService,
-	regionWeeklyStatusService *service.SurveillanceRegionWeeklyStatusService,
-	nationalWeeklyStatusService *service.SurveillanceNationalWeeklyStatusService,
+	weeklyStatusService *service.SurveillanceWeeklyStatusService,
 	importService *service.SurveillanceImportService,
 
 ) *SurveillanceHandler {
@@ -40,9 +36,7 @@ func NewSurveillanceHandler(
 		diseaseService:               diseaseService,
 		locationService:              locationService,
 		facilityWeeklyMetricsService: facilityWeeklyMetricsService,
-		districtWeeklyStatusService:  districtWeeklyStatusService,
-		regionWeeklyStatusService:    regionWeeklyStatusService,
-		nationalWeeklyStatusService:  nationalWeeklyStatusService,
+		weeklyStatusService:          weeklyStatusService,
 		importService:                importService,
 	}
 }
@@ -347,50 +341,9 @@ func (h *SurveillanceHandler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	data, err := h.districtWeeklyStatusService.ListDistrictWeeklyStatusesByWeek(ctx, epiWeekID)
+	data, err := h.weeklyStatusService.ListDistrictByWeek(ctx, epiWeekID)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list district weekly statuses by week", err.Error())
-		return
-	}
-
-	response.OK(c, http.StatusOK, data)
-}
-
-func (h *SurveillanceHandler) ListDistrictWeeklyStatusesByDistrictAndWeek(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	districtIDParam := c.Query("district_id")
-	if districtIDParam == "" {
-		response.Fail(c, http.StatusBadRequest, "district_id is required", "nil")
-		return
-	}
-
-	districtID, err := uuid.Parse(districtIDParam)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid district_id", err.Error())
-		return
-	}
-
-	epiWeekIDParam := c.Query("epi_week_id")
-	if epiWeekIDParam == "" {
-		response.Fail(c, http.StatusBadRequest, "epi_week_id is required", "nil")
-		return
-	}
-
-	epiWeekID, err := uuid.Parse(epiWeekIDParam)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid epi_week_id", err.Error())
-		return
-	}
-
-	arg := db.ListDistrictStatusesByDistrictAndWeekParams{
-		DistrictID: districtID,
-		EpiWeekID:  epiWeekID,
-	}
-
-	data, err := h.districtWeeklyStatusService.ListDistrictWeeklyStatusesByDistrictAndWeek(ctx, arg)
-	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list district weekly statuses by district and week", err.Error())
 		return
 	}
 
@@ -414,7 +367,7 @@ func (h *SurveillanceHandler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	data, err := h.regionWeeklyStatusService.ListRegionWeeklyStatusesByWeek(ctx, epiWeekID)
+	data, err := h.weeklyStatusService.ListRegionByWeek(ctx, epiWeekID)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list region weekly statuses by week", err.Error())
 		return
@@ -440,7 +393,7 @@ func (h *SurveillanceHandler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	data, err := h.nationalWeeklyStatusService.ListNationalWeeklyStatusesByWeek(ctx, epiWeekID)
+	data, err := h.weeklyStatusService.ListNationalByWeek(ctx, epiWeekID)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list national weekly statuses by week", err.Error())
 		return

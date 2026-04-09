@@ -257,11 +257,10 @@ func SetupRouter(
 			surveillance.GET("/facility-weekly-metrics/week/:epiWeekID", surveillanceHandler.ListFacilityWeeklyMetricsByWeek)
 			surveillance.GET("/facility-weekly-metrics/facility/:facilityID", surveillanceHandler.ListFacilityWeeklyMetricsByFacility)
 
-			surveillance.GET("/district-weekly-statuses/week/:epiWeekID", surveillanceHandler.ListDistrictWeeklyStatusesByWeek)
-			surveillance.GET("/district-weekly-statuses", surveillanceHandler.ListDistrictWeeklyStatusesByDistrictAndWeek)
-
-			surveillance.GET("/region-weekly-statuses/week/:epiWeekID", surveillanceHandler.ListRegionWeeklyStatusesByWeek)
-			surveillance.GET("/national-weekly-statuses/week/:epiWeekID", surveillanceHandler.ListNationalWeeklyStatusesByWeek)
+			// weekly statuses
+			surveillance.GET("/weekly-statuses/district/week/:epiWeekID", surveillanceHandler.ListDistrictWeeklyStatusesByWeek)
+			surveillance.GET("/weekly-statuses/region/week/:epiWeekID", surveillanceHandler.ListRegionWeeklyStatusesByWeek)
+			surveillance.GET("/weekly-statuses/national/week/:epiWeekID", surveillanceHandler.ListNationalWeeklyStatusesByWeek)
 
 			surveillance.GET("/imports", surveillanceHandler.ListImportBatches)
 			surveillance.POST("/imports", surveillanceHandler.CreateImportBatch)

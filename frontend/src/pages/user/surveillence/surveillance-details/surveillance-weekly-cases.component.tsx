@@ -1,7 +1,7 @@
 import { AreaChart } from "@carbon/charts-react";
 import "@carbon/charts/styles.css";
 import { useMemo } from "react";
-
+import "./surveillance-details.css";
 type WeeklyCasesPoint = {
   week: string | number;
   value: number;
@@ -49,27 +49,20 @@ export default function WeeklyCasesChart({
       points: {
         enabled: true,
       },
+      legend: {
+        enabled: false,
+      },
     }),
     [diseaseName, height],
   );
 
   if (!chartData.length) {
-    return (
-      <div
-        style={{
-          minHeight: height,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "1rem",
-          border: "1px solid #e0e0e0",
-          borderRadius: "0.25rem",
-        }}
-      >
-        No weekly case data available.
-      </div>
-    );
+    return <div className="disease-details-page__placeholder">No weekly case data available.</div>;
   }
 
-  return <AreaChart data={chartData} options={options} />;
+  return (
+    <div className="disease-details-page__chart">
+      <AreaChart data={chartData} options={options} />
+    </div>
+  );
 }

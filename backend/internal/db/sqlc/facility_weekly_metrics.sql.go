@@ -31,7 +31,7 @@ RETURNING id, source_record_id, facility_id, disease_id, indicator_id, epi_week_
 type CreateFacilityWeeklyDiseaseMetricParams struct {
 	SourceRecordID sql.NullString `json:"source_record_id"`
 	FacilityID     uuid.UUID      `json:"facility_id"`
-	DiseaseID      uuid.UUID      `json:"disease_id"`
+	DiseaseID      uuid.NullUUID  `json:"disease_id"`
 	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
 	MetricValue    string         `json:"metric_value"`
 	SourceName     sql.NullString `json:"source_name"`
@@ -80,7 +80,7 @@ RETURNING id, source_record_id, facility_id, disease_id, indicator_id, epi_week_
 type CreateFacilityWeeklyIndicatorMetricParams struct {
 	SourceRecordID sql.NullString `json:"source_record_id"`
 	FacilityID     uuid.UUID      `json:"facility_id"`
-	IndicatorID    uuid.UUID      `json:"indicator_id"`
+	IndicatorID    uuid.NullUUID  `json:"indicator_id"`
 	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
 	MetricValue    string         `json:"metric_value"`
 	SourceName     sql.NullString `json:"source_name"`
@@ -202,8 +202,8 @@ type ListFacilityMetricsByFacilityRow struct {
 	ID             uuid.UUID      `json:"id"`
 	SourceRecordID sql.NullString `json:"source_record_id"`
 	FacilityID     uuid.UUID      `json:"facility_id"`
-	DiseaseID      uuid.UUID      `json:"disease_id"`
-	IndicatorID    uuid.UUID      `json:"indicator_id"`
+	DiseaseID      uuid.NullUUID  `json:"disease_id"`
+	IndicatorID    uuid.NullUUID  `json:"indicator_id"`
 	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
 	MetricValue    string         `json:"metric_value"`
 	SourceName     sql.NullString `json:"source_name"`
@@ -273,8 +273,8 @@ type ListFacilityWeeklyDiseaseMetricsByWeekRow struct {
 	ID             uuid.UUID      `json:"id"`
 	SourceRecordID sql.NullString `json:"source_record_id"`
 	FacilityID     uuid.UUID      `json:"facility_id"`
-	DiseaseID      uuid.UUID      `json:"disease_id"`
-	IndicatorID    uuid.UUID      `json:"indicator_id"`
+	DiseaseID      uuid.NullUUID  `json:"disease_id"`
+	IndicatorID    uuid.NullUUID  `json:"indicator_id"`
 	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
 	MetricValue    string         `json:"metric_value"`
 	SourceName     sql.NullString `json:"source_name"`
@@ -344,8 +344,8 @@ type ListFacilityWeeklyIndicatorMetricsByWeekRow struct {
 	ID             uuid.UUID      `json:"id"`
 	SourceRecordID sql.NullString `json:"source_record_id"`
 	FacilityID     uuid.UUID      `json:"facility_id"`
-	DiseaseID      uuid.UUID      `json:"disease_id"`
-	IndicatorID    uuid.UUID      `json:"indicator_id"`
+	DiseaseID      uuid.NullUUID  `json:"disease_id"`
+	IndicatorID    uuid.NullUUID  `json:"indicator_id"`
 	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
 	MetricValue    string         `json:"metric_value"`
 	SourceName     sql.NullString `json:"source_name"`
@@ -420,7 +420,7 @@ RETURNING id, source_record_id, facility_id, disease_id, indicator_id, epi_week_
 type UpsertFacilityWeeklyDiseaseMetricParams struct {
 	SourceRecordID sql.NullString `json:"source_record_id"`
 	FacilityID     uuid.UUID      `json:"facility_id"`
-	DiseaseID      uuid.UUID      `json:"disease_id"`
+	DiseaseID      uuid.NullUUID  `json:"disease_id"`
 	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
 	MetricValue    string         `json:"metric_value"`
 	SourceName     sql.NullString `json:"source_name"`
@@ -476,7 +476,7 @@ RETURNING id, source_record_id, facility_id, disease_id, indicator_id, epi_week_
 type UpsertFacilityWeeklyIndicatorMetricParams struct {
 	SourceRecordID sql.NullString `json:"source_record_id"`
 	FacilityID     uuid.UUID      `json:"facility_id"`
-	IndicatorID    uuid.UUID      `json:"indicator_id"`
+	IndicatorID    uuid.NullUUID  `json:"indicator_id"`
 	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
 	MetricValue    string         `json:"metric_value"`
 	SourceName     sql.NullString `json:"source_name"`

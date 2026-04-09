@@ -2,11 +2,11 @@
 SELECT
   status,
   COUNT(*)::bigint AS total_items
-FROM (
-  SELECT status
-  FROM national_weekly_status
-  WHERE epi_week_id = $1
-) x
+FROM weekly_status
+WHERE epi_week_id = $1
+  AND region_id IS NULL
+  AND district_id IS NULL
+  AND sub_county_id IS NULL
 GROUP BY status
 ORDER BY
   CASE status
@@ -28,9 +28,12 @@ SELECT
   d.id AS subject_id,
   d.name AS subject_name,
   'DISEASE' AS subject_type
-FROM national_weekly_status s
+FROM weekly_status s
 JOIN diseases d ON d.id = s.disease_id
 WHERE s.epi_week_id = $1
+  AND s.region_id IS NULL
+  AND s.district_id IS NULL
+  AND s.sub_county_id IS NULL
   AND s.disease_id IS NOT NULL
 
 UNION ALL
@@ -45,9 +48,12 @@ SELECT
   i.id AS subject_id,
   i.name AS subject_name,
   'INDICATOR' AS subject_type
-FROM national_weekly_status s
+FROM weekly_status s
 JOIN indicators i ON i.id = s.indicator_id
 WHERE s.epi_week_id = $1
+  AND s.region_id IS NULL
+  AND s.district_id IS NULL
+  AND s.sub_county_id IS NULL
   AND s.indicator_id IS NOT NULL
 
 ORDER BY status, subject_name;
@@ -56,36 +62,52 @@ ORDER BY status, subject_name;
 -- name: ListDistrictWeeklySubjectsByWeek :many
 SELECT
   s.id,
+  s.region_id,
+  r.name AS region_name,
   s.district_id,
   d.name AS district_name,
   s.epi_week_id,
   s.status,
   s.source_name,
+  s.imported_at,
+  s.created_at,
   dis.id AS subject_id,
   dis.name AS subject_name,
   'DISEASE' AS subject_type
-FROM district_weekly_status s
+FROM weekly_status s
 JOIN districts d ON d.id = s.district_id
+JOIN regions r ON r.id = s.region_id
 JOIN diseases dis ON dis.id = s.disease_id
 WHERE s.epi_week_id = $1
+  AND s.region_id IS NOT NULL
+  AND s.district_id IS NOT NULL
+  AND s.sub_county_id IS NULL
   AND s.disease_id IS NOT NULL
 
 UNION ALL
 
 SELECT
   s.id,
+  s.region_id,
+  r.name AS region_name,
   s.district_id,
   d.name AS district_name,
   s.epi_week_id,
   s.status,
   s.source_name,
+  s.imported_at,
+  s.created_at,
   i.id AS subject_id,
   i.name AS subject_name,
   'INDICATOR' AS subject_type
-FROM district_weekly_status s
+FROM weekly_status s
 JOIN districts d ON d.id = s.district_id
+JOIN regions r ON r.id = s.region_id
 JOIN indicators i ON i.id = s.indicator_id
 WHERE s.epi_week_id = $1
+  AND s.region_id IS NOT NULL
+  AND s.district_id IS NOT NULL
+  AND s.sub_county_id IS NULL
   AND s.indicator_id IS NOT NULL
 
 ORDER BY district_name ASC, status ASC, subject_name ASC;
@@ -99,13 +121,18 @@ SELECT
   s.epi_week_id,
   s.status,
   s.source_name,
+  s.imported_at,
+  s.created_at,
   dis.id AS subject_id,
   dis.name AS subject_name,
   'DISEASE' AS subject_type
-FROM region_weekly_status s
+FROM weekly_status s
 JOIN regions r ON r.id = s.region_id
 JOIN diseases dis ON dis.id = s.disease_id
 WHERE s.epi_week_id = $1
+  AND s.region_id IS NOT NULL
+  AND s.district_id IS NULL
+  AND s.sub_county_id IS NULL
   AND s.disease_id IS NOT NULL
 
 UNION ALL
@@ -117,13 +144,18 @@ SELECT
   s.epi_week_id,
   s.status,
   s.source_name,
+  s.imported_at,
+  s.created_at,
   i.id AS subject_id,
   i.name AS subject_name,
   'INDICATOR' AS subject_type
-FROM region_weekly_status s
+FROM weekly_status s
 JOIN regions r ON r.id = s.region_id
 JOIN indicators i ON i.id = s.indicator_id
 WHERE s.epi_week_id = $1
+  AND s.region_id IS NOT NULL
+  AND s.district_id IS NULL
+  AND s.sub_county_id IS NULL
   AND s.indicator_id IS NOT NULL
 
 ORDER BY region_name ASC, status ASC, subject_name ASC;
@@ -169,31 +201,43 @@ SELECT
   ), 0) AS facility_total,
   COALESCE((
     SELECT COUNT(*)::bigint
-    FROM district_weekly_status ds
-    WHERE ds.disease_id = d.id
-      AND ds.epi_week_id = $2
-      AND ds.status = 'MAROON'
+    FROM weekly_status ws
+    WHERE ws.disease_id = d.id
+      AND ws.epi_week_id = $2
+      AND ws.status = 'MAROON'
+      AND ws.region_id IS NOT NULL
+      AND ws.district_id IS NOT NULL
+      AND ws.sub_county_id IS NULL
   ), 0) AS maroon_districts,
   COALESCE((
     SELECT COUNT(*)::bigint
-    FROM district_weekly_status ds
-    WHERE ds.disease_id = d.id
-      AND ds.epi_week_id = $2
-      AND ds.status = 'RED'
+    FROM weekly_status ws
+    WHERE ws.disease_id = d.id
+      AND ws.epi_week_id = $2
+      AND ws.status = 'RED'
+      AND ws.region_id IS NOT NULL
+      AND ws.district_id IS NOT NULL
+      AND ws.sub_county_id IS NULL
   ), 0) AS red_districts,
   COALESCE((
     SELECT COUNT(*)::bigint
-    FROM district_weekly_status ds
-    WHERE ds.disease_id = d.id
-      AND ds.epi_week_id = $2
-      AND ds.status = 'YELLOW'
+    FROM weekly_status ws
+    WHERE ws.disease_id = d.id
+      AND ws.epi_week_id = $2
+      AND ws.status = 'YELLOW'
+      AND ws.region_id IS NOT NULL
+      AND ws.district_id IS NOT NULL
+      AND ws.sub_county_id IS NULL
   ), 0) AS yellow_districts,
   COALESCE((
     SELECT COUNT(*)::bigint
-    FROM district_weekly_status ds
-    WHERE ds.disease_id = d.id
-      AND ds.epi_week_id = $2
-      AND ds.status = 'GREEN'
+    FROM weekly_status ws
+    WHERE ws.disease_id = d.id
+      AND ws.epi_week_id = $2
+      AND ws.status = 'GREEN'
+      AND ws.region_id IS NOT NULL
+      AND ws.district_id IS NOT NULL
+      AND ws.sub_county_id IS NULL
   ), 0) AS green_districts,
   COALESCE((
     SELECT COUNT(*)::bigint
@@ -204,6 +248,7 @@ SELECT
 FROM diseases d
 WHERE d.id = $1
 LIMIT 1;
+
 
 -- name: GetIndicatorDashboardSummaryByWeek :one
 SELECT
@@ -217,35 +262,48 @@ SELECT
   ), 0) AS facility_total,
   COALESCE((
     SELECT COUNT(*)::bigint
-    FROM district_weekly_status ds
-    WHERE ds.indicator_id = i.id
-      AND ds.epi_week_id = $2
-      AND ds.status = 'MAROON'
+    FROM weekly_status ws
+    WHERE ws.indicator_id = i.id
+      AND ws.epi_week_id = $2
+      AND ws.status = 'MAROON'
+      AND ws.region_id IS NOT NULL
+      AND ws.district_id IS NOT NULL
+      AND ws.sub_county_id IS NULL
   ), 0) AS maroon_districts,
   COALESCE((
     SELECT COUNT(*)::bigint
-    FROM district_weekly_status ds
-    WHERE ds.indicator_id = i.id
-      AND ds.epi_week_id = $2
-      AND ds.status = 'RED'
+    FROM weekly_status ws
+    WHERE ws.indicator_id = i.id
+      AND ws.epi_week_id = $2
+      AND ws.status = 'RED'
+      AND ws.region_id IS NOT NULL
+      AND ws.district_id IS NOT NULL
+      AND ws.sub_county_id IS NULL
   ), 0) AS red_districts,
   COALESCE((
     SELECT COUNT(*)::bigint
-    FROM district_weekly_status ds
-    WHERE ds.indicator_id = i.id
-      AND ds.epi_week_id = $2
-      AND ds.status = 'YELLOW'
+    FROM weekly_status ws
+    WHERE ws.indicator_id = i.id
+      AND ws.epi_week_id = $2
+      AND ws.status = 'YELLOW'
+      AND ws.region_id IS NOT NULL
+      AND ws.district_id IS NOT NULL
+      AND ws.sub_county_id IS NULL
   ), 0) AS yellow_districts,
   COALESCE((
     SELECT COUNT(*)::bigint
-    FROM district_weekly_status ds
-    WHERE ds.indicator_id = i.id
-      AND ds.epi_week_id = $2
-      AND ds.status = 'GREEN'
+    FROM weekly_status ws
+    WHERE ws.indicator_id = i.id
+      AND ws.epi_week_id = $2
+      AND ws.status = 'GREEN'
+      AND ws.region_id IS NOT NULL
+      AND ws.district_id IS NOT NULL
+      AND ws.sub_county_id IS NULL
   ), 0) AS green_districts
 FROM indicators i
 WHERE i.id = $1
 LIMIT 1;
+
 
 -- name: GetTopFacilitiesByDiseaseAndWeek :many
 SELECT
@@ -262,6 +320,7 @@ WHERE m.disease_id = $1
   AND m.epi_week_id = $2
 ORDER BY m.metric_value DESC, f.name ASC
 LIMIT $3;
+
 
 -- name: GetTopFacilitiesByIndicatorAndWeek :many
 SELECT

@@ -194,7 +194,7 @@ export const surveillanceApi = baseApi.injectEndpoints({
 
     listDistrictWeeklyStatusesByWeek: builder.query<DistrictWeeklyStatus[], string>({
       query: (epiWeekID) => ({
-        url: `/surveillance/district-weekly-statuses/week/${epiWeekID}`,
+        url: `/surveillance/weekly-statuses/district/week/${epiWeekID}`,
       }),
       transformResponse: (res: ApiEnvelope<DistrictWeeklyStatus[]>) => res.data,
       providesTags: (result, _error, epiWeekID) =>
@@ -222,8 +222,13 @@ export const surveillanceApi = baseApi.injectEndpoints({
       { districtID?: string; epiWeekID?: string } | void
     >({
       query: (params) => ({
-        url: "/surveillance/district-weekly-statuses",
-        params: params ?? undefined,
+        url: "/surveillance/weekly-statuses/district",
+        params: params
+          ? {
+              district_id: params.districtID,
+              epi_week_id: params.epiWeekID,
+            }
+          : undefined,
       }),
       transformResponse: (res: ApiEnvelope<DistrictWeeklyStatus[]>) => res.data,
       providesTags: (result) =>
@@ -233,14 +238,22 @@ export const surveillanceApi = baseApi.injectEndpoints({
                 type: "Surveillance" as const,
                 id: item.id,
               })),
-              { type: "Surveillance" as const, id: "SURVEILLANCE_DISTRICT_STATUSES_LIST" },
+              {
+                type: "Surveillance" as const,
+                id: "SURVEILLANCE_DISTRICT_STATUSES_LIST",
+              },
             ]
-          : [{ type: "Surveillance" as const, id: "SURVEILLANCE_DISTRICT_STATUSES_LIST" }],
+          : [
+              {
+                type: "Surveillance" as const,
+                id: "SURVEILLANCE_DISTRICT_STATUSES_LIST",
+              },
+            ],
     }),
 
     listRegionWeeklyStatusesByWeek: builder.query<RegionWeeklyStatus[], string>({
       query: (epiWeekID) => ({
-        url: `/surveillance/region-weekly-statuses/week/${epiWeekID}`,
+        url: `/surveillance/weekly-statuses/region/week/${epiWeekID}`,
       }),
       transformResponse: (res: ApiEnvelope<RegionWeeklyStatus[]>) => res.data,
       providesTags: (result, _error, epiWeekID) =>
@@ -265,7 +278,7 @@ export const surveillanceApi = baseApi.injectEndpoints({
 
     listNationalWeeklyStatusesByWeek: builder.query<NationalWeeklyStatus[], string>({
       query: (epiWeekID) => ({
-        url: `/surveillance/national-weekly-statuses/week/${epiWeekID}`,
+        url: `/surveillance/weekly-statuses/national/week/${epiWeekID}`,
       }),
       transformResponse: (res: ApiEnvelope<NationalWeeklyStatus[]>) => res.data,
       providesTags: (result, _error, epiWeekID) =>

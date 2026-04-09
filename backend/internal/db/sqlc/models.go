@@ -255,6 +255,15 @@ type Disease struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
+type DiseaseIndicator struct {
+	ID          uuid.UUID `json:"id"`
+	DiseaseID   uuid.UUID `json:"disease_id"`
+	IndicatorID uuid.UUID `json:"indicator_id"`
+	IsActive    bool      `json:"is_active"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 type District struct {
 	ID        uuid.UUID      `json:"id"`
 	Name      string         `json:"name"`
@@ -262,18 +271,6 @@ type District struct {
 	Code      sql.NullString `json:"code"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
-}
-
-type DistrictWeeklyStatus struct {
-	ID          uuid.UUID      `json:"id"`
-	DistrictID  uuid.UUID      `json:"district_id"`
-	DiseaseID   uuid.UUID      `json:"disease_id"`
-	IndicatorID uuid.UUID      `json:"indicator_id"`
-	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      RiskLevel      `json:"status"`
-	SourceName  sql.NullString `json:"source_name"`
-	ImportedAt  time.Time      `json:"imported_at"`
-	CreatedAt   time.Time      `json:"created_at"`
 }
 
 type Document struct {
@@ -317,8 +314,8 @@ type FacilityWeeklyMetric struct {
 	ID             uuid.UUID      `json:"id"`
 	SourceRecordID sql.NullString `json:"source_record_id"`
 	FacilityID     uuid.UUID      `json:"facility_id"`
-	DiseaseID      uuid.UUID      `json:"disease_id"`
-	IndicatorID    uuid.UUID      `json:"indicator_id"`
+	DiseaseID      uuid.NullUUID  `json:"disease_id"`
+	IndicatorID    uuid.NullUUID  `json:"indicator_id"`
 	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
 	MetricValue    string         `json:"metric_value"`
 	SourceName     sql.NullString `json:"source_name"`
@@ -368,17 +365,6 @@ type Indicator struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 }
 
-type NationalWeeklyStatus struct {
-	ID          uuid.UUID      `json:"id"`
-	DiseaseID   uuid.UUID      `json:"disease_id"`
-	IndicatorID uuid.UUID      `json:"indicator_id"`
-	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      RiskLevel      `json:"status"`
-	SourceName  sql.NullString `json:"source_name"`
-	ImportedAt  time.Time      `json:"imported_at"`
-	CreatedAt   time.Time      `json:"created_at"`
-}
-
 type Notification struct {
 	ID         uuid.UUID             `json:"id"`
 	Type       string                `json:"type"`
@@ -413,18 +399,6 @@ type Region struct {
 	Code      sql.NullString `json:"code"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
-}
-
-type RegionWeeklyStatus struct {
-	ID          uuid.UUID      `json:"id"`
-	RegionID    uuid.UUID      `json:"region_id"`
-	DiseaseID   uuid.UUID      `json:"disease_id"`
-	IndicatorID uuid.UUID      `json:"indicator_id"`
-	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
-	Status      RiskLevel      `json:"status"`
-	SourceName  sql.NullString `json:"source_name"`
-	ImportedAt  time.Time      `json:"imported_at"`
-	CreatedAt   time.Time      `json:"created_at"`
 }
 
 type RevokedToken struct {
@@ -517,4 +491,18 @@ type UserClientAccess struct {
 type UserRole struct {
 	UserID uuid.UUID `json:"user_id"`
 	RoleID uuid.UUID `json:"role_id"`
+}
+
+type WeeklyStatus struct {
+	ID          uuid.UUID      `json:"id"`
+	RegionID    uuid.NullUUID  `json:"region_id"`
+	DistrictID  uuid.NullUUID  `json:"district_id"`
+	SubCountyID uuid.NullUUID  `json:"sub_county_id"`
+	DiseaseID   uuid.NullUUID  `json:"disease_id"`
+	IndicatorID uuid.NullUUID  `json:"indicator_id"`
+	EpiWeekID   uuid.UUID      `json:"epi_week_id"`
+	Status      RiskLevel      `json:"status"`
+	SourceName  sql.NullString `json:"source_name"`
+	ImportedAt  time.Time      `json:"imported_at"`
+	CreatedAt   time.Time      `json:"created_at"`
 }

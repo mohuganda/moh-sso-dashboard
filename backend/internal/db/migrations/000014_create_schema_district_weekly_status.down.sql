@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS district_weekly_status;

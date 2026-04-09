@@ -60,3 +60,13 @@ RETURNING *;
 -- name: DeleteIndicator :exec
 DELETE FROM indicators
 WHERE id = $1;
+
+
+-- name: ExistsDiseaseIndicator :one
+SELECT EXISTS (
+  SELECT 1
+  FROM disease_indicators
+  WHERE disease_id = $1
+    AND indicator_id = $2
+    AND is_active = TRUE
+);

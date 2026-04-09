@@ -19,22 +19,19 @@ interface DiseaseAlertsTableProps {
 }
 
 const headers = [
-  { key: "createdAt", header: "Created At" },
   { key: "district", header: "District" },
+  { key: "region", header: "Region" },
   { key: "week", header: "Week" },
   { key: "disease", header: "Disease" },
-  { key: "region", header: "Region" },
+  { key: "severity", header: "Severity" },
 ];
 
 function normalize(value?: string) {
   return (value ?? "").trim().toLowerCase();
 }
 
-function formatDate(value?: string) {
-  if (!value) return "--";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toISOString().slice(0, 10);
+function formatSeverity(level: string) {
+  return level.charAt(0).toUpperCase() + level.slice(1);
 }
 
 export function DiseaseAlertsTable({
@@ -56,11 +53,11 @@ export function DiseaseAlertsTable({
 
       return alertDiseases.map((entry, diseaseIndex) => ({
         id: `${item.id ?? item.district_id ?? index}-${entry.disease}-${diseaseIndex}`,
-        // createdAt: formatDate(item.created_at),
         district: item.district_name ?? "--",
-        // week: item.week != null ? String(item.week) : "--",
-        disease: entry.disease,
-        // region: item.region_name ?? "--",
+        region: item.region_name ?? "--",
+        week: item.week != null ? String(item.week) : "--",
+        disease: entry.disease ?? "--",
+        severity: formatSeverity(entry.level),
       }));
     });
 

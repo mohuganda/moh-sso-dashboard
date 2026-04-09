@@ -13,12 +13,9 @@ import (
 )
 
 type SurveillanceBatchProcessor struct {
-	repo                        interfaces.ImportRepository
-	facilityMetricsService      *service.SurveillanceFacilityWeeklyMetricsService
-	districtWeeklyStatusService *service.SurveillanceDistrictWeeklyStatusService
-	regionWeeklyStatusService   *service.SurveillanceRegionWeeklyStatusService
-	nationalStatusService       *service.SurveillanceNationalWeeklyStatusService
-	alertsService               *service.SurveillanceAlertService
+	repo                   interfaces.ImportRepository
+	facilityMetricsService *service.SurveillanceFacilityWeeklyMetricsService
+	alertsService          *service.SurveillanceAlertService
 }
 
 type SurveillanceBatchProcessPayload struct {
@@ -28,18 +25,12 @@ type SurveillanceBatchProcessPayload struct {
 func NewSurveillanceBatchProcessor(
 	repo interfaces.ImportRepository,
 	facilityMetricsService *service.SurveillanceFacilityWeeklyMetricsService,
-	districtWeeklyStatusService *service.SurveillanceDistrictWeeklyStatusService,
-	regionWeeklyStatusService *service.SurveillanceRegionWeeklyStatusService,
-	nationalStatusService *service.SurveillanceNationalWeeklyStatusService,
 	alertsService *service.SurveillanceAlertService,
 ) *SurveillanceBatchProcessor {
 	return &SurveillanceBatchProcessor{
-		repo:                        repo,
-		facilityMetricsService:      facilityMetricsService,
-		districtWeeklyStatusService: districtWeeklyStatusService,
-		regionWeeklyStatusService:   regionWeeklyStatusService,
-		nationalStatusService:       nationalStatusService,
-		alertsService:               alertsService,
+		repo:                   repo,
+		facilityMetricsService: facilityMetricsService,
+		alertsService:          alertsService,
 	}
 }
 
@@ -92,27 +83,6 @@ func (s *SurveillanceBatchProcessor) processBatch(ctx context.Context, batchID u
 			break
 		}
 		processErr = s.facilityMetricsService.ProcessFacilityMetrics(ctx, batchID)
-
-	case "district_status":
-		if s.districtWeeklyStatusService == nil {
-			processErr = fmt.Errorf("district weekly status service is not configured")
-			break
-		}
-		processErr = s.districtWeeklyStatusService.ProcessDistrictStatus(ctx, batchID)
-
-	case "region_status":
-		if s.regionWeeklyStatusService == nil {
-			processErr = fmt.Errorf("region weekly status service is not configured")
-			break
-		}
-		processErr = s.regionWeeklyStatusService.ProcessRegionWeeklyStatusesByWeek(ctx, batchID)
-
-	case "national_status":
-		if s.nationalStatusService == nil {
-			processErr = fmt.Errorf("national status service is not configured")
-			break
-		}
-		processErr = s.nationalStatusService.ProcessNationalWeeklyStatuses(ctx, batchID)
 
 	case "alerts":
 		if s.alertsService == nil {

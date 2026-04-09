@@ -234,7 +234,7 @@ export default function SurveillanceDashboardPage() {
   }, [facilityMetrics, selectedRegion, selectedDistrict, selectedSubCounty]);
 
   const handleOpenDisease = (diseaseSlug: string) => {
-    navigate(`/portal/surveillance/${encodeURIComponent(diseaseSlug)}`);
+    navigate(`/apps/dwh/surveillance/${encodeURIComponent(diseaseSlug)}`);
   };
 
   const immediateActionItems = useMemo(

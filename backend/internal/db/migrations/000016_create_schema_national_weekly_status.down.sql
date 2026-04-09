@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS national_weekly_status;

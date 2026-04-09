@@ -43,7 +43,7 @@ import DiseaseDetailsPage from "./pages/user/surveillence/surveillance-details/s
 function App() {
   return (
     <ModalProvider>
-      <Router basename={"/portal/"}>
+      <Router basename={"/portal"}>
         <Routes>
           {/* ================================================== */}
           {/* PUBLIC */}
@@ -518,7 +518,7 @@ function App() {
           {/* ================================================== */}
           {/* FALLBACK */}
           {/* ================================================== */}
-          <Route path="*" element={<Navigate to="/portal/" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </ModalProvider>

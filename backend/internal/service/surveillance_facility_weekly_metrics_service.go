@@ -291,11 +291,15 @@ func (s *SurveillanceFacilityWeeklyMetricsService) processFacilityMetricRow(
 		return fmt.Errorf("metric is required")
 	}
 
-	disease, diseaseErr := q.GetDiseaseByName(ctx, metricName)
+	// 1. If metric name itself is a disease, store as disease metric.
+	diseaseByMetric, diseaseErr := q.GetDiseaseByName(ctx, metricName)
 	if diseaseErr == nil {
 		_, err = q.UpsertFacilityWeeklyDiseaseMetric(ctx, db.UpsertFacilityWeeklyDiseaseMetricParams{
-			FacilityID:  facility.ID,
-			DiseaseID:   disease.ID,
+			FacilityID: facility.ID,
+			DiseaseID: uuid.NullUUID{
+				UUID:  diseaseByMetric.ID,
+				Valid: diseaseByMetric.ID != uuid.Nil,
+			},
 			EpiWeekID:   epiWeek.ID,
 			MetricValue: strconv.FormatFloat(payload.Value, 'f', -1, 64),
 		})
@@ -310,26 +314,61 @@ func (s *SurveillanceFacilityWeeklyMetricsService) processFacilityMetricRow(
 		return fmt.Errorf("find disease %q: %w", metricName, diseaseErr)
 	}
 
+	// 2. Otherwise resolve indicator by name.
 	indicator, indicatorErr := q.GetIndicatorByName(ctx, metricName)
-	if indicatorErr == nil {
-		_, err = q.UpsertFacilityWeeklyIndicatorMetric(ctx, db.UpsertFacilityWeeklyIndicatorMetricParams{
-			FacilityID:  facility.ID,
-			IndicatorID: indicator.ID,
-			EpiWeekID:   epiWeek.ID,
-			MetricValue: strconv.FormatFloat(payload.Value, 'f', -1, 64),
-		})
-		if err != nil {
-			return fmt.Errorf("upsert facility weekly indicator metric: %w", err)
+	if indicatorErr != nil {
+		if errors.Is(indicatorErr, sql.ErrNoRows) {
+			return fmt.Errorf("metric %q was not found as a disease or indicator", metricName)
 		}
-
-		return nil
-	}
-
-	if indicatorErr != nil && !errors.Is(indicatorErr, sql.ErrNoRows) {
 		return fmt.Errorf("find indicator %q: %w", metricName, indicatorErr)
 	}
 
-	return fmt.Errorf("metric %q was not found as a disease or indicator", metricName)
+	// 3. You need the disease context from payload for indicator metrics.
+	diseaseName := strings.TrimSpace(payload.Metric)
+	if diseaseName == "" {
+		return fmt.Errorf("disease is required when metric %q is an indicator", metricName)
+	}
+
+	disease, err := q.GetDiseaseByName(ctx, diseaseName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("disease %q was not found", diseaseName)
+		}
+		return fmt.Errorf("find disease %q: %w", diseaseName, err)
+	}
+
+	allowed, err := isIndicatorAllowedForDisease(ctx, q, disease.ID, indicator.ID)
+	if err != nil {
+		return fmt.Errorf(
+			"check disease indicator mapping for disease=%q indicator=%q: %w",
+			diseaseName,
+			metricName,
+			err,
+		)
+	}
+
+	if !allowed {
+		return fmt.Errorf(
+			"indicator %q is not configured for disease %q",
+			metricName,
+			diseaseName,
+		)
+	}
+
+	_, err = q.UpsertFacilityWeeklyIndicatorMetric(ctx, db.UpsertFacilityWeeklyIndicatorMetricParams{
+		FacilityID: facility.ID,
+		IndicatorID: uuid.NullUUID{
+			UUID:  indicator.ID,
+			Valid: indicator.ID != uuid.Nil,
+		},
+		EpiWeekID:   epiWeek.ID,
+		MetricValue: strconv.FormatFloat(payload.Value, 'f', -1, 64),
+	})
+	if err != nil {
+		return fmt.Errorf("upsert facility weekly indicator metric: %w", err)
+	}
+
+	return nil
 }
 
 func parseFacilityWeeklyMetricsPayload(rawPayload []byte) (facilityWeeklyMetricsPayload, error) {
@@ -579,5 +618,75 @@ func getOrCreateEpiWeek(
 	return q.CreateEpiWeek(ctx, db.CreateEpiWeekParams{
 		EpiYear: year,
 		EpiWeek: week,
+	})
+}
+
+func getOrCreateDisease(
+	ctx context.Context,
+	q db.Querier,
+	name string,
+) (db.Disease, error) {
+	normalizedName := strings.TrimSpace(name)
+	if normalizedName == "" {
+		return db.Disease{}, fmt.Errorf("disease name is required")
+	}
+
+	disease, err := q.GetDiseaseByName(ctx, normalizedName)
+	if err == nil {
+		return disease, nil
+	}
+
+	if !errors.Is(err, sql.ErrNoRows) {
+		return db.Disease{}, fmt.Errorf("find disease %q: %w", normalizedName, err)
+	}
+
+	createdDisease, err := q.CreateDisease(ctx, db.CreateDiseaseParams{
+		Name: normalizedName,
+	})
+	if err != nil {
+		return db.Disease{}, fmt.Errorf("create disease %q: %w", normalizedName, err)
+	}
+
+	return createdDisease, nil
+}
+
+func getOrCreateIndicator(
+	ctx context.Context,
+	q db.Querier,
+	name string,
+) (db.Indicator, error) {
+	normalizedName := strings.TrimSpace(name)
+	if normalizedName == "" {
+		return db.Indicator{}, fmt.Errorf("indicator name is required")
+	}
+
+	indicator, err := q.GetIndicatorByName(ctx, normalizedName)
+	if err == nil {
+		return indicator, nil
+	}
+
+	if !errors.Is(err, sql.ErrNoRows) {
+		return db.Indicator{}, fmt.Errorf("find indicator %q: %w", normalizedName, err)
+	}
+
+	createdIndicator, err := q.CreateIndicator(ctx, db.CreateIndicatorParams{
+		Name: normalizedName,
+	})
+	if err != nil {
+		return db.Indicator{}, fmt.Errorf("create indicator %q: %w", normalizedName, err)
+	}
+
+	return createdIndicator, nil
+}
+
+func isIndicatorAllowedForDisease(
+	ctx context.Context,
+	q db.Querier,
+	diseaseID uuid.UUID,
+	indicatorID uuid.UUID,
+) (bool, error) {
+	return q.ExistsDiseaseIndicator(ctx, db.ExistsDiseaseIndicatorParams{
+		DiseaseID:   diseaseID,
+		IndicatorID: indicatorID,
 	})
 }

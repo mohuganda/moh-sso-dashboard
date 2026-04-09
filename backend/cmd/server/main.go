@@ -195,9 +195,7 @@ func main() {
 	diseaseRepository := repository.NewRepositories(store).Diseases
 	epiWeekRepository := repository.NewRepositories(store).EpiWeeks
 	facilityWeeklyMetricsRepository := repository.NewRepositories(store).FacilityMetrics
-	districtWeeklyStatusRepository := repository.NewRepositories(store).DistrictStatuses
-	regionWeeklyStatusRepository := repository.NewRepositories(store).RegionStatuses
-	nationalWeeklyStatusRepository := repository.NewRepositories(store).NationalStatuses
+	weeklyStatusRepository := repository.NewRepositories(store).WeeklyStatus
 	importRepository := repository.NewRepositories(store).Imports
 	alertRepository := repository.NewRepositories(store).Alerts
 
@@ -223,9 +221,8 @@ func main() {
 	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
 	locationService := service.NewSurveillanceLocationService(appLogger, regionRepository, districtRepository, subCountyRepository)
 	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(appLogger, facilityWeeklyMetricsRepository, importRepository)
-	districtWeeklyStatusService := service.NewSurveillanceDistrictWeeklyStatusService(appLogger, districtWeeklyStatusRepository, importRepository)
-	regionWeeklyStatusService := service.NewSurveillanceRegionWeeklyStatusService(appLogger, regionWeeklyStatusRepository, importRepository)
-	nationalWeeklyStatusService := service.NewSurveillanceNationalWeeklyStatusService(appLogger, nationalWeeklyStatusRepository, importRepository)
+	weeklyStatusService := service.NewSurveillanceWeeklyStatusService(appLogger, weeklyStatusRepository)
+
 	surveillanceImportService := service.NewSurveillanceImportService(importRepository)
 	alertsService := service.NewSurveillanceAlertService(appLogger, alertRepository, importRepository)
 
@@ -235,9 +232,7 @@ func main() {
 		fileRepository,
 		importRepository,
 		facilityWeeklyMetricsService,
-		districtWeeklyStatusService,
-		regionWeeklyStatusService,
-		nationalWeeklyStatusService,
+		weeklyStatusService,
 		alertsService,
 		fileStorage,
 		remoteDB,
@@ -282,9 +277,7 @@ func main() {
 		diseaseService,
 		locationService,
 		facilityWeeklyMetricsService,
-		districtWeeklyStatusService,
-		regionWeeklyStatusService,
-		nationalWeeklyStatusService,
+		weeklyStatusService,
 		surveillanceImportService,
 	)
 

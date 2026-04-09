@@ -62,6 +62,28 @@ func (q *Queries) DeleteIndicator(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const existsDiseaseIndicator = `-- name: ExistsDiseaseIndicator :one
+SELECT EXISTS (
+  SELECT 1
+  FROM disease_indicators
+  WHERE disease_id = $1
+    AND indicator_id = $2
+    AND is_active = TRUE
+)
+`
+
+type ExistsDiseaseIndicatorParams struct {
+	DiseaseID   uuid.UUID `json:"disease_id"`
+	IndicatorID uuid.UUID `json:"indicator_id"`
+}
+
+func (q *Queries) ExistsDiseaseIndicator(ctx context.Context, arg ExistsDiseaseIndicatorParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, existsDiseaseIndicator, arg.DiseaseID, arg.IndicatorID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const getIndicatorByID = `-- name: GetIndicatorByID :one
 SELECT id, name, short_name, code, indicator_type, is_active, created_at, updated_at
 FROM indicators

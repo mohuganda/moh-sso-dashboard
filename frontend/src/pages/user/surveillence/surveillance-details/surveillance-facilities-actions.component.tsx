@@ -24,8 +24,7 @@ const facilityHeaders = [
   { key: "district", header: "District" },
   { key: "subcounty", header: "Subcounty" },
   { key: "disease", header: "Disease" },
-  { key: "weeks", header: "Week" },
-  { key: "flag", header: "Flag" },
+  { key: "week", header: "Week" },
   { key: "cases", header: "Cases" },
 ];
 
@@ -43,30 +42,29 @@ export function FacilitiesActionTable({
   const rows = useMemo(() => {
     return facilityMetrics
       .filter((item) => {
-        const matchesRegion =
-          !region ||
-          normalize(item.region_name) === normalize(region) ||
-          normalize(item.district_name).includes(normalize(region));
-
+        const matchesRegion = !region || normalize(item.region_name) === normalize(region);
         const matchesDistrict = !district || normalize(item.district_name) === normalize(district);
-
         const matchesSubCounty =
           !subCounty || normalize(item.subcounty_name) === normalize(subCounty);
 
         return matchesRegion && matchesDistrict && matchesSubCounty;
       })
-      .map((item, index) => ({
-        id: item.id ?? item.facility_id ?? `${item.facility_name ?? "facility"}-${index}`,
-        facility: item.facility_name ?? "--",
-        // region: item.region_name ?? "--",
-        district: item.district_name ?? "--",
-        subcounty: item.subcounty_name ?? "--",
-        disease: item.disease_name ?? item.indicator_name ?? "--",
-        weeks: item.week ? String(item.week) : "--",
-        // flag: item.risk_level ?? "--",
-        cases: item.value != null ? String(item.value) : "--",
-      }))
-      .sort((a, b) => Number(b.cases) - Number(a.cases));
+      .map((item, index) => {
+        const numericCases = Number(item.value ?? 0);
+
+        return {
+          id: item.id ?? item.facility_id ?? `${item.facility_name ?? "facility"}-${index}`,
+          facility: item.facility_name ?? "--",
+          region: item.region_name ?? "--",
+          district: item.district_name ?? "--",
+          subcounty: item.subcounty_name ?? "--",
+          disease: item.disease_name ?? item.indicator_name ?? "--",
+          week: item.week ? String(item.week) : "--",
+          cases: String(numericCases),
+          numericCases,
+        };
+      })
+      .sort((a, b) => b.numericCases - a.numericCases);
   }, [facilityMetrics, region, district, subCounty]);
 
   if (loading) {
@@ -78,7 +76,11 @@ export function FacilitiesActionTable({
   }
 
   return (
-    <DataTable rows={rows} headers={facilityHeaders} size="sm">
+    <DataTable
+      rows={rows.map(({ numericCases, ...row }) => row)}
+      headers={facilityHeaders}
+      size="sm"
+    >
       {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
         <Table {...getTableProps()} size="sm">
           <TableHead>
