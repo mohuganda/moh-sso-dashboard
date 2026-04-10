@@ -29,7 +29,9 @@ export interface Region {
 export interface FacilityWeeklyMetric {
   id: string;
   facility_id: string;
-  facility_name: string;
+  facility_name?: string;
+  region_id?: string;
+  region_name?: string;
   district_id?: string;
   district_name?: string;
   subcounty_id?: string;
@@ -44,35 +46,20 @@ export interface FacilityWeeklyMetric {
   week?: number;
 }
 
-export interface DistrictWeeklyStatus {
-  id: string;
-  district_id: string;
-  district_name?: string;
-  epi_week_id: string;
-  maroon?: string[];
-  red?: string[];
-  yellow?: string[];
-  green?: string[];
-}
+export type RiskLevel = "MAROON" | "RED" | "YELLOW" | "GREEN";
 
-export interface RegionWeeklyStatus {
+export interface WeeklyStatus {
   id: string;
-  region_id: string;
-  region_name?: string;
+  region_id: string | null;
+  district_id: string | null;
+  sub_county_id: string | null;
+  disease_id: string | null;
+  indicator_id: string | null;
   epi_week_id: string;
-  maroon?: string[];
-  red?: string[];
-  yellow?: string[];
-  green?: string[];
-}
-
-export interface NationalWeeklyStatus {
-  id: string;
-  epi_week_id: string;
-  maroon?: string[];
-  red?: string[];
-  yellow?: string[];
-  green?: string[];
+  status: RiskLevel;
+  source_name: string | null;
+  imported_at: string;
+  created_at: string;
 }
 
 export interface Subcounty {

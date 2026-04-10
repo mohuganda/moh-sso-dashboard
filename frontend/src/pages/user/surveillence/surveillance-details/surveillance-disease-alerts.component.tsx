@@ -8,14 +8,18 @@ import {
   TableCell,
 } from "@carbon/react";
 import { useMemo } from "react";
-import type { DistrictWeeklyStatus } from "../../../../store/types/surveillance.types";
+import type { WeeklyStatus } from "../../../../store/types/surveillance.types";
 
 interface DiseaseAlertsTableProps {
-  districtStatuses?: DistrictWeeklyStatus[];
-  district?: string;
-  region?: string;
+  weeklyStatuses?: WeeklyStatus[];
+  districtId?: string;
+  regionId?: string;
   diseaseName?: string;
   loading?: boolean;
+  districtNameById?: Record<string, string>;
+  regionNameById?: Record<string, string>;
+  diseaseNameById?: Record<string, string>;
+  epiWeekLabelById?: Record<string, string>;
 }
 
 const headers = [
@@ -31,45 +35,68 @@ function normalize(value?: string) {
 }
 
 function formatSeverity(level: string) {
-  return level.charAt(0).toUpperCase() + level.slice(1);
+  return level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
 }
 
 export function DiseaseAlertsTable({
-  districtStatuses = [],
-  district = "",
-  region = "",
+  weeklyStatuses = [],
+  districtId = "",
+  regionId = "",
   diseaseName = "",
   loading = false,
+  districtNameById = {},
+  regionNameById = {},
+  diseaseNameById = {},
+  epiWeekLabelById = {},
 }: DiseaseAlertsTableProps) {
   const rows = useMemo(() => {
     const normalizedDisease = normalize(diseaseName);
 
-    const expandedRows = districtStatuses.flatMap((item, index) => {
-      const alertDiseases = [
-        ...(item.maroon ?? []).map((disease) => ({ disease, level: "maroon" })),
-        ...(item.red ?? []).map((disease) => ({ disease, level: "red" })),
-        ...(item.yellow ?? []).map((disease) => ({ disease, level: "yellow" })),
-      ];
+    return weeklyStatuses
+      .filter((item) => item.status !== "GREEN")
+      .filter((item) => {
+        const matchesDistrict = !districtId || item.district_id === districtId;
+        const matchesRegion = !regionId || item.region_id === regionId;
 
-      return alertDiseases.map((entry, diseaseIndex) => ({
-        id: `${item.id ?? item.district_id ?? index}-${entry.disease}-${diseaseIndex}`,
-        district: item.district_name ?? "--",
-        region: item.region_name ?? "--",
-        week: item.week != null ? String(item.week) : "--",
-        disease: entry.disease ?? "--",
-        severity: formatSeverity(entry.level),
-      }));
-    });
+        const resolvedDiseaseName = item.disease_id
+          ? (diseaseNameById[String(item.disease_id)] ?? "")
+          : "";
 
-    return expandedRows.filter((row) => {
-      const matchesDistrict = !district || normalize(row.district) === normalize(district);
-      const matchesRegion = !region || normalize(row.region) === normalize(region);
-      const matchesDisease =
-        !normalizedDisease || normalize(row.disease).includes(normalizedDisease);
+        const matchesDisease =
+          !normalizedDisease || normalize(resolvedDiseaseName).includes(normalizedDisease);
 
-      return matchesDistrict && matchesRegion && matchesDisease;
-    });
-  }, [districtStatuses, district, region, diseaseName]);
+        return matchesDistrict && matchesRegion && matchesDisease;
+      })
+      .map((item, index) => {
+        const district = item.district_id
+          ? (districtNameById[String(item.district_id)] ?? "--")
+          : "--";
+
+        const region = item.region_id ? (regionNameById[String(item.region_id)] ?? "--") : "--";
+
+        const disease = item.disease_id ? (diseaseNameById[String(item.disease_id)] ?? "--") : "--";
+
+        const week = epiWeekLabelById[item.epi_week_id] ?? "--";
+
+        return {
+          id: item.id || `${item.district_id ?? "unknown"}-${item.disease_id ?? "none"}-${index}`,
+          district,
+          region,
+          week,
+          disease,
+          severity: formatSeverity(item.status),
+        };
+      });
+  }, [
+    weeklyStatuses,
+    districtId,
+    regionId,
+    diseaseName,
+    districtNameById,
+    regionNameById,
+    diseaseNameById,
+    epiWeekLabelById,
+  ]);
 
   if (loading) {
     return <p>Loading disease alerts...</p>;

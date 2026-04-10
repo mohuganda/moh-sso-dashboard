@@ -1,7 +1,9 @@
-import { AreaChart } from "@carbon/charts-react";
+import { SimpleBarChart } from "@carbon/charts-react";
+import { ScaleTypes } from "@carbon/charts";
 import "@carbon/charts/styles.css";
 import { useMemo } from "react";
 import "./surveillance-details.css";
+
 type WeeklyCasesPoint = {
   week: string | number;
   value: number;
@@ -33,21 +35,17 @@ export default function WeeklyCasesChart({
         left: {
           mapsTo: "value",
           title: "Total cases",
-          scaleType: "linear" as const,
+          scaleType: ScaleTypes.LINEAR,
         },
         bottom: {
           mapsTo: "key",
           title: "EPI Weeks",
-          scaleType: "labels" as const,
+          scaleType: ScaleTypes.LABELS,
         },
       },
       height,
-      curve: "curveMonotoneX",
       toolbar: {
         enabled: false,
-      },
-      points: {
-        enabled: true,
       },
       legend: {
         enabled: false,
@@ -62,7 +60,7 @@ export default function WeeklyCasesChart({
 
   return (
     <div className="disease-details-page__chart">
-      <AreaChart data={chartData} options={options} />
+      <SimpleBarChart data={chartData} options={options} />
     </div>
   );
 }

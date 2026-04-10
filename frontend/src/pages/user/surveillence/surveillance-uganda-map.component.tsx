@@ -1,14 +1,10 @@
-import { useMemo, useRef } from "react";
-import { GeoJSON, MapContainer, TileLayer } from "react-leaflet";
+import { useEffect, useMemo, useRef } from "react";
+import { GeoJSON, MapContainer, Pane, useMap } from "react-leaflet";
 import type { GeoJSON as GeoJSONType, Feature, Geometry } from "geojson";
-import type { Layer } from "leaflet";
+import type { Layer, PathOptions } from "leaflet";
 import L from "leaflet";
 
-import type {
-  DistrictWeeklyStatus,
-  RegionWeeklyStatus,
-  NationalWeeklyStatus,
-} from "../../../store/types/surveillance.types";
+import type { WeeklyStatus } from "../../../store/types/surveillance.types";
 
 type StatusKey = "maroon" | "red" | "yellow" | "green" | "default";
 
@@ -20,34 +16,29 @@ type UgandaMapFeatureProperties = {
   ADM1_NAME?: string;
   region?: string;
   subregion?: string;
+  district_id?: string;
+  region_id?: string;
+  sub_county_id?: string;
   [key: string]: unknown;
 };
 
 interface SurveillanceUgandaMapProps {
   geoJson: GeoJSONType;
-  districtStatuses?: DistrictWeeklyStatus[];
-  regionStatuses?: RegionWeeklyStatus[];
-  nationalStatuses?: NationalWeeklyStatus[];
+  weeklyStatuses?: WeeklyStatus[];
   selectedWeek?: {
     year?: number;
     week?: number;
   };
+  title?: string;
 }
-
-const UGANDA_CENTER: [number, number] = [1.3733, 32.2903];
-const DEFAULT_ZOOM = 7;
 
 const STATUS_COLORS: Record<StatusKey, string> = {
-  maroon: "#8b0000",
-  red: "#ff5a36",
-  yellow: "#e2b600",
-  green: "#008a00",
-  default: "#d9d9d9",
+  maroon: "#7d1733",
+  red: "#e68b7d",
+  yellow: "#e4d64e",
+  green: "#a7e2b6",
+  default: "#c7dced",
 };
-
-function normalize(value?: string) {
-  return (value ?? "").trim().toLowerCase();
-}
 
 function getFeatureDistrictName(properties?: UgandaMapFeatureProperties) {
   return (
@@ -63,86 +54,128 @@ function getFeatureRegionName(properties?: UgandaMapFeatureProperties) {
   return properties?.region || properties?.ADM1_NAME || properties?.subregion || "";
 }
 
-function getStatusFromDistrictItem(item: DistrictWeeklyStatus): StatusKey {
-  const maroonCount = item.maroon?.length ?? 0;
-  const redCount = item.red?.length ?? 0;
-  const yellowCount = item.yellow?.length ?? 0;
-  const greenCount = item.green?.length ?? 0;
-
-  if (maroonCount > 0) return "maroon";
-  if (redCount > 0) return "red";
-  if (yellowCount > 0) return "yellow";
-  if (greenCount > 0) return "green";
-
-  return "default";
+function mapRiskLevelToStatusKey(status?: WeeklyStatus["status"]): StatusKey {
+  switch (status) {
+    case "MAROON":
+      return "maroon";
+    case "RED":
+      return "red";
+    case "YELLOW":
+      return "yellow";
+    case "GREEN":
+      return "green";
+    default:
+      return "default";
+  }
 }
 
-function getStatusFromRegionItem(item: RegionWeeklyStatus): StatusKey {
-  const maroonCount = item.maroon?.length ?? 0;
-  const redCount = item.red?.length ?? 0;
-  const yellowCount = item.yellow?.length ?? 0;
-  const greenCount = item.green?.length ?? 0;
+function getStatusPriority(status: StatusKey): number {
+  switch (status) {
+    case "maroon":
+      return 4;
+    case "red":
+      return 3;
+    case "yellow":
+      return 2;
+    case "green":
+      return 1;
+    default:
+      return 0;
+  }
+}
 
-  if (maroonCount > 0) return "maroon";
-  if (redCount > 0) return "red";
-  if (yellowCount > 0) return "yellow";
-  if (greenCount > 0) return "green";
+function FitMapToGeoJson({ geoJson }: { geoJson: GeoJSONType }) {
+  const map = useMap();
 
-  return "default";
+  useEffect(() => {
+    const layer = L.geoJSON(geoJson as any);
+    const bounds = layer.getBounds();
+
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, {
+        padding: [24, 24],
+      });
+    }
+  }, [geoJson, map]);
+
+  return null;
 }
 
 export default function SurveillanceUgandaMap({
   geoJson,
-  districtStatuses = [],
-  regionStatuses = [],
-  nationalStatuses = [],
+  weeklyStatuses = [],
   selectedWeek,
+  title,
 }: SurveillanceUgandaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const geoJsonRef = useRef<L.GeoJSON | null>(null);
 
-  const summary = nationalStatuses[0];
+  const summary = useMemo(() => {
+    return weeklyStatuses.reduce(
+      (acc, item) => {
+        const status = mapRiskLevelToStatusKey(item.status);
+
+        if (status === "maroon") acc.maroon += 1;
+        if (status === "red") acc.red += 1;
+        if (status === "yellow") acc.yellow += 1;
+        if (status === "green") acc.green += 1;
+
+        return acc;
+      },
+      { maroon: 0, red: 0, yellow: 0, green: 0 },
+    );
+  }, [weeklyStatuses]);
 
   const districtStatusMap = useMemo(() => {
     const map = new Map<string, StatusKey>();
 
-    for (const item of districtStatuses) {
-      const districtName = normalize(item.district_name);
-      if (!districtName) continue;
+    for (const item of weeklyStatuses) {
+      if (!item.district_id) continue;
 
-      map.set(districtName, getStatusFromDistrictItem(item));
+      const districtId = String(item.district_id);
+      const nextStatus = mapRiskLevelToStatusKey(item.status);
+      const currentStatus = map.get(districtId) ?? "default";
+
+      if (getStatusPriority(nextStatus) > getStatusPriority(currentStatus)) {
+        map.set(districtId, nextStatus);
+      }
     }
 
     return map;
-  }, [districtStatuses]);
+  }, [weeklyStatuses]);
 
   const regionStatusMap = useMemo(() => {
     const map = new Map<string, StatusKey>();
 
-    for (const item of regionStatuses) {
-      const regionName = normalize(item.region_name);
-      if (!regionName) continue;
+    for (const item of weeklyStatuses) {
+      if (!item.region_id || item.district_id) continue;
 
-      map.set(regionName, getStatusFromRegionItem(item));
+      const regionId = String(item.region_id);
+      const nextStatus = mapRiskLevelToStatusKey(item.status);
+      const currentStatus = map.get(regionId) ?? "default";
+
+      if (getStatusPriority(nextStatus) > getStatusPriority(currentStatus)) {
+        map.set(regionId, nextStatus);
+      }
     }
 
     return map;
-  }, [regionStatuses]);
+  }, [weeklyStatuses]);
 
   const getFeatureStatus = (feature?: Feature<Geometry, UgandaMapFeatureProperties>): StatusKey => {
     if (!feature?.properties) {
       return "default";
     }
 
-    const districtName = normalize(getFeatureDistrictName(feature.properties));
-    const regionName = normalize(getFeatureRegionName(feature.properties));
+    const districtId = String(feature.properties.district_id ?? "");
+    const regionId = String(feature.properties.region_id ?? "");
 
-    if (districtName && districtStatusMap.has(districtName)) {
-      return districtStatusMap.get(districtName) ?? "default";
+    if (districtId && districtStatusMap.has(districtId)) {
+      return districtStatusMap.get(districtId) ?? "default";
     }
 
-    if (regionName && regionStatusMap.has(regionName)) {
-      return regionStatusMap.get(regionName) ?? "default";
+    if (regionId && regionStatusMap.has(regionId)) {
+      return regionStatusMap.get(regionId) ?? "default";
     }
 
     return "default";
@@ -158,17 +191,15 @@ export default function SurveillanceUgandaMap({
     );
   };
 
-  const styleFeature = (feature?: Feature<Geometry, UgandaMapFeatureProperties>) => {
+  const styleFeature = (feature?: Feature<Geometry, UgandaMapFeatureProperties>): PathOptions => {
     const status = getFeatureStatus(feature);
-    const fillColor = STATUS_COLORS[status];
 
     return {
-      fillColor,
-      weight: 1,
+      fillColor: STATUS_COLORS[status],
+      fillOpacity: 1,
+      color: "#6f6f6f",
+      weight: 0.8,
       opacity: 1,
-      color: "#ffffff",
-      dashArray: "0",
-      fillOpacity: 0.85,
     };
   };
 
@@ -176,14 +207,10 @@ export default function SurveillanceUgandaMap({
     const vectorLayer = layer as L.Path;
 
     vectorLayer.setStyle({
-      weight: 2,
-      color: "#161616",
+      weight: 1.5,
+      color: "#1f1f1f",
       fillOpacity: 1,
     });
-
-    if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-      vectorLayer.bringToFront();
-    }
   };
 
   const resetHighlight = (layer: Layer) => {
@@ -193,8 +220,15 @@ export default function SurveillanceUgandaMap({
   };
 
   const handleReset = () => {
-    if (mapRef.current) {
-      mapRef.current.setView(UGANDA_CENTER, DEFAULT_ZOOM);
+    if (!mapRef.current) return;
+
+    const layer = L.geoJSON(geoJson as any);
+    const bounds = layer.getBounds();
+
+    if (bounds.isValid()) {
+      mapRef.current.fitBounds(bounds, {
+        padding: [24, 24],
+      });
     }
   };
 
@@ -210,6 +244,7 @@ export default function SurveillanceUgandaMap({
         if (mapRef.current && "getBounds" in boundsLayer) {
           mapRef.current.fitBounds(boundsLayer.getBounds(), {
             padding: [20, 20],
+            maxZoom: 9,
           });
         }
       },
@@ -219,74 +254,79 @@ export default function SurveillanceUgandaMap({
       `
         <div class="surveillance-map__tooltip">
           <strong>${label}</strong><br/>
-          Status: ${status === "default" ? "No data" : status}
+          Status: ${status === "default" ? "No data" : status.toUpperCase()}
         </div>
       `,
-      {
-        sticky: true,
-      },
+      { sticky: true },
     );
   };
 
+  const displayTitle =
+    title ||
+    (selectedWeek?.year
+      ? `Week ${selectedWeek.week ?? ""} ${selectedWeek.year}`.trim()
+      : "Uganda surveillance map");
+
   return (
-    <>
-      <div className="surveillance-map__toolbar">
-        <button type="button" className="surveillance-map__tool-button" onClick={handleReset}>
-          Reset
-        </button>
+    <div className="surveillance-map">
+      <div className="surveillance-map__header">
+        <h3>{displayTitle}</h3>
       </div>
 
       <div className="surveillance-map__canvas">
         <MapContainer
-          center={UGANDA_CENTER}
-          zoom={DEFAULT_ZOOM}
-          scrollWheelZoom={true}
-          className="surveillance-map__leaflet"
           ref={mapRef}
+          zoomControl={false}
+          attributionControl={false}
+          dragging={false}
+          doubleClickZoom={false}
+          boxZoom={false}
+          keyboard={false}
+          scrollWheelZoom={false}
+          className="surveillance-map__leaflet"
         >
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <FitMapToGeoJson geoJson={geoJson} />
 
-          <GeoJSON
-            data={geoJson}
-            style={styleFeature}
-            onEachFeature={onEachFeature}
-            ref={geoJsonRef}
-          />
+          <Pane name="districts" style={{ zIndex: 400 }}>
+            <GeoJSON
+              ref={geoJsonRef}
+              data={geoJson}
+              style={styleFeature}
+              onEachFeature={onEachFeature}
+            />
+          </Pane>
         </MapContainer>
       </div>
 
-      <div className="surveillance-map__legend">
-        <span className="surveillance-map__legend-item">
-          <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--alert" />
-          Yellow: Alert {summary?.yellow ? `(${summary.yellow})` : ""}
-        </span>
+      <div className="surveillance-map__footer">
+        <div className="surveillance-map__legend">
+          <span className="surveillance-map__legend-item">
+            <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--yellow" />
+            Yellow {summary.yellow ? `(${summary.yellow})` : ""}
+          </span>
 
-        <span className="surveillance-map__legend-item">
-          <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--watch" />
-          Green: Watch {summary?.green ? `(${summary.green})` : ""}
-        </span>
+          <span className="surveillance-map__legend-item">
+            <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--green" />
+            Green {summary.green ? `(${summary.green})` : ""}
+          </span>
 
-        <span className="surveillance-map__legend-item">
-          <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--take-action" />
-          Red: Take Action {summary?.red ? `(${summary.red})` : ""}
-        </span>
+          <span className="surveillance-map__legend-item">
+            <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--red" />
+            Red {summary.red ? `(${summary.red})` : ""}
+          </span>
 
-        <span className="surveillance-map__legend-item">
-          <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--immediate-action" />
-          Maroon: Immediate Action {summary?.maroon ? `(${summary.maroon})` : ""}
-        </span>
+          <span className="surveillance-map__legend-item">
+            <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--maroon" />
+            Maroon {summary.maroon ? `(${summary.maroon})` : ""}
+          </span>
+        </div>
+
+        <div className="surveillance-map__actions">
+          <button type="button" className="surveillance-map__tool-button" onClick={handleReset}>
+            Reset
+          </button>
+        </div>
       </div>
-
-      <div className="surveillance-map__meta">
-        <p>
-          {selectedWeek?.year && selectedWeek?.week
-            ? `Week ${selectedWeek.week}, ${selectedWeek.year}`
-            : "Current reporting week"}
-        </p>
-      </div>
-    </>
+    </div>
   );
 }

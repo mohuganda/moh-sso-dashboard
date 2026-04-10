@@ -14,15 +14,18 @@ import { useParams, Link as RouterLink } from "react-router-dom";
 import { DiseaseAlertsTable } from "./surveillance-disease-alerts.component";
 import { FacilitiesActionTable } from "./surveillance-facilities-actions.component";
 import {
-  useListEpiWeeksQuery,
+  useListDiseasesQuery,
   useListDistrictWeeklyStatusesByWeekQuery,
+  useListEpiWeeksQuery,
   useListFacilityWeeklyMetricsByWeekQuery,
+  useListRegionsQuery,
 } from "../../../../store/api/surveillance.api";
 import WeeklyCasesChart from "./surveillance-weekly-cases.component";
 import "./surveillance-details.css";
 
 function formatDiseaseName(value?: string) {
   if (!value) return "Disease";
+
   return value
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -46,10 +49,15 @@ export default function DiseaseDetailsPage() {
   const currentYear = new Date().getFullYear();
 
   const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(currentYear);
+  const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
+  const { data: regionsResponse, isLoading: regionsLoading } = useListRegionsQuery();
+
   const weeks = Array.isArray(weeksResponse) ? weeksResponse : [];
+  const diseases = Array.isArray(diseasesResponse) ? diseasesResponse : [];
+  const regions = Array.isArray(regionsResponse) ? regionsResponse : [];
 
   const selectedWeek = useMemo(() => {
-    if (weeks.length === 0) return undefined;
+    if (!weeks.length) return undefined;
 
     return [...weeks].sort((a, b) => {
       const yearDiff = Number(b.epi_year ?? 0) - Number(a.epi_year ?? 0);
@@ -60,7 +68,7 @@ export default function DiseaseDetailsPage() {
 
   const selectedWeekId = selectedWeek?.id ?? "";
 
-  const { data: districtStatusesResponse, isFetching: districtStatusesLoading } =
+  const { data: weeklyStatusesResponse, isFetching: weeklyStatusesLoading } =
     useListDistrictWeeklyStatusesByWeekQuery(selectedWeekId, {
       skip: !selectedWeekId,
     });
@@ -70,17 +78,103 @@ export default function DiseaseDetailsPage() {
       skip: !selectedWeekId,
     });
 
-  const districtStatuses = Array.isArray(districtStatusesResponse) ? districtStatusesResponse : [];
+  const weeklyStatuses = Array.isArray(weeklyStatusesResponse) ? weeklyStatusesResponse : [];
   const facilityMetrics = Array.isArray(facilityMetricsResponse) ? facilityMetricsResponse : [];
 
-  const loading = weeksLoading || districtStatusesLoading || facilityMetricsLoading;
+  const matchedDisease = useMemo(() => {
+    return diseases.find((item) => normalize(item.name) === normalizedDiseaseSlug);
+  }, [diseases, normalizedDiseaseSlug]);
+
+  const matchedDiseaseId = matchedDisease?.id ?? "";
+
+  const diseaseNameById = useMemo<Record<string, string>>(() => {
+    return Object.fromEntries(diseases.map((item) => [item.id, item.name]));
+  }, [diseases]);
+
+  const regionNameById = useMemo<Record<string, string>>(() => {
+    return Object.fromEntries(regions.map((item) => [item.id, item.name]));
+  }, [regions]);
+
+  const districtNameById = useMemo<Record<string, string>>(() => {
+    const map = new Map<string, string>();
+
+    weeklyStatuses.forEach((item) => {
+      const districtId = item.district_id ? String(item.district_id) : "";
+      const districtName =
+        "district_name" in item && typeof item.district_name === "string" ? item.district_name : "";
+
+      if (districtId && districtName) {
+        map.set(districtId, districtName);
+      }
+    });
+
+    facilityMetrics.forEach((item) => {
+      const districtId = "district_id" in item ? String(item.district_id ?? "") : "";
+      const districtName = item.district_name ?? "";
+
+      if (districtId && districtName) {
+        map.set(districtId, districtName);
+      }
+    });
+
+    return Object.fromEntries(map.entries());
+  }, [weeklyStatuses, facilityMetrics]);
+
+  const subCountyNameById = useMemo<Record<string, string>>(() => {
+    const map = new Map<string, string>();
+
+    facilityMetrics.forEach((item) => {
+      const subCountyId = "sub_county_id" in item ? String(item.sub_county_id ?? "") : "";
+      const subCountyName = item.subcounty_name ?? "";
+
+      if (subCountyId && subCountyName) {
+        map.set(subCountyId, subCountyName);
+      }
+    });
+
+    return Object.fromEntries(map.entries());
+  }, [facilityMetrics]);
+
+  const epiWeekLabelById = useMemo<Record<string, string>>(() => {
+    return Object.fromEntries(
+      weeks.map((week) => [
+        week.id,
+        week.epi_year && week.epi_week
+          ? `${week.epi_year} - Week ${week.epi_week}`
+          : `Week ${week.epi_week ?? "--"}`,
+      ]),
+    );
+  }, [weeks]);
+
+  const loading =
+    weeksLoading ||
+    diseasesLoading ||
+    regionsLoading ||
+    weeklyStatusesLoading ||
+    facilityMetricsLoading;
+
+  const filteredWeeklyStatuses = useMemo(() => {
+    return weeklyStatuses.filter((item) => {
+      if (!matchedDiseaseId) {
+        const fallbackDiseaseName =
+          "disease_name" in item && typeof item.disease_name === "string" ? item.disease_name : "";
+        return normalize(fallbackDiseaseName) === normalizedDiseaseSlug;
+      }
+
+      return String(item.disease_id ?? "") === matchedDiseaseId;
+    });
+  }, [weeklyStatuses, matchedDiseaseId, normalizedDiseaseSlug]);
 
   const filteredFacilityMetrics = useMemo(() => {
     return facilityMetrics.filter((item) => {
+      if (matchedDiseaseId && String(item.disease_id ?? "") === matchedDiseaseId) {
+        return true;
+      }
+
       const diseaseLabel = normalize(item.disease_name ?? item.indicator_name).replace(/-/g, " ");
       return diseaseLabel.includes(normalizedDiseaseSlug);
     });
-  }, [facilityMetrics, normalizedDiseaseSlug]);
+  }, [facilityMetrics, matchedDiseaseId, normalizedDiseaseSlug]);
 
   const relevantDocuments = useMemo<RelevantDocument[]>(() => {
     const documents: Record<string, RelevantDocument[]> = {
@@ -139,24 +233,22 @@ export default function DiseaseDetailsPage() {
     const grouped = new Map<string, number>();
 
     filteredFacilityMetrics.forEach((item) => {
-      const weekKey =
-        item.week != null
+      const weekKey = item.epi_week_id
+        ? (epiWeekLabelById[String(item.epi_week_id)] ??
+          ("week" in item && item.week != null ? String(item.week) : "Unknown"))
+        : "week" in item && item.week != null
           ? String(item.week)
-          : item.epi_week != null
-            ? String(item.epi_week)
-            : "Unknown";
+          : "Unknown";
 
       const currentValue = grouped.get(weekKey) ?? 0;
       grouped.set(weekKey, currentValue + Number(item.value ?? 0));
     });
 
-    return Array.from(grouped.entries())
-      .map(([week, value]) => ({
-        week,
-        value,
-      }))
-      .sort((a, b) => Number(a.week) - Number(b.week));
-  }, [filteredFacilityMetrics]);
+    return Array.from(grouped.entries()).map(([week, value]) => ({
+      week,
+      value,
+    }));
+  }, [filteredFacilityMetrics, epiWeekLabelById]);
 
   return (
     <Content className="disease-details-page">
@@ -196,9 +288,13 @@ export default function DiseaseDetailsPage() {
             <div className="disease-details-page__section">
               <h3>Disease Alerts</h3>
               <DiseaseAlertsTable
-                districtStatuses={districtStatuses}
+                weeklyStatuses={filteredWeeklyStatuses}
                 diseaseName={title}
                 loading={loading}
+                districtNameById={districtNameById}
+                regionNameById={regionNameById}
+                diseaseNameById={diseaseNameById}
+                epiWeekLabelById={epiWeekLabelById}
               />
             </div>
           </Tile>
@@ -240,7 +336,15 @@ export default function DiseaseDetailsPage() {
         <Tile className="disease-details-page__tile">
           <div className="disease-details-page__section">
             <h3>Facilities requiring Action</h3>
-            <FacilitiesActionTable facilityMetrics={filteredFacilityMetrics} loading={loading} />
+            <FacilitiesActionTable
+              facilityMetrics={filteredFacilityMetrics}
+              loading={loading}
+              regionNameById={regionNameById}
+              districtNameById={districtNameById}
+              subCountyNameById={subCountyNameById}
+              diseaseNameById={diseaseNameById}
+              epiWeekLabelById={epiWeekLabelById}
+            />
           </div>
         </Tile>
       </div>

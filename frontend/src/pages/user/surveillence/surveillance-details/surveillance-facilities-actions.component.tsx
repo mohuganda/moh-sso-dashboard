@@ -12,10 +12,16 @@ import type { FacilityWeeklyMetric } from "../../../../store/types/surveillance.
 
 interface FacilitiesActionTableProps {
   facilityMetrics?: FacilityWeeklyMetric[];
-  region?: string;
-  district?: string;
-  subCounty?: string;
+  regionId?: string;
+  districtId?: string;
+  subCountyId?: string;
   loading?: boolean;
+  regionNameById?: Record<string, string>;
+  districtNameById?: Record<string, string>;
+  subCountyNameById?: Record<string, string>;
+  diseaseNameById?: Record<string, string>;
+  indicatorNameById?: Record<string, string>;
+  epiWeekLabelById?: Record<string, string>;
 }
 
 const facilityHeaders = [
@@ -28,44 +34,87 @@ const facilityHeaders = [
   { key: "cases", header: "Cases" },
 ];
 
-function normalize(value?: string) {
-  return (value ?? "").trim().toLowerCase();
-}
-
 export function FacilitiesActionTable({
   facilityMetrics = [],
-  region = "",
-  district = "",
-  subCounty = "",
+  regionId = "",
+  districtId = "",
+  subCountyId = "",
   loading = false,
+  regionNameById = {},
+  districtNameById = {},
+  subCountyNameById = {},
+  diseaseNameById = {},
+  indicatorNameById = {},
+  epiWeekLabelById = {},
 }: FacilitiesActionTableProps) {
   const rows = useMemo(() => {
     return facilityMetrics
       .filter((item) => {
-        const matchesRegion = !region || normalize(item.region_name) === normalize(region);
-        const matchesDistrict = !district || normalize(item.district_name) === normalize(district);
-        const matchesSubCounty =
-          !subCounty || normalize(item.subcounty_name) === normalize(subCounty);
+        const matchesRegion = !regionId || String(item.region_id ?? "") === regionId;
+
+        const matchesDistrict = !districtId || String(item.district_id ?? "") === districtId;
+
+        const matchesSubCounty = !subCountyId || String(item.subcounty_id ?? "") === subCountyId;
 
         return matchesRegion && matchesDistrict && matchesSubCounty;
       })
       .map((item, index) => {
         const numericCases = Number(item.value ?? 0);
 
+        const region = item.region_id
+          ? (regionNameById[String(item.region_id)] ?? item.region_name ?? "--")
+          : (item.region_name ?? "--");
+
+        const district = item.district_id
+          ? (districtNameById[String(item.district_id)] ?? item.district_name ?? "--")
+          : (item.district_name ?? "--");
+
+        const subcounty =
+          "sub_county_id" in item && item.sub_county_id
+            ? (subCountyNameById[String(item.sub_county_id)] ?? item.subcounty_name ?? "--")
+            : (item.subcounty_name ?? "--");
+
+        const disease = item.disease_id
+          ? (diseaseNameById[String(item.disease_id)] ??
+            item.disease_name ??
+            item.indicator_name ??
+            "--")
+          : item.indicator_id
+            ? (indicatorNameById[String(item.indicator_id)] ??
+              item.indicator_name ??
+              item.disease_name ??
+              "--")
+            : (item.disease_name ?? item.indicator_name ?? "--");
+
+        const week = item.epi_week_id
+          ? (epiWeekLabelById[String(item.epi_week_id)] ?? item.week?.toString() ?? "--")
+          : (item.week?.toString() ?? "--");
+
         return {
           id: item.id ?? item.facility_id ?? `${item.facility_name ?? "facility"}-${index}`,
           facility: item.facility_name ?? "--",
-          region: item.region_name ?? "--",
-          district: item.district_name ?? "--",
-          subcounty: item.subcounty_name ?? "--",
-          disease: item.disease_name ?? item.indicator_name ?? "--",
-          week: item.week ? String(item.week) : "--",
+          region,
+          district,
+          subcounty,
+          disease,
+          week,
           cases: String(numericCases),
           numericCases,
         };
       })
       .sort((a, b) => b.numericCases - a.numericCases);
-  }, [facilityMetrics, region, district, subCounty]);
+  }, [
+    facilityMetrics,
+    regionId,
+    districtId,
+    subCountyId,
+    regionNameById,
+    districtNameById,
+    subCountyNameById,
+    diseaseNameById,
+    indicatorNameById,
+    epiWeekLabelById,
+  ]);
 
   if (loading) {
     return <p>Loading facility action data...</p>;

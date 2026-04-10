@@ -7,19 +7,20 @@ import SurveillanceFilters from "./surveillance-filters.component";
 import SurveillanceTiles from "./surveillance-tiles.component";
 import SurveillancePanels from "./surveillance-panel.component";
 import SurveillanceUgandaMap from "./surveillance-uganda-map.component";
-import ugandaGeoJson from "../../../assets/maps/uganda_districts.json";
+import rawUgandaGeoJson from "../../../assets/maps/uganda_districts.json";
+import type { GeoJSON as GeoJSONType } from "geojson";
+
+const ugandaGeoJson = rawUgandaGeoJson as GeoJSONType;
 import "./surveillance.css";
 
 import {
   useListEpiWeeksQuery,
   useListDiseasesQuery,
-  useListDistrictWeeklyStatusesByWeekQuery,
-  useListRegionWeeklyStatusesByWeekQuery,
-  useListNationalWeeklyStatusesByWeekQuery,
   useListFacilityWeeklyMetricsByWeekQuery,
   useListRegionsQuery,
   useListDistrictsByRegionQuery,
   useListSubcountiesByDistrictQuery,
+  useListDistrictWeeklyStatusesQuery,
 } from "../../../store/api/surveillance.api";
 import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
 import { UploadCSVModal } from "./surveillance-csv-upload.component";
@@ -63,18 +64,16 @@ export default function SurveillanceDashboardPage() {
   const districts = Array.isArray(districtsResponse) ? districtsResponse : [];
   const subcounties = Array.isArray(subcountiesResponse) ? subcountiesResponse : [];
 
-  const { data: districtStatusesResponse, isFetching: districtsLoading } =
-    useListDistrictWeeklyStatusesByWeekQuery(selectedWeekId, {
-      skip: !selectedWeekId,
-    });
+  const districtStatusParams = useMemo(() => {
+    if (!selectedWeekId) return undefined;
 
-  const { data: regionStatusesResponse, isFetching: regionsLoading } =
-    useListRegionWeeklyStatusesByWeekQuery(selectedWeekId, {
-      skip: !selectedWeekId,
-    });
+    return {
+      epiWeekID: selectedWeekId,
+    };
+  }, [selectedWeekId]);
 
-  const { data: nationalStatusesResponse, isFetching: nationalLoading } =
-    useListNationalWeeklyStatusesByWeekQuery(selectedWeekId, {
+  const { data: weeklyStatusesResponse, isFetching: districtsLoading } =
+    useListDistrictWeeklyStatusesQuery(districtStatusParams, {
       skip: !selectedWeekId,
     });
 
@@ -83,9 +82,7 @@ export default function SurveillanceDashboardPage() {
       skip: !selectedWeekId,
     });
 
-  const districtStatuses = Array.isArray(districtStatusesResponse) ? districtStatusesResponse : [];
-  const regionStatuses = Array.isArray(regionStatusesResponse) ? regionStatusesResponse : [];
-  const nationalStatuses = Array.isArray(nationalStatusesResponse) ? nationalStatusesResponse : [];
+  const weeklyStatuses = Array.isArray(weeklyStatusesResponse) ? weeklyStatusesResponse : [];
   const facilityMetrics = Array.isArray(facilityMetricsResponse) ? facilityMetricsResponse : [];
 
   useEffect(() => {
@@ -110,28 +107,11 @@ export default function SurveillanceDashboardPage() {
     districtsReferenceLoading ||
     subcountiesReferenceLoading ||
     districtsLoading ||
-    regionsLoading ||
-    nationalLoading ||
     facilitiesLoading;
 
   const selectedWeek = useMemo(
     () => weeks.find((week) => week.id === selectedWeekId),
     [weeks, selectedWeekId],
-  );
-
-  const selectedRegion = useMemo(
-    () => regions.find((item) => item.id === selectedRegionId),
-    [regions, selectedRegionId],
-  );
-
-  const selectedDistrict = useMemo(
-    () => districts.find((item) => item.id === selectedDistrictId),
-    [districts, selectedDistrictId],
-  );
-
-  const selectedSubCounty = useMemo(
-    () => subcounties.find((item) => item.id === selectedSubCountyId),
-    [subcounties, selectedSubCountyId],
   );
 
   const currentEpiWeekLabel = useMemo(() => {
@@ -189,99 +169,78 @@ export default function SurveillanceDashboardPage() {
     [subcounties],
   );
 
-  const filteredRegionStatuses = useMemo(() => {
-    if (!selectedRegion?.name) return regionStatuses;
+  const filteredWeeklyStatuses = useMemo(() => {
+    return weeklyStatuses.filter((item) => {
+      const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
+      const matchesRegion = !selectedRegionId || item.region_id === selectedRegionId;
+      const matchesDistrict = !selectedDistrictId || item.district_id === selectedDistrictId;
+      const matchesSubCounty = !selectedSubCountyId || item.sub_county_id === selectedSubCountyId;
 
-    const regionName = selectedRegion.name.trim().toLowerCase();
-    return regionStatuses.filter((item) => item.region_name?.trim().toLowerCase() === regionName);
-  }, [regionStatuses, selectedRegion]);
-
-  const filteredDistrictStatuses = useMemo(() => {
-    let result = districtStatuses;
-
-    if (selectedRegion?.name) {
-      const regionName = selectedRegion.name.trim().toLowerCase();
-      result = result.filter((item) => item.region_name?.trim().toLowerCase() === regionName);
-    }
-
-    if (selectedDistrict?.name) {
-      const districtName = selectedDistrict.name.trim().toLowerCase();
-      result = result.filter((item) => item.district_name?.trim().toLowerCase() === districtName);
-    }
-
-    return result;
-  }, [districtStatuses, selectedRegion, selectedDistrict]);
+      return matchesWeek && matchesRegion && matchesDistrict && matchesSubCounty;
+    });
+  }, [weeklyStatuses, selectedWeekId, selectedRegionId, selectedDistrictId, selectedSubCountyId]);
 
   const filteredFacilityMetrics = useMemo(() => {
-    let result = facilityMetrics;
+    return facilityMetrics.filter((item) => {
+      const matchesRegion =
+        !selectedRegionId ||
+        ("region_id" in item && String(item.region_id ?? "") === selectedRegionId);
 
-    if (selectedRegion?.name) {
-      const regionName = selectedRegion.name.trim().toLowerCase();
-      result = result.filter((item) => item.region_name?.trim().toLowerCase() === regionName);
-    }
+      const matchesDistrict =
+        !selectedDistrictId ||
+        ("district_id" in item && String(item.district_id ?? "") === selectedDistrictId);
 
-    if (selectedDistrict?.name) {
-      const districtName = selectedDistrict.name.trim().toLowerCase();
-      result = result.filter((item) => item.district_name?.trim().toLowerCase() === districtName);
-    }
+      const matchesSubCounty =
+        !selectedSubCountyId ||
+        ("sub_county_id" in item && String(item.sub_county_id ?? "") === selectedSubCountyId);
 
-    if (selectedSubCounty?.name) {
-      const subCountyName = selectedSubCounty.name.trim().toLowerCase();
-      result = result.filter((item) => item.subcounty_name?.trim().toLowerCase() === subCountyName);
-    }
+      return matchesRegion && matchesDistrict && matchesSubCounty;
+    });
+  }, [facilityMetrics, selectedRegionId, selectedDistrictId, selectedSubCountyId]);
 
-    return result;
-  }, [facilityMetrics, selectedRegion, selectedDistrict, selectedSubCounty]);
+  const diseaseNameById = useMemo(() => {
+    return new Map(diseases.map((disease) => [disease.id, disease.name]));
+  }, [diseases]);
 
   const handleOpenDisease = (diseaseSlug: string) => {
     navigate(`/apps/dwh/surveillance/${encodeURIComponent(diseaseSlug)}`);
   };
 
-  const immediateActionItems = useMemo(
-    () =>
-      diseases.slice(0, 4).map((disease) => ({
-        label: disease.name,
-        onClick: () => handleOpenDisease(slugifyDiseaseName(disease.name)),
-      })),
-    [diseases],
-  );
-
-  const takeActionItems = useMemo(
-    () =>
-      diseases.slice(4, 8).map((disease) => ({
-        label: disease.name,
-        onClick: () => handleOpenDisease(slugifyDiseaseName(disease.name)),
-      })),
-    [diseases],
-  );
-
-  const alertItems = useMemo(() => {
-    const redDiseases = filteredDistrictStatuses.flatMap((item) =>
-      Array.isArray(item.red) ? item.red : [],
-    );
-
-    return Array.from(new Set(redDiseases.filter((name): name is string => Boolean(name?.trim()))))
-      .slice(0, 6)
-      .map((name) => ({
-        label: name,
-        onClick: () => handleOpenDisease(slugifyDiseaseName(name)),
-      }));
-  }, [filteredDistrictStatuses]);
-
-  const watchItems = useMemo(() => {
-    const yellowDiseases = filteredDistrictStatuses.flatMap((item) =>
-      Array.isArray(item.yellow) ? item.yellow : [],
-    );
-
+  const createStatusItems = (status: "MAROON" | "RED" | "YELLOW" | "GREEN") => {
     return Array.from(
-      new Set(yellowDiseases.filter((name): name is string => Boolean(name?.trim()))),
+      new Set(
+        filteredWeeklyStatuses
+          .filter((item) => item.status === status && item.disease_id)
+          .map((item) => diseaseNameById.get(String(item.disease_id)))
+          .filter((name): name is string => Boolean(name?.trim())),
+      ),
     )
       .slice(0, 6)
       .map((name) => ({
         label: name,
         onClick: () => handleOpenDisease(slugifyDiseaseName(name)),
       }));
-  }, [filteredDistrictStatuses]);
+  };
+
+  const immediateActionItems = useMemo(
+    () => createStatusItems("MAROON"),
+    [filteredWeeklyStatuses, diseaseNameById],
+  );
+
+  const takeActionItems = useMemo(
+    () => createStatusItems("RED"),
+    [filteredWeeklyStatuses, diseaseNameById],
+  );
+
+  const alertItems = useMemo(
+    () => createStatusItems("YELLOW"),
+    [filteredWeeklyStatuses, diseaseNameById],
+  );
+
+  const watchItems = useMemo(
+    () => createStatusItems("GREEN"),
+    [filteredWeeklyStatuses, diseaseNameById],
+  );
 
   const handleOpenUpload = () => {
     openPanel({
@@ -382,20 +341,16 @@ export default function SurveillanceDashboardPage() {
             year: selectedWeek?.epi_year,
             week: selectedWeek?.epi_week,
           }}
-          region={selectedRegion?.name ?? ""}
-          district={selectedDistrict?.name ?? ""}
-          subCounty={selectedSubCounty?.name ?? ""}
-          districtStatuses={filteredDistrictStatuses}
-          regionStatuses={filteredRegionStatuses}
-          nationalStatuses={nationalStatuses}
+          regionId={selectedRegionId}
+          districtId={selectedDistrictId}
+          subCountyId={selectedSubCountyId}
+          weeklyStatuses={filteredWeeklyStatuses}
           facilityMetrics={filteredFacilityMetrics}
           loading={loading}
           mapContent={
             <SurveillanceUgandaMap
               geoJson={ugandaGeoJson}
-              districtStatuses={filteredDistrictStatuses}
-              regionStatuses={filteredRegionStatuses}
-              nationalStatuses={nationalStatuses}
+              weeklyStatuses={filteredWeeklyStatuses}
               selectedWeek={{
                 year: selectedWeek?.epi_year,
                 week: selectedWeek?.epi_week,
