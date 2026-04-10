@@ -29,7 +29,7 @@ LIMIT 1;
 SELECT *
 FROM epi_weeks
 WHERE epi_year = $1
-ORDER BY epi_week ASC;
+ORDER BY epi_week DESC;
 
 -- name: UpsertEpiWeek :one
 INSERT INTO epi_weeks (

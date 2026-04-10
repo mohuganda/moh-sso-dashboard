@@ -105,7 +105,7 @@ const listEpiWeeksByYear = `-- name: ListEpiWeeksByYear :many
 SELECT id, epi_year, epi_week, week_start_date, week_end_date, created_at
 FROM epi_weeks
 WHERE epi_year = $1
-ORDER BY epi_week ASC
+ORDER BY epi_week DESC
 `
 
 func (q *Queries) ListEpiWeeksByYear(ctx context.Context, epiYear int32) ([]EpiWeek, error) {
