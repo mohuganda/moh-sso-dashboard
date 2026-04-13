@@ -113,19 +113,6 @@ export default function DataModal({ onClose, selected, onSave }) {
       <div className="row">
         {/* Left Panel - Available Items */}
         <div className="col-md-6">
-          {selectedDataset && (
-              <div className="mb-3">
-                <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Search by dataelement"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                    }}
-                />
-              </div>
-          )}
           <div className="row mb-3">
             <Select
               id={`data-select`}
@@ -139,6 +126,19 @@ export default function DataModal({ onClose, selected, onSave }) {
               ))}
             </Select>
           </div>
+          {selectedDataset && (
+              <div className="mb-3">
+                <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search by dataelement"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                    }}
+                />
+              </div>
+          )}
         </div>
       </div>
       <div className="row">
