@@ -19,6 +19,7 @@ type SurveillanceHandler struct {
 	locationService              *service.SurveillanceLocationService
 	facilityWeeklyMetricsService *service.SurveillanceFacilityWeeklyMetricsService
 	weeklyStatusService          *service.SurveillanceWeeklyStatusService
+	alertService                 *service.SurveillanceAlertService
 	importService                *service.SurveillanceImportService
 }
 
@@ -28,6 +29,7 @@ func NewSurveillanceHandler(
 	locationService *service.SurveillanceLocationService,
 	facilityWeeklyMetricsService *service.SurveillanceFacilityWeeklyMetricsService,
 	weeklyStatusService *service.SurveillanceWeeklyStatusService,
+	alertService *service.SurveillanceAlertService,
 	importService *service.SurveillanceImportService,
 
 ) *SurveillanceHandler {
@@ -37,6 +39,7 @@ func NewSurveillanceHandler(
 		locationService:              locationService,
 		facilityWeeklyMetricsService: facilityWeeklyMetricsService,
 		weeklyStatusService:          weeklyStatusService,
+		alertService:                 alertService,
 		importService:                importService,
 	}
 }
@@ -396,6 +399,37 @@ func (h *SurveillanceHandler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 	data, err := h.weeklyStatusService.ListNationalByWeek(ctx, epiWeekID)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list national weekly statuses by week", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+// alerts
+func (h *SurveillanceHandler) ListAlerts(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	epiWeekIDParam := c.Query("epiWeekID")
+	if epiWeekIDParam != "" {
+		epiWeekID, err := uuid.Parse(epiWeekIDParam)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+			return
+		}
+
+		data, err := h.alertService.ListAlertsByWeek(ctx, epiWeekID)
+		if err != nil {
+			response.Fail(c, http.StatusInternalServerError, "failed to list alerts by week", err.Error())
+			return
+		}
+
+		response.OK(c, http.StatusOK, data)
+		return
+	}
+
+	data, err := h.alertService.ListAlerts(ctx)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list alerts", err.Error())
 		return
 	}
 

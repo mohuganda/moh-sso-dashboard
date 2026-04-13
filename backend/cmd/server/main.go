@@ -278,6 +278,7 @@ func main() {
 		locationService,
 		facilityWeeklyMetricsService,
 		weeklyStatusService,
+		alertsService,
 		surveillanceImportService,
 	)
 

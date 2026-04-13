@@ -241,6 +241,7 @@ func SetupRouter(
 		surveillance := protected.Group("/surveillance")
 		{
 			surveillance.GET("/weeks", surveillanceHandler.ListEpiWeeksByYear)
+			surveillance.GET("alerts", surveillanceHandler.ListAlerts)
 			surveillance.GET("/diseases", surveillanceHandler.ListDiseases)
 
 			surveillance.GET("/regions", surveillanceHandler.ListRegions)

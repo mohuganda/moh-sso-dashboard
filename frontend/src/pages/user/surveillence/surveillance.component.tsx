@@ -14,6 +14,7 @@ const ugandaGeoJson = rawUgandaGeoJson as GeoJSONType;
 import "./surveillance.css";
 
 import {
+  useListAlertsQuery,
   useListEpiWeeksQuery,
   useListDiseasesQuery,
   useListFacilityWeeklyMetricsByWeekQuery,
@@ -32,6 +33,11 @@ type FilterOption = {
 
 function slugifyDiseaseName(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, "-");
+}
+
+function normalize(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().toLowerCase();
 }
 
 export default function SurveillanceDashboardPage() {
@@ -82,8 +88,11 @@ export default function SurveillanceDashboardPage() {
       skip: !selectedWeekId,
     });
 
+  const { data: alertsResponse, isFetching: alertsLoading } = useListAlertsQuery();
+
   const weeklyStatuses = Array.isArray(weeklyStatusesResponse) ? weeklyStatusesResponse : [];
   const facilityMetrics = Array.isArray(facilityMetricsResponse) ? facilityMetricsResponse : [];
+  const alerts = Array.isArray(alertsResponse) ? alertsResponse : [];
 
   useEffect(() => {
     if (!selectedWeekId && weeks.length > 0) {
@@ -107,7 +116,8 @@ export default function SurveillanceDashboardPage() {
     districtsReferenceLoading ||
     subcountiesReferenceLoading ||
     districtsLoading ||
-    facilitiesLoading;
+    facilitiesLoading ||
+    alertsLoading;
 
   const selectedWeek = useMemo(
     () => weeks.find((week) => week.id === selectedWeekId),
@@ -197,6 +207,23 @@ export default function SurveillanceDashboardPage() {
       return matchesRegion && matchesDistrict && matchesSubCounty;
     });
   }, [facilityMetrics, selectedRegionId, selectedDistrictId, selectedSubCountyId]);
+
+  const filteredAlerts = useMemo(() => {
+    return alerts.filter((item) => {
+      const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
+
+      const selectedDistrictName = districts.find(
+        (district) => district.id === selectedDistrictId,
+      )?.name;
+
+      const matchesDistrict =
+        !selectedDistrictId ||
+        String(item.district_id ?? "") === selectedDistrictId ||
+        normalize(item.district_name) === normalize(selectedDistrictName);
+
+      return matchesWeek && matchesDistrict;
+    });
+  }, [alerts, selectedWeekId, selectedDistrictId, districts]);
 
   const diseaseNameById = useMemo(() => {
     return new Map(diseases.map((disease) => [disease.id, disease.name]));
@@ -346,6 +373,7 @@ export default function SurveillanceDashboardPage() {
           subCountyId={selectedSubCountyId}
           weeklyStatuses={filteredWeeklyStatuses}
           facilityMetrics={filteredFacilityMetrics}
+          alerts={filteredAlerts}
           loading={loading}
           mapContent={
             <SurveillanceUgandaMap

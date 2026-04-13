@@ -68,6 +68,26 @@ export interface Subcounty {
   district_id: string;
 }
 
+export interface Alert {
+  id: string;
+  external_id?: string | null;
+  disease_id: string;
+  district_id?: string | null;
+  epi_week_id?: string | null;
+  occurred_on?: string | null;
+  created_on?: string | null;
+  narrative: string;
+  submitted_by?: string | null;
+  status: string;
+  source_name?: string | null;
+  created_at: string;
+  updated_at: string;
+
+  disease_name: string;
+  district_name?: string | null;
+  epi_year?: number | null;
+  epi_week?: number | null;
+}
 export type SurveillanceImportBatch = {
   id: string;
   source_name: string;

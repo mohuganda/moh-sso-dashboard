@@ -127,6 +127,19 @@ func (s *SurveillanceAlertService) ListAlertsByWeek(
 	return items, nil
 }
 
+func (s *SurveillanceAlertService) ListAlerts(
+	ctx context.Context,
+) ([]db.ListAlertsRow, error) {
+	s.log.Debug(ctx, "listing alerts")
+
+	items, err := s.alertRepo.List(ctx)
+	if err != nil {
+		s.log.Error(ctx, "failed to list alerts", "error", err)
+		return nil, err
+	}
+
+	return items, nil
+}
 func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) error {
 	if err := requireUUID("batch id", batchID); err != nil {
 		return err

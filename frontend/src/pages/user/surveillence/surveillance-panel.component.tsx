@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
 import type {
+  Alert,
   FacilityWeeklyMetric,
   WeeklyStatus,
-  RiskLevel,
 } from "../../../store/types/surveillance.types";
 
 type SurveillanceRankItem = {
@@ -22,6 +22,7 @@ interface SurveillancePanelsProps {
   subCountyId?: string;
   weeklyStatuses?: WeeklyStatus[];
   facilityMetrics?: FacilityWeeklyMetric[];
+  alerts?: Alert[];
   loading?: boolean;
   mapContent?: React.ReactNode;
 }
@@ -148,21 +149,6 @@ function normalize(value?: string) {
   return (value ?? "").trim().toLowerCase();
 }
 
-function getStatusWeight(status: RiskLevel): number {
-  switch (status) {
-    case "MAROON":
-      return 4;
-    case "RED":
-      return 3;
-    case "YELLOW":
-      return 2;
-    case "GREEN":
-      return 1;
-    default:
-      return 0;
-  }
-}
-
 export default function SurveillancePanels({
   selectedWeekId,
   selectedWeek,
@@ -171,6 +157,7 @@ export default function SurveillancePanels({
   subCountyId = "",
   weeklyStatuses = [],
   facilityMetrics = [],
+  alerts = [],
   loading = false,
   mapContent,
 }: SurveillancePanelsProps) {
@@ -204,6 +191,19 @@ export default function SurveillancePanels({
     });
   }, [facilityMetrics, regionId, districtId, subCountyId]);
 
+  const filteredAlerts = useMemo(() => {
+    return alerts.filter((item) => {
+      const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
+
+      const matchesDistrict =
+        !districtId ||
+        String(item.district_id ?? "") === districtId ||
+        normalize(item.district_name) === normalize(districtId);
+
+      return matchesWeek && matchesDistrict;
+    });
+  }, [alerts, selectedWeekId, districtId]);
+
   const facilitiesReporting = useMemo<SurveillanceRankItem[]>(() => {
     const grouped = new Map<string, number>();
 
@@ -222,19 +222,17 @@ export default function SurveillancePanels({
   const eidsrAlerts = useMemo<SurveillanceRankItem[]>(() => {
     const grouped = new Map<string, number>();
 
-    for (const item of filteredWeeklyStatuses) {
-      const label = item.district_id || item.sub_county_id || item.region_id || "Unknown";
-
-      const current = grouped.get(label) ?? 0;
-      grouped.set(label, current + getStatusWeight(item.status));
+    for (const item of filteredAlerts) {
+      const diseaseName = item.disease_name?.trim() || "Unknown disease";
+      const current = grouped.get(diseaseName) ?? 0;
+      grouped.set(diseaseName, current + 1);
     }
 
     return Array.from(grouped.entries())
       .map(([label, value]) => ({ label, value }))
-      .filter((item) => Number(item.value) > 0)
       .sort((a, b) => Number(b.value) - Number(a.value))
       .slice(0, 10);
-  }, [filteredWeeklyStatuses]);
+  }, [filteredAlerts]);
 
   return (
     <div className="surveillance-panels">
