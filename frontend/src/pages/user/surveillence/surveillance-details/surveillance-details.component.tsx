@@ -52,7 +52,7 @@ export default function DiseaseDetailsPage() {
   const title = formatDiseaseName(diseaseName);
   const currentYear = new Date().getFullYear();
 
-  const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(2025);
+  const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(currentYear);
   const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
   const { data: regionsResponse, isLoading: regionsLoading } = useListRegionsQuery();
 
