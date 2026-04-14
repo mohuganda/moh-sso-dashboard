@@ -404,7 +404,6 @@ export default function SurveillanceDashboardPage() {
           regionId={selectedRegionId}
           districtId={selectedDistrictId}
           subCountyId={selectedSubCountyId}
-          weeklyStatuses={filteredWeeklyStatuses}
           weeklyStatusesDetailed={filteredWeeklyStatusesDetailed}
           facilityMetrics={filteredFacilityMetrics}
           alerts={filteredAlerts}

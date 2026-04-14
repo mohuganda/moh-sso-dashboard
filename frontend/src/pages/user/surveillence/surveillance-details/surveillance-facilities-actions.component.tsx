@@ -59,7 +59,7 @@ export function FacilitiesActionTable({
         return matchesRegion && matchesDistrict && matchesSubCounty;
       })
       .map((item, index) => {
-        const numericCases = Number(item.value ?? 0);
+        const numericCases = Number(item.metric_value ?? 0);
 
         const region = item.region_id
           ? (regionNameById[String(item.region_id)] ?? item.region_name ?? "--")

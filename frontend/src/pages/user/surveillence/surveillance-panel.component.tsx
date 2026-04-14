@@ -2,7 +2,6 @@ import React, { useMemo } from "react";
 import type {
   Alert,
   FacilityWeeklyMetric,
-  WeeklyStatus,
   WeeklyStatusDetailed,
 } from "../../../store/types/surveillance.types";
 
@@ -21,7 +20,6 @@ interface SurveillancePanelsProps {
   regionId?: string;
   districtId?: string;
   subCountyId?: string;
-  weeklyStatuses?: WeeklyStatus[];
   weeklyStatusesDetailed?: WeeklyStatusDetailed[];
   facilityMetrics?: FacilityWeeklyMetric[];
   alerts?: Alert[];
@@ -62,7 +60,7 @@ function RankingPanel({ title, items, loading }: RankingPanelProps) {
   );
 }
 
-function countStatuses(rows: WeeklyStatus[]) {
+function countStatuses(rows: WeeklyStatusDetailed[]) {
   return rows.reduce(
     (acc, item) => {
       switch (item.status) {
@@ -87,11 +85,15 @@ function countStatuses(rows: WeeklyStatus[]) {
   );
 }
 
+function normalizeLabel(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
 function DefaultMapFallback({
   weeklyStatuses,
   selectedWeek,
 }: {
-  weeklyStatuses: WeeklyStatus[];
+  weeklyStatuses: WeeklyStatusDetailed[];
   selectedWeek?: { year?: number; week?: number };
 }) {
   const summary = useMemo(() => countStatuses(weeklyStatuses), [weeklyStatuses]);
@@ -153,7 +155,6 @@ export default function SurveillancePanels({
   regionId = "",
   districtId = "",
   subCountyId = "",
-  weeklyStatuses = [],
   weeklyStatusesDetailed = [],
   facilityMetrics = [],
   alerts = [],
@@ -161,17 +162,6 @@ export default function SurveillancePanels({
   mapContent,
 }: SurveillancePanelsProps) {
   const filteredWeeklyStatuses = useMemo(() => {
-    return weeklyStatuses.filter((item) => {
-      const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
-      const matchesRegion = !regionId || item.region_id === regionId;
-      const matchesDistrict = !districtId || item.district_id === districtId;
-      const matchesSubCounty = !subCountyId || item.sub_county_id === subCountyId;
-
-      return matchesWeek && matchesRegion && matchesDistrict && matchesSubCounty;
-    });
-  }, [weeklyStatuses, selectedWeekId, regionId, districtId, subCountyId]);
-
-  const filteredWeeklyStatusesDetailed = useMemo(() => {
     return weeklyStatusesDetailed.filter((item) => {
       const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
       const matchesRegion = !regionId || item.region_id === regionId;
@@ -201,7 +191,6 @@ export default function SurveillancePanels({
   const filteredAlerts = useMemo(() => {
     return alerts.filter((item) => {
       const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
-
       const matchesDistrict = !districtId || String(item.district_id ?? "") === districtId;
 
       return matchesWeek && matchesDistrict;
@@ -212,9 +201,11 @@ export default function SurveillancePanels({
     const grouped = new Map<string, number>();
 
     for (const item of filteredFacilityMetrics) {
-      const label = item.facility_name?.trim() || item.district_name?.trim() || "Unknown";
+      const label =
+        normalizeLabel(item.facility_name) || normalizeLabel(item.district_name) || "Unknown";
+
       const current = grouped.get(label) ?? 0;
-      grouped.set(label, current + Number(item.value ?? 0));
+      grouped.set(label, current + Number(item.metric_value ?? 0));
     }
 
     return Array.from(grouped.entries())
@@ -227,7 +218,7 @@ export default function SurveillancePanels({
     const grouped = new Map<string, number>();
 
     for (const item of filteredAlerts) {
-      const diseaseName = item.disease_name?.trim() || "Unknown disease";
+      const diseaseName = normalizeLabel(item.disease_name) || "Unknown disease";
       const current = grouped.get(diseaseName) ?? 0;
       grouped.set(diseaseName, current + 1);
     }
@@ -237,28 +228,6 @@ export default function SurveillancePanels({
       .sort((a, b) => Number(b.value) - Number(a.value))
       .slice(0, 10);
   }, [filteredAlerts]);
-
-  // commented out for keeps here
-
-  // const affectedAreas = useMemo<SurveillanceRankItem[]>(() => {
-  //   const grouped = new Map<string, number>();
-
-  //   for (const item of filteredWeeklyStatusesDetailed) {
-  //     const label =
-  //       item.sub_county_name?.trim() ||
-  //       item.district_name?.trim() ||
-  //       item.region_name?.trim() ||
-  //       "Unknown area";
-
-  //     const current = grouped.get(label) ?? 0;
-  //     grouped.set(label, current + 1);
-  //   }
-
-  //   return Array.from(grouped.entries())
-  //     .map(([label, value]) => ({ label, value }))
-  //     .sort((a, b) => Number(b.value) - Number(a.value))
-  //     .slice(0, 10);
-  // }, [filteredWeeklyStatusesDetailed]);
 
   return (
     <div className="surveillance-panels">
@@ -278,10 +247,6 @@ export default function SurveillancePanels({
 
         <RankingPanel title="EIDSR Alerts" items={eidsrAlerts} loading={loading} />
       </div>
-
-      {/* <div className="surveillance-panels__grid">
-        <RankingPanel title="Affected Areas" items={affectedAreas} loading={loading} />
-      </div> */}
     </div>
   );
 }

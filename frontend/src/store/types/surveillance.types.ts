@@ -40,7 +40,7 @@ export interface FacilityWeeklyMetric {
   disease_name?: string;
   indicator_id?: string;
   indicator_name?: string;
-  value: number;
+  metric_value: number;
   epi_week_id: string;
   year?: number;
   week?: number;
@@ -75,11 +75,11 @@ export interface WeeklyStatusDetailed {
   imported_at: string | null;
   created_at: string;
 
-  region_name: string | null;
-  district_name: string | null;
-  sub_county_name: string | null;
-  disease_name: string | null;
-  indicator_name: string | null;
+  region_name?: string | null;
+  district_name?: string | null;
+  sub_county_name?: string | null;
+  disease_name?: string | null;
+  indicator_name?: string | null;
 }
 
 export interface ListWeeklyStatusesParams {

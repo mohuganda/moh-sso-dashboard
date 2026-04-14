@@ -8,8 +8,9 @@ import {
   SelectItem,
   Button,
   Form,
+  InlineLoading,
 } from "@carbon/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 
 type UploadCSVModalProps = {
   onClose: () => void;
@@ -26,7 +27,7 @@ const ALLOWED_MIME_TYPES = [
   "application/vnd.ms-excel",
 ];
 
-const ALLOWED_EXTENSIONS = [".csv", ".xlsx"];
+const ALLOWED_EXTENSIONS = [".csv", ".xlsx", ".xls"];
 
 const SURVEILLANCE_FILE_TYPES: SurveillanceFileTypeOption[] = [
   { value: "facility_weekly_metrics", label: "Facility Weekly Metrics" },
@@ -59,21 +60,25 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
     return Boolean(file && surveillanceFileType);
   }, [file, surveillanceFileType]);
 
-  const handleFileChange = (
-    _event: React.DragEvent<HTMLElement>,
-    { addedFiles }: { addedFiles: File[] },
-  ) => {
-    const selectedFile = addedFiles?.[0];
+  const processSelectedFiles = async (addedFiles: File[]) => {
+    const selectedFile = addedFiles[0];
     if (!selectedFile) return;
 
     if (!isValidDocument(selectedFile)) {
       setFile(null);
-      setError("Only CSV or Excel (.xlsx) files are allowed.");
+      setError("Only CSV or Excel (.csv, .xlsx, .xls) files are allowed.");
       return;
     }
 
     setError(null);
     setFile(selectedFile);
+  };
+
+  const handleFileChange = (
+    _event: SyntheticEvent<HTMLElement, Event>,
+    { addedFiles }: { addedFiles: File[] },
+  ): void => {
+    void processSelectedFiles(addedFiles);
   };
 
   const handleRemoveFile = () => {
@@ -104,8 +109,16 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
       // await uploadSurveillanceFile(formData).unwrap();
 
       onClose();
-    } catch (err: any) {
-      setError(err?.data?.message || "Upload failed. Please try again.");
+    } catch (err: unknown) {
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "data" in err &&
+        typeof (err as { data?: { message?: unknown } }).data?.message === "string"
+          ? (err as { data?: { message?: string } }).data?.message
+          : "Upload failed. Please try again.";
+
+      setError(message!);
     } finally {
       setIsUploading(false);
     }
@@ -135,9 +148,10 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
           <FormGroup legendText="Document file">
             <FileUploaderDropContainer
               labelText="Drag and drop a CSV or Excel file here, or click to browse"
-              accept={[".csv", ".xlsx"]}
+              accept={[".csv", ".xlsx", ".xls"]}
               multiple={false}
               onAddFiles={handleFileChange}
+              disabled={isUploading}
             />
           </FormGroup>
 
@@ -153,7 +167,7 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
               <Tag type="blue">Selected file</Tag>
               <span>{file.name}</span>
               <span style={{ color: "#6f6f6f" }}>{formatFileSize(file.size)}</span>
-              <Button kind="ghost" size="sm" onClick={handleRemoveFile}>
+              <Button kind="ghost" size="sm" onClick={handleRemoveFile} disabled={isUploading}>
                 Remove
               </Button>
             </div>
@@ -164,6 +178,7 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
             labelText="Surveillance file type"
             value={surveillanceFileType}
             onChange={(e) => setSurveillanceFileType(e.target.value)}
+            disabled={isUploading}
           >
             <SelectItem value="" text="Select a file type" />
             {SURVEILLANCE_FILE_TYPES.map((option) => (
@@ -181,11 +196,14 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
               flexWrap: "wrap",
             }}
           >
+            {isUploading && <InlineLoading description="Uploading file..." />}
+
             <Button kind="secondary" onClick={onClose} disabled={isUploading}>
               Cancel
             </Button>
+
             <Button onClick={handleUpload} disabled={!isFormValid || isUploading}>
-              {isUploading ? "Uploading..." : "Upload File"}
+              Upload File
             </Button>
           </div>
         </Stack>

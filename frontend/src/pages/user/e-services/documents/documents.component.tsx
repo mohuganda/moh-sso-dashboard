@@ -134,7 +134,7 @@ export default function DocumentPage() {
                   <TableToolbarSearch
                     persistent
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(_, value) => setSearchTerm(value ?? "")}
                   />
 
                   <Select

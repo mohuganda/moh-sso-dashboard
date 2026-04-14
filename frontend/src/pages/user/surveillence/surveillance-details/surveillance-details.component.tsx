@@ -288,7 +288,7 @@ export default function DiseaseDetailsPage() {
   }, [normalizedDiseaseSlug, title]);
 
   const totalCases = useMemo(() => {
-    return filteredFacilityMetrics.reduce((sum, item) => sum + Number(item.value ?? 0), 0);
+    return filteredFacilityMetrics.reduce((sum, item) => sum + Number(item.metric_value ?? 0), 0);
   }, [filteredFacilityMetrics]);
 
   const facilitiesCount = useMemo(() => {
@@ -313,7 +313,7 @@ export default function DiseaseDetailsPage() {
           : "Unknown";
 
       const currentValue = grouped.get(weekKey) ?? 0;
-      grouped.set(weekKey, currentValue + Number(item.value ?? 0));
+      grouped.set(weekKey, currentValue + Number(item.metric_value ?? 0));
     });
 
     return Array.from(grouped.entries()).map(([week, value]) => ({
