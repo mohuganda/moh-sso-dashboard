@@ -2,15 +2,14 @@ import { Breadcrumb, BreadcrumbItem, Button, InlineLoading } from "@carbon/react
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload } from "@carbon/react/icons";
+import type { Feature, FeatureCollection, GeoJsonProperties, Geometry } from "geojson";
 
 import SurveillanceFilters from "./surveillance-filters.component";
 import SurveillanceTiles from "./surveillance-tiles.component";
 import SurveillancePanels from "./surveillance-panel.component";
 import SurveillanceUgandaMap from "./surveillance-uganda-map.component";
-import rawUgandaGeoJson from "../../../assets/maps/uganda_districts.json";
-import type { GeoJSON as GeoJSONType } from "geojson";
-
-const ugandaGeoJson = rawUgandaGeoJson as GeoJSONType;
+import rawUgandaDistrictGeoJson from "../../../assets/maps/uganda_districts.json";
+import rawUgandaSubcountiesGeojson from "../../../assets/maps/uganda_subcounties.json";
 import "./surveillance.css";
 
 import {
@@ -32,6 +31,11 @@ type FilterOption = {
   label: string;
 };
 
+type GenericFeatureCollection = FeatureCollection<Geometry, GeoJsonProperties>;
+
+const districtGeoJson = rawUgandaDistrictGeoJson as GenericFeatureCollection;
+const subcountyGeoJson = rawUgandaSubcountiesGeojson as GenericFeatureCollection;
+
 function slugifyDiseaseName(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, "-");
 }
@@ -39,6 +43,38 @@ function slugifyDiseaseName(name: string) {
 function normalize(value: unknown): string {
   if (typeof value !== "string") return "";
   return value.trim().toLowerCase();
+}
+
+function getDistrictFeatureName(properties?: GeoJsonProperties | null) {
+  if (!properties) return "";
+
+  return normalize(
+    properties.District ?? properties.district ?? properties.district_name ?? properties.name ?? "",
+  );
+}
+
+function getSubcountyFeatureName(properties?: GeoJsonProperties | null) {
+  if (!properties) return "";
+
+  return normalize(
+    properties.Subcounty ??
+      properties.sname2019 ??
+      properties.subcounty ??
+      properties.sub_county ??
+      properties.subcounty_name ??
+      properties.name ??
+      "",
+  );
+}
+
+function filterFeatureCollection(
+  collection: GenericFeatureCollection,
+  predicate: (feature: Feature<Geometry, GeoJsonProperties>) => boolean,
+): GenericFeatureCollection {
+  return {
+    ...collection,
+    features: collection.features.filter(predicate),
+  };
 }
 
 export default function SurveillanceDashboardPage() {
@@ -302,6 +338,48 @@ export default function SurveillanceDashboardPage() {
     [filteredWeeklyStatuses, diseaseNameById],
   );
 
+  const regionDistrictNames = useMemo(() => {
+    return new Set(districts.map((district) => normalize(district.name)).filter(Boolean));
+  }, [districts]);
+
+  const districtSubcountyNames = useMemo(() => {
+    return new Set(subcounties.map((subcounty) => normalize(subcounty.name)).filter(Boolean));
+  }, [subcounties]);
+
+  const activeMapGeoJson = useMemo<GenericFeatureCollection>(() => {
+    if (selectedDistrictId) {
+      return filterFeatureCollection(subcountyGeoJson, (feature) => {
+        const subcountyName = getSubcountyFeatureName(feature.properties);
+        return districtSubcountyNames.has(subcountyName);
+      });
+    }
+
+    if (selectedRegionId) {
+      return filterFeatureCollection(districtGeoJson, (feature) => {
+        const districtName = getDistrictFeatureName(feature.properties);
+        return regionDistrictNames.has(districtName);
+      });
+    }
+
+    return districtGeoJson;
+  }, [selectedDistrictId, selectedRegionId, districtSubcountyNames, regionDistrictNames]);
+
+  const activeMapLevel = selectedDistrictId ? "subcounty" : "district";
+
+  const handleMapDistrictSelect = (districtName: string) => {
+    const match = districts.find((item) => normalize(item.name) === normalize(districtName));
+    if (match) {
+      setSelectedDistrictId(match.id);
+    }
+  };
+
+  const handleMapSubcountySelect = (subcountyName: string) => {
+    const match = subcounties.find((item) => normalize(item.name) === normalize(subcountyName));
+    if (match) {
+      setSelectedSubCountyId(match.id);
+    }
+  };
+
   const handleOpenUpload = () => {
     openPanel({
       title: "Import Surveillance File",
@@ -374,22 +452,10 @@ export default function SurveillanceDashboardPage() {
 
       <section className="surveillance-dashboard-page__section">
         <SurveillanceTiles
-          immediateAction={{
-            title: "Immediate Action",
-            items: immediateActionItems,
-          }}
-          takeAction={{
-            title: "Take Action",
-            items: takeActionItems,
-          }}
-          alert={{
-            title: "Alert",
-            items: alertItems,
-          }}
-          watch={{
-            title: "Watch",
-            items: watchItems,
-          }}
+          immediateAction={{ title: "Immediate Action", items: immediateActionItems }}
+          takeAction={{ title: "Take Action", items: takeActionItems }}
+          alert={{ title: "Alert", items: alertItems }}
+          watch={{ title: "Watch", items: watchItems }}
         />
       </section>
 
@@ -410,12 +476,15 @@ export default function SurveillanceDashboardPage() {
           loading={loading}
           mapContent={
             <SurveillanceUgandaMap
-              geoJson={ugandaGeoJson}
+              geoJson={activeMapGeoJson}
+              mapLevel={activeMapLevel}
               weeklyStatuses={filteredWeeklyStatuses}
               selectedWeek={{
                 year: selectedWeek?.epi_year,
                 week: selectedWeek?.epi_week,
               }}
+              onDistrictSelect={handleMapDistrictSelect}
+              onSubCountySelect={handleMapSubcountySelect}
             />
           }
         />
