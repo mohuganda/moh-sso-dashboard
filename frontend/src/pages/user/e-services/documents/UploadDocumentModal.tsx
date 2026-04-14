@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import {
   Button,
   FileUploaderDropContainer,
@@ -38,7 +38,11 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
 
   const [createDocument, { isLoading: isUploading }] = useCreateDocumentMutation();
 
-  const { data: locations = [], isLoading: isLocationsLoading } = useListStorageLocationsQuery();
+  const {
+    data: locations = [],
+    isLoading: isLocationsLoading,
+    isError: isLocationsError,
+  } = useListStorageLocationsQuery();
 
   const activeLocations = useMemo(
     () => locations.filter((location) => location.is_active),
@@ -47,23 +51,27 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
 
   const hasStorageLocations = activeLocations.length > 0;
 
-  const handleFileChange = (
-    _event: React.DragEvent<HTMLElement>,
-    { addedFiles }: { addedFiles: File[] },
-  ) => {
-    const selectedFile = addedFiles?.[0];
+  const processSelectedFiles = async (addedFiles: File[]) => {
+    const selectedFile = addedFiles[0];
     if (!selectedFile) return;
 
     if (!isAcceptedFile(selectedFile)) {
       setFile(null);
       setProcessType("");
-      setError("Only CSV or Excel (.xlsx) files are allowed.");
+      setError("Only CSV or Excel (.csv, .xlsx, .xls) files are allowed.");
       return;
     }
 
     setError(null);
     setFile(selectedFile);
     setProcessType((current) => current || getSuggestedProcessType(selectedFile));
+  };
+
+  const handleFileChange = (
+    _event: SyntheticEvent<HTMLElement, Event>,
+    { addedFiles }: { addedFiles: File[] },
+  ): void => {
+    void processSelectedFiles(addedFiles);
   };
 
   const handleProcessTypeChange = (value: string) => {
@@ -102,8 +110,16 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       }).unwrap();
 
       onClose();
-    } catch (err: any) {
-      setError(err?.data?.message || "Upload failed. Please try again.");
+    } catch (err: unknown) {
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "data" in err &&
+        typeof (err as { data?: { message?: unknown } }).data?.message === "string"
+          ? (err as { data?: { message?: string } }).data?.message
+          : "Upload failed. Please try again.";
+
+      setError(message!);
     }
   };
 
@@ -145,10 +161,19 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
             />
           )}
 
+          {isLocationsError && (
+            <InlineNotification
+              kind="error"
+              title="Storage locations error"
+              subtitle="Failed to load storage locations."
+              lowContrast
+            />
+          )}
+
           <FormGroup legendText="Document file">
             <FileUploaderDropContainer
               labelText="Drag and drop a file here or click to browse"
-              accept={[".csv", ".xlsx"]}
+              accept={[".csv", ".xlsx", ".xls"]}
               multiple={false}
               onAddFiles={handleFileChange}
               disabled={isUploading}
