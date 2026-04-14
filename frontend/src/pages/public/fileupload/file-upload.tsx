@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -17,6 +17,7 @@ import {
   Stack,
   Tag,
 } from "@carbon/react";
+import type { FileUploaderItemProps } from "@carbon/react";
 import {
   useCreateDocumentMutation,
   useListStorageLocationsQuery,
@@ -35,7 +36,7 @@ import {
 } from "../../../store/types/documents.types";
 
 type Row = Record<string, unknown>;
-type FileItemStatus = "edit" | "complete" | "uploading";
+type FileItemStatus = NonNullable<FileUploaderItemProps["status"]>;
 
 export function getPreviewHeaders(rows: Row[]): string[] {
   return Object.keys(rows[0] || {});
@@ -152,11 +153,8 @@ const FileUpload = () => {
     setHeaders([]);
   };
 
-  const handleFileSelection = async (
-    _event: React.DragEvent<HTMLElement>,
-    { addedFiles }: { addedFiles: File[] },
-  ) => {
-    const selectedFile = addedFiles?.[0];
+  const processSelectedFiles = async (addedFiles: File[]) => {
+    const selectedFile = addedFiles[0];
     if (!selectedFile) return;
 
     setError(null);
@@ -183,13 +181,23 @@ const FileUpload = () => {
       window.setTimeout(() => {
         setFileStatus("edit");
       }, 1200);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to parse file. Please try again.";
+
       setFile(null);
       clearPreviewData();
       setProcessType("");
       setFileStatus("edit");
-      setError(err?.message || "Failed to parse file. Please try again.");
+      setError(message);
     }
+  };
+
+  const handleFileSelection = (
+    _event: SyntheticEvent<HTMLElement, Event>,
+    { addedFiles }: { addedFiles: File[] },
+  ): void => {
+    void processSelectedFiles(addedFiles);
   };
 
   const handleUploadToBackend = async () => {
@@ -223,8 +231,16 @@ const FileUpload = () => {
         processType,
       }).unwrap();
       resetUploader();
-    } catch (err: any) {
-      setError(err?.data?.message || "Upload failed. Please try again.");
+    } catch (err: unknown) {
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "data" in err &&
+        typeof (err as { data?: { message?: unknown } }).data?.message === "string"
+          ? (err as { data?: { message?: string } }).data?.message
+          : "Upload failed. Please try again.";
+
+      setError(message!);
     }
   };
 
@@ -332,7 +348,7 @@ const FileUpload = () => {
               id="document-process-type"
               labelText="Process type"
               value={processType}
-              onChange={(e) => setProcessType(e.target.value)}
+              onChange={(e) => setProcessType(e.target.value as DocumentProcessType)}
               disabled={isUploading}
             >
               <SelectItem value="" text="Select process type" />

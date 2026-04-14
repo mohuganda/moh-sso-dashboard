@@ -10,8 +10,11 @@ import type {
   SurveillanceImportRawRow,
   UpdateImportBatchStatusPayload,
   UploadSurveillanceCsvRequest,
-  WeeklyStatus,
   Alert,
+  WeeklyStatus,
+  ListWeeklyStatusesParams,
+  WeeklyStatusDetailed,
+  ListAlertsParams,
 } from "../types/surveillance.types";
 import { baseApi } from "./baseApi";
 
@@ -40,9 +43,11 @@ export const surveillanceApi = baseApi.injectEndpoints({
           : [{ type: "Surveillance" as const, id: "SURVEILLANCE_WEEKS_LIST" }],
     }),
 
-    listAlerts: builder.query<Alert[], void>({
-      query: () => ({
+    listAlerts: builder.query<Alert[], ListAlertsParams | void>({
+      query: (params: ListAlertsParams) => ({
         url: "/surveillance/alerts",
+        method: "GET",
+        params,
       }),
       transformResponse: (res: ApiEnvelope<Alert[]>) => res.data,
       providesTags: (result) =>
@@ -208,43 +213,11 @@ export const surveillanceApi = baseApi.injectEndpoints({
             ],
     }),
 
-    listDistrictWeeklyStatusesByWeek: builder.query<WeeklyStatus[], string>({
-      query: (epiWeekID) => ({
-        url: `/surveillance/weekly-statuses/district/week/${epiWeekID}`,
-      }),
-      transformResponse: (res: ApiEnvelope<WeeklyStatus[]>) => res.data,
-      providesTags: (result, _error, epiWeekID) =>
-        result
-          ? [
-              ...result.map((item) => ({
-                type: "Surveillance" as const,
-                id: item.id,
-              })),
-              {
-                type: "Surveillance" as const,
-                id: `SURVEILLANCE_DISTRICT_STATUSES_WEEK_${epiWeekID}`,
-              },
-            ]
-          : [
-              {
-                type: "Surveillance" as const,
-                id: `SURVEILLANCE_DISTRICT_STATUSES_WEEK_${epiWeekID}`,
-              },
-            ],
-    }),
-
-    listDistrictWeeklyStatuses: builder.query<
-      WeeklyStatus[],
-      { districtID?: string; epiWeekID?: string } | void
-    >({
-      query: (params) => ({
-        url: "/surveillance/weekly-statuses/district",
-        params: params
-          ? {
-              district_id: params.districtID,
-              epi_week_id: params.epiWeekID,
-            }
-          : undefined,
+    listWeeklyStatuses: builder.query<WeeklyStatus[], ListWeeklyStatusesParams | void>({
+      query: (params: ListWeeklyStatusesParams) => ({
+        url: "/surveillance/weekly-statuses/list",
+        method: "GET",
+        params,
       }),
       transformResponse: (res: ApiEnvelope<WeeklyStatus[]>) => res.data,
       providesTags: (result) =>
@@ -256,23 +229,28 @@ export const surveillanceApi = baseApi.injectEndpoints({
               })),
               {
                 type: "Surveillance" as const,
-                id: "SURVEILLANCE_DISTRICT_STATUSES_LIST",
+                id: "WEEKLY_STATUSES",
               },
             ]
           : [
               {
                 type: "Surveillance" as const,
-                id: "SURVEILLANCE_DISTRICT_STATUSES_LIST",
+                id: "WEEKLY_STATUSES",
               },
             ],
     }),
 
-    listRegionWeeklyStatusesByWeek: builder.query<WeeklyStatus[], string>({
-      query: (epiWeekID) => ({
-        url: `/surveillance/weekly-statuses/region/week/${epiWeekID}`,
+    listWeeklyStatusesDetailed: builder.query<
+      WeeklyStatusDetailed[],
+      ListWeeklyStatusesParams | void
+    >({
+      query: (params: ListWeeklyStatusesParams) => ({
+        url: "/surveillance/weekly-statuses/detailed",
+        method: "GET",
+        params,
       }),
-      transformResponse: (res: ApiEnvelope<WeeklyStatus[]>) => res.data,
-      providesTags: (result, _error, epiWeekID) =>
+      transformResponse: (res: ApiEnvelope<WeeklyStatusDetailed[]>) => res.data,
+      providesTags: (result) =>
         result
           ? [
               ...result.map((item) => ({
@@ -281,42 +259,16 @@ export const surveillanceApi = baseApi.injectEndpoints({
               })),
               {
                 type: "Surveillance" as const,
-                id: `SURVEILLANCE_REGION_STATUSES_WEEK_${epiWeekID}`,
+                id: "WEEKLY_STATUSES_DETAILED",
               },
             ]
           : [
               {
                 type: "Surveillance" as const,
-                id: `SURVEILLANCE_REGION_STATUSES_WEEK_${epiWeekID}`,
+                id: "WEEKLY_STATUSES_DETAILED",
               },
             ],
     }),
-
-    listNationalWeeklyStatusesByWeek: builder.query<WeeklyStatus[], string>({
-      query: (epiWeekID) => ({
-        url: `/surveillance/weekly-statuses/national/week/${epiWeekID}`,
-      }),
-      transformResponse: (res: ApiEnvelope<WeeklyStatus[]>) => res.data,
-      providesTags: (result, _error, epiWeekID) =>
-        result
-          ? [
-              ...result.map((item) => ({
-                type: "Surveillance" as const,
-                id: item.id,
-              })),
-              {
-                type: "Surveillance" as const,
-                id: `SURVEILLANCE_NATIONAL_STATUSES_WEEK_${epiWeekID}`,
-              },
-            ]
-          : [
-              {
-                type: "Surveillance" as const,
-                id: `SURVEILLANCE_NATIONAL_STATUSES_WEEK_${epiWeekID}`,
-              },
-            ],
-    }),
-
     listImportBatches: builder.query<SurveillanceImportBatch[], void>({
       query: () => ({
         url: `/surveillance/imports`,
@@ -439,10 +391,8 @@ export const {
   useGetSubcountyByIdQuery,
   useListFacilityWeeklyMetricsByWeekQuery,
   useListFacilityWeeklyMetricsByFacilityQuery,
-  useListDistrictWeeklyStatusesByWeekQuery,
-  useListDistrictWeeklyStatusesQuery,
-  useListRegionWeeklyStatusesByWeekQuery,
-  useListNationalWeeklyStatusesByWeekQuery,
+  useListWeeklyStatusesDetailedQuery,
+  useListWeeklyStatusesQuery,
   useListImportBatchesQuery,
   useGetImportBatchByIdQuery,
   useListImportRawRowsByBatchQuery,

@@ -45,8 +45,8 @@ func (r *AlertRepository) GetByID(ctx context.Context, id uuid.UUID) (db.Alert, 
 	return alert, nil
 }
 
-func (r *AlertRepository) List(ctx context.Context) ([]db.ListAlertsRow, error) {
-	return r.db.ListAlerts(ctx)
+func (r *AlertRepository) ListAlerts(ctx context.Context, arg db.ListAlertsParams) ([]db.Alert, error) {
+	return r.db.ListAlerts(ctx, arg)
 }
 
 func (r *AlertRepository) ListByDisease(ctx context.Context, diseaseID uuid.UUID) ([]db.ListAlertsByDiseaseRow, error) {

@@ -288,35 +288,35 @@ const listWeeklyStatuses = `-- name: ListWeeklyStatuses :many
 SELECT id, region_id, district_id, sub_county_id, disease_id, indicator_id, epi_week_id, status, source_name, imported_at, created_at
 FROM weekly_status
 WHERE
-  ($1::uuid IS NULL OR epi_week_id = $1)
-  AND ($2::uuid IS NULL OR region_id = $2)
-  AND ($3::uuid IS NULL OR district_id = $3)
-  AND ($4::uuid IS NULL OR sub_county_id = $4)
-  AND ($5::uuid IS NULL OR disease_id = $5)
-  AND ($6::uuid IS NULL OR indicator_id = $6)
-  AND ($7::risk_level IS NULL OR status = $7)
+  ($1::uuid IS NULL OR epi_week_id = $1::uuid)
+  AND ($2::uuid IS NULL OR region_id = $2::uuid)
+  AND ($3::uuid IS NULL OR district_id = $3::uuid)
+  AND ($4::uuid IS NULL OR sub_county_id = $4::uuid)
+  AND ($5::uuid IS NULL OR disease_id = $5::uuid)
+  AND ($6::uuid IS NULL OR indicator_id = $6::uuid)
+  AND ($7::risk_level IS NULL OR status = $7::risk_level)
 ORDER BY created_at DESC
 `
 
 type ListWeeklyStatusesParams struct {
-	Column1 uuid.UUID `json:"column_1"`
-	Column2 uuid.UUID `json:"column_2"`
-	Column3 uuid.UUID `json:"column_3"`
-	Column4 uuid.UUID `json:"column_4"`
-	Column5 uuid.UUID `json:"column_5"`
-	Column6 uuid.UUID `json:"column_6"`
-	Column7 RiskLevel `json:"column_7"`
+	EpiWeekID   uuid.NullUUID `json:"epi_week_id"`
+	RegionID    uuid.NullUUID `json:"region_id"`
+	DistrictID  uuid.NullUUID `json:"district_id"`
+	SubCountyID uuid.NullUUID `json:"sub_county_id"`
+	DiseaseID   uuid.NullUUID `json:"disease_id"`
+	IndicatorID uuid.NullUUID `json:"indicator_id"`
+	Status      NullRiskLevel `json:"status"`
 }
 
 func (q *Queries) ListWeeklyStatuses(ctx context.Context, arg ListWeeklyStatusesParams) ([]WeeklyStatus, error) {
 	rows, err := q.db.QueryContext(ctx, listWeeklyStatuses,
-		arg.Column1,
-		arg.Column2,
-		arg.Column3,
-		arg.Column4,
-		arg.Column5,
-		arg.Column6,
-		arg.Column7,
+		arg.EpiWeekID,
+		arg.RegionID,
+		arg.DistrictID,
+		arg.SubCountyID,
+		arg.DiseaseID,
+		arg.IndicatorID,
+		arg.Status,
 	)
 	if err != nil {
 		return nil, err
@@ -544,24 +544,24 @@ LEFT JOIN sub_counties sc ON ws.sub_county_id = sc.id
 LEFT JOIN diseases dis ON ws.disease_id = dis.id
 LEFT JOIN indicators i ON ws.indicator_id = i.id
 WHERE
-  ($1::uuid IS NULL OR ws.epi_week_id = $1)
-  AND ($2::uuid IS NULL OR ws.region_id = $2)
-  AND ($3::uuid IS NULL OR ws.district_id = $3)
-  AND ($4::uuid IS NULL OR ws.sub_county_id = $4)
-  AND ($5::uuid IS NULL OR ws.disease_id = $5)
-  AND ($6::uuid IS NULL OR ws.indicator_id = $6)
-  AND ($7::risk_level IS NULL OR ws.status = $7)
+  ($1::uuid IS NULL OR ws.epi_week_id = $1::uuid)
+  AND ($2::uuid IS NULL OR ws.region_id = $2::uuid)
+  AND ($3::uuid IS NULL OR ws.district_id = $3::uuid)
+  AND ($4::uuid IS NULL OR ws.sub_county_id = $4::uuid)
+  AND ($5::uuid IS NULL OR ws.disease_id = $5::uuid)
+  AND ($6::uuid IS NULL OR ws.indicator_id = $6::uuid)
+  AND ($7::risk_level IS NULL OR ws.status = $7::risk_level)
 ORDER BY ws.created_at DESC
 `
 
 type ListWeeklyStatusesDetailedParams struct {
-	Column1 uuid.UUID `json:"column_1"`
-	Column2 uuid.UUID `json:"column_2"`
-	Column3 uuid.UUID `json:"column_3"`
-	Column4 uuid.UUID `json:"column_4"`
-	Column5 uuid.UUID `json:"column_5"`
-	Column6 uuid.UUID `json:"column_6"`
-	Column7 RiskLevel `json:"column_7"`
+	EpiWeekID   uuid.NullUUID `json:"epi_week_id"`
+	RegionID    uuid.NullUUID `json:"region_id"`
+	DistrictID  uuid.NullUUID `json:"district_id"`
+	SubCountyID uuid.NullUUID `json:"sub_county_id"`
+	DiseaseID   uuid.NullUUID `json:"disease_id"`
+	IndicatorID uuid.NullUUID `json:"indicator_id"`
+	Status      NullRiskLevel `json:"status"`
 }
 
 type ListWeeklyStatusesDetailedRow struct {
@@ -585,13 +585,13 @@ type ListWeeklyStatusesDetailedRow struct {
 
 func (q *Queries) ListWeeklyStatusesDetailed(ctx context.Context, arg ListWeeklyStatusesDetailedParams) ([]ListWeeklyStatusesDetailedRow, error) {
 	rows, err := q.db.QueryContext(ctx, listWeeklyStatusesDetailed,
-		arg.Column1,
-		arg.Column2,
-		arg.Column3,
-		arg.Column4,
-		arg.Column5,
-		arg.Column6,
-		arg.Column7,
+		arg.EpiWeekID,
+		arg.RegionID,
+		arg.DistrictID,
+		arg.SubCountyID,
+		arg.DiseaseID,
+		arg.IndicatorID,
+		arg.Status,
 	)
 	if err != nil {
 		return nil, err

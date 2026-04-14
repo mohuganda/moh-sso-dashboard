@@ -162,7 +162,7 @@ type Querier interface {
 	ListActiveIndicators(ctx context.Context) ([]Indicator, error)
 	ListActivePublishedAnnouncements(ctx context.Context, arg ListActivePublishedAnnouncementsParams) ([]Announcement, error)
 	ListActiveStorageLocations(ctx context.Context) ([]StorageLocation, error)
-	ListAlerts(ctx context.Context) ([]ListAlertsRow, error)
+	ListAlerts(ctx context.Context, arg ListAlertsParams) ([]Alert, error)
 	ListAlertsByDisease(ctx context.Context, diseaseID uuid.UUID) ([]ListAlertsByDiseaseRow, error)
 	ListAlertsByDistrict(ctx context.Context, districtID uuid.NullUUID) ([]ListAlertsByDistrictRow, error)
 	ListAlertsByWeek(ctx context.Context, epiWeekID uuid.NullUUID) ([]ListAlertsByWeekRow, error)

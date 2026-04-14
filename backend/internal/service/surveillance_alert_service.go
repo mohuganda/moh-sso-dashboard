@@ -36,6 +36,13 @@ type parsedAlertsPayload struct {
 	SubmittedBy string
 }
 
+type AlertListParams struct {
+	EpiWeekID  uuid.UUID
+	DiseaseID  uuid.UUID
+	DistrictID uuid.UUID
+	RegionID   uuid.UUID
+}
+
 type SurveillanceAlertService struct {
 	log                    *logger.Logger
 	alertRepo              interfaces.AlertRepository
@@ -129,10 +136,11 @@ func (s *SurveillanceAlertService) ListAlertsByWeek(
 
 func (s *SurveillanceAlertService) ListAlerts(
 	ctx context.Context,
-) ([]db.ListAlertsRow, error) {
+	params db.ListAlertsParams,
+) ([]db.Alert, error) {
 	s.log.Debug(ctx, "listing alerts")
 
-	items, err := s.alertRepo.List(ctx)
+	items, err := s.alertRepo.ListAlerts(ctx, params)
 	if err != nil {
 		s.log.Error(ctx, "failed to list alerts", "error", err)
 		return nil, err

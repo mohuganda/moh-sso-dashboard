@@ -30,13 +30,13 @@ WHERE id = $1;
 SELECT *
 FROM weekly_status
 WHERE
-  ($1::uuid IS NULL OR epi_week_id = $1)
-  AND ($2::uuid IS NULL OR region_id = $2)
-  AND ($3::uuid IS NULL OR district_id = $3)
-  AND ($4::uuid IS NULL OR sub_county_id = $4)
-  AND ($5::uuid IS NULL OR disease_id = $5)
-  AND ($6::uuid IS NULL OR indicator_id = $6)
-  AND ($7::risk_level IS NULL OR status = $7)
+  (sqlc.narg(epi_week_id)::uuid IS NULL OR epi_week_id = sqlc.narg(epi_week_id)::uuid)
+  AND (sqlc.narg(region_id)::uuid IS NULL OR region_id = sqlc.narg(region_id)::uuid)
+  AND (sqlc.narg(district_id)::uuid IS NULL OR district_id = sqlc.narg(district_id)::uuid)
+  AND (sqlc.narg(sub_county_id)::uuid IS NULL OR sub_county_id = sqlc.narg(sub_county_id)::uuid)
+  AND (sqlc.narg(disease_id)::uuid IS NULL OR disease_id = sqlc.narg(disease_id)::uuid)
+  AND (sqlc.narg(indicator_id)::uuid IS NULL OR indicator_id = sqlc.narg(indicator_id)::uuid)
+  AND (sqlc.narg(status)::risk_level IS NULL OR status = sqlc.narg(status)::risk_level)
 ORDER BY created_at DESC;
 
 
@@ -394,11 +394,11 @@ LEFT JOIN sub_counties sc ON ws.sub_county_id = sc.id
 LEFT JOIN diseases dis ON ws.disease_id = dis.id
 LEFT JOIN indicators i ON ws.indicator_id = i.id
 WHERE
-  ($1::uuid IS NULL OR ws.epi_week_id = $1)
-  AND ($2::uuid IS NULL OR ws.region_id = $2)
-  AND ($3::uuid IS NULL OR ws.district_id = $3)
-  AND ($4::uuid IS NULL OR ws.sub_county_id = $4)
-  AND ($5::uuid IS NULL OR ws.disease_id = $5)
-  AND ($6::uuid IS NULL OR ws.indicator_id = $6)
-  AND ($7::risk_level IS NULL OR ws.status = $7)
+  (sqlc.narg(epi_week_id)::uuid IS NULL OR ws.epi_week_id = sqlc.narg(epi_week_id)::uuid)
+  AND (sqlc.narg(region_id)::uuid IS NULL OR ws.region_id = sqlc.narg(region_id)::uuid)
+  AND (sqlc.narg(district_id)::uuid IS NULL OR ws.district_id = sqlc.narg(district_id)::uuid)
+  AND (sqlc.narg(sub_county_id)::uuid IS NULL OR ws.sub_county_id = sqlc.narg(sub_county_id)::uuid)
+  AND (sqlc.narg(disease_id)::uuid IS NULL OR ws.disease_id = sqlc.narg(disease_id)::uuid)
+  AND (sqlc.narg(indicator_id)::uuid IS NULL OR ws.indicator_id = sqlc.narg(indicator_id)::uuid)
+  AND (sqlc.narg(status)::risk_level IS NULL OR ws.status = sqlc.narg(status)::risk_level)
 ORDER BY ws.created_at DESC;

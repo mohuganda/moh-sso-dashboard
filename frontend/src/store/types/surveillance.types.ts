@@ -62,6 +62,44 @@ export interface WeeklyStatus {
   created_at: string;
 }
 
+export interface WeeklyStatusDetailed {
+  id: string;
+  region_id: string | null;
+  district_id: string | null;
+  sub_county_id: string | null;
+  disease_id: string | null;
+  indicator_id: string | null;
+  epi_week_id: string;
+  status: RiskLevel;
+  source_name: string | null;
+  imported_at: string | null;
+  created_at: string;
+
+  region_name: string | null;
+  district_name: string | null;
+  sub_county_name: string | null;
+  disease_name: string | null;
+  indicator_name: string | null;
+}
+
+export interface ListWeeklyStatusesParams {
+  epiWeekID?: string;
+  regionID?: string;
+  districtID?: string;
+  subCountyID?: string;
+  diseaseID?: string;
+  indicatorID?: string;
+  status?: RiskLevel;
+}
+
+export type ListAlertsParams = {
+  epiWeekID?: string;
+  districtID?: string;
+  regionID?: string;
+  diseaseID?: string;
+  status?: string;
+};
+
 export interface Subcounty {
   id: string;
   name: string;

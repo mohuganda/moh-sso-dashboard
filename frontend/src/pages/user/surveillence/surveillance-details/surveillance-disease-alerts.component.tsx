@@ -8,10 +8,10 @@ import {
   TableCell,
 } from "@carbon/react";
 import { useMemo } from "react";
-import type { WeeklyStatus } from "../../../../store/types/surveillance.types";
+import type { Alert } from "../../../../store/types/surveillance.types";
 
 interface DiseaseAlertsTableProps {
-  weeklyStatuses?: WeeklyStatus[];
+  alerts?: Alert[];
   districtId?: string;
   regionId?: string;
   diseaseName?: string;
@@ -20,6 +20,7 @@ interface DiseaseAlertsTableProps {
   regionNameById?: Record<string, string>;
   diseaseNameById?: Record<string, string>;
   epiWeekLabelById?: Record<string, string>;
+  districtRegionByDistrictId?: Record<string, string>;
 }
 
 const headers = [
@@ -27,19 +28,23 @@ const headers = [
   { key: "region", header: "Region" },
   { key: "week", header: "Week" },
   { key: "disease", header: "Disease" },
-  { key: "severity", header: "Severity" },
+  { key: "status", header: "Status" },
+  { key: "narrative", header: "Narrative" },
 ];
 
-function normalize(value?: string) {
-  return (value ?? "").trim().toLowerCase();
+function normalize(value?: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
-function formatSeverity(level: string) {
-  return level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
+function formatStatus(value?: string) {
+  if (!value) return "--";
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
 export function DiseaseAlertsTable({
-  weeklyStatuses = [],
+  alerts = [],
   districtId = "",
   regionId = "",
   diseaseName = "",
@@ -48,15 +53,18 @@ export function DiseaseAlertsTable({
   regionNameById = {},
   diseaseNameById = {},
   epiWeekLabelById = {},
+  districtRegionByDistrictId = {},
 }: DiseaseAlertsTableProps) {
   const rows = useMemo(() => {
     const normalizedDisease = normalize(diseaseName);
 
-    return weeklyStatuses
-      .filter((item) => item.status !== "GREEN")
+    return alerts
       .filter((item) => {
-        const matchesDistrict = !districtId || item.district_id === districtId;
-        const matchesRegion = !regionId || item.region_id === regionId;
+        const matchesDistrict = !districtId || String(item.district_id ?? "") === districtId;
+
+        const alertRegionId = districtRegionByDistrictId[String(item.district_id ?? "")] ?? "";
+
+        const matchesRegion = !regionId || alertRegionId === regionId;
 
         const resolvedDiseaseName = item.disease_id
           ? (diseaseNameById[String(item.disease_id)] ?? "")
@@ -72,11 +80,13 @@ export function DiseaseAlertsTable({
           ? (districtNameById[String(item.district_id)] ?? "--")
           : "--";
 
-        const region = item.region_id ? (regionNameById[String(item.region_id)] ?? "--") : "--";
+        const resolvedRegionId = districtRegionByDistrictId[String(item.district_id ?? "")] ?? "";
+
+        const region = resolvedRegionId ? (regionNameById[resolvedRegionId] ?? "--") : "--";
 
         const disease = item.disease_id ? (diseaseNameById[String(item.disease_id)] ?? "--") : "--";
 
-        const week = epiWeekLabelById[item.epi_week_id] ?? "--";
+        const week = item.epi_week_id ? (epiWeekLabelById[String(item.epi_week_id)] ?? "--") : "--";
 
         return {
           id: item.id || `${item.district_id ?? "unknown"}-${item.disease_id ?? "none"}-${index}`,
@@ -84,11 +94,12 @@ export function DiseaseAlertsTable({
           region,
           week,
           disease,
-          severity: formatSeverity(item.status),
+          status: formatStatus(item.status),
+          narrative: item.narrative || "--",
         };
       });
   }, [
-    weeklyStatuses,
+    alerts,
     districtId,
     regionId,
     diseaseName,
@@ -96,14 +107,15 @@ export function DiseaseAlertsTable({
     regionNameById,
     diseaseNameById,
     epiWeekLabelById,
+    districtRegionByDistrictId,
   ]);
 
   if (loading) {
-    return <p>Loading disease alerts...</p>;
+    return <p>Loading alerts...</p>;
   }
 
   if (!rows.length) {
-    return <p>No disease alerts available.</p>;
+    return <p>No alerts available.</p>;
   }
 
   return (

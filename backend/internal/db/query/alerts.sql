@@ -53,16 +53,28 @@ LIMIT 1;
 
 -- name: ListAlerts :many
 SELECT
-  a.*,
-  d.name AS disease_name,
-  dist.name AS district_name,
-  ew.epi_year,
-  ew.epi_week
+  a.id,
+  a.external_id,
+  a.disease_id,
+  a.district_id,
+  a.epi_week_id,
+  a.occurred_on,
+  a.created_on,
+  a.narrative,
+  a.submitted_by,
+  a.status,
+  a.source_name,
+  a.imported_at,
+  a.created_at,
+  a.updated_at
 FROM alerts a
-JOIN diseases d ON d.id = a.disease_id
-LEFT JOIN districts dist ON dist.id = a.district_id
-LEFT JOIN epi_weeks ew ON ew.id = a.epi_week_id
-ORDER BY a.created_on DESC, a.created_at DESC;
+LEFT JOIN districts d ON d.id = a.district_id
+WHERE
+  (sqlc.narg(epi_week_id)::uuid IS NULL OR a.epi_week_id = sqlc.narg(epi_week_id)::uuid)
+  AND (sqlc.narg(disease_id)::uuid IS NULL OR a.disease_id = sqlc.narg(disease_id)::uuid)
+  AND (sqlc.narg(district_id)::uuid IS NULL OR a.district_id = sqlc.narg(district_id)::uuid)
+  AND (sqlc.narg(region_id)::uuid IS NULL OR d.region_id = sqlc.narg(region_id)::uuid)
+ORDER BY a.created_at DESC;
 
 -- name: ListAlertsByDisease :many
 SELECT

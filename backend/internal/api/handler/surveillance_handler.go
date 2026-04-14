@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -23,6 +24,91 @@ type SurveillanceHandler struct {
 	importService                *service.SurveillanceImportService
 }
 
+type AlertListParams struct {
+	EpiWeekID  uuid.UUID
+	DiseaseID  uuid.UUID
+	DistrictID uuid.UUID
+	RegionID   uuid.UUID
+}
+
+type AlertResponse struct {
+	ID          uuid.UUID  `json:"id"`
+	ExternalID  *string    `json:"external_id,omitempty"`
+	DiseaseID   uuid.UUID  `json:"disease_id"`
+	DistrictID  *uuid.UUID `json:"district_id,omitempty"`
+	EpiWeekID   *uuid.UUID `json:"epi_week_id,omitempty"`
+	OccurredOn  *time.Time `json:"occurred_on,omitempty"`
+	CreatedOn   *time.Time `json:"created_on,omitempty"`
+	Narrative   string     `json:"narrative"`
+	SubmittedBy *string    `json:"submitted_by,omitempty"`
+	Status      string     `json:"status"`
+	SourceName  *string    `json:"source_name,omitempty"`
+	ImportedAt  time.Time  `json:"imported_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+func toAlertResponse(doc db.Alert) AlertResponse {
+	var externalID *string
+	if doc.ExternalID.Valid {
+		externalID = &doc.ExternalID.String
+	}
+
+	var districtID *uuid.UUID
+	if doc.DistrictID.Valid {
+		districtID = &doc.DistrictID.UUID
+	}
+
+	var epiWeekID *uuid.UUID
+	if doc.EpiWeekID.Valid {
+		epiWeekID = &doc.EpiWeekID.UUID
+	}
+
+	var occurredOn *time.Time
+	if doc.OccurredOn.Valid {
+		occurredOn = &doc.OccurredOn.Time
+	}
+
+	var createdOn *time.Time
+	if doc.CreatedOn.Valid {
+		createdOn = &doc.CreatedOn.Time
+	}
+
+	var submittedBy *string
+	if doc.SubmittedBy.Valid {
+		submittedBy = &doc.SubmittedBy.String
+	}
+
+	var sourceName *string
+	if doc.SourceName.Valid {
+		sourceName = &doc.SourceName.String
+	}
+
+	return AlertResponse{
+		ID:          doc.ID,
+		ExternalID:  externalID,
+		DiseaseID:   doc.DiseaseID,
+		DistrictID:  districtID,
+		EpiWeekID:   epiWeekID,
+		OccurredOn:  occurredOn,
+		CreatedOn:   createdOn,
+		Narrative:   doc.Narrative,
+		SubmittedBy: submittedBy,
+		Status:      string(doc.Status),
+		SourceName:  sourceName,
+		ImportedAt:  doc.ImportedAt,
+		CreatedAt:   doc.CreatedAt,
+		UpdatedAt:   doc.UpdatedAt,
+	}
+}
+
+func toAlertResponses(items []db.Alert) []AlertResponse {
+	out := make([]AlertResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, toAlertResponse(item))
+	}
+	return out
+}
 func NewSurveillanceHandler(
 	epiWeekService *service.SurveillanceEpiWeekService,
 	diseaseService *service.SurveillanceDiseaseService,
@@ -353,6 +439,164 @@ func (h *SurveillanceHandler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
+// weekly status
+
+func (h *SurveillanceHandler) ListWeeklyStatuses(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	params := db.ListWeeklyStatusesParams{}
+
+	if epiWeekID := c.Query("epiWeekID"); epiWeekID != "" {
+		id, err := uuid.Parse(epiWeekID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+			return
+		}
+		params.EpiWeekID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if regionID := c.Query("regionID"); regionID != "" {
+		id, err := uuid.Parse(regionID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", err.Error())
+			return
+		}
+		params.RegionID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if districtID := c.Query("districtID"); districtID != "" {
+		id, err := uuid.Parse(districtID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+			return
+		}
+		params.DistrictID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if subCountyID := c.Query("subCountyID"); subCountyID != "" {
+		id, err := uuid.Parse(subCountyID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", err.Error())
+			return
+		}
+		params.SubCountyID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if diseaseID := c.Query("diseaseID"); diseaseID != "" {
+		id, err := uuid.Parse(diseaseID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+			return
+		}
+		params.DiseaseID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if indicatorID := c.Query("indicatorID"); indicatorID != "" {
+		id, err := uuid.Parse(indicatorID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", err.Error())
+			return
+		}
+		params.IndicatorID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if status := c.Query("status"); status != "" {
+		params.Status = db.NullRiskLevel{
+			RiskLevel: db.RiskLevel(status),
+			Valid:     true,
+		}
+	}
+
+	data, err := h.weeklyStatusService.List(ctx, params)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListWeeklyStatusesDetailed(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	params := db.ListWeeklyStatusesDetailedParams{}
+
+	if epiWeekID := c.Query("epiWeekID"); epiWeekID != "" {
+		id, err := uuid.Parse(epiWeekID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+			return
+		}
+		params.EpiWeekID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if regionID := c.Query("regionID"); regionID != "" {
+		id, err := uuid.Parse(regionID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", err.Error())
+			return
+		}
+		params.RegionID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if districtID := c.Query("districtID"); districtID != "" {
+		id, err := uuid.Parse(districtID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+			return
+		}
+		params.DistrictID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if subCountyID := c.Query("subCountyID"); subCountyID != "" {
+		id, err := uuid.Parse(subCountyID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", err.Error())
+			return
+		}
+		params.SubCountyID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if diseaseID := c.Query("diseaseID"); diseaseID != "" {
+		id, err := uuid.Parse(diseaseID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+			return
+		}
+		params.DiseaseID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if indicatorID := c.Query("indicatorID"); indicatorID != "" {
+		id, err := uuid.Parse(indicatorID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", err.Error())
+			return
+		}
+		params.IndicatorID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+
+	if status := c.Query("status"); status != "" {
+		switch db.RiskLevel(status) {
+		case db.RiskLevelMAROON, db.RiskLevelRED, db.RiskLevelYELLOW, db.RiskLevelGREEN:
+			params.Status = db.NullRiskLevel{
+				RiskLevel: db.RiskLevel(status),
+				Valid:     true,
+			}
+		default:
+			response.Fail(c, http.StatusBadRequest, "invalid status", status)
+			return
+		}
+	}
+
+	data, err := h.weeklyStatusService.ListDetailed(ctx, params)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses detailed", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
 // region weekly status
 
 func (h *SurveillanceHandler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
@@ -409,31 +653,68 @@ func (h *SurveillanceHandler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 func (h *SurveillanceHandler) ListAlerts(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	epiWeekIDParam := c.Query("epiWeekID")
-	if epiWeekIDParam != "" {
-		epiWeekID, err := uuid.Parse(epiWeekIDParam)
+	params := AlertListParams{}
+	var err error
+
+	if value := c.Query("epiWeekID"); value != "" {
+		params.EpiWeekID, err = uuid.Parse(value)
 		if err != nil {
 			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
 			return
 		}
-
-		data, err := h.alertService.ListAlertsByWeek(ctx, epiWeekID)
-		if err != nil {
-			response.Fail(c, http.StatusInternalServerError, "failed to list alerts by week", err.Error())
-			return
-		}
-
-		response.OK(c, http.StatusOK, data)
-		return
 	}
 
-	data, err := h.alertService.ListAlerts(ctx)
+	if value := c.Query("diseaseID"); value != "" {
+		params.DiseaseID, err = uuid.Parse(value)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+			return
+		}
+	}
+
+	if value := c.Query("districtID"); value != "" {
+		params.DistrictID, err = uuid.Parse(value)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+			return
+		}
+	}
+
+	if value := c.Query("regionID"); value != "" {
+		params.RegionID, err = uuid.Parse(value)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", err.Error())
+			return
+		}
+	}
+
+	filters := db.ListAlertsParams{
+		EpiWeekID: uuid.NullUUID{
+			UUID:  params.EpiWeekID,
+			Valid: true,
+		},
+		DiseaseID: uuid.NullUUID{
+			UUID:  params.DiseaseID,
+			Valid: true,
+		},
+		DistrictID: uuid.NullUUID{
+			UUID:  params.DistrictID,
+			Valid: true,
+		},
+
+		RegionID: uuid.NullUUID{
+			UUID:  params.RegionID,
+			Valid: true,
+		},
+	}
+
+	data, err := h.alertService.ListAlerts(ctx, filters)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list alerts", err.Error())
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toAlertResponses(data))
 }
 
 // imports

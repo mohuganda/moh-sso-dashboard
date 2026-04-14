@@ -108,48 +108,51 @@ func (q *Queries) GetAlertByID(ctx context.Context, id uuid.UUID) (Alert, error)
 
 const listAlerts = `-- name: ListAlerts :many
 SELECT
-  a.id, a.external_id, a.disease_id, a.district_id, a.epi_week_id, a.occurred_on, a.created_on, a.narrative, a.submitted_by, a.status, a.source_name, a.imported_at, a.created_at, a.updated_at,
-  d.name AS disease_name,
-  dist.name AS district_name,
-  ew.epi_year,
-  ew.epi_week
+  a.id,
+  a.external_id,
+  a.disease_id,
+  a.district_id,
+  a.epi_week_id,
+  a.occurred_on,
+  a.created_on,
+  a.narrative,
+  a.submitted_by,
+  a.status,
+  a.source_name,
+  a.imported_at,
+  a.created_at,
+  a.updated_at
 FROM alerts a
-JOIN diseases d ON d.id = a.disease_id
-LEFT JOIN districts dist ON dist.id = a.district_id
-LEFT JOIN epi_weeks ew ON ew.id = a.epi_week_id
-ORDER BY a.created_on DESC, a.created_at DESC
+LEFT JOIN districts d ON d.id = a.district_id
+WHERE
+  ($1::uuid IS NULL OR a.epi_week_id = $1::uuid)
+  AND ($2::uuid IS NULL OR a.disease_id = $2::uuid)
+  AND ($3::uuid IS NULL OR a.district_id = $3::uuid)
+  AND ($4::uuid IS NULL OR d.region_id = $4::uuid)
+ORDER BY a.created_at DESC
 `
 
-type ListAlertsRow struct {
-	ID           uuid.UUID      `json:"id"`
-	ExternalID   sql.NullString `json:"external_id"`
-	DiseaseID    uuid.UUID      `json:"disease_id"`
-	DistrictID   uuid.NullUUID  `json:"district_id"`
-	EpiWeekID    uuid.NullUUID  `json:"epi_week_id"`
-	OccurredOn   sql.NullTime   `json:"occurred_on"`
-	CreatedOn    sql.NullTime   `json:"created_on"`
-	Narrative    string         `json:"narrative"`
-	SubmittedBy  sql.NullString `json:"submitted_by"`
-	Status       AlertStatus    `json:"status"`
-	SourceName   sql.NullString `json:"source_name"`
-	ImportedAt   time.Time      `json:"imported_at"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DiseaseName  string         `json:"disease_name"`
-	DistrictName sql.NullString `json:"district_name"`
-	EpiYear      sql.NullInt32  `json:"epi_year"`
-	EpiWeek      sql.NullInt32  `json:"epi_week"`
+type ListAlertsParams struct {
+	EpiWeekID  uuid.NullUUID `json:"epi_week_id"`
+	DiseaseID  uuid.NullUUID `json:"disease_id"`
+	DistrictID uuid.NullUUID `json:"district_id"`
+	RegionID   uuid.NullUUID `json:"region_id"`
 }
 
-func (q *Queries) ListAlerts(ctx context.Context) ([]ListAlertsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAlerts)
+func (q *Queries) ListAlerts(ctx context.Context, arg ListAlertsParams) ([]Alert, error) {
+	rows, err := q.db.QueryContext(ctx, listAlerts,
+		arg.EpiWeekID,
+		arg.DiseaseID,
+		arg.DistrictID,
+		arg.RegionID,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListAlertsRow{}
+	items := []Alert{}
 	for rows.Next() {
-		var i ListAlertsRow
+		var i Alert
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExternalID,
@@ -165,10 +168,6 @@ func (q *Queries) ListAlerts(ctx context.Context) ([]ListAlertsRow, error) {
 			&i.ImportedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DiseaseName,
-			&i.DistrictName,
-			&i.EpiYear,
-			&i.EpiWeek,
 		); err != nil {
 			return nil, err
 		}

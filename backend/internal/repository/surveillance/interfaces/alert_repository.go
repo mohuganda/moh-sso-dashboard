@@ -11,7 +11,7 @@ type AlertRepository interface {
 	Create(ctx context.Context, arg db.CreateAlertParams) (db.Alert, error)
 	UpsertByExternalID(ctx context.Context, arg db.UpsertAlertByExternalIDParams) (db.Alert, error)
 	GetByID(ctx context.Context, id uuid.UUID) (db.Alert, error)
-	List(ctx context.Context) ([]db.ListAlertsRow, error)
+	ListAlerts(ctx context.Context, arg db.ListAlertsParams) ([]db.Alert, error)
 	ListByDisease(ctx context.Context, diseaseID uuid.UUID) ([]db.ListAlertsByDiseaseRow, error)
 	ListByDistrict(ctx context.Context, districtID uuid.UUID) ([]db.ListAlertsByDistrictRow, error)
 	ListByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.ListAlertsByWeekRow, error)

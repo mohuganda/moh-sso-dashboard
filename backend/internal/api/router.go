@@ -241,7 +241,7 @@ func SetupRouter(
 		surveillance := protected.Group("/surveillance")
 		{
 			surveillance.GET("/weeks", surveillanceHandler.ListEpiWeeksByYear)
-			surveillance.GET("alerts", surveillanceHandler.ListAlerts)
+			surveillance.GET("/alerts", surveillanceHandler.ListAlerts)
 			surveillance.GET("/diseases", surveillanceHandler.ListDiseases)
 
 			surveillance.GET("/regions", surveillanceHandler.ListRegions)
@@ -259,6 +259,8 @@ func SetupRouter(
 			surveillance.GET("/facility-weekly-metrics/facility/:facilityID", surveillanceHandler.ListFacilityWeeklyMetricsByFacility)
 
 			// weekly statuses
+			surveillance.GET("/weekly-statuses/list", surveillanceHandler.ListWeeklyStatuses)
+			surveillance.GET("/weekly-statuses/detailed", surveillanceHandler.ListWeeklyStatusesDetailed)
 			surveillance.GET("/weekly-statuses/district/week/:epiWeekID", surveillanceHandler.ListDistrictWeeklyStatusesByWeek)
 			surveillance.GET("/weekly-statuses/region/week/:epiWeekID", surveillanceHandler.ListRegionWeeklyStatusesByWeek)
 			surveillance.GET("/weekly-statuses/national/week/:epiWeekID", surveillanceHandler.ListNationalWeeklyStatusesByWeek)

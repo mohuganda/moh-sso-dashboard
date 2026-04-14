@@ -3,6 +3,7 @@ import type {
   Alert,
   FacilityWeeklyMetric,
   WeeklyStatus,
+  WeeklyStatusDetailed,
 } from "../../../store/types/surveillance.types";
 
 type SurveillanceRankItem = {
@@ -21,6 +22,7 @@ interface SurveillancePanelsProps {
   districtId?: string;
   subCountyId?: string;
   weeklyStatuses?: WeeklyStatus[];
+  weeklyStatusesDetailed?: WeeklyStatusDetailed[];
   facilityMetrics?: FacilityWeeklyMetric[];
   alerts?: Alert[];
   loading?: boolean;
@@ -145,10 +147,6 @@ function DefaultMapFallback({
   );
 }
 
-function normalize(value?: string) {
-  return (value ?? "").trim().toLowerCase();
-}
-
 export default function SurveillancePanels({
   selectedWeekId,
   selectedWeek,
@@ -156,6 +154,7 @@ export default function SurveillancePanels({
   districtId = "",
   subCountyId = "",
   weeklyStatuses = [],
+  weeklyStatusesDetailed = [],
   facilityMetrics = [],
   alerts = [],
   loading = false,
@@ -172,20 +171,28 @@ export default function SurveillancePanels({
     });
   }, [weeklyStatuses, selectedWeekId, regionId, districtId, subCountyId]);
 
+  const filteredWeeklyStatusesDetailed = useMemo(() => {
+    return weeklyStatusesDetailed.filter((item) => {
+      const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
+      const matchesRegion = !regionId || item.region_id === regionId;
+      const matchesDistrict = !districtId || item.district_id === districtId;
+      const matchesSubCounty = !subCountyId || item.sub_county_id === subCountyId;
+
+      return matchesWeek && matchesRegion && matchesDistrict && matchesSubCounty;
+    });
+  }, [weeklyStatusesDetailed, selectedWeekId, regionId, districtId, subCountyId]);
+
   const filteredFacilityMetrics = useMemo(() => {
     return facilityMetrics.filter((item) => {
       const matchesRegion =
         !regionId || ("region_id" in item && String(item.region_id ?? "") === regionId);
 
       const matchesDistrict =
-        !districtId ||
-        ("district_id" in item && String(item.district_id ?? "") === districtId) ||
-        normalize(item.district_name) === normalize(districtId);
+        !districtId || ("district_id" in item && String(item.district_id ?? "") === districtId);
 
       const matchesSubCounty =
         !subCountyId ||
-        ("sub_county_id" in item && String(item.sub_county_id ?? "") === subCountyId) ||
-        normalize(item.subcounty_name) === normalize(subCountyId);
+        ("sub_county_id" in item && String(item.sub_county_id ?? "") === subCountyId);
 
       return matchesRegion && matchesDistrict && matchesSubCounty;
     });
@@ -195,10 +202,7 @@ export default function SurveillancePanels({
     return alerts.filter((item) => {
       const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
 
-      const matchesDistrict =
-        !districtId ||
-        String(item.district_id ?? "") === districtId ||
-        normalize(item.district_name) === normalize(districtId);
+      const matchesDistrict = !districtId || String(item.district_id ?? "") === districtId;
 
       return matchesWeek && matchesDistrict;
     });
@@ -234,6 +238,28 @@ export default function SurveillancePanels({
       .slice(0, 10);
   }, [filteredAlerts]);
 
+  // commented out for keeps here
+
+  // const affectedAreas = useMemo<SurveillanceRankItem[]>(() => {
+  //   const grouped = new Map<string, number>();
+
+  //   for (const item of filteredWeeklyStatusesDetailed) {
+  //     const label =
+  //       item.sub_county_name?.trim() ||
+  //       item.district_name?.trim() ||
+  //       item.region_name?.trim() ||
+  //       "Unknown area";
+
+  //     const current = grouped.get(label) ?? 0;
+  //     grouped.set(label, current + 1);
+  //   }
+
+  //   return Array.from(grouped.entries())
+  //     .map(([label, value]) => ({ label, value }))
+  //     .sort((a, b) => Number(b.value) - Number(a.value))
+  //     .slice(0, 10);
+  // }, [filteredWeeklyStatusesDetailed]);
+
   return (
     <div className="surveillance-panels">
       <div className="surveillance-panels__grid">
@@ -252,6 +278,10 @@ export default function SurveillancePanels({
 
         <RankingPanel title="EIDSR Alerts" items={eidsrAlerts} loading={loading} />
       </div>
+
+      {/* <div className="surveillance-panels__grid">
+        <RankingPanel title="Affected Areas" items={affectedAreas} loading={loading} />
+      </div> */}
     </div>
   );
 }

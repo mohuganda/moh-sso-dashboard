@@ -15,13 +15,14 @@ import "./surveillance.css";
 
 import {
   useListAlertsQuery,
-  useListEpiWeeksQuery,
   useListDiseasesQuery,
+  useListDistrictsByRegionQuery,
+  useListEpiWeeksQuery,
   useListFacilityWeeklyMetricsByWeekQuery,
   useListRegionsQuery,
-  useListDistrictsByRegionQuery,
   useListSubcountiesByDistrictQuery,
-  useListDistrictWeeklyStatusesQuery,
+  useListWeeklyStatusesDetailedQuery,
+  useListWeeklyStatusesQuery,
 } from "../../../store/api/surveillance.api";
 import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
 import { UploadCSVModal } from "./surveillance-csv-upload.component";
@@ -70,16 +71,24 @@ export default function SurveillanceDashboardPage() {
   const districts = Array.isArray(districtsResponse) ? districtsResponse : [];
   const subcounties = Array.isArray(subcountiesResponse) ? subcountiesResponse : [];
 
-  const districtStatusParams = useMemo(() => {
+  const weeklyStatusParams = useMemo(() => {
     if (!selectedWeekId) return undefined;
 
     return {
       epiWeekID: selectedWeekId,
+      regionID: selectedRegionId || undefined,
+      districtID: selectedDistrictId || undefined,
+      subCountyID: selectedSubCountyId || undefined,
     };
-  }, [selectedWeekId]);
+  }, [selectedWeekId, selectedRegionId, selectedDistrictId, selectedSubCountyId]);
 
-  const { data: weeklyStatusesResponse, isFetching: districtsLoading } =
-    useListDistrictWeeklyStatusesQuery(districtStatusParams, {
+  const { data: weeklyStatusesResponse, isFetching: weeklyStatusesLoading } =
+    useListWeeklyStatusesQuery(weeklyStatusParams, {
+      skip: !selectedWeekId,
+    });
+
+  const { data: weeklyStatusesDetailedResponse, isFetching: weeklyStatusesDetailedLoading } =
+    useListWeeklyStatusesDetailedQuery(weeklyStatusParams, {
       skip: !selectedWeekId,
     });
 
@@ -91,6 +100,9 @@ export default function SurveillanceDashboardPage() {
   const { data: alertsResponse, isFetching: alertsLoading } = useListAlertsQuery();
 
   const weeklyStatuses = Array.isArray(weeklyStatusesResponse) ? weeklyStatusesResponse : [];
+  const weeklyStatusesDetailed = Array.isArray(weeklyStatusesDetailedResponse)
+    ? weeklyStatusesDetailedResponse
+    : [];
   const facilityMetrics = Array.isArray(facilityMetricsResponse) ? facilityMetricsResponse : [];
   const alerts = Array.isArray(alertsResponse) ? alertsResponse : [];
 
@@ -115,7 +127,8 @@ export default function SurveillanceDashboardPage() {
     regionsReferenceLoading ||
     districtsReferenceLoading ||
     subcountiesReferenceLoading ||
-    districtsLoading ||
+    weeklyStatusesLoading ||
+    weeklyStatusesDetailedLoading ||
     facilitiesLoading ||
     alertsLoading;
 
@@ -190,6 +203,23 @@ export default function SurveillanceDashboardPage() {
     });
   }, [weeklyStatuses, selectedWeekId, selectedRegionId, selectedDistrictId, selectedSubCountyId]);
 
+  const filteredWeeklyStatusesDetailed = useMemo(() => {
+    return weeklyStatusesDetailed.filter((item) => {
+      const matchesWeek = !selectedWeekId || item.epi_week_id === selectedWeekId;
+      const matchesRegion = !selectedRegionId || item.region_id === selectedRegionId;
+      const matchesDistrict = !selectedDistrictId || item.district_id === selectedDistrictId;
+      const matchesSubCounty = !selectedSubCountyId || item.sub_county_id === selectedSubCountyId;
+
+      return matchesWeek && matchesRegion && matchesDistrict && matchesSubCounty;
+    });
+  }, [
+    weeklyStatusesDetailed,
+    selectedWeekId,
+    selectedRegionId,
+    selectedDistrictId,
+    selectedSubCountyId,
+  ]);
+
   const filteredFacilityMetrics = useMemo(() => {
     return facilityMetrics.filter((item) => {
       const matchesRegion =
@@ -230,7 +260,10 @@ export default function SurveillanceDashboardPage() {
   }, [diseases]);
 
   const handleOpenDisease = (diseaseSlug: string) => {
-    navigate(`/apps/dwh/surveillance/${encodeURIComponent(diseaseSlug)}`);
+    navigate({
+      pathname: `/apps/dwh/surveillance/${encodeURIComponent(diseaseSlug)}`,
+      search: selectedWeekId ? `?weekId=${encodeURIComponent(selectedWeekId)}` : "",
+    });
   };
 
   const createStatusItems = (status: "MAROON" | "RED" | "YELLOW" | "GREEN") => {
@@ -372,6 +405,7 @@ export default function SurveillanceDashboardPage() {
           districtId={selectedDistrictId}
           subCountyId={selectedSubCountyId}
           weeklyStatuses={filteredWeeklyStatuses}
+          weeklyStatusesDetailed={filteredWeeklyStatusesDetailed}
           facilityMetrics={filteredFacilityMetrics}
           alerts={filteredAlerts}
           loading={loading}
