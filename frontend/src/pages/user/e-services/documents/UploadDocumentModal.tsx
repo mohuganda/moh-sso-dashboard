@@ -23,6 +23,8 @@ import {
   formatFileSize,
   getSuggestedProcessType,
   isAcceptedFile,
+  isPdfFile,
+  requiresProcessing,
   validateProcessTypeAgainstFile,
 } from "../../../../utils/utils";
 
@@ -50,6 +52,8 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
   );
 
   const hasStorageLocations = activeLocations.length > 0;
+  const fileNeedsProcessing = file ? requiresProcessing(file) : false;
+  const isPdf = file ? isPdfFile(file) : false;
 
   const processSelectedFiles = async (addedFiles: File[]) => {
     const selectedFile = addedFiles[0];
@@ -58,13 +62,18 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
     if (!isAcceptedFile(selectedFile)) {
       setFile(null);
       setProcessType("");
-      setError("Only CSV or Excel (.csv, .xlsx, .xls) files are allowed.");
+      setError("Only PDF, CSV, or Excel (.pdf, .csv, .xlsx, .xls) files are allowed.");
       return;
     }
 
     setError(null);
     setFile(selectedFile);
-    setProcessType((current) => current || getSuggestedProcessType(selectedFile));
+
+    if (requiresProcessing(selectedFile)) {
+      setProcessType((current) => current || getSuggestedProcessType(selectedFile));
+    } else {
+      setProcessType("");
+    }
   };
 
   const handleFileChange = (
@@ -89,15 +98,17 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       return;
     }
 
-    if (!processType) {
+    if (requiresProcessing(file) && !processType) {
       setError("Please select a process type.");
       return;
     }
 
-    const validationError = validateProcessTypeAgainstFile(file, processType);
-    if (validationError) {
-      setError(validationError);
-      return;
+    if (requiresProcessing(file) && processType) {
+      const validationError = validateProcessTypeAgainstFile(file, processType);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
     }
 
     try {
@@ -106,7 +117,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       await createDocument({
         file,
         storageLocation,
-        processType,
+        ...(requiresProcessing(file) && processType ? { processType } : {}),
       }).unwrap();
 
       onClose();
@@ -128,7 +139,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
     isLocationsLoading ||
     !file ||
     !storageLocation ||
-    !processType ||
+    (fileNeedsProcessing && !processType) ||
     !hasStorageLocations;
 
   return (
@@ -136,7 +147,8 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       <div style={{ marginBottom: "1.5rem" }}>
         <h2 style={{ margin: 0, marginBottom: "0.5rem" }}>Upload Document</h2>
         <p style={{ margin: 0, color: "#6f6f6f" }}>
-          Upload a CSV or Excel file, choose a process type, and select where it should be stored.
+          Upload a PDF, CSV, or Excel file, select where it should be stored, and choose a process
+          type only when the file requires processing.
         </p>
       </div>
 
@@ -173,7 +185,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
           <FormGroup legendText="Document file">
             <FileUploaderDropContainer
               labelText="Drag and drop a file here or click to browse"
-              accept={[".csv", ".xlsx", ".xls"]}
+              accept={[".pdf", ".csv", ".xlsx", ".xls"]}
               multiple={false}
               onAddFiles={handleFileChange}
               disabled={isUploading}
@@ -192,21 +204,37 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
               <Tag type="blue">Selected file</Tag>
               <span>{file.name}</span>
               <span style={{ color: "#6f6f6f" }}>{formatFileSize(file.size)}</span>
+              {isPdf ? (
+                <Tag type="cool-gray">No processing required</Tag>
+              ) : (
+                <Tag type="purple">Processing required</Tag>
+              )}
             </div>
           )}
 
-          <Select
-            id="process-type"
-            labelText="Process type"
-            value={processType}
-            onChange={(e) => handleProcessTypeChange(e.target.value)}
-            disabled={isUploading}
-          >
-            <SelectItem value="" text="Select process type" />
-            {DOCUMENT_PROCESS_TYPE_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value} text={option.label} />
-            ))}
-          </Select>
+          {fileNeedsProcessing ? (
+            <Select
+              id="process-type"
+              labelText="Process type"
+              value={processType}
+              onChange={(e) => handleProcessTypeChange(e.target.value)}
+              disabled={isUploading}
+            >
+              <SelectItem value="" text="Select process type" />
+              {DOCUMENT_PROCESS_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value} text={option.label} />
+              ))}
+            </Select>
+          ) : (
+            file && (
+              <InlineNotification
+                kind="info"
+                title="PDF upload"
+                subtitle="This file will be uploaded and stored without any processing job."
+                lowContrast
+              />
+            )
+          )}
 
           <Select
             id="storage-location"

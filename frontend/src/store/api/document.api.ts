@@ -63,14 +63,16 @@ export const documentsApi = baseApi.injectEndpoints({
     // -----------------------------
     createDocument: builder.mutation<
       DocumentResponse,
-      { file: File; storageLocation: string; processType: DocumentProcessType }
+      { file: File; storageLocation: string; processType?: DocumentProcessType }
     >({
       query: ({ file, storageLocation, processType }) => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("storage_location", storageLocation);
-        formData.append("process_type", processType);
 
+        if (processType) {
+          formData.append("process_type", processType);
+        }
         return {
           url: `/documents`,
           method: "POST",

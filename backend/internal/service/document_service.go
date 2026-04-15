@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
@@ -57,21 +59,16 @@ func (s *DocumentService) CreateDocument(
 	input CreateDocumentInput,
 ) (db.Document, error) {
 	docID := uuid.New()
-	processID := uuid.New()
-
-	if !input.ProcessType.IsValid() {
-		return db.Document{}, errors.New("invalid process type")
-	}
 
 	var checksum sql.NullString
-	if input.ChecksumSHA256 != nil {
+	if input.ChecksumSHA256 != nil && strings.TrimSpace(*input.ChecksumSHA256) != "" {
 		checksum = sql.NullString{
-			String: *input.ChecksumSHA256,
+			String: strings.TrimSpace(*input.ChecksumSHA256),
 			Valid:  true,
 		}
 	}
 
-	doc, err := s.repo.CreateDocumentWithProcess(
+	doc, err := s.repo.CreateDocument(
 		ctx,
 		db.CreateDocumentParams{
 			ID:               docID,
@@ -86,15 +83,25 @@ func (s *DocumentService) CreateDocument(
 			ObjectKey:         input.ObjectKey,
 			UploadedBy:        input.UploadedBy,
 		},
-		db.CreateProcessParams{
-			ID:          processID,
-			DocumentID:  docID,
-			ProcessType: string(input.ProcessType),
-			CreatedBy:   input.UploadedBy,
-		},
 	)
 	if err != nil {
 		return db.Document{}, err
+	}
+
+	if requiresProcessing(input.ContentType, input.OriginalFilename) {
+		if !input.ProcessType.IsValid() {
+			return db.Document{}, errors.New("invalid process type for processable document")
+		}
+
+		_, err = s.processRepo.CreateProcess(ctx, db.CreateProcessParams{
+			ID:          uuid.New(),
+			DocumentID:  doc.ID,
+			ProcessType: string(input.ProcessType),
+			CreatedBy:   input.UploadedBy,
+		})
+		if err != nil {
+			return db.Document{}, err
+		}
 	}
 
 	if s.notifications != nil {
@@ -114,7 +121,6 @@ func (s *DocumentService) GetDocument(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.Document, error) {
-
 	doc, err := s.repo.GetDocument(ctx, id)
 	if err != nil {
 		return db.Document{}, err
@@ -127,12 +133,12 @@ func (s *DocumentService) EditDocument(
 	ctx context.Context,
 	input EditDocumentInput,
 ) (db.Document, error) {
-
 	doc, err := s.repo.EditDocument(ctx, db.UpdateDocumentParams{
 		ID:               input.ID,
 		OriginalFilename: input.OriginalFilename,
 		ContentType: sql.NullString{
 			String: input.ContentType,
+			Valid:  input.ContentType != "",
 		},
 	})
 	if err != nil {
@@ -156,7 +162,6 @@ func (s *DocumentService) DeleteDocument(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-
 	err := s.repo.DeleteDocument(ctx, id)
 	if err != nil {
 		return err
@@ -168,7 +173,7 @@ func (s *DocumentService) DeleteDocument(
 			Type:       string(nt),
 			Title:      nt.Title(),
 			Severity:   nt.Severity(),
-			Message:    "Document  deleted",
+			Message:    "Document deleted",
 			TargetRole: "admin",
 		})
 	}
@@ -180,7 +185,6 @@ func (s *DocumentService) ListDocuments(
 	ctx context.Context,
 	page models.Pagination,
 ) ([]db.Document, error) {
-
 	docs, err := s.repo.ListDocuments(ctx, page)
 	if err != nil {
 		return nil, err
@@ -193,20 +197,16 @@ func (s *DocumentService) ListProcessesByDocument(
 	ctx context.Context,
 	documentID string,
 ) ([]db.Process, error) {
-
-	// 1️⃣ Validate UUID
 	docUUID, err := uuid.Parse(documentID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2️⃣ (Optional but recommended) Ensure document exists
 	_, err = s.repo.GetDocument(ctx, docUUID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3️⃣ Fetch processes
 	processes, err := s.repo.ListProcessesByDocument(ctx, docUUID)
 	if err != nil {
 		return nil, err
@@ -219,25 +219,27 @@ func (s *DocumentService) Reprocess(
 	ctx context.Context,
 	documentID uuid.UUID,
 ) error {
-
-	// 1️⃣ Ensure document exists
-	_, err := s.repo.GetDocument(ctx, documentID)
+	doc, err := s.repo.GetDocument(ctx, documentID)
 	if err != nil {
 		return err
 	}
 
-	// 2️⃣ Get latest process
+	if !requiresProcessing(
+		nullStringValue(doc.ContentType),
+		doc.OriginalFilename,
+	) {
+		return fmt.Errorf("document type does not support processing")
+	}
+
 	proc, err := s.repo.GetLatestByDocumentID(ctx, documentID)
 	if err != nil {
 		return err
 	}
 
-	// 3️⃣ Prevent duplicate processing
 	if proc.Status == models.ProcessStatusPROCESSING {
 		return fmt.Errorf("document already processing")
 	}
 
-	// 4️⃣ Create new process attempt (PENDING)
 	_, err = s.processRepo.CreateProcess(ctx, db.CreateProcessParams{
 		ID:          uuid.New(),
 		DocumentID:  documentID,
@@ -246,4 +248,32 @@ func (s *DocumentService) Reprocess(
 	})
 
 	return err
+}
+
+func requiresProcessing(mimeType, fileName string) bool {
+	switch strings.ToLower(strings.TrimSpace(mimeType)) {
+	case "text/csv",
+		"application/vnd.ms-excel",
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return true
+	case "application/pdf":
+		return false
+	}
+
+	ext := strings.ToLower(filepath.Ext(fileName))
+	switch ext {
+	case ".csv", ".xls", ".xlsx":
+		return true
+	case ".pdf":
+		return false
+	default:
+		return false
+	}
+}
+
+func nullStringValue(v sql.NullString) string {
+	if !v.Valid {
+		return ""
+	}
+	return v.String
 }

@@ -85,9 +85,9 @@ export default function SurveillanceDashboardPage() {
   const [selectedRegionId, setSelectedRegionId] = useState("");
   const [selectedDistrictId, setSelectedDistrictId] = useState("");
   const [selectedSubCountyId, setSelectedSubCountyId] = useState("");
-  const [selectedYear] = useState(2025);
+  const currentYear = new Date().getFullYear();
 
-  const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(selectedYear);
+  const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(currentYear);
   const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
   const { data: regionsResponse, isLoading: regionsReferenceLoading } = useListRegionsQuery();
 

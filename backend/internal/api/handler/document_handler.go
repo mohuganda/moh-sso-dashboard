@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -118,22 +120,15 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		return
 	}
 
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_MULTIPART", "invalid multipart form")
+		return
+	}
+
 	storageLocationStr := c.PostForm("storage_location")
 	storageLocationID, err := uuid.Parse(storageLocationStr)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_STORAGE_LOCATION", "invalid storage location")
-		return
-	}
-
-	processTypeValue := c.PostForm("process_type")
-	processType, ok := model.ParseProcessType(processTypeValue)
-	if !ok {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PROCESS_TYPE", "invalid process type")
-		return
-	}
-
-	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_MULTIPART", "invalid multipart form")
 		return
 	}
 
@@ -147,6 +142,30 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	if header.Size == 0 {
 		response.Fail(c, http.StatusBadRequest, "EMPTY_FILE", "file is empty")
 		return
+	}
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	fileNeedsProcessing := requiresProcessing(contentType, header.Filename)
+
+	var processType model.ProcessType
+	if fileNeedsProcessing {
+		processTypeValue := strings.TrimSpace(c.PostForm("process_type"))
+		if processTypeValue == "" {
+			response.Fail(c, http.StatusBadRequest, "PROCESS_TYPE_REQUIRED", "process type is required for this file type")
+			return
+		}
+
+		parsedProcessType, ok := model.ParseProcessType(processTypeValue)
+		if !ok {
+			response.Fail(c, http.StatusBadRequest, "INVALID_PROCESS_TYPE", "invalid process type")
+			return
+		}
+
+		processType = parsedProcessType
 	}
 
 	loc, err := h.storageLocationService.GetByID(ctx, storageLocationStr)
@@ -165,11 +184,6 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 
 	hasher := sha256.New()
 	teeReader := io.TeeReader(file, hasher)
-
-	contentType := header.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
 
 	if err := storageProvider.Upload(
 		ctx,
@@ -414,4 +428,25 @@ func nullTimeRFC3339(nt sql.NullTime) string {
 		return ""
 	}
 	return nt.Time.UTC().Format(time.RFC3339)
+}
+
+func requiresProcessing(mimeType, fileName string) bool {
+	switch strings.ToLower(strings.TrimSpace(mimeType)) {
+	case "text/csv",
+		"application/vnd.ms-excel",
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return true
+	case "application/pdf":
+		return false
+	}
+
+	ext := strings.ToLower(filepath.Ext(fileName))
+	switch ext {
+	case ".csv", ".xls", ".xlsx":
+		return true
+	case ".pdf":
+		return false
+	default:
+		return false
+	}
 }

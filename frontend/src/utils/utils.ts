@@ -84,22 +84,47 @@ export function isAnnouncementActive(item: Announcement) {
   return true;
 }
 
+export function isPdfFile(file: File): boolean {
+  const fileName = file.name.toLowerCase();
+  const mimeType = file.type?.toLowerCase().trim();
+
+  return fileName.endsWith(".pdf") || mimeType === "application/pdf";
+}
+
+export function requiresProcessing(file: File): boolean {
+  return !isPdfFile(file);
+}
+
 export function validateProcessTypeAgainstFile(
   file: File,
   processType: DocumentProcessType,
 ): string | null {
+  if (!requiresProcessing(file)) {
+    return null;
+  }
+
   const fileName = file.name.toLowerCase();
 
   if (processType === "SURVEILLANCE_CSV_IMPORT" && !fileName.endsWith(".csv")) {
     return "Surveillance CSV import requires a .csv file.";
   }
 
-  if (processType === "SURVEILLANCE_EXCEL_IMPORT" && !fileName.endsWith(".xlsx")) {
-    return "Surveillance Excel import requires an .xlsx file.";
+  if (
+    processType === "SURVEILLANCE_EXCEL_IMPORT" &&
+    !(fileName.endsWith(".xlsx") || fileName.endsWith(".xls"))
+  ) {
+    return "Surveillance Excel import requires an .xlsx or .xls file.";
   }
 
-  if (processType === "EXCEL_IMPORT" && !fileName.endsWith(".xlsx")) {
-    return "Excel import requires an .xlsx file.";
+  if (
+    processType === "EXCEL_IMPORT" &&
+    !(fileName.endsWith(".xlsx") || fileName.endsWith(".xls"))
+  ) {
+    return "Excel import requires an .xlsx or .xls file.";
+  }
+
+  if (processType === "CSV_IMPORT" && !fileName.endsWith(".csv")) {
+    return "CSV import requires a .csv file.";
   }
 
   return null;
@@ -108,7 +133,7 @@ export function validateProcessTypeAgainstFile(
 export function getSuggestedProcessType(file: File): DocumentProcessType | "" {
   const fileName = file.name.toLowerCase();
 
-  if (fileName.endsWith(".xlsx")) {
+  if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
     return "EXCEL_IMPORT";
   }
 
@@ -125,8 +150,10 @@ export function formatFileSize(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export const ACCEPTED_EXTENSIONS = [".csv", ".xlsx", ".xls"] as const;
+export const ACCEPTED_EXTENSIONS = [".pdf", ".csv", ".xlsx", ".xls"] as const;
+
 export const ACCEPTED_MIME_TYPES = [
+  "application/pdf",
   "text/csv",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -139,15 +166,15 @@ export function getExtension(name: string): string {
 
 export function isAcceptedFile(file: File): boolean {
   const extension = getExtension(file.name);
+  const normalizedMimeType = file.type?.toLowerCase().trim();
+
   const hasValidExtension = ACCEPTED_EXTENSIONS.includes(
     extension as (typeof ACCEPTED_EXTENSIONS)[number],
   );
+
   const hasValidMimeType = ACCEPTED_MIME_TYPES.includes(
-    file.type as (typeof ACCEPTED_MIME_TYPES)[number],
+    normalizedMimeType as (typeof ACCEPTED_MIME_TYPES)[number],
   );
 
   return hasValidExtension || hasValidMimeType;
 }
-
-
-
