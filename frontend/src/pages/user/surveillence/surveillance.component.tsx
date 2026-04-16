@@ -478,7 +478,7 @@ export default function SurveillanceDashboardPage() {
             <SurveillanceUgandaMap
               geoJson={activeMapGeoJson}
               mapLevel={activeMapLevel}
-              weeklyStatuses={filteredWeeklyStatuses}
+              weeklyStatuses={filteredWeeklyStatusesDetailed}
               selectedWeek={{
                 year: selectedWeek?.epi_year,
                 week: selectedWeek?.epi_week,

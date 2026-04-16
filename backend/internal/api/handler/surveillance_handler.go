@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -108,6 +109,83 @@ func toAlertResponses(items []db.Alert) []AlertResponse {
 		out = append(out, toAlertResponse(item))
 	}
 	return out
+}
+
+type WeeklyStatusDetailedResponse struct {
+	ID            uuid.UUID  `json:"id"`
+	RegionID      *uuid.UUID `json:"region_id,omitempty"`
+	DistrictID    *uuid.UUID `json:"district_id,omitempty"`
+	SubCountyID   *uuid.UUID `json:"sub_county_id,omitempty"`
+	DiseaseID     *uuid.UUID `json:"disease_id,omitempty"`
+	IndicatorID   *uuid.UUID `json:"indicator_id,omitempty"`
+	EpiWeekID     uuid.UUID  `json:"epi_week_id"`
+	Status        string     `json:"status"`
+	SourceName    string     `json:"source_name"`
+	ImportedAt    time.Time  `json:"imported_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	RegionName    string     `json:"region_name"`
+	DistrictName  string     `json:"district_name"`
+	SubCountyName string     `json:"sub_county_name"`
+	DiseaseName   string     `json:"disease_name"`
+	IndicatorName string     `json:"indicator_name"`
+}
+
+func uuidPtr(v uuid.UUID) *uuid.UUID {
+	id := v
+	return &id
+}
+
+func sqlNullStringValue(ns sql.NullString) string {
+	if !ns.Valid {
+		return ""
+	}
+	return strings.TrimSpace(ns.String)
+}
+
+func toWeeklyStatusDetailedResponse(row db.ListWeeklyStatusesDetailedRow) WeeklyStatusDetailedResponse {
+	var regionID *uuid.UUID
+	if row.RegionID.Valid {
+		regionID = uuidPtr(row.RegionID.UUID)
+	}
+
+	var districtID *uuid.UUID
+	if row.DistrictID.Valid {
+		districtID = uuidPtr(row.DistrictID.UUID)
+	}
+
+	var subCountyID *uuid.UUID
+	if row.SubCountyID.Valid {
+		subCountyID = uuidPtr(row.SubCountyID.UUID)
+	}
+
+	var diseaseID *uuid.UUID
+	if row.DiseaseID.Valid {
+		diseaseID = uuidPtr(row.DiseaseID.UUID)
+	}
+
+	var indicatorID *uuid.UUID
+	if row.IndicatorID.Valid {
+		indicatorID = uuidPtr(row.IndicatorID.UUID)
+	}
+
+	return WeeklyStatusDetailedResponse{
+		ID:            row.ID,
+		RegionID:      regionID,
+		DistrictID:    districtID,
+		SubCountyID:   subCountyID,
+		DiseaseID:     diseaseID,
+		IndicatorID:   indicatorID,
+		EpiWeekID:     row.EpiWeekID,
+		Status:        string(row.Status),
+		SourceName:    sqlNullStringValue(row.SourceName),
+		ImportedAt:    row.ImportedAt,
+		CreatedAt:     row.CreatedAt,
+		RegionName:    sqlNullStringValue(row.RegionName),
+		DistrictName:  sqlNullStringValue(row.DistrictName),
+		SubCountyName: sqlNullStringValue(row.SubCountyName),
+		DiseaseName:   sqlNullStringValue(row.DiseaseName),
+		IndicatorName: sqlNullStringValue(row.IndicatorName),
+	}
 }
 func NewSurveillanceHandler(
 	epiWeekService *service.SurveillanceEpiWeekService,
@@ -588,10 +666,15 @@ func (h *SurveillanceHandler) ListWeeklyStatusesDetailed(c *gin.Context) {
 		}
 	}
 
-	data, err := h.weeklyStatusService.ListDetailed(ctx, params)
+	rows, err := h.weeklyStatusService.ListDetailed(ctx, params)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses detailed", err.Error())
 		return
+	}
+
+	data := make([]WeeklyStatusDetailedResponse, 0, len(rows))
+	for _, row := range rows {
+		data = append(data, toWeeklyStatusDetailedResponse(row))
 	}
 
 	response.OK(c, http.StatusOK, data)
