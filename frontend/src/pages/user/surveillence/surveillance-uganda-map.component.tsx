@@ -69,21 +69,6 @@ function mapRiskLevelToStatusKey(status?: WeeklyStatus["status"]): StatusKey {
   }
 }
 
-function getStatusPriority(status: StatusKey): number {
-  switch (status) {
-    case "maroon":
-      return 4;
-    case "red":
-      return 3;
-    case "yellow":
-      return 2;
-    case "green":
-      return 1;
-    default:
-      return 0;
-  }
-}
-
 function getFeatureDistrictName(properties?: UgandaMapFeatureProperties) {
   return (
     properties?.District ||
@@ -163,12 +148,7 @@ export default function SurveillanceUgandaMap({
       const districtName = normalize(item.district_name);
       if (!districtName) continue;
 
-      const nextStatus = mapRiskLevelToStatusKey(item.status);
-      const currentStatus = map.get(districtName) ?? "default";
-
-      if (getStatusPriority(nextStatus) > getStatusPriority(currentStatus)) {
-        map.set(districtName, nextStatus);
-      }
+      map.set(districtName, mapRiskLevelToStatusKey(item.status));
     }
 
     return map;
@@ -181,12 +161,7 @@ export default function SurveillanceUgandaMap({
       const subCountyName = normalize(item.sub_county_name);
       if (!subCountyName) continue;
 
-      const nextStatus = mapRiskLevelToStatusKey(item.status);
-      const currentStatus = map.get(subCountyName) ?? "default";
-
-      if (getStatusPriority(nextStatus) > getStatusPriority(currentStatus)) {
-        map.set(subCountyName, nextStatus);
-      }
+      map.set(subCountyName, mapRiskLevelToStatusKey(item.status));
     }
 
     return map;
@@ -199,12 +174,7 @@ export default function SurveillanceUgandaMap({
       const regionName = normalize(item.region_name);
       if (!regionName) continue;
 
-      const nextStatus = mapRiskLevelToStatusKey(item.status);
-      const currentStatus = map.get(regionName) ?? "default";
-
-      if (getStatusPriority(nextStatus) > getStatusPriority(currentStatus)) {
-        map.set(regionName, nextStatus);
-      }
+      map.set(regionName, mapRiskLevelToStatusKey(item.status));
     }
 
     return map;
