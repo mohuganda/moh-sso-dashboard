@@ -137,7 +137,7 @@ func (s *SurveillanceAlertService) ListAlertsByWeek(
 func (s *SurveillanceAlertService) ListAlerts(
 	ctx context.Context,
 	params db.ListAlertsParams,
-) ([]db.Alert, error) {
+) ([]db.ListAlertsRow, error) {
 	s.log.Debug(ctx, "listing alerts")
 
 	items, err := s.alertRepo.ListAlerts(ctx, params)

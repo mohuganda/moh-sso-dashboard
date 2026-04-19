@@ -45,7 +45,7 @@ func (r *AlertRepository) GetByID(ctx context.Context, id uuid.UUID) (db.Alert, 
 	return alert, nil
 }
 
-func (r *AlertRepository) ListAlerts(ctx context.Context, arg db.ListAlertsParams) ([]db.Alert, error) {
+func (r *AlertRepository) ListAlerts(ctx context.Context, arg db.ListAlertsParams) ([]db.ListAlertsRow, error) {
 	return r.db.ListAlerts(ctx, arg)
 }
 

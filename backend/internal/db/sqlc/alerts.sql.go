@@ -111,7 +111,10 @@ SELECT
   a.id,
   a.external_id,
   a.disease_id,
+  ds.name AS disease_name,
   a.district_id,
+  d.name AS district_name,
+  d.region_id,
   a.epi_week_id,
   a.occurred_on,
   a.created_on,
@@ -123,6 +126,7 @@ SELECT
   a.created_at,
   a.updated_at
 FROM alerts a
+LEFT JOIN diseases ds ON ds.id = a.disease_id
 LEFT JOIN districts d ON d.id = a.district_id
 WHERE
   ($1::uuid IS NULL OR a.epi_week_id = $1::uuid)
@@ -139,7 +143,27 @@ type ListAlertsParams struct {
 	RegionID   uuid.NullUUID `json:"region_id"`
 }
 
-func (q *Queries) ListAlerts(ctx context.Context, arg ListAlertsParams) ([]Alert, error) {
+type ListAlertsRow struct {
+	ID           uuid.UUID      `json:"id"`
+	ExternalID   sql.NullString `json:"external_id"`
+	DiseaseID    uuid.UUID      `json:"disease_id"`
+	DiseaseName  sql.NullString `json:"disease_name"`
+	DistrictID   uuid.NullUUID  `json:"district_id"`
+	DistrictName sql.NullString `json:"district_name"`
+	RegionID     uuid.NullUUID  `json:"region_id"`
+	EpiWeekID    uuid.NullUUID  `json:"epi_week_id"`
+	OccurredOn   sql.NullTime   `json:"occurred_on"`
+	CreatedOn    sql.NullTime   `json:"created_on"`
+	Narrative    string         `json:"narrative"`
+	SubmittedBy  sql.NullString `json:"submitted_by"`
+	Status       AlertStatus    `json:"status"`
+	SourceName   sql.NullString `json:"source_name"`
+	ImportedAt   time.Time      `json:"imported_at"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) ListAlerts(ctx context.Context, arg ListAlertsParams) ([]ListAlertsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listAlerts,
 		arg.EpiWeekID,
 		arg.DiseaseID,
@@ -150,14 +174,17 @@ func (q *Queries) ListAlerts(ctx context.Context, arg ListAlertsParams) ([]Alert
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Alert{}
+	items := []ListAlertsRow{}
 	for rows.Next() {
-		var i Alert
+		var i ListAlertsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExternalID,
 			&i.DiseaseID,
+			&i.DiseaseName,
 			&i.DistrictID,
+			&i.DistrictName,
+			&i.RegionID,
 			&i.EpiWeekID,
 			&i.OccurredOn,
 			&i.CreatedOn,

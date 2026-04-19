@@ -33,77 +33,100 @@ type AlertListParams struct {
 }
 
 type AlertResponse struct {
-	ID          uuid.UUID  `json:"id"`
-	ExternalID  *string    `json:"external_id,omitempty"`
-	DiseaseID   uuid.UUID  `json:"disease_id"`
-	DistrictID  *uuid.UUID `json:"district_id,omitempty"`
-	EpiWeekID   *uuid.UUID `json:"epi_week_id,omitempty"`
-	OccurredOn  *time.Time `json:"occurred_on,omitempty"`
-	CreatedOn   *time.Time `json:"created_on,omitempty"`
-	Narrative   string     `json:"narrative"`
-	SubmittedBy *string    `json:"submitted_by,omitempty"`
-	Status      string     `json:"status"`
-	SourceName  *string    `json:"source_name,omitempty"`
-	ImportedAt  time.Time  `json:"imported_at"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID           uuid.UUID  `json:"id"`
+	ExternalID   *string    `json:"external_id,omitempty"`
+	DiseaseID    uuid.UUID  `json:"disease_id"`
+	DiseaseName  *string    `json:"disease_name,omitempty"`
+	DistrictID   *uuid.UUID `json:"district_id,omitempty"`
+	DistrictName *string    `json:"district_name,omitempty"`
+	RegionID     *uuid.UUID `json:"region_id,omitempty"`
+	EpiWeekID    *uuid.UUID `json:"epi_week_id,omitempty"`
+	EpiYear      *int32     `json:"epi_year,omitempty"`
+	EpiWeek      *int32     `json:"epi_week,omitempty"`
+	OccurredOn   *time.Time `json:"occurred_on,omitempty"`
+	CreatedOn    *time.Time `json:"created_on,omitempty"`
+	Narrative    string     `json:"narrative"`
+	SubmittedBy  *string    `json:"submitted_by,omitempty"`
+	Status       string     `json:"status"`
+	SourceName   *string    `json:"source_name,omitempty"`
+	ImportedAt   time.Time  `json:"imported_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
-func toAlertResponse(doc db.Alert) AlertResponse {
+func toAlertResponse(row db.ListAlertsRow) AlertResponse {
 	var externalID *string
-	if doc.ExternalID.Valid {
-		externalID = &doc.ExternalID.String
+	if row.ExternalID.Valid {
+		externalID = &row.ExternalID.String
+	}
+
+	var diseaseName *string
+	if row.DiseaseName.Valid {
+		diseaseName = &row.DiseaseName.String
 	}
 
 	var districtID *uuid.UUID
-	if doc.DistrictID.Valid {
-		districtID = &doc.DistrictID.UUID
+	if row.DistrictID.Valid {
+		districtID = &row.DistrictID.UUID
+	}
+
+	var districtName *string
+	if row.DistrictName.Valid {
+		districtName = &row.DistrictName.String
+	}
+
+	var regionID *uuid.UUID
+	if row.RegionID.Valid {
+		regionID = &row.RegionID.UUID
 	}
 
 	var epiWeekID *uuid.UUID
-	if doc.EpiWeekID.Valid {
-		epiWeekID = &doc.EpiWeekID.UUID
+	if row.EpiWeekID.Valid {
+		epiWeekID = &row.EpiWeekID.UUID
 	}
 
 	var occurredOn *time.Time
-	if doc.OccurredOn.Valid {
-		occurredOn = &doc.OccurredOn.Time
+	if row.OccurredOn.Valid {
+		occurredOn = &row.OccurredOn.Time
 	}
 
 	var createdOn *time.Time
-	if doc.CreatedOn.Valid {
-		createdOn = &doc.CreatedOn.Time
+	if row.CreatedOn.Valid {
+		createdOn = &row.CreatedOn.Time
 	}
 
 	var submittedBy *string
-	if doc.SubmittedBy.Valid {
-		submittedBy = &doc.SubmittedBy.String
+	if row.SubmittedBy.Valid {
+		submittedBy = &row.SubmittedBy.String
 	}
 
 	var sourceName *string
-	if doc.SourceName.Valid {
-		sourceName = &doc.SourceName.String
+	if row.SourceName.Valid {
+		sourceName = &row.SourceName.String
 	}
 
 	return AlertResponse{
-		ID:          doc.ID,
-		ExternalID:  externalID,
-		DiseaseID:   doc.DiseaseID,
-		DistrictID:  districtID,
-		EpiWeekID:   epiWeekID,
-		OccurredOn:  occurredOn,
-		CreatedOn:   createdOn,
-		Narrative:   doc.Narrative,
-		SubmittedBy: submittedBy,
-		Status:      string(doc.Status),
-		SourceName:  sourceName,
-		ImportedAt:  doc.ImportedAt,
-		CreatedAt:   doc.CreatedAt,
-		UpdatedAt:   doc.UpdatedAt,
+		ID:           row.ID,
+		ExternalID:   externalID,
+		DiseaseID:    row.DiseaseID,
+		DiseaseName:  diseaseName,
+		DistrictID:   districtID,
+		DistrictName: districtName,
+		RegionID:     regionID,
+		EpiWeekID:    epiWeekID,
+		OccurredOn:   occurredOn,
+		CreatedOn:    createdOn,
+		Narrative:    row.Narrative,
+		SubmittedBy:  submittedBy,
+		Status:       string(row.Status),
+		SourceName:   sourceName,
+		ImportedAt:   row.ImportedAt,
+		CreatedAt:    row.CreatedAt,
+		UpdatedAt:    row.UpdatedAt,
 	}
 }
 
-func toAlertResponses(items []db.Alert) []AlertResponse {
+func toAlertResponses(items []db.ListAlertsRow) []AlertResponse {
 	out := make([]AlertResponse, 0, len(items))
 	for _, item := range items {
 		out = append(out, toAlertResponse(item))
@@ -774,20 +797,19 @@ func (h *SurveillanceHandler) ListAlerts(c *gin.Context) {
 	filters := db.ListAlertsParams{
 		EpiWeekID: uuid.NullUUID{
 			UUID:  params.EpiWeekID,
-			Valid: true,
+			Valid: params.EpiWeekID != uuid.Nil,
 		},
 		DiseaseID: uuid.NullUUID{
 			UUID:  params.DiseaseID,
-			Valid: true,
+			Valid: params.DiseaseID != uuid.Nil,
 		},
 		DistrictID: uuid.NullUUID{
 			UUID:  params.DistrictID,
-			Valid: true,
+			Valid: params.DistrictID != uuid.Nil,
 		},
-
 		RegionID: uuid.NullUUID{
 			UUID:  params.RegionID,
-			Valid: true,
+			Valid: params.RegionID != uuid.Nil,
 		},
 	}
 

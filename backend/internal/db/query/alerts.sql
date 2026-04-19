@@ -56,7 +56,10 @@ SELECT
   a.id,
   a.external_id,
   a.disease_id,
+  ds.name AS disease_name,
   a.district_id,
+  d.name AS district_name,
+  d.region_id,
   a.epi_week_id,
   a.occurred_on,
   a.created_on,
@@ -68,6 +71,7 @@ SELECT
   a.created_at,
   a.updated_at
 FROM alerts a
+LEFT JOIN diseases ds ON ds.id = a.disease_id
 LEFT JOIN districts d ON d.id = a.district_id
 WHERE
   (sqlc.narg(epi_week_id)::uuid IS NULL OR a.epi_week_id = sqlc.narg(epi_week_id)::uuid)
