@@ -285,6 +285,33 @@ type Document struct {
 	CreatedAt         sql.NullTime   `json:"created_at"`
 }
 
+type EmailOutbox struct {
+	ID               uuid.UUID             `json:"id"`
+	MessageID        sql.NullString        `json:"message_id"`
+	FromAddress      pqtype.NullRawMessage `json:"from_address"`
+	ToAddresses      json.RawMessage       `json:"to_addresses"`
+	CcAddresses      pqtype.NullRawMessage `json:"cc_addresses"`
+	BccAddresses     pqtype.NullRawMessage `json:"bcc_addresses"`
+	ReplyToAddresses pqtype.NullRawMessage `json:"reply_to_addresses"`
+	Subject          string                `json:"subject"`
+	TextBody         sql.NullString        `json:"text_body"`
+	HtmlBody         sql.NullString        `json:"html_body"`
+	TemplateName     sql.NullString        `json:"template_name"`
+	TemplateData     pqtype.NullRawMessage `json:"template_data"`
+	Attachments      pqtype.NullRawMessage `json:"attachments"`
+	Headers          pqtype.NullRawMessage `json:"headers"`
+	Metadata         pqtype.NullRawMessage `json:"metadata"`
+	Status           string                `json:"status"`
+	Attempts         int32                 `json:"attempts"`
+	MaxAttempts      int32                 `json:"max_attempts"`
+	LastError        sql.NullString        `json:"last_error"`
+	ScheduledAt      sql.NullTime          `json:"scheduled_at"`
+	LockedAt         sql.NullTime          `json:"locked_at"`
+	SentAt           sql.NullTime          `json:"sent_at"`
+	CreatedAt        time.Time             `json:"created_at"`
+	UpdatedAt        time.Time             `json:"updated_at"`
+}
+
 type EpiWeek struct {
 	ID            uuid.UUID    `json:"id"`
 	EpiYear       int32        `json:"epi_year"`

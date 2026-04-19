@@ -101,7 +101,9 @@ type Config struct {
 	RemoteDBPassword string `mapstructure:"REMOTE_DB_PASSWORD"`
 	RemoteDBName     string `mapstructure:"REMOTE_DB_NAME"`
 
+	// =================================================
 	// DWH
+	// =================================================
 	DwhDBHost     string `mapstructure:"DWH_HOST"`
 	DwhDBPort     string `mapstructure:"DWH_PORT"`
 	DwhDBUsername string `mapstructure:"DWH_USERNAME"`
@@ -117,26 +119,44 @@ type Config struct {
 
 	MinioEndpoint        string `mapstructure:"MINIO_ENDPOINT"`
 	MinioRegion          string `mapstructure:"MINIO_REGION"`
-	MinioBucket          string `mapstructure:"MINIO_BUCKER"`
+	MinioBucket          string `mapstructure:"MINIO_BUCKET"`
 	MinioAccessKeyID     string `mapstructure:"MINIO_ACCESS_KEY_ID"`
 	MinioSecretAccessKey string `mapstructure:"MINIO_SECRET_ACCESS_KEY"`
+
+	// =================================================
+	// SMTP / Retry
+	// =================================================
+	SMTP  SMTPConfig  `mapstructure:"SMTP"`
+	Retry RetryConfig `mapstructure:"RETRY"`
+}
+
+type SMTPConfig struct {
+	Host           string        `mapstructure:"HOST"`
+	Port           int           `mapstructure:"PORT"`
+	Username       string        `mapstructure:"USERNAME"`
+	Password       string        `mapstructure:"PASSWORD"`
+	FromEmail      string        `mapstructure:"FROM_EMAIL"`
+	FromName       string        `mapstructure:"FROM_NAME"`
+	ConnectTimeout time.Duration `mapstructure:"CONNECT_TIMEOUT"`
+	SendTimeout    time.Duration `mapstructure:"SEND_TIMEOUT"`
+}
+
+type RetryConfig struct {
+	MaxAttempts int           `mapstructure:"MAX_ATTEMPTS"`
+	BaseDelay   time.Duration `mapstructure:"BASE_DELAY"`
 }
 
 func LoadConfig(path string) (*Config, error) {
-
 	viper.SetConfigName("app")
 	viper.SetConfigType("env")
 	viper.AddConfigPath(path)
 
-	// Optional config file
 	if err := viper.ReadInConfig(); err != nil {
-		// Only warn if file missing
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, err
 		}
 	}
 
-	// ENV ALWAYS WINS
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AllowEmptyEnv(true)
@@ -150,6 +170,18 @@ func LoadConfig(path string) (*Config, error) {
 		"DB_NAME",
 		"KEYCLOAK_WEB_CLIENT_SECRET",
 		"KEYCLOAK_ADMIN_CLIENT_SECRET",
+
+		"SMTP_HOST",
+		"SMTP_PORT",
+		"SMTP_USERNAME",
+		"SMTP_PASSWORD",
+		"SMTP_FROM_EMAIL",
+		"SMTP_FROM_NAME",
+		"SMTP_CONNECT_TIMEOUT",
+		"SMTP_SEND_TIMEOUT",
+
+		"RETRY_MAX_ATTEMPTS",
+		"RETRY_BASE_DELAY",
 	}
 
 	for _, key := range requiredKeys {
@@ -250,5 +282,24 @@ func validateConfig(c *Config) error {
 	if c.DbHost == "" {
 		return errors.New("DB_HOST is required")
 	}
+
+	// Optional SMTP validation:
+	// only validate fully if SMTP host is provided.
+	if c.SMTP.Host != "" {
+		if c.SMTP.Port <= 0 {
+			return errors.New("SMTP_PORT must be greater than 0")
+		}
+		if c.SMTP.FromEmail == "" {
+			return errors.New("SMTP_FROM_EMAIL is required when SMTP is enabled")
+		}
+	}
+
+	if c.Retry.MaxAttempts < 0 {
+		return errors.New("RETRY_MAX_ATTEMPTS cannot be negative")
+	}
+	if c.Retry.BaseDelay < 0 {
+		return errors.New("RETRY_BASE_DELAY cannot be negative")
+	}
+
 	return nil
 }
