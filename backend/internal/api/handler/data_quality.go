@@ -33,6 +33,7 @@ type issueResponse struct {
 	Issue        *string `json:"issue,omitempty"`
 	DateReported string  `json:"date_reported"`
 	ReportedBy   *string `json:"reported_by,omitempty"`
+	Status       *string `json:"status,omitempty"`
 }
 
 type createIssueRequest struct {
@@ -133,6 +134,7 @@ func scanIssue(scanner interface {
 		issueText    sql.NullString
 		dateReported time.Time
 		reportedBy   sql.NullString
+		status       sql.NullString
 	)
 
 	if err := scanner.Scan(
@@ -144,6 +146,7 @@ func scanIssue(scanner interface {
 		&issueText,
 		&dateReported,
 		&reportedBy,
+		&status,
 	); err != nil {
 		return issueResponse{}, err
 	}
@@ -157,6 +160,7 @@ func scanIssue(scanner interface {
 		Issue:        dqNullStringPtr(issueText),
 		DateReported: dateReported.Format("2006-01-02"),
 		ReportedBy:   dqNullStringPtr(reportedBy),
+		Status:       dqNullStringPtr(status),
 	}, nil
 }
 
@@ -213,14 +217,15 @@ func (h *DataQualityHandler) CreateIssue(c *gin.Context) {
 			org_unit,
 			issue,
 			date_reported,
-			reported_by
+			reported_by,
+			status
 		)
 		SELECT
 			n.issue_id,
 			'HMIS-' || LPAD(n.issue_id::text, 4, '0'),
-			$1, $2, $3, $4, CURRENT_DATE, $5
+			$1, $2, $3, $4, CURRENT_DATE, $5, 'open'
 		FROM next_issue n
-		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by`,
+		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status`,
 		dqNullableString(req.Dataset),
 		dqNullableString(req.DataElement),
 		dqNullableString(req.OrgUnit),
@@ -243,7 +248,7 @@ func (h *DataQualityHandler) ListIssues(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(
 		c.Request.Context(),
-		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by
+		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status
 		FROM hiv.issue
 		ORDER BY date_reported DESC, issue_id DESC
 		LIMIT $1 OFFSET $2`,
@@ -333,7 +338,7 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 			date_reported = COALESCE($6, date_reported),
 			reported_by = COALESCE($7, reported_by)
 		WHERE issue_id = $1
-		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by`,
+		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status`,
 		issueID,
 		optionalTrimmedParam(req.Dataset, false),
 		optionalTrimmedParam(req.DataElement, false),
