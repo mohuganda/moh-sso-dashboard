@@ -26,6 +26,7 @@ func SetupRouter(
 	documentHandler *handler.DocumentHandler,
 	storageLocationHandler *handler.StorageLocationHandler,
 	sessionHandler *handler.SessionHandler,
+	dataQualityHandler *handler.DataQualityHandler,
 	announcementHandler *handler.AnnouncementHandler,
 	adminunitsHandler *handler.AdminUnitsHandler,
 	visualiserHandler *handler.VisualiserHandler,
@@ -204,6 +205,16 @@ func SetupRouter(
 		{
 			sessions.GET("", sessionHandler.GetUserSessions)
 			sessions.DELETE("/:id", sessionHandler.LogoutSession)
+		}
+
+		// ------------------------------
+		// Data Quality Issues
+		// ------------------------------
+		issues := protected.Group("/issues")
+		{
+			issues.POST("", dataQualityHandler.CreateIssue)
+			issues.GET("", dataQualityHandler.ListIssues)
+			issues.PUT("/:id", dataQualityHandler.UpdateIssue)
 		}
 
 		// ----------------------------------

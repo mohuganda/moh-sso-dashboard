@@ -267,6 +267,7 @@ func main() {
 	documentHandler := handler.NewDocumentHandler(documentService, auditService, storageLocationService, fileStorage, storageFactory)
 	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
 	sessionHandler := handler.NewSessionHandler(sessionService)
+	dataQualityHandler := handler.NewDataQualityHandler(dwhDB)
 	announcementHandler := handler.NewAnnouncementHandler(announcementService, auditService)
 	adminunitsHandler := handler.NewAdminUnitsHandler(cfg, dwhDB)
 	visualiserHandler := handler.NewVisualiserHandler(cfg, dwhDB)
@@ -305,6 +306,7 @@ func main() {
 		documentHandler,
 		storageLocationHandler,
 		sessionHandler,
+		dataQualityHandler,
 		announcementHandler,
 		adminunitsHandler,
 		visualiserHandler,
