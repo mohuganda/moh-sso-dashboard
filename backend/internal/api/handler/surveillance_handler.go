@@ -514,6 +514,78 @@ func (h *SurveillanceHandler) ListFacilityWeeklyMetricsByFacility(c *gin.Context
 	response.OK(c, http.StatusOK, data)
 }
 
+func (h *SurveillanceHandler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	facilityIDParam := c.Param("facilityID")
+	if facilityIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "facilityID is required", "nil")
+		return
+	}
+
+	diseaseIDParam := c.Param("diseaseID")
+	if diseaseIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "diseaseID is required", "nil")
+		return
+	}
+
+	facilityID, err := uuid.Parse(facilityIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid facilityID", err.Error())
+		return
+	}
+
+	diseaseID, err := uuid.Parse(diseaseIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+		return
+	}
+
+	data, err := h.facilityWeeklyMetricsService.ListFacilityDiseaseMetricsTrend(ctx, facilityID, diseaseID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease trend", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListFacilityIndicatorMetricsTrend(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	facilityIDParam := c.Param("facilityID")
+	if facilityIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "facilityID is required", "nil")
+		return
+	}
+
+	indicatorIDParam := c.Param("indicatorID")
+	if indicatorIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "indicatorID is required", "nil")
+		return
+	}
+
+	facilityID, err := uuid.Parse(facilityIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid facilityID", err.Error())
+		return
+	}
+
+	indicatorID, err := uuid.Parse(indicatorIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid indicatorID", err.Error())
+		return
+	}
+
+	data, err := h.facilityWeeklyMetricsService.ListFacilityIndicatorMetricsTrend(ctx, facilityID, indicatorID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility indicator trend", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
 // district weekly status
 
 func (h *SurveillanceHandler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
