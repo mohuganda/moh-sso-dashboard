@@ -82,6 +82,8 @@ export type FacilityWeeklyMetricRow = {
   region_name?: string | null;
   disease_id: string;
   disease_name: string;
+  indicator_id?: string | null;
+  indicator_name?: string | null;
   epi_week_id: string;
   metric_value: number;
   source_name?: string | null;

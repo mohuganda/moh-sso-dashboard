@@ -17,10 +17,11 @@ import { FacilityTrendModal } from "./surveillance-facility-trend-modal.componen
 import {
   useListAlertsQuery,
   useListDiseasesQuery,
+  useListDiseaseWeeklyTrendAggregatedQuery,
   useListEpiWeeksQuery,
+  useListFacilityDiseaseMetricsByWeekAndDiseaseQuery,
   useListFacilityDiseaseMetricsTrendQuery,
   useListFacilityIndicatorMetricsTrendQuery,
-  useListFacilityWeeklyMetricsByWeekQuery,
   useListRegionsQuery,
   useListWeeklyStatusesDetailedQuery,
 } from "../../../../store/api/surveillance.api";
@@ -127,16 +128,38 @@ export default function DiseaseDetailsPage() {
       skip: !selectedWeekId,
     });
 
-  const { data: facilityMetricsResponse, isFetching: facilityMetricsLoading } =
-    useListFacilityWeeklyMetricsByWeekQuery(selectedWeekId, {
-      skip: !selectedWeekId,
-    });
+  const { data: selectedWeekFacilityMetricsResponse, isFetching: facilityMetricsLoading } =
+    useListFacilityDiseaseMetricsByWeekAndDiseaseQuery(
+      {
+        epiWeekID: selectedWeekId,
+        diseaseID: matchedDiseaseId,
+      },
+      {
+        skip: !selectedWeekId || !matchedDiseaseId,
+      },
+    );
+
+  const { data: weeklyTrendResponse, isFetching: weeklyTrendLoading } =
+    useListDiseaseWeeklyTrendAggregatedQuery(
+      {
+        epiYear: Number(selectedWeek?.epi_year ?? currentYear),
+        diseaseID: matchedDiseaseId,
+        regionID: selectedRegionId || undefined,
+        districtID: selectedDistrictId || undefined,
+      },
+      {
+        skip: !matchedDiseaseId || !selectedWeek?.epi_year,
+      },
+    );
 
   const alerts = Array.isArray(alertsResponse) ? alertsResponse : [];
   const weeklyStatusesDetailed = Array.isArray(weeklyStatusesDetailedResponse)
     ? weeklyStatusesDetailedResponse
     : [];
-  const facilityMetrics = Array.isArray(facilityMetricsResponse) ? facilityMetricsResponse : [];
+  const facilityMetrics = Array.isArray(selectedWeekFacilityMetricsResponse)
+    ? selectedWeekFacilityMetricsResponse
+    : [];
+  const weeklyTrend = Array.isArray(weeklyTrendResponse) ? weeklyTrendResponse : [];
 
   const diseaseNameById = useMemo<Record<string, string>>(() => {
     return Object.fromEntries(diseases.map((item) => [item.id, item.name]));
@@ -254,7 +277,7 @@ export default function DiseaseDetailsPage() {
 
     facilityMetrics.forEach((item) => {
       const subCountyId = String(item.sub_county_id ?? "");
-      const subCountyName = item.subcounty_name ?? "";
+      const subCountyName = item.sub_county_name ?? item.sub_county_name ?? "";
 
       if (subCountyId && subCountyName) {
         map.set(subCountyId, subCountyName);
@@ -281,7 +304,8 @@ export default function DiseaseDetailsPage() {
     regionsLoading ||
     alertsLoading ||
     weeklyStatusesDetailedLoading ||
-    facilityMetricsLoading;
+    facilityMetricsLoading ||
+    weeklyTrendLoading;
 
   const filteredAlerts = useMemo(() => {
     return alerts.filter((item) => {
@@ -294,20 +318,8 @@ export default function DiseaseDetailsPage() {
     });
   }, [alerts, matchedDiseaseId, normalizedDiseaseSlug]);
 
-  const diseaseOrIndicatorFacilityMetrics = useMemo(() => {
-    return facilityMetrics.filter((item) => {
-      if (matchedDiseaseId) {
-        return String(item.disease_id ?? "") === matchedDiseaseId;
-      }
-
-      return normalize(item.disease_name ?? item.indicator_name)
-        .replace(/-/g, " ")
-        .includes(normalizedDiseaseSlug);
-    });
-  }, [facilityMetrics, matchedDiseaseId, normalizedDiseaseSlug]);
-
   const filteredFacilityMetrics = useMemo(() => {
-    return diseaseOrIndicatorFacilityMetrics.filter((item) => {
+    return facilityMetrics.filter((item) => {
       const matchesRegion = !selectedRegionId || String(item.region_id ?? "") === selectedRegionId;
       const matchesDistrict =
         !selectedDistrictId || String(item.district_id ?? "") === selectedDistrictId;
@@ -316,12 +328,7 @@ export default function DiseaseDetailsPage() {
 
       return matchesRegion && matchesDistrict && matchesSubCounty;
     });
-  }, [
-    diseaseOrIndicatorFacilityMetrics,
-    selectedRegionId,
-    selectedDistrictId,
-    selectedSubCountyId,
-  ]);
+  }, [facilityMetrics, selectedRegionId, selectedDistrictId, selectedSubCountyId]);
 
   const relevantDocuments = useMemo<RelevantDocument[]>(() => {
     const documents: Record<string, RelevantDocument[]> = {
@@ -363,43 +370,32 @@ export default function DiseaseDetailsPage() {
   }, [normalizedDiseaseSlug, title]);
 
   const totalCases = useMemo(() => {
-    return diseaseOrIndicatorFacilityMetrics.reduce(
-      (sum, item) => sum + Number(item.metric_value ?? 0),
-      0,
-    );
-  }, [diseaseOrIndicatorFacilityMetrics]);
+    return filteredFacilityMetrics.reduce((sum, item) => sum + Number(item.metric_value ?? 0), 0);
+  }, [filteredFacilityMetrics]);
 
   const facilitiesCount = useMemo(() => {
     const uniqueFacilities = new Set(
-      diseaseOrIndicatorFacilityMetrics
+      filteredFacilityMetrics
         .map((item) => item.facility_name)
         .filter((value): value is string => Boolean(value?.trim())),
     );
 
     return uniqueFacilities.size;
-  }, [diseaseOrIndicatorFacilityMetrics]);
+  }, [filteredFacilityMetrics]);
 
   const weeklyChartData = useMemo(() => {
-    const grouped = new Map<string, number>();
-
-    diseaseOrIndicatorFacilityMetrics.forEach((item) => {
-      const weekKey = item.epi_week_id
-        ? (epiWeekLabelById[String(item.epi_week_id)] ??
-          ("week" in item && item.week != null ? String(item.week) : "Unknown"))
-        : "week" in item && item.week != null
-          ? String(item.week)
-          : "Unknown";
-
-      const currentValue = grouped.get(weekKey) ?? 0;
-      grouped.set(weekKey, currentValue + Number(item.metric_value ?? 0));
-    });
-
-    return Array.from(grouped.entries()).map(([week, value]) => ({
-      week,
-      label: week,
-      value,
-    }));
-  }, [diseaseOrIndicatorFacilityMetrics, epiWeekLabelById]);
+    return weeklyTrend
+      .map((item) => ({
+        week: Number(item.epi_week ?? 0),
+        label:
+          item.epi_year && item.epi_week
+            ? `${item.epi_year} - Week ${item.epi_week}`
+            : `Week ${item.epi_week ?? "--"}`,
+        value: Number(item.total_cases ?? 0),
+      }))
+      .filter((item) => Number(item.week) > 0)
+      .sort((a, b) => Number(a.week) - Number(b.week));
+  }, [weeklyTrend]);
 
   const shouldLoadDiseaseTrend =
     isTrendModalOpen &&

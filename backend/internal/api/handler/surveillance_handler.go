@@ -300,10 +300,79 @@ func toFacilityWeeklyDiseaseMetricResponse(row db.ListFacilityWeeklyDiseaseMetri
 	}
 }
 
+func toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponse(row db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow) FacilityWeeklyMetricResponse {
+	var sourceRecordID *string
+	if row.SourceRecordID.Valid {
+		sourceRecordID = &row.SourceRecordID.String
+	}
+
+	var subCountyID *uuid.UUID
+	if row.SubCountyID.Valid {
+		subCountyID = uuidPtr(row.SubCountyID.UUID)
+	}
+
+	var districtID *uuid.UUID
+	if row.DistrictID.Valid {
+		districtID = uuidPtr(row.DistrictID.UUID)
+	}
+
+	var regionID *uuid.UUID
+	if row.RegionID.Valid {
+		regionID = uuidPtr(row.RegionID.UUID)
+	}
+
+	var diseaseID *uuid.UUID
+	if row.DiseaseID.Valid {
+		diseaseID = uuidPtr(row.DiseaseID.UUID)
+
+	}
+
+	return FacilityWeeklyMetricResponse{
+		ID:             row.ID,
+		SourceRecordID: sourceRecordID,
+
+		FacilityID:   row.FacilityID,
+		FacilityName: row.FacilityName,
+
+		SubCountyID:   subCountyID,
+		SubCountyName: sqlNullStringValue(row.SubCountyName),
+
+		DistrictID:   districtID,
+		DistrictName: sqlNullStringValue(row.DistrictName),
+
+		RegionID:   regionID,
+		RegionName: sqlNullStringValue(row.RegionName),
+
+		DiseaseID:     diseaseID,
+		DiseaseName:   row.DiseaseName,
+		IndicatorID:   nil,
+		IndicatorName: "",
+
+		EpiWeekID:   row.EpiWeekID,
+		EpiYear:     row.EpiYear,
+		EpiWeek:     row.EpiWeek,
+		MetricValue: row.MetricValue,
+		SourceName:  sqlNullStringValue(row.SourceName),
+		ImportedAt:  row.ImportedAt,
+		CreatedAt:   row.CreatedAt,
+	}
+}
+
 func toFacilityWeeklyDiseaseMetricResponses(items []db.ListFacilityWeeklyDiseaseMetricsByWeekRow) []FacilityWeeklyMetricResponse {
 	out := make([]FacilityWeeklyMetricResponse, 0, len(items))
 	for _, item := range items {
 		out = append(out, toFacilityWeeklyDiseaseMetricResponse(item))
+	}
+	return out
+}
+
+func toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponses(
+	rows []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow,
+) []FacilityWeeklyMetricResponse {
+	out := make([]FacilityWeeklyMetricResponse, 0, len(rows))
+
+	for _, item := range rows {
+		out = append(out, toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponse(item))
 	}
 	return out
 }
@@ -714,11 +783,14 @@ func (h *SurveillanceHandler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.
 		return
 	}
 
-	data, err := h.facilityWeeklyMetricsService.ListFacilityDiseaseMetricsByWeekAndDisease(ctx, epiWeekID, diseaseID)
+	rows, err := h.facilityWeeklyMetricsService.ListFacilityDiseaseMetricsByWeekAndDisease(ctx, epiWeekID, diseaseID)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease metrics by week and disease", err.Error())
 		return
 	}
+
+	data := make([]FacilityWeeklyMetricResponse, 0, len(rows))
+	data = append(data, toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponses(rows)...)
 
 	response.OK(c, http.StatusOK, data)
 }

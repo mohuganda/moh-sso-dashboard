@@ -1,5 +1,6 @@
 import {
   DataTable,
+  Pagination,
   Table,
   TableHead,
   TableRow,
@@ -7,7 +8,7 @@ import {
   TableBody,
   TableCell,
 } from "@carbon/react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Alert } from "../../../../store/types/surveillance.types";
 
 interface DiseaseAlertsTableProps {
@@ -55,6 +56,9 @@ export function DiseaseAlertsTable({
   epiWeekLabelById = {},
   districtRegionByDistrictId = {},
 }: DiseaseAlertsTableProps) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const rows = useMemo(() => {
     const normalizedDisease = normalize(diseaseName);
 
@@ -110,6 +114,15 @@ export function DiseaseAlertsTable({
     districtRegionByDistrictId,
   ]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [alerts, districtId, regionId, diseaseName]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return rows.slice(start, start + pageSize);
+  }, [rows, page, pageSize]);
+
   if (loading) {
     return <p>Loading alerts...</p>;
   }
@@ -119,28 +132,44 @@ export function DiseaseAlertsTable({
   }
 
   return (
-    <DataTable rows={rows} headers={headers} size="sm">
-      {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
-        <Table {...getTableProps()} size="sm">
-          <TableHead>
-            <TableRow>
-              {headers.map((header) => (
-                <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
-              ))}
-            </TableRow>
-          </TableHead>
-
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow {...getRowProps({ row })}>
-                {row.cells.map((cell) => (
-                  <TableCell key={cell.id}>{cell.value}</TableCell>
+    <div>
+      <DataTable rows={paginatedRows} headers={headers} size="sm">
+        {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
+          <Table {...getTableProps()} size="sm">
+            <TableHead>
+              <TableRow>
+                {headers.map((header) => (
+                  <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
                 ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </DataTable>
+            </TableHead>
+
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow {...getRowProps({ row })}>
+                  {row.cells.map((cell) => (
+                    <TableCell key={cell.id}>{cell.value}</TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DataTable>
+
+      <Pagination
+        backwardText="Previous page"
+        forwardText="Next page"
+        itemsPerPageText="Items per page:"
+        page={page}
+        pageSize={pageSize}
+        pageSizes={[10, 20, 30, 50]}
+        totalItems={rows.length}
+        onChange={({ page, pageSize }) => {
+          setPage(page);
+          setPageSize(pageSize);
+        }}
+      />
+    </div>
   );
 }

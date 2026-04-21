@@ -21,7 +21,7 @@ function toWeekNumber(value: string | number): number | null {
     return Number.isFinite(value) ? value : null;
   }
 
-  const trimmed = String(value).trim();
+  const trimmed = String(value ?? "").trim();
   if (!trimmed) return null;
 
   const directNumber = Number(trimmed);
@@ -38,57 +38,33 @@ function toWeekNumber(value: string | number): number | null {
   return null;
 }
 
-function toWeekLabel(item: WeeklyCasesPoint): string {
-  if (item.label?.trim()) {
-    return item.label.trim();
-  }
-
-  const parsedWeek = toWeekNumber(item.week);
-  if (parsedWeek && parsedWeek >= 1 && parsedWeek <= 53) {
-    return `Week ${parsedWeek}`;
-  }
-
-  return String(item.week ?? "").trim() || "Unknown";
-}
-
 export default function WeeklyCasesChart({
   diseaseName = "Disease",
   data = [],
   height = "320px",
 }: WeeklyCasesChartProps) {
   const chartData = useMemo(() => {
-    const hasNumericWeeks = data.some((item) => {
+    const weekMap = new Map<number, number>();
+
+    for (const item of data) {
       const weekNumber = toWeekNumber(item.week);
-      return weekNumber !== null && weekNumber >= 1 && weekNumber <= 53;
-    });
-
-    if (hasNumericWeeks) {
-      const weekMap = new Map<number, number>();
-
-      for (const item of data) {
-        const weekNumber = toWeekNumber(item.week);
-        if (weekNumber === null || weekNumber < 1 || weekNumber > 53) {
-          continue;
-        }
-
-        const currentValue = weekMap.get(weekNumber) ?? 0;
-        weekMap.set(weekNumber, currentValue + Number(item.value ?? 0));
+      if (weekNumber === null || weekNumber < 1 || weekNumber > 53) {
+        continue;
       }
 
-      return Array.from(weekMap.entries())
-        .sort((a, b) => a[0] - b[0])
-        .map(([week, value]) => ({
-          group: "Cases",
-          key: `Week ${week}`,
-          value,
-        }));
+      const currentValue = weekMap.get(weekNumber) ?? 0;
+      weekMap.set(weekNumber, currentValue + Number(item.value ?? 0));
     }
 
-    return data.map((item) => ({
-      group: "Cases",
-      key: toWeekLabel(item),
-      value: Number(item.value ?? 0),
-    }));
+    return Array.from({ length: 52 }, (_, index) => {
+      const week = index + 1;
+
+      return {
+        group: "Cases",
+        key: `Week ${week}`,
+        value: weekMap.get(week) ?? 0,
+      };
+    });
   }, [data]);
 
   const options = useMemo(
