@@ -181,8 +181,8 @@ func SetupRouter(
 			documents.PUT("/:id", documentHandler.EditDocument)
 			documents.DELETE("/:id", documentHandler.DeleteDocument)
 
-			documents.GET("/:id/view", documentHandler.ViewDocument)
-			documents.GET("/:id/download", documentHandler.DownloadDocument)
+			documents.GET("/files/:id/view", documentHandler.ViewDocument)
+			documents.GET("/files/:id/download", documentHandler.DownloadDocument)
 
 			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
 			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
