@@ -86,6 +86,13 @@ func (r *FacilityWeeklyMetricsRepository) ListDiseaseMetricsByWeek(
 	return r.db.ListFacilityWeeklyDiseaseMetricsByWeek(ctx, epiWeekID)
 }
 
+func (r *FacilityWeeklyMetricsRepository) ListDiseaseMetricsByWeekAndDisease(
+	ctx context.Context,
+	arg db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseParams,
+) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow, error) {
+	return r.db.ListFacilityWeeklyDiseaseMetricsByWeekAndDisease(ctx, arg)
+}
+
 func (r *FacilityWeeklyMetricsRepository) ListIndicatorMetricsByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
@@ -122,6 +129,14 @@ func (r *FacilityWeeklyMetricsRepository) ListIndicatorTrend(
 	return r.db.ListFacilityIndicatorMetricsTrend(ctx, arg)
 }
 
+func (r *FacilityWeeklyMetricsRepository) ListDiseaseWeeklyTrendAggregated(
+	ctx context.Context,
+	arg db.ListDiseaseWeeklyTrendAggregatedParams,
+) ([]db.ListDiseaseWeeklyTrendAggregatedRow, error) {
+
+	return r.db.ListDiseaseWeeklyTrendAggregated(ctx, arg)
+}
+
 func (r *FacilityWeeklyMetricsRepository) DeleteByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
@@ -134,7 +149,8 @@ func (r *FacilityWeeklyMetricsRepository) DeleteByWeek(
 }
 
 func (r *FacilityWeeklyMetricsRepository) WithTx(
-	ctx context.Context, fn func(q db.Querier) error,
+	ctx context.Context,
+	fn func(q db.Querier) error,
 ) error {
 	return r.db.ExecTx(ctx, fn)
 }

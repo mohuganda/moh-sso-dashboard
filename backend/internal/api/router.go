@@ -270,6 +270,8 @@ func SetupRouter(
 			surveillance.GET("/facility-weekly-metrics/facility/:facilityID", surveillanceHandler.ListFacilityWeeklyMetricsByFacility)
 			surveillance.GET("/facility-weekly-metrics/facility/:facilityID/disease/:diseaseID/trend", surveillanceHandler.ListFacilityDiseaseMetricsTrend)
 			surveillance.GET("/facility-weekly-metrics/facility/:facilityID/indicator/:indicatorID/trend", surveillanceHandler.ListFacilityIndicatorMetricsTrend)
+			surveillance.GET("/facility-weekly-metrics/week/:epiWeekID/disease/:diseaseID", surveillanceHandler.ListFacilityDiseaseMetricsByWeekAndDisease)
+			surveillance.GET("/facility-weekly-metrics/disease-trend", surveillanceHandler.ListDiseaseWeeklyTrendAggregated)
 
 			// weekly statuses
 			surveillance.GET("/weekly-statuses/list", surveillanceHandler.ListWeeklyStatuses)

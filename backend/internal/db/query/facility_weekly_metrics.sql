@@ -84,37 +84,70 @@ LIMIT 1;
 SELECT
   m.*,
   f.name AS facility_name,
+  sc.id AS sub_county_id,
+  sc.name AS sub_county_name,
+  dct.id AS district_id,
+  dct.name AS district_name,
+  r.id AS region_id,
+  r.name AS region_name,
   d.name AS disease_name,
   ew.epi_year,
   ew.epi_week
 FROM facility_weekly_metrics m
 JOIN facilities f ON f.id = m.facility_id
+LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
+LEFT JOIN districts dct ON dct.id = sc.district_id
+LEFT JOIN regions r ON r.id = dct.region_id
 JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = $1
   AND m.disease_id IS NOT NULL
-ORDER BY f.name ASC, d.name ASC;
+ORDER BY r.name ASC NULLS LAST,
+         dct.name ASC NULLS LAST,
+         sc.name ASC NULLS LAST,
+         f.name ASC,
+         d.name ASC;
 
 -- name: ListFacilityWeeklyIndicatorMetricsByWeek :many
 SELECT
   m.*,
   f.name AS facility_name,
+  sc.id AS sub_county_id,
+  sc.name AS sub_county_name,
+  dct.id AS district_id,
+  dct.name AS district_name,
+  r.id AS region_id,
+  r.name AS region_name,
   i.name AS indicator_name,
   ew.epi_year,
   ew.epi_week
 FROM facility_weekly_metrics m
 JOIN facilities f ON f.id = m.facility_id
+LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
+LEFT JOIN districts dct ON dct.id = sc.district_id
+LEFT JOIN regions r ON r.id = dct.region_id
 JOIN indicators i ON i.id = m.indicator_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = $1
   AND m.indicator_id IS NOT NULL
-ORDER BY f.name ASC, i.name ASC;
+ORDER BY r.name ASC NULLS LAST,
+         dct.name ASC NULLS LAST,
+         sc.name ASC NULLS LAST,
+         f.name ASC,
+         i.name ASC;
 
 -- name: ListFacilityMetricsByFacility :many
 SELECT
   m.id,
   m.source_record_id,
   m.facility_id,
+  f.name AS facility_name,
+  sc.id AS sub_county_id,
+  sc.name AS sub_county_name,
+  dct.id AS district_id,
+  dct.name AS district_name,
+  r.id AS region_id,
+  r.name AS region_name,
   m.disease_id,
   m.indicator_id,
   m.epi_week_id,
@@ -130,6 +163,10 @@ SELECT
   END AS subject_type,
   COALESCE(d.name, i.name) AS subject_name
 FROM facility_weekly_metrics m
+JOIN facilities f ON f.id = m.facility_id
+LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
+LEFT JOIN districts dct ON dct.id = sc.district_id
+LEFT JOIN regions r ON r.id = dct.region_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 LEFT JOIN diseases d ON d.id = m.disease_id
 LEFT JOIN indicators i ON i.id = m.indicator_id
@@ -146,6 +183,12 @@ SELECT
   m.source_record_id,
   m.facility_id,
   f.name AS facility_name,
+  sc.id AS sub_county_id,
+  sc.name AS sub_county_name,
+  dct.id AS district_id,
+  dct.name AS district_name,
+  r.id AS region_id,
+  r.name AS region_name,
   m.disease_id,
   d.name AS disease_name,
   m.epi_week_id,
@@ -157,6 +200,9 @@ SELECT
   ew.epi_week
 FROM facility_weekly_metrics m
 JOIN facilities f ON f.id = m.facility_id
+LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
+LEFT JOIN districts dct ON dct.id = sc.district_id
+LEFT JOIN regions r ON r.id = dct.region_id
 JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.facility_id = $1
@@ -169,6 +215,12 @@ SELECT
   m.source_record_id,
   m.facility_id,
   f.name AS facility_name,
+  sc.id AS sub_county_id,
+  sc.name AS sub_county_name,
+  dct.id AS district_id,
+  dct.name AS district_name,
+  r.id AS region_id,
+  r.name AS region_name,
   m.indicator_id,
   i.name AS indicator_name,
   m.epi_week_id,
@@ -180,8 +232,70 @@ SELECT
   ew.epi_week
 FROM facility_weekly_metrics m
 JOIN facilities f ON f.id = m.facility_id
+LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
+LEFT JOIN districts dct ON dct.id = sc.district_id
+LEFT JOIN regions r ON r.id = dct.region_id
 JOIN indicators i ON i.id = m.indicator_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.facility_id = $1
   AND m.indicator_id = $2
 ORDER BY ew.epi_year ASC, ew.epi_week ASC;
+
+
+-- name: ListDiseaseWeeklyTrendAggregated :many
+SELECT
+  ew.id AS epi_week_id,
+  ew.epi_year,
+  ew.epi_week,
+  COALESCE(SUM(m.metric_value), 0)::bigint AS total_cases
+FROM epi_weeks ew
+LEFT JOIN facility_weekly_metrics m
+  ON m.epi_week_id = ew.id
+  AND m.disease_id = sqlc.narg('disease_id')
+LEFT JOIN facilities f
+  ON f.id = m.facility_id
+LEFT JOIN sub_counties sc
+  ON sc.id = f.sub_county_id
+LEFT JOIN districts dct
+  ON dct.id = sc.district_id
+LEFT JOIN regions r
+  ON r.id = dct.region_id
+WHERE ew.epi_year = sqlc.arg('epi_year')
+  AND (
+    sqlc.narg('region_id')::uuid IS NULL
+    OR r.id = sqlc.narg('region_id')::uuid
+  )
+  AND (
+    sqlc.narg('district_id')::uuid IS NULL
+    OR dct.id = sqlc.narg('district_id')::uuid
+  )
+GROUP BY ew.id, ew.epi_year, ew.epi_week
+ORDER BY ew.epi_year ASC, ew.epi_week ASC;
+
+-- name: ListFacilityWeeklyDiseaseMetricsByWeekAndDisease :many
+SELECT
+  m.*,
+  f.name AS facility_name,
+  sc.id AS sub_county_id,
+  sc.name AS sub_county_name,
+  dct.id AS district_id,
+  dct.name AS district_name,
+  r.id AS region_id,
+  r.name AS region_name,
+  d.name AS disease_name,
+  ew.epi_year,
+  ew.epi_week
+FROM facility_weekly_metrics m
+JOIN facilities f ON f.id = m.facility_id
+LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
+LEFT JOIN districts dct ON dct.id = sc.district_id
+LEFT JOIN regions r ON r.id = dct.region_id
+JOIN diseases d ON d.id = m.disease_id
+JOIN epi_weeks ew ON ew.id = m.epi_week_id
+WHERE m.epi_week_id = sqlc.arg('epi_week_id')
+  AND m.disease_id = sqlc.arg('disease_id')
+ORDER BY r.name ASC NULLS LAST,
+         dct.name ASC NULLS LAST,
+         sc.name ASC NULLS LAST,
+         f.name ASC,
+         d.name ASC;

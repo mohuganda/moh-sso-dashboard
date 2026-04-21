@@ -62,6 +62,35 @@ export type FacilityWeeklyMetricTrend = {
   created_at: string;
 };
 
+export type DiseaseWeeklyTrendAggregate = {
+  epi_week_id: string;
+  epi_year: number;
+  epi_week: number;
+  total_cases: number;
+};
+
+export type FacilityWeeklyMetricRow = {
+  id: string;
+  source_record_id?: string | null;
+  facility_id: string;
+  facility_name: string;
+  sub_county_id?: string | null;
+  sub_county_name?: string | null;
+  district_id?: string | null;
+  district_name?: string | null;
+  region_id?: string | null;
+  region_name?: string | null;
+  disease_id: string;
+  disease_name: string;
+  epi_week_id: string;
+  metric_value: number;
+  source_name?: string | null;
+  imported_at?: string;
+  created_at?: string;
+  epi_year: number;
+  epi_week: number;
+};
+
 export type RiskLevel = "MAROON" | "RED" | "YELLOW" | "GREEN";
 
 export interface WeeklyStatus {

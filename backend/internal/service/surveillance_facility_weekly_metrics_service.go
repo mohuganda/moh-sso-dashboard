@@ -179,6 +179,10 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityDiseaseMetricsTre
 		return []db.ListFacilityDiseaseMetricsTrendRow{}, errors.New("facility id is required")
 	}
 
+	if diseaseID == uuid.Nil {
+		return []db.ListFacilityDiseaseMetricsTrendRow{}, errors.New("disease id is required")
+	}
+
 	rows, err := s.facilityWeeklyMetricsRepo.ListDiseaseTrend(ctx, db.ListFacilityDiseaseMetricsTrendParams{
 		FacilityID: facilityID,
 		DiseaseID: uuid.NullUUID{
@@ -211,6 +215,10 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityIndicatorMetricsT
 		return []db.ListFacilityIndicatorMetricsTrendRow{}, errors.New("facility id is required")
 	}
 
+	if indicatorID == uuid.Nil {
+		return []db.ListFacilityIndicatorMetricsTrendRow{}, errors.New("indicator id is required")
+	}
+
 	rows, err := s.facilityWeeklyMetricsRepo.ListIndicatorTrend(ctx, db.ListFacilityIndicatorMetricsTrendParams{
 		FacilityID: facilityID,
 		IndicatorID: uuid.NullUUID{
@@ -225,6 +233,106 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityIndicatorMetricsT
 			"error", err,
 		)
 		return []db.ListFacilityIndicatorMetricsTrendRow{}, err
+	}
+
+	return rows, nil
+}
+
+func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityDiseaseMetricsByWeekAndDisease(
+	ctx context.Context,
+	epiWeekID, diseaseID uuid.UUID,
+) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow, error) {
+	s.log.Debug(ctx, "listing facility disease metrics by week and disease",
+		"epi_week_id", epiWeekID,
+		"disease_id", diseaseID,
+	)
+
+	if epiWeekID == uuid.Nil {
+		return []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow{}, errors.New("epi week id is required")
+	}
+
+	if diseaseID == uuid.Nil {
+		return []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow{}, errors.New("disease id is required")
+	}
+
+	rows, err := s.facilityWeeklyMetricsRepo.ListDiseaseMetricsByWeekAndDisease(
+		ctx,
+		db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseParams{
+			EpiWeekID: epiWeekID,
+			DiseaseID: uuid.NullUUID{
+				UUID:  diseaseID,
+				Valid: diseaseID != uuid.Nil,
+			},
+		},
+	)
+	if err != nil {
+		s.log.Error(ctx, "failed to list facility disease metrics by week and disease",
+			"epi_week_id", epiWeekID,
+			"disease_id", diseaseID,
+			"error", err,
+		)
+		return []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow{}, err
+	}
+
+	return rows, nil
+}
+
+func (s *SurveillanceFacilityWeeklyMetricsService) ListDiseaseWeeklyTrendAggregated(
+	ctx context.Context,
+	epiYear int32,
+	diseaseID uuid.UUID,
+	regionID *uuid.UUID,
+	districtID *uuid.UUID,
+) ([]db.ListDiseaseWeeklyTrendAggregatedRow, error) {
+	s.log.Debug(ctx, "listing aggregated disease weekly trend",
+		"epi_year", epiYear,
+		"disease_id", diseaseID,
+		"region_id", regionID,
+		"district_id", districtID,
+	)
+
+	if epiYear == 0 {
+		return []db.ListDiseaseWeeklyTrendAggregatedRow{}, errors.New("epi year is required")
+	}
+
+	if diseaseID == uuid.Nil {
+		return []db.ListDiseaseWeeklyTrendAggregatedRow{}, errors.New("disease id is required")
+	}
+
+	arg := db.ListDiseaseWeeklyTrendAggregatedParams{
+		EpiYear: epiYear,
+		DiseaseID: uuid.NullUUID{
+			UUID:  diseaseID,
+			Valid: true,
+		},
+		RegionID:   uuid.NullUUID{},
+		DistrictID: uuid.NullUUID{},
+	}
+
+	if regionID != nil && *regionID != uuid.Nil {
+		arg.RegionID = uuid.NullUUID{
+			UUID:  *regionID,
+			Valid: true,
+		}
+	}
+
+	if districtID != nil && *districtID != uuid.Nil {
+		arg.DistrictID = uuid.NullUUID{
+			UUID:  *districtID,
+			Valid: true,
+		}
+	}
+
+	rows, err := s.facilityWeeklyMetricsRepo.ListDiseaseWeeklyTrendAggregated(ctx, arg)
+	if err != nil {
+		s.log.Error(ctx, "failed to list aggregated disease weekly trend",
+			"epi_year", epiYear,
+			"disease_id", diseaseID,
+			"region_id", regionID,
+			"district_id", districtID,
+			"error", err,
+		)
+		return []db.ListDiseaseWeeklyTrendAggregatedRow{}, err
 	}
 
 	return rows, nil
