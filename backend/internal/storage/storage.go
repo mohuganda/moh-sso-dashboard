@@ -10,5 +10,8 @@ type Storage interface {
 	Download(ctx context.Context, objectKey string) (io.ReadCloser, error)
 	Delete(ctx context.Context, objectKey string) error
 	Exists(ctx context.Context, objectKey string) (bool, error)
+
+	GetObjectURL(ctx context.Context, objectKey string) (string, error)
+	GetDownloadURL(ctx context.Context, objectKey string, filename string) (string, error)
+	GetViewURL(ctx context.Context, objectKey string, filename string) (string, error)
 }
- 

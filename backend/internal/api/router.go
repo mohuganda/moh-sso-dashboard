@@ -175,15 +175,17 @@ func SetupRouter(
 		documents := protected.Group("/documents")
 		{
 			documents.GET("", documentHandler.ListDocuments)
-
-			documents.GET("/:id/download", documentHandler.DownloadDocument)
-			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
-			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
-			documents.GET("/:id", documentHandler.GetDocument)
-
 			documents.POST("", documentHandler.CreateDocument)
+
+			documents.GET("/:id", documentHandler.GetDocument)
 			documents.PUT("/:id", documentHandler.EditDocument)
 			documents.DELETE("/:id", documentHandler.DeleteDocument)
+
+			documents.GET("/:id/view", documentHandler.ViewDocument)
+			documents.GET("/:id/download", documentHandler.DownloadDocument)
+
+			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
+			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
 		}
 
 		// --------------------------

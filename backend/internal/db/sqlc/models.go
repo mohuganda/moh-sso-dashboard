@@ -60,6 +60,50 @@ func (ns NullAlertStatus) Value() (driver.Value, error) {
 	return string(ns.AlertStatus), nil
 }
 
+type DocumentStatus string
+
+const (
+	DocumentStatusPENDING    DocumentStatus = "PENDING"
+	DocumentStatusPROCESSING DocumentStatus = "PROCESSING"
+	DocumentStatusCOMPLETED  DocumentStatus = "COMPLETED"
+	DocumentStatusFAILED     DocumentStatus = "FAILED"
+)
+
+func (e *DocumentStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = DocumentStatus(s)
+	case string:
+		*e = DocumentStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DocumentStatus: %T", src)
+	}
+	return nil
+}
+
+type NullDocumentStatus struct {
+	DocumentStatus DocumentStatus `json:"document_status"`
+	Valid          bool           `json:"valid"` // Valid is true if DocumentStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullDocumentStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.DocumentStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.DocumentStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullDocumentStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.DocumentStatus), nil
+}
+
 type ImportJobStatus string
 
 const (
@@ -282,7 +326,9 @@ type Document struct {
 	StorageLocationID uuid.UUID      `json:"storage_location_id"`
 	ObjectKey         string         `json:"object_key"`
 	UploadedBy        uuid.UUID      `json:"uploaded_by"`
-	CreatedAt         sql.NullTime   `json:"created_at"`
+	Status            DocumentStatus `json:"status"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
 type EmailOutbox struct {

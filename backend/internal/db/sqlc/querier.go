@@ -192,6 +192,7 @@ type Querier interface {
 	ListDistricts(ctx context.Context) ([]ListDistrictsRow, error)
 	ListDistrictsByRegion(ctx context.Context, regionID uuid.NullUUID) ([]District, error)
 	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]Document, error)
+	ListDocumentsByStatus(ctx context.Context, arg ListDocumentsByStatusParams) ([]Document, error)
 	ListDocumentsByUser(ctx context.Context, arg ListDocumentsByUserParams) ([]Document, error)
 	ListEmailOutbox(ctx context.Context, arg ListEmailOutboxParams) ([]EmailOutbox, error)
 	ListEmailOutboxByRecipient(ctx context.Context, arg ListEmailOutboxByRecipientParams) ([]EmailOutbox, error)
@@ -254,6 +255,10 @@ type Querier interface {
 	LoginTrend(ctx context.Context) ([]LoginTrendRow, error)
 	LoginTrendByDay(ctx context.Context, arg LoginTrendByDayParams) ([]LoginTrendByDayRow, error)
 	MarkAllNotificationsRead(ctx context.Context, targetRole string) error
+	MarkDocumentCompleted(ctx context.Context, id uuid.UUID) (Document, error)
+	MarkDocumentFailed(ctx context.Context, id uuid.UUID) (Document, error)
+	MarkDocumentPending(ctx context.Context, id uuid.UUID) (Document, error)
+	MarkDocumentProcessing(ctx context.Context, id uuid.UUID) (Document, error)
 	MarkEmailOutboxFailed(ctx context.Context, arg MarkEmailOutboxFailedParams) error
 	MarkEmailOutboxProcessing(ctx context.Context, id uuid.UUID) error
 	MarkEmailOutboxRetry(ctx context.Context, arg MarkEmailOutboxRetryParams) error
@@ -300,6 +305,7 @@ type Querier interface {
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientEnabled(ctx context.Context, arg UpdateClientEnabledParams) error
 	UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (Document, error)
+	UpdateDocumentStatus(ctx context.Context, arg UpdateDocumentStatusParams) (Document, error)
 	UpdateImportBatchProgress(ctx context.Context, arg UpdateImportBatchProgressParams) error
 	UpdateImportBatchStatus(ctx context.Context, arg UpdateImportBatchStatusParams) (SurveillanceImportBatch, error)
 	UpdateImportJobCounts(ctx context.Context, arg UpdateImportJobCountsParams) error

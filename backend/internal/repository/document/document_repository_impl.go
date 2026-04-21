@@ -19,7 +19,8 @@ type documentRepository struct {
 func NewDocumentRepository(
 	cfg *config.Config,
 	store db.Store,
-	log logger.Logger) DocumentRepository {
+	log logger.Logger,
+) DocumentRepository {
 	return &documentRepository{
 		db:     store,
 		config: cfg,
@@ -32,18 +33,15 @@ func (r *documentRepository) CreateDocumentWithProcess(
 	docArg db.CreateDocumentParams,
 	processArg db.CreateProcessParams,
 ) (db.Document, error) {
-
 	var createdDoc db.Document
 
 	err := r.db.ExecTx(ctx, func(q db.Querier) error {
-
 		doc, err := q.CreateDocument(ctx, docArg)
 		if err != nil {
 			return err
 		}
 
 		createdDoc = doc
-
 		processArg.DocumentID = doc.ID
 
 		_, err = q.CreateProcess(ctx, processArg)
@@ -53,7 +51,6 @@ func (r *documentRepository) CreateDocumentWithProcess(
 
 		return nil
 	})
-
 	if err != nil {
 		return db.Document{}, err
 	}
@@ -65,8 +62,19 @@ func (r *documentRepository) CreateDocument(
 	ctx context.Context,
 	arg db.CreateDocumentParams,
 ) (db.Document, error) {
-
 	doc, err := r.db.CreateDocument(ctx, arg)
+	if err != nil {
+		return db.Document{}, err
+	}
+
+	return doc, nil
+}
+
+func (r *documentRepository) GetDocument(
+	ctx context.Context,
+	id uuid.UUID,
+) (db.Document, error) {
+	doc, err := r.db.GetDocumentByID(ctx, id)
 	if err != nil {
 		return db.Document{}, err
 	}
@@ -78,7 +86,6 @@ func (r *documentRepository) ListDocuments(
 	ctx context.Context,
 	page model.Pagination,
 ) ([]db.Document, error) {
-
 	limit := page.Limit
 	if limit <= 0 {
 		limit = 25
@@ -100,7 +107,6 @@ func (r *documentRepository) ListDocumentsByUser(
 	userID uuid.UUID,
 	page model.Pagination,
 ) ([]db.Document, error) {
-
 	limit := page.Limit
 	if limit <= 0 {
 		limit = 25
@@ -118,12 +124,23 @@ func (r *documentRepository) ListDocumentsByUser(
 	return docs, nil
 }
 
-func (r *documentRepository) GetDocument(
+func (r *documentRepository) ListProcessesByDocument(
 	ctx context.Context,
 	id uuid.UUID,
-) (db.Document, error) {
+) ([]db.Process, error) {
+	processes, err := r.db.ListProcessesByDocument(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 
-	doc, err := r.db.GetDocumentByID(ctx, id)
+	return processes, nil
+}
+
+func (r *documentRepository) EditDocument(
+	ctx context.Context,
+	arg db.UpdateDocumentParams,
+) (db.Document, error) {
+	doc, err := r.db.UpdateDocument(ctx, arg)
 	if err != nil {
 		return db.Document{}, err
 	}
@@ -131,12 +148,59 @@ func (r *documentRepository) GetDocument(
 	return doc, nil
 }
 
-func (r *documentRepository) EditDocument(
+func (r *documentRepository) UpdateDocumentStatus(
 	ctx context.Context,
-	arg db.UpdateDocumentParams,
+	arg db.UpdateDocumentStatusParams,
 ) (db.Document, error) {
+	doc, err := r.db.UpdateDocumentStatus(ctx, arg)
+	if err != nil {
+		return db.Document{}, err
+	}
 
-	doc, err := r.db.UpdateDocument(ctx, arg)
+	return doc, nil
+}
+
+func (r *documentRepository) MarkDocumentPending(
+	ctx context.Context,
+	id uuid.UUID,
+) (db.Document, error) {
+	doc, err := r.db.MarkDocumentPending(ctx, id)
+	if err != nil {
+		return db.Document{}, err
+	}
+
+	return doc, nil
+}
+
+func (r *documentRepository) MarkDocumentProcessing(
+	ctx context.Context,
+	id uuid.UUID,
+) (db.Document, error) {
+	doc, err := r.db.MarkDocumentProcessing(ctx, id)
+	if err != nil {
+		return db.Document{}, err
+	}
+
+	return doc, nil
+}
+
+func (r *documentRepository) MarkDocumentCompleted(
+	ctx context.Context,
+	id uuid.UUID,
+) (db.Document, error) {
+	doc, err := r.db.MarkDocumentCompleted(ctx, id)
+	if err != nil {
+		return db.Document{}, err
+	}
+
+	return doc, nil
+}
+
+func (r *documentRepository) MarkDocumentFailed(
+	ctx context.Context,
+	id uuid.UUID,
+) (db.Document, error) {
+	doc, err := r.db.MarkDocumentFailed(ctx, id)
 	if err != nil {
 		return db.Document{}, err
 	}
@@ -148,7 +212,6 @@ func (r *documentRepository) DeleteDocument(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-
 	err := r.db.DeleteDocument(ctx, id)
 	if err != nil {
 		return err
@@ -157,19 +220,9 @@ func (r *documentRepository) DeleteDocument(
 	return nil
 }
 
-func (r *documentRepository) ListProcessesByDocument(ctx context.Context, id uuid.UUID) ([]db.Process, error) {
-	processes, err := r.db.ListProcessesByDocument(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return processes, nil
-}
-
 func (r *documentRepository) GetLatestByDocumentID(
 	ctx context.Context,
 	documentID uuid.UUID,
 ) (db.Process, error) {
-
 	return r.db.GetLatestProcessByDocumentID(ctx, documentID)
 }
