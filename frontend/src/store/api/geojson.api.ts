@@ -9,7 +9,7 @@ type GeoJsonObject = GeoJSON.FeatureCollection | GeoJSON.Feature;
 
 export const geojsonApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getGeoJson: builder.query<GeoJsonObject, "water" | "districts" | "subcounties">({
+    getGeoJson: builder.query<GeoJsonObject, "geo_water" | "geo_districts" | "geo_subcounties">({
       query: (name) => ({
         url: `/geojson/${name}`,
         method: "GET",

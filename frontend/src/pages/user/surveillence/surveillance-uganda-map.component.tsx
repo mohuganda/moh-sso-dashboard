@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { GeoJSON, MapContainer, Pane, useMap } from "react-leaflet";
+import { GeoJSON, MapContainer, useMap } from "react-leaflet";
 import type { GeoJSON as GeoJSONType, Feature, Geometry } from "geojson";
 import type { Layer, PathOptions } from "leaflet";
 import L from "leaflet";
@@ -98,6 +98,22 @@ function getFeatureSubCountyName(properties?: UgandaMapFeatureProperties) {
   );
 }
 
+function RefreshMapSize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const t1 = window.setTimeout(() => map.invalidateSize(), 0);
+    const t2 = window.setTimeout(() => map.invalidateSize(), 150);
+
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [map]);
+
+  return null;
+}
+
 function FitMapToGeoJson({ geoJson }: { geoJson: GeoJSONType }) {
   const map = useMap();
 
@@ -107,6 +123,7 @@ function FitMapToGeoJson({ geoJson }: { geoJson: GeoJSONType }) {
 
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [24, 24] });
+      map.invalidateSize();
     }
   }, [geoJson, map]);
 
@@ -147,7 +164,6 @@ export default function SurveillanceUgandaMap({
     for (const item of weeklyStatuses) {
       const districtName = normalize(item.district_name);
       if (!districtName) continue;
-
       map.set(districtName, mapRiskLevelToStatusKey(item.status));
     }
 
@@ -160,7 +176,6 @@ export default function SurveillanceUgandaMap({
     for (const item of weeklyStatuses) {
       const subCountyName = normalize(item.sub_county_name);
       if (!subCountyName) continue;
-
       map.set(subCountyName, mapRiskLevelToStatusKey(item.status));
     }
 
@@ -173,7 +188,6 @@ export default function SurveillanceUgandaMap({
     for (const item of weeklyStatuses) {
       const regionName = normalize(item.region_name);
       if (!regionName) continue;
-
       map.set(regionName, mapRiskLevelToStatusKey(item.status));
     }
 
@@ -241,9 +255,7 @@ export default function SurveillanceUgandaMap({
   };
 
   const highlightFeature = (layer: Layer) => {
-    const vectorLayer = layer as L.Path;
-
-    vectorLayer.setStyle({
+    (layer as L.Path).setStyle({
       weight: 1.5,
       color: "#1f1f1f",
       fillOpacity: 1,
@@ -251,9 +263,7 @@ export default function SurveillanceUgandaMap({
   };
 
   const resetHighlight = (layer: Layer) => {
-    if (geoJsonRef.current) {
-      geoJsonRef.current.resetStyle(layer);
-    }
+    geoJsonRef.current?.resetStyle(layer);
   };
 
   const handleReset = () => {
@@ -263,9 +273,8 @@ export default function SurveillanceUgandaMap({
     const bounds = layer.getBounds();
 
     if (bounds.isValid()) {
-      mapRef.current.fitBounds(bounds, {
-        padding: [24, 24],
-      });
+      mapRef.current.fitBounds(bounds, { padding: [24, 24] });
+      mapRef.current.invalidateSize();
     }
   };
 
@@ -288,16 +297,12 @@ export default function SurveillanceUgandaMap({
 
         if (mapLevel === "subcounty") {
           const subcountyName = getFeatureSubCountyName(feature.properties);
-          if (subcountyName) {
-            onSubCountySelect?.(subcountyName);
-          }
+          if (subcountyName) onSubCountySelect?.(subcountyName);
           return;
         }
 
         const districtName = getFeatureDistrictName(feature.properties);
-        if (districtName) {
-          onDistrictSelect?.(districtName);
-        }
+        if (districtName) onDistrictSelect?.(districtName);
       },
     });
 
@@ -318,6 +323,8 @@ export default function SurveillanceUgandaMap({
       ? `Week ${selectedWeek.week ?? ""} ${selectedWeek.year}`.trim()
       : "Uganda surveillance map");
 
+  const geoJsonKey = `${mapLevel}-${(geoJson as any)?.features?.length ?? 0}`;
+
   return (
     <div className="surveillance-map">
       <div className="surveillance-map__header">
@@ -327,6 +334,8 @@ export default function SurveillanceUgandaMap({
       <div className="surveillance-map__canvas">
         <MapContainer
           ref={mapRef}
+          center={[1.3733, 32.2903]}
+          zoom={7}
           zoomControl={false}
           attributionControl={false}
           dragging={false}
@@ -336,19 +345,16 @@ export default function SurveillanceUgandaMap({
           scrollWheelZoom={false}
           className="surveillance-map__leaflet"
         >
+          <RefreshMapSize />
           <FitMapToGeoJson geoJson={geoJson} />
 
-          <Pane
-            name={mapLevel === "subcounty" ? "subcounties" : "districts"}
-            style={{ zIndex: 400 }}
-          >
-            <GeoJSON
-              ref={geoJsonRef}
-              data={geoJson}
-              style={styleFeature}
-              onEachFeature={onEachFeature}
-            />
-          </Pane>
+          <GeoJSON
+            key={geoJsonKey}
+            ref={geoJsonRef}
+            data={geoJson}
+            style={styleFeature}
+            onEachFeature={onEachFeature}
+          />
         </MapContainer>
       </div>
 

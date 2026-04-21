@@ -22,9 +22,9 @@ func (h *GeoJSONHandler) GetGeoJSON(c *gin.Context) {
 	name := c.Param("name")
 
 	files := map[string]string{
-		"water":       "uga_water.geojson",
-		"districts":   "uganda_districts.geojson",
-		"subcounties": "uganda_subcounties.geojson",
+		"geo_water":       "uga_water.geojson",
+		"geo_districts":   "uganda_districts.geojson",
+		"geo_subcounties": "uganda_subcounties.geojson",
 	}
 
 	filename, exists := files[name]

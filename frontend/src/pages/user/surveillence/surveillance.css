@@ -1,4 +1,4 @@
-/*  add filters styles */
+/* filters styles */
 .surveillance-filters {
   width: 100%;
   margin-bottom: 1rem;
@@ -26,8 +26,7 @@
   }
 }
 
-
-/*  tiles usage */
+/* tiles */
 .surveillance-tiles {
   width: 100%;
   margin-bottom: 2rem;
@@ -120,8 +119,7 @@
   }
 }
 
-
-/*  panel implementation css */
+/* panels */
 .surveillance-panels {
   width: 100%;
   margin-bottom: 2rem;
@@ -148,8 +146,10 @@
 
 .surveillance-panel--map {
   display: flex;
+  flex-direction: column;
   align-items: stretch;
   justify-content: stretch;
+  min-height: 640px;
 }
 
 .surveillance-panel__title {
@@ -180,13 +180,19 @@
   font-size: 0.95rem;
 }
 
+/* map */
 .surveillance-map {
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  height: 100%;
+  min-height: 600px;
 }
 
 .surveillance-map__header {
   padding: 1rem 1.25rem;
   text-align: center;
+  flex: 0 0 auto;
 }
 
 .surveillance-map__header h3 {
@@ -197,21 +203,32 @@
 }
 
 .surveillance-map__canvas {
-  padding: 1rem 0;
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 480px;
+  padding: 0;
   background: transparent;
 }
 
 .surveillance-map__leaflet {
   width: 100%;
-  height: 540px;
-  background: transparent;
+  height: 100%;
+  min-height: 480px;
+  background: #eef3f7;
 }
 
 .surveillance-map__leaflet .leaflet-container {
   width: 100%;
   height: 100%;
-  background: transparent;
+  min-height: 480px;
+  background: #eef3f7;
   font: inherit;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
 }
 
 .surveillance-map__leaflet .leaflet-pane,
@@ -226,6 +243,7 @@
   gap: 1rem;
   padding: 1rem 0 0;
   flex-wrap: wrap;
+  flex: 0 0 auto;
 }
 
 .surveillance-map__legend {
@@ -289,6 +307,7 @@
   font-size: 0.85rem;
   line-height: 1.4;
 }
+
 @media (max-width: 1056px) {
   .surveillance-panels__grid {
     grid-template-columns: 1fr;
@@ -299,11 +318,21 @@
   }
 
   .surveillance-panel--map {
+    min-height: 520px;
+  }
+
+  .surveillance-map {
+    min-height: 520px;
+  }
+
+  .surveillance-map__canvas,
+  .surveillance-map__leaflet,
+  .surveillance-map__leaflet .leaflet-container {
     min-height: 420px;
   }
 }
 
-/*  dashboard page */
+/* dashboard page */
 .surveillance-dashboard-page {
   padding: 1rem 1rem 2rem;
   background: #ffffff;
