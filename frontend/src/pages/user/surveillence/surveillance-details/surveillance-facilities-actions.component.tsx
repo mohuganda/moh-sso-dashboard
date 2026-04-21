@@ -89,7 +89,7 @@ export function FacilitiesActionTable({
   onViewFacilityTrend,
 }: FacilitiesActionTableProps) {
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
 
   const rows = useMemo(() => {
     return facilityMetrics
@@ -256,7 +256,7 @@ export function FacilitiesActionTable({
         itemsPerPageText="Items per page:"
         page={page}
         pageSize={pageSize}
-        pageSizes={[10, 20, 30, 50]}
+        pageSizes={[5, 10, 20, 30, 50]}
         totalItems={rows.length}
         onChange={({ page, pageSize }) => {
           setPage(page);
