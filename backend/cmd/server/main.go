@@ -271,6 +271,7 @@ func main() {
 	announcementHandler := handler.NewAnnouncementHandler(announcementService, auditService)
 	adminunitsHandler := handler.NewAdminUnitsHandler(cfg, dwhDB)
 	visualiserHandler := handler.NewVisualiserHandler(cfg, dwhDB)
+	geoJSONHandler := handler.NewGeoJSONHandler("./assets/geojson")
 
 	// surveillance
 	surveillanceHandler := handler.NewSurveillanceHandler(
@@ -311,6 +312,7 @@ func main() {
 		adminunitsHandler,
 		visualiserHandler,
 		surveillanceHandler,
+		geoJSONHandler,
 	)
 
 	r.GET("/health/live", healthHandler.HandleLive)

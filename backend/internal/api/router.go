@@ -31,6 +31,7 @@ func SetupRouter(
 	adminunitsHandler *handler.AdminUnitsHandler,
 	visualiserHandler *handler.VisualiserHandler,
 	surveillanceHandler *handler.SurveillanceHandler,
+	geojsonHandler *handler.GeoJSONHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -143,6 +144,11 @@ func SetupRouter(
 
 	{
 		protected.GET("/auth/me", authHandler.HandleAuthGetMe)
+
+		geojson := protected.Group("/geojson")
+		{
+			geojson.GET("/:name", geojsonHandler.GetGeoJSON)
+		}
 
 		// ------------------
 		// Clients
