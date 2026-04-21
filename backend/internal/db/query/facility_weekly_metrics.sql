@@ -139,3 +139,49 @@ ORDER BY ew.epi_year DESC, ew.epi_week DESC, subject_name ASC;
 -- name: DeleteFacilityMetricsByWeek :exec
 DELETE FROM facility_weekly_metrics
 WHERE epi_week_id = $1;
+
+-- name: ListFacilityDiseaseMetricsTrend :many
+SELECT
+  m.id,
+  m.source_record_id,
+  m.facility_id,
+  f.name AS facility_name,
+  m.disease_id,
+  d.name AS disease_name,
+  m.epi_week_id,
+  m.metric_value,
+  m.source_name,
+  m.imported_at,
+  m.created_at,
+  ew.epi_year,
+  ew.epi_week
+FROM facility_weekly_metrics m
+JOIN facilities f ON f.id = m.facility_id
+JOIN diseases d ON d.id = m.disease_id
+JOIN epi_weeks ew ON ew.id = m.epi_week_id
+WHERE m.facility_id = $1
+  AND m.disease_id = $2
+ORDER BY ew.epi_year ASC, ew.epi_week ASC;
+
+-- name: ListFacilityIndicatorMetricsTrend :many
+SELECT
+  m.id,
+  m.source_record_id,
+  m.facility_id,
+  f.name AS facility_name,
+  m.indicator_id,
+  i.name AS indicator_name,
+  m.epi_week_id,
+  m.metric_value,
+  m.source_name,
+  m.imported_at,
+  m.created_at,
+  ew.epi_year,
+  ew.epi_week
+FROM facility_weekly_metrics m
+JOIN facilities f ON f.id = m.facility_id
+JOIN indicators i ON i.id = m.indicator_id
+JOIN epi_weeks ew ON ew.id = m.epi_week_id
+WHERE m.facility_id = $1
+  AND m.indicator_id = $2
+ORDER BY ew.epi_year ASC, ew.epi_week ASC;

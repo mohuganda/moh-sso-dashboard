@@ -8,15 +8,18 @@ import {
   Link,
   InlineLoading,
 } from "@carbon/react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useSearchParams, Link as RouterLink } from "react-router-dom";
 
 import { DiseaseAlertsTable } from "./surveillance-disease-alerts.component";
 import { FacilitiesActionTable } from "./surveillance-facilities-actions.component";
+import { FacilityTrendModal } from "./surveillance-facility-trend-modal.component";
 import {
   useListAlertsQuery,
   useListDiseasesQuery,
   useListEpiWeeksQuery,
+  useListFacilityDiseaseMetricsTrendQuery,
+  useListFacilityIndicatorMetricsTrendQuery,
   useListFacilityWeeklyMetricsByWeekQuery,
   useListRegionsQuery,
   useListWeeklyStatusesDetailedQuery,
@@ -34,7 +37,9 @@ function formatDiseaseName(value?: string) {
 }
 
 function normalize(value?: string) {
-  return (value ?? "").trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 type RelevantDocument = {
@@ -42,11 +47,31 @@ type RelevantDocument = {
   href: string;
 };
 
+type FacilityTrendSelection = {
+  facilityId?: string;
+  facilityName: string;
+  regionId?: string;
+  districtId?: string;
+  subCountyId?: string;
+  diseaseId?: string;
+  indicatorId?: string;
+  diseaseName?: string;
+  indicatorName?: string;
+};
+
 export default function DiseaseDetailsPage() {
   const { diseaseName } = useParams<{ diseaseName: string }>();
   const [searchParams] = useSearchParams();
 
   const requestedWeekId = searchParams.get("weekId") ?? "";
+  const selectedRegionId = searchParams.get("regionId") ?? "";
+  const selectedDistrictId = searchParams.get("districtId") ?? "";
+  const selectedSubCountyId = searchParams.get("subCountyId") ?? "";
+
+  const [selectedFacilityTrend, setSelectedFacilityTrend] = useState<FacilityTrendSelection | null>(
+    null,
+  );
+  const [isTrendModalOpen, setIsTrendModalOpen] = useState(false);
 
   const normalizedDiseaseSlug = normalize(diseaseName).replace(/-/g, " ");
   const title = formatDiseaseName(diseaseName);
@@ -117,6 +142,30 @@ export default function DiseaseDetailsPage() {
     return Object.fromEntries(diseases.map((item) => [item.id, item.name]));
   }, [diseases]);
 
+  const indicatorNameById = useMemo<Record<string, string>>(() => {
+    const map = new Map<string, string>();
+
+    facilityMetrics.forEach((item) => {
+      const indicatorId = String(item.indicator_id ?? "");
+      const indicatorName = item.indicator_name ?? "";
+
+      if (indicatorId && indicatorName) {
+        map.set(indicatorId, indicatorName);
+      }
+    });
+
+    weeklyStatusesDetailed.forEach((item) => {
+      const indicatorId = String(item.indicator_id ?? "");
+      const indicatorName = item.indicator_name ?? "";
+
+      if (indicatorId && indicatorName) {
+        map.set(indicatorId, indicatorName);
+      }
+    });
+
+    return Object.fromEntries(map.entries());
+  }, [facilityMetrics, weeklyStatusesDetailed]);
+
   const regionNameById = useMemo<Record<string, string>>(() => {
     const map = new Map<string, string>();
 
@@ -132,8 +181,16 @@ export default function DiseaseDetailsPage() {
       }
     });
 
+    facilityMetrics.forEach((item) => {
+      const regionId = String(item.region_id ?? "");
+      const regionName = item.region_name ?? "";
+      if (regionId && regionName) {
+        map.set(regionId, regionName);
+      }
+    });
+
     return Object.fromEntries(map.entries());
-  }, [regions, weeklyStatusesDetailed]);
+  }, [regions, weeklyStatusesDetailed, facilityMetrics]);
 
   const districtNameById = useMemo<Record<string, string>>(() => {
     const map = new Map<string, string>();
@@ -148,7 +205,7 @@ export default function DiseaseDetailsPage() {
     });
 
     facilityMetrics.forEach((item) => {
-      const districtId = "district_id" in item ? String(item.district_id ?? "") : "";
+      const districtId = String(item.district_id ?? "");
       const districtName = item.district_name ?? "";
 
       if (districtId && districtName) {
@@ -196,7 +253,7 @@ export default function DiseaseDetailsPage() {
     });
 
     facilityMetrics.forEach((item) => {
-      const subCountyId = "sub_county_id" in item ? String(item.sub_county_id ?? "") : "";
+      const subCountyId = String(item.sub_county_id ?? "");
       const subCountyName = item.subcounty_name ?? "";
 
       if (subCountyId && subCountyName) {
@@ -237,16 +294,34 @@ export default function DiseaseDetailsPage() {
     });
   }, [alerts, matchedDiseaseId, normalizedDiseaseSlug]);
 
-  const filteredFacilityMetrics = useMemo(() => {
+  const diseaseOrIndicatorFacilityMetrics = useMemo(() => {
     return facilityMetrics.filter((item) => {
-      if (matchedDiseaseId && String(item.disease_id ?? "") === matchedDiseaseId) {
-        return true;
+      if (matchedDiseaseId) {
+        return String(item.disease_id ?? "") === matchedDiseaseId;
       }
 
-      const diseaseLabel = normalize(item.disease_name ?? item.indicator_name).replace(/-/g, " ");
-      return diseaseLabel.includes(normalizedDiseaseSlug);
+      return normalize(item.disease_name ?? item.indicator_name)
+        .replace(/-/g, " ")
+        .includes(normalizedDiseaseSlug);
     });
   }, [facilityMetrics, matchedDiseaseId, normalizedDiseaseSlug]);
+
+  const filteredFacilityMetrics = useMemo(() => {
+    return diseaseOrIndicatorFacilityMetrics.filter((item) => {
+      const matchesRegion = !selectedRegionId || String(item.region_id ?? "") === selectedRegionId;
+      const matchesDistrict =
+        !selectedDistrictId || String(item.district_id ?? "") === selectedDistrictId;
+      const matchesSubCounty =
+        !selectedSubCountyId || String(item.sub_county_id ?? "") === selectedSubCountyId;
+
+      return matchesRegion && matchesDistrict && matchesSubCounty;
+    });
+  }, [
+    diseaseOrIndicatorFacilityMetrics,
+    selectedRegionId,
+    selectedDistrictId,
+    selectedSubCountyId,
+  ]);
 
   const relevantDocuments = useMemo<RelevantDocument[]>(() => {
     const documents: Record<string, RelevantDocument[]> = {
@@ -288,23 +363,26 @@ export default function DiseaseDetailsPage() {
   }, [normalizedDiseaseSlug, title]);
 
   const totalCases = useMemo(() => {
-    return filteredFacilityMetrics.reduce((sum, item) => sum + Number(item.metric_value ?? 0), 0);
-  }, [filteredFacilityMetrics]);
+    return diseaseOrIndicatorFacilityMetrics.reduce(
+      (sum, item) => sum + Number(item.metric_value ?? 0),
+      0,
+    );
+  }, [diseaseOrIndicatorFacilityMetrics]);
 
   const facilitiesCount = useMemo(() => {
     const uniqueFacilities = new Set(
-      filteredFacilityMetrics
+      diseaseOrIndicatorFacilityMetrics
         .map((item) => item.facility_name)
         .filter((value): value is string => Boolean(value?.trim())),
     );
 
     return uniqueFacilities.size;
-  }, [filteredFacilityMetrics]);
+  }, [diseaseOrIndicatorFacilityMetrics]);
 
   const weeklyChartData = useMemo(() => {
     const grouped = new Map<string, number>();
 
-    filteredFacilityMetrics.forEach((item) => {
+    diseaseOrIndicatorFacilityMetrics.forEach((item) => {
       const weekKey = item.epi_week_id
         ? (epiWeekLabelById[String(item.epi_week_id)] ??
           ("week" in item && item.week != null ? String(item.week) : "Unknown"))
@@ -318,9 +396,94 @@ export default function DiseaseDetailsPage() {
 
     return Array.from(grouped.entries()).map(([week, value]) => ({
       week,
+      label: week,
       value,
     }));
-  }, [filteredFacilityMetrics, epiWeekLabelById]);
+  }, [diseaseOrIndicatorFacilityMetrics, epiWeekLabelById]);
+
+  const shouldLoadDiseaseTrend =
+    isTrendModalOpen &&
+    Boolean(selectedFacilityTrend?.facilityId) &&
+    Boolean(selectedFacilityTrend?.diseaseId);
+
+  const shouldLoadIndicatorTrend =
+    isTrendModalOpen &&
+    Boolean(selectedFacilityTrend?.facilityId) &&
+    Boolean(selectedFacilityTrend?.indicatorId);
+
+  const { data: facilityDiseaseTrendResponse, isFetching: facilityDiseaseTrendLoading } =
+    useListFacilityDiseaseMetricsTrendQuery(
+      {
+        facilityID: selectedFacilityTrend?.facilityId ?? "",
+        diseaseID: selectedFacilityTrend?.diseaseId ?? "",
+      },
+      {
+        skip: !shouldLoadDiseaseTrend,
+      },
+    );
+
+  const { data: facilityIndicatorTrendResponse, isFetching: facilityIndicatorTrendLoading } =
+    useListFacilityIndicatorMetricsTrendQuery(
+      {
+        facilityID: selectedFacilityTrend?.facilityId ?? "",
+        indicatorID: selectedFacilityTrend?.indicatorId ?? "",
+      },
+      {
+        skip: !shouldLoadIndicatorTrend,
+      },
+    );
+
+  const selectedFacilityTrendRows = useMemo(() => {
+    if (selectedFacilityTrend?.diseaseId) {
+      return Array.isArray(facilityDiseaseTrendResponse) ? facilityDiseaseTrendResponse : [];
+    }
+
+    if (selectedFacilityTrend?.indicatorId) {
+      return Array.isArray(facilityIndicatorTrendResponse) ? facilityIndicatorTrendResponse : [];
+    }
+
+    return [];
+  }, [selectedFacilityTrend, facilityDiseaseTrendResponse, facilityIndicatorTrendResponse]);
+
+  const selectedFacilityTrendData = useMemo(() => {
+    return selectedFacilityTrendRows
+      .map((item) => ({
+        week: item.epi_week ?? 0,
+        label:
+          item.epi_year && item.epi_week
+            ? `${item.epi_year} - Week ${item.epi_week}`
+            : `Week ${item.epi_week ?? "--"}`,
+        value: Number(item.metric_value ?? 0),
+      }))
+      .filter((item) => Number(item.week) > 0)
+      .sort((a, b) => Number(a.week) - Number(b.week));
+  }, [selectedFacilityTrendRows]);
+
+  const selectedFacilityTotalCases = useMemo(() => {
+    return selectedFacilityTrendRows.reduce((sum, item) => {
+      return sum + Number(item.metric_value ?? 0);
+    }, 0);
+  }, [selectedFacilityTrendRows]);
+
+  const selectedFacilityPeakWeek = useMemo(() => {
+    if (!selectedFacilityTrendRows.length) return "--";
+
+    const peak = [...selectedFacilityTrendRows].sort(
+      (a, b) => Number(b.metric_value ?? 0) - Number(a.metric_value ?? 0),
+    )[0];
+
+    return peak?.epi_week ? `Week ${peak.epi_week}` : "--";
+  }, [selectedFacilityTrendRows]);
+
+  const selectedFacilityTrendLoading = facilityDiseaseTrendLoading || facilityIndicatorTrendLoading;
+
+  const trendSubjectLabel =
+    selectedFacilityTrend?.diseaseName ?? selectedFacilityTrend?.indicatorName ?? title;
+
+  const handleCloseTrendModal = () => {
+    setIsTrendModalOpen(false);
+    setSelectedFacilityTrend(null);
+  };
 
   return (
     <Content className="disease-details-page">
@@ -411,16 +574,34 @@ export default function DiseaseDetailsPage() {
             <h3>Facilities requiring Action</h3>
             <FacilitiesActionTable
               facilityMetrics={filteredFacilityMetrics}
-              loading={loading}
+              regionId={selectedRegionId}
+              districtId={selectedDistrictId}
+              subCountyId={selectedSubCountyId}
               regionNameById={regionNameById}
               districtNameById={districtNameById}
               subCountyNameById={subCountyNameById}
               diseaseNameById={diseaseNameById}
+              indicatorNameById={indicatorNameById}
               epiWeekLabelById={epiWeekLabelById}
+              onViewFacilityTrend={(payload) => {
+                setSelectedFacilityTrend(payload);
+                setIsTrendModalOpen(true);
+              }}
             />
           </div>
         </Tile>
       </div>
+
+      <FacilityTrendModal
+        open={isTrendModalOpen}
+        selectedFacilityTrend={selectedFacilityTrend}
+        trendSubjectLabel={trendSubjectLabel}
+        selectedFacilityTotalCases={selectedFacilityTotalCases}
+        selectedFacilityPeakWeek={selectedFacilityPeakWeek}
+        selectedFacilityTrendData={selectedFacilityTrendData}
+        loading={selectedFacilityTrendLoading}
+        onClose={handleCloseTrendModal}
+      />
     </Content>
   );
 }

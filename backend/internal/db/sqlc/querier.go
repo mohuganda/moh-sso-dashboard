@@ -201,6 +201,8 @@ type Querier interface {
 	ListEpiWeeksByYear(ctx context.Context, epiYear int32) ([]EpiWeek, error)
 	ListFacilities(ctx context.Context) ([]ListFacilitiesRow, error)
 	ListFacilitiesByDistrict(ctx context.Context, districtID uuid.NullUUID) ([]Facility, error)
+	ListFacilityDiseaseMetricsTrend(ctx context.Context, arg ListFacilityDiseaseMetricsTrendParams) ([]ListFacilityDiseaseMetricsTrendRow, error)
+	ListFacilityIndicatorMetricsTrend(ctx context.Context, arg ListFacilityIndicatorMetricsTrendParams) ([]ListFacilityIndicatorMetricsTrendRow, error)
 	ListFacilityMetricsByFacility(ctx context.Context, facilityID uuid.UUID) ([]ListFacilityMetricsByFacilityRow, error)
 	ListFacilityWeeklyDiseaseMetricsByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]ListFacilityWeeklyDiseaseMetricsByWeekRow, error)
 	ListFacilityWeeklyIndicatorMetricsByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]ListFacilityWeeklyIndicatorMetricsByWeekRow, error)

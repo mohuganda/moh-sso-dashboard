@@ -108,6 +108,20 @@ func (r *FacilityWeeklyMetricsRepository) ListByFacility(
 	return r.db.ListFacilityMetricsByFacility(ctx, facilityID)
 }
 
+func (r *FacilityWeeklyMetricsRepository) ListDiseaseTrend(
+	ctx context.Context,
+	arg db.ListFacilityDiseaseMetricsTrendParams,
+) ([]db.ListFacilityDiseaseMetricsTrendRow, error) {
+	return r.db.ListFacilityDiseaseMetricsTrend(ctx, arg)
+}
+
+func (r *FacilityWeeklyMetricsRepository) ListIndicatorTrend(
+	ctx context.Context,
+	arg db.ListFacilityIndicatorMetricsTrendParams,
+) ([]db.ListFacilityIndicatorMetricsTrendRow, error) {
+	return r.db.ListFacilityIndicatorMetricsTrend(ctx, arg)
+}
+
 func (r *FacilityWeeklyMetricsRepository) DeleteByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,

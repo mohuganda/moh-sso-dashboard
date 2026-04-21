@@ -7,6 +7,7 @@ import "./surveillance-details.css";
 type WeeklyCasesPoint = {
   week: string | number;
   value: number;
+  label?: string;
 };
 
 type WeeklyCasesChartProps = {
@@ -15,15 +16,77 @@ type WeeklyCasesChartProps = {
   height?: string;
 };
 
+function toWeekNumber(value: string | number): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  const directNumber = Number(trimmed);
+  if (Number.isFinite(directNumber)) {
+    return directNumber;
+  }
+
+  const match = trimmed.match(/week\s*(\d{1,2})/i);
+  if (match) {
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function toWeekLabel(item: WeeklyCasesPoint): string {
+  if (item.label?.trim()) {
+    return item.label.trim();
+  }
+
+  const parsedWeek = toWeekNumber(item.week);
+  if (parsedWeek && parsedWeek >= 1 && parsedWeek <= 53) {
+    return `Week ${parsedWeek}`;
+  }
+
+  return String(item.week ?? "").trim() || "Unknown";
+}
+
 export default function WeeklyCasesChart({
   diseaseName = "Disease",
   data = [],
   height = "320px",
 }: WeeklyCasesChartProps) {
   const chartData = useMemo(() => {
+    const hasNumericWeeks = data.some((item) => {
+      const weekNumber = toWeekNumber(item.week);
+      return weekNumber !== null && weekNumber >= 1 && weekNumber <= 53;
+    });
+
+    if (hasNumericWeeks) {
+      const weekMap = new Map<number, number>();
+
+      for (const item of data) {
+        const weekNumber = toWeekNumber(item.week);
+        if (weekNumber === null || weekNumber < 1 || weekNumber > 53) {
+          continue;
+        }
+
+        const currentValue = weekMap.get(weekNumber) ?? 0;
+        weekMap.set(weekNumber, currentValue + Number(item.value ?? 0));
+      }
+
+      return Array.from(weekMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([week, value]) => ({
+          group: "Cases",
+          key: `Week ${week}`,
+          value,
+        }));
+    }
+
     return data.map((item) => ({
       group: "Cases",
-      key: String(item.week),
+      key: toWeekLabel(item),
       value: Number(item.value ?? 0),
     }));
   }, [data]);
@@ -53,10 +116,6 @@ export default function WeeklyCasesChart({
     }),
     [diseaseName, height],
   );
-
-  if (!chartData.length) {
-    return <div className="disease-details-page__placeholder">No weekly case data available.</div>;
-  }
 
   return (
     <div className="disease-details-page__chart">

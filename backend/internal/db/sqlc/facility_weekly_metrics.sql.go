@@ -171,6 +171,170 @@ func (q *Queries) GetFacilityWeeklyMetricByID(ctx context.Context, id uuid.UUID)
 	return i, err
 }
 
+const listFacilityDiseaseMetricsTrend = `-- name: ListFacilityDiseaseMetricsTrend :many
+SELECT
+  m.id,
+  m.source_record_id,
+  m.facility_id,
+  f.name AS facility_name,
+  m.disease_id,
+  d.name AS disease_name,
+  m.epi_week_id,
+  m.metric_value,
+  m.source_name,
+  m.imported_at,
+  m.created_at,
+  ew.epi_year,
+  ew.epi_week
+FROM facility_weekly_metrics m
+JOIN facilities f ON f.id = m.facility_id
+JOIN diseases d ON d.id = m.disease_id
+JOIN epi_weeks ew ON ew.id = m.epi_week_id
+WHERE m.facility_id = $1
+  AND m.disease_id = $2
+ORDER BY ew.epi_year ASC, ew.epi_week ASC
+`
+
+type ListFacilityDiseaseMetricsTrendParams struct {
+	FacilityID uuid.UUID     `json:"facility_id"`
+	DiseaseID  uuid.NullUUID `json:"disease_id"`
+}
+
+type ListFacilityDiseaseMetricsTrendRow struct {
+	ID             uuid.UUID      `json:"id"`
+	SourceRecordID sql.NullString `json:"source_record_id"`
+	FacilityID     uuid.UUID      `json:"facility_id"`
+	FacilityName   string         `json:"facility_name"`
+	DiseaseID      uuid.NullUUID  `json:"disease_id"`
+	DiseaseName    string         `json:"disease_name"`
+	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
+	MetricValue    string         `json:"metric_value"`
+	SourceName     sql.NullString `json:"source_name"`
+	ImportedAt     time.Time      `json:"imported_at"`
+	CreatedAt      time.Time      `json:"created_at"`
+	EpiYear        int32          `json:"epi_year"`
+	EpiWeek        int32          `json:"epi_week"`
+}
+
+func (q *Queries) ListFacilityDiseaseMetricsTrend(ctx context.Context, arg ListFacilityDiseaseMetricsTrendParams) ([]ListFacilityDiseaseMetricsTrendRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFacilityDiseaseMetricsTrend, arg.FacilityID, arg.DiseaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFacilityDiseaseMetricsTrendRow{}
+	for rows.Next() {
+		var i ListFacilityDiseaseMetricsTrendRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceRecordID,
+			&i.FacilityID,
+			&i.FacilityName,
+			&i.DiseaseID,
+			&i.DiseaseName,
+			&i.EpiWeekID,
+			&i.MetricValue,
+			&i.SourceName,
+			&i.ImportedAt,
+			&i.CreatedAt,
+			&i.EpiYear,
+			&i.EpiWeek,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFacilityIndicatorMetricsTrend = `-- name: ListFacilityIndicatorMetricsTrend :many
+SELECT
+  m.id,
+  m.source_record_id,
+  m.facility_id,
+  f.name AS facility_name,
+  m.indicator_id,
+  i.name AS indicator_name,
+  m.epi_week_id,
+  m.metric_value,
+  m.source_name,
+  m.imported_at,
+  m.created_at,
+  ew.epi_year,
+  ew.epi_week
+FROM facility_weekly_metrics m
+JOIN facilities f ON f.id = m.facility_id
+JOIN indicators i ON i.id = m.indicator_id
+JOIN epi_weeks ew ON ew.id = m.epi_week_id
+WHERE m.facility_id = $1
+  AND m.indicator_id = $2
+ORDER BY ew.epi_year ASC, ew.epi_week ASC
+`
+
+type ListFacilityIndicatorMetricsTrendParams struct {
+	FacilityID  uuid.UUID     `json:"facility_id"`
+	IndicatorID uuid.NullUUID `json:"indicator_id"`
+}
+
+type ListFacilityIndicatorMetricsTrendRow struct {
+	ID             uuid.UUID      `json:"id"`
+	SourceRecordID sql.NullString `json:"source_record_id"`
+	FacilityID     uuid.UUID      `json:"facility_id"`
+	FacilityName   string         `json:"facility_name"`
+	IndicatorID    uuid.NullUUID  `json:"indicator_id"`
+	IndicatorName  string         `json:"indicator_name"`
+	EpiWeekID      uuid.UUID      `json:"epi_week_id"`
+	MetricValue    string         `json:"metric_value"`
+	SourceName     sql.NullString `json:"source_name"`
+	ImportedAt     time.Time      `json:"imported_at"`
+	CreatedAt      time.Time      `json:"created_at"`
+	EpiYear        int32          `json:"epi_year"`
+	EpiWeek        int32          `json:"epi_week"`
+}
+
+func (q *Queries) ListFacilityIndicatorMetricsTrend(ctx context.Context, arg ListFacilityIndicatorMetricsTrendParams) ([]ListFacilityIndicatorMetricsTrendRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFacilityIndicatorMetricsTrend, arg.FacilityID, arg.IndicatorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFacilityIndicatorMetricsTrendRow{}
+	for rows.Next() {
+		var i ListFacilityIndicatorMetricsTrendRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceRecordID,
+			&i.FacilityID,
+			&i.FacilityName,
+			&i.IndicatorID,
+			&i.IndicatorName,
+			&i.EpiWeekID,
+			&i.MetricValue,
+			&i.SourceName,
+			&i.ImportedAt,
+			&i.CreatedAt,
+			&i.EpiYear,
+			&i.EpiWeek,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFacilityMetricsByFacility = `-- name: ListFacilityMetricsByFacility :many
 SELECT
   m.id,

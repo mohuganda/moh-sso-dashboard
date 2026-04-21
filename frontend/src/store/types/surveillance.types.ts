@@ -46,6 +46,22 @@ export interface FacilityWeeklyMetric {
   week?: number;
 }
 
+export type FacilityWeeklyMetricTrend = {
+  id: string;
+  facility_id: string;
+  facility_name: string;
+  disease_id?: string | null;
+  disease_name?: string | null;
+  indicator_id?: string | null;
+  indicator_name?: string | null;
+  epi_week_id: string;
+  epi_year: number;
+  epi_week: number;
+  metric_value: string;
+  imported_at: string;
+  created_at: string;
+};
+
 export type RiskLevel = "MAROON" | "RED" | "YELLOW" | "GREEN";
 
 export interface WeeklyStatus {

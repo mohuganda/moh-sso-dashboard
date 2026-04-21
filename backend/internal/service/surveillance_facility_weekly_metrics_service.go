@@ -166,6 +166,70 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyIndicatorMe
 	return items, nil
 }
 
+func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityDiseaseMetricsTrend(
+	ctx context.Context,
+	facilityID, diseaseID uuid.UUID,
+) ([]db.ListFacilityDiseaseMetricsTrendRow, error) {
+	s.log.Debug(ctx, "listing facility disease metrics trend",
+		"facility_id", facilityID,
+		"disease_id", diseaseID,
+	)
+
+	if facilityID == uuid.Nil {
+		return []db.ListFacilityDiseaseMetricsTrendRow{}, errors.New("facility id is required")
+	}
+
+	rows, err := s.facilityWeeklyMetricsRepo.ListDiseaseTrend(ctx, db.ListFacilityDiseaseMetricsTrendParams{
+		FacilityID: facilityID,
+		DiseaseID: uuid.NullUUID{
+			UUID:  diseaseID,
+			Valid: diseaseID != uuid.Nil,
+		},
+	})
+	if err != nil {
+		s.log.Error(ctx, "failed to list facility disease metrics trend",
+			"facility_id", facilityID,
+			"disease_id", diseaseID,
+			"error", err,
+		)
+		return []db.ListFacilityDiseaseMetricsTrendRow{}, err
+	}
+
+	return rows, nil
+}
+
+func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityIndicatorMetricsTrend(
+	ctx context.Context,
+	facilityID, indicatorID uuid.UUID,
+) ([]db.ListFacilityIndicatorMetricsTrendRow, error) {
+	s.log.Debug(ctx, "listing facility indicator metrics trend",
+		"facility_id", facilityID,
+		"indicator_id", indicatorID,
+	)
+
+	if facilityID == uuid.Nil {
+		return []db.ListFacilityIndicatorMetricsTrendRow{}, errors.New("facility id is required")
+	}
+
+	rows, err := s.facilityWeeklyMetricsRepo.ListIndicatorTrend(ctx, db.ListFacilityIndicatorMetricsTrendParams{
+		FacilityID: facilityID,
+		IndicatorID: uuid.NullUUID{
+			UUID:  indicatorID,
+			Valid: indicatorID != uuid.Nil,
+		},
+	})
+	if err != nil {
+		s.log.Error(ctx, "failed to list facility indicator metrics trend",
+			"facility_id", facilityID,
+			"indicator_id", indicatorID,
+			"error", err,
+		)
+		return []db.ListFacilityIndicatorMetricsTrendRow{}, err
+	}
+
+	return rows, nil
+}
+
 func (s *SurveillanceFacilityWeeklyMetricsService) UpsertFacilityWeeklyDiseaseMetric(
 	ctx context.Context,
 	arg db.UpsertFacilityWeeklyDiseaseMetricParams,

@@ -296,9 +296,27 @@ export default function SurveillanceDashboardPage() {
   }, [diseases]);
 
   const handleOpenDisease = (diseaseSlug: string) => {
+    const params = new URLSearchParams();
+
+    if (selectedWeekId) {
+      params.set("weekId", selectedWeekId);
+    }
+
+    if (selectedRegionId) {
+      params.set("regionId", selectedRegionId);
+    }
+
+    if (selectedDistrictId) {
+      params.set("districtId", selectedDistrictId);
+    }
+
+    if (selectedSubCountyId) {
+      params.set("subCountyId", selectedSubCountyId);
+    }
+
     navigate({
       pathname: `/apps/dwh/surveillance/${encodeURIComponent(diseaseSlug)}`,
-      search: selectedWeekId ? `?weekId=${encodeURIComponent(selectedWeekId)}` : "",
+      search: params.toString() ? `?${params.toString()}` : "",
     });
   };
 
@@ -320,22 +338,50 @@ export default function SurveillanceDashboardPage() {
 
   const immediateActionItems = useMemo(
     () => createStatusItems("MAROON"),
-    [filteredWeeklyStatuses, diseaseNameById],
+    [
+      filteredWeeklyStatuses,
+      diseaseNameById,
+      selectedWeekId,
+      selectedRegionId,
+      selectedDistrictId,
+      selectedSubCountyId,
+    ],
   );
 
   const takeActionItems = useMemo(
     () => createStatusItems("RED"),
-    [filteredWeeklyStatuses, diseaseNameById],
+    [
+      filteredWeeklyStatuses,
+      diseaseNameById,
+      selectedWeekId,
+      selectedRegionId,
+      selectedDistrictId,
+      selectedSubCountyId,
+    ],
   );
 
   const alertItems = useMemo(
     () => createStatusItems("YELLOW"),
-    [filteredWeeklyStatuses, diseaseNameById],
+    [
+      filteredWeeklyStatuses,
+      diseaseNameById,
+      selectedWeekId,
+      selectedRegionId,
+      selectedDistrictId,
+      selectedSubCountyId,
+    ],
   );
 
   const watchItems = useMemo(
     () => createStatusItems("GREEN"),
-    [filteredWeeklyStatuses, diseaseNameById],
+    [
+      filteredWeeklyStatuses,
+      diseaseNameById,
+      selectedWeekId,
+      selectedRegionId,
+      selectedDistrictId,
+      selectedSubCountyId,
+    ],
   );
 
   const regionDistrictNames = useMemo(() => {
