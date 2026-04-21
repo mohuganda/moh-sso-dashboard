@@ -41,6 +41,9 @@ export interface DocumentProcess {
   progress: number;
   message?: string;
   created_at: string;
+  started_at: string;
+  finished_at: string;
+  updated_at: string;
 }
 export type DocumentProcessType =
   | "SURVEILLANCE_CSV_IMPORT"

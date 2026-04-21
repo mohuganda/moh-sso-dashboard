@@ -29,7 +29,6 @@ function StatusTag({ status }: { status: string }) {
 
 type Props = {
   document: DocumentResponse;
-  getRowProps: (args: { row: { id: string } }) => Record<string, unknown>;
 };
 
 function requiresProcessing(document: DocumentResponse) {
@@ -70,7 +69,7 @@ function getLatestProcess(processes: DocumentProcess[]): DocumentProcess | undef
   )[0];
 }
 
-export function DocumentRow({ document, getRowProps }: Props) {
+export function DocumentRow({ document }: Props) {
   const navigate = useNavigate();
   const [reprocessDocument, { isLoading: isReprocessing }] = useReprocessDocumentMutation();
   const [triggerDownload] = useLazyDownloadDocumentQuery();
@@ -122,7 +121,7 @@ export function DocumentRow({ document, getRowProps }: Props) {
   };
 
   return (
-    <TableRow {...getRowProps({ row: { id: document.id } })}>
+    <TableRow>
       <TableCell>{document.original_filename}</TableCell>
       <TableCell>{document.content_type || "—"}</TableCell>
       <TableCell>{formatFileSize(document.size_bytes)}</TableCell>

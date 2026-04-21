@@ -210,7 +210,7 @@ export default function DocumentPage() {
         />
       ) : (
         <DataTable rows={filteredDocs} headers={headers}>
-          {({ headers, getTableProps, getHeaderProps, getRowProps }) => (
+          {({ headers, getTableProps, getHeaderProps }) => (
             <TableContainer
               title="Documents"
               description={isFetching ? "Refreshing documents..." : undefined}
@@ -260,11 +260,7 @@ export default function DocumentPage() {
 
                   <TableBody>
                     {filteredDocs.map((document) => (
-                      <DocumentRow
-                        key={document.id}
-                        document={document}
-                        getRowProps={getRowProps}
-                      />
+                      <DocumentRow key={document.id} document={document} />
                     ))}
                   </TableBody>
                 </Table>
