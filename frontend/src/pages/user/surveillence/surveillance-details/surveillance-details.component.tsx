@@ -25,6 +25,8 @@ import {
   useListRegionsQuery,
   useListWeeklyStatusesDetailedQuery,
 } from "../../../../store/api/surveillance.api";
+import { useListDocumentsQuery } from "../../../../store/api/document.api";
+import type { DocumentResponse } from "../../../../store/types/documents.types";
 import WeeklyCasesChart from "./surveillance-weekly-cases.component";
 import "./surveillance-details.css";
 
@@ -44,8 +46,11 @@ function normalize(value?: string) {
 }
 
 type RelevantDocument = {
+  id?: string;
   label: string;
   href: string;
+  uploaded?: boolean;
+  status?: string;
 };
 
 type FacilityTrendSelection = {
@@ -59,6 +64,13 @@ type FacilityTrendSelection = {
   diseaseName?: string;
   indicatorName?: string;
 };
+
+function getDocumentSearchBlob(document: DocumentResponse) {
+  return [document.original_filename, document.content_type, document.object_key, document.status]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
 
 export default function DiseaseDetailsPage() {
   const { diseaseName } = useParams<{ diseaseName: string }>();
@@ -81,10 +93,12 @@ export default function DiseaseDetailsPage() {
   const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(currentYear);
   const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
   const { data: regionsResponse, isLoading: regionsLoading } = useListRegionsQuery();
+  const { data: documentsResponse = [], isLoading: documentsLoading } = useListDocumentsQuery();
 
   const weeks = Array.isArray(weeksResponse) ? weeksResponse : [];
   const diseases = Array.isArray(diseasesResponse) ? diseasesResponse : [];
   const regions = Array.isArray(regionsResponse) ? regionsResponse : [];
+  const uploadedDocuments = Array.isArray(documentsResponse) ? documentsResponse : [];
 
   const selectedWeek = useMemo(() => {
     if (!weeks.length) return undefined;
@@ -277,7 +291,7 @@ export default function DiseaseDetailsPage() {
 
     facilityMetrics.forEach((item) => {
       const subCountyId = String(item.sub_county_id ?? "");
-      const subCountyName = item.sub_county_name ?? item.sub_county_name ?? "";
+      const subCountyName = item.sub_county_name ?? "";
 
       if (subCountyId && subCountyName) {
         map.set(subCountyId, subCountyName);
@@ -302,6 +316,7 @@ export default function DiseaseDetailsPage() {
     weeksLoading ||
     diseasesLoading ||
     regionsLoading ||
+    documentsLoading ||
     alertsLoading ||
     weeklyStatusesDetailedLoading ||
     facilityMetricsLoading ||
@@ -331,43 +346,42 @@ export default function DiseaseDetailsPage() {
   }, [facilityMetrics, selectedRegionId, selectedDistrictId, selectedSubCountyId]);
 
   const relevantDocuments = useMemo<RelevantDocument[]>(() => {
-    const documents: Record<string, RelevantDocument[]> = {
-      malaria: [
-        { label: "Malaria Surveillance Guidelines", href: "/documents/malaria-guidelines" },
-        { label: "Malaria Case Investigation Form", href: "/documents/malaria-cif" },
-      ],
-      measles: [
-        { label: "Measles Surveillance Guidelines", href: "/documents/measles-guidelines" },
-        { label: "Measles Case Investigation Form", href: "/documents/measles-cif" },
-      ],
-      mpox: [
-        { label: "Mpox Surveillance Guidelines", href: "/documents/mpox-guidelines" },
-        { label: "Mpox Case Investigation Form", href: "/documents/mpox-cif" },
-      ],
-      "yellow fever": [
-        {
-          label: "Yellow Fever Surveillance Guidelines",
-          href: "/documents/yellow-fever-guidelines",
-        },
-        { label: "Yellow Fever Case Investigation Form", href: "/documents/yellow-fever-cif" },
-      ],
-      anthrax: [
-        { label: "Anthrax Surveillance Guidelines", href: "/documents/anthrax-guidelines" },
-        { label: "Anthrax Case Investigation Form", href: "/documents/anthrax-cif" },
-      ],
-      plague: [
-        { label: "Plague Surveillance Guidelines", href: "/documents/plague-guidelines" },
-        { label: "Plague Case Investigation Form", href: "/documents/plague-cif" },
-      ],
-    };
-
-    return (
-      documents[normalizedDiseaseSlug] ?? [
-        { label: `${title} Surveillance Guidelines`, href: "/documents" },
-        { label: `${title} Data Collection Tools`, href: "/documents" },
-      ]
+    const diseaseTerms = Array.from(
+      new Set(
+        [normalizedDiseaseSlug, title, matchedDisease?.name, diseaseName?.replace(/-/g, " ")]
+          .filter(Boolean)
+          .map((value) => normalize(String(value))),
+      ),
     );
-  }, [normalizedDiseaseSlug, title]);
+
+    const matchedUploadedDocs = uploadedDocuments
+      .filter((doc) => {
+        const haystack = getDocumentSearchBlob(doc);
+        return diseaseTerms.some((term) => term && haystack.includes(term));
+      })
+      .map((doc) => ({
+        id: doc.id,
+        label: doc.original_filename,
+        href: `/apps/utilities/self-service/eservice/document-upload/${doc.id}`,
+        uploaded: true,
+        status: doc.status,
+      }));
+
+    if (matchedUploadedDocs.length > 0) {
+      return matchedUploadedDocs;
+    }
+
+    return [
+      {
+        label: `${title} Surveillance Guidelines`,
+        href: "/apps/utilities/self-service/eservice/document-upload",
+      },
+      {
+        label: `${title} Data Collection Tools`,
+        href: "/apps/utilities/self-service/eservice/document-upload",
+      },
+    ];
+  }, [uploadedDocuments, normalizedDiseaseSlug, title, matchedDisease?.name, diseaseName]);
 
   const totalCases = useMemo(() => {
     return filteredFacilityMetrics.reduce((sum, item) => sum + Number(item.metric_value ?? 0), 0);
@@ -507,10 +521,17 @@ export default function DiseaseDetailsPage() {
               <h3>Relevant Documents</h3>
               <ul className="disease-details-page__links">
                 {relevantDocuments.map((doc) => (
-                  <li key={doc.label}>
+                  <li key={doc.id ?? doc.label}>
                     <Link as={RouterLink} to={doc.href}>
                       {doc.label}
                     </Link>
+                    {doc.uploaded && doc.status ? (
+                      <span
+                        style={{ marginLeft: "0.5rem", color: "#6f6f6f", fontSize: "0.875rem" }}
+                      >
+                        ({doc.status})
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
