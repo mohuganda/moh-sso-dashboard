@@ -34,6 +34,10 @@ type issueResponse struct {
 	DateReported string  `json:"date_reported"`
 	ReportedBy   *string `json:"reported_by,omitempty"`
 	Status       *string `json:"status,omitempty"`
+	Priority     *int64  `json:"priority,omitempty"`
+	Severity     *string `json:"severity,omitempty"`
+	UpdatedDate  *string `json:"updated_date,omitempty"`
+	UpdatedBy    *string `json:"updated_by,omitempty"`
 }
 
 type createIssueRequest struct {
@@ -51,6 +55,10 @@ type updateIssueRequest struct {
 	Issue        *string `json:"issue"`
 	DateReported *string `json:"date_reported"`
 	ReportedBy   *string `json:"reported_by"`
+	Priority     *int64  `json:"priority"`
+	Severity     *string `json:"severity"`
+	UpdatedDate  *string `json:"updated_date"`
+	UpdatedBy    *string `json:"updated_by"`
 }
 
 func parseListLimit(c *gin.Context, defaultValue int, maxValue int) int {
@@ -109,6 +117,22 @@ func dqNullStringPtr(value sql.NullString) *string {
 	return &v
 }
 
+func dqNullInt64Ptr(value sql.NullInt64) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Int64
+	return &v
+}
+
+func dqNullDatePtr(value sql.NullTime) *string {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Time.Format("2006-01-02")
+	return &v
+}
+
 func optionalTrimmedParam(value *string, emptyAsNil bool) interface{} {
 	if value == nil {
 		return nil
@@ -135,6 +159,10 @@ func scanIssue(scanner interface {
 		dateReported time.Time
 		reportedBy   sql.NullString
 		status       sql.NullString
+		priority     sql.NullInt64
+		severity     sql.NullString
+		updatedDate  sql.NullTime
+		updateBy     sql.NullString
 	)
 
 	if err := scanner.Scan(
@@ -147,6 +175,10 @@ func scanIssue(scanner interface {
 		&dateReported,
 		&reportedBy,
 		&status,
+		&priority,
+		&severity,
+		&updatedDate,
+		&updateBy,
 	); err != nil {
 		return issueResponse{}, err
 	}
@@ -161,6 +193,10 @@ func scanIssue(scanner interface {
 		DateReported: dateReported.Format("2006-01-02"),
 		ReportedBy:   dqNullStringPtr(reportedBy),
 		Status:       dqNullStringPtr(status),
+		Priority:     dqNullInt64Ptr(priority),
+		Severity:     dqNullStringPtr(severity),
+		UpdatedDate:  dqNullDatePtr(updatedDate),
+		UpdatedBy:    dqNullStringPtr(updateBy),
 	}, nil
 }
 
@@ -225,7 +261,7 @@ func (h *DataQualityHandler) CreateIssue(c *gin.Context) {
 			'HMIS-' || LPAD(n.issue_id::text, 4, '0'),
 			$1, $2, $3, $4, CURRENT_DATE, $5, 'open'
 		FROM next_issue n
-		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status`,
+		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by`,
 		dqNullableString(req.Dataset),
 		dqNullableString(req.DataElement),
 		dqNullableString(req.OrgUnit),
@@ -248,7 +284,7 @@ func (h *DataQualityHandler) ListIssues(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(
 		c.Request.Context(),
-		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status
+		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by
 		FROM hiv.issue
 		ORDER BY date_reported DESC, issue_id DESC
 		LIMIT $1 OFFSET $2`,
@@ -280,14 +316,9 @@ func (h *DataQualityHandler) ListIssues(c *gin.Context) {
 }
 
 func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
-	rawIssueID := strings.TrimSpace(c.Param("id"))
-	if rawIssueID == "" {
-		response.Fail(c, http.StatusBadRequest, "INVALID_ID", "issue id is required")
-		return
-	}
-	issueID, err := strconv.ParseInt(rawIssueID, 10, 64)
-	if err != nil || issueID <= 0 {
-		response.Fail(c, http.StatusBadRequest, "INVALID_ID", "issue id must be a positive integer")
+	issueCode := strings.TrimSpace(c.Param("issueCode"))
+	if issueCode == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ISSUE_CODE", "issue code is required")
 		return
 	}
 
@@ -302,7 +333,11 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 		req.OrgUnit == nil &&
 		req.Issue == nil &&
 		req.DateReported == nil &&
-		req.ReportedBy == nil {
+		req.ReportedBy == nil &&
+		req.Priority == nil &&
+		req.Severity == nil &&
+		req.UpdatedDate == nil &&
+		req.UpdatedBy == nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "at least one field is required")
 		return
 	}
@@ -327,6 +362,43 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 		dateReportedParam = parsedDate
 	}
 
+	var priorityParam interface{}
+	if req.Priority != nil {
+		if *req.Priority < 0 {
+			response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "priority must be zero or greater")
+			return
+		}
+		priorityParam = *req.Priority
+	}
+
+	var severityParam interface{}
+	if req.Severity != nil {
+		trimmedSeverity := strings.TrimSpace(*req.Severity)
+		if trimmedSeverity == "" {
+			response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "severity cannot be empty")
+			return
+		}
+		severityParam = trimmedSeverity
+	}
+
+	var updatedDateParam interface{}
+	if req.UpdatedDate != nil && strings.TrimSpace(*req.UpdatedDate) != "" {
+		parsedDate, err := parseDateOnly(*req.UpdatedDate)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "updated_date must be in YYYY-MM-DD format")
+			return
+		}
+		updatedDateParam = parsedDate
+	}
+
+	updateByParam := optionalTrimmedParam(req.UpdatedBy, true)
+	if updateByParam == nil {
+		userID := strings.TrimSpace(c.GetString("user_id"))
+		if userID != "" {
+			updateByParam = userID
+		}
+	}
+
 	row := h.db.QueryRowContext(
 		c.Request.Context(),
 		`UPDATE hiv.issue
@@ -336,16 +408,24 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 			org_unit = COALESCE($4, org_unit),
 			issue = COALESCE($5, issue),
 			date_reported = COALESCE($6, date_reported),
-			reported_by = COALESCE($7, reported_by)
-		WHERE issue_id = $1
-		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status`,
-		issueID,
+			reported_by = COALESCE($7, reported_by),
+			priority = COALESCE($8, priority),
+			severity = COALESCE($9, severity),
+			updated_date = COALESCE($10, CURRENT_DATE),
+			updated_by = COALESCE($11, updated_by)
+		WHERE issue_code = $1
+		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by`,
+		issueCode,
 		optionalTrimmedParam(req.Dataset, false),
 		optionalTrimmedParam(req.DataElement, false),
 		optionalTrimmedParam(req.OrgUnit, false),
 		issueParam,
 		dateReportedParam,
 		optionalTrimmedParam(req.ReportedBy, false),
+		priorityParam,
+		severityParam,
+		updatedDateParam,
+		updateByParam,
 	)
 
 	issue, err := scanIssue(row)
