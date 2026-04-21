@@ -77,7 +77,7 @@ func (h *AuthHandler) HandleAuthLogin(c *gin.Context) {
 	q.Set("client_id", h.config.KeycloakWebClientID)
 	q.Set("response_type", "code")
 	q.Set("scope", "openid")
-	q.Set("redirect_uri", h.config.KeycloakRedirectUri)
+	q.Set("redirect_uri", h.config.KeycloakRedirectURI)
 
 	// 🔐 PKCE params
 	q.Set("code_challenge", codeChallenge)
