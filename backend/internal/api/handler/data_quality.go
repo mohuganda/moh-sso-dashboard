@@ -64,6 +64,39 @@ type updateIssueRequest struct {
 	UpdatedBy    *string `json:"updated_by"`
 }
 
+type createIssueResolutionRequest struct {
+	Stage              *string `json:"stage"`
+	Status             *string `json:"status"`
+	ResolutionAction   *string `json:"resolution_action"`
+	ResolvedBy         *string `json:"resolved_by"`
+	ResolutionDate     *string `json:"resolution_date"`
+	VerificationStatus *string `json:"verification_status"`
+	VerifiedBy         *string `json:"verified_by"`
+	VerificationDate   *string `json:"verification_date"`
+	PreventiveAction   *string `json:"preventive_action"`
+	ProcessChange      *string `json:"process_change"`
+	PreventiveOwner    *string `json:"preventive_owner"`
+	DueDate            *string `json:"due_date"`
+}
+
+type issueStageResponse struct {
+	ID                 int64   `json:"id"`
+	IssueCode          string  `json:"issue_code"`
+	Status             *string `json:"status,omitempty"`
+	Stage              *string `json:"stage,omitempty"`
+	IsCurrent          bool    `json:"is_current"`
+	ResolutionAction   *string `json:"resolution_action,omitempty"`
+	ResolvedBy         *string `json:"resolved_by,omitempty"`
+	ResolutionDate     *string `json:"resolution_date,omitempty"`
+	VerificationStatus *string `json:"verification_status,omitempty"`
+	VerifiedBy         *string `json:"verified_by,omitempty"`
+	VerificationDate   *string `json:"verification_date,omitempty"`
+	PreventiveAction   *string `json:"preventive_action,omitempty"`
+	ProcessChange      *string `json:"process_change,omitempty"`
+	PreventiveOwner    *string `json:"preventive_owner,omitempty"`
+	DueDate            *string `json:"due_date,omitempty"`
+}
+
 func parseListLimit(c *gin.Context, defaultValue int, maxValue int) int {
 	limit := defaultValue
 	if raw := c.Query("limit"); raw != "" {
@@ -163,6 +196,15 @@ func issueDBErrorMessage(err error, fallback string) string {
 	}
 
 	return err.Error()
+}
+
+func isUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	if !errors.As(err, &pqErr) {
+		return false
+	}
+
+	return string(pqErr.Code) == "23505"
 }
 
 func scanIssue(scanner interface {
@@ -466,4 +508,251 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusOK, issue)
+}
+
+func (h *DataQualityHandler) ResolveIssue(c *gin.Context) {
+	issueCode := strings.TrimSpace(c.Param("issueCode"))
+	if issueCode == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ISSUE_CODE", "issue code is required")
+		return
+	}
+
+	var req createIssueResolutionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		return
+	}
+
+	var status string
+	switch {
+	case req.Status != nil && strings.TrimSpace(*req.Status) != "":
+		status = strings.TrimSpace(*req.Status)
+	case req.Stage != nil && strings.TrimSpace(*req.Stage) != "":
+		// Backward compatibility for existing clients using "stage".
+		status = strings.TrimSpace(*req.Stage)
+	default:
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "status is required")
+		return
+	}
+
+	var resolutionDateParam interface{}
+	if req.ResolutionDate != nil {
+		parsedDate, err := parseDateOnly(*req.ResolutionDate)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "resolution_date must be in YYYY-MM-DD format")
+			return
+		}
+		resolutionDateParam = parsedDate
+	}
+
+	var verificationDateParam interface{}
+	if req.VerificationDate != nil {
+		parsedDate, err := parseDateOnly(*req.VerificationDate)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "verification_date must be in YYYY-MM-DD format")
+			return
+		}
+		verificationDateParam = parsedDate
+	}
+
+	var dueDateParam interface{}
+	if req.DueDate != nil {
+		parsedDate, err := parseDateOnly(*req.DueDate)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "due_date must be in YYYY-MM-DD format")
+			return
+		}
+		dueDateParam = parsedDate
+	}
+
+	resolvedBy := optionalTrimmedParam(req.ResolvedBy, true)
+	if resolvedBy == nil {
+		userID := strings.TrimSpace(c.GetString("user_id"))
+		if userID != "" {
+			resolvedBy = userID
+		}
+	}
+
+	ctx := c.Request.Context()
+	tx, err := h.db.BeginTx(ctx, nil)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to begin transaction"))
+		return
+	}
+	defer tx.Rollback()
+
+	var existingCode string
+	err = tx.QueryRowContext(ctx, `SELECT issue_code FROM hiv.issue WHERE issue_code = $1`, issueCode).Scan(&existingCode)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
+			return
+		}
+		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to validate issue"))
+		return
+	}
+
+	if _, err = tx.ExecContext(
+		ctx,
+		`UPDATE hiv.issue_resolution
+		SET is_current = FALSE
+		WHERE issue_code = $1 AND is_current = TRUE`,
+		issueCode,
+	); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to update previous resolution status"))
+		return
+	}
+
+	var stageRow issueStageResponse
+	var statusOut sql.NullString
+	var resolutionAction sql.NullString
+	var resolvedByOut sql.NullString
+	var resolutionDate sql.NullTime
+	var verificationStatus sql.NullString
+	var verifiedBy sql.NullString
+	var verificationDate sql.NullTime
+	var preventiveAction sql.NullString
+	var processChange sql.NullString
+	var preventiveOwner sql.NullString
+	var dueDate sql.NullTime
+
+	err = tx.QueryRowContext(
+		ctx,
+		`INSERT INTO hiv.issue_resolution (
+			issue_code,
+			status,
+			is_current,
+			resolution_action,
+			resolved_by,
+			resolution_date,
+			verification_status,
+			verified_by,
+			verification_date,
+			preventive_action,
+			process_change,
+			preventive_owner,
+			due_date
+		) VALUES (
+			$1, $2, TRUE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+		)
+		RETURNING id, issue_code, status, is_current, resolution_action, resolved_by, resolution_date,
+			verification_status, verified_by, verification_date, preventive_action, process_change, preventive_owner, due_date`,
+		issueCode,
+		status,
+		optionalTrimmedParam(req.ResolutionAction, true),
+		resolvedBy,
+		resolutionDateParam,
+		optionalTrimmedParam(req.VerificationStatus, true),
+		optionalTrimmedParam(req.VerifiedBy, true),
+		verificationDateParam,
+		optionalTrimmedParam(req.PreventiveAction, true),
+		optionalTrimmedParam(req.ProcessChange, true),
+		optionalTrimmedParam(req.PreventiveOwner, true),
+		dueDateParam,
+	).Scan(
+		&stageRow.ID,
+		&stageRow.IssueCode,
+		&statusOut,
+		&stageRow.IsCurrent,
+		&resolutionAction,
+		&resolvedByOut,
+		&resolutionDate,
+		&verificationStatus,
+		&verifiedBy,
+		&verificationDate,
+		&preventiveAction,
+		&processChange,
+		&preventiveOwner,
+		&dueDate,
+	)
+	if err != nil {
+		if isUniqueViolation(err) {
+			err = tx.QueryRowContext(
+				ctx,
+				`UPDATE hiv.issue_resolution
+				SET
+					status = $2,
+					is_current = TRUE,
+					resolution_action = $3,
+					resolved_by = $4,
+					resolution_date = $5,
+					verification_status = $6,
+					verified_by = $7,
+					verification_date = $8,
+					preventive_action = $9,
+					process_change = $10,
+					preventive_owner = $11,
+					due_date = $12
+				WHERE issue_code = $1
+				RETURNING id, issue_code, status, is_current, resolution_action, resolved_by, resolution_date,
+					verification_status, verified_by, verification_date, preventive_action, process_change, preventive_owner, due_date`,
+				issueCode,
+				status,
+				optionalTrimmedParam(req.ResolutionAction, true),
+				resolvedBy,
+				resolutionDateParam,
+				optionalTrimmedParam(req.VerificationStatus, true),
+				optionalTrimmedParam(req.VerifiedBy, true),
+				verificationDateParam,
+				optionalTrimmedParam(req.PreventiveAction, true),
+				optionalTrimmedParam(req.ProcessChange, true),
+				optionalTrimmedParam(req.PreventiveOwner, true),
+				dueDateParam,
+			).Scan(
+				&stageRow.ID,
+				&stageRow.IssueCode,
+				&statusOut,
+				&stageRow.IsCurrent,
+				&resolutionAction,
+				&resolvedByOut,
+				&resolutionDate,
+				&verificationStatus,
+				&verifiedBy,
+				&verificationDate,
+				&preventiveAction,
+				&processChange,
+				&preventiveOwner,
+				&dueDate,
+			)
+		}
+		if err != nil {
+			response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to create issue resolution"))
+			return
+		}
+	}
+	stageRow.Status = dqNullStringPtr(statusOut)
+	stageRow.Stage = stageRow.Status
+	stageRow.ResolutionAction = dqNullStringPtr(resolutionAction)
+	stageRow.ResolvedBy = dqNullStringPtr(resolvedByOut)
+	stageRow.ResolutionDate = dqNullDatePtr(resolutionDate)
+	stageRow.VerificationStatus = dqNullStringPtr(verificationStatus)
+	stageRow.VerifiedBy = dqNullStringPtr(verifiedBy)
+	stageRow.VerificationDate = dqNullDatePtr(verificationDate)
+	stageRow.PreventiveAction = dqNullStringPtr(preventiveAction)
+	stageRow.ProcessChange = dqNullStringPtr(processChange)
+	stageRow.PreventiveOwner = dqNullStringPtr(preventiveOwner)
+	stageRow.DueDate = dqNullDatePtr(dueDate)
+
+	if _, err = tx.ExecContext(
+		ctx,
+		`UPDATE hiv.issue
+		SET
+			status = $2,
+			updated_date = CURRENT_DATE,
+			updated_by = COALESCE($3, updated_by)
+		WHERE issue_code = $1`,
+		issueCode,
+		status,
+		resolvedBy,
+	); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to sync issue status"))
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to commit transaction"))
+		return
+	}
+
+	response.OK(c, http.StatusCreated, stageRow)
 }
