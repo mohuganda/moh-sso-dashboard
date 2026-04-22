@@ -35,7 +35,7 @@ type issueResponse struct {
 	DateReported string  `json:"date_reported"`
 	ReportedBy   *string `json:"reported_by,omitempty"`
 	Status       *string `json:"status,omitempty"`
-	Priority     *int64  `json:"priority,omitempty"`
+	Priority     *string `json:"priority,omitempty"`
 	Severity     *string `json:"severity,omitempty"`
 	UpdatedDate  *string `json:"updated_date,omitempty"`
 	UpdatedBy    *string `json:"updated_by,omitempty"`
@@ -59,7 +59,7 @@ type updateIssueRequest struct {
 	DateReported *string `json:"date_reported"`
 	ReportedBy   *string `json:"reported_by"`
 	Status       *string `json:"status"`
-	Priority     *int64  `json:"priority"`
+	Priority     *string `json:"priority"`
 	Severity     *string `json:"severity"`
 	UpdatedBy    *string `json:"updated_by"`
 }
@@ -220,7 +220,7 @@ func scanIssue(scanner interface {
 		dateReported time.Time
 		reportedBy   sql.NullString
 		status       sql.NullString
-		priority     sql.NullInt64
+		priority     sql.NullString
 		severity     sql.NullString
 		updatedDate  sql.NullTime
 		updatedBy    sql.NullString
@@ -257,7 +257,7 @@ func scanIssue(scanner interface {
 		DateReported: dateReported.Format("2006-01-02"),
 		ReportedBy:   dqNullStringPtr(reportedBy),
 		Status:       dqNullStringPtr(status),
-		Priority:     dqNullInt64Ptr(priority),
+		Priority:     dqNullStringPtr(priority),
 		Severity:     dqNullStringPtr(severity),
 		UpdatedDate:  dqNullDatePtr(updatedDate),
 		UpdatedBy:    dqNullStringPtr(updatedBy),
@@ -430,11 +430,12 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 
 	var priorityParam interface{}
 	if req.Priority != nil {
-		if *req.Priority < 0 {
-			response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "priority must be zero or greater")
+		trimmedPriority := strings.TrimSpace(*req.Priority)
+		if trimmedPriority == "" {
+			response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "priority cannot be empty")
 			return
 		}
-		priorityParam = *req.Priority
+		priorityParam = trimmedPriority
 	}
 
 	var severityParam interface{}
