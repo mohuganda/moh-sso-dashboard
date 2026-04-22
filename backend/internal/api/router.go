@@ -224,6 +224,7 @@ func SetupRouter(
 			issues.GET("", dataQualityHandler.ListIssues)
 			issues.PUT("/:issueCode", dataQualityHandler.UpdateIssue)
 			issues.POST("/:issueCode/resolveIssue", dataQualityHandler.ResolveIssue)
+			issues.GET("/:issueCode/transactions", dataQualityHandler.ListIssueResolutionTransactions)
 		}
 
 		// ----------------------------------

@@ -756,3 +756,119 @@ func (h *DataQualityHandler) ResolveIssue(c *gin.Context) {
 
 	response.OK(c, http.StatusCreated, stageRow)
 }
+
+func (h *DataQualityHandler) ListIssueResolutionTransactions(c *gin.Context) {
+	issueCode := strings.TrimSpace(c.Param("issueCode"))
+	if issueCode == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ISSUE_CODE", "issue code is required")
+		return
+	}
+
+	limit := parseListLimit(c, 20, 100)
+	offset := parseListOffset(c)
+
+	var existingCode string
+	err := h.db.QueryRowContext(
+		c.Request.Context(),
+		`SELECT issue_code FROM hiv.issue WHERE issue_code = $1`,
+		issueCode,
+	).Scan(&existingCode)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
+			return
+		}
+		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_TRANSACTIONS_FAILED", issueDBErrorMessage(err, "failed to validate issue"))
+		return
+	}
+
+	rows, err := h.db.QueryContext(
+		c.Request.Context(),
+		`SELECT
+			id,
+			issue_code,
+			status,
+			is_current,
+			resolution_action,
+			resolved_by,
+			resolution_date,
+			verification_status,
+			verified_by,
+			verification_date,
+			preventive_action,
+			process_change,
+			preventive_owner,
+			due_date
+		FROM hiv.issue_resolution
+		WHERE issue_code = $1
+		ORDER BY id DESC
+		LIMIT $2 OFFSET $3`,
+		issueCode,
+		limit,
+		offset,
+	)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_TRANSACTIONS_FAILED", issueDBErrorMessage(err, "failed to list issue transactions"))
+		return
+	}
+	defer rows.Close()
+
+	transactions := make([]issueStageResponse, 0)
+	for rows.Next() {
+		var row issueStageResponse
+		var statusOut sql.NullString
+		var resolutionAction sql.NullString
+		var resolvedBy sql.NullString
+		var resolutionDate sql.NullTime
+		var verificationStatus sql.NullString
+		var verifiedBy sql.NullString
+		var verificationDate sql.NullTime
+		var preventiveAction sql.NullString
+		var processChange sql.NullString
+		var preventiveOwner sql.NullString
+		var dueDate sql.NullTime
+
+		scanErr := rows.Scan(
+			&row.ID,
+			&row.IssueCode,
+			&statusOut,
+			&row.IsCurrent,
+			&resolutionAction,
+			&resolvedBy,
+			&resolutionDate,
+			&verificationStatus,
+			&verifiedBy,
+			&verificationDate,
+			&preventiveAction,
+			&processChange,
+			&preventiveOwner,
+			&dueDate,
+		)
+		if scanErr != nil {
+			response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_TRANSACTIONS_FAILED", issueDBErrorMessage(scanErr, "failed to list issue transactions"))
+			return
+		}
+
+		row.Status = dqNullStringPtr(statusOut)
+		row.Stage = row.Status
+		row.ResolutionAction = dqNullStringPtr(resolutionAction)
+		row.ResolvedBy = dqNullStringPtr(resolvedBy)
+		row.ResolutionDate = dqNullDatePtr(resolutionDate)
+		row.VerificationStatus = dqNullStringPtr(verificationStatus)
+		row.VerifiedBy = dqNullStringPtr(verifiedBy)
+		row.VerificationDate = dqNullDatePtr(verificationDate)
+		row.PreventiveAction = dqNullStringPtr(preventiveAction)
+		row.ProcessChange = dqNullStringPtr(processChange)
+		row.PreventiveOwner = dqNullStringPtr(preventiveOwner)
+		row.DueDate = dqNullDatePtr(dueDate)
+
+		transactions = append(transactions, row)
+	}
+
+	if err = rows.Err(); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_TRANSACTIONS_FAILED", issueDBErrorMessage(err, "failed to list issue transactions"))
+		return
+	}
+
+	response.OK(c, http.StatusOK, transactions)
+}
