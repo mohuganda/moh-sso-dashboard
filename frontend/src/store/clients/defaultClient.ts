@@ -53,6 +53,11 @@ export const defaultClient: Client = {
         label: "Surveillance",
         path: "/apps/dwh/surveillance",
       },
+      {
+        id: "issue-tracker",
+        label: "Issue Tracking",
+        path: "/apps/dwh/issue-tracker",
+      },
     ]),
   },
 };

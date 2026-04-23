@@ -39,6 +39,7 @@ import ActiveSessionsPage from "./pages/user/settings/sessions/active-sesssions.
 import { AnnouncementsPage } from "./pages/admin/announcements/announcements.components.tsx";
 import SurveillancePage from "./pages/user/surveillence/surveillance.component.tsx";
 import DiseaseDetailsPage from "./pages/user/surveillence/surveillance-details/surveillance-details.component.tsx";
+import IssueTracker from "./pages/public/issuetracker/issue-tracker.tsx";
 
 function App() {
   return (
@@ -134,6 +135,14 @@ function App() {
                 <Route index element={<SurveillancePage />} />
                 <Route path=":diseaseName" element={<DiseaseDetailsPage />} />
               </Route>
+              <Route
+                path="issue-tracker"
+                element={
+                    <UserRoute>
+                        <IssueTracker />
+                    </UserRoute>
+                }
+              />
             </Route>
 
             {/* --------------------------

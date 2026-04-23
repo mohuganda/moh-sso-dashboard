@@ -61,6 +61,8 @@ export const baseApi = createApi({
     "Announcements",
     "ThemeElement",
     "Surveillance",
+    "Issues",
+    "Transactions"
   ],
 
   endpoints: () => ({}),

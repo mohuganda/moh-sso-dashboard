@@ -28,7 +28,7 @@ export const themesApi = baseApi.injectEndpoints({
                 credentials: "include",
             }),
         }),
-        getThemeElements: builder.query<ThemeElement[], void>({
+        getThemeElements: builder.query<ThemeElement[], string>({
             query: (id) => ({
                 url: API.visualizer.theme(),
                 method: "POST",
