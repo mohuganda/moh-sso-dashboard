@@ -1,21 +1,23 @@
-import {Breadcrumb, BreadcrumbItem, Button, ComboBox, Modal, TextArea, Tile} from "@carbon/react";
+import {Breadcrumb, BreadcrumbItem, Button, Modal, TextArea, Tile} from "@carbon/react";
 import {Link as RouterLink} from "react-router";
 import "./issue-detail.scss";
 import {useState} from "react";
-import {Priority} from "../constants.ts";
-import {useCreateTransactionMutation, useGetTransactionsQuery, useUpdateIssueMutation} from "../Modals/issue-modal.ts";
+import {useCreateTransactionMutation, useGetIssuesQuery, useGetTransactionsQuery} from "../Modals/issue-modal.ts";
 import {useSelector} from "react-redux";
 import {selectUser} from "../../../../store/auth/auth.selectors.ts";
+import type {Issue} from "../issue-tracker.tsx";
+import {IssueModal} from "../Modals/issue-modal.tsx";
 type ModalMode = 'resolve' | 'close' | 'comment' | null;
 
-const IssueDetail = ({selectedIssue, goToBack}) => {
+const IssueDetail = ({ selectedIssue:initialIssue, goToBack }: { selectedIssue: Issue, goToBack: () => void }) => {
+    const { data: latestIssues } = useGetIssuesQuery();
+    const selectedIssue = latestIssues?.data?.find(
+        (issueItem: Issue) => issueItem.issue_code === initialIssue.issue_code
+    ) || initialIssue;
     const [comment, setComment] = useState("");
-    const [priority, setPriority] = useState("");
-    const [severity, setSeverity] = useState("");
-    const [isViewModalPriotity, setIsViewModalPriotity] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<ModalMode>(null);
     const [isViewModalResolution, setIsViewModalResolution] = useState(false);
-    const [updateIssue, { isLoading: isUpdating }] = useUpdateIssueMutation();
     const { data: transactions, isLoading: isLoadingTransactions } = useGetTransactionsQuery(
         selectedIssue?.issue_code,
         { skip: !selectedIssue?.issue_code }
@@ -25,32 +27,6 @@ const IssueDetail = ({selectedIssue, goToBack}) => {
 
     const handleTextChange = (event) => {
         setComment(event.target.value);
-    };
-
-    const onChangePriority = (event) => {
-        setPriority(event?.selectedItem);
-    }
-
-    const onChangeSeverity = (event) => {
-        setSeverity(event?.selectedItem);
-    }
-
-    const handleUpdateIssue = async () => {
-        try {
-            await updateIssue({
-                id: selectedIssue?.issue_code,
-                body: {
-                    priority: priority,
-                    severity: severity,
-                    updated_by: user?.username
-                }
-            }).unwrap();
-
-            setIsViewModalPriotity(false);
-            console.log("Update successful!");
-        } catch (err) {
-            console.error("Failed to update:", err);
-        }
     };
 
     const handleUpdateAction = async () => {
@@ -148,7 +124,7 @@ const IssueDetail = ({selectedIssue, goToBack}) => {
                     </Tile>
 
                     <Tile className="issue-tile issue-actions-container">
-                        <Button className="btn-issue" size="md" kind="primary" onClick={()=> setIsViewModalPriotity(true)}
+                        <Button className="btn-issue" size="md" kind="primary" onClick={() => setIsEditModalOpen(true)}
                         > Edit Issue </Button>
                         <Button className="btn-issue btn-full-width" kind="secondary"
                                 onClick={() => { setModalMode('comment'); setIsViewModalResolution(true); }}
@@ -168,34 +144,6 @@ const IssueDetail = ({selectedIssue, goToBack}) => {
                     </Tile>
                 </div>
             </div>
-
-            {isViewModalPriotity && (
-                 <Modal
-                     open
-                     primaryButtonText={isUpdating ? "Updating..." : "Update Issue"}
-                     secondaryButtonText="Cancel"
-                     modalHeading={`Update Issue: ${selectedIssue?.issue_code}`}
-                     onRequestClose={() => setIsViewModalPriotity(false)}
-                     onRequestSubmit={handleUpdateIssue}
-                 >
-                     <ComboBox
-                         allowCustomValue
-                         autoAlign
-                         id="priority-combobox"
-                         onChange={onChangePriority}
-                         items={Priority}
-                         titleText="Priority"
-                     />
-                     <ComboBox
-                         allowCustomValue
-                         autoAlign
-                         id="severity-combobox"
-                         onChange={onChangeSeverity}
-                         items={Priority}
-                         titleText="Severity"
-                     />
-                 </Modal>
-            )}
 
             {isViewModalResolution && (
                 <Modal
@@ -230,7 +178,12 @@ const IssueDetail = ({selectedIssue, goToBack}) => {
                 </Modal>
             )}
 
-
+            {isEditModalOpen && (
+                <IssueModal
+                    onClose={() => setIsEditModalOpen(false)}
+                    selectedIssue={selectedIssue}
+                />
+            )}
         </>
     )
 }
