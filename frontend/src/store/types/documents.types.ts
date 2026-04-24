@@ -3,7 +3,21 @@ export type ProcessStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 /**
  * EXACT backend match
  */
-export interface DocumentResponse {
+
+export type CreateDocumentPayload = {
+  file: File;
+  storageLocation: string;
+  processType?: DocumentProcessType;
+};
+
+export type UpdateDocumentPayload = {
+  id: string;
+  payload: {
+    original_filename: string;
+    content_type: string;
+  };
+};
+export type DocumentResponse = {
   id: string;
   original_filename: string;
   content_type: string;
@@ -12,8 +26,13 @@ export interface DocumentResponse {
   storage_location: string;
   object_key: string;
   uploaded_by: string;
+  status: string;
+  object_url?: string;
+  view_url?: string;
+  download_url?: string;
   created_at: string;
-}
+  updated_at: string;
+};
 
 export interface DocumentProcess {
   id: string;
@@ -22,6 +41,9 @@ export interface DocumentProcess {
   progress: number;
   message?: string;
   created_at: string;
+  started_at: string;
+  finished_at: string;
+  updated_at: string;
 }
 export type DocumentProcessType =
   | "SURVEILLANCE_CSV_IMPORT"

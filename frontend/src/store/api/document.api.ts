@@ -1,7 +1,8 @@
 import type {
+  CreateDocumentPayload,
   DocumentProcess,
-  DocumentProcessType,
   DocumentResponse,
+  UpdateDocumentPayload,
 } from "../types/documents.types";
 import type { StorageLocation } from "../types/storage.types";
 import { baseApi } from "./baseApi";
@@ -61,10 +62,7 @@ export const documentsApi = baseApi.injectEndpoints({
     // -----------------------------
     // CREATE DOCUMENT (UPLOAD)
     // -----------------------------
-    createDocument: builder.mutation<
-      DocumentResponse,
-      { file: File; storageLocation: string; processType?: DocumentProcessType }
-    >({
+    createDocument: builder.mutation<DocumentResponse, CreateDocumentPayload>({
       query: ({ file, storageLocation, processType }) => {
         const formData = new FormData();
         formData.append("file", file);
@@ -73,6 +71,7 @@ export const documentsApi = baseApi.injectEndpoints({
         if (processType) {
           formData.append("process_type", processType);
         }
+
         return {
           url: `/documents`,
           method: "POST",
@@ -86,10 +85,7 @@ export const documentsApi = baseApi.injectEndpoints({
     // -----------------------------
     // UPDATE DOCUMENT
     // -----------------------------
-    updateDocument: builder.mutation<
-      DocumentResponse,
-      { id: string; payload: Partial<DocumentResponse> }
-    >({
+    updateDocument: builder.mutation<DocumentResponse, UpdateDocumentPayload>({
       query: ({ id, payload }) => ({
         url: `/documents/${id}`,
         method: "PUT",
@@ -105,7 +101,7 @@ export const documentsApi = baseApi.injectEndpoints({
     // -----------------------------
     // DELETE DOCUMENT
     // -----------------------------
-    deleteDocument: builder.mutation<{ success: boolean }, string>({
+    deleteDocument: builder.mutation<{ message: string }, string>({
       query: (id) => ({
         url: `/documents/${id}`,
         method: "DELETE",
@@ -117,11 +113,22 @@ export const documentsApi = baseApi.injectEndpoints({
     }),
 
     // -----------------------------
+    // VIEW DOCUMENT INLINE
+    // -----------------------------
+    viewDocument: builder.query<Blob, string>({
+      query: (id) => ({
+        url: `/documents/files/${id}/view`,
+        method: "GET",
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
+
+    // -----------------------------
     // DOWNLOAD DOCUMENT
     // -----------------------------
     downloadDocument: builder.query<Blob, string>({
       query: (id) => ({
-        url: `/documents/${id}/download`,
+        url: `/documents/files/${id}/download`,
         method: "GET",
         responseHandler: (response) => response.blob(),
       }),
@@ -151,11 +158,19 @@ export const documentsApi = baseApi.injectEndpoints({
       providesTags: (_res, _err, id) => [{ type: "StorageLocation", id }],
     }),
 
-    reprocessDocument: builder.mutation<void, string>({
+    // -----------------------------
+    // REPROCESS DOCUMENT
+    // -----------------------------
+    reprocessDocument: builder.mutation<{ message: string }, string>({
       query: (id) => ({
         url: `/documents/${id}/reprocess`,
         method: "POST",
       }),
+      invalidatesTags: (_res, _err, id) => [
+        { type: "Document", id },
+        { type: "DocumentProcesses", id },
+        { type: "Documents", id: "LIST" },
+      ],
     }),
   }),
 });
@@ -167,9 +182,11 @@ export const {
   useCreateDocumentMutation,
   useUpdateDocumentMutation,
   useDeleteDocumentMutation,
+  useViewDocumentQuery,
+  useLazyViewDocumentQuery,
   useDownloadDocumentQuery,
-  useReprocessDocumentMutation,
   useLazyDownloadDocumentQuery,
+  useReprocessDocumentMutation,
   useListStorageLocationsQuery,
   useGetStorageLocationQuery,
 } = documentsApi;

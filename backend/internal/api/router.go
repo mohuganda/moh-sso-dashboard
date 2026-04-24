@@ -26,10 +26,12 @@ func SetupRouter(
 	documentHandler *handler.DocumentHandler,
 	storageLocationHandler *handler.StorageLocationHandler,
 	sessionHandler *handler.SessionHandler,
+	dataQualityHandler *handler.DataQualityHandler,
 	announcementHandler *handler.AnnouncementHandler,
 	adminunitsHandler *handler.AdminUnitsHandler,
 	visualiserHandler *handler.VisualiserHandler,
 	surveillanceHandler *handler.SurveillanceHandler,
+	geojsonHandler *handler.GeoJSONHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -143,6 +145,11 @@ func SetupRouter(
 	{
 		protected.GET("/auth/me", authHandler.HandleAuthGetMe)
 
+		geojson := protected.Group("/geojson")
+		{
+			geojson.GET("/:name", geojsonHandler.GetGeoJSON)
+		}
+
 		// ------------------
 		// Clients
 		// ------------------
@@ -174,15 +181,17 @@ func SetupRouter(
 		documents := protected.Group("/documents")
 		{
 			documents.GET("", documentHandler.ListDocuments)
-
-			documents.GET("/:id/download", documentHandler.DownloadDocument)
-			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
-			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
-			documents.GET("/:id", documentHandler.GetDocument)
-
 			documents.POST("", documentHandler.CreateDocument)
+
+			documents.GET("/:id", documentHandler.GetDocument)
 			documents.PUT("/:id", documentHandler.EditDocument)
 			documents.DELETE("/:id", documentHandler.DeleteDocument)
+
+			documents.GET("/files/:id/view", documentHandler.ViewDocument)
+			documents.GET("/files/:id/download", documentHandler.DownloadDocument)
+
+			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
+			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
 		}
 
 		// --------------------------
@@ -204,6 +213,18 @@ func SetupRouter(
 		{
 			sessions.GET("", sessionHandler.GetUserSessions)
 			sessions.DELETE("/:id", sessionHandler.LogoutSession)
+		}
+
+		// ------------------------------
+		// Data Quality Issues
+		// ------------------------------
+		issues := protected.Group("/issues")
+		{
+			issues.POST("", dataQualityHandler.CreateIssue)
+			issues.GET("", dataQualityHandler.ListIssues)
+			issues.PUT("/:issueCode", dataQualityHandler.UpdateIssue)
+			issues.POST("/:issueCode/resolveIssue", dataQualityHandler.ResolveIssue)
+			issues.GET("/:issueCode/transactions", dataQualityHandler.ListIssueResolutionTransactions)
 		}
 
 		// ----------------------------------
@@ -257,6 +278,10 @@ func SetupRouter(
 
 			surveillance.GET("/facility-weekly-metrics/week/:epiWeekID", surveillanceHandler.ListFacilityWeeklyMetricsByWeek)
 			surveillance.GET("/facility-weekly-metrics/facility/:facilityID", surveillanceHandler.ListFacilityWeeklyMetricsByFacility)
+			surveillance.GET("/facility-weekly-metrics/facility/:facilityID/disease/:diseaseID/trend", surveillanceHandler.ListFacilityDiseaseMetricsTrend)
+			surveillance.GET("/facility-weekly-metrics/facility/:facilityID/indicator/:indicatorID/trend", surveillanceHandler.ListFacilityIndicatorMetricsTrend)
+			surveillance.GET("/facility-weekly-metrics/week/:epiWeekID/disease/:diseaseID", surveillanceHandler.ListFacilityDiseaseMetricsByWeekAndDisease)
+			surveillance.GET("/facility-weekly-metrics/disease-trend", surveillanceHandler.ListDiseaseWeeklyTrendAggregated)
 
 			// weekly statuses
 			surveillance.GET("/weekly-statuses/list", surveillanceHandler.ListWeeklyStatuses)

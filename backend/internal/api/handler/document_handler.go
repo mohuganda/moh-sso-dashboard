@@ -43,10 +43,15 @@ type DocumentResponse struct {
 	StorageLocation  uuid.UUID `json:"storage_location"`
 	ObjectKey        string    `json:"object_key"`
 	UploadedBy       uuid.UUID `json:"uploaded_by"`
+	Status           string    `json:"status"`
+	ObjectURL        string    `json:"object_url,omitempty"`
+	ViewURL          string    `json:"view_url,omitempty"`
+	DownloadURL      string    `json:"download_url,omitempty"`
 	CreatedAt        string    `json:"created_at"`
+	UpdatedAt        string    `json:"updated_at"`
 }
 
-func toDocumentResponse(doc db.Document) DocumentResponse {
+func toDocumentResponse(doc db.Document, objectURL, viewURL, downloadURL string) DocumentResponse {
 	return DocumentResponse{
 		ID:               doc.ID,
 		OriginalFilename: doc.OriginalFilename,
@@ -56,7 +61,12 @@ func toDocumentResponse(doc db.Document) DocumentResponse {
 		StorageLocation:  doc.StorageLocationID,
 		ObjectKey:        doc.ObjectKey,
 		UploadedBy:       doc.UploadedBy,
-		CreatedAt:        nullTimeRFC3339(doc.CreatedAt),
+		Status:           normalizeStatus(doc.Status),
+		ObjectURL:        objectURL,
+		ViewURL:          viewURL,
+		DownloadURL:      downloadURL,
+		CreatedAt:        doc.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        doc.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -198,6 +208,11 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 
 	checksumStr := hex.EncodeToString(hasher.Sum(nil))
 
+	status := db.DocumentStatusCOMPLETED
+	if fileNeedsProcessing {
+		status = db.DocumentStatusPENDING
+	}
+
 	input := service.CreateDocumentInput{
 		OriginalFilename: header.Filename,
 		ContentType:      contentType,
@@ -206,7 +221,11 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		StorageLocation:  storageLocationID,
 		ObjectKey:        objectKey,
 		UploadedBy:       userID,
-		ProcessType:      processType,
+		Status:           status,
+	}
+
+	if fileNeedsProcessing {
+		input.ProcessType = processType
 	}
 
 	doc, err := h.documentService.CreateDocument(ctx, input)
@@ -216,30 +235,56 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusCreated, toDocumentResponse(doc))
+	objectURL, _ := storageProvider.GetObjectURL(ctx, objectKey)
+	viewURL, _ := storageProvider.GetViewURL(ctx, objectKey, header.Filename)
+	downloadURL, _ := storageProvider.GetDownloadURL(ctx, objectKey, header.Filename)
+
+	response.OK(
+		c,
+		http.StatusCreated,
+		toDocumentResponse(doc, objectURL, viewURL, downloadURL),
+	)
 }
 
 func (h *DocumentHandler) GetDocument(c *gin.Context) {
-	idParam := c.Param("id")
+	ctx := c.Request.Context()
 
+	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_ID", "invalid document id")
 		return
 	}
 
-	doc, err := h.documentService.GetDocument(c.Request.Context(), id)
+	doc, err := h.documentService.GetDocument(ctx, id)
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
 
-	response.OK(c, http.StatusOK, toDocumentResponse(doc))
+	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", err.Error())
+		return
+	}
+
+	storageProvider, err := h.storageFactory.Get(loc.Provider)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", err.Error())
+		return
+	}
+
+	objectURL, _ := storageProvider.GetObjectURL(ctx, doc.ObjectKey)
+	viewURL, _ := storageProvider.GetViewURL(ctx, doc.ObjectKey, doc.OriginalFilename)
+	downloadURL, _ := storageProvider.GetDownloadURL(ctx, doc.ObjectKey, doc.OriginalFilename)
+
+	response.OK(c, http.StatusOK, toDocumentResponse(doc, objectURL, viewURL, downloadURL))
 }
 
 func (h *DocumentHandler) EditDocument(c *gin.Context) {
-	idParam := c.Param("id")
+	ctx := c.Request.Context()
 
+	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_ID", "invalid document id")
@@ -252,7 +297,12 @@ func (h *DocumentHandler) EditDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.documentService.EditDocument(c.Request.Context(), service.EditDocumentInput{
+	if req.OriginalFilename == nil || req.ContentType == nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_REQUEST", "original_filename and content_type are required")
+		return
+	}
+
+	doc, err := h.documentService.EditDocument(ctx, service.EditDocumentInput{
 		ID:               id,
 		OriginalFilename: *req.OriginalFilename,
 		ContentType:      *req.ContentType,
@@ -262,7 +312,23 @@ func (h *DocumentHandler) EditDocument(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, doc)
+	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", err.Error())
+		return
+	}
+
+	storageProvider, err := h.storageFactory.Get(loc.Provider)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", err.Error())
+		return
+	}
+
+	objectURL, _ := storageProvider.GetObjectURL(ctx, doc.ObjectKey)
+	viewURL, _ := storageProvider.GetViewURL(ctx, doc.ObjectKey, doc.OriginalFilename)
+	downloadURL, _ := storageProvider.GetDownloadURL(ctx, doc.ObjectKey, doc.OriginalFilename)
+
+	response.OK(c, http.StatusOK, toDocumentResponse(doc, objectURL, viewURL, downloadURL))
 }
 
 func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
@@ -290,27 +356,90 @@ func (h *DocumentHandler) DownloadDocument(c *gin.Context) {
 
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INVALID_UUID", "Invalid Uuid")
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "invalid uuid")
 		return
 	}
 
 	doc, err := h.documentService.GetDocument(ctx, uid)
 	if err != nil {
-		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Document not found")
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "document not found")
 		return
 	}
 
-	reader, err := h.storage.Download(ctx, doc.ObjectKey)
+	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "DOWNLOAD_FAILED", "Failed to retrieve file")
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", err.Error())
+		return
+	}
+
+	storageProvider, err := h.storageFactory.Get(loc.Provider)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", err.Error())
+		return
+	}
+
+	reader, err := storageProvider.Download(ctx, doc.ObjectKey)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "DOWNLOAD_FAILED", "failed to retrieve file")
 		return
 	}
 	defer reader.Close()
 
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", doc.OriginalFilename))
-	c.Header("Content-Type", "application/octet-stream")
+	contentType := nullStringValue(doc.ContentType)
+	if strings.TrimSpace(contentType) == "" {
+		contentType = "application/octet-stream"
+	}
 
-	io.Copy(c.Writer, reader)
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, doc.OriginalFilename))
+	c.Header("Content-Type", contentType)
+
+	_, _ = io.Copy(c.Writer, reader)
+}
+
+func (h *DocumentHandler) ViewDocument(c *gin.Context) {
+	ctx := c.Request.Context()
+	id := c.Param("id")
+
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "invalid uuid")
+		return
+	}
+
+	doc, err := h.documentService.GetDocument(ctx, uid)
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "document not found")
+		return
+	}
+
+	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", err.Error())
+		return
+	}
+
+	storageProvider, err := h.storageFactory.Get(loc.Provider)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", err.Error())
+		return
+	}
+
+	reader, err := storageProvider.Download(ctx, doc.ObjectKey)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "VIEW_FAILED", "failed to retrieve file")
+		return
+	}
+	defer reader.Close()
+
+	contentType := nullStringValue(doc.ContentType)
+	if strings.TrimSpace(contentType) == "" {
+		contentType = "application/octet-stream"
+	}
+
+	c.Header("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, doc.OriginalFilename))
+	c.Header("Content-Type", contentType)
+
+	_, _ = io.Copy(c.Writer, reader)
 }
 
 func (h *DocumentHandler) ListDocuments(c *gin.Context) {
@@ -322,18 +451,37 @@ func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 	limit, _ := strconv.Atoi(limitStr)
 	offset, _ := strconv.Atoi(offsetStr)
 
-	model := model.Pagination{
+	page := model.Pagination{
 		Limit:  int32(limit),
 		Offset: int32(offset),
 	}
 
-	docs, err := h.documentService.ListDocuments(ctx, model)
+	docs, err := h.documentService.ListDocuments(ctx, page)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", "Failed to list documents")
+		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", "failed to list documents")
 		return
 	}
 
-	response.OK(c, http.StatusOK, docs)
+	out := make([]DocumentResponse, 0, len(docs))
+	for _, doc := range docs {
+		objectURL := ""
+		viewURL := ""
+		downloadURL := ""
+
+		loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
+		if err == nil {
+			storageProvider, err := h.storageFactory.Get(loc.Provider)
+			if err == nil {
+				objectURL, _ = storageProvider.GetObjectURL(ctx, doc.ObjectKey)
+				viewURL, _ = storageProvider.GetViewURL(ctx, doc.ObjectKey, doc.OriginalFilename)
+				downloadURL, _ = storageProvider.GetDownloadURL(ctx, doc.ObjectKey, doc.OriginalFilename)
+			}
+		}
+
+		out = append(out, toDocumentResponse(doc, objectURL, viewURL, downloadURL))
+	}
+
+	response.OK(c, http.StatusOK, out)
 }
 
 func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {
@@ -341,13 +489,13 @@ func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {
 
 	idParam := c.Param("id")
 	if idParam == "" {
-		response.Fail(c, http.StatusBadRequest, "INVALID_DOCUMENT_ID", "Document ID is required")
+		response.Fail(c, http.StatusBadRequest, "INVALID_DOCUMENT_ID", "document id is required")
 		return
 	}
 
 	processes, err := h.documentService.ListProcessesByDocument(ctx, idParam)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "PROCESS_LIST_FAILED", "Failed to list processes")
+		response.Fail(c, http.StatusInternalServerError, "PROCESS_LIST_FAILED", "failed to list processes")
 		return
 	}
 
@@ -360,31 +508,19 @@ func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {
 }
 
 func (h *DocumentHandler) ReprocessDocument(c *gin.Context) {
-
 	documentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		response.Fail(c,
-			http.StatusBadRequest,
-			"error",
-			"invalid document id",
-		)
+		response.Fail(c, http.StatusBadRequest, "error", "invalid document id")
 		return
 	}
 
 	err = h.documentService.Reprocess(c.Request.Context(), documentID)
 	if err != nil {
-		response.Fail(c,
-			http.StatusBadRequest,
-			"error",
-			err.Error(),
-		)
+		response.Fail(c, http.StatusBadRequest, "error", err.Error())
 		return
 	}
 
-	response.OK(c,
-		http.StatusOK,
-		gin.H{"message": "reprocessing started"},
-	)
+	response.OK(c, http.StatusOK, gin.H{"message": "reprocessing started"})
 }
 
 func normalizeStatus(v any) string {

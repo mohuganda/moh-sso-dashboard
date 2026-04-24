@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"encoding/json"
 	"mime/multipart"
 	"time"
@@ -602,4 +603,51 @@ type Thematic struct {
 	Icon        *string   `json:"icon,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// email
+
+type Address struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type Attachment struct {
+	FileName    string `json:"file_name"`
+	ContentType string `json:"content_type,omitempty"`
+
+	// Use one of these:
+	Path string `json:"path,omitempty"`
+	Data []byte `json:"-"`
+
+	// Optional inline image support
+	Inline    bool   `json:"inline,omitempty"`
+	ContentID string `json:"content_id,omitempty"`
+}
+
+type TemplateData map[string]any
+
+type Message struct {
+	ID           string            `json:"id,omitempty"`
+	From         *Address          `json:"from,omitempty"`
+	To           []Address         `json:"to"`
+	Cc           []Address         `json:"cc,omitempty"`
+	Bcc          []Address         `json:"bcc,omitempty"`
+	ReplyTo      []Address         `json:"reply_to,omitempty"`
+	Subject      string            `json:"subject"`
+	TextBody     string            `json:"text_body,omitempty"`
+	HTMLBody     string            `json:"html_body,omitempty"`
+	TemplateName string            `json:"template_name,omitempty"`
+	TemplateData TemplateData      `json:"template_data,omitempty"`
+	Attachments  []Attachment      `json:"attachments,omitempty"`
+	Headers      map[string]string `json:"headers,omitempty"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
+	ScheduledAt  *time.Time        `json:"scheduled_at,omitempty"`
+}
+
+type Service interface {
+	Send(ctx context.Context, msg Message) error
+	SendTemplate(ctx context.Context, msg Message) error
+	Queue(ctx context.Context, msg Message) error
+	SendBulk(ctx context.Context, messages []Message) error
 }

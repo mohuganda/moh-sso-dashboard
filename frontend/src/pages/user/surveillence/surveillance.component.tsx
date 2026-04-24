@@ -8,8 +8,6 @@ import SurveillanceFilters from "./surveillance-filters.component";
 import SurveillanceTiles from "./surveillance-tiles.component";
 import SurveillancePanels from "./surveillance-panel.component";
 import SurveillanceUgandaMap from "./surveillance-uganda-map.component";
-import rawUgandaDistrictGeoJson from "../../../assets/maps/uganda_districts.json";
-import rawUgandaSubcountiesGeojson from "../../../assets/maps/uganda_subcounties.json";
 import "./surveillance.css";
 
 import {
@@ -23,6 +21,7 @@ import {
   useListWeeklyStatusesDetailedQuery,
   useListWeeklyStatusesQuery,
 } from "../../../store/api/surveillance.api";
+import { useGetGeoJsonQuery } from "../../../store/api/geojson.api";
 import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
 import { UploadCSVModal } from "./surveillance-csv-upload.component";
 
@@ -33,9 +32,6 @@ type FilterOption = {
 
 type GenericFeatureCollection = FeatureCollection<Geometry, GeoJsonProperties>;
 
-const districtGeoJson = rawUgandaDistrictGeoJson as GenericFeatureCollection;
-const subcountyGeoJson = rawUgandaSubcountiesGeojson as GenericFeatureCollection;
-
 function slugifyDiseaseName(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, "-");
 }
@@ -45,11 +41,34 @@ function normalize(value: unknown): string {
   return value.trim().toLowerCase();
 }
 
+function asFeatureCollection(value: unknown): GenericFeatureCollection {
+  if (
+    value &&
+    typeof value === "object" &&
+    "type" in value &&
+    (value as { type?: string }).type === "FeatureCollection" &&
+    "features" in value &&
+    Array.isArray((value as { features?: unknown[] }).features)
+  ) {
+    return value as GenericFeatureCollection;
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [],
+  };
+}
+
 function getDistrictFeatureName(properties?: GeoJsonProperties | null) {
   if (!properties) return "";
 
   return normalize(
-    properties.District ?? properties.district ?? properties.district_name ?? properties.name ?? "",
+    properties.District ??
+      properties.district ??
+      properties.district_name ??
+      properties.name ??
+      properties.DISTRICT ??
+      "",
   );
 }
 
@@ -63,6 +82,7 @@ function getSubcountyFeatureName(properties?: GeoJsonProperties | null) {
       properties.sub_county ??
       properties.subcounty_name ??
       properties.name ??
+      properties.SCOUNTY ??
       "",
   );
 }
@@ -101,11 +121,27 @@ export default function SurveillanceDashboardPage() {
       skip: !selectedDistrictId,
     });
 
+  const { data: districtsGeoJsonResponse, isLoading: districtsGeoJsonLoading } =
+    useGetGeoJsonQuery("geo_districts");
+
+  const { data: subcountiesGeoJsonResponse, isLoading: subcountiesGeoJsonLoading } =
+    useGetGeoJsonQuery("geo_subcounties");
+
   const weeks = Array.isArray(weeksResponse) ? weeksResponse : [];
   const diseases = Array.isArray(diseasesResponse) ? diseasesResponse : [];
   const regions = Array.isArray(regionsResponse) ? regionsResponse : [];
   const districts = Array.isArray(districtsResponse) ? districtsResponse : [];
   const subcounties = Array.isArray(subcountiesResponse) ? subcountiesResponse : [];
+
+  const districtGeoJson = useMemo(
+    () => asFeatureCollection(districtsGeoJsonResponse),
+    [districtsGeoJsonResponse],
+  );
+
+  const subcountyGeoJson = useMemo(
+    () => asFeatureCollection(subcountiesGeoJsonResponse),
+    [subcountiesGeoJsonResponse],
+  );
 
   const weeklyStatusParams = useMemo(() => {
     if (!selectedWeekId) return undefined;
@@ -142,6 +178,9 @@ export default function SurveillanceDashboardPage() {
   const facilityMetrics = Array.isArray(facilityMetricsResponse) ? facilityMetricsResponse : [];
   const alerts = Array.isArray(alertsResponse) ? alertsResponse : [];
 
+  console.log("districtGeoJson features", districtGeoJson.features.length);
+  console.log("subcountyGeoJson features", subcountyGeoJson.features.length);
+
   useEffect(() => {
     if (!selectedWeekId && weeks.length > 0) {
       setSelectedWeekId(weeks[0].id);
@@ -163,6 +202,8 @@ export default function SurveillanceDashboardPage() {
     regionsReferenceLoading ||
     districtsReferenceLoading ||
     subcountiesReferenceLoading ||
+    districtsGeoJsonLoading ||
+    subcountiesGeoJsonLoading ||
     weeklyStatusesLoading ||
     weeklyStatusesDetailedLoading ||
     facilitiesLoading ||
@@ -296,9 +337,27 @@ export default function SurveillanceDashboardPage() {
   }, [diseases]);
 
   const handleOpenDisease = (diseaseSlug: string) => {
+    const params = new URLSearchParams();
+
+    if (selectedWeekId) {
+      params.set("weekId", selectedWeekId);
+    }
+
+    if (selectedRegionId) {
+      params.set("regionId", selectedRegionId);
+    }
+
+    if (selectedDistrictId) {
+      params.set("districtId", selectedDistrictId);
+    }
+
+    if (selectedSubCountyId) {
+      params.set("subCountyId", selectedSubCountyId);
+    }
+
     navigate({
       pathname: `/apps/dwh/surveillance/${encodeURIComponent(diseaseSlug)}`,
-      search: selectedWeekId ? `?weekId=${encodeURIComponent(selectedWeekId)}` : "",
+      search: params.toString() ? `?${params.toString()}` : "",
     });
   };
 
@@ -320,22 +379,50 @@ export default function SurveillanceDashboardPage() {
 
   const immediateActionItems = useMemo(
     () => createStatusItems("MAROON"),
-    [filteredWeeklyStatuses, diseaseNameById],
+    [
+      filteredWeeklyStatuses,
+      diseaseNameById,
+      selectedWeekId,
+      selectedRegionId,
+      selectedDistrictId,
+      selectedSubCountyId,
+    ],
   );
 
   const takeActionItems = useMemo(
     () => createStatusItems("RED"),
-    [filteredWeeklyStatuses, diseaseNameById],
+    [
+      filteredWeeklyStatuses,
+      diseaseNameById,
+      selectedWeekId,
+      selectedRegionId,
+      selectedDistrictId,
+      selectedSubCountyId,
+    ],
   );
 
   const alertItems = useMemo(
     () => createStatusItems("YELLOW"),
-    [filteredWeeklyStatuses, diseaseNameById],
+    [
+      filteredWeeklyStatuses,
+      diseaseNameById,
+      selectedWeekId,
+      selectedRegionId,
+      selectedDistrictId,
+      selectedSubCountyId,
+    ],
   );
 
   const watchItems = useMemo(
     () => createStatusItems("GREEN"),
-    [filteredWeeklyStatuses, diseaseNameById],
+    [
+      filteredWeeklyStatuses,
+      diseaseNameById,
+      selectedWeekId,
+      selectedRegionId,
+      selectedDistrictId,
+      selectedSubCountyId,
+    ],
   );
 
   const regionDistrictNames = useMemo(() => {
@@ -362,7 +449,14 @@ export default function SurveillanceDashboardPage() {
     }
 
     return districtGeoJson;
-  }, [selectedDistrictId, selectedRegionId, districtSubcountyNames, regionDistrictNames]);
+  }, [
+    selectedDistrictId,
+    selectedRegionId,
+    districtGeoJson,
+    subcountyGeoJson,
+    districtSubcountyNames,
+    regionDistrictNames,
+  ]);
 
   const activeMapLevel = selectedDistrictId ? "subcounty" : "district";
 

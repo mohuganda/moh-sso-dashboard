@@ -61,7 +61,7 @@ func main() {
 	// Initialize Primary DB
 	// ==================================================
 	primaryDB, err := db.InitDB(ctx, db.DBConfig{
-		Driver:          cfg.DbDriver,
+		Driver:          cfg.DBDriver,
 		DSN:             cfg.DbSource(),
 		MaxOpenConns:    25,
 		MaxIdleConns:    10,
@@ -77,7 +77,7 @@ func main() {
 	// Initialize Remote DB
 	// ==================================================
 	remoteDB, err := db.InitDB(ctx, db.DBConfig{
-		Driver:          cfg.DbDriver,
+		Driver:          cfg.DBDriver,
 		DSN:             cfg.RemoteDbSource(),
 		MaxOpenConns:    25,
 		MaxIdleConns:    10,
@@ -94,7 +94,7 @@ func main() {
 	// ==================================================
 
 	dwhDB, err := db.InitDB(ctx, db.DBConfig{
-		Driver:          cfg.DbDriver,
+		Driver:          cfg.DBDriver,
 		DSN:             cfg.DwhDbSource(),
 		MaxOpenConns:    25,
 		MaxIdleConns:    10,
@@ -136,7 +136,7 @@ func main() {
 	// Keycloak
 	// ==================================================
 	adminKC := kcClientPkg.NewAdminClient(
-		cfg.KeycloakBaseUrl,
+		cfg.KeycloakBaseURL,
 		cfg.KeycloakRealm,
 		cfg.KeycloakAdminClientID,
 		cfg.KeycloakAdminClientSecret,
@@ -147,7 +147,7 @@ func main() {
 	}
 
 	webKC := kcClientPkg.NewWebClient(
-		cfg.KeycloakBaseUrl,
+		cfg.KeycloakBaseURL,
 		cfg.KeycloakRealm,
 		cfg.KeycloakWebClientID,
 		cfg.KeycloakWebClientSecret,
@@ -267,9 +267,11 @@ func main() {
 	documentHandler := handler.NewDocumentHandler(documentService, auditService, storageLocationService, fileStorage, storageFactory)
 	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
 	sessionHandler := handler.NewSessionHandler(sessionService)
+	dataQualityHandler := handler.NewDataQualityHandler(dwhDB)
 	announcementHandler := handler.NewAnnouncementHandler(announcementService, auditService)
 	adminunitsHandler := handler.NewAdminUnitsHandler(cfg, dwhDB)
 	visualiserHandler := handler.NewVisualiserHandler(cfg, dwhDB)
+	geoJSONHandler := handler.NewGeoJSONHandler("./assets/geojson")
 
 	// surveillance
 	surveillanceHandler := handler.NewSurveillanceHandler(
@@ -305,10 +307,12 @@ func main() {
 		documentHandler,
 		storageLocationHandler,
 		sessionHandler,
+		dataQualityHandler,
 		announcementHandler,
 		adminunitsHandler,
 		visualiserHandler,
 		surveillanceHandler,
+		geoJSONHandler,
 	)
 
 	r.GET("/health/live", healthHandler.HandleLive)

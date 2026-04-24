@@ -25,6 +25,7 @@ type CreateDocumentInput struct {
 	ObjectKey        string
 	UploadedBy       uuid.UUID
 	ProcessType      models.ProcessType
+	Status           db.DocumentStatus
 }
 
 type EditDocumentInput struct {
@@ -68,6 +69,21 @@ func (s *DocumentService) CreateDocument(
 		}
 	}
 
+	needsProcessing := requiresProcessing(input.ContentType, input.OriginalFilename)
+
+	status := input.Status
+	if status == "" {
+		if needsProcessing {
+			status = db.DocumentStatusPENDING
+		} else {
+			status = db.DocumentStatusCOMPLETED
+		}
+	}
+
+	if needsProcessing && !input.ProcessType.IsValid() {
+		return db.Document{}, errors.New("invalid process type for processable document")
+	}
+
 	doc, err := s.repo.CreateDocument(
 		ctx,
 		db.CreateDocumentParams{
@@ -75,24 +91,21 @@ func (s *DocumentService) CreateDocument(
 			OriginalFilename: input.OriginalFilename,
 			ContentType: sql.NullString{
 				String: input.ContentType,
-				Valid:  input.ContentType != "",
+				Valid:  strings.TrimSpace(input.ContentType) != "",
 			},
 			SizeBytes:         input.SizeBytes,
 			ChecksumSha256:    checksum,
 			StorageLocationID: input.StorageLocation,
 			ObjectKey:         input.ObjectKey,
 			UploadedBy:        input.UploadedBy,
+			Status:            status,
 		},
 	)
 	if err != nil {
 		return db.Document{}, err
 	}
 
-	if requiresProcessing(input.ContentType, input.OriginalFilename) {
-		if !input.ProcessType.IsValid() {
-			return db.Document{}, errors.New("invalid process type for processable document")
-		}
-
+	if needsProcessing {
 		_, err = s.processRepo.CreateProcess(ctx, db.CreateProcessParams{
 			ID:          uuid.New(),
 			DocumentID:  doc.ID,
@@ -240,6 +253,11 @@ func (s *DocumentService) Reprocess(
 		return fmt.Errorf("document already processing")
 	}
 
+	_, err = s.repo.MarkDocumentPending(ctx, documentID)
+	if err != nil {
+		return err
+	}
+
 	_, err = s.processRepo.CreateProcess(ctx, db.CreateProcessParams{
 		ID:          uuid.New(),
 		DocumentID:  documentID,
@@ -248,6 +266,27 @@ func (s *DocumentService) Reprocess(
 	})
 
 	return err
+}
+
+func (s *DocumentService) MarkDocumentProcessing(
+	ctx context.Context,
+	documentID uuid.UUID,
+) (db.Document, error) {
+	return s.repo.MarkDocumentProcessing(ctx, documentID)
+}
+
+func (s *DocumentService) MarkDocumentCompleted(
+	ctx context.Context,
+	documentID uuid.UUID,
+) (db.Document, error) {
+	return s.repo.MarkDocumentCompleted(ctx, documentID)
+}
+
+func (s *DocumentService) MarkDocumentFailed(
+	ctx context.Context,
+	documentID uuid.UUID,
+) (db.Document, error) {
+	return s.repo.MarkDocumentFailed(ctx, documentID)
 }
 
 func requiresProcessing(mimeType, fileName string) bool {

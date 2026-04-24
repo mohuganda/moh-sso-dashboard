@@ -60,6 +60,50 @@ func (ns NullAlertStatus) Value() (driver.Value, error) {
 	return string(ns.AlertStatus), nil
 }
 
+type DocumentStatus string
+
+const (
+	DocumentStatusPENDING    DocumentStatus = "PENDING"
+	DocumentStatusPROCESSING DocumentStatus = "PROCESSING"
+	DocumentStatusCOMPLETED  DocumentStatus = "COMPLETED"
+	DocumentStatusFAILED     DocumentStatus = "FAILED"
+)
+
+func (e *DocumentStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = DocumentStatus(s)
+	case string:
+		*e = DocumentStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DocumentStatus: %T", src)
+	}
+	return nil
+}
+
+type NullDocumentStatus struct {
+	DocumentStatus DocumentStatus `json:"document_status"`
+	Valid          bool           `json:"valid"` // Valid is true if DocumentStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullDocumentStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.DocumentStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.DocumentStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullDocumentStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.DocumentStatus), nil
+}
+
 type ImportJobStatus string
 
 const (
@@ -282,7 +326,36 @@ type Document struct {
 	StorageLocationID uuid.UUID      `json:"storage_location_id"`
 	ObjectKey         string         `json:"object_key"`
 	UploadedBy        uuid.UUID      `json:"uploaded_by"`
-	CreatedAt         sql.NullTime   `json:"created_at"`
+	Status            DocumentStatus `json:"status"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+}
+
+type EmailOutbox struct {
+	ID               uuid.UUID             `json:"id"`
+	MessageID        sql.NullString        `json:"message_id"`
+	FromAddress      pqtype.NullRawMessage `json:"from_address"`
+	ToAddresses      json.RawMessage       `json:"to_addresses"`
+	CcAddresses      pqtype.NullRawMessage `json:"cc_addresses"`
+	BccAddresses     pqtype.NullRawMessage `json:"bcc_addresses"`
+	ReplyToAddresses pqtype.NullRawMessage `json:"reply_to_addresses"`
+	Subject          string                `json:"subject"`
+	TextBody         sql.NullString        `json:"text_body"`
+	HtmlBody         sql.NullString        `json:"html_body"`
+	TemplateName     sql.NullString        `json:"template_name"`
+	TemplateData     pqtype.NullRawMessage `json:"template_data"`
+	Attachments      pqtype.NullRawMessage `json:"attachments"`
+	Headers          pqtype.NullRawMessage `json:"headers"`
+	Metadata         pqtype.NullRawMessage `json:"metadata"`
+	Status           string                `json:"status"`
+	Attempts         int32                 `json:"attempts"`
+	MaxAttempts      int32                 `json:"max_attempts"`
+	LastError        sql.NullString        `json:"last_error"`
+	ScheduledAt      sql.NullTime          `json:"scheduled_at"`
+	LockedAt         sql.NullTime          `json:"locked_at"`
+	SentAt           sql.NullTime          `json:"sent_at"`
+	CreatedAt        time.Time             `json:"created_at"`
+	UpdatedAt        time.Time             `json:"updated_at"`
 }
 
 type EpiWeek struct {

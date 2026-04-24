@@ -17,6 +17,8 @@ import {
   TableToolbar,
   TableToolbarContent,
   TableToolbarSearch,
+  Tile,
+  Tag,
 } from "@carbon/react";
 import { Upload } from "@carbon/react/icons";
 
@@ -25,6 +27,7 @@ import { useHeaderPanel } from "../../../../components/header-panel/header-panel
 import { UploadDocumentModal } from "./UploadDocumentModal";
 import { useListDocumentsQuery } from "../../../../store/api/document.api";
 import { DocumentRow } from "./document-row.component";
+import type { DocumentResponse } from "../../../../store/types/documents.types";
 
 const headers = [
   { key: "filename", header: "Filename" },
@@ -35,38 +38,49 @@ const headers = [
   { key: "actions", header: "" },
 ];
 
-function getDocumentSearchText(document: any) {
-  return [
-    document?.filename,
-    document?.original_name,
-    document?.name,
-    document?.type,
-    document?.mime_type,
-  ]
+const STATUS_OPTIONS = ["ALL", "PENDING", "PROCESSING", "COMPLETED", "FAILED"] as const;
+type StatusFilter = (typeof STATUS_OPTIONS)[number];
+
+function getDocumentSearchText(document: DocumentResponse) {
+  return [document.original_filename, document.content_type, document.status, document.object_key]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
 }
 
-function getDocumentStatus(document: any) {
-  return (
-    document?.status || document?.process_status || document?.latest_process?.status || "UNKNOWN"
-  );
+function getDocumentStatus(document: Partial<DocumentResponse>) {
+  return String(document.status ?? "UNKNOWN").toUpperCase();
+}
+
+function formatFileSize(bytes?: number) {
+  if (!bytes || bytes <= 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value < 10 && unitIndex > 0 ? value.toFixed(1) : Math.round(value)} ${units[unitIndex]}`;
 }
 
 export default function DocumentPage() {
   const { openPanel } = useHeaderPanel();
 
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: documents = [], isLoading } = useListDocumentsQuery();
+  const { data: documents = [], isLoading, isFetching } = useListDocumentsQuery();
 
   const filteredDocs = useMemo(() => {
-    return documents.filter((document: any) => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return documents.filter((document) => {
       const matchesSearch =
-        searchTerm.trim() === "" ||
-        getDocumentSearchText(document).includes(searchTerm.trim().toLowerCase());
+        normalizedSearch === "" || getDocumentSearchText(document).includes(normalizedSearch);
 
       const documentStatus = getDocumentStatus(document);
       const matchesStatus = statusFilter === "ALL" || documentStatus === statusFilter;
@@ -74,6 +88,24 @@ export default function DocumentPage() {
       return matchesSearch && matchesStatus;
     });
   }, [documents, searchTerm, statusFilter]);
+
+  const stats = useMemo(() => {
+    const total = documents.length;
+    const pending = documents.filter((doc) => getDocumentStatus(doc) === "PENDING").length;
+    const processing = documents.filter((doc) => getDocumentStatus(doc) === "PROCESSING").length;
+    const completed = documents.filter((doc) => getDocumentStatus(doc) === "COMPLETED").length;
+    const failed = documents.filter((doc) => getDocumentStatus(doc) === "FAILED").length;
+    const totalSize = documents.reduce((sum, doc) => sum + (doc.size_bytes ?? 0), 0);
+
+    return {
+      total,
+      pending,
+      processing,
+      completed,
+      failed,
+      totalSize,
+    };
+  }, [documents]);
 
   const handleOpenUpload = () => {
     openPanel({
@@ -104,20 +136,71 @@ export default function DocumentPage() {
           justifyContent: "space-between",
           alignItems: "flex-start",
           gap: "1rem",
-          marginBottom: "2rem",
+          marginBottom: "1.5rem",
           flexWrap: "wrap",
         }}
       >
         <div>
           <h2 style={{ margin: 0, marginBottom: "0.5rem" }}>Document Management</h2>
           <p style={{ margin: 0, color: "#6f6f6f" }}>
-            Upload documents and monitor import progress.
+            Upload documents, preview PDFs, and monitor import progress.
           </p>
         </div>
 
         <Button renderIcon={Upload} onClick={handleOpenUpload}>
           Upload Document
         </Button>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "1rem",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <Tile>
+          <div style={{ fontSize: "0.875rem", color: "#6f6f6f", marginBottom: "0.25rem" }}>
+            Total documents
+          </div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 600 }}>{stats.total}</div>
+        </Tile>
+
+        <Tile>
+          <div style={{ fontSize: "0.875rem", color: "#6f6f6f", marginBottom: "0.25rem" }}>
+            Completed
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div style={{ fontSize: "1.5rem", fontWeight: 600 }}>{stats.completed}</div>
+            <Tag type="green">Completed</Tag>
+          </div>
+        </Tile>
+
+        <Tile>
+          <div style={{ fontSize: "0.875rem", color: "#6f6f6f", marginBottom: "0.25rem" }}>
+            In progress
+          </div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 600 }}>
+            {stats.pending + stats.processing}
+          </div>
+        </Tile>
+
+        <Tile>
+          <div style={{ fontSize: "0.875rem", color: "#6f6f6f", marginBottom: "0.25rem" }}>
+            Failed
+          </div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 600 }}>{stats.failed}</div>
+        </Tile>
+
+        <Tile>
+          <div style={{ fontSize: "0.875rem", color: "#6f6f6f", marginBottom: "0.25rem" }}>
+            Total size
+          </div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 600 }}>
+            {formatFileSize(stats.totalSize)}
+          </div>
+        </Tile>
       </div>
 
       {documents.length === 0 ? (
@@ -127,13 +210,17 @@ export default function DocumentPage() {
         />
       ) : (
         <DataTable rows={filteredDocs} headers={headers}>
-          {({ headers, getTableProps, getHeaderProps, getRowProps }) => (
-            <TableContainer title="Documents">
+          {({ headers, getTableProps, getHeaderProps }) => (
+            <TableContainer
+              title="Documents"
+              description={isFetching ? "Refreshing documents..." : undefined}
+            >
               <TableToolbar>
                 <TableToolbarContent>
                   <TableToolbarSearch
                     persistent
                     value={searchTerm}
+                    placeholder="Search by filename, type, status, or key"
                     onChange={(_, value) => setSearchTerm(value ?? "")}
                   />
 
@@ -142,10 +229,10 @@ export default function DocumentPage() {
                     size="sm"
                     labelText=""
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
                     style={{ width: 180 }}
                   >
-                    <SelectItem value="ALL" text="All Status" />
+                    <SelectItem value="ALL" text="All Statuses" />
                     <SelectItem value="PENDING" text="Pending" />
                     <SelectItem value="PROCESSING" text="Processing" />
                     <SelectItem value="COMPLETED" text="Completed" />
@@ -158,7 +245,7 @@ export default function DocumentPage() {
                 <div style={{ padding: "2rem 0" }}>
                   <EmptyState
                     title="No matching documents"
-                    description="Try changing your search or status filter."
+                    description="Try changing your search term or status filter."
                   />
                 </div>
               ) : (
@@ -172,12 +259,8 @@ export default function DocumentPage() {
                   </TableHead>
 
                   <TableBody>
-                    {filteredDocs.map((document: any) => (
-                      <DocumentRow
-                        key={document.id}
-                        document={document}
-                        getRowProps={getRowProps}
-                      />
+                    {filteredDocs.map((document) => (
+                      <DocumentRow key={document.id} document={document} />
                     ))}
                   </TableBody>
                 </Table>

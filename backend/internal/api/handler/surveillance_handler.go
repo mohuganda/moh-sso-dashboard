@@ -153,6 +153,37 @@ type WeeklyStatusDetailedResponse struct {
 	IndicatorName string     `json:"indicator_name"`
 }
 
+type FacilityWeeklyMetricResponse struct {
+	ID             uuid.UUID `json:"id"`
+	SourceRecordID *string   `json:"source_record_id,omitempty"`
+
+	FacilityID   uuid.UUID `json:"facility_id"`
+	FacilityName string    `json:"facility_name"`
+
+	SubCountyID   *uuid.UUID `json:"sub_county_id,omitempty"`
+	SubCountyName string     `json:"sub_county_name"`
+
+	DistrictID   *uuid.UUID `json:"district_id,omitempty"`
+	DistrictName string     `json:"district_name"`
+
+	RegionID   *uuid.UUID `json:"region_id,omitempty"`
+	RegionName string     `json:"region_name"`
+
+	DiseaseID     *uuid.UUID `json:"disease_id,omitempty"`
+	DiseaseName   string     `json:"disease_name"`
+	IndicatorID   *uuid.UUID `json:"indicator_id,omitempty"`
+	IndicatorName string     `json:"indicator_name"`
+
+	EpiWeekID uuid.UUID `json:"epi_week_id"`
+	EpiYear   int32     `json:"epi_year"`
+	EpiWeek   int32     `json:"epi_week"`
+
+	MetricValue string    `json:"metric_value"`
+	SourceName  string    `json:"source_name"`
+	ImportedAt  time.Time `json:"imported_at"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 func uuidPtr(v uuid.UUID) *uuid.UUID {
 	id := v
 	return &id
@@ -210,6 +241,142 @@ func toWeeklyStatusDetailedResponse(row db.ListWeeklyStatusesDetailedRow) Weekly
 		IndicatorName: sqlNullStringValue(row.IndicatorName),
 	}
 }
+
+func toFacilityWeeklyDiseaseMetricResponse(row db.ListFacilityWeeklyDiseaseMetricsByWeekRow) FacilityWeeklyMetricResponse {
+	var sourceRecordID *string
+	if row.SourceRecordID.Valid {
+		sourceRecordID = &row.SourceRecordID.String
+	}
+
+	var subCountyID *uuid.UUID
+	if row.SubCountyID.Valid {
+		subCountyID = uuidPtr(row.SubCountyID.UUID)
+	}
+
+	var districtID *uuid.UUID
+	if row.DistrictID.Valid {
+		districtID = uuidPtr(row.DistrictID.UUID)
+	}
+
+	var regionID *uuid.UUID
+	if row.RegionID.Valid {
+		regionID = uuidPtr(row.RegionID.UUID)
+	}
+
+	var diseaseID *uuid.UUID
+	if row.DiseaseID.Valid {
+		diseaseID = uuidPtr(row.DiseaseID.UUID)
+
+	}
+
+	return FacilityWeeklyMetricResponse{
+		ID:             row.ID,
+		SourceRecordID: sourceRecordID,
+
+		FacilityID:   row.FacilityID,
+		FacilityName: row.FacilityName,
+
+		SubCountyID:   subCountyID,
+		SubCountyName: sqlNullStringValue(row.SubCountyName),
+
+		DistrictID:   districtID,
+		DistrictName: sqlNullStringValue(row.DistrictName),
+
+		RegionID:   regionID,
+		RegionName: sqlNullStringValue(row.RegionName),
+
+		DiseaseID:     diseaseID,
+		DiseaseName:   row.DiseaseName,
+		IndicatorID:   nil,
+		IndicatorName: "",
+
+		EpiWeekID:   row.EpiWeekID,
+		EpiYear:     row.EpiYear,
+		EpiWeek:     row.EpiWeek,
+		MetricValue: row.MetricValue,
+		SourceName:  sqlNullStringValue(row.SourceName),
+		ImportedAt:  row.ImportedAt,
+		CreatedAt:   row.CreatedAt,
+	}
+}
+
+func toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponse(row db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow) FacilityWeeklyMetricResponse {
+	var sourceRecordID *string
+	if row.SourceRecordID.Valid {
+		sourceRecordID = &row.SourceRecordID.String
+	}
+
+	var subCountyID *uuid.UUID
+	if row.SubCountyID.Valid {
+		subCountyID = uuidPtr(row.SubCountyID.UUID)
+	}
+
+	var districtID *uuid.UUID
+	if row.DistrictID.Valid {
+		districtID = uuidPtr(row.DistrictID.UUID)
+	}
+
+	var regionID *uuid.UUID
+	if row.RegionID.Valid {
+		regionID = uuidPtr(row.RegionID.UUID)
+	}
+
+	var diseaseID *uuid.UUID
+	if row.DiseaseID.Valid {
+		diseaseID = uuidPtr(row.DiseaseID.UUID)
+
+	}
+
+	return FacilityWeeklyMetricResponse{
+		ID:             row.ID,
+		SourceRecordID: sourceRecordID,
+
+		FacilityID:   row.FacilityID,
+		FacilityName: row.FacilityName,
+
+		SubCountyID:   subCountyID,
+		SubCountyName: sqlNullStringValue(row.SubCountyName),
+
+		DistrictID:   districtID,
+		DistrictName: sqlNullStringValue(row.DistrictName),
+
+		RegionID:   regionID,
+		RegionName: sqlNullStringValue(row.RegionName),
+
+		DiseaseID:     diseaseID,
+		DiseaseName:   row.DiseaseName,
+		IndicatorID:   nil,
+		IndicatorName: "",
+
+		EpiWeekID:   row.EpiWeekID,
+		EpiYear:     row.EpiYear,
+		EpiWeek:     row.EpiWeek,
+		MetricValue: row.MetricValue,
+		SourceName:  sqlNullStringValue(row.SourceName),
+		ImportedAt:  row.ImportedAt,
+		CreatedAt:   row.CreatedAt,
+	}
+}
+
+func toFacilityWeeklyDiseaseMetricResponses(items []db.ListFacilityWeeklyDiseaseMetricsByWeekRow) []FacilityWeeklyMetricResponse {
+	out := make([]FacilityWeeklyMetricResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, toFacilityWeeklyDiseaseMetricResponse(item))
+	}
+	return out
+}
+
+func toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponses(
+	rows []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow,
+) []FacilityWeeklyMetricResponse {
+	out := make([]FacilityWeeklyMetricResponse, 0, len(rows))
+
+	for _, item := range rows {
+		out = append(out, toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponse(item))
+	}
+	return out
+}
+
 func NewSurveillanceHandler(
 	epiWeekService *service.SurveillanceEpiWeekService,
 	diseaseService *service.SurveillanceDiseaseService,
@@ -481,11 +648,14 @@ func (h *SurveillanceHandler) ListFacilityWeeklyMetricsByWeek(c *gin.Context) {
 		return
 	}
 
-	data, err := h.facilityWeeklyMetricsService.ListFacilityWeeklyMetricsByWeek(ctx, epiWeekID)
+	diseaseMetrics, err := h.facilityWeeklyMetricsService.ListFacilityWeeklyDiseaseMetricsByWeek(ctx, epiWeekID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list facility weekly metrics by week", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility weekly disease metrics by week", err.Error())
 		return
 	}
+
+	data := make([]FacilityWeeklyMetricResponse, 0, len(diseaseMetrics))
+	data = append(data, toFacilityWeeklyDiseaseMetricResponses(diseaseMetrics)...)
 
 	response.OK(c, http.StatusOK, data)
 }
@@ -508,6 +678,181 @@ func (h *SurveillanceHandler) ListFacilityWeeklyMetricsByFacility(c *gin.Context
 	data, err := h.facilityWeeklyMetricsService.ListFacilityWeeklyMetricsByFacility(ctx, facilityID)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list facility weekly metrics by facility", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	facilityIDParam := c.Param("facilityID")
+	if facilityIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "facilityID is required", "nil")
+		return
+	}
+
+	diseaseIDParam := c.Param("diseaseID")
+	if diseaseIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "diseaseID is required", "nil")
+		return
+	}
+
+	facilityID, err := uuid.Parse(facilityIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid facilityID", err.Error())
+		return
+	}
+
+	diseaseID, err := uuid.Parse(diseaseIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+		return
+	}
+
+	data, err := h.facilityWeeklyMetricsService.ListFacilityDiseaseMetricsTrend(ctx, facilityID, diseaseID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease trend", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListFacilityIndicatorMetricsTrend(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	facilityIDParam := c.Param("facilityID")
+	if facilityIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "facilityID is required", "nil")
+		return
+	}
+
+	indicatorIDParam := c.Param("indicatorID")
+	if indicatorIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "indicatorID is required", "nil")
+		return
+	}
+
+	facilityID, err := uuid.Parse(facilityIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid facilityID", err.Error())
+		return
+	}
+
+	indicatorID, err := uuid.Parse(indicatorIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid indicatorID", err.Error())
+		return
+	}
+
+	data, err := h.facilityWeeklyMetricsService.ListFacilityIndicatorMetricsTrend(ctx, facilityID, indicatorID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility indicator trend", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	epiWeekIDParam := c.Param("epiWeekID")
+	if epiWeekIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "epiWeekID is required", "nil")
+		return
+	}
+
+	diseaseIDParam := c.Param("diseaseID")
+	if diseaseIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "diseaseID is required", "nil")
+		return
+	}
+
+	epiWeekID, err := uuid.Parse(epiWeekIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+		return
+	}
+
+	diseaseID, err := uuid.Parse(diseaseIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+		return
+	}
+
+	rows, err := h.facilityWeeklyMetricsService.ListFacilityDiseaseMetricsByWeekAndDisease(ctx, epiWeekID, diseaseID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease metrics by week and disease", err.Error())
+		return
+	}
+
+	data := make([]FacilityWeeklyMetricResponse, 0, len(rows))
+	data = append(data, toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponses(rows)...)
+
+	response.OK(c, http.StatusOK, data)
+}
+
+func (h *SurveillanceHandler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	epiYearParam := c.Query("epiYear")
+	if epiYearParam == "" {
+		response.Fail(c, http.StatusBadRequest, "epiYear is required", "nil")
+		return
+	}
+
+	diseaseIDParam := c.Query("diseaseID")
+	if diseaseIDParam == "" {
+		response.Fail(c, http.StatusBadRequest, "diseaseID is required", "nil")
+		return
+	}
+
+	epiYear64, err := strconv.ParseInt(epiYearParam, 10, 32)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid epiYear", err.Error())
+		return
+	}
+
+	diseaseID, err := uuid.Parse(diseaseIDParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+		return
+	}
+
+	var regionID *uuid.UUID
+	regionIDParam := c.Query("regionID")
+	if regionIDParam != "" {
+		parsedRegionID, err := uuid.Parse(regionIDParam)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", err.Error())
+			return
+		}
+		regionID = &parsedRegionID
+	}
+
+	var districtID *uuid.UUID
+	districtIDParam := c.Query("districtID")
+	if districtIDParam != "" {
+		parsedDistrictID, err := uuid.Parse(districtIDParam)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+			return
+		}
+		districtID = &parsedDistrictID
+	}
+
+	data, err := h.facilityWeeklyMetricsService.ListDiseaseWeeklyTrendAggregated(
+		ctx,
+		int32(epiYear64),
+		diseaseID,
+		regionID,
+		districtID,
+	)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "failed to list aggregated disease weekly trend", err.Error())
 		return
 	}
 

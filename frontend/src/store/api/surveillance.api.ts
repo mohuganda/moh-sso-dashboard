@@ -15,6 +15,9 @@ import type {
   ListWeeklyStatusesParams,
   WeeklyStatusDetailed,
   ListAlertsParams,
+  FacilityWeeklyMetricTrend,
+  DiseaseWeeklyTrendAggregate,
+  FacilityWeeklyMetricRow,
 } from "../types/surveillance.types";
 import { baseApi } from "./baseApi";
 
@@ -213,6 +216,120 @@ export const surveillanceApi = baseApi.injectEndpoints({
             ],
     }),
 
+    listFacilityDiseaseMetricsTrend: builder.query<
+      FacilityWeeklyMetricTrend[],
+      { facilityID: string; diseaseID: string }
+    >({
+      query: ({ facilityID, diseaseID }) => ({
+        url: `/surveillance/facility-weekly-metrics/facility/${facilityID}/disease/${diseaseID}/trend`,
+        method: "GET",
+      }),
+      transformResponse: (res: ApiEnvelope<FacilityWeeklyMetricTrend[]>) => res.data,
+      providesTags: (result, _error, { facilityID, diseaseID }) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Surveillance" as const,
+                id: item.id,
+              })),
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_DISEASE_TREND_${facilityID}_${diseaseID}`,
+              },
+            ]
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_DISEASE_TREND_${facilityID}_${diseaseID}`,
+              },
+            ],
+    }),
+
+    listFacilityIndicatorMetricsTrend: builder.query<
+      FacilityWeeklyMetricTrend[],
+      { facilityID: string; indicatorID: string }
+    >({
+      query: ({ facilityID, indicatorID }) => ({
+        url: `/surveillance/facility-weekly-metrics/facility/${facilityID}/indicator/${indicatorID}/trend`,
+        method: "GET",
+      }),
+      transformResponse: (res: ApiEnvelope<FacilityWeeklyMetricTrend[]>) => res.data,
+      providesTags: (result, _error, { facilityID, indicatorID }) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Surveillance" as const,
+                id: item.id,
+              })),
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_INDICATOR_TREND_${facilityID}_${indicatorID}`,
+              },
+            ]
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_INDICATOR_TREND_${facilityID}_${indicatorID}`,
+              },
+            ],
+    }),
+
+    listFacilityDiseaseMetricsByWeekAndDisease: builder.query<
+      FacilityWeeklyMetricRow[],
+      { epiWeekID: string; diseaseID: string }
+    >({
+      query: ({ epiWeekID, diseaseID }) => ({
+        url: `/surveillance/facility-weekly-metrics/week/${epiWeekID}/disease/${diseaseID}`,
+        method: "GET",
+      }),
+      transformResponse: (res: ApiEnvelope<FacilityWeeklyMetricRow[]>) => res.data,
+      providesTags: (result, _error, { epiWeekID, diseaseID }) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Surveillance" as const,
+                id: item.id,
+              })),
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_DISEASE_WEEK_${epiWeekID}_${diseaseID}`,
+              },
+            ]
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `SURVEILLANCE_FACILITY_DISEASE_WEEK_${epiWeekID}_${diseaseID}`,
+              },
+            ],
+    }),
+
+    listDiseaseWeeklyTrendAggregated: builder.query<
+      DiseaseWeeklyTrendAggregate[],
+      {
+        epiYear: number;
+        diseaseID: string;
+        regionID?: string;
+        districtID?: string;
+      }
+    >({
+      query: ({ epiYear, diseaseID, regionID, districtID }) => ({
+        url: `/surveillance/facility-weekly-metrics/disease-trend`,
+        method: "GET",
+        params: {
+          epiYear,
+          diseaseID,
+          regionID,
+          districtID,
+        },
+      }),
+      transformResponse: (res: ApiEnvelope<DiseaseWeeklyTrendAggregate[]>) => res.data,
+      providesTags: (_result, _error, { epiYear, diseaseID, regionID, districtID }) => [
+        {
+          type: "Surveillance" as const,
+          id: `SURVEILLANCE_DISEASE_WEEKLY_TREND_${epiYear}_${diseaseID}_${regionID ?? "ALL"}_${districtID ?? "ALL"}`,
+        },
+      ],
+    }),
     listWeeklyStatuses: builder.query<WeeklyStatus[], ListWeeklyStatusesParams | void>({
       query: (params: ListWeeklyStatusesParams) => ({
         url: "/surveillance/weekly-statuses/list",
@@ -266,6 +383,83 @@ export const surveillanceApi = baseApi.injectEndpoints({
               {
                 type: "Surveillance" as const,
                 id: "WEEKLY_STATUSES_DETAILED",
+              },
+            ],
+    }),
+    listDistrictWeeklyStatusesByWeek: builder.query<WeeklyStatusDetailed[], string>({
+      query: (epiWeekID) => ({
+        url: `/surveillance/weekly-statuses/district/week/${epiWeekID}`,
+        method: "GET",
+      }),
+      transformResponse: (res: ApiEnvelope<WeeklyStatusDetailed[]>) => res.data,
+      providesTags: (result, _error, epiWeekID) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Surveillance" as const,
+                id: item.id,
+              })),
+              {
+                type: "Surveillance" as const,
+                id: `DISTRICT_WEEKLY_STATUSES_${epiWeekID}`,
+              },
+            ]
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `DISTRICT_WEEKLY_STATUSES_${epiWeekID}`,
+              },
+            ],
+    }),
+
+    listRegionWeeklyStatusesByWeek: builder.query<WeeklyStatusDetailed[], string>({
+      query: (epiWeekID) => ({
+        url: `/surveillance/weekly-statuses/region/week/${epiWeekID}`,
+        method: "GET",
+      }),
+      transformResponse: (res: ApiEnvelope<WeeklyStatusDetailed[]>) => res.data,
+      providesTags: (result, _error, epiWeekID) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Surveillance" as const,
+                id: item.id,
+              })),
+              {
+                type: "Surveillance" as const,
+                id: `REGION_WEEKLY_STATUSES_${epiWeekID}`,
+              },
+            ]
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `REGION_WEEKLY_STATUSES_${epiWeekID}`,
+              },
+            ],
+    }),
+
+    listNationalWeeklyStatusesByWeek: builder.query<WeeklyStatusDetailed[], string>({
+      query: (epiWeekID) => ({
+        url: `/surveillance/weekly-statuses/national/week/${epiWeekID}`,
+        method: "GET",
+      }),
+      transformResponse: (res: ApiEnvelope<WeeklyStatusDetailed[]>) => res.data,
+      providesTags: (result, _error, epiWeekID) =>
+        result
+          ? [
+              ...result.map((item) => ({
+                type: "Surveillance" as const,
+                id: item.id,
+              })),
+              {
+                type: "Surveillance" as const,
+                id: `NATIONAL_WEEKLY_STATUSES_${epiWeekID}`,
+              },
+            ]
+          : [
+              {
+                type: "Surveillance" as const,
+                id: `NATIONAL_WEEKLY_STATUSES_${epiWeekID}`,
               },
             ],
     }),
@@ -391,8 +585,15 @@ export const {
   useGetSubcountyByIdQuery,
   useListFacilityWeeklyMetricsByWeekQuery,
   useListFacilityWeeklyMetricsByFacilityQuery,
+  useListFacilityDiseaseMetricsTrendQuery,
+  useListFacilityIndicatorMetricsTrendQuery,
+  useListFacilityDiseaseMetricsByWeekAndDiseaseQuery,
+  useListDiseaseWeeklyTrendAggregatedQuery,
   useListWeeklyStatusesDetailedQuery,
   useListWeeklyStatusesQuery,
+  useListDistrictWeeklyStatusesByWeekQuery,
+  useListRegionWeeklyStatusesByWeekQuery,
+  useListNationalWeeklyStatusesByWeekQuery,
   useListImportBatchesQuery,
   useGetImportBatchByIdQuery,
   useListImportRawRowsByBatchQuery,

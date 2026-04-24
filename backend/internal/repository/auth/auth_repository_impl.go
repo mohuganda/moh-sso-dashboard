@@ -16,7 +16,7 @@ type keycloakAuthRepository struct {
 func NewAuthRepository(kcClient *keycloak.Client, keycloakAdminClient *keycloak.KeyAdminClient, config *config.Config) AuthRepository {
 	return &keycloakAuthRepository{
 		keycloakClient: kcClient,
-		redirectURI:    config.KeycloakRedirectUri,
+		redirectURI:    config.KeycloakRedirectURI,
 	}
 }
 
