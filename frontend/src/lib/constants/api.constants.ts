@@ -64,16 +64,16 @@ export const API = {
   // Visualizer
   // --------------------------------------------------
   visualizer: {
-    themes: () => `https://dashboards.health.go.ug/ssobackend/api/v1/visualizer/themes`,
-    theme: () => `https://dashboards.health.go.ug/ssobackend/api/v1/visualizer/dataelements/theme`,
-    hierarchy: () => `https://dashboards.health.go.ug/ssobackend/api/v1/visualizer/adminunits/hierarchy`,
-    dataValues: () => `https://dashboards.health.go.ug/ssobackend/api/v1/visualizer/datavalues`,
+    themes: () => `${API_BASE}/visualizer/themes`,
+    theme: () => `${API_BASE}/visualizer/dataelements/theme`,
+    hierarchy: () => `${API_BASE}/visualizer/adminunits/hierarchy`,
+    dataValues: () => `${API_BASE}/v1/visualizer/datavalues`,
   },
   // --------------------------------------------------
   // Visualizer
   // --------------------------------------------------
   issue: {
-    list: () => `https://dashboards.health.go.ug/ssobackend/api/v1/issues`,
+    list: () => `${API_BASE}/issues`,
   },
 
   // --------------------------------------------------

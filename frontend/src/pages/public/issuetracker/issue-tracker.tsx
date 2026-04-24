@@ -23,6 +23,8 @@ export type Issue = {
     updated_date: string;
     priority: string;
     severity: string;
+    time_period: string;
+    time_Period: string;
 }
 
 const IssueTracker = () => {
@@ -60,7 +62,7 @@ const IssueTracker = () => {
 
   return (
     <>
-        { isViewIssueDetail ? (
+        { isViewIssueDetail && selectedIssue ? (
             <IssueDetail selectedIssue={selectedIssue} goToBack={() => setIsViewIssueDetail(false)}/>
         ) : (
             <>

@@ -85,6 +85,7 @@ const IssueDetail = ({ selectedIssue:initialIssue, goToBack }: { selectedIssue: 
                             <p className="issue-p-top"><strong>Organization Unit:</strong> {selectedIssue?.org_unit}</p>
                             <p className="issue-p-top"><strong>Dataset:</strong> {selectedIssue?.dataset}</p>
                             <p className="issue-p-top"><strong>DataElement:</strong> {selectedIssue?.data_element}</p>
+                            <p className="issue-p-top"><strong>Reporting Period:</strong> {selectedIssue?.time_Period}</p>
                             <p className="issue-p-top"><strong>Description:</strong></p>
                             <p> {selectedIssue?.issue}</p>
                         </div>

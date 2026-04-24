@@ -1,4 +1,4 @@
-import {ComboBox, Modal, TextArea, Search, TreeView} from "@carbon/react";
+import {ComboBox, Modal, TextArea, Search, TreeView, NumberInput} from "@carbon/react";
 import {
     type Theme, type ThemeElement,
     useGetThemesQuery,
@@ -13,8 +13,11 @@ import type {Issue} from "../issue-tracker.tsx";
 import { ChevronDown, ChevronUp } from "@carbon/react/icons";
 import {useGetHierarchyQuery} from "../../datavisualizer/modals/orgunit/org-unit.ts";
 import {OrgUnitNode} from "../function.tsx";
+import {getAvailablePeriods, periodType} from "../../datavisualizer/Constants.tsx";
 
 export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, selectedIssue?: Issue | null }) => {
+    const CURRENT_YEAR = new Date().getFullYear();
+    const initialPeriodType =  "Quarterly";
     const isEdit = !!selectedIssue;
     const [datasets, setDatasets] = useState<Theme[] | undefined>([]);
     const [selectedDataset, setSelectedDataset] = useState(selectedIssue?.dataset ?? "");
@@ -34,6 +37,10 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
     const [orgUnits, setOrgUnits] = useState<any>({});
     const { data: hierarchyData, isLoading, error:hierarchyDataError} = useGetHierarchyQuery();
     const [orgSearchTerm, setOrgSearchTerm] = useState("");
+    const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
+    const [availablePeriods, setAvailablePeriods] = useState(getAvailablePeriods(initialPeriodType, CURRENT_YEAR));
+    const [selectedPeriodType, setSelectedPeriodType] = useState(!isEdit ? initialPeriodType : "");
+    const [selectedPeriod, setSelectedPeriod] = useState(selectedIssue?.time_Period ?? '')
 
     useEffect(() => {
         if (!isLoadingThemes) {
@@ -137,6 +144,26 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
             ));
     };
 
+    const onChangeYear = (_event,{ value }) => {
+        const paramYear = value;
+        setSelectedYear(paramYear);
+        const newPeriods = getAvailablePeriods(selectedPeriodType, paramYear);
+        setAvailablePeriods(newPeriods);
+        setSelectedPeriod("");
+    };
+
+    const onChangePeriod = (event) => {
+        const paramPeriodType = event?.selectedItem;
+        setSelectedPeriodType(paramPeriodType);
+        const newPeriods = getAvailablePeriods(paramPeriodType, selectedYear);
+        setAvailablePeriods(newPeriods);
+        setSelectedPeriod("");
+    };
+
+    const onChangeSelectedPeriod= (event) => {
+        setSelectedPeriod(event?.selectedItem);
+    }
+
     return (
         <Modal
             aria-label="issue-modal"
@@ -155,6 +182,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                 updated_by: isEdit ? user?.username : "",
                 priority: isEdit ? priority : "",
                 severity: isEdit ? severity : "",
+                time_period: selectedPeriod
 
             })}
         >
@@ -226,6 +254,46 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                     items={dataElement?.map(item => item?.data_element_short_name)}
                     titleText="Data Elements"
                     selectedItem={selectedDataElement}
+                />
+            </div>
+            <div style={{ marginBottom: '24px', display: 'flex' }}>
+                <div className="col-md-6 pe-4">
+                    <ComboBox
+                        allowCustomValue
+                        autoAlign
+                        id="period-type-combobox"
+                        onChange={onChangePeriod}
+                        items={periodType?.map(item => item?.label)}
+                        titleText="Period Type"
+                        selectedItem={selectedPeriodType}
+                    />
+                </div>
+                    <div className="col-md-6">
+                        <NumberInput
+                            defaultValue={CURRENT_YEAR}
+                            id="period-year-input"
+                            invalidText="Input is not a valid year"
+                            label="Year"
+                            locale="en"
+                            max={CURRENT_YEAR}
+                            min={1900}
+                            size="md"
+                            step={1}
+                            type="number"
+                            value={selectedYear}
+                            onChange={onChangeYear}
+                        />
+                </div>
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+                <ComboBox
+                    allowCustomValue
+                    autoAlign
+                    id="period-element-combobox"
+                    onChange={onChangeSelectedPeriod}
+                    items={availablePeriods?.map(item => item?.label)}
+                    titleText="Available Periods"
+                    selectedItem={selectedPeriod}
                 />
             </div>
             <div style={{ marginBottom: '24px' }}>
