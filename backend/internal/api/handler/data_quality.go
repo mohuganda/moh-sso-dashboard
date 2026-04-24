@@ -39,6 +39,7 @@ type issueResponse struct {
 	Severity     *string `json:"severity,omitempty"`
 	UpdatedDate  *string `json:"updated_date,omitempty"`
 	UpdatedBy    *string `json:"updated_by,omitempty"`
+	TimePeriod   *string `json:"time_Period,omitempty"`
 }
 
 type createIssueRequest struct {
@@ -48,6 +49,7 @@ type createIssueRequest struct {
 	Issue       string  `json:"issue" binding:"required"`
 	IssueType   *string `json:"issue_type"`
 	ReportedBy  *string `json:"reported_by"`
+	TimePeriod  *string `json:"time_Period"`
 }
 
 type updateIssueRequest struct {
@@ -62,6 +64,7 @@ type updateIssueRequest struct {
 	Priority     *string `json:"priority"`
 	Severity     *string `json:"severity"`
 	UpdatedBy    *string `json:"updated_by"`
+	TimePeriod   *string `json:"time_Period"`
 }
 
 type createIssueResolutionRequest struct {
@@ -225,6 +228,7 @@ func scanIssue(scanner interface {
 		updatedDate  sql.NullTime
 		updatedBy    sql.NullString
 		issueType    sql.NullString
+		timePeriod   sql.NullString
 	)
 
 	if err := scanner.Scan(
@@ -242,6 +246,7 @@ func scanIssue(scanner interface {
 		&updatedDate,
 		&updatedBy,
 		&issueType,
+		&timePeriod,
 	); err != nil {
 		return issueResponse{}, err
 	}
@@ -261,6 +266,7 @@ func scanIssue(scanner interface {
 		Severity:     dqNullStringPtr(severity),
 		UpdatedDate:  dqNullDatePtr(updatedDate),
 		UpdatedBy:    dqNullStringPtr(updatedBy),
+		TimePeriod:   dqNullStringPtr(timePeriod),
 	}, nil
 }
 
@@ -308,20 +314,22 @@ func (h *DataQualityHandler) CreateIssue(c *gin.Context) {
 			issue_type,
 			date_reported,
 			reported_by,
-			status
+			status,
+			time_period
 		)
 		SELECT
 			n.issue_id,
 			'HMIS-' || LPAD(n.issue_id::text, 4, '0'),
-			$1, $2, $3, $4, $5, CURRENT_DATE, $6, 'open'
+			$1, $2, $3, $4, $5, CURRENT_DATE, $6, 'OPEN', $7
 		FROM next_issue n
-		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type`,
+		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type,time_period`,
 		dqNullableString(req.Dataset),
 		dqNullableString(req.DataElement),
 		dqNullableString(req.OrgUnit),
 		issueText,
 		dqNullableString(req.IssueType),
 		reportedBy,
+		dqNullableString(req.TimePeriod),
 	)
 
 	issue, err := scanIssue(row)
@@ -339,7 +347,7 @@ func (h *DataQualityHandler) ListIssues(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(
 		c.Request.Context(),
-		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type
+		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type,time_period
 		FROM hiv.issue
 		ORDER BY date_reported DESC, issue_id DESC
 		LIMIT $1 OFFSET $2`,
@@ -393,7 +401,8 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 		req.Status == nil &&
 		req.Priority == nil &&
 		req.Severity == nil &&
-		req.UpdatedBy == nil {
+		req.UpdatedBy == nil &&
+		req.TimePeriod == nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "at least one field is required")
 		return
 	}
@@ -481,9 +490,10 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 			severity = COALESCE($10, severity),
 			updated_date = CURRENT_DATE,
 			updated_by = COALESCE($11, updated_by),
-			issue_type = COALESCE($12, issue_type)
+			issue_type = COALESCE($12, issue_type),
+			time_period = COALESCE($13, time_period)
 		WHERE issue_code = $1
-		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type`,
+		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type, time_period`,
 		issueCode,
 		optionalTrimmedParam(req.Dataset, false),
 		optionalTrimmedParam(req.DataElement, false),
@@ -496,6 +506,7 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 		severityParam,
 		updatedByParam,
 		issueTypeParam,
+		optionalTrimmedParam(req.TimePeriod, false),
 	)
 
 	issue, err := scanIssue(row)
