@@ -41,3 +41,39 @@ export const headers = [
         header: 'Date Reported',
     },
 ];
+
+export const ORG_UNIT_DATA = [
+    {
+        id: 'ug-1',
+        name: 'MOH - Uganda',
+        children: [
+            {
+                id: 'acholi-1',
+                name: 'Acholi',
+                children: [
+                    { id: 'agago-1', name: 'Agago District' },
+                    { id: 'amuru-1', name: 'Amuru District' },
+                    { id: 'gulu-c', name: 'Gulu City' },
+                    { id: 'gulu-d', name: 'Gulu District' },
+                    { id: 'kitgum-d', name: 'Kitgum District' },
+                ]
+            },
+            {
+                id: 'ankole-1',
+                name: 'Ankole',
+                children: [
+                    { id: 'mbarara-c', name: 'Mbarara City' },
+                    { id: 'bushenyi-d', name: 'Bushenyi District' },
+                ]
+            },
+            {
+                id: 'bugisu-1',
+                name: 'Bugisu',
+                children: [
+                    { id: 'mbale-c', name: 'Mbale City' },
+                    { id: 'sironko-d', name: 'Sironko District' },
+                ]
+            }
+        ]
+    }
+];

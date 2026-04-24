@@ -1,15 +1,18 @@
-import {ComboBox, Modal, TextArea} from "@carbon/react";
+import {ComboBox, Modal, TextArea, Search, TreeView} from "@carbon/react";
 import {
     type Theme, type ThemeElement,
     useGetThemesQuery,
     useLazyGetThemeElementsQuery
 } from "../../datavisualizer/modals/data-model/data-model.ts";
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useCreateIssueMutation, useUpdateIssueMutation} from "./issue-modal.ts";
 import {IssueTypes, Priority} from "../constants.ts";
 import {useSelector} from "react-redux";
 import {selectUser} from "../../../../store/auth/auth.selectors.ts";
 import type {Issue} from "../issue-tracker.tsx";
+import { ChevronDown, ChevronUp } from "@carbon/react/icons";
+import {useGetHierarchyQuery} from "../../datavisualizer/modals/orgunit/org-unit.ts";
+import {OrgUnitNode} from "../function.tsx";
 
 export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, selectedIssue?: Issue | null }) => {
     const isEdit = !!selectedIssue;
@@ -26,6 +29,11 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
     const [updateIssue, { isLoading: isUpdating }] = useUpdateIssueMutation();
     const [createIssue, { isLoading: isCreating }] = useCreateIssueMutation();
     const user = useSelector(selectUser);
+    const [isOrgExpanded, setIsOrgExpanded] = useState(false);
+    const [selectedOrgUnit, setSelectedOrgUnit] = useState(selectedIssue?.org_unit ?? "");
+    const [orgUnits, setOrgUnits] = useState<any>({});
+    const { data: hierarchyData, isLoading, error:hierarchyDataError} = useGetHierarchyQuery();
+    const [orgSearchTerm, setOrgSearchTerm] = useState("");
 
     useEffect(() => {
         if (!isLoadingThemes) {
@@ -35,6 +43,15 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
             console.error("Error Encountered while fetching datasets:: " + error)
         }
     }, [error, isLoadingThemes, themes]);
+
+    useEffect(() => {
+        if(!isLoading) {
+            setOrgUnits(hierarchyData);
+        }
+        if (hierarchyDataError) {
+            console.error("Error Encountered while fetching org units:: " + hierarchyDataError)
+        }
+    },[error, hierarchyData, hierarchyDataError, isLoading]);
 
     const onChangeSelectedDataSet = async (event) => {
         const theme = event?.selectedItem;
@@ -87,6 +104,39 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
         }
     };
 
+    const nodeMatchesSearch = useCallback((node: any, term: string): boolean => {
+        if (node.name.toLowerCase().includes(term.toLowerCase())) {
+            return true;
+        }
+        if (node.children) {
+            return node.children.some((child: any) => nodeMatchesSearch(child, term));
+        }
+        return false;
+    },[]);
+
+    const handleSelect = (name: string) => {
+        setSelectedOrgUnit(name);
+        setOrgSearchTerm("");
+        setTimeout(() => setIsOrgExpanded(false), 150);
+    };
+
+    const renderRecursive = (nodes: any[]) => {
+        if (!nodes || !Array.isArray(nodes)) return [];
+
+        return nodes
+            .filter(node => !orgSearchTerm || nodeMatchesSearch(node, orgSearchTerm))
+            .map(node => (
+                <OrgUnitNode
+                    key={node.id}
+                    node={node}
+                    searchTerm={orgSearchTerm}
+                    selectedOrgUnit={selectedOrgUnit}
+                    onSelect={handleSelect}
+                    renderRecursive={renderRecursive}
+                />
+            ));
+    };
+
     return (
         <Modal
             aria-label="issue-modal"
@@ -98,7 +148,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
             onRequestSubmit={() => handleSubmit({
                 dataset: selectedDataset,
                 data_element: selectedDataElement,
-                org_unit: "Kampala",
+                org_unit: selectedOrgUnit,
                 issue: description,
                 issue_type: selectedIssueType,
                 reported_by: user?.username,
@@ -112,17 +162,50 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                 Register a new issue relating to any data anomalies, the causes to it if they are known.
             </p>
             <div style={{ marginBottom: '24px' }}>
-                <ComboBox
-                    data-modal-primary-focus
-                    allowCustomValue
-                    autoAlign
-                    id="org-unit-combobox"
-                    onChange={() => {}}
-                    items={[]}
-                    titleText="Organization Unit"
-                />
-            </div>
+                <p className="cds--label">Organisation Unit</p>
+                <div
+                    onClick={() => setIsOrgExpanded(!isOrgExpanded)}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0 1rem',
+                        height: '40px',
+                        background: '#f4f4f4',
+                        borderBottom: '1px solid #8d8d8d',
+                        cursor: 'pointer'
+                    }}
+                >
+                <span style={{ color: selectedOrgUnit ? '#161616' : '#6f6f6f' }}>
+                    {selectedOrgUnit || "Select Organisation Unit"}
+                </span>
+                    {isOrgExpanded ? <ChevronUp /> : <ChevronDown />}
+                </div>
 
+                {isOrgExpanded && (
+                    <div style={{
+                        border: '1px solid #e0e0e0',
+                        background: 'white',
+                        maxHeight: '250px',
+                        overflowY: 'auto',
+                        marginTop: '2px',
+                        padding: '8px'
+                    }}>
+                        <Search
+                            labelText=""
+                            size="md"
+                            id="org-search-stable"
+                            placeholder="Search for org unit..."
+                            value={orgSearchTerm}
+                            onChange={(e) => setOrgSearchTerm(e.target.value)}
+                            style={{ marginBottom: '8px' }}
+                        />
+                        <TreeView label="Org Units" hideLabel>
+                            {renderRecursive(orgUnits)}
+                        </TreeView>
+                    </div>
+                )}
+            </div>
             <div style={{ marginBottom: '24px' }}>
                 <ComboBox
                     allowCustomValue
@@ -156,16 +239,9 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                     selectedItem={selectedIssueType}
                 />
             </div>
-            <TextArea
-                id="issue-text-area"
-                labelText="Issue Description"
-                style={{ marginBottom: '24px' }}
-                value={description}
-                onChange={handleTextChange}
-                rows={7}
-            />
             {isEdit ? (
                 <>
+                <div style={{ marginBottom: '24px' }}>
                     <ComboBox
                         allowCustomValue
                         autoAlign
@@ -175,6 +251,8 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                         titleText="Priority"
                         selectedItem={priority}
                     />
+                </div>
+                <div style={{ marginBottom: '24px' }}>
                     <ComboBox
                         allowCustomValue
                         autoAlign
@@ -184,8 +262,17 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                         titleText="Severity"
                         selectedItem={severity}
                     />
+                </div>
                 </>
             ) : null }
+            <TextArea
+                id="issue-text-area"
+                labelText="Issue Description"
+                style={{ marginBottom: '24px' }}
+                value={description}
+                onChange={handleTextChange}
+                rows={7}
+            />
         </Modal>
     )
 }

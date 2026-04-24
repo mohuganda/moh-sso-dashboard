@@ -40,3 +40,13 @@
     display: flex;
     justify-content: space-between;
 }
+
+.cds--tree-node__label {
+    display: flex;
+    align-items: center;
+
+    .cds--checkbox-wrapper {
+        margin-top: 0;
+        margin-right: 4px;
+    }
+}

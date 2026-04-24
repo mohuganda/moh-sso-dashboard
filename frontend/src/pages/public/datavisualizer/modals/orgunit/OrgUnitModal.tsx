@@ -94,8 +94,6 @@ export default function OrgUnitModal({ onClose, selected, onSave }) {
 
   useEffect(() => {
     if(!isLoading) {
-      console.log(hierarchyData);
-
       setOrgUnits(hierarchyData);
 
       const expandIds = new Set();
