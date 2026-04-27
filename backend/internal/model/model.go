@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"encoding/json"
 	"mime/multipart"
 	"time"
@@ -643,11 +642,4 @@ type Message struct {
 	Headers      map[string]string `json:"headers,omitempty"`
 	Metadata     map[string]string `json:"metadata,omitempty"`
 	ScheduledAt  *time.Time        `json:"scheduled_at,omitempty"`
-}
-
-type Service interface {
-	Send(ctx context.Context, msg Message) error
-	SendTemplate(ctx context.Context, msg Message) error
-	Queue(ctx context.Context, msg Message) error
-	SendBulk(ctx context.Context, messages []Message) error
 }

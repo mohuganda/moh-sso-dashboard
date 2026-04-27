@@ -27,32 +27,32 @@ func NewNotificationsHandler(
  * Create notification
  * ========================================================= */
 
-func (h *NotificationsHandler) Notify(c *gin.Context) {
-	var input model.Notification
+	func (h *NotificationsHandler) Notify(c *gin.Context) {
+		var input model.Notification
 
-	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(
-			c,
-			http.StatusBadRequest,
-			"VALIDATION_FAILED",
-			"Invalid notification payload",
-		)
-		return
+		if err := c.ShouldBindJSON(&input); err != nil {
+			response.Fail(
+				c,
+				http.StatusBadRequest,
+				"VALIDATION_FAILED",
+				"Invalid notification payload",
+			)
+			return
+		}
+
+		n, err := h.NotificationsSvc.Notify(c.Request.Context(), input)
+		if err != nil {
+			response.Fail(
+				c,
+				http.StatusInternalServerError,
+				"INTERNAL_ERROR",
+				"Failed to create notification",
+			)
+			return
+		}
+
+		response.OK(c, http.StatusCreated, n)
 	}
-
-	n, err := h.NotificationsSvc.Notify(c.Request.Context(), input)
-	if err != nil {
-		response.Fail(
-			c,
-			http.StatusInternalServerError,
-			"INTERNAL_ERROR",
-			"Failed to create notification",
-		)
-		return
-	}
-
-	response.OK(c, http.StatusCreated, n)
-}
 
 /* =========================================================
  * List notifications

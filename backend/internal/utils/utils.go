@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/moh-sso-dashboard/internal/model"
 )
 
 func GenerateClientID() string {
@@ -220,6 +223,46 @@ func ValidateRedirectURIs(uris []string) error {
 				parsed.Scheme,
 			)
 		}
+	}
+
+	return nil
+}
+
+func hasBody(msg model.Message) bool {
+	return strings.TrimSpace(msg.TextBody) != "" ||
+		strings.TrimSpace(msg.HTMLBody) != "" ||
+		strings.TrimSpace(msg.TemplateName) != ""
+}
+
+func mustJSON(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(fmt.Errorf("marshal json: %w", err))
+	}
+	return b
+}
+
+func NewReadSeeker(data []byte) *bytes.Reader {
+	return bytes.NewReader(data)
+}
+
+func ValidateMessage(msg model.Message) error {
+	if len(msg.To) == 0 {
+		return errors.New("at least one recipient is required")
+	}
+
+	for _, to := range msg.To {
+		if strings.TrimSpace(to.Email) == "" {
+			return errors.New("recipient email cannot be empty")
+		}
+	}
+
+	if strings.TrimSpace(msg.Subject) == "" {
+		return errors.New("subject is required")
+	}
+
+	if strings.TrimSpace(msg.TextBody) == "" {
+		return errors.New("body is required")
 	}
 
 	return nil

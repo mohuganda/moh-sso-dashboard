@@ -32,6 +32,7 @@ func SetupRouter(
 	visualiserHandler *handler.VisualiserHandler,
 	surveillanceHandler *handler.SurveillanceHandler,
 	geojsonHandler *handler.GeoJSONHandler,
+	emailHandler *handler.EmailHandler,
 ) *gin.Engine {
 
 	r := gin.New()
@@ -144,6 +145,20 @@ func SetupRouter(
 
 	{
 		protected.GET("/auth/me", authHandler.HandleAuthGetMe)
+		// ------------------
+		// Email
+		// ------------------
+
+		email := protected.Group("/email")
+		{
+			email.POST("/send", emailHandler.Send)
+			email.POST("/queue", emailHandler.Queue)
+			email.GET("", emailHandler.List)
+			email.GET("/status/:status", emailHandler.ListByStatus)
+			email.GET("/:id", emailHandler.GetByID)
+			email.POST("/:id/retry", emailHandler.Retry)
+			email.DELETE("/:id", emailHandler.Delete)
+		}
 
 		geojson := protected.Group("/geojson")
 		{

@@ -26,6 +26,7 @@ import (
 	authRepo "github.com/moh-sso-dashboard/internal/repository/auth"
 	clientRepo "github.com/moh-sso-dashboard/internal/repository/client"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
+	emailRepo "github.com/moh-sso-dashboard/internal/repository/email"
 	metricsRepo "github.com/moh-sso-dashboard/internal/repository/metrics"
 	notificationsRepo "github.com/moh-sso-dashboard/internal/repository/notifications"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
@@ -38,7 +39,6 @@ import (
 )
 
 func main() {
-
 	// ==================================================
 	// Root Context
 	// ==================================================
@@ -92,7 +92,6 @@ func main() {
 	// ==================================================
 	// Initialize DWH DB
 	// ==================================================
-
 	dwhDB, err := db.InitDB(ctx, db.DBConfig{
 		Driver:          cfg.DBDriver,
 		DSN:             cfg.DwhDbSource(),
@@ -127,6 +126,7 @@ func main() {
 	})
 
 	cache.MustPing(ctx, rdb)
+
 	cacheAdapter := cache.NewRedisCache(rdb)
 	rateLimiter := ratelimit.New(rdb)
 
@@ -187,17 +187,22 @@ func main() {
 	storageRepo := storageLocationRepo.NewStorageRepositoryRepository(cfg, store, *appLogger)
 	sessionRepository := sessionRepository.NewSessionRepository(adminKC, cfg, *appLogger)
 	announcementRepository := announcementRepo.NewAnnouncementRepository(store, *appLogger)
+	emailRepository := emailRepo.NewEmailRepository(cfg, store, *appLogger)
 
-	// surveillance
-	regionRepository := repository.NewRepositories(store).Regions
-	districtRepository := repository.NewRepositories(store).Districts
-	subCountyRepository := repository.NewRepositories(store).SubCounties
-	diseaseRepository := repository.NewRepositories(store).Diseases
-	epiWeekRepository := repository.NewRepositories(store).EpiWeeks
-	facilityWeeklyMetricsRepository := repository.NewRepositories(store).FacilityMetrics
-	weeklyStatusRepository := repository.NewRepositories(store).WeeklyStatus
-	importRepository := repository.NewRepositories(store).Imports
-	alertRepository := repository.NewRepositories(store).Alerts
+	// ==================================================
+	// Surveillance Repositories
+	// ==================================================
+	surveillanceRepositories := repository.NewRepositories(store)
+
+	regionRepository := surveillanceRepositories.Regions
+	districtRepository := surveillanceRepositories.Districts
+	subCountyRepository := surveillanceRepositories.SubCounties
+	diseaseRepository := surveillanceRepositories.Diseases
+	epiWeekRepository := surveillanceRepositories.EpiWeeks
+	facilityWeeklyMetricsRepository := surveillanceRepositories.FacilityMetrics
+	weeklyStatusRepository := surveillanceRepositories.WeeklyStatus
+	importRepository := surveillanceRepositories.Imports
+	alertRepository := surveillanceRepositories.Alerts
 
 	// ==================================================
 	// Services
@@ -211,20 +216,83 @@ func main() {
 	publisher := cache.NewNotificationPublisher(rdb)
 	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
 
-	documentService := service.NewDocumentService(documentRepository, processRepository, notificationsService, fileStorage)
+	documentService := service.NewDocumentService(
+		documentRepository,
+		processRepository,
+		notificationsService,
+		fileStorage,
+	)
+
 	clientService := service.NewClientService(clientRepository, notificationsService)
 	userService := service.NewUserService(userRepository, notificationsService)
 	announcementService := service.NewAnnouncementService(announcementRepository, notificationsService)
 
-	// surveillance
+	// ==================================================
+	// Email Services
+	// ==================================================
+	templateManager, err := service.NewTemplateManager(appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email template manager: ", err)
+	}
+
+	if err := service.RegisterDefaultTemplates(templateManager); err != nil {
+		appLogger.Fatal("Failed to register default email templates: ", err)
+	}
+
+	smtpService, err := service.NewSMTPService(
+		cfg,
+		templateManager,
+		appLogger,
+	)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize SMTP service: ", err)
+	}
+
+	queueService, err := service.NewQueueService(
+		emailRepository,
+		appLogger,
+	)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email queue service: ", err)
+	}
+
+	emailAppService := service.NewEmailService(
+		smtpService,
+		queueService,
+		templateManager,
+	)
+
+	// ==================================================
+	// Surveillance Services
+	// ==================================================
 	diseaseService := service.NewSurveillanceDiseaseService(appLogger, diseaseRepository)
 	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
-	locationService := service.NewSurveillanceLocationService(appLogger, regionRepository, districtRepository, subCountyRepository)
-	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(appLogger, facilityWeeklyMetricsRepository, importRepository)
-	weeklyStatusService := service.NewSurveillanceWeeklyStatusService(appLogger, weeklyStatusRepository)
+
+	locationService := service.NewSurveillanceLocationService(
+		appLogger,
+		regionRepository,
+		districtRepository,
+		subCountyRepository,
+	)
+
+	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(
+		appLogger,
+		facilityWeeklyMetricsRepository,
+		importRepository,
+	)
+
+	weeklyStatusService := service.NewSurveillanceWeeklyStatusService(
+		appLogger,
+		weeklyStatusRepository,
+	)
 
 	surveillanceImportService := service.NewSurveillanceImportService(importRepository)
-	alertsService := service.NewSurveillanceAlertService(appLogger, alertRepository, importRepository)
+
+	alertsService := service.NewSurveillanceAlertService(
+		appLogger,
+		alertRepository,
+		importRepository,
+	)
 
 	importService := importSvc.NewService(
 		documentRepository,
@@ -239,33 +307,86 @@ func main() {
 	)
 
 	// ==================================================
-	// Background Worker
+	// Background Workers
 	// ==================================================
-	w := worker.NewWorker(
+	documentWorker, err := worker.NewDocumentWorker(
 		processRepository,
 		importService,
 		3*time.Second,
 		fileStorage,
+		appLogger,
 	)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize document worker: ", err)
+	}
 
 	go func() {
-		appLogger.Info("Background worker started")
-		if err := w.Start(ctx); err != nil {
-			appLogger.Error("Worker stopped with error: ", err)
+		appLogger.Info("Background document worker started")
+
+		if err := documentWorker.Start(ctx); err != nil {
+			appLogger.Error("Document worker stopped with error: ", err)
+		}
+	}()
+
+	emailWorker, err := worker.NewEmailWorker(
+		emailRepository,
+		smtpService,
+		3*time.Second,
+		20,
+		3,
+		appLogger,
+	)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email worker: ", err)
+	}
+
+	go func() {
+		appLogger.Info("Background email worker started")
+
+		if err := emailWorker.Start(ctx); err != nil {
+			appLogger.Error("Email worker stopped with error: ", err)
 		}
 	}()
 
 	// ==================================================
 	// Handlers
 	// ==================================================
-	authHandler := handler.NewAuthHandler(authService, auditService, notificationsService, cfg)
-	clientHandler := handler.NewClientHandler(clientService, auditService, cacheAdapter)
-	userHandler := handler.NewUserHandler(userService, auditService, cacheAdapter)
+	authHandler := handler.NewAuthHandler(
+		authService,
+		auditService,
+		notificationsService,
+		cfg,
+	)
+
+	clientHandler := handler.NewClientHandler(
+		clientService,
+		auditService,
+		cacheAdapter,
+	)
+
+	userHandler := handler.NewUserHandler(
+		userService,
+		auditService,
+		cacheAdapter,
+	)
+
 	metricsHandler := handler.NewMetricsHandler(metricsService)
 	auditHandler := handler.NewAuditHandler(store, cacheAdapter)
 	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
-	documentHandler := handler.NewDocumentHandler(documentService, auditService, storageLocationService, fileStorage, storageFactory)
-	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
+
+	documentHandler := handler.NewDocumentHandler(
+		documentService,
+		auditService,
+		storageLocationService,
+		fileStorage,
+		storageFactory,
+	)
+
+	storageLocationHandler := handler.NewStorageLocationHandler(
+		storageLocationService,
+		auditService,
+	)
+
 	sessionHandler := handler.NewSessionHandler(sessionService)
 	dataQualityHandler := handler.NewDataQualityHandler(dwhDB)
 	announcementHandler := handler.NewAnnouncementHandler(announcementService, auditService)
@@ -273,7 +394,14 @@ func main() {
 	visualiserHandler := handler.NewVisualiserHandler(cfg, dwhDB)
 	geoJSONHandler := handler.NewGeoJSONHandler("./assets/geojson")
 
-	// surveillance
+	emailHandler := handler.NewEmailHandler(
+		emailAppService,
+		emailRepository,
+	)
+
+	// ==================================================
+	// Surveillance Handler
+	// ==================================================
 	surveillanceHandler := handler.NewSurveillanceHandler(
 		epiWeekService,
 		diseaseService,
@@ -313,6 +441,7 @@ func main() {
 		visualiserHandler,
 		surveillanceHandler,
 		geoJSONHandler,
+		emailHandler,
 	)
 
 	r.GET("/health/live", healthHandler.HandleLive)
@@ -320,7 +449,7 @@ func main() {
 	r.GET("/health", healthHandler.HandleHealth)
 
 	// ==================================================
-	// HTTP Server (Hardened)
+	// HTTP Server
 	// ==================================================
 	server := &http.Server{
 		Addr:              ":" + cfg.ServerPort,
@@ -334,6 +463,7 @@ func main() {
 
 	go func() {
 		appLogger.Info("Server listening on :" + cfg.ServerPort)
+
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			appLogger.Fatal("Server failed: ", err)
 		}
@@ -344,6 +474,7 @@ func main() {
 	// ==================================================
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
 	<-quit
 
 	appLogger.Info("Shutdown signal received")

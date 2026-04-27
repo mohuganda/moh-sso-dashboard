@@ -1,4 +1,4 @@
-package email
+package service
 
 import (
 	"context"
@@ -6,6 +6,15 @@ import (
 	"fmt"
 
 	"github.com/moh-sso-dashboard/internal/model"
+	"github.com/moh-sso-dashboard/internal/utils"
+)
+
+var (
+	ErrServiceNil         = errors.New("email service is nil")
+	ErrSMTPSenderNil      = errors.New("smtp sender is nil")
+	ErrQueueWriterNil     = errors.New("queue writer is nil")
+	ErrTemplateManagerNil = errors.New("template manager is nil")
+	ErrTemplateNameEmpty  = errors.New("template name is required")
 )
 
 type smtpSender interface {
@@ -16,20 +25,20 @@ type queueWriter interface {
 	Enqueue(ctx context.Context, msg model.Message) error
 }
 
-type service struct {
-	sender smtpSender
-	queue  queueWriter
-	tm     *TemplateManager
-}
-
-type Service interface {
+type EmailService interface {
 	Send(ctx context.Context, msg model.Message) error
 	SendTemplate(ctx context.Context, msg model.Message) error
 	Queue(ctx context.Context, msg model.Message) error
 	SendBulk(ctx context.Context, messages []model.Message) error
 }
 
-func NewService(sender smtpSender, queue queueWriter, tm *TemplateManager) Service {
+type service struct {
+	sender smtpSender
+	queue  queueWriter
+	tm     *TemplateManager
+}
+
+func NewEmailService(sender smtpSender, queue queueWriter, tm *TemplateManager) EmailService {
 	return &service{
 		sender: sender,
 		queue:  queue,
@@ -38,14 +47,11 @@ func NewService(sender smtpSender, queue queueWriter, tm *TemplateManager) Servi
 }
 
 func (s *service) Send(ctx context.Context, msg model.Message) error {
-	if s == nil {
-		return errors.New("email service is nil")
-	}
-	if s.sender == nil {
-		return errors.New("smtp sender is nil")
+	if err := s.requireSender(); err != nil {
+		return err
 	}
 
-	if err := validateMessage(msg); err != nil {
+	if err := utils.ValidateMessage(msg); err != nil {
 		return fmt.Errorf("validate message: %w", err)
 	}
 
@@ -57,14 +63,11 @@ func (s *service) Send(ctx context.Context, msg model.Message) error {
 }
 
 func (s *service) SendTemplate(ctx context.Context, msg model.Message) error {
-	if s == nil {
-		return errors.New("email service is nil")
+	if err := s.requireSender(); err != nil {
+		return err
 	}
-	if s.sender == nil {
-		return errors.New("smtp sender is nil")
-	}
-	if s.tm == nil {
-		return errors.New("template manager is nil")
+	if err := s.requireTemplateManager(); err != nil {
+		return err
 	}
 
 	renderedMsg, err := s.applyTemplate(msg)
@@ -72,7 +75,7 @@ func (s *service) SendTemplate(ctx context.Context, msg model.Message) error {
 		return fmt.Errorf("apply template: %w", err)
 	}
 
-	if err := validateMessage(renderedMsg); err != nil {
+	if err := utils.ValidateMessage(renderedMsg); err != nil {
 		return fmt.Errorf("validate templated message: %w", err)
 	}
 
@@ -84,14 +87,11 @@ func (s *service) SendTemplate(ctx context.Context, msg model.Message) error {
 }
 
 func (s *service) Queue(ctx context.Context, msg model.Message) error {
-	if s == nil {
-		return errors.New("email service is nil")
-	}
-	if s.queue == nil {
-		return errors.New("queue writer is nil")
+	if err := s.requireQueue(); err != nil {
+		return err
 	}
 
-	if err := validateMessage(msg); err != nil {
+	if err := utils.ValidateMessage(msg); err != nil {
 		return fmt.Errorf("validate message: %w", err)
 	}
 
@@ -103,18 +103,15 @@ func (s *service) Queue(ctx context.Context, msg model.Message) error {
 }
 
 func (s *service) SendBulk(ctx context.Context, messages []model.Message) error {
-	if s == nil {
-		return errors.New("email service is nil")
-	}
-	if s.sender == nil {
-		return errors.New("smtp sender is nil")
+	if err := s.requireSender(); err != nil {
+		return err
 	}
 	if len(messages) == 0 {
 		return nil
 	}
 
 	for i, msg := range messages {
-		if err := validateMessage(msg); err != nil {
+		if err := utils.ValidateMessage(msg); err != nil {
 			return fmt.Errorf("validate bulk message at index %d: %w", i, err)
 		}
 
@@ -127,26 +124,56 @@ func (s *service) SendBulk(ctx context.Context, messages []model.Message) error 
 }
 
 func (s *service) applyTemplate(msg model.Message) (model.Message, error) {
-	// Adjust this to match your actual model.Message fields.
-	// Example assumptions:
-	// - msg.TemplateName string
-	// - msg.TemplateData map[string]any
-	// - msg.Subject string
-	// - msg.Body string
-
-	if s.tm == nil {
-		return msg, errors.New("template manager is nil")
+	if err := s.requireTemplateManager(); err != nil {
+		return msg, err
 	}
 
 	if msg.TemplateName == "" {
-		return msg, errors.New("template name is required")
+		return msg, ErrTemplateNameEmpty
 	}
 
 	rendered, err := s.tm.Render(msg.TemplateName, msg.TemplateData)
 	if err != nil {
-		return msg, err
+		return msg, fmt.Errorf("render template %q: %w", msg.TemplateName, err)
 	}
 
-	msg.TextBody = rendered
+	// Prefer HTML body for rendered templates.
+	// Keep existing text body if already provided.
+	msg.HTMLBody = rendered
+
+	if msg.TextBody == "" {
+		msg.TextBody = "Please use an email client that supports HTML content."
+	}
+
 	return msg, nil
+}
+
+func (s *service) requireSender() error {
+	if s == nil {
+		return ErrServiceNil
+	}
+	if s.sender == nil {
+		return ErrSMTPSenderNil
+	}
+	return nil
+}
+
+func (s *service) requireQueue() error {
+	if s == nil {
+		return ErrServiceNil
+	}
+	if s.queue == nil {
+		return ErrQueueWriterNil
+	}
+	return nil
+}
+
+func (s *service) requireTemplateManager() error {
+	if s == nil {
+		return ErrServiceNil
+	}
+	if s.tm == nil {
+		return ErrTemplateManagerNil
+	}
+	return nil
 }
