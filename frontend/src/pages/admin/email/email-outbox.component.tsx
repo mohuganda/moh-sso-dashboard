@@ -5,7 +5,6 @@ import {
   DataTable,
   Grid,
   InlineLoading,
-  InlineNotification,
   Modal,
   Pagination,
   Select,
@@ -32,6 +31,7 @@ import {
 import type { EmailStatus, EmailOutboxItem } from "../../../store/types/email.types";
 import { EmailOutboxActionsMenu } from "./email-outbox-actions-menu.component";
 import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
+import { useToast } from "../../../components/notifications/toast/useToast";
 import EmailPanelComponent from "./email-panel.component";
 
 type StatusFilter = "ALL" | EmailStatus | string;
@@ -92,16 +92,12 @@ function getSubject(item?: EmailOutboxItem) {
 
 export default function EmailOutbox() {
   const { openPanel, closePanel } = useHeaderPanel();
+  const toast = useToast();
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [selectedEmail, setSelectedEmail] = useState<EmailOutboxItem | null>(null);
-  const [notice, setNotice] = useState<{
-    kind: "success" | "error" | "info";
-    title: string;
-    subtitle?: string;
-  } | null>(null);
 
   const offset = (page - 1) * pageSize;
 
@@ -159,6 +155,15 @@ export default function EmailOutbox() {
     return new Map(emails.map((item) => [item.id, item]));
   }, [emails]);
 
+  const refetchEmails = () => {
+    if (statusFilter === "ALL") {
+      allEmailsQuery.refetch();
+      return;
+    }
+
+    statusEmailsQuery.refetch();
+  };
+
   const handleOpenSendEmailPanel = () => {
     openPanel({
       title: "Send email",
@@ -166,8 +171,7 @@ export default function EmailOutbox() {
         <EmailPanelComponent
           onSuccess={() => {
             closePanel();
-            allEmailsQuery.refetch();
-            statusEmailsQuery.refetch();
+            refetchEmails();
           }}
         />
       ),
@@ -178,24 +182,21 @@ export default function EmailOutbox() {
   const handleStatusChange = (value: StatusFilter) => {
     setStatusFilter(value);
     setPage(1);
-    setNotice(null);
   };
 
   const handleRetry = async (item: EmailOutboxItem) => {
     try {
       await retryEmail(item.id).unwrap();
 
-      setNotice({
-        kind: "success",
-        title: "Email re-queued successfully",
+      toast.success({
+        title: "Email re-queued",
         subtitle: getSubject(item),
       });
     } catch (error) {
       console.error(error);
 
-      setNotice({
-        kind: "error",
-        title: "Failed to retry email",
+      toast.error({
+        title: "Retry failed",
         subtitle: "Please check the email worker logs and try again.",
       });
     }
@@ -209,9 +210,8 @@ export default function EmailOutbox() {
     try {
       await deleteEmail(item.id).unwrap();
 
-      setNotice({
-        kind: "success",
-        title: "Email deleted successfully",
+      toast.success({
+        title: "Email deleted",
         subtitle: getSubject(item),
       });
 
@@ -221,9 +221,8 @@ export default function EmailOutbox() {
     } catch (error) {
       console.error(error);
 
-      setNotice({
-        kind: "error",
-        title: "Failed to delete email",
+      toast.error({
+        title: "Delete failed",
         subtitle: "Please try again.",
       });
     }
@@ -260,16 +259,6 @@ export default function EmailOutbox() {
                 </Button>
               </div>
             </div>
-
-            {notice && (
-              <InlineNotification
-                kind={notice.kind}
-                title={notice.title}
-                subtitle={notice.subtitle}
-                lowContrast
-                onCloseButtonClick={() => setNotice(null)}
-              />
-            )}
 
             <Tile className="email-outbox-page__filters">
               <Select
