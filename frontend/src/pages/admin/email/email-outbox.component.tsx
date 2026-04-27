@@ -228,11 +228,6 @@ export default function EmailOutbox() {
     }
   };
 
-  const selectedBody =
-    selectedEmail?.message?.html_body ||
-    selectedEmail?.message?.text_body ||
-    "No message body available.";
-
   return (
     <div className="email-outbox-page">
       <Grid fullWidth className="email-outbox-page__grid">
