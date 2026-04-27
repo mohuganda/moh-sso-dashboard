@@ -1,37 +1,42 @@
 import { OverflowMenu, OverflowMenuItem } from "@carbon/react";
 
-export type EmailOutboxAction = {
-  id: string;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  danger?: boolean;
-  hasDivider?: boolean;
-};
+import type { EmailOutboxItem } from "../../../store/types/email.types";
 
-type EmailOutboxActionsMenuProps = {
-  actions: EmailOutboxAction[];
-  flipped?: boolean;
-  size?: "sm" | "md" | "lg";
+type Props = {
+  email: EmailOutboxItem;
+  onView: () => void;
+  onRetry: () => void;
+  onDelete: () => void;
+  isMutating?: boolean;
 };
 
 export function EmailOutboxActionsMenu({
-  actions,
-  flipped = true,
-  size = "sm",
-}: EmailOutboxActionsMenuProps) {
+  email,
+  onView,
+  onRetry,
+  onDelete,
+  isMutating = false,
+}: Props) {
+  const isSent = email.status === "SENT";
+  const isProcessing = email.status === "PROCESSING";
+
   return (
-    <OverflowMenu size={size} flipped={flipped}>
-      {actions.map((action) => (
-        <OverflowMenuItem
-          key={action.id}
-          itemText={action.label}
-          disabled={action.disabled}
-          isDelete={action.danger}
-          hasDivider={action.hasDivider}
-          onClick={action.onClick}
-        />
-      ))}
+    <OverflowMenu size="sm" flipped>
+      <OverflowMenuItem itemText="View email" hasDivider onClick={onView} />
+
+      <OverflowMenuItem
+        itemText="Retry email"
+        hasDivider
+        disabled={isMutating || isSent || isProcessing}
+        onClick={onRetry}
+      />
+
+      <OverflowMenuItem
+        itemText="Delete email"
+        isDelete
+        disabled={isMutating || isProcessing}
+        onClick={onDelete}
+      />
     </OverflowMenu>
   );
 }

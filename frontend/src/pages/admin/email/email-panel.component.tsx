@@ -1,109 +1,147 @@
 import React, { useMemo, useState } from "react";
-import {
-  Button,
-  Form,
-  InlineNotification,
-  Loading,
-  Stack,
-  TextArea,
-  TextInput,
-  Tile,
-} from "@carbon/react";
+import { Button, Checkbox, Form, Loading, Stack, TextArea, TextInput, Tile } from "@carbon/react";
 
 import { useQueueEmailMutation, useSendEmailMutation } from "../../../store/api/email.api";
+import { useToast } from "../../../components/notifications/toast/useToast";
 import "./email.scss";
 
 type DeliveryMode = "send" | "queue";
 
-const EmailPanelComponent: React.FC = () => {
+type EmailPanelComponentProps = {
+  onSuccess?: () => void;
+};
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function parseEmailList(value: string) {
+  return value
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean)
+    .map((email) => ({ email }));
+}
+
+function hasInvalidEmailList(value: string) {
+  const emails = value
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+
+  return emails.some((email) => !isValidEmail(email));
+}
+
+const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) => {
+  const toast = useToast();
+
   const [recipient, setRecipient] = useState("");
   const [recipientName, setRecipientName] = useState("");
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [htmlBody, setHtmlBody] = useState("");
+  const [useHtmlBody, setUseHtmlBody] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("queue");
-  const [status, setStatus] = useState<{
-    kind: "success" | "error" | "info";
-    title: string;
-    subtitle?: string;
-  } | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const [sendEmail, sendState] = useSendEmailMutation();
   const [queueEmail, queueState] = useQueueEmailMutation();
 
   const isSubmitting = sendState.isLoading || queueState.isLoading;
 
+  const recipientError = submitted && !isValidEmail(recipient);
+  const subjectError = submitted && subject.trim().length === 0;
+  const messageError = submitted && message.trim().length === 0;
+  const ccError = submitted && cc.trim().length > 0 && hasInvalidEmailList(cc);
+  const bccError = submitted && bcc.trim().length > 0 && hasInvalidEmailList(bcc);
+
   const canSubmit = useMemo(() => {
     return (
-      recipient.trim().length > 0 &&
+      isValidEmail(recipient) &&
       subject.trim().length > 0 &&
       message.trim().length > 0 &&
+      !hasInvalidEmailList(cc) &&
+      !hasInvalidEmailList(bcc) &&
       !isSubmitting
     );
-  }, [recipient, subject, message, isSubmitting]);
+  }, [recipient, subject, message, cc, bcc, isSubmitting]);
 
   const resetForm = () => {
     setRecipient("");
     setRecipientName("");
+    setCc("");
+    setBcc("");
     setSubject("");
     setMessage("");
+    setHtmlBody("");
+    setUseHtmlBody(false);
+    setScheduledAt("");
+    setSubmitted(false);
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!canSubmit) {
-      setStatus({
-        kind: "error",
-        title: "Missing required fields",
-        subtitle: "Please provide recipient, subject, and message.",
-      });
-      return;
-    }
-
-    setStatus({
-      kind: "info",
-      title: deliveryMode === "send" ? "Sending email..." : "Queueing email...",
-    });
-
-    const payload = {
+  const buildPayload = () => {
+    return {
       to: [
         {
           name: recipientName.trim() || undefined,
           email: recipient.trim(),
         },
       ],
+      cc: cc.trim() ? parseEmailList(cc) : undefined,
+      bcc: bcc.trim() ? parseEmailList(bcc) : undefined,
       subject: subject.trim(),
       text_body: message.trim(),
+      html_body: useHtmlBody && htmlBody.trim() ? htmlBody.trim() : undefined,
+      scheduled_at:
+        deliveryMode === "queue" && scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
       metadata: {
-        source: "admin-email-page",
+        source: "admin-email-panel",
+        delivery_mode: deliveryMode,
       },
     };
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitted(true);
+
+    if (!canSubmit) {
+      toast.error({
+        title: "Missing or invalid fields",
+        subtitle:
+          "Please provide a valid recipient email, subject, message, and valid CC/BCC emails.",
+      });
+      return;
+    }
 
     try {
+      const payload = buildPayload();
+
       if (deliveryMode === "send") {
         await sendEmail(payload).unwrap();
 
-        setStatus({
-          kind: "success",
-          title: "Email sent successfully",
+        toast.success({
+          title: "Email sent",
           subtitle: "The email was delivered through the SMTP service.",
         });
       } else {
         await queueEmail(payload).unwrap();
 
-        setStatus({
-          kind: "success",
-          title: "Email queued successfully",
+        toast.success({
+          title: "Email queued",
           subtitle: "The background email worker will process it shortly.",
         });
       }
 
       resetForm();
+      onSuccess?.();
     } catch (error) {
       console.error(error);
 
-      setStatus({
-        kind: "error",
+      toast.error({
         title: deliveryMode === "send" ? "Failed to send email" : "Failed to queue email",
         subtitle: "Please check the email service logs and try again.",
       });
@@ -111,25 +149,16 @@ const EmailPanelComponent: React.FC = () => {
   };
 
   return (
-    <div className="email-page">
-      <Tile className="email-page__tile">
+    <div className="email-panel">
+      <Tile className="email-panel__tile">
         <Stack gap={6}>
-          <div>
-            <h1 className="email-page__title">Send Admin Email</h1>
-            <p className="email-page__description">
-              Send an email immediately or queue it for background delivery.
+          <div className="email-panel__header">
+            <h2 className="email-panel__title">Send email</h2>
+            <p className="email-panel__description">
+              Send immediately through SMTP or queue the message for background delivery and
+              retries.
             </p>
           </div>
-
-          {status && (
-            <InlineNotification
-              kind={status.kind}
-              title={status.title}
-              subtitle={status.subtitle}
-              lowContrast
-              onCloseButtonClick={() => setStatus(null)}
-            />
-          )}
 
           <Form onSubmit={handleSubmit} className="email-form">
             <Stack gap={5}>
@@ -155,55 +184,127 @@ const EmailPanelComponent: React.FC = () => {
                 </Button>
               </div>
 
-              <TextInput
-                id="recipient-name"
-                labelText="Recipient name"
-                value={recipientName}
-                onChange={(event) => setRecipientName(event.target.value)}
-                placeholder="Optional name"
-                disabled={isSubmitting}
-              />
+              <div className="email-form__section">
+                <h3 className="email-form__section-title">Recipient</h3>
 
-              <TextInput
-                id="recipient"
-                type="email"
-                labelText="Recipient email"
-                value={recipient}
-                onChange={(event) => setRecipient(event.target.value)}
-                placeholder="user@example.com"
-                invalid={recipient.trim() === ""}
-                invalidText="Recipient email is required"
-                disabled={isSubmitting}
-                required
-              />
+                <Stack gap={4}>
+                  <TextInput
+                    id="recipient-name"
+                    labelText="Recipient name"
+                    value={recipientName}
+                    onChange={(event) => setRecipientName(event.target.value)}
+                    placeholder="Optional name"
+                    disabled={isSubmitting}
+                  />
 
-              <TextInput
-                id="subject"
-                labelText="Subject"
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                placeholder="Email subject"
-                invalid={subject.trim() === ""}
-                invalidText="Subject is required"
-                disabled={isSubmitting}
-                required
-              />
+                  <TextInput
+                    id="recipient"
+                    type="email"
+                    labelText="Recipient email"
+                    value={recipient}
+                    onChange={(event) => setRecipient(event.target.value)}
+                    placeholder="user@example.com"
+                    invalid={recipientError}
+                    invalidText="Enter a valid recipient email address"
+                    disabled={isSubmitting}
+                    required
+                  />
 
-              <TextArea
-                id="message"
-                labelText="Message"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Write your message here"
-                rows={8}
-                invalid={message.trim() === ""}
-                invalidText="Message is required"
-                disabled={isSubmitting}
-                required
-              />
+                  <TextInput
+                    id="cc"
+                    type="text"
+                    labelText="CC"
+                    value={cc}
+                    onChange={(event) => setCc(event.target.value)}
+                    placeholder="Optional, comma-separated emails"
+                    invalid={ccError}
+                    invalidText="One or more CC email addresses are invalid"
+                    disabled={isSubmitting}
+                  />
+
+                  <TextInput
+                    id="bcc"
+                    type="text"
+                    labelText="BCC"
+                    value={bcc}
+                    onChange={(event) => setBcc(event.target.value)}
+                    placeholder="Optional, comma-separated emails"
+                    invalid={bccError}
+                    invalidText="One or more BCC email addresses are invalid"
+                    disabled={isSubmitting}
+                  />
+                </Stack>
+              </div>
+
+              <div className="email-form__section">
+                <h3 className="email-form__section-title">Message</h3>
+
+                <Stack gap={4}>
+                  <TextInput
+                    id="subject"
+                    labelText="Subject"
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    placeholder="Email subject"
+                    invalid={subjectError}
+                    invalidText="Subject is required"
+                    disabled={isSubmitting}
+                    required
+                  />
+
+                  <TextArea
+                    id="message"
+                    labelText="Plain text message"
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    placeholder="Write your message here"
+                    rows={7}
+                    invalid={messageError}
+                    invalidText="Message is required"
+                    disabled={isSubmitting}
+                    required
+                  />
+
+                  <Checkbox
+                    id="use-html-body"
+                    labelText="Add HTML body"
+                    checked={useHtmlBody}
+                    disabled={isSubmitting}
+                    onChange={(_, data) => setUseHtmlBody(Boolean(data.checked))}
+                  />
+
+                  {useHtmlBody && (
+                    <TextArea
+                      id="html-body"
+                      labelText="HTML body"
+                      value={htmlBody}
+                      onChange={(event) => setHtmlBody(event.target.value)}
+                      placeholder="<p>Hello...</p>"
+                      rows={7}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                </Stack>
+              </div>
+
+              {deliveryMode === "queue" && (
+                <div className="email-form__section">
+                  <h3 className="email-form__section-title">Scheduling</h3>
+
+                  <TextInput
+                    id="scheduled-at"
+                    type="datetime-local"
+                    labelText="Scheduled time"
+                    helperText="Optional. Leave empty to queue immediately."
+                    value={scheduledAt}
+                    onChange={(event) => setScheduledAt(event.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              )}
 
               <div className="email-form__actions">
-                <Button type="submit" disabled={!canSubmit}>
+                <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
                     ? deliveryMode === "send"
                       ? "Sending..."

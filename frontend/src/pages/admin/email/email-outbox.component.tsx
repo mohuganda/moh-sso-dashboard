@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  Button,
   Column,
   DataTable,
   Grid,
@@ -19,6 +20,7 @@ import {
   Tag,
   Tile,
 } from "@carbon/react";
+import { Add } from "@carbon/react/icons";
 
 import "./email-outbox.scss";
 import {
@@ -29,6 +31,8 @@ import {
 } from "../../../store/api/email.api";
 import type { EmailStatus, EmailOutboxItem } from "../../../store/types/email.types";
 import { EmailOutboxActionsMenu } from "./email-outbox-actions-menu.component";
+import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
+import EmailPanelComponent from "./email-panel.component";
 
 type StatusFilter = "ALL" | EmailStatus | string;
 
@@ -78,15 +82,17 @@ function getStatusTagType(status?: string) {
   }
 }
 
-function getRecipients(item: EmailOutboxItem) {
-  return item.message?.to?.map((recipient) => recipient.email).join(", ") || "—";
+function getRecipients(item?: EmailOutboxItem) {
+  return item?.message?.to?.map((recipient) => recipient.email).join(", ") || "—";
 }
 
-function getSubject(item: EmailOutboxItem) {
-  return item.message?.subject || "—";
+function getSubject(item?: EmailOutboxItem) {
+  return item?.message?.subject || "—";
 }
 
 export default function EmailOutbox() {
+  const { openPanel, closePanel } = useHeaderPanel();
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -152,6 +158,22 @@ export default function EmailOutbox() {
   const emailById = useMemo(() => {
     return new Map(emails.map((item) => [item.id, item]));
   }, [emails]);
+
+  const handleOpenSendEmailPanel = () => {
+    openPanel({
+      title: "Send email",
+      content: (
+        <EmailPanelComponent
+          onSuccess={() => {
+            closePanel();
+            allEmailsQuery.refetch();
+            statusEmailsQuery.refetch();
+          }}
+        />
+      ),
+      size: "md",
+    });
+  };
 
   const handleStatusChange = (value: StatusFilter) => {
     setStatusFilter(value);
@@ -225,7 +247,18 @@ export default function EmailOutbox() {
                 </p>
               </div>
 
-              {isFetching && !isLoading && <InlineLoading description="Refreshing emails..." />}
+              <div className="email-outbox-page__header-actions">
+                {isFetching && !isLoading && <InlineLoading description="Refreshing emails..." />}
+
+                <Button
+                  kind="primary"
+                  size="md"
+                  renderIcon={Add}
+                  onClick={handleOpenSendEmailPanel}
+                >
+                  Send email
+                </Button>
+              </div>
             </div>
 
             {notice && (
@@ -306,33 +339,15 @@ export default function EmailOutbox() {
                                   if (cell.info.header === "actions") {
                                     return (
                                       <TableCell key={cell.id}>
-                                        <EmailOutboxActionsMenu
-                                          actions={[
-                                            {
-                                              id: "view",
-                                              label: "View email",
-                                              onClick: () => original && setSelectedEmail(original),
-                                              disabled: !original,
-                                            },
-                                            {
-                                              id: "retry",
-                                              label: "Retry email",
-                                              onClick: () => original && handleRetry(original),
-                                              disabled:
-                                                !original ||
-                                                isMutating ||
-                                                original.status === "SENT",
-                                              hasDivider: true,
-                                            },
-                                            {
-                                              id: "delete",
-                                              label: "Delete email",
-                                              onClick: () => original && handleDelete(original),
-                                              disabled: !original || isMutating,
-                                              danger: true,
-                                            },
-                                          ]}
-                                        />
+                                        {original && (
+                                          <EmailOutboxActionsMenu
+                                            email={original}
+                                            isMutating={isMutating}
+                                            onView={() => setSelectedEmail(original)}
+                                            onRetry={() => handleRetry(original)}
+                                            onDelete={() => handleDelete(original)}
+                                          />
+                                        )}
                                       </TableCell>
                                     );
                                   }
