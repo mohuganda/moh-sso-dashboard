@@ -122,7 +122,46 @@ func (w *EmailWorker) process(ctx context.Context) {
 		}
 
 		if err := w.sender.Send(ctx, item.Message); err != nil {
-			w.handleSendFailure(ctx, item, err)
+			attempts := item.Attempts + 1
+
+			if attempts >= item.MaxAttempts || attempts >= w.maxRetries {
+				if markErr := w.repo.MarkFailed(ctx, item.ID, attempts, err.Error()); markErr != nil {
+					w.logger.Error(
+						"email worker failed to mark email as failed",
+						"email_id", item.ID,
+						"attempts", attempts,
+						"error", markErr,
+					)
+					continue
+				}
+
+				w.logger.Error(
+					"email permanently failed",
+					"email_id", item.ID,
+					"attempts", attempts,
+					"error", err,
+				)
+
+				continue
+			}
+
+			if markErr := w.repo.MarkRetry(ctx, item.ID, attempts, err.Error()); markErr != nil {
+				w.logger.Error(
+					"email worker failed to mark email for retry",
+					"email_id", item.ID,
+					"attempts", attempts,
+					"error", markErr,
+				)
+				continue
+			}
+
+			w.logger.Error(
+				"email send failed and scheduled for retry",
+				"email_id", item.ID,
+				"attempts", attempts,
+				"error", err,
+			)
+
 			continue
 		}
 
@@ -140,50 +179,4 @@ func (w *EmailWorker) process(ctx context.Context) {
 			"email_id", item.ID,
 		)
 	}
-}
-
-func (w *EmailWorker) handleSendFailure(
-	ctx context.Context,
-	item repository.EmailQueueItem,
-	sendErr error,
-) {
-	attempts := item.Attempts + 1
-
-	if attempts >= item.MaxAttempts || attempts >= w.maxRetries {
-		if err := w.repo.MarkFailed(ctx, item.ID, attempts, sendErr.Error()); err != nil {
-			w.logger.Error(
-				"email worker failed to mark email as failed",
-				"email_id", item.ID,
-				"attempts", attempts,
-				"error", err,
-			)
-			return
-		}
-
-		w.logger.Error(
-			"email permanently failed",
-			"email_id", item.ID,
-			"attempts", attempts,
-			"error", sendErr,
-		)
-
-		return
-	}
-
-	if err := w.repo.MarkRetry(ctx, item.ID, attempts, sendErr.Error()); err != nil {
-		w.logger.Error(
-			"email worker failed to mark email for retry",
-			"email_id", item.ID,
-			"attempts", attempts,
-			"error", err,
-		)
-		return
-	}
-
-	w.logger.Error(
-		"email send failed and scheduled for retry",
-		"email_id", item.ID,
-		"attempts", attempts,
-		"error", sendErr,
-	)
 }
