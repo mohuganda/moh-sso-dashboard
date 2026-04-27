@@ -40,6 +40,7 @@ import { AnnouncementsPage } from "./pages/admin/announcements/announcements.com
 import SurveillancePage from "./pages/user/surveillence/surveillance.component.tsx";
 import DiseaseDetailsPage from "./pages/user/surveillence/surveillance-details/surveillance-details.component.tsx";
 import IssueTracker from "./pages/public/issuetracker/issue-tracker.tsx";
+import EmailOutbox from "./pages/admin/email/email-outbox.component.tsx";
 
 function App() {
   return (
@@ -138,9 +139,9 @@ function App() {
               <Route
                 path="issue-tracker"
                 element={
-                    <UserRoute>
-                        <IssueTracker />
-                    </UserRoute>
+                  <UserRoute>
+                    <IssueTracker />
+                  </UserRoute>
                 }
               />
             </Route>
@@ -519,6 +520,15 @@ function App() {
               element={
                 <AdminRoute>
                   <AnnouncementsPage />
+                </AdminRoute>
+              }
+            />
+
+            <Route
+              path="emails"
+              element={
+                <AdminRoute>
+                  <EmailOutbox />
                 </AdminRoute>
               }
             />

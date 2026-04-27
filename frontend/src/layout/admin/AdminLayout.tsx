@@ -119,6 +119,13 @@ export default function AdminLayout() {
             </SideNavLink>
 
             <SideNavLink
+              isActive={location.pathname.startsWith("/admin/emails")}
+              onClick={() => navigate("/admin/emails")}
+            >
+              Emails
+            </SideNavLink>
+
+            <SideNavLink
               isActive={location.pathname.startsWith("/admin/audit-logs")}
               onClick={() => navigate("/admin/audit-logs")}
             >

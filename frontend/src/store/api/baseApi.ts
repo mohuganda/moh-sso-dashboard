@@ -63,7 +63,8 @@ export const baseApi = createApi({
     "Surveillance",
     "GeoJson",
     "Issues",
-    "Transactions"
+    "Transactions",
+    "Emails",
   ],
 
   endpoints: () => ({}),

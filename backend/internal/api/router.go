@@ -149,7 +149,7 @@ func SetupRouter(
 		// Email
 		// ------------------
 
-		email := protected.Group("/email")
+		email := protected.Group("/emails")
 		{
 			email.POST("/send", emailHandler.Send)
 			email.POST("/queue", emailHandler.Queue)

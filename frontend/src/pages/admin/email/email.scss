@@ -1,0 +1,38 @@
+.email-page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.email-page__tile {
+  padding: 2rem;
+}
+
+.email-page__title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.email-page__description {
+  margin-top: 0.5rem;
+  color: var(--cds-text-secondary, #525252);
+}
+
+.email-form {
+  width: 100%;
+}
+
+.email-form__mode {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.email-form__actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
