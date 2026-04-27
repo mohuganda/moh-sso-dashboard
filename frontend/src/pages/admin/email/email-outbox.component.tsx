@@ -5,7 +5,6 @@ import {
   DataTable,
   Grid,
   InlineLoading,
-  Modal,
   Pagination,
   Select,
   SelectItem,
@@ -33,6 +32,7 @@ import { EmailOutboxActionsMenu } from "./email-outbox-actions-menu.component";
 import { useHeaderPanel } from "../../../components/header-panel/header-panel.context";
 import { useToast } from "../../../components/notifications/toast/useToast";
 import EmailPanelComponent from "./email-panel.component";
+import { EmailDetailsModal } from "./email-outbox-details-modal.component";
 
 type StatusFilter = "ALL" | EmailStatus | string;
 
@@ -369,53 +369,11 @@ export default function EmailOutbox() {
           </Stack>
         </Column>
       </Grid>
-
-      <Modal
+      <EmailDetailsModal
         open={Boolean(selectedEmail)}
-        modalHeading="Email details"
-        passiveModal
-        onRequestClose={() => setSelectedEmail(null)}
-      >
-        {selectedEmail && (
-          <Stack gap={5}>
-            <div>
-              <strong>Subject</strong>
-              <p>{getSubject(selectedEmail)}</p>
-            </div>
-
-            <div>
-              <strong>To</strong>
-              <p>{getRecipients(selectedEmail)}</p>
-            </div>
-
-            <div>
-              <strong>Status</strong>
-              <p>
-                <Tag type={getStatusTagType(selectedEmail.status)}>{selectedEmail.status}</Tag>
-              </p>
-            </div>
-
-            <div>
-              <strong>Attempts</strong>
-              <p>
-                {selectedEmail.attempts ?? 0}/{selectedEmail.max_attempts ?? "—"}
-              </p>
-            </div>
-
-            {selectedEmail.last_error && (
-              <div>
-                <strong>Last error</strong>
-                <pre className="email-outbox-page__error">{selectedEmail.last_error}</pre>
-              </div>
-            )}
-
-            <div>
-              <strong>Message</strong>
-              <pre className="email-outbox-page__body">{selectedBody}</pre>
-            </div>
-          </Stack>
-        )}
-      </Modal>
+        email={selectedEmail}
+        onClose={() => setSelectedEmail(null)}
+      />
     </div>
   );
 }
