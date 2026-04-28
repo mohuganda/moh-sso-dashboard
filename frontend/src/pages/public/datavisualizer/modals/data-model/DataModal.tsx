@@ -90,13 +90,10 @@ export default function DataModal({ onClose, selected, onSave }) {
     }
   };
 
-  const filteredAvailableElements = availableDataSetElements.filter((item) =>
-      item.data_element_short_name
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase())
-  );
-
-  // if (!show) return null;
+  const filteredAvailableElements = availableDataSetElements?.filter((item) => {
+    if (!searchTerm?.trim()) return true;
+    return item?.data_element_short_name?.toLowerCase()?.includes(searchTerm?.toLowerCase());
+  });
 
   return (
     <Modal
@@ -122,7 +119,7 @@ export default function DataModal({ onClose, selected, onSave }) {
             >
               <SelectItem text="" value="" />
               {datasets?.map((dataset: any) => (
-                <SelectItem value={dataset?.theme_id} text={dataset?.theme_name} />
+                <SelectItem key={dataset?.theme_id} id={dataset?.theme_id} value={dataset?.theme_id} text={dataset?.theme_name} />
               ))}
             </Select>
           </div>
@@ -147,7 +144,7 @@ export default function DataModal({ onClose, selected, onSave }) {
           <div className="border" style={{ height: "300px", overflowY: "auto" }}>
             {filteredAvailableElements?.map((item: any) => (
               <div
-                key={item?.data_element_id}
+                key={item?.data_element_key}
                 className="p-2 border-bottom d-flex align-items-center"
                 style={{ cursor: "pointer" }}
                 onClick={() => {
@@ -158,10 +155,15 @@ export default function DataModal({ onClose, selected, onSave }) {
                 <div className="small">{item?.data_element_short_name}</div>
               </div>
             ))}
-            {filteredAvailableElements?.length === 0 && (
-              <div className="p-3 text-center text-muted">
-                {searchTerm ? "No matches found" : "No items found"}
-              </div>
+            {availableDataSetElements?.length > 0 && filteredAvailableElements?.length === 0 && (
+                <div className="p-3 text-center text-muted">
+                  No matches found for "{searchTerm}"
+                </div>
+            )}
+            {availableDataSetElements?.length === 0 && (
+                <div className="p-3 text-center text-muted">
+                  {selectedDataset ? "All items added or list empty" : "Select a dataset first"}
+                </div>
             )}
           </div>
         </div>

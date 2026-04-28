@@ -1,7 +1,4 @@
-import { APP_CONFIG } from "../../config";
-
-const API_BASE_URL =
-  APP_CONFIG?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:9000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://dashboards.health.go.ug/ssobackend";
 
 const API_ROOT = `${API_BASE_URL}/api`;
 const API_VERSION = "v1";
@@ -67,7 +64,7 @@ export const API = {
     themes: () => `${API_BASE}/visualizer/themes`,
     theme: () => `${API_BASE}/visualizer/dataelements/theme`,
     hierarchy: () => `${API_BASE}/visualizer/adminunits/hierarchy`,
-    dataValues: () => `${API_BASE}/v1/visualizer/datavalues`,
+    dataValues: () => `${API_BASE}/visualizer/datavalues`,
   },
   // --------------------------------------------------
   // Visualizer
