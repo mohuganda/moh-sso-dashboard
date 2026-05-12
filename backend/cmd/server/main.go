@@ -256,11 +256,16 @@ func main() {
 		appLogger.Fatal("Failed to initialize email queue service: ", err)
 	}
 
-	emailAppService := service.NewEmailService(
+	emailAppService, err := service.NewEmailService(
 		smtpService,
 		queueService,
 		templateManager,
 	)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email application service: ", err)
+	}
+
+	appLogger.Info("Email application service initialized")
 
 	// ==================================================
 	// Surveillance Services

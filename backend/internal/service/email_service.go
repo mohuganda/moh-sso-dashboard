@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
@@ -38,17 +39,37 @@ type service struct {
 	tm     *TemplateManager
 }
 
-func NewEmailService(sender smtpSender, queue queueWriter, tm *TemplateManager) EmailService {
+func NewEmailService(
+	sender smtpSender,
+	queue queueWriter,
+	tm *TemplateManager,
+) (EmailService, error) {
+	if sender == nil {
+		return nil, ErrSMTPSenderNil
+	}
+
+	if queue == nil {
+		return nil, ErrQueueWriterNil
+	}
+
+	if tm == nil {
+		return nil, ErrTemplateManagerNil
+	}
+
 	return &service{
 		sender: sender,
 		queue:  queue,
 		tm:     tm,
-	}
+	}, nil
 }
 
 func (s *service) Send(ctx context.Context, msg model.Message) error {
 	if err := s.requireSender(); err != nil {
 		return err
+	}
+
+	if strings.TrimSpace(msg.TemplateName) != "" {
+		return s.SendTemplate(ctx, msg)
 	}
 
 	if err := utils.ValidateMessage(msg); err != nil {
@@ -66,6 +87,7 @@ func (s *service) SendTemplate(ctx context.Context, msg model.Message) error {
 	if err := s.requireSender(); err != nil {
 		return err
 	}
+
 	if err := s.requireTemplateManager(); err != nil {
 		return err
 	}
@@ -106,11 +128,21 @@ func (s *service) SendBulk(ctx context.Context, messages []model.Message) error 
 	if err := s.requireSender(); err != nil {
 		return err
 	}
+
 	if len(messages) == 0 {
 		return nil
 	}
 
 	for i, msg := range messages {
+		if strings.TrimSpace(msg.TemplateName) != "" {
+			renderedMsg, err := s.applyTemplate(msg)
+			if err != nil {
+				return fmt.Errorf("apply template for bulk message at index %d: %w", i, err)
+			}
+
+			msg = renderedMsg
+		}
+
 		if err := utils.ValidateMessage(msg); err != nil {
 			return fmt.Errorf("validate bulk message at index %d: %w", i, err)
 		}
@@ -128,6 +160,7 @@ func (s *service) applyTemplate(msg model.Message) (model.Message, error) {
 		return msg, err
 	}
 
+	msg.TemplateName = strings.TrimSpace(msg.TemplateName)
 	if msg.TemplateName == "" {
 		return msg, ErrTemplateNameEmpty
 	}
@@ -137,11 +170,9 @@ func (s *service) applyTemplate(msg model.Message) (model.Message, error) {
 		return msg, fmt.Errorf("render template %q: %w", msg.TemplateName, err)
 	}
 
-	// Prefer HTML body for rendered templates.
-	// Keep existing text body if already provided.
 	msg.HTMLBody = rendered
 
-	if msg.TextBody == "" {
+	if strings.TrimSpace(msg.TextBody) == "" {
 		msg.TextBody = "Please use an email client that supports HTML content."
 	}
 
@@ -152,9 +183,11 @@ func (s *service) requireSender() error {
 	if s == nil {
 		return ErrServiceNil
 	}
+
 	if s.sender == nil {
 		return ErrSMTPSenderNil
 	}
+
 	return nil
 }
 
@@ -162,9 +195,11 @@ func (s *service) requireQueue() error {
 	if s == nil {
 		return ErrServiceNil
 	}
+
 	if s.queue == nil {
 		return ErrQueueWriterNil
 	}
+
 	return nil
 }
 
@@ -172,8 +207,10 @@ func (s *service) requireTemplateManager() error {
 	if s == nil {
 		return ErrServiceNil
 	}
+
 	if s.tm == nil {
 		return ErrTemplateManagerNil
 	}
+
 	return nil
 }

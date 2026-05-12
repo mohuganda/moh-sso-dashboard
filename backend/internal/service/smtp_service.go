@@ -25,8 +25,28 @@ func NewSMTPService(
 	tm *TemplateManager,
 	logger *logger.Logger,
 ) (*SMTPService, error) {
+	if cfg == nil {
+		return nil, errors.New("config is required")
+	}
+
 	if logger == nil {
 		return nil, errors.New("logger is required")
+	}
+
+	if strings.TrimSpace(cfg.SMTP.Host) == "" {
+		return nil, errors.New("smtp host is required")
+	}
+
+	if cfg.SMTP.Port <= 0 {
+		return nil, errors.New("smtp port is required")
+	}
+
+	if strings.TrimSpace(cfg.SMTP.FromEmail) == "" {
+		return nil, errors.New("smtp from email is required")
+	}
+
+	if strings.TrimSpace(cfg.SMTP.FromName) == "" {
+		return nil, errors.New("smtp from name is required")
 	}
 
 	return &SMTPService{
@@ -39,6 +59,10 @@ func NewSMTPService(
 func (s *SMTPService) Send(ctx context.Context, msg model.Message) error {
 	if s == nil {
 		return errors.New("smtp service is nil")
+	}
+
+	if s.cfg == nil {
+		return errors.New("smtp service config is nil")
 	}
 
 	if err := utils.ValidateMessage(msg); err != nil {
@@ -86,14 +110,7 @@ func (s *SMTPService) Send(ctx context.Context, msg model.Message) error {
 
 	m := mail.NewMsg()
 
-	from := msg.From
-	if from == nil {
-		from = &model.Address{
-			Name:  s.cfg.SMTP.FromName,
-			Email: s.cfg.SMTP.FromEmail,
-		}
-	}
-
+	from := normalizeFromAddress(msg.From, s.cfg)
 	if err := setFromAddress(m, from); err != nil {
 		s.logger.Error(
 			"failed to set email from address",
@@ -145,7 +162,7 @@ func (s *SMTPService) Send(ctx context.Context, msg model.Message) error {
 		return err
 	}
 
-	m.Subject(msg.Subject)
+	m.Subject(strings.TrimSpace(msg.Subject))
 
 	if strings.TrimSpace(msg.TextBody) != "" {
 		m.SetBodyString(mail.TypeTextPlain, msg.TextBody)
@@ -177,19 +194,53 @@ func (s *SMTPService) Send(ctx context.Context, msg model.Message) error {
 		return err
 	}
 
-	client, err := mail.NewClient(
-		s.cfg.SMTP.Host,
+	host := strings.TrimSpace(s.cfg.SMTP.Host)
+	hostLower := strings.ToLower(host)
+
+	isLocalSMTP := hostLower == "mailhog" ||
+		hostLower == "localhost" ||
+		hostLower == "127.0.0.1"
+
+	clientOptions := []mail.Option{
 		mail.WithPort(s.cfg.SMTP.Port),
-		mail.WithUsername(s.cfg.SMTP.Username),
-		mail.WithPassword(s.cfg.SMTP.Password),
-		mail.WithSMTPAuth(mail.SMTPAuthAutoDiscover),
+	}
+
+	tlsPolicy := "TLSMandatory"
+	if isLocalSMTP {
+		clientOptions = append(clientOptions, mail.WithTLSPolicy(mail.NoTLS))
+		tlsPolicy = "NoTLS"
+	} else {
+		clientOptions = append(clientOptions, mail.WithTLSPolicy(mail.TLSMandatory))
+	}
+
+	if strings.TrimSpace(s.cfg.SMTP.Username) != "" {
+		clientOptions = append(
+			clientOptions,
+			mail.WithUsername(strings.TrimSpace(s.cfg.SMTP.Username)),
+			mail.WithPassword(s.cfg.SMTP.Password),
+			mail.WithSMTPAuth(mail.SMTPAuthAutoDiscover),
+		)
+	}
+
+	s.logger.Info(
+		"creating smtp client",
+		"smtp_host", host,
+		"smtp_port", s.cfg.SMTP.Port,
+		"tls_policy", tlsPolicy,
+		"auth_enabled", strings.TrimSpace(s.cfg.SMTP.Username) != "",
+	)
+
+	client, err := mail.NewClient(
+		host,
+		clientOptions...,
 	)
 	if err != nil {
 		s.logger.Error(
 			"failed to create smtp client",
 			"error", err,
-			"smtp_host", s.cfg.SMTP.Host,
+			"smtp_host", host,
 			"smtp_port", s.cfg.SMTP.Port,
+			"tls_policy", tlsPolicy,
 		)
 
 		return fmt.Errorf("create smtp client: %w", err)
@@ -200,8 +251,9 @@ func (s *SMTPService) Send(ctx context.Context, msg model.Message) error {
 			"failed to send email",
 			"error", err,
 			"subject", msg.Subject,
-			"smtp_host", s.cfg.SMTP.Host,
+			"smtp_host", host,
 			"smtp_port", s.cfg.SMTP.Port,
+			"tls_policy", tlsPolicy,
 		)
 
 		return fmt.Errorf("send email: %w", err)
@@ -210,12 +262,30 @@ func (s *SMTPService) Send(ctx context.Context, msg model.Message) error {
 	s.logger.Info(
 		"email sent successfully",
 		"subject", msg.Subject,
+		"from_email", from.Email,
 		"to_count", len(msg.To),
 		"cc_count", len(msg.Cc),
 		"bcc_count", len(msg.Bcc),
+		"smtp_host", host,
+		"smtp_port", s.cfg.SMTP.Port,
+		"tls_policy", tlsPolicy,
 	)
 
 	return nil
+}
+
+func normalizeFromAddress(from *model.Address, cfg *config.Config) *model.Address {
+	if from != nil && strings.TrimSpace(from.Email) != "" {
+		return &model.Address{
+			Name:  strings.TrimSpace(from.Name),
+			Email: strings.TrimSpace(from.Email),
+		}
+	}
+
+	return &model.Address{
+		Name:  strings.TrimSpace(cfg.SMTP.FromName),
+		Email: strings.TrimSpace(cfg.SMTP.FromEmail),
+	}
 }
 
 func setFromAddress(m *mail.Msg, from *model.Address) error {

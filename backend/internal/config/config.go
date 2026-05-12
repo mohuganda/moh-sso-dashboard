@@ -129,24 +129,24 @@ type Config struct {
 	// ==================================================
 	// SMTP / Retry
 	// ==================================================
-	SMTP  SMTPConfig  `mapstructure:"SMTP"`
-	Retry RetryConfig `mapstructure:"RETRY"`
+	SMTP  SMTPConfig  `mapstructure:",squash"`
+	Retry RetryConfig `mapstructure:",squash"`
 }
 
 type SMTPConfig struct {
-	Host           string        `mapstructure:"HOST"`
-	Port           int           `mapstructure:"PORT"`
-	Username       string        `mapstructure:"USERNAME"`
-	Password       string        `mapstructure:"PASSWORD"`
-	FromEmail      string        `mapstructure:"FROM_EMAIL"`
-	FromName       string        `mapstructure:"FROM_NAME"`
-	ConnectTimeout time.Duration `mapstructure:"CONNECT_TIMEOUT"`
-	SendTimeout    time.Duration `mapstructure:"SEND_TIMEOUT"`
+	Host           string        `mapstructure:"SMTP_HOST"`
+	Port           int           `mapstructure:"SMTP_PORT"`
+	Username       string        `mapstructure:"SMTP_USERNAME"`
+	Password       string        `mapstructure:"SMTP_PASSWORD"`
+	FromEmail      string        `mapstructure:"SMTP_FROM_EMAIL"`
+	FromName       string        `mapstructure:"SMTP_FROM_NAME"`
+	ConnectTimeout time.Duration `mapstructure:"SMTP_CONNECT_TIMEOUT"`
+	SendTimeout    time.Duration `mapstructure:"SMTP_SEND_TIMEOUT"`
 }
 
 type RetryConfig struct {
-	MaxAttempts int           `mapstructure:"MAX_ATTEMPTS"`
-	BaseDelay   time.Duration `mapstructure:"BASE_DELAY"`
+	MaxAttempts int           `mapstructure:"RETRY_MAX_ATTEMPTS"`
+	BaseDelay   time.Duration `mapstructure:"RETRY_BASE_DELAY"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -228,16 +228,16 @@ func LoadConfig(path string) (*Config, error) {
 		"DWH_USERNAME":                 "DWH_USERNAME",
 		"DWH_PASSWORD":                 "DWH_PASSWORD",
 		"DWH_DB":                       "DWH_DB",
-		"SMTP.HOST":                    "SMTP_HOST",
-		"SMTP.PORT":                    "SMTP_PORT",
-		"SMTP.USERNAME":                "SMTP_USERNAME",
-		"SMTP.PASSWORD":                "SMTP_PASSWORD",
-		"SMTP.FROM_EMAIL":              "SMTP_FROM_EMAIL",
-		"SMTP.FROM_NAME":               "SMTP_FROM_NAME",
-		"SMTP.CONNECT_TIMEOUT":         "SMTP_CONNECT_TIMEOUT",
-		"SMTP.SEND_TIMEOUT":            "SMTP_SEND_TIMEOUT",
-		"RETRY.MAX_ATTEMPTS":           "RETRY_MAX_ATTEMPTS",
-		"RETRY.BASE_DELAY":             "RETRY_BASE_DELAY",
+		"SMTP_HOST":                    "SMTP_HOST",
+		"SMTP_PORT":                    "SMTP_PORT",
+		"SMTP_USERNAME":                "SMTP_USERNAME",
+		"SMTP_PASSWORD":                "SMTP_PASSWORD",
+		"SMTP_FROM_EMAIL":              "SMTP_FROM_EMAIL",
+		"SMTP_FROM_NAME":               "SMTP_FROM_NAME",
+		"SMTP_CONNECT_TIMEOUT":         "SMTP_CONNECT_TIMEOUT",
+		"SMTP_SEND_TIMEOUT":            "SMTP_SEND_TIMEOUT",
+		"RETRY_MAX_ATTEMPTS":           "RETRY_MAX_ATTEMPTS",
+		"RETRY_BASE_DELAY":             "RETRY_BASE_DELAY",
 	}
 
 	for key, env := range bindings {
@@ -375,6 +375,12 @@ func validateConfig(c *Config) error {
 		}
 		if c.SMTP.FromEmail == "" {
 			return errors.New("SMTP_FROM_EMAIL is required when SMTP is enabled")
+		}
+		if strings.TrimSpace(c.SMTP.FromEmail) == "" {
+			return errors.New("smtp from email is required")
+		}
+		if strings.TrimSpace(c.SMTP.FromName) == "" {
+			return errors.New("smtp from name is required")
 		}
 	}
 
