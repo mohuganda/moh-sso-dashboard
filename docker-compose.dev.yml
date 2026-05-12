@@ -56,6 +56,19 @@ services:
       - sso_network
 
   # --------------------------------------------------
+  # MailHog - Local SMTP Testing
+  # --------------------------------------------------
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    networks:
+      - sso_network
+
+  # --------------------------------------------------
   # Backend Database
   # --------------------------------------------------
   backend-db:
@@ -82,6 +95,7 @@ services:
     container_name: sso-backend
     environment:
       SERVER_PORT: 9000
+
       KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL:-http://keycloak:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-moh-realm}
       KEYCLOAK_REDIRECT_URI: ${KEYCLOAK_REDIRECT_URI:-http://localhost:9000/api/v1/auth/callback}
@@ -89,20 +103,43 @@ services:
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-dashboard-admin-secret}
       KEYCLOAK_WEB_CLIENT_ID: ${KEYCLOAK_WEB_CLIENT_ID:-dashboard-web}
       KEYCLOAK_WEB_CLIENT_SECRET: ${KEYCLOAK_WEB_CLIENT_SECRET:-dashboard-web-secret}
+      KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_EXTERNAL_URL:-http://localhost:8081}
+
       DB_HOST: ${DB_HOST:-backend-db}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_NAME: ${DB_NAME:-sso_dashboard}
+
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_EXTERNAL_URL:-http://localhost:8081}
+
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
       LOGIN_URL: ${LOGIN_URL:-http://localhost:9000/api/v1/auth/login}
+
+      # --------------------------------------------------
+      # Email SMTP - MailHog
+      # --------------------------------------------------
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@moh.go.ug}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-MOH Integrated Health Portal}
+      SMTP_CONNECT_TIMEOUT: ${SMTP_CONNECT_TIMEOUT:-10s}
+      SMTP_SEND_TIMEOUT: ${SMTP_SEND_TIMEOUT:-15s}
+
+      RETRY_MAX_ATTEMPTS: ${RETRY_MAX_ATTEMPTS:-3}
+      RETRY_BASE_DELAY: ${RETRY_BASE_DELAY:-2s}
     ports:
       - "9000:9000"
     volumes:
       - ./backend:/app
     command: sh -c "go run ./cmd/server"
+    depends_on:
+      - backend-db
+      - redis
+      - keycloak
+      - mailhog
     networks:
       - sso_network
 
@@ -129,7 +166,7 @@ services:
       - sso_network
 
   # -------------------------------------------------
-  # remote db
+  # Remote DB
   # --------------------------------------------------
   remote-postgres:
     image: postgres:16

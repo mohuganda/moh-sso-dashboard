@@ -238,6 +238,7 @@ func main() {
 	if err := service.RegisterDefaultTemplates(templateManager); err != nil {
 		appLogger.Fatal("Failed to register default email templates: ", err)
 	}
+	appLogger.Info("Default email templates registered")
 
 	smtpService, err := service.NewSMTPService(
 		cfg,

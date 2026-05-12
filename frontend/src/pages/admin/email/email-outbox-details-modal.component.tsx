@@ -18,6 +18,16 @@ function formatDate(value?: string | null) {
   return date.toLocaleString();
 }
 
+function formatJson(value?: Record<string, unknown> | null) {
+  if (!value) return "—";
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return "Unable to display JSON data.";
+  }
+}
+
 function getRecipients(email?: EmailOutboxItem | null) {
   return email?.message?.to?.map((recipient) => recipient.email).join(", ") || "—";
 }
@@ -84,9 +94,18 @@ export function EmailDetailsModal({ email, open, onClose }: Props) {
             <DetailItem label="Updated at">{formatDate(email.updated_at)}</DetailItem>
 
             {email.message?.template_name ? (
-              <DetailItem label="Template">{email.message.template_name}</DetailItem>
+              <DetailItem label="Template">
+                <Tag type="blue">{email.message.template_name}</Tag>
+              </DetailItem>
             ) : null}
           </dl>
+
+          {email.message?.template_data ? (
+            <section className="email-details__section">
+              <h4 className="email-details__section-title">Template data</h4>
+              <pre className="email-details__json">{formatJson(email.message.template_data)}</pre>
+            </section>
+          ) : null}
 
           {email.last_error && (
             <section className="email-details__section">
