@@ -1,5 +1,7 @@
 CREATE TYPE document_status AS ENUM (
     'UPLOADED',
+    'PENDING',
+    'COMPLETED',
     'PROCESSING',
     'READY',
     'ARCHIVED',
