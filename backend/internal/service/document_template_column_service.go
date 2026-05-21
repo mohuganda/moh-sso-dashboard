@@ -5,37 +5,35 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
+
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
-
 	documentTemplateColumnRepo "github.com/moh-sso-dashboard/internal/repository/document_template_column"
 )
 
 var (
-	ErrColumnKeyExists    = errors.New("column key already exists")
-	ErrColumnNameExists   = errors.New("column name already exists")
-	ErrEnumRequiresValues = errors.New("ENUM columns must have allowed values")
-	ErrInvalidDataType    = errors.New("invalid column data type")
+	ErrColumnKeyExists  = errors.New("column key already exists")
+	ErrColumnNameExists = errors.New("column name already exists")
+	ErrInvalidDataType  = errors.New("invalid column data type")
 )
 
 type DocumentTemplateColumnService interface {
 	CreateColumn(ctx context.Context, req model.CreateColumnRequest) (*model.DocumentTemplateColumn, error)
-
 	GetColumn(ctx context.Context, id uuid.UUID) (*model.DocumentTemplateColumn, error)
-
 	ListColumns(ctx context.Context, sheetID uuid.UUID) ([]model.DocumentTemplateColumn, error)
-
 	ListRequiredColumns(ctx context.Context, sheetID uuid.UUID) ([]model.DocumentTemplateColumn, error)
-
 	ListUniqueColumns(ctx context.Context, sheetID uuid.UUID) ([]model.DocumentTemplateColumn, error)
-
 	UpdateColumn(ctx context.Context, req model.UpdateColumnRequest) (*model.DocumentTemplateColumn, error)
-
 	ArchiveColumn(ctx context.Context, id uuid.UUID) error
-
 	DeleteColumn(ctx context.Context, id uuid.UUID) error
+
+	// runtime processing
+	Handle(ctx context.Context, col model.DocumentTemplateColumn, value any) (*model.ProcessedColumnValue, error)
 }
 
 type documentTemplateColumnService struct {
@@ -45,36 +43,18 @@ type documentTemplateColumnService struct {
 func NewDocumentTemplateColumnService(
 	repo documentTemplateColumnRepo.DocumentTemplateColumnRepository,
 ) DocumentTemplateColumnService {
-
-	return &documentTemplateColumnService{
-		repo: repo,
-	}
+	return &documentTemplateColumnService{repo: repo}
 }
 
-func (s *documentTemplateColumnService) ListUniqueColumns(
-	ctx context.Context,
-	sheetID uuid.UUID,
-) ([]model.DocumentTemplateColumn, error) {
-
-	items, err := s.repo.ListUnique(ctx, sheetID)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []model.DocumentTemplateColumn
-	for _, c := range items {
-		result = append(result, *mapColumn(c))
-	}
-
-	return result, nil
-}
+/* =========================================================
+ * CRUD
+ * ========================================================= */
 
 func (s *documentTemplateColumnService) CreateColumn(
 	ctx context.Context,
 	req model.CreateColumnRequest,
 ) (*model.DocumentTemplateColumn, error) {
 
-	// 1. Validate key uniqueness
 	exists, err := s.repo.ExistsKey(ctx, req.SheetID, req.Key)
 	if err != nil {
 		return nil, err
@@ -83,7 +63,6 @@ func (s *documentTemplateColumnService) CreateColumn(
 		return nil, ErrColumnKeyExists
 	}
 
-	// 2. Validate name uniqueness
 	nameExists, err := s.repo.ExistsName(ctx, req.SheetID, req.Name)
 	if err != nil {
 		return nil, err
@@ -92,17 +71,10 @@ func (s *documentTemplateColumnService) CreateColumn(
 		return nil, ErrColumnNameExists
 	}
 
-	// 3. Validate data type
 	if err := validateDataType(req.DataType); err != nil {
 		return nil, err
 	}
 
-	// 4. Validate enum consistency
-	if req.DataType == "ENUM" && len(req.AllowedValues) == 0 {
-		return nil, ErrEnumRequiresValues
-	}
-
-	// 5. Create column
 	col, err := s.repo.Create(ctx, db.CreateDocumentTemplateColumnParams{
 		ID:         uuid.New(),
 		SheetID:    req.SheetID,
@@ -115,7 +87,6 @@ func (s *documentTemplateColumnService) CreateColumn(
 		DataType: db.DocumentTemplateColumnType(req.DataType),
 		Required: req.Required,
 		IsUnique: req.IsUnique,
-
 		DefaultValue: sql.NullString{
 			String: func() string {
 				if req.DefaultValue != nil {
@@ -125,7 +96,6 @@ func (s *documentTemplateColumnService) CreateColumn(
 			}(),
 			Valid: req.DefaultValue != nil,
 		},
-
 		AllowedValues: toJSON(req.AllowedValues),
 		Aliases:       toJSON(req.Aliases),
 		Configuration: toJSON(req.Configuration),
@@ -160,12 +130,11 @@ func (s *documentTemplateColumnService) ListColumns(
 		return nil, err
 	}
 
-	var result []model.DocumentTemplateColumn
+	out := make([]model.DocumentTemplateColumn, 0, len(items))
 	for _, c := range items {
-		result = append(result, *mapColumn(c))
+		out = append(out, *mapColumn(c))
 	}
-
-	return result, nil
+	return out, nil
 }
 
 func (s *documentTemplateColumnService) ListRequiredColumns(
@@ -178,12 +147,28 @@ func (s *documentTemplateColumnService) ListRequiredColumns(
 		return nil, err
 	}
 
-	var result []model.DocumentTemplateColumn
+	out := make([]model.DocumentTemplateColumn, 0, len(items))
 	for _, c := range items {
-		result = append(result, *mapColumn(c))
+		out = append(out, *mapColumn(c))
+	}
+	return out, nil
+}
+
+func (s *documentTemplateColumnService) ListUniqueColumns(
+	ctx context.Context,
+	sheetID uuid.UUID,
+) ([]model.DocumentTemplateColumn, error) {
+
+	items, err := s.repo.ListUnique(ctx, sheetID)
+	if err != nil {
+		return nil, err
 	}
 
-	return result, nil
+	out := make([]model.DocumentTemplateColumn, 0, len(items))
+	for _, c := range items {
+		out = append(out, *mapColumn(c))
+	}
+	return out, nil
 }
 
 func (s *documentTemplateColumnService) UpdateColumn(
@@ -221,20 +206,92 @@ func (s *documentTemplateColumnService) UpdateColumn(
 	return mapColumn(col), nil
 }
 
-func (s *documentTemplateColumnService) ArchiveColumn(
-	ctx context.Context,
-	id uuid.UUID,
-) error {
-
+func (s *documentTemplateColumnService) ArchiveColumn(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Archive(ctx, id)
 }
 
-func (s *documentTemplateColumnService) DeleteColumn(
-	ctx context.Context,
-	id uuid.UUID,
-) error {
-
+func (s *documentTemplateColumnService) DeleteColumn(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
+}
+
+/* =========================================================
+ * RUNTIME HANDLER
+ * ========================================================= */
+
+func (s *documentTemplateColumnService) Handle(
+	ctx context.Context,
+	col model.DocumentTemplateColumn,
+	value any,
+) (*model.ProcessedColumnValue, error) {
+
+	result := &model.ProcessedColumnValue{
+		ColumnKey: col.Key,
+		RawValue:  value,
+		IsValid:   true,
+		Value:     value,
+	}
+
+	if value == nil || value == "" {
+		if col.Required {
+			result.IsValid = false
+			result.Error = &model.ColumnError{
+				Code:    "REQUIRED_FIELD",
+				Message: col.Name + " is required",
+			}
+		}
+
+		if col.DefaultValue != nil {
+			result.Value = *col.DefaultValue
+		}
+		return result, nil
+	}
+
+	switch col.DataType {
+
+	case "STRING", "TEXT":
+		result.Value = fmt.Sprintf("%v", value)
+
+	case "INTEGER":
+		v, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
+		if err != nil {
+			result.IsValid = false
+		}
+		result.Value = v
+
+	case "DECIMAL":
+		v, err := strconv.ParseFloat(fmt.Sprintf("%v", value), 64)
+		if err != nil {
+			result.IsValid = false
+		}
+		result.Value = v
+
+	case "BOOLEAN":
+		s := strings.ToLower(fmt.Sprintf("%v", value))
+		result.Value = (s == "true" || s == "1" || s == "yes")
+
+	case "ENUM":
+		str := fmt.Sprintf("%v", value)
+		valid := false
+		for _, v := range col.AllowedValues {
+			if v == str {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			result.IsValid = false
+		}
+		result.Value = str
+
+	default:
+		result.IsValid = false
+		result.Error = &model.ColumnError{
+			Code:    "INVALID_TYPE",
+			Message: "unsupported type",
+		}
+	}
+
+	return result, nil
 }
 
 func validateDataType(t string) error {

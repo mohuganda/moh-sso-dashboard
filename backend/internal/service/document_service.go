@@ -59,6 +59,7 @@ func (s *DocumentService) CreateDocument(
 	ctx context.Context,
 	input CreateDocumentInput,
 ) (db.Document, error) {
+
 	docID := uuid.New()
 
 	var checksum sql.NullString
@@ -138,7 +139,6 @@ func (s *DocumentService) GetDocument(
 	if err != nil {
 		return db.Document{}, err
 	}
-
 	return doc, nil
 }
 
@@ -146,6 +146,7 @@ func (s *DocumentService) EditDocument(
 	ctx context.Context,
 	input EditDocumentInput,
 ) (db.Document, error) {
+
 	doc, err := s.repo.EditDocument(ctx, db.UpdateDocumentParams{
 		ID:               input.ID,
 		OriginalFilename: input.OriginalFilename,
@@ -175,6 +176,7 @@ func (s *DocumentService) DeleteDocument(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
+
 	err := s.repo.DeleteDocument(ctx, id)
 	if err != nil {
 		return err
@@ -198,18 +200,14 @@ func (s *DocumentService) ListDocuments(
 	ctx context.Context,
 	page models.Pagination,
 ) ([]db.Document, error) {
-	docs, err := s.repo.ListDocuments(ctx, page)
-	if err != nil {
-		return nil, err
-	}
-
-	return docs, nil
+	return s.repo.ListDocuments(ctx, page)
 }
 
 func (s *DocumentService) ListProcessesByDocument(
 	ctx context.Context,
 	documentID string,
 ) ([]db.Process, error) {
+
 	docUUID, err := uuid.Parse(documentID)
 	if err != nil {
 		return nil, err
@@ -220,18 +218,14 @@ func (s *DocumentService) ListProcessesByDocument(
 		return nil, err
 	}
 
-	processes, err := s.repo.ListProcessesByDocument(ctx, docUUID)
-	if err != nil {
-		return nil, err
-	}
-
-	return processes, nil
+	return s.repo.ListProcessesByDocument(ctx, docUUID)
 }
 
 func (s *DocumentService) Reprocess(
 	ctx context.Context,
 	documentID uuid.UUID,
 ) error {
+
 	doc, err := s.repo.GetDocument(ctx, documentID)
 	if err != nil {
 		return err

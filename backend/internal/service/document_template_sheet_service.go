@@ -18,6 +18,7 @@ var (
 
 	ErrInvalidHeaderRow = errors.New("header row must be >= 1")
 	ErrInvalidStartRow  = errors.New("start row must be >= header row")
+	ErrSheetNotFound    = errors.New("sheet not found in template")
 )
 
 type DocumentTemplateSheetService interface {
@@ -29,6 +30,19 @@ type DocumentTemplateSheetService interface {
 	UpdateSheet(ctx context.Context, req model.UpdateSheetRequest) (*model.DocumentTemplateSheet, error)
 	ArchiveSheet(ctx context.Context, id uuid.UUID) error
 	DeleteSheet(ctx context.Context, id uuid.UUID) error
+
+	// runtime helpers
+	GetSheetRuntime(
+		ctx context.Context,
+		tpl *model.TemplateRuntime,
+		sheetCode string,
+	) (*model.TemplateSheetRuntime, error)
+
+	ValidateSheetExists(
+		ctx context.Context,
+		tpl *model.TemplateRuntime,
+		sheetCode string,
+	) error
 }
 
 type documentTemplateSheetService struct {
@@ -38,11 +52,12 @@ type documentTemplateSheetService struct {
 func NewDocumentTemplateSheetService(
 	repo documentTemplateSheetRepo.DocumentTemplateSheetRepository,
 ) DocumentTemplateSheetService {
-	return &documentTemplateSheetService{
-		repo: repo,
-	}
+	return &documentTemplateSheetService{repo: repo}
 }
 
+/* =========================================================
+ * CREATE
+ * ========================================================= */
 func (s *documentTemplateSheetService) CreateSheet(
 	ctx context.Context,
 	req model.CreateSheetRequest,
@@ -71,9 +86,6 @@ func (s *documentTemplateSheetService) CreateSheet(
 		return nil, ErrInvalidStartRow
 	}
 
-	// -----------------------
-	// SheetOrder conversion
-	// -----------------------
 	var sheetOrder sql.NullInt32
 	if req.SheetOrder != nil {
 		sheetOrder = sql.NullInt32{
@@ -82,16 +94,9 @@ func (s *documentTemplateSheetService) CreateSheet(
 		}
 	}
 
-	// -----------------------
-	// Configuration conversion
-	// -----------------------
-	var configJSON json.RawMessage
-	if req.Configuration != nil {
-		b, err := json.Marshal(req.Configuration)
-		if err != nil {
-			return nil, err
-		}
-		configJSON = b
+	configJSON, err := json.Marshal(req.Configuration)
+	if err != nil {
+		return nil, err
 	}
 
 	sheet, err := s.repo.Create(ctx, db.CreateDocumentTemplateSheetParams{
@@ -113,7 +118,7 @@ func (s *documentTemplateSheetService) CreateSheet(
 		StartRow:  int32(req.StartRow),
 
 		AllowExtraColumns:     req.AllowExtraColumns,
-		AllowDuplicateHeaders: req.AllowDuplicateHeaders, // FIXED
+		AllowDuplicateHeaders: req.AllowDuplicateHeaders,
 
 		Configuration: configJSON,
 	})
@@ -124,6 +129,9 @@ func (s *documentTemplateSheetService) CreateSheet(
 	return mapSheet(sheet), nil
 }
 
+/* =========================================================
+ * READ
+ * ========================================================= */
 func (s *documentTemplateSheetService) GetSheet(
 	ctx context.Context,
 	id uuid.UUID,
@@ -161,7 +169,7 @@ func (s *documentTemplateSheetService) ListSheets(
 		return nil, err
 	}
 
-	var result []model.DocumentTemplateSheet
+	result := make([]model.DocumentTemplateSheet, 0, len(items))
 	for _, it := range items {
 		result = append(result, *mapSheet(it))
 	}
@@ -179,7 +187,7 @@ func (s *documentTemplateSheetService) ListRequiredSheets(
 		return nil, err
 	}
 
-	var result []model.DocumentTemplateSheet
+	result := make([]model.DocumentTemplateSheet, 0, len(items))
 	for _, it := range items {
 		result = append(result, *mapSheet(it))
 	}
@@ -187,6 +195,9 @@ func (s *documentTemplateSheetService) ListRequiredSheets(
 	return result, nil
 }
 
+/* =========================================================
+ * UPDATE
+ * ========================================================= */
 func (s *documentTemplateSheetService) UpdateSheet(
 	ctx context.Context,
 	req model.UpdateSheetRequest,
@@ -205,22 +216,11 @@ func (s *documentTemplateSheetService) UpdateSheet(
 			Int32: int32(*req.SheetOrder),
 			Valid: true,
 		}
-	} else {
-		sheetOrder = sql.NullInt32{
-			Valid: false,
-		}
 	}
 
-	var configJSON json.RawMessage
-
-	if req.Configuration != nil {
-		b, err := json.Marshal(req.Configuration)
-		if err != nil {
-			return nil, err
-		}
-		configJSON = b
-	} else {
-		configJSON = nil
+	configJSON, err := json.Marshal(req.Configuration)
+	if err != nil {
+		return nil, err
 	}
 
 	sheet, err := s.repo.Update(ctx, db.UpdateDocumentTemplateSheetParams{
@@ -251,6 +251,9 @@ func (s *documentTemplateSheetService) UpdateSheet(
 	return mapSheet(sheet), nil
 }
 
+/* =========================================================
+ * DELETE / ARCHIVE
+ * ========================================================= */
 func (s *documentTemplateSheetService) ArchiveSheet(
 	ctx context.Context,
 	id uuid.UUID,
@@ -265,6 +268,47 @@ func (s *documentTemplateSheetService) DeleteSheet(
 	return s.repo.Delete(ctx, id)
 }
 
+/* =========================================================
+ * RUNTIME HELPERS
+ * ========================================================= */
+func (s *documentTemplateSheetService) GetSheetRuntime(
+	ctx context.Context,
+	tpl *model.TemplateRuntime,
+	sheetCode string,
+) (*model.TemplateSheetRuntime, error) {
+
+	if tpl == nil || tpl.Sheets == nil {
+		return nil, ErrSheetNotFound
+	}
+
+	sheet, exists := tpl.Sheets[sheetCode]
+	if !exists {
+		return nil, ErrSheetNotFound
+	}
+
+	return sheet, nil
+}
+
+func (s *documentTemplateSheetService) ValidateSheetExists(
+	ctx context.Context,
+	tpl *model.TemplateRuntime,
+	sheetCode string,
+) error {
+
+	if tpl == nil || tpl.Sheets == nil {
+		return ErrSheetNotFound
+	}
+
+	if _, exists := tpl.Sheets[sheetCode]; !exists {
+		return ErrSheetNotFound
+	}
+
+	return nil
+}
+
+/* =========================================================
+ * MAPPER
+ * ========================================================= */
 func mapSheet(s db.DocumentTemplateSheet) *model.DocumentTemplateSheet {
 
 	var display string
@@ -278,29 +322,23 @@ func mapSheet(s db.DocumentTemplateSheet) *model.DocumentTemplateSheet {
 		order = &v
 	}
 
+	var config map[string]any
+	if len(s.Configuration) > 0 {
+		_ = json.Unmarshal(s.Configuration, &config)
+	}
+
 	return &model.DocumentTemplateSheet{
-		ID:          s.ID,
-		TemplateID:  s.TemplateID,
-		Code:        s.Code,
-		Name:        s.Name,
-		DisplayName: display,
-
-		Required: s.Required,
-
-		SheetOrder: order,
-
-		HeaderRow: int(s.HeaderRow),
-		StartRow:  int(s.StartRow),
-
+		ID:                    s.ID,
+		TemplateID:            s.TemplateID,
+		Code:                  s.Code,
+		Name:                  s.Name,
+		DisplayName:           display,
+		Required:              s.Required,
+		SheetOrder:            order,
+		HeaderRow:             int(s.HeaderRow),
+		StartRow:              int(s.StartRow),
 		AllowExtraColumns:     s.AllowExtraColumns,
 		AllowDuplicateHeaders: s.AllowDuplicateHeaders,
-
-		Configuration: func() map[string]any {
-			var m map[string]any
-			if len(s.Configuration) > 0 {
-				_ = json.Unmarshal(s.Configuration, &m)
-			}
-			return m
-		}(),
+		Configuration:         config,
 	}
 }

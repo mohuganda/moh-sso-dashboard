@@ -24,6 +24,9 @@ func SetupRouter(
 	auditHandler *handler.AuditHandler,
 	notificationsHandler *handler.NotificationsHandler,
 	documentHandler *handler.DocumentHandler,
+	documentTemplateHandler *handler.DocumentTemplateHandler,
+	documentTemplateSheetHandler *handler.DocumentTemplateSheetHandler,
+	documentTemplateColumnHandler *handler.DocumentTemplateColumnHandler,
 	storageLocationHandler *handler.StorageLocationHandler,
 	sessionHandler *handler.SessionHandler,
 	dataQualityHandler *handler.DataQualityHandler,
@@ -207,6 +210,25 @@ func SetupRouter(
 
 			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
 			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
+		}
+
+		documentTemplates := protected.Group("/document-templates")
+		{
+			documentTemplates.GET("", documentTemplateHandler.ListTemplates)
+			documentTemplates.POST("", documentTemplateHandler.CreateTemplate)
+
+			documentTemplates.GET("/:id", documentTemplateHandler.GetTemplate)
+			documentTemplates.PUT("/:id", documentTemplateHandler.UpdateTemplate)
+			documentTemplates.DELETE("/:id", documentTemplateHandler.DeleteTemplate)
+
+			documentTemplates.POST("/:id/publish", documentTemplateHandler.PublishTemplate)
+			documentTemplates.POST("/:id/archive", documentTemplateHandler.ArchiveTemplate)
+
+			documentTemplates.GET("/:id/structure", documentTemplateHandler.GetTemplateStructure)
+
+			// optional but VERY useful for UI builder
+			documentTemplates.GET("/:id/sheets", documentTemplateHandler.ListSheets)
+			documentTemplates.GET("/:id/sheets/:sheetId/columns", documentTemplateHandler.ListColumns)
 		}
 
 		// --------------------------

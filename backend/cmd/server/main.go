@@ -18,14 +18,17 @@ import (
 	db "github.com/moh-sso-dashboard/internal/migrate"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
 	"github.com/moh-sso-dashboard/internal/service"
-	importSvc "github.com/moh-sso-dashboard/internal/service/import"
-	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/moh-sso-dashboard/internal/worker"
+
+	"github.com/moh-sso-dashboard/internal/storage"
 
 	announcementRepo "github.com/moh-sso-dashboard/internal/repository/announcements"
 	authRepo "github.com/moh-sso-dashboard/internal/repository/auth"
 	clientRepo "github.com/moh-sso-dashboard/internal/repository/client"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
+	documentTemplateRepo "github.com/moh-sso-dashboard/internal/repository/document_template"
+	documentTemplateColumnRepo "github.com/moh-sso-dashboard/internal/repository/document_template_column"
+	documentTemplateSheetRepo "github.com/moh-sso-dashboard/internal/repository/document_template_sheet"
 	emailRepo "github.com/moh-sso-dashboard/internal/repository/email"
 	metricsRepo "github.com/moh-sso-dashboard/internal/repository/metrics"
 	notificationsRepo "github.com/moh-sso-dashboard/internal/repository/notifications"
@@ -34,11 +37,13 @@ import (
 	storageLocationRepo "github.com/moh-sso-dashboard/internal/repository/storage_locations"
 	repository "github.com/moh-sso-dashboard/internal/repository/surveillance"
 	userRepo "github.com/moh-sso-dashboard/internal/repository/user"
+	importSvc "github.com/moh-sso-dashboard/internal/service/import"
 
 	"github.com/rs/zerolog"
 )
 
 func main() {
+
 	// ==================================================
 	// Root Context
 	// ==================================================
@@ -46,7 +51,7 @@ func main() {
 	defer cancel()
 
 	// ==================================================
-	// Load Config
+	// CONFIG
 	// ==================================================
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
@@ -58,7 +63,7 @@ func main() {
 	appLogger.Info("Starting MOH SSO Dashboard - Environment: " + cfg.Environment)
 
 	// ==================================================
-	// Initialize Primary DB
+	// DATABASES
 	// ==================================================
 	primaryDB, err := db.InitDB(ctx, db.DBConfig{
 		Driver:          cfg.DBDriver,
@@ -73,9 +78,6 @@ func main() {
 	}
 	defer primaryDB.Close()
 
-	// ==================================================
-	// Initialize Remote DB
-	// ==================================================
 	remoteDB, err := db.InitDB(ctx, db.DBConfig{
 		Driver:          cfg.DBDriver,
 		DSN:             cfg.RemoteDbSource(),
@@ -89,9 +91,6 @@ func main() {
 	}
 	defer remoteDB.Close()
 
-	// ==================================================
-	// Initialize DWH DB
-	// ==================================================
 	dwhDB, err := db.InitDB(ctx, db.DBConfig{
 		Driver:          cfg.DBDriver,
 		DSN:             cfg.DwhDbSource(),
@@ -105,15 +104,12 @@ func main() {
 	}
 	defer dwhDB.Close()
 
-	// ==================================================
-	// Run Migrations
-	// ==================================================
 	if err := db.MigrateDB(primaryDB, "file://internal/db/migrations"); err != nil {
 		appLogger.Fatal("Migration failed: ", err)
 	}
 
 	// ==================================================
-	// Redis
+	// REDIS
 	// ==================================================
 	rdb := cache.NewRedisClient(cache.RedisConfig{
 		Host:         cfg.RedisHost,
@@ -130,10 +126,8 @@ func main() {
 	cacheAdapter := cache.NewRedisCache(rdb)
 	rateLimiter := ratelimit.New(rdb)
 
-	appLogger.Info("Redis connected")
-
 	// ==================================================
-	// Keycloak
+	// KEYCLOAK
 	// ==================================================
 	adminKC := kcClientPkg.NewAdminClient(
 		cfg.KeycloakBaseURL,
@@ -155,10 +149,8 @@ func main() {
 		cfg,
 	)
 
-	appLogger.Info("Keycloak clients initialized")
-
 	// ==================================================
-	// Storage
+	// STORAGE
 	// ==================================================
 	fileStorage, err := storage.NewFileStorage(cfg.StorageProvider, cfg)
 	if err != nil {
@@ -166,22 +158,27 @@ func main() {
 	}
 
 	storageFactory := storage.NewStorageFactory(cfg)
-	appLogger.Info("Storage provider initialized: " + cfg.StorageProvider)
 
 	// ==================================================
-	// Store (SQLC)
+	// STORE
 	// ==================================================
 	store := storepkg.NewStore(primaryDB)
 
 	// ==================================================
-	// Repositories
+	// REPOSITORIES
 	// ==================================================
 	authRepository := authRepo.NewAuthRepository(webKC, adminKC, cfg)
 	clientRepository := clientRepo.NewClientRepository(adminKC, cfg, store, *appLogger)
 	userRepository := userRepo.NewUserRepository(adminKC, cfg, store, *appLogger)
 	metricsRepository := metricsRepo.NewMetricsRepository(cfg, store, *appLogger)
 	notificationsRepository := notificationsRepo.NewNotificationsRepository(store, *appLogger)
+
 	documentRepository := documentRepo.NewDocumentRepository(cfg, store, *appLogger)
+
+	documentTemplateRepository := documentTemplateRepo.NewDocumentTemplateRepository(store)
+	documentTemplateColumnRepository := documentTemplateColumnRepo.NewDocumentTemplateColumnRepository(store)
+	documentTemplateSheetRepository := documentTemplateSheetRepo.NewDocumentTemplateSheetRepository(store)
+
 	processRepository := processRepo.NewProcessRepository(cfg, store, *appLogger)
 	fileRepository := documentRepo.NewFileRepository()
 	storageRepo := storageLocationRepo.NewStorageRepositoryRepository(cfg, store, *appLogger)
@@ -190,7 +187,123 @@ func main() {
 	emailRepository := emailRepo.NewEmailRepository(cfg, store, *appLogger)
 
 	// ==================================================
-	// Surveillance Repositories
+	// SERVICES
+	// ==================================================
+
+	authService := service.NewAuthService(authRepository, rdb)
+	metricsService := service.NewMetricsService(metricsRepository)
+	auditService := service.NewAuditService(store, cacheAdapter)
+	storageLocationService := service.NewStorageLocationService(storageRepo)
+	sessionService := service.NewSessionService(sessionRepository)
+
+	publisher := cache.NewNotificationPublisher(rdb)
+	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
+
+	// ==================================================
+	// TEMPLATE SERVICES
+	// ==================================================
+	documentTemplateService := service.NewDocumentTemplateService(
+		documentTemplateRepository,
+		documentTemplateSheetRepository,
+		documentTemplateColumnRepository,
+	)
+
+	documentTemplateSheetService := service.NewDocumentTemplateSheetService(
+		documentTemplateSheetRepository,
+	)
+
+	documentTemplateColumnService := service.NewDocumentTemplateColumnService(
+		documentTemplateColumnRepository,
+	)
+
+	// ==================================================
+	// TEMPLATE HANDLERS
+	// ==================================================
+	documentTemplateHandler := handler.NewDocumentTemplateHandler(
+		documentTemplateService,
+		documentTemplateSheetService,
+		documentTemplateColumnService,
+	)
+
+	documentTemplateSheetHandler := handler.NewDocumentTemplateSheetHandler(
+		documentTemplateSheetService,
+	)
+
+	documentTemplateColumnHandler := handler.NewDocumentTemplateColumnHandler(
+		documentTemplateColumnService,
+	)
+
+	// ==================================================
+	// DOCUMENT SERVICE
+	// ==================================================
+	documentService := service.NewDocumentService(
+		documentRepository,
+		processRepository,
+		notificationsService,
+		fileStorage,
+	)
+
+	clientService := service.NewClientService(clientRepository, notificationsService)
+	userService := service.NewUserService(userRepository, notificationsService)
+	announcementService := service.NewAnnouncementService(announcementRepository, notificationsService)
+
+	// ==================================================
+	// EMAIL SERVICES
+	// ==================================================
+	templateManager, err := service.NewTemplateManager(appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email template manager: ", err)
+	}
+
+	if err := service.RegisterDefaultTemplates(templateManager); err != nil {
+		appLogger.Fatal("Failed to register default email templates: ", err)
+	}
+
+	smtpService, err := service.NewSMTPService(cfg, templateManager, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize SMTP service: ", err)
+	}
+
+	queueService, err := service.NewQueueService(emailRepository, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email queue service: ", err)
+	}
+
+	emailAppService, err := service.NewEmailService(smtpService, queueService, templateManager)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email application service: ", err)
+	}
+
+	// ==================================================
+	// HANDLERS
+	// ==================================================
+	authHandler := handler.NewAuthHandler(authService, auditService, notificationsService, cfg)
+	clientHandler := handler.NewClientHandler(clientService, auditService, cacheAdapter)
+	userHandler := handler.NewUserHandler(userService, auditService, cacheAdapter)
+	metricsHandler := handler.NewMetricsHandler(metricsService)
+	auditHandler := handler.NewAuditHandler(store, cacheAdapter)
+	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
+
+	documentHandler := handler.NewDocumentHandler(
+		documentService,
+		auditService,
+		storageLocationService,
+		fileStorage,
+		storageFactory,
+	)
+
+	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
+	sessionHandler := handler.NewSessionHandler(sessionService)
+	dataQualityHandler := handler.NewDataQualityHandler(dwhDB)
+	announcementHandler := handler.NewAnnouncementHandler(announcementService, auditService)
+	adminunitsHandler := handler.NewAdminUnitsHandler(cfg, dwhDB)
+	visualiserHandler := handler.NewVisualiserHandler(cfg, dwhDB)
+	geoJSONHandler := handler.NewGeoJSONHandler("./assets/geojson")
+
+	emailHandler := handler.NewEmailHandler(emailAppService, emailRepository)
+
+	// ==================================================
+	// SURVEILLANCE (RESTORED EXACT FLOW)
 	// ==================================================
 	surveillanceRepositories := repository.NewRepositories(store)
 
@@ -204,73 +317,6 @@ func main() {
 	importRepository := surveillanceRepositories.Imports
 	alertRepository := surveillanceRepositories.Alerts
 
-	// ==================================================
-	// Services
-	// ==================================================
-	authService := service.NewAuthService(authRepository, rdb)
-	metricsService := service.NewMetricsService(metricsRepository)
-	auditService := service.NewAuditService(store, cacheAdapter)
-	storageLocationService := service.NewStorageLocationService(storageRepo)
-	sessionService := service.NewSessionService(sessionRepository)
-
-	publisher := cache.NewNotificationPublisher(rdb)
-	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
-
-	documentService := service.NewDocumentService(
-		documentRepository,
-		processRepository,
-		notificationsService,
-		fileStorage,
-	)
-
-	clientService := service.NewClientService(clientRepository, notificationsService)
-	userService := service.NewUserService(userRepository, notificationsService)
-	announcementService := service.NewAnnouncementService(announcementRepository, notificationsService)
-
-	// ==================================================
-	// Email Services
-	// ==================================================
-	templateManager, err := service.NewTemplateManager(appLogger)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize email template manager: ", err)
-	}
-
-	if err := service.RegisterDefaultTemplates(templateManager); err != nil {
-		appLogger.Fatal("Failed to register default email templates: ", err)
-	}
-	appLogger.Info("Default email templates registered")
-
-	smtpService, err := service.NewSMTPService(
-		cfg,
-		templateManager,
-		appLogger,
-	)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize SMTP service: ", err)
-	}
-
-	queueService, err := service.NewQueueService(
-		emailRepository,
-		appLogger,
-	)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize email queue service: ", err)
-	}
-
-	emailAppService, err := service.NewEmailService(
-		smtpService,
-		queueService,
-		templateManager,
-	)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize email application service: ", err)
-	}
-
-	appLogger.Info("Email application service initialized")
-
-	// ==================================================
-	// Surveillance Services
-	// ==================================================
 	diseaseService := service.NewSurveillanceDiseaseService(appLogger, diseaseRepository)
 	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
 
@@ -313,100 +359,7 @@ func main() {
 	)
 
 	// ==================================================
-	// Background Workers
-	// ==================================================
-	documentWorker, err := worker.NewDocumentWorker(
-		processRepository,
-		importService,
-		3*time.Second,
-		fileStorage,
-		appLogger,
-	)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize document worker: ", err)
-	}
-
-	go func() {
-		appLogger.Info("Background document worker started")
-
-		if err := documentWorker.Start(ctx); err != nil {
-			appLogger.Error("Document worker stopped with error: ", err)
-		}
-	}()
-
-	emailWorker, err := worker.NewEmailWorker(
-		emailRepository,
-		smtpService,
-		3*time.Second,
-		20,
-		3,
-		appLogger,
-	)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize email worker: ", err)
-	}
-
-	go func() {
-		appLogger.Info("Background email worker started")
-
-		if err := emailWorker.Start(ctx); err != nil {
-			appLogger.Error("Email worker stopped with error: ", err)
-		}
-	}()
-
-	// ==================================================
-	// Handlers
-	// ==================================================
-	authHandler := handler.NewAuthHandler(
-		authService,
-		auditService,
-		notificationsService,
-		cfg,
-	)
-
-	clientHandler := handler.NewClientHandler(
-		clientService,
-		auditService,
-		cacheAdapter,
-	)
-
-	userHandler := handler.NewUserHandler(
-		userService,
-		auditService,
-		cacheAdapter,
-	)
-
-	metricsHandler := handler.NewMetricsHandler(metricsService)
-	auditHandler := handler.NewAuditHandler(store, cacheAdapter)
-	notificationsHandler := handler.NewNotificationsHandler(notificationsService)
-
-	documentHandler := handler.NewDocumentHandler(
-		documentService,
-		auditService,
-		storageLocationService,
-		fileStorage,
-		storageFactory,
-	)
-
-	storageLocationHandler := handler.NewStorageLocationHandler(
-		storageLocationService,
-		auditService,
-	)
-
-	sessionHandler := handler.NewSessionHandler(sessionService)
-	dataQualityHandler := handler.NewDataQualityHandler(dwhDB)
-	announcementHandler := handler.NewAnnouncementHandler(announcementService, auditService)
-	adminunitsHandler := handler.NewAdminUnitsHandler(cfg, dwhDB)
-	visualiserHandler := handler.NewVisualiserHandler(cfg, dwhDB)
-	geoJSONHandler := handler.NewGeoJSONHandler("./assets/geojson")
-
-	emailHandler := handler.NewEmailHandler(
-		emailAppService,
-		emailRepository,
-	)
-
-	// ==================================================
-	// Surveillance Handler
+	// HANDLERS (SURVEILLANCE RESTORED)
 	// ==================================================
 	surveillanceHandler := handler.NewSurveillanceHandler(
 		epiWeekService,
@@ -418,6 +371,44 @@ func main() {
 		surveillanceImportService,
 	)
 
+	// ==================================================
+
+	// WORKERS (RESTORED)
+	// ==================================================
+	documentWorker, err := worker.NewDocumentWorker(
+		processRepository,
+		importService,
+		3*time.Second,
+		fileStorage,
+		appLogger,
+	)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize document worker: ", err)
+	}
+	go func() {
+		appLogger.Info("Background document worker started")
+		if err := documentWorker.Start(ctx); err != nil {
+			appLogger.Error("Document worker stopped with error: ", err)
+		}
+	}()
+	emailWorker, err := worker.NewEmailWorker(
+		emailRepository,
+		smtpService,
+		3*time.Second,
+		20,
+		3,
+		appLogger,
+	)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email worker: ", err)
+	}
+	go func() {
+		appLogger.Info("Background email worker started")
+		if err := emailWorker.Start(ctx); err != nil {
+			appLogger.Error("Email worker stopped with error: ", err)
+		}
+	}()
+
 	healthHandler := handler.NewHealthHandler(
 		func(ctx context.Context) error { return db.PingDB(ctx, primaryDB) },
 		func(ctx context.Context) error { return db.PingDB(ctx, remoteDB) },
@@ -426,7 +417,7 @@ func main() {
 	)
 
 	// ==================================================
-	// Router
+	// ROUTER
 	// ==================================================
 	r := router.SetupRouter(
 		webKC,
@@ -439,6 +430,9 @@ func main() {
 		auditHandler,
 		notificationsHandler,
 		documentHandler,
+		documentTemplateHandler,
+		documentTemplateSheetHandler,
+		documentTemplateColumnHandler,
 		storageLocationHandler,
 		sessionHandler,
 		dataQualityHandler,
@@ -454,9 +448,6 @@ func main() {
 	r.GET("/health/ready", healthHandler.HandleReady)
 	r.GET("/health", healthHandler.HandleHealth)
 
-	// ==================================================
-	// HTTP Server
-	// ==================================================
 	server := &http.Server{
 		Addr:              ":" + cfg.ServerPort,
 		Handler:           r,
@@ -475,9 +466,6 @@ func main() {
 		}
 	}()
 
-	// ==================================================
-	// Graceful Shutdown
-	// ==================================================
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 

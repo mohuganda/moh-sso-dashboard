@@ -24,6 +24,8 @@ type DocumentTemplateService interface {
 
 	GetTemplate(ctx context.Context, id uuid.UUID) (*model.DocumentTemplate, error)
 
+	GetTemplateRuntime(ctx context.Context, code string) (*model.TemplateRuntime, error)
+
 	GetTemplateByCode(ctx context.Context, code string) (*model.DocumentTemplate, error)
 
 	ListTemplates(ctx context.Context) ([]model.DocumentTemplate, error)
@@ -31,6 +33,8 @@ type DocumentTemplateService interface {
 	ListActiveTemplates(ctx context.Context) ([]model.DocumentTemplate, error)
 
 	UpdateTemplate(ctx context.Context, req model.UpdateTemplateRequest) (*model.DocumentTemplate, error)
+
+	DeleteTemplate(ctx context.Context, id uuid.UUID) error
 
 	ArchiveTemplate(ctx context.Context, id uuid.UUID) error
 
@@ -128,6 +132,24 @@ func (s *documentTemplateService) CreateTemplate(
 		IsActive:      template.IsActive,
 		Configuration: mustMap(template.Configuration),
 	}, nil
+}
+
+func (s *documentTemplateService) GetTemplateRuntime(
+	ctx context.Context,
+	code string,
+) (*model.TemplateRuntime, error) {
+
+	t, err := s.repo.GetByCode(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.TemplateRuntime{
+		ID:      t.ID,
+		Code:    t.Code,
+		Version: int(t.Version),
+	}, nil
+
 }
 
 func (s *documentTemplateService) GetTemplateByCode(
@@ -416,4 +438,31 @@ func (s *documentTemplateService) UpdateTemplate(
 		IsActive:      updated.IsActive,
 		Configuration: config,
 	}, nil
+}
+
+func (s *documentTemplateService) DeleteTemplate(
+	ctx context.Context,
+	id uuid.UUID,
+) error {
+
+	// 1. Get template
+	t, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// 2. Delete all versions of the template
+	versions, err := s.repo.ListVersions(ctx, t.Code)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range versions {
+		err := s.repo.Delete(ctx, v.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
