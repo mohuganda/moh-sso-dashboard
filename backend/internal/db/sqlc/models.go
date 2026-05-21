@@ -63,9 +63,13 @@ func (ns NullAlertStatus) Value() (driver.Value, error) {
 type DocumentStatus string
 
 const (
+	DocumentStatusUPLOADED   DocumentStatus = "UPLOADED"
 	DocumentStatusPENDING    DocumentStatus = "PENDING"
-	DocumentStatusPROCESSING DocumentStatus = "PROCESSING"
 	DocumentStatusCOMPLETED  DocumentStatus = "COMPLETED"
+	DocumentStatusPROCESSING DocumentStatus = "PROCESSING"
+	DocumentStatusREADY      DocumentStatus = "READY"
+	DocumentStatusARCHIVED   DocumentStatus = "ARCHIVED"
+	DocumentStatusDELETED    DocumentStatus = "DELETED"
 	DocumentStatusFAILED     DocumentStatus = "FAILED"
 )
 
@@ -102,6 +106,59 @@ func (ns NullDocumentStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.DocumentStatus), nil
+}
+
+type DocumentTemplateColumnType string
+
+const (
+	DocumentTemplateColumnTypeSTRING   DocumentTemplateColumnType = "STRING"
+	DocumentTemplateColumnTypeTEXT     DocumentTemplateColumnType = "TEXT"
+	DocumentTemplateColumnTypeINTEGER  DocumentTemplateColumnType = "INTEGER"
+	DocumentTemplateColumnTypeDECIMAL  DocumentTemplateColumnType = "DECIMAL"
+	DocumentTemplateColumnTypeBOOLEAN  DocumentTemplateColumnType = "BOOLEAN"
+	DocumentTemplateColumnTypeDATE     DocumentTemplateColumnType = "DATE"
+	DocumentTemplateColumnTypeDATETIME DocumentTemplateColumnType = "DATETIME"
+	DocumentTemplateColumnTypeTIME     DocumentTemplateColumnType = "TIME"
+	DocumentTemplateColumnTypeENUM     DocumentTemplateColumnType = "ENUM"
+	DocumentTemplateColumnTypeUUID     DocumentTemplateColumnType = "UUID"
+	DocumentTemplateColumnTypeEMAIL    DocumentTemplateColumnType = "EMAIL"
+	DocumentTemplateColumnTypePHONE    DocumentTemplateColumnType = "PHONE"
+	DocumentTemplateColumnTypeJSON     DocumentTemplateColumnType = "JSON"
+)
+
+func (e *DocumentTemplateColumnType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = DocumentTemplateColumnType(s)
+	case string:
+		*e = DocumentTemplateColumnType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DocumentTemplateColumnType: %T", src)
+	}
+	return nil
+}
+
+type NullDocumentTemplateColumnType struct {
+	DocumentTemplateColumnType DocumentTemplateColumnType `json:"document_template_column_type"`
+	Valid                      bool                       `json:"valid"` // Valid is true if DocumentTemplateColumnType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullDocumentTemplateColumnType) Scan(value interface{}) error {
+	if value == nil {
+		ns.DocumentTemplateColumnType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.DocumentTemplateColumnType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullDocumentTemplateColumnType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.DocumentTemplateColumnType), nil
 }
 
 type ImportJobStatus string
@@ -318,17 +375,78 @@ type District struct {
 }
 
 type Document struct {
-	ID                uuid.UUID      `json:"id"`
-	OriginalFilename  string         `json:"original_filename"`
-	ContentType       sql.NullString `json:"content_type"`
-	SizeBytes         int64          `json:"size_bytes"`
-	ChecksumSha256    sql.NullString `json:"checksum_sha256"`
-	StorageLocationID uuid.UUID      `json:"storage_location_id"`
-	ObjectKey         string         `json:"object_key"`
-	UploadedBy        uuid.UUID      `json:"uploaded_by"`
-	Status            DocumentStatus `json:"status"`
-	CreatedAt         time.Time      `json:"created_at"`
-	UpdatedAt         time.Time      `json:"updated_at"`
+	ID                 uuid.UUID       `json:"id"`
+	OriginalFilename   string          `json:"original_filename"`
+	NormalizedFilename sql.NullString  `json:"normalized_filename"`
+	ContentType        sql.NullString  `json:"content_type"`
+	Extension          sql.NullString  `json:"extension"`
+	SizeBytes          int64           `json:"size_bytes"`
+	ChecksumSha256     sql.NullString  `json:"checksum_sha256"`
+	StorageLocationID  uuid.UUID       `json:"storage_location_id"`
+	ObjectKey          string          `json:"object_key"`
+	UploadedBy         uuid.UUID       `json:"uploaded_by"`
+	Status             DocumentStatus  `json:"status"`
+	Version            int32           `json:"version"`
+	ParentDocumentID   uuid.NullUUID   `json:"parent_document_id"`
+	Metadata           json.RawMessage `json:"metadata"`
+	Tags               json.RawMessage `json:"tags"`
+	IsTemplate         bool            `json:"is_template"`
+	CreatedAt          time.Time       `json:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at"`
+	DeletedAt          sql.NullTime    `json:"deleted_at"`
+}
+
+type DocumentTemplate struct {
+	ID            uuid.UUID       `json:"id"`
+	DocumentID    uuid.NullUUID   `json:"document_id"`
+	Code          string          `json:"code"`
+	Name          string          `json:"name"`
+	Description   sql.NullString  `json:"description"`
+	FileType      string          `json:"file_type"`
+	Version       int32           `json:"version"`
+	IsActive      bool            `json:"is_active"`
+	Configuration json.RawMessage `json:"configuration"`
+	CreatedBy     uuid.UUID       `json:"created_by"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+	ArchivedAt    sql.NullTime    `json:"archived_at"`
+}
+
+type DocumentTemplateColumn struct {
+	ID            uuid.UUID                  `json:"id"`
+	SheetID       uuid.UUID                  `json:"sheet_id"`
+	ColumnKey     string                     `json:"column_key"`
+	ColumnName    string                     `json:"column_name"`
+	DisplayName   sql.NullString             `json:"display_name"`
+	DataType      DocumentTemplateColumnType `json:"data_type"`
+	Required      bool                       `json:"required"`
+	IsUnique      bool                       `json:"is_unique"`
+	ColumnOrder   sql.NullInt32              `json:"column_order"`
+	DefaultValue  sql.NullString             `json:"default_value"`
+	Configuration json.RawMessage            `json:"configuration"`
+	AllowedValues json.RawMessage            `json:"allowed_values"`
+	Aliases       json.RawMessage            `json:"aliases"`
+	CreatedAt     time.Time                  `json:"created_at"`
+	UpdatedAt     time.Time                  `json:"updated_at"`
+	ArchivedAt    sql.NullTime               `json:"archived_at"`
+}
+
+type DocumentTemplateSheet struct {
+	ID                    uuid.UUID       `json:"id"`
+	TemplateID            uuid.UUID       `json:"template_id"`
+	Code                  string          `json:"code"`
+	Name                  string          `json:"name"`
+	DisplayName           sql.NullString  `json:"display_name"`
+	Required              bool            `json:"required"`
+	SheetOrder            sql.NullInt32   `json:"sheet_order"`
+	HeaderRow             int32           `json:"header_row"`
+	StartRow              int32           `json:"start_row"`
+	AllowExtraColumns     bool            `json:"allow_extra_columns"`
+	AllowDuplicateHeaders bool            `json:"allow_duplicate_headers"`
+	Configuration         json.RawMessage `json:"configuration"`
+	CreatedAt             time.Time       `json:"created_at"`
+	UpdatedAt             time.Time       `json:"updated_at"`
+	ArchivedAt            sql.NullTime    `json:"archived_at"`
 }
 
 type EmailOutbox struct {

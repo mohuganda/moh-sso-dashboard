@@ -26,7 +26,7 @@ INSERT INTO documents (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
-RETURNING id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 `
 
 type CreateDocumentParams struct {
@@ -57,15 +57,23 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 	err := row.Scan(
 		&i.ID,
 		&i.OriginalFilename,
+		&i.NormalizedFilename,
 		&i.ContentType,
+		&i.Extension,
 		&i.SizeBytes,
 		&i.ChecksumSha256,
 		&i.StorageLocationID,
 		&i.ObjectKey,
 		&i.UploadedBy,
 		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -81,7 +89,7 @@ func (q *Queries) DeleteDocument(ctx context.Context, id uuid.UUID) error {
 }
 
 const getDocumentByID = `-- name: GetDocumentByID :one
-SELECT id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 FROM documents
 WHERE id = $1
 `
@@ -92,21 +100,29 @@ func (q *Queries) GetDocumentByID(ctx context.Context, id uuid.UUID) (Document, 
 	err := row.Scan(
 		&i.ID,
 		&i.OriginalFilename,
+		&i.NormalizedFilename,
 		&i.ContentType,
+		&i.Extension,
 		&i.SizeBytes,
 		&i.ChecksumSha256,
 		&i.StorageLocationID,
 		&i.ObjectKey,
 		&i.UploadedBy,
 		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const listDocuments = `-- name: ListDocuments :many
-SELECT id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 FROM documents
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
@@ -129,15 +145,23 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.OriginalFilename,
+			&i.NormalizedFilename,
 			&i.ContentType,
+			&i.Extension,
 			&i.SizeBytes,
 			&i.ChecksumSha256,
 			&i.StorageLocationID,
 			&i.ObjectKey,
 			&i.UploadedBy,
 			&i.Status,
+			&i.Version,
+			&i.ParentDocumentID,
+			&i.Metadata,
+			&i.Tags,
+			&i.IsTemplate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -153,7 +177,7 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 }
 
 const listDocumentsByStatus = `-- name: ListDocumentsByStatus :many
-SELECT id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 FROM documents
 WHERE status = $1
 ORDER BY created_at DESC
@@ -178,15 +202,23 @@ func (q *Queries) ListDocumentsByStatus(ctx context.Context, arg ListDocumentsBy
 		if err := rows.Scan(
 			&i.ID,
 			&i.OriginalFilename,
+			&i.NormalizedFilename,
 			&i.ContentType,
+			&i.Extension,
 			&i.SizeBytes,
 			&i.ChecksumSha256,
 			&i.StorageLocationID,
 			&i.ObjectKey,
 			&i.UploadedBy,
 			&i.Status,
+			&i.Version,
+			&i.ParentDocumentID,
+			&i.Metadata,
+			&i.Tags,
+			&i.IsTemplate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -202,7 +234,7 @@ func (q *Queries) ListDocumentsByStatus(ctx context.Context, arg ListDocumentsBy
 }
 
 const listDocumentsByUser = `-- name: ListDocumentsByUser :many
-SELECT id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 FROM documents
 WHERE uploaded_by = $1
 ORDER BY created_at DESC
@@ -227,15 +259,23 @@ func (q *Queries) ListDocumentsByUser(ctx context.Context, arg ListDocumentsByUs
 		if err := rows.Scan(
 			&i.ID,
 			&i.OriginalFilename,
+			&i.NormalizedFilename,
 			&i.ContentType,
+			&i.Extension,
 			&i.SizeBytes,
 			&i.ChecksumSha256,
 			&i.StorageLocationID,
 			&i.ObjectKey,
 			&i.UploadedBy,
 			&i.Status,
+			&i.Version,
+			&i.ParentDocumentID,
+			&i.Metadata,
+			&i.Tags,
+			&i.IsTemplate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -255,7 +295,7 @@ UPDATE documents
 SET status = 'COMPLETED',
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 `
 
 func (q *Queries) MarkDocumentCompleted(ctx context.Context, id uuid.UUID) (Document, error) {
@@ -264,15 +304,23 @@ func (q *Queries) MarkDocumentCompleted(ctx context.Context, id uuid.UUID) (Docu
 	err := row.Scan(
 		&i.ID,
 		&i.OriginalFilename,
+		&i.NormalizedFilename,
 		&i.ContentType,
+		&i.Extension,
 		&i.SizeBytes,
 		&i.ChecksumSha256,
 		&i.StorageLocationID,
 		&i.ObjectKey,
 		&i.UploadedBy,
 		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -282,7 +330,7 @@ UPDATE documents
 SET status = 'FAILED',
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 `
 
 func (q *Queries) MarkDocumentFailed(ctx context.Context, id uuid.UUID) (Document, error) {
@@ -291,15 +339,23 @@ func (q *Queries) MarkDocumentFailed(ctx context.Context, id uuid.UUID) (Documen
 	err := row.Scan(
 		&i.ID,
 		&i.OriginalFilename,
+		&i.NormalizedFilename,
 		&i.ContentType,
+		&i.Extension,
 		&i.SizeBytes,
 		&i.ChecksumSha256,
 		&i.StorageLocationID,
 		&i.ObjectKey,
 		&i.UploadedBy,
 		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -309,7 +365,7 @@ UPDATE documents
 SET status = 'PENDING',
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 `
 
 func (q *Queries) MarkDocumentPending(ctx context.Context, id uuid.UUID) (Document, error) {
@@ -318,15 +374,23 @@ func (q *Queries) MarkDocumentPending(ctx context.Context, id uuid.UUID) (Docume
 	err := row.Scan(
 		&i.ID,
 		&i.OriginalFilename,
+		&i.NormalizedFilename,
 		&i.ContentType,
+		&i.Extension,
 		&i.SizeBytes,
 		&i.ChecksumSha256,
 		&i.StorageLocationID,
 		&i.ObjectKey,
 		&i.UploadedBy,
 		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -336,7 +400,7 @@ UPDATE documents
 SET status = 'PROCESSING',
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 `
 
 func (q *Queries) MarkDocumentProcessing(ctx context.Context, id uuid.UUID) (Document, error) {
@@ -345,15 +409,23 @@ func (q *Queries) MarkDocumentProcessing(ctx context.Context, id uuid.UUID) (Doc
 	err := row.Scan(
 		&i.ID,
 		&i.OriginalFilename,
+		&i.NormalizedFilename,
 		&i.ContentType,
+		&i.Extension,
 		&i.SizeBytes,
 		&i.ChecksumSha256,
 		&i.StorageLocationID,
 		&i.ObjectKey,
 		&i.UploadedBy,
 		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -364,7 +436,7 @@ SET original_filename = $2,
     content_type = $3,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 `
 
 type UpdateDocumentParams struct {
@@ -379,15 +451,23 @@ func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) 
 	err := row.Scan(
 		&i.ID,
 		&i.OriginalFilename,
+		&i.NormalizedFilename,
 		&i.ContentType,
+		&i.Extension,
 		&i.SizeBytes,
 		&i.ChecksumSha256,
 		&i.StorageLocationID,
 		&i.ObjectKey,
 		&i.UploadedBy,
 		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -397,7 +477,7 @@ UPDATE documents
 SET status = $2,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, content_type, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, created_at, updated_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 `
 
 type UpdateDocumentStatusParams struct {
@@ -411,15 +491,23 @@ func (q *Queries) UpdateDocumentStatus(ctx context.Context, arg UpdateDocumentSt
 	err := row.Scan(
 		&i.ID,
 		&i.OriginalFilename,
+		&i.NormalizedFilename,
 		&i.ContentType,
+		&i.Extension,
 		&i.SizeBytes,
 		&i.ChecksumSha256,
 		&i.StorageLocationID,
 		&i.ObjectKey,
 		&i.UploadedBy,
 		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }

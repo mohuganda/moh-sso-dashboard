@@ -18,6 +18,9 @@ type Querier interface {
 	ActiveUsersToday(ctx context.Context) (int64, error)
 	ApproximateActiveSessions(ctx context.Context) (int64, error)
 	ArchiveAnnouncement(ctx context.Context, arg ArchiveAnnouncementParams) (Announcement, error)
+	ArchiveDocumentTemplate(ctx context.Context, id uuid.UUID) error
+	ArchiveDocumentTemplateColumn(ctx context.Context, id uuid.UUID) error
+	ArchiveDocumentTemplateSheet(ctx context.Context, id uuid.UUID) error
 	AuditMetricsOverview(ctx context.Context, arg AuditMetricsOverviewParams) (AuditMetricsOverviewRow, error)
 	CancelProcess(ctx context.Context, id uuid.UUID) error
 	ClaimEmailOutboxBatch(ctx context.Context, limit int32) ([]EmailOutbox, error)
@@ -58,6 +61,9 @@ type Querier interface {
 	CreateDisease(ctx context.Context, arg CreateDiseaseParams) (Disease, error)
 	CreateDistrict(ctx context.Context, arg CreateDistrictParams) (District, error)
 	CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error)
+	CreateDocumentTemplate(ctx context.Context, arg CreateDocumentTemplateParams) (DocumentTemplate, error)
+	CreateDocumentTemplateColumn(ctx context.Context, arg CreateDocumentTemplateColumnParams) (DocumentTemplateColumn, error)
+	CreateDocumentTemplateSheet(ctx context.Context, arg CreateDocumentTemplateSheetParams) (DocumentTemplateSheet, error)
 	CreateEmailOutbox(ctx context.Context, arg CreateEmailOutboxParams) (EmailOutbox, error)
 	CreateEpiWeek(ctx context.Context, arg CreateEpiWeekParams) (EpiWeek, error)
 	CreateFacility(ctx context.Context, arg CreateFacilityParams) (Facility, error)
@@ -90,6 +96,9 @@ type Querier interface {
 	DeleteDisease(ctx context.Context, id uuid.UUID) error
 	DeleteDistrict(ctx context.Context, id uuid.UUID) error
 	DeleteDocument(ctx context.Context, id uuid.UUID) error
+	DeleteDocumentTemplate(ctx context.Context, id uuid.UUID) error
+	DeleteDocumentTemplateColumn(ctx context.Context, id uuid.UUID) error
+	DeleteDocumentTemplateSheet(ctx context.Context, id uuid.UUID) error
 	DeleteEmailOutboxByID(ctx context.Context, id uuid.UUID) error
 	DeleteFacility(ctx context.Context, id uuid.UUID) error
 	DeleteFacilityMetricsByWeek(ctx context.Context, epiWeekID uuid.UUID) error
@@ -105,6 +114,11 @@ type Querier interface {
 	DeleteWeeklyStatus(ctx context.Context, id uuid.UUID) error
 	DraftAnnouncement(ctx context.Context, arg DraftAnnouncementParams) (Announcement, error)
 	ExistsDiseaseIndicator(ctx context.Context, arg ExistsDiseaseIndicatorParams) (bool, error)
+	ExistsDocumentTemplateCode(ctx context.Context, code string) (bool, error)
+	ExistsDocumentTemplateColumnKey(ctx context.Context, arg ExistsDocumentTemplateColumnKeyParams) (bool, error)
+	ExistsDocumentTemplateColumnName(ctx context.Context, arg ExistsDocumentTemplateColumnNameParams) (bool, error)
+	ExistsDocumentTemplateSheetCode(ctx context.Context, arg ExistsDocumentTemplateSheetCodeParams) (bool, error)
+	ExistsDocumentTemplateSheetName(ctx context.Context, arg ExistsDocumentTemplateSheetNameParams) (bool, error)
 	ExportAuditLogs(ctx context.Context, arg ExportAuditLogsParams) ([]ExportAuditLogsRow, error)
 	FailProcess(ctx context.Context, arg FailProcessParams) error
 	FailSurveillanceImportBatch(ctx context.Context, arg FailSurveillanceImportBatchParams) error
@@ -124,6 +138,12 @@ type Querier interface {
 	GetDistrictByID(ctx context.Context, id uuid.UUID) (District, error)
 	GetDistrictByName(ctx context.Context, lower string) (District, error)
 	GetDocumentByID(ctx context.Context, id uuid.UUID) (Document, error)
+	GetDocumentTemplateByCode(ctx context.Context, code string) (DocumentTemplate, error)
+	GetDocumentTemplateByID(ctx context.Context, id uuid.UUID) (DocumentTemplate, error)
+	GetDocumentTemplateColumnByID(ctx context.Context, id uuid.UUID) (DocumentTemplateColumn, error)
+	GetDocumentTemplateColumnByKey(ctx context.Context, arg GetDocumentTemplateColumnByKeyParams) (DocumentTemplateColumn, error)
+	GetDocumentTemplateSheetByCode(ctx context.Context, arg GetDocumentTemplateSheetByCodeParams) (DocumentTemplateSheet, error)
+	GetDocumentTemplateSheetByID(ctx context.Context, id uuid.UUID) (DocumentTemplateSheet, error)
 	GetEmailOutboxByID(ctx context.Context, id uuid.UUID) (EmailOutbox, error)
 	GetEpiWeekByID(ctx context.Context, id uuid.UUID) (EpiWeek, error)
 	GetEpiWeekByYearWeek(ctx context.Context, arg GetEpiWeekByYearWeekParams) (EpiWeek, error)
@@ -165,6 +185,7 @@ type Querier interface {
 	LastLoginForAllUsers(ctx context.Context) ([]LastLoginForAllUsersRow, error)
 	LastLoginForUser(ctx context.Context, userID uuid.UUID) (sql.NullTime, error)
 	ListActiveDiseases(ctx context.Context) ([]Disease, error)
+	ListActiveDocumentTemplates(ctx context.Context) ([]DocumentTemplate, error)
 	ListActiveIndicators(ctx context.Context) ([]Indicator, error)
 	ListActivePublishedAnnouncements(ctx context.Context, arg ListActivePublishedAnnouncementsParams) ([]Announcement, error)
 	ListActiveStorageLocations(ctx context.Context) ([]StorageLocation, error)
@@ -191,6 +212,10 @@ type Querier interface {
 	ListDistrictWeeklySubjectsByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]ListDistrictWeeklySubjectsByWeekRow, error)
 	ListDistricts(ctx context.Context) ([]ListDistrictsRow, error)
 	ListDistrictsByRegion(ctx context.Context, regionID uuid.NullUUID) ([]District, error)
+	ListDocumentTemplateColumns(ctx context.Context, sheetID uuid.UUID) ([]DocumentTemplateColumn, error)
+	ListDocumentTemplateSheets(ctx context.Context, templateID uuid.UUID) ([]DocumentTemplateSheet, error)
+	ListDocumentTemplateVersions(ctx context.Context, code string) ([]DocumentTemplate, error)
+	ListDocumentTemplates(ctx context.Context) ([]DocumentTemplate, error)
 	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]Document, error)
 	ListDocumentsByStatus(ctx context.Context, arg ListDocumentsByStatusParams) ([]Document, error)
 	ListDocumentsByUser(ctx context.Context, arg ListDocumentsByUserParams) ([]Document, error)
@@ -239,8 +264,11 @@ type Querier interface {
 	ListRegionWeeklyStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]WeeklyStatus, error)
 	ListRegionWeeklySubjectsByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]ListRegionWeeklySubjectsByWeekRow, error)
 	ListRegions(ctx context.Context) ([]Region, error)
+	ListRequiredDocumentTemplateColumns(ctx context.Context, sheetID uuid.UUID) ([]DocumentTemplateColumn, error)
+	ListRequiredDocumentTemplateSheets(ctx context.Context, templateID uuid.UUID) ([]DocumentTemplateSheet, error)
 	ListSubCountiesByDistrict(ctx context.Context, districtID uuid.UUID) ([]SubCounty, error)
 	ListSubCountyWeeklyStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]WeeklyStatus, error)
+	ListUniqueDocumentTemplateColumns(ctx context.Context, sheetID uuid.UUID) ([]DocumentTemplateColumn, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	ListUsersPaged(ctx context.Context, arg ListUsersPagedParams) ([]User, error)
 	ListWeeklyStatuses(ctx context.Context, arg ListWeeklyStatusesParams) ([]WeeklyStatus, error)
@@ -274,6 +302,8 @@ type Querier interface {
 	NewUsersTrend(ctx context.Context, arg NewUsersTrendParams) ([]NewUsersTrendRow, error)
 	PublishAnnouncementNow(ctx context.Context, arg PublishAnnouncementNowParams) (Announcement, error)
 	RecentlyCreatedClients(ctx context.Context, rowLimit int32) ([]RecentlyCreatedClientsRow, error)
+	ReorderDocumentTemplateColumns(ctx context.Context, arg ReorderDocumentTemplateColumnsParams) error
+	ReorderDocumentTemplateSheets(ctx context.Context, arg ReorderDocumentTemplateSheetsParams) error
 	ResetStuckEmailOutboxJobs(ctx context.Context) (int64, error)
 	ResolveDiseaseByName(ctx context.Context, lower string) (Disease, error)
 	ResolveDistrictByName(ctx context.Context, lower string) (District, error)
@@ -306,6 +336,9 @@ type Querier interface {
 	UpdateClientEnabled(ctx context.Context, arg UpdateClientEnabledParams) error
 	UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (Document, error)
 	UpdateDocumentStatus(ctx context.Context, arg UpdateDocumentStatusParams) (Document, error)
+	UpdateDocumentTemplate(ctx context.Context, arg UpdateDocumentTemplateParams) (DocumentTemplate, error)
+	UpdateDocumentTemplateColumn(ctx context.Context, arg UpdateDocumentTemplateColumnParams) (DocumentTemplateColumn, error)
+	UpdateDocumentTemplateSheet(ctx context.Context, arg UpdateDocumentTemplateSheetParams) (DocumentTemplateSheet, error)
 	UpdateImportBatchProgress(ctx context.Context, arg UpdateImportBatchProgressParams) error
 	UpdateImportBatchStatus(ctx context.Context, arg UpdateImportBatchStatusParams) (SurveillanceImportBatch, error)
 	UpdateImportJobCounts(ctx context.Context, arg UpdateImportJobCountsParams) error
