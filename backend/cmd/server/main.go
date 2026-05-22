@@ -186,6 +186,17 @@ func main() {
 	announcementRepository := announcementRepo.NewAnnouncementRepository(store, *appLogger)
 	emailRepository := emailRepo.NewEmailRepository(cfg, store, *appLogger)
 
+	surveillanceRepositories := repository.NewRepositories(store)
+	regionRepository := surveillanceRepositories.Regions
+	districtRepository := surveillanceRepositories.Districts
+	subCountyRepository := surveillanceRepositories.SubCounties
+	diseaseRepository := surveillanceRepositories.Diseases
+	epiWeekRepository := surveillanceRepositories.EpiWeeks
+	facilityWeeklyMetricsRepository := surveillanceRepositories.FacilityMetrics
+	weeklyStatusRepository := surveillanceRepositories.WeeklyStatus
+	importRepository := surveillanceRepositories.Imports
+	alertRepository := surveillanceRepositories.Alerts
+
 	// ==================================================
 	// SERVICES
 	// ==================================================
@@ -199,9 +210,57 @@ func main() {
 	publisher := cache.NewNotificationPublisher(rdb)
 	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
 
-	// ==================================================
-	// TEMPLATE SERVICES
-	// ==================================================
+	documentService := service.NewDocumentService(
+		documentRepository,
+		processRepository,
+		notificationsService,
+		fileStorage,
+	)
+
+	clientService := service.NewClientService(clientRepository, notificationsService)
+	userService := service.NewUserService(userRepository, notificationsService)
+	announcementService := service.NewAnnouncementService(announcementRepository, notificationsService)
+
+	diseaseService := service.NewSurveillanceDiseaseService(appLogger, diseaseRepository)
+	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
+
+	locationService := service.NewSurveillanceLocationService(
+		appLogger,
+		regionRepository,
+		districtRepository,
+		subCountyRepository,
+	)
+
+	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(
+		appLogger,
+		facilityWeeklyMetricsRepository,
+		importRepository,
+	)
+
+	weeklyStatusService := service.NewSurveillanceWeeklyStatusService(
+		appLogger,
+		weeklyStatusRepository,
+	)
+
+	surveillanceImportService := service.NewSurveillanceImportService(importRepository)
+
+	alertsService := service.NewSurveillanceAlertService(
+		appLogger,
+		alertRepository,
+		importRepository,
+	)
+
+	importService := importSvc.NewService(
+		documentRepository,
+		processRepository,
+		fileRepository,
+		importRepository,
+		facilityWeeklyMetricsService,
+		weeklyStatusService,
+		alertsService,
+		fileStorage,
+		remoteDB,
+	)
 	documentTemplateService := service.NewDocumentTemplateService(
 		documentTemplateRepository,
 		documentTemplateSheetRepository,
@@ -216,40 +275,6 @@ func main() {
 		documentTemplateColumnRepository,
 	)
 
-	// ==================================================
-	// TEMPLATE HANDLERS
-	// ==================================================
-	documentTemplateHandler := handler.NewDocumentTemplateHandler(
-		documentTemplateService,
-		documentTemplateSheetService,
-		documentTemplateColumnService,
-	)
-
-	documentTemplateSheetHandler := handler.NewDocumentTemplateSheetHandler(
-		documentTemplateSheetService,
-	)
-
-	documentTemplateColumnHandler := handler.NewDocumentTemplateColumnHandler(
-		documentTemplateColumnService,
-	)
-
-	// ==================================================
-	// DOCUMENT SERVICE
-	// ==================================================
-	documentService := service.NewDocumentService(
-		documentRepository,
-		processRepository,
-		notificationsService,
-		fileStorage,
-	)
-
-	clientService := service.NewClientService(clientRepository, notificationsService)
-	userService := service.NewUserService(userRepository, notificationsService)
-	announcementService := service.NewAnnouncementService(announcementRepository, notificationsService)
-
-	// ==================================================
-	// EMAIL SERVICES
-	// ==================================================
 	templateManager, err := service.NewTemplateManager(appLogger)
 	if err != nil {
 		appLogger.Fatal("Failed to initialize email template manager: ", err)
@@ -302,65 +327,6 @@ func main() {
 
 	emailHandler := handler.NewEmailHandler(emailAppService, emailRepository)
 
-	// ==================================================
-	// SURVEILLANCE (RESTORED EXACT FLOW)
-	// ==================================================
-	surveillanceRepositories := repository.NewRepositories(store)
-
-	regionRepository := surveillanceRepositories.Regions
-	districtRepository := surveillanceRepositories.Districts
-	subCountyRepository := surveillanceRepositories.SubCounties
-	diseaseRepository := surveillanceRepositories.Diseases
-	epiWeekRepository := surveillanceRepositories.EpiWeeks
-	facilityWeeklyMetricsRepository := surveillanceRepositories.FacilityMetrics
-	weeklyStatusRepository := surveillanceRepositories.WeeklyStatus
-	importRepository := surveillanceRepositories.Imports
-	alertRepository := surveillanceRepositories.Alerts
-
-	diseaseService := service.NewSurveillanceDiseaseService(appLogger, diseaseRepository)
-	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
-
-	locationService := service.NewSurveillanceLocationService(
-		appLogger,
-		regionRepository,
-		districtRepository,
-		subCountyRepository,
-	)
-
-	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(
-		appLogger,
-		facilityWeeklyMetricsRepository,
-		importRepository,
-	)
-
-	weeklyStatusService := service.NewSurveillanceWeeklyStatusService(
-		appLogger,
-		weeklyStatusRepository,
-	)
-
-	surveillanceImportService := service.NewSurveillanceImportService(importRepository)
-
-	alertsService := service.NewSurveillanceAlertService(
-		appLogger,
-		alertRepository,
-		importRepository,
-	)
-
-	importService := importSvc.NewService(
-		documentRepository,
-		processRepository,
-		fileRepository,
-		importRepository,
-		facilityWeeklyMetricsService,
-		weeklyStatusService,
-		alertsService,
-		fileStorage,
-		remoteDB,
-	)
-
-	// ==================================================
-	// HANDLERS (SURVEILLANCE RESTORED)
-	// ==================================================
 	surveillanceHandler := handler.NewSurveillanceHandler(
 		epiWeekService,
 		diseaseService,
@@ -371,10 +337,31 @@ func main() {
 		surveillanceImportService,
 	)
 
+	documentTemplateHandler := handler.NewDocumentTemplateHandler(
+		documentTemplateService,
+		documentTemplateSheetService,
+		documentTemplateColumnService,
+	)
+
+	documentTemplateSheetHandler := handler.NewDocumentTemplateSheetHandler(
+		documentTemplateSheetService,
+	)
+
+	documentTemplateColumnHandler := handler.NewDocumentTemplateColumnHandler(
+		documentTemplateColumnService,
+	)
+
+	healthHandler := handler.NewHealthHandler(
+		func(ctx context.Context) error { return db.PingDB(ctx, primaryDB) },
+		func(ctx context.Context) error { return db.PingDB(ctx, remoteDB) },
+		func(ctx context.Context) error { return adminKC.Authenticate() },
+		rdb,
+	)
+
+	// ==================================================
+	// BACKGROUND WORKERS
 	// ==================================================
 
-	// WORKERS (RESTORED)
-	// ==================================================
 	documentWorker, err := worker.NewDocumentWorker(
 		processRepository,
 		importService,
@@ -408,13 +395,6 @@ func main() {
 			appLogger.Error("Email worker stopped with error: ", err)
 		}
 	}()
-
-	healthHandler := handler.NewHealthHandler(
-		func(ctx context.Context) error { return db.PingDB(ctx, primaryDB) },
-		func(ctx context.Context) error { return db.PingDB(ctx, remoteDB) },
-		func(ctx context.Context) error { return adminKC.Authenticate() },
-		rdb,
-	)
 
 	// ==================================================
 	// ROUTER
