@@ -1,3 +1,4 @@
+import type { DocumentTemplate } from "../types/document_template.types";
 import type {
   CreateDocumentPayload,
   DocumentProcess,
@@ -172,6 +173,14 @@ export const documentsApi = baseApi.injectEndpoints({
         { type: "Documents", id: "LIST" },
       ],
     }),
+
+    listDocumentTemplates: builder.query<DocumentTemplate[], void>({
+      query: () => "/document-templates",
+
+      transformResponse: (res: ApiEnvelope<DocumentTemplate[]>) => res.data,
+
+      providesTags: ["DocumentTemplates"],
+    }),
   }),
 });
 
@@ -189,4 +198,5 @@ export const {
   useReprocessDocumentMutation,
   useListStorageLocationsQuery,
   useGetStorageLocationQuery,
+  useListDocumentTemplatesQuery,
 } = documentsApi;

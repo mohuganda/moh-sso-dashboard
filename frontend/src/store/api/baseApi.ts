@@ -65,6 +65,9 @@ export const baseApi = createApi({
     "Issues",
     "Transactions",
     "Emails",
+    "DocumentTemplates",
+    "DocumentSheets",
+    "DocumentColumns",
   ],
 
   endpoints: () => ({}),
