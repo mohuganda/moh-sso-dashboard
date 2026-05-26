@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
@@ -23,6 +24,11 @@ type DocumentTemplateService interface {
 	CreateTemplate(ctx context.Context, req model.CreateTemplateRequest) (*model.DocumentTemplate, error)
 
 	GetTemplate(ctx context.Context, id uuid.UUID) (*model.DocumentTemplate, error)
+	CreateTemplateStructure(
+
+		ctx context.Context,
+		req model.CreateTemplateStructureRequest,
+	) (*model.TemplateStructure, error)
 
 	GetTemplateRuntime(ctx context.Context, code string) (*model.TemplateRuntime, error)
 
@@ -293,88 +299,71 @@ func (s *documentTemplateService) GetTemplateStructure(
 	ctx context.Context,
 	code string,
 ) (*model.TemplateStructure, error) {
-
-	// =====================================================
-	// Load Template
-	// =====================================================
-
 	t, err := s.repo.GetByCode(ctx, code)
 	if err != nil {
 		return nil, err
 	}
-
-	// =====================================================
-	// Load Sheets
-	// =====================================================
 
 	sheets, err := s.sheetRepo.List(ctx, t.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// =====================================================
-	// Build Structure
-	// =====================================================
-
 	structure := &model.TemplateStructure{
-		ID:       t.ID,
-		Code:     t.Code,
-		Name:     t.Name,
-		Version:  int(t.Version),
-		IsActive: t.IsActive,
-
-		Sheets: make([]model.TemplateSheetStructure, 0),
+		Template: model.DocumentTemplate{
+			ID:            t.ID,
+			DocumentID:    nullUUIDPtr(t.DocumentID),
+			Code:          t.Code,
+			Name:          t.Name,
+			Description:   nullStringValue(t.Description),
+			FileType:      t.FileType,
+			Version:       int(t.Version),
+			IsActive:      t.IsActive,
+			Configuration: fromJSON(t.Configuration),
+			CreatedBy:     t.CreatedBy,
+			CreatedAt:     t.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:     t.UpdatedAt.Format(time.RFC3339),
+			ArchivedAt:    nullTimeStringPtr(t.ArchivedAt),
+		},
+		Sheets: make([]model.TemplateSheetStructure, 0, len(sheets)),
 	}
 
-	// =====================================================
-	// Process Sheets
-	// =====================================================
-
 	for _, sh := range sheets {
-
 		cols, err := s.columnRepo.List(ctx, sh.ID)
 		if err != nil {
 			return nil, err
 		}
 
 		sheet := model.TemplateSheetStructure{
-			ID: sh.ID,
-
-			Code: sh.Code,
-			Name: sh.Name,
-
-			Required: sh.Required,
-
-			HeaderRow: int(sh.HeaderRow),
-			StartRow:  int(sh.StartRow),
-
-			Columns: make([]model.TemplateColumnStructure, 0),
+			ID:                    sh.ID,
+			TemplateID:            sh.TemplateID,
+			Code:                  sh.Code,
+			Name:                  sh.Name,
+			DisplayName:           nullStringValue(sh.DisplayName),
+			Required:              sh.Required,
+			SheetOrder:            nullInt32Ptr(sh.SheetOrder),
+			HeaderRow:             int(sh.HeaderRow),
+			StartRow:              int(sh.StartRow),
+			AllowExtraColumns:     sh.AllowExtraColumns,
+			AllowDuplicateHeaders: sh.AllowDuplicateHeaders,
+			Configuration:         fromJSON(sh.Configuration),
+			Columns:               make([]model.TemplateColumnStructure, 0, len(cols)),
 		}
 
-		// =================================================
-		// Process Columns
-		// =================================================
-
 		for _, c := range cols {
-
 			sheet.Columns = append(sheet.Columns, model.TemplateColumnStructure{
-				ID: c.ID,
-
-				Key:         c.ColumnKey,
-				Name:        c.ColumnName,
-				DisplayName: nullStringValue(c.DisplayName),
-
-				DataType: string(c.DataType),
-
-				Required: c.Required,
-				IsUnique: c.IsUnique,
-
-				DefaultValue: nullStringToPtr(c.DefaultValue),
-
-				AllowedValues: mustSliceString(c.AllowedValues),
-				Aliases:       mustSliceString(c.Aliases),
-
-				Configuration: mustMap(c.Configuration),
+				ID:            c.ID,
+				SheetID:       c.SheetID,
+				ColumnKey:     c.ColumnKey,
+				ColumnName:    c.ColumnName,
+				DisplayName:   nullStringValue(c.DisplayName),
+				DataType:      string(c.DataType),
+				Required:      c.Required,
+				IsUnique:      c.IsUnique,
+				ColumnOrder:   nullInt32Ptr(c.ColumnOrder),
+				AllowedValues: fromJSONStringArray(c.AllowedValues),
+				Aliases:       fromJSONStringArray(c.Aliases),
+				Configuration: fromJSON(c.Configuration),
 			})
 		}
 
@@ -465,4 +454,205 @@ func (s *documentTemplateService) DeleteTemplate(
 	}
 
 	return nil
+}
+
+func (s *documentTemplateService) CreateTemplateStructure(
+	ctx context.Context,
+	req model.CreateTemplateStructureRequest,
+) (*model.TemplateStructure, error) {
+	template, err := s.repo.Create(ctx, db.CreateDocumentTemplateParams{
+		ID:   uuid.New(),
+		Code: req.Template.Code,
+		Name: req.Template.Name,
+		Description: sql.NullString{
+			String: req.Template.Description,
+			Valid:  req.Template.Description != "",
+		},
+		FileType: req.Template.FileType,
+		Version:  1,
+		IsActive: false,
+		Configuration: toJSON(
+			req.Template.Configuration,
+		),
+		CreatedBy: req.Template.CreatedBy,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sheets := make([]model.TemplateSheetStructure, 0, len(req.Sheets))
+
+	for _, sheetReq := range req.Sheets {
+		sheetInput := sheetReq.Sheet
+
+		sheetInput.TemplateID = template.ID
+
+		sheet, err := s.sheetRepo.Create(ctx, db.CreateDocumentTemplateSheetParams{
+			ID:         uuid.New(),
+			TemplateID: sheetInput.TemplateID,
+			Code:       sheetInput.Code,
+			Name:       sheetInput.Name,
+			DisplayName: sql.NullString{
+				String: sheetInput.DisplayName,
+				Valid:  sheetInput.DisplayName != "",
+			},
+			Required: sheetInput.Required,
+			SheetOrder: sql.NullInt32{
+				Int32: int32(*sheetInput.SheetOrder),
+				Valid: sheetInput.SheetOrder != nil,
+			},
+			HeaderRow:             int32(sheetInput.HeaderRow),
+			StartRow:              int32(sheetInput.StartRow),
+			AllowExtraColumns:     sheetInput.AllowExtraColumns,
+			AllowDuplicateHeaders: sheetInput.AllowDuplicateHeaders,
+			Configuration:         toJSON(sheetInput.Configuration),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		columnStructures := make([]model.TemplateColumnStructure, 0, len(sheetReq.Columns))
+
+		for _, columnReq := range sheetReq.Columns {
+			columnReq.SheetID = sheet.ID
+
+			column, err := s.columnRepo.Create(ctx, db.CreateDocumentTemplateColumnParams{
+				ID:         uuid.New(),
+				SheetID:    columnReq.SheetID,
+				ColumnKey:  columnReq.ColumnKey,
+				ColumnName: columnReq.ColumnName,
+				DisplayName: sql.NullString{
+					String: columnReq.DisplayName,
+					Valid:  columnReq.DisplayName != "",
+				},
+				DataType: db.DocumentTemplateColumnType(
+					columnReq.DataType,
+				),
+				Required: columnReq.Required,
+				IsUnique: columnReq.IsUnique,
+				ColumnOrder: sql.NullInt32{
+					Int32: int32(*columnReq.ColumnOrder),
+					Valid: columnReq.ColumnOrder != nil,
+				},
+				DefaultValue: sql.NullString{
+					String: func() string {
+						if columnReq.DefaultValue == nil {
+							return ""
+						}
+
+						return *columnReq.DefaultValue
+					}(),
+					Valid: columnReq.DefaultValue != nil,
+				},
+				Configuration: toJSON(columnReq.Configuration),
+				AllowedValues: toJSON(columnReq.AllowedValues),
+				Aliases:       toJSON(columnReq.Aliases),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			columnStructures = append(columnStructures, model.TemplateColumnStructure{
+				ID:            column.ID,
+				SheetID:       column.SheetID,
+				ColumnKey:     column.ColumnKey,
+				ColumnName:    column.ColumnName,
+				DisplayName:   nullStringValue(column.DisplayName),
+				DataType:      string(column.DataType),
+				Required:      column.Required,
+				IsUnique:      column.IsUnique,
+				ColumnOrder:   nullInt32Ptr(column.ColumnOrder),
+				AllowedValues: fromJSONStringArray(column.AllowedValues),
+				Aliases:       fromJSONStringArray(column.Aliases),
+				Configuration: fromJSON(column.Configuration),
+			})
+		}
+
+		sheets = append(sheets, model.TemplateSheetStructure{
+			ID:                    sheet.ID,
+			TemplateID:            sheet.TemplateID,
+			Code:                  sheet.Code,
+			Name:                  sheet.Name,
+			DisplayName:           nullStringValue(sheet.DisplayName),
+			Required:              sheet.Required,
+			SheetOrder:            nullInt32Ptr(sheet.SheetOrder),
+			HeaderRow:             int(sheet.HeaderRow),
+			StartRow:              int(sheet.StartRow),
+			AllowExtraColumns:     sheet.AllowExtraColumns,
+			AllowDuplicateHeaders: sheet.AllowDuplicateHeaders,
+			Configuration:         fromJSON(sheet.Configuration),
+			Columns:               columnStructures,
+		})
+	}
+
+	return &model.TemplateStructure{
+		Template: model.DocumentTemplate{
+			ID:            template.ID,
+			DocumentID:    nullUUIDPtr(template.DocumentID),
+			Code:          template.Code,
+			Name:          template.Name,
+			Description:   nullStringValue(template.Description),
+			FileType:      template.FileType,
+			Version:       int(template.Version),
+			IsActive:      template.IsActive,
+			Configuration: fromJSON(template.Configuration),
+			CreatedBy:     template.CreatedBy,
+			CreatedAt:     template.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:     template.UpdatedAt.Format(time.RFC3339),
+			ArchivedAt:    nullTimeStringPtr(template.ArchivedAt),
+		},
+		Sheets: sheets,
+	}, nil
+}
+
+func fromJSON(raw json.RawMessage) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return map[string]any{}
+	}
+
+	return result
+}
+
+func fromJSONStringArray(raw json.RawMessage) []string {
+	if len(raw) == 0 {
+		return []string{}
+	}
+
+	var result []string
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return []string{}
+	}
+
+	return result
+}
+
+func nullInt32Ptr(value sql.NullInt32) *int {
+	if !value.Valid {
+		return nil
+	}
+
+	v := int(value.Int32)
+	return &v
+}
+
+func nullUUIDPtr(value uuid.NullUUID) *uuid.UUID {
+	if !value.Valid {
+		return nil
+	}
+
+	return &value.UUID
+}
+
+func nullTimeStringPtr(value sql.NullTime) *string {
+	if !value.Valid {
+		return nil
+	}
+
+	v := value.Time.Format(time.RFC3339)
+	return &v
 }

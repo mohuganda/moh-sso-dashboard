@@ -440,3 +440,67 @@ func (h *DocumentTemplateHandler) ListColumns(c *gin.Context) {
 
 	response.OK(c, http.StatusOK, columns)
 }
+
+func (h *DocumentTemplateHandler) CreateTemplateWithStructure(c *gin.Context) {
+
+	var req model.CreateTemplateStructureRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Invalid request payload",
+		)
+
+		return
+	}
+
+	userID, err := uuid.Parse(c.GetString("user_id"))
+	if err != nil {
+
+		response.Fail(
+			c,
+			http.StatusUnauthorized,
+			"INVALID_USER",
+			"Invalid authenticated user",
+		)
+
+		return
+	}
+
+	req.Template.CreatedBy = userID
+
+	template, err := h.service.CreateTemplateStructure(
+		c.Request.Context(),
+		req,
+	)
+	if err != nil {
+
+		var apiErr *apierror.APIError
+
+		if errors.As(err, &apiErr) {
+
+			response.Fail(
+				c,
+				apiErr.HTTPStatus,
+				apiErr.Code,
+				apiErr.Message,
+			)
+
+			return
+		}
+
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"CREATE_TEMPLATE_FAILED",
+			"Failed to create template with structure",
+		)
+
+		return
+	}
+
+	response.OK(c, http.StatusCreated, template)
+}

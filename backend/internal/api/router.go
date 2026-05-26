@@ -217,6 +217,12 @@ func SetupRouter(
 			documentTemplates.GET("", documentTemplateHandler.ListTemplates)
 			documentTemplates.POST("", documentTemplateHandler.CreateTemplate)
 
+			// Create template + sheets + columns in one request
+			documentTemplates.POST("/structure", documentTemplateHandler.CreateTemplateWithStructure)
+
+			// Get runtime/structure by template code
+			documentTemplates.GET("/code/:code/structure", documentTemplateHandler.GetTemplateStructure)
+
 			documentTemplates.GET("/:id", documentTemplateHandler.GetTemplate)
 			documentTemplates.PUT("/:id", documentTemplateHandler.UpdateTemplate)
 			documentTemplates.DELETE("/:id", documentTemplateHandler.DeleteTemplate)
@@ -224,9 +230,10 @@ func SetupRouter(
 			documentTemplates.POST("/:id/publish", documentTemplateHandler.PublishTemplate)
 			documentTemplates.POST("/:id/archive", documentTemplateHandler.ArchiveTemplate)
 
+			// Get structure by template id if your handler supports id-based lookup
 			documentTemplates.GET("/:id/structure", documentTemplateHandler.GetTemplateStructure)
 
-			// optional but VERY useful for UI builder
+			// UI builder helpers
 			documentTemplates.GET("/:id/sheets", documentTemplateHandler.ListSheets)
 			documentTemplates.GET("/:id/sheets/:sheetId/columns", documentTemplateHandler.ListColumns)
 		}

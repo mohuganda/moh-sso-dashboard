@@ -55,7 +55,7 @@ func (s *documentTemplateColumnService) CreateColumn(
 	req model.CreateColumnRequest,
 ) (*model.DocumentTemplateColumn, error) {
 
-	exists, err := s.repo.ExistsKey(ctx, req.SheetID, req.Key)
+	exists, err := s.repo.ExistsKey(ctx, req.SheetID, req.ColumnKey)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (s *documentTemplateColumnService) CreateColumn(
 		return nil, ErrColumnKeyExists
 	}
 
-	nameExists, err := s.repo.ExistsName(ctx, req.SheetID, req.Name)
+	nameExists, err := s.repo.ExistsName(ctx, req.SheetID, req.ColumnName)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +78,8 @@ func (s *documentTemplateColumnService) CreateColumn(
 	col, err := s.repo.Create(ctx, db.CreateDocumentTemplateColumnParams{
 		ID:         uuid.New(),
 		SheetID:    req.SheetID,
-		ColumnKey:  req.Key,
-		ColumnName: req.Name,
+		ColumnKey:  req.ColumnKey,
+		ColumnName: req.ColumnName,
 		DisplayName: sql.NullString{
 			String: req.DisplayName,
 			Valid:  req.DisplayName != "",
@@ -178,7 +178,7 @@ func (s *documentTemplateColumnService) UpdateColumn(
 
 	col, err := s.repo.Update(ctx, db.UpdateDocumentTemplateColumnParams{
 		ID:         req.ID,
-		ColumnName: req.Name,
+		ColumnName: req.ColumnName,
 		DisplayName: sql.NullString{
 			String: req.DisplayName,
 			Valid:  req.DisplayName != "",
@@ -225,7 +225,7 @@ func (s *documentTemplateColumnService) Handle(
 ) (*model.ProcessedColumnValue, error) {
 
 	result := &model.ProcessedColumnValue{
-		ColumnKey: col.Key,
+		ColumnKey: col.ColumnKey,
 		RawValue:  value,
 		IsValid:   true,
 		Value:     value,
@@ -236,7 +236,7 @@ func (s *documentTemplateColumnService) Handle(
 			result.IsValid = false
 			result.Error = &model.ColumnError{
 				Code:    "REQUIRED_FIELD",
-				Message: col.Name + " is required",
+				Message: col.ColumnName + " is required",
 			}
 		}
 
@@ -309,8 +309,8 @@ func mapColumn(c db.DocumentTemplateColumn) *model.DocumentTemplateColumn {
 	return &model.DocumentTemplateColumn{
 		ID:          c.ID,
 		SheetID:     c.SheetID,
-		Key:         c.ColumnKey,
-		Name:        c.ColumnName,
+		ColumnKey:   c.ColumnKey,
+		ColumnName:  c.ColumnName,
 		DisplayName: toString(c.DisplayName),
 		DataType:    string(c.DataType),
 		Required:    c.Required,
