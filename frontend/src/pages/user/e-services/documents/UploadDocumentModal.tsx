@@ -193,8 +193,11 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
   const [createTemplateStructure, { isLoading: isUploadingTemplate }] =
     useCreateTemplateStructureMutation();
 
-  const { data: savedTemplates = [], isLoading: isTemplatesLoading } =
+  const { data: savedTemplatesResponse, isLoading: isTemplatesLoading } =
     useListActiveTemplatesQuery();
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const savedTemplates = Array.isArray(savedTemplatesResponse) ? savedTemplatesResponse : [];
 
   const isUploading = isUploadingDocument || isUploadingTemplate;
 
