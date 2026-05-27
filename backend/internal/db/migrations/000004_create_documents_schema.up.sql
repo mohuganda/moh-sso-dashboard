@@ -51,3 +51,5 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX idx_documents_storage_location ON documents(storage_location_id);
 CREATE INDEX idx_documents_uploaded_by ON documents(uploaded_by);
 CREATE INDEX idx_documents_status ON documents(status);
+CREATE INDEX idx_documents_metadata_template_code
+ON documents ((metadata->>'template_code'));

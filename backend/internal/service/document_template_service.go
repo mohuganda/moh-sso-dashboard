@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 
+	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
 	documentTemplateRepo "github.com/moh-sso-dashboard/internal/repository/document_template"
 	documentTemplateColumnRepo "github.com/moh-sso-dashboard/internal/repository/document_template_column"
 	documentTemplateSheetRepo "github.com/moh-sso-dashboard/internal/repository/document_template_sheet"
@@ -47,24 +49,30 @@ type DocumentTemplateService interface {
 	PublishTemplate(ctx context.Context, id uuid.UUID) error
 
 	GetTemplateStructure(ctx context.Context, code string) (*model.TemplateStructure, error)
+	GetTemplateStructureByDocumentID(
+
+		ctx context.Context,
+		documentID uuid.UUID,
+	) (*model.TemplateStructure, error)
 }
 
 type documentTemplateService struct {
-	repo       documentTemplateRepo.DocumentTemplateRepository
-	sheetRepo  documentTemplateSheetRepo.DocumentTemplateSheetRepository
-	columnRepo documentTemplateColumnRepo.DocumentTemplateColumnRepository
+	documentRepo         documentRepo.DocumentRepository
+	documentTemplateRepo documentTemplateRepo.DocumentTemplateRepository
+	sheetRepo            documentTemplateSheetRepo.DocumentTemplateSheetRepository
+	columnRepo           documentTemplateColumnRepo.DocumentTemplateColumnRepository
 }
 
 func NewDocumentTemplateService(
-	repo documentTemplateRepo.DocumentTemplateRepository,
+	documentTemplateRepo documentTemplateRepo.DocumentTemplateRepository,
 	sheetRepo documentTemplateSheetRepo.DocumentTemplateSheetRepository,
 	columnRepo documentTemplateColumnRepo.DocumentTemplateColumnRepository,
 ) DocumentTemplateService {
 
 	return &documentTemplateService{
-		repo:       repo,
-		sheetRepo:  sheetRepo,
-		columnRepo: columnRepo,
+		documentTemplateRepo: documentTemplateRepo,
+		sheetRepo:            sheetRepo,
+		columnRepo:           columnRepo,
 	}
 }
 
@@ -73,7 +81,7 @@ func (s *documentTemplateService) GetTemplate(
 	id uuid.UUID,
 ) (*model.DocumentTemplate, error) {
 
-	t, err := s.repo.GetByID(ctx, id)
+	t, err := s.documentTemplateRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +109,7 @@ func (s *documentTemplateService) CreateTemplate(
 ) (*model.DocumentTemplate, error) {
 
 	// 1. Validate uniqueness
-	exists, err := s.repo.ExistsCode(ctx, req.Code)
+	exists, err := s.documentTemplateRepo.ExistsCode(ctx, req.Code)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +118,7 @@ func (s *documentTemplateService) CreateTemplate(
 	}
 
 	// 2. Create template
-	template, err := s.repo.Create(ctx, db.CreateDocumentTemplateParams{
+	template, err := s.documentTemplateRepo.Create(ctx, db.CreateDocumentTemplateParams{
 		ID:   uuid.New(),
 		Code: req.Code,
 		Name: req.Name,
@@ -145,7 +153,7 @@ func (s *documentTemplateService) GetTemplateRuntime(
 	code string,
 ) (*model.TemplateRuntime, error) {
 
-	t, err := s.repo.GetByCode(ctx, code)
+	t, err := s.documentTemplateRepo.GetByCode(ctx, code)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +171,7 @@ func (s *documentTemplateService) GetTemplateByCode(
 	code string,
 ) (*model.DocumentTemplate, error) {
 
-	t, err := s.repo.GetByCode(ctx, code)
+	t, err := s.documentTemplateRepo.GetByCode(ctx, code)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +194,7 @@ func (s *documentTemplateService) GetTemplateByCode(
 }
 
 func (s *documentTemplateService) ListTemplates(ctx context.Context) ([]model.DocumentTemplate, error) {
-	items, err := s.repo.List(ctx)
+	items, err := s.documentTemplateRepo.List(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +221,7 @@ func (s *documentTemplateService) ListTemplates(ctx context.Context) ([]model.Do
 }
 
 func (s *documentTemplateService) ListActiveTemplates(ctx context.Context) ([]model.DocumentTemplate, error) {
-	items, err := s.repo.ListActive(ctx)
+	items, err := s.documentTemplateRepo.ListActive(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -245,13 +253,13 @@ func (s *documentTemplateService) PublishTemplate(
 ) error {
 
 	// 1. Get template
-	t, err := s.repo.GetByID(ctx, id)
+	t, err := s.documentTemplateRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
 	// 2. Deactivate all other versions
-	versions, err := s.repo.ListVersions(ctx, t.Code)
+	versions, err := s.documentTemplateRepo.ListVersions(ctx, t.Code)
 	if err != nil {
 		return err
 	}
@@ -259,7 +267,7 @@ func (s *documentTemplateService) PublishTemplate(
 	for _, v := range versions {
 		v.IsActive = false
 
-		_, err := s.repo.Update(ctx, db.UpdateDocumentTemplateParams{
+		_, err := s.documentTemplateRepo.Update(ctx, db.UpdateDocumentTemplateParams{
 			ID:            v.ID,
 			Name:          v.Name,
 			Description:   v.Description,
@@ -275,7 +283,7 @@ func (s *documentTemplateService) PublishTemplate(
 	// 3. Activate selected version
 	t.IsActive = true
 
-	_, err = s.repo.Update(ctx, db.UpdateDocumentTemplateParams{
+	_, err = s.documentTemplateRepo.Update(ctx, db.UpdateDocumentTemplateParams{
 		ID:            t.ID,
 		Name:          t.Name,
 		Description:   t.Description,
@@ -292,14 +300,14 @@ func (s *documentTemplateService) ArchiveTemplate(
 	id uuid.UUID,
 ) error {
 
-	return s.repo.Archive(ctx, id)
+	return s.documentTemplateRepo.Archive(ctx, id)
 }
 
 func (s *documentTemplateService) GetTemplateStructure(
 	ctx context.Context,
 	code string,
 ) (*model.TemplateStructure, error) {
-	t, err := s.repo.GetByCode(ctx, code)
+	t, err := s.documentTemplateRepo.GetByCode(ctx, code)
 	if err != nil {
 		return nil, err
 	}
@@ -373,13 +381,25 @@ func (s *documentTemplateService) GetTemplateStructure(
 	return structure, nil
 }
 
+func (s *documentTemplateService) GetTemplateStructureByDocumentID(
+	ctx context.Context,
+	documentID uuid.UUID,
+) (*model.TemplateStructure, error) {
+	t, err := s.documentTemplateRepo.GetByDocumentID(ctx, documentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetTemplateStructure(ctx, t.Code)
+}
+
 func (s *documentTemplateService) UpdateTemplate(
 	ctx context.Context,
 	req model.UpdateTemplateRequest,
 ) (*model.DocumentTemplate, error) {
 
 	// 1. Get existing template
-	t, err := s.repo.GetByID(ctx, req.ID)
+	t, err := s.documentTemplateRepo.GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +411,7 @@ func (s *documentTemplateService) UpdateTemplate(
 	}
 
 	// 3. Update template
-	updated, err := s.repo.Update(ctx, db.UpdateDocumentTemplateParams{
+	updated, err := s.documentTemplateRepo.Update(ctx, db.UpdateDocumentTemplateParams{
 		ID:   t.ID,
 		Name: req.Name,
 
@@ -435,19 +455,19 @@ func (s *documentTemplateService) DeleteTemplate(
 ) error {
 
 	// 1. Get template
-	t, err := s.repo.GetByID(ctx, id)
+	t, err := s.documentTemplateRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
 	// 2. Delete all versions of the template
-	versions, err := s.repo.ListVersions(ctx, t.Code)
+	versions, err := s.documentTemplateRepo.ListVersions(ctx, t.Code)
 	if err != nil {
 		return err
 	}
 
 	for _, v := range versions {
-		err := s.repo.Delete(ctx, v.ID)
+		err := s.documentTemplateRepo.Delete(ctx, v.ID)
 		if err != nil {
 			return err
 		}
@@ -460,8 +480,18 @@ func (s *documentTemplateService) CreateTemplateStructure(
 	ctx context.Context,
 	req model.CreateTemplateStructureRequest,
 ) (*model.TemplateStructure, error) {
-	template, err := s.repo.Create(ctx, db.CreateDocumentTemplateParams{
-		ID:   uuid.New(),
+	template, err := s.documentTemplateRepo.Create(ctx, db.CreateDocumentTemplateParams{
+		ID: uuid.New(),
+		DocumentID: uuid.NullUUID{
+			UUID: func() uuid.UUID {
+				if req.Template.DocumentID == nil {
+					return uuid.Nil
+				}
+
+				return *req.Template.DocumentID
+			}(),
+			Valid: req.Template.DocumentID != nil,
+		},
 		Code: req.Template.Code,
 		Name: req.Template.Name,
 		Description: sql.NullString{
@@ -479,7 +509,6 @@ func (s *documentTemplateService) CreateTemplateStructure(
 	if err != nil {
 		return nil, err
 	}
-
 	sheets := make([]model.TemplateSheetStructure, 0, len(req.Sheets))
 
 	for _, sheetReq := range req.Sheets {
@@ -525,9 +554,7 @@ func (s *documentTemplateService) CreateTemplateStructure(
 					String: columnReq.DisplayName,
 					Valid:  columnReq.DisplayName != "",
 				},
-				DataType: db.DocumentTemplateColumnType(
-					columnReq.DataType,
-				),
+				DataType: normalizeColumnDataType(columnReq.DataType),
 				Required: columnReq.Required,
 				IsUnique: columnReq.IsUnique,
 				ColumnOrder: sql.NullInt32{
@@ -603,6 +630,31 @@ func (s *documentTemplateService) CreateTemplateStructure(
 		},
 		Sheets: sheets,
 	}, nil
+}
+
+func normalizeColumnDataType(value string) db.DocumentTemplateColumnType {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "TEXT", "STRING", "VARCHAR":
+		return db.DocumentTemplateColumnTypeSTRING
+
+	case "NUMBER", "NUMERIC", "DECIMAL", "FLOAT", "DOUBLE":
+		return db.DocumentTemplateColumnTypeDECIMAL
+
+	case "INTEGER", "INT":
+		return db.DocumentTemplateColumnTypeINTEGER
+
+	case "DATE":
+		return db.DocumentTemplateColumnTypeDATE
+
+	case "DATETIME", "TIMESTAMP":
+		return db.DocumentTemplateColumnTypeDATETIME
+
+	case "BOOLEAN", "BOOL":
+		return db.DocumentTemplateColumnTypeBOOLEAN
+
+	default:
+		return db.DocumentTemplateColumnTypeSTRING
+	}
 }
 
 func fromJSON(raw json.RawMessage) map[string]any {

@@ -442,11 +442,9 @@ func (h *DocumentTemplateHandler) ListColumns(c *gin.Context) {
 }
 
 func (h *DocumentTemplateHandler) CreateTemplateWithStructure(c *gin.Context) {
-
 	var req model.CreateTemplateStructureRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-
 		response.Fail(
 			c,
 			http.StatusBadRequest,
@@ -459,7 +457,6 @@ func (h *DocumentTemplateHandler) CreateTemplateWithStructure(c *gin.Context) {
 
 	userID, err := uuid.Parse(c.GetString("user_id"))
 	if err != nil {
-
 		response.Fail(
 			c,
 			http.StatusUnauthorized,
@@ -477,11 +474,9 @@ func (h *DocumentTemplateHandler) CreateTemplateWithStructure(c *gin.Context) {
 		req,
 	)
 	if err != nil {
-
 		var apiErr *apierror.APIError
 
 		if errors.As(err, &apiErr) {
-
 			response.Fail(
 				c,
 				apiErr.HTTPStatus,
@@ -496,7 +491,7 @@ func (h *DocumentTemplateHandler) CreateTemplateWithStructure(c *gin.Context) {
 			c,
 			http.StatusInternalServerError,
 			"CREATE_TEMPLATE_FAILED",
-			"Failed to create template with structure",
+			err.Error(),
 		)
 
 		return

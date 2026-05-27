@@ -10,21 +10,24 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 	"github.com/moh-sso-dashboard/internal/service"
+
+	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 
 	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type Service struct {
 	documentRepo     documentRepo.DocumentRepository
+	stockRepo        documentRepo.StockImportRepository
 	processRepo      processRepo.ProcessRepository
 	fileRepository   documentRepo.FileRepository
 	importRepository interfaces.ImportRepository
 
-	facilityMetricsService *service.SurveillanceFacilityWeeklyMetricsService
-	weeklyStatusService    *service.SurveillanceWeeklyStatusService
-	alertsService          *service.SurveillanceAlertService
+	documentTemplateService service.DocumentTemplateService
+	facilityMetricsService  *service.SurveillanceFacilityWeeklyMetricsService
+	weeklyStatusService     *service.SurveillanceWeeklyStatusService
+	alertsService           *service.SurveillanceAlertService
 
 	registry *Registry
 	storage  storage.Storage
@@ -33,9 +36,11 @@ type Service struct {
 }
 
 func NewService(documentRepo documentRepo.DocumentRepository,
+	stockRepo documentRepo.StockImportRepository,
 	processRepo processRepo.ProcessRepository,
 	fileRepository documentRepo.FileRepository,
 	importRepository interfaces.ImportRepository,
+	documentTemplateService service.DocumentTemplateService,
 	facilityMetricsService *service.SurveillanceFacilityWeeklyMetricsService,
 	weeklyStatusService *service.SurveillanceWeeklyStatusService,
 	alertsService *service.SurveillanceAlertService,
@@ -43,13 +48,15 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 	reg := NewRegistry()
 
 	s := &Service{
-		documentRepo:     documentRepo,
-		processRepo:      processRepo,
-		fileRepository:   fileRepository,
-		importRepository: importRepository,
-		registry:         reg,
-		storage:          storage,
-		remoteDB:         remote,
+		documentRepo:            documentRepo,
+		stockRepo:               stockRepo,
+		processRepo:             processRepo,
+		fileRepository:          fileRepository,
+		importRepository:        importRepository,
+		registry:                reg,
+		storage:                 storage,
+		remoteDB:                remote,
+		documentTemplateService: documentTemplateService,
 	}
 
 	// Register processors
@@ -62,7 +69,7 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 
 	reg.Register(model.ProcessTypeCSVImport, NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))
 
-	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, storage))
+	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, stockRepo, processRepo, documentTemplateService, storage, remote))
 
 	reg.Register(model.ProcessTypeFHIRImport, NewFhirBundlerProcessor(documentRepo, storage))
 

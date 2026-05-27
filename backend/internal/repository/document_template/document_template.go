@@ -14,6 +14,8 @@ type DocumentTemplateRepository interface {
 
 	GetByCode(ctx context.Context, code string) (db.DocumentTemplate, error)
 
+	GetByDocumentID(ctx context.Context, documentID uuid.UUID) (db.DocumentTemplate, error)
+
 	List(ctx context.Context) ([]db.DocumentTemplate, error)
 
 	ListActive(ctx context.Context) ([]db.DocumentTemplate, error)

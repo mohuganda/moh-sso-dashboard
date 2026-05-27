@@ -8,9 +8,11 @@ INSERT INTO documents (
     storage_location_id,
     object_key,
     uploaded_by,
-    status
+    status,
+    metadata,
+    is_template
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
 RETURNING *;
 
@@ -88,6 +90,7 @@ SET status = 'PENDING',
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;
+
 
 -- name: ListDocumentsByStatus :many
 SELECT *

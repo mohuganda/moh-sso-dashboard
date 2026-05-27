@@ -31,11 +31,12 @@ FROM document_templates
 WHERE id = $1
 LIMIT 1;
 
+
 -- name: GetDocumentTemplateByCode :one
 SELECT *
 FROM document_templates
 WHERE code = $1
-  AND is_active = TRUE
+  AND archived_at IS NULL
 ORDER BY version DESC
 LIMIT 1;
 
@@ -53,6 +54,7 @@ FROM document_templates
 WHERE is_active = TRUE
   AND archived_at IS NULL
 ORDER BY name;
+
 
 -- name: UpdateDocumentTemplate :one
 UPDATE document_templates
@@ -72,9 +74,11 @@ UPDATE document_templates
 SET archived_at = NOW()
 WHERE id = $1;
 
+
 -- name: DeleteDocumentTemplate :exec
 DELETE FROM document_templates
 WHERE id = $1;
+
 
 -- name: ListDocumentTemplateVersions :many
 SELECT *
@@ -89,3 +93,11 @@ SELECT EXISTS (
     FROM document_templates
     WHERE code = $1
 );
+
+
+-- name: GetDocumentTemplateByDocumentID :one
+SELECT *
+FROM document_templates
+WHERE document_id = $1
+  AND archived_at IS NULL
+LIMIT 1;

@@ -64,13 +64,19 @@ export const documentsApi = baseApi.injectEndpoints({
     // CREATE DOCUMENT (UPLOAD)
     // -----------------------------
     createDocument: builder.mutation<DocumentResponse, CreateDocumentPayload>({
-      query: ({ file, storageLocation, processType }) => {
+      query: ({ file, storageLocation, processType, isTemplate, metadata }) => {
         const formData = new FormData();
+
         formData.append("file", file);
         formData.append("storage_location", storageLocation);
+        formData.append("is_template", String(Boolean(isTemplate)));
 
         if (processType) {
           formData.append("process_type", processType);
+        }
+
+        if (metadata) {
+          formData.append("metadata", JSON.stringify(metadata));
         }
 
         return {
@@ -79,7 +85,9 @@ export const documentsApi = baseApi.injectEndpoints({
           body: formData,
         };
       },
+
       transformResponse: (response: ApiEnvelope<DocumentResponse>) => response.data,
+
       invalidatesTags: [{ type: "Documents", id: "LIST" }],
     }),
 

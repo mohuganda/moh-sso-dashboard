@@ -4,8 +4,10 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -123,33 +125,96 @@ func NewDocumentHandler(
 func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	log.Printf("[CreateDocument] Request received")
+
 	userIDStr := c.GetString("user_id")
+
+	log.Printf("[CreateDocument] user_id=%s", userIDStr)
+
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
+		log.Printf("[CreateDocument] invalid user id: %v", err)
+
 		response.Fail(c, http.StatusUnauthorized, "INVALID_USER", "invalid user id")
 		return
 	}
 
 	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+		log.Printf("[CreateDocument] multipart parse failed: %v", err)
+
 		response.Fail(c, http.StatusBadRequest, "INVALID_MULTIPART", "invalid multipart form")
 		return
 	}
 
 	storageLocationStr := c.PostForm("storage_location")
+
+	log.Printf("[CreateDocument] storage_location=%s", storageLocationStr)
+
 	storageLocationID, err := uuid.Parse(storageLocationStr)
 	if err != nil {
+		log.Printf("[CreateDocument] invalid storage location: %v", err)
+
 		response.Fail(c, http.StatusBadRequest, "INVALID_STORAGE_LOCATION", "invalid storage location")
 		return
 	}
 
+	isTemplate := strings.EqualFold(
+		strings.TrimSpace(c.PostForm("is_template")),
+		"true",
+	)
+
+	log.Printf("[CreateDocument] is_template=%v", isTemplate)
+
+	metadata := map[string]any{}
+
+	metadataRaw := strings.TrimSpace(c.PostForm("metadata"))
+
+	log.Printf("[CreateDocument] metadata_raw=%s", metadataRaw)
+
+	if metadataRaw != "" {
+		if err := json.Unmarshal([]byte(metadataRaw), &metadata); err != nil {
+
+			log.Printf("[CreateDocument] metadata unmarshal failed: %v", err)
+
+			response.Fail(
+				c,
+				http.StatusBadRequest,
+				"INVALID_METADATA",
+				"metadata must be valid JSON",
+			)
+			return
+		}
+	}
+
+	log.Printf("[CreateDocument] parsed metadata=%v", metadata)
+
+	templateCode := ""
+	if value, ok := metadata["template_code"].(string); ok {
+		templateCode = strings.TrimSpace(value)
+	}
+
+	log.Printf("[CreateDocument] template_code=%s", templateCode)
+
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
+
+		log.Printf("[CreateDocument] file missing: %v", err)
+
 		response.Fail(c, http.StatusBadRequest, "FILE_REQUIRED", "file is required")
 		return
 	}
 	defer file.Close()
 
+	log.Printf(
+		"[CreateDocument] file received | filename=%s | size=%d",
+		header.Filename,
+		header.Size,
+	)
+
 	if header.Size == 0 {
+
+		log.Printf("[CreateDocument] empty file uploaded")
+
 		response.Fail(c, http.StatusBadRequest, "EMPTY_FILE", "file is empty")
 		return
 	}
@@ -159,38 +224,94 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		contentType = "application/octet-stream"
 	}
 
+	log.Printf("[CreateDocument] content_type=%s", contentType)
+
 	fileNeedsProcessing := requiresProcessing(contentType, header.Filename)
 
+	log.Printf(
+		"[CreateDocument] needs_processing=%v",
+		fileNeedsProcessing,
+	)
+
 	var processType model.ProcessType
-	if fileNeedsProcessing {
+
+	if fileNeedsProcessing && !isTemplate {
+
 		processTypeValue := strings.TrimSpace(c.PostForm("process_type"))
+
+		log.Printf("[CreateDocument] process_type_raw=%s", processTypeValue)
+
 		if processTypeValue == "" {
-			response.Fail(c, http.StatusBadRequest, "PROCESS_TYPE_REQUIRED", "process type is required for this file type")
+
+			log.Printf("[CreateDocument] process type missing")
+
+			response.Fail(
+				c,
+				http.StatusBadRequest,
+				"PROCESS_TYPE_REQUIRED",
+				"process type is required for this file type",
+			)
 			return
 		}
 
 		parsedProcessType, ok := model.ParseProcessType(processTypeValue)
 		if !ok {
-			response.Fail(c, http.StatusBadRequest, "INVALID_PROCESS_TYPE", "invalid process type")
+
+			log.Printf("[CreateDocument] invalid process type=%s", processTypeValue)
+
+			response.Fail(
+				c,
+				http.StatusBadRequest,
+				"INVALID_PROCESS_TYPE",
+				"invalid process type",
+			)
 			return
 		}
 
 		processType = parsedProcessType
+
+		log.Printf("[CreateDocument] parsed process type=%s", processType)
+
+		if templateCode == "" {
+
+			log.Printf("[CreateDocument] template code missing")
+
+			response.Fail(
+				c,
+				http.StatusBadRequest,
+				"TEMPLATE_CODE_REQUIRED",
+				"template code is required for processable document uploads",
+			)
+			return
+		}
 	}
 
 	loc, err := h.storageLocationService.GetByID(ctx, storageLocationStr)
 	if err != nil {
+
+		log.Printf("[CreateDocument] storage lookup failed: %v", err)
+
 		response.Fail(c, http.StatusBadRequest, "INVALID_STORAGE", err.Error())
 		return
 	}
 
+	log.Printf(
+		"[CreateDocument] storage location resolved | provider=%s",
+		loc.Provider,
+	)
+
 	storageProvider, err := h.storageFactory.Get(loc.Provider)
 	if err != nil {
+
+		log.Printf("[CreateDocument] storage provider init failed: %v", err)
+
 		response.Fail(c, http.StatusBadRequest, "INVALID_PROVIDER", err.Error())
 		return
 	}
 
 	objectKey := uuid.New().String()
+
+	log.Printf("[CreateDocument] generated object_key=%s", objectKey)
 
 	hasher := sha256.New()
 	teeReader := io.TeeReader(file, hasher)
@@ -202,16 +323,36 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		header.Size,
 		contentType,
 	); err != nil {
-		response.Fail(c, http.StatusInternalServerError, "UPLOAD_FAILED", "failed to upload file")
+
+		log.Printf("[CreateDocument] upload failed: %v", err)
+
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"UPLOAD_FAILED",
+			"failed to upload file",
+		)
 		return
 	}
 
+	log.Printf("[CreateDocument] upload successful")
+
 	checksumStr := hex.EncodeToString(hasher.Sum(nil))
 
+	log.Printf("[CreateDocument] checksum=%s", checksumStr)
+
 	status := db.DocumentStatusCOMPLETED
-	if fileNeedsProcessing {
+	if fileNeedsProcessing && !isTemplate {
 		status = db.DocumentStatusPENDING
 	}
+
+	log.Printf("[CreateDocument] resolved status=%s", status)
+
+	if templateCode != "" {
+		metadata["template_code"] = templateCode
+	}
+
+	log.Printf("[CreateDocument] final metadata=%v", metadata)
 
 	input := service.CreateDocumentInput{
 		OriginalFilename: header.Filename,
@@ -222,18 +363,36 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 		ObjectKey:        objectKey,
 		UploadedBy:       userID,
 		Status:           status,
+		IsTemplate:       isTemplate,
+		Metadata:         metadata,
 	}
 
-	if fileNeedsProcessing {
+	if fileNeedsProcessing && !isTemplate {
 		input.ProcessType = processType
 	}
 
+	log.Printf("[CreateDocument] creating document service entry")
+
 	doc, err := h.documentService.CreateDocument(ctx, input)
 	if err != nil {
+
+		log.Printf("[CreateDocument] document creation failed: %v", err)
+
 		_ = storageProvider.Delete(ctx, objectKey)
-		response.Fail(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error())
+
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"CREATE_FAILED",
+			err.Error(),
+		)
 		return
 	}
+
+	log.Printf(
+		"[CreateDocument] document created successfully | document_id=%s",
+		doc.ID,
+	)
 
 	objectURL, _ := storageProvider.GetObjectURL(ctx, objectKey)
 	viewURL, _ := storageProvider.GetViewURL(ctx, objectKey, header.Filename)

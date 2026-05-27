@@ -53,6 +53,11 @@ type TemplateValidationConfig = {
   requiredHeaders: string[];
 };
 
+type DetectedSheet = {
+  name: string;
+  headers: string[];
+};
+
 const CSV_HEADER_READ_BYTES = 64 * 1024;
 
 function getFileExtension(fileName: string): string {
@@ -112,6 +117,40 @@ async function extractHeadersFromFile(file: File): Promise<string[]> {
   }
 
   if (extension === ".xlsx" || extension === ".xls") {
+    const sheets = await extractSheetsFromFile(file);
+    return sheets[0]?.headers ?? [];
+  }
+
+  return [];
+}
+
+async function extractSheetsFromFile(file: File): Promise<DetectedSheet[]> {
+  const extension = getFileExtension(file.name);
+
+  if (extension === ".csv") {
+    const text = await file.slice(0, CSV_HEADER_READ_BYTES).text();
+
+    const headers = await new Promise<string[]>((resolve, reject) => {
+      Papa.parse<Record<string, unknown>>(text, {
+        header: true,
+        skipEmptyLines: true,
+        preview: 1,
+        complete: (results) => {
+          resolve((results.meta.fields ?? []).map(normalizeHeader).filter(Boolean));
+        },
+        error: reject,
+      });
+    });
+
+    return [
+      {
+        name: "CSV Data",
+        headers,
+      },
+    ];
+  }
+
+  if (extension === ".xlsx" || extension === ".xls") {
     const buffer = await file.arrayBuffer();
 
     const workbook = XLSX.read(buffer, {
@@ -119,23 +158,22 @@ async function extractHeadersFromFile(file: File): Promise<string[]> {
       sheetRows: 1,
     });
 
-    const firstSheetName = workbook.SheetNames[0];
+    return workbook.SheetNames.map((sheetName) => {
+      const worksheet = workbook.Sheets[sheetName];
 
-    if (!firstSheetName) {
-      return [];
-    }
+      const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(worksheet, {
+        header: 1,
+        defval: "",
+        blankrows: false,
+      });
 
-    const worksheet = workbook.Sheets[firstSheetName];
+      const firstRow = Array.isArray(rows[0]) ? rows[0] : [];
 
-    const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(worksheet, {
-      header: 1,
-      defval: "",
-      blankrows: false,
-    });
-
-    const firstRow = Array.isArray(rows[0]) ? rows[0] : [];
-
-    return firstRow.map(normalizeHeader).filter(Boolean);
+      return {
+        name: sheetName,
+        headers: firstRow.map(normalizeHeader).filter(Boolean),
+      };
+    }).filter((sheet) => sheet.headers.length > 0);
   }
 
   return [];
@@ -177,6 +215,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
   const [uploadMode, setUploadMode] = useState<UploadMode>("document");
   const [file, setFile] = useState<File | null>(null);
   const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
+  const [detectedSheets, setDetectedSheets] = useState<DetectedSheet[]>([]);
   const [storageLocation, setStorageLocation] = useState("");
   const [processType, setProcessType] = useState<DocumentProcessType | "">("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
@@ -218,15 +257,17 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
 
   const isPdf = useMemo(() => (file ? isPdfFile(file) : false), [file]);
 
+  const normalizedTemplateCode = useMemo(() => normalizeTemplateCode(templateCode), [templateCode]);
+
+  const templateCodeExists = useMemo(
+    () => savedTemplates.some((template) => template.code === normalizedTemplateCode),
+    [savedTemplates, normalizedTemplateCode],
+  );
+
   const selectedTemplateConfig = useMemo<TemplateValidationConfig | null>(() => {
     const template = savedTemplates.find((item) => item.code === selectedTemplate);
 
     if (!template) return null;
-
-    const requiredHeaders = getStringArrayFromConfig(template.configuration, [
-      "required_headers",
-      "requiredHeaders",
-    ]);
 
     const allowedExtensions = getStringArrayFromConfig(template.configuration, [
       "allowed_extensions",
@@ -236,7 +277,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
     return {
       label: template.name,
       allowedExtensions,
-      requiredHeaders,
+      requiredHeaders: [],
     };
   }, [savedTemplates, selectedTemplate]);
 
@@ -290,6 +331,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
 
       setTemplateValidationMessage(null);
       setDetectedHeaders([]);
+      setDetectedSheets([]);
 
       if (!isAcceptedFile(selectedFile)) {
         setFile(null);
@@ -316,7 +358,10 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
         try {
           setIsValidatingTemplate(true);
 
-          const headers = await extractHeadersFromFile(selectedFile);
+          const sheets = await extractSheetsFromFile(selectedFile);
+          const headers = sheets.flatMap((sheet) => sheet.headers);
+
+          setDetectedSheets(sheets);
           setDetectedHeaders(headers);
 
           if (uploadMode === "template") {
@@ -366,10 +411,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
 
     const config: TemplateValidationConfig = {
       label: template.name,
-      requiredHeaders: getStringArrayFromConfig(template.configuration, [
-        "required_headers",
-        "requiredHeaders",
-      ]),
+      requiredHeaders: [],
       allowedExtensions: getStringArrayFromConfig(template.configuration, [
         "allowed_extensions",
         "allowedExtensions",
@@ -397,8 +439,15 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       return;
     }
 
-    if (uploadMode === "template" && !templateCode.trim()) {
+    if (uploadMode === "template" && !normalizedTemplateCode) {
       setError("Please enter a template code.");
+      return;
+    }
+
+    if (uploadMode === "template" && templateCodeExists) {
+      setError(
+        `Template code "${normalizedTemplateCode}" already exists. Please use another code.`,
+      );
       return;
     }
 
@@ -434,22 +483,25 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       setError(null);
 
       if (uploadMode === "template") {
-        const headers = !isPdfFile(file)
-          ? detectedHeaders.length
-            ? detectedHeaders
-            : await extractHeadersFromFile(file)
+        const sheets = !isPdfFile(file)
+          ? detectedSheets.length
+            ? detectedSheets
+            : await extractSheetsFromFile(file)
           : [];
+
+        const headers = sheets.flatMap((sheet) => sheet.headers);
 
         const uploadedDocument = await createDocument({
           file,
           storageLocation,
+          isTemplate: true,
           ...(requiresProcessing(file) && processType ? { processType } : {}),
         }).unwrap();
 
-        await createTemplateStructure({
+        const payload = {
           template: {
             document_id: uploadedDocument.id,
-            code: normalizeTemplateCode(templateCode),
+            code: normalizedTemplateCode,
             name: templateName.trim(),
             description: templateDescription.trim(),
             file_type: getFileExtension(file.name).replace(".", ""),
@@ -457,44 +509,47 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
               source_file_name: file.name,
               allowed_extensions: [getFileExtension(file.name)],
               required_headers: headers,
-              process_type: processType || null,
+              process_type: null,
             },
           },
-          sheets: [
-            {
-              sheet: {
-                code: "default",
-                name: "Default Sheet",
-                display_name: "Default Sheet",
-                required: true,
-                sheet_order: 1,
-                header_row: 1,
-                start_row: 2,
-                allow_extra_columns: true,
-                allow_duplicate_headers: false,
-                configuration: {},
-              },
-              columns: headers.map((header, index) => ({
-                column_key: header,
-                column_name: header,
-                display_name: header,
-                data_type: "text",
-                required: false,
-                is_unique: false,
-                column_order: index + 1,
-                default_value: null,
-                allowed_values: [],
-                aliases: [],
-                configuration: {},
-              })),
+          sheets: sheets.map((sheet, sheetIndex) => ({
+            sheet: {
+              code: normalizeHeader(sheet.name),
+              name: sheet.name,
+              display_name: sheet.name,
+              required: true,
+              sheet_order: sheetIndex + 1,
+              header_row: 1,
+              start_row: 2,
+              allow_extra_columns: true,
+              allow_duplicate_headers: false,
+              configuration: {},
             },
-          ],
-        }).unwrap();
+            columns: sheet.headers.map((header, index) => ({
+              column_key: header,
+              column_name: header,
+              display_name: header,
+              data_type: "STRING",
+              required: false,
+              is_unique: false,
+              column_order: index + 1,
+              default_value: null,
+              allowed_values: [],
+              aliases: [],
+              configuration: {},
+            })),
+          })),
+        };
+
+        const createdTemplate = await createTemplateStructure(payload).unwrap();
+
+        console.log("[UploadDocumentModal] template structure created", createdTemplate);
       } else {
         await createDocument({
           file,
           storageLocation,
           ...(requiresProcessing(file) && processType ? { processType } : {}),
+          ...(selectedTemplate ? { metadata: { template_code: selectedTemplate } } : {}),
         }).unwrap();
       }
 
@@ -519,7 +574,8 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
     !file ||
     !storageLocation ||
     (uploadMode === "document" && fileNeedsProcessing && !processType) ||
-    (uploadMode === "template" && (!templateName.trim() || !templateCode.trim())) ||
+    (uploadMode === "template" &&
+      (!templateName.trim() || !normalizedTemplateCode || templateCodeExists)) ||
     !hasStorageLocations ||
     isTemplateInvalid;
 
@@ -543,6 +599,15 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
               subtitle={error}
               lowContrast
               onCloseButtonClick={() => setError(null)}
+            />
+          )}
+
+          {uploadMode === "template" && templateCodeExists && (
+            <InlineNotification
+              kind="warning"
+              title="Template code already exists"
+              subtitle={`Template code "${normalizedTemplateCode}" is already in use.`}
+              lowContrast
             />
           )}
 
@@ -598,7 +663,9 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
               {isPdf ? (
                 <Tag type="cool-gray">No processing required</Tag>
               ) : (
-                <Tag type="purple">Processing required</Tag>
+                <Tag type={uploadMode === "template" ? "cyan" : "purple"}>
+                  {uploadMode === "template" ? "Template only" : "Processing required"}
+                </Tag>
               )}
             </div>
           )}
@@ -611,6 +678,8 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
                 placeholder="e.g NMS_STOCK_REPORT"
                 value={templateCode}
                 onChange={(e) => setTemplateCode(normalizeTemplateCode(e.target.value))}
+                invalid={templateCodeExists}
+                invalidText={`Template code "${normalizedTemplateCode}" already exists.`}
                 disabled={isUploading || isValidatingTemplate}
               />
 
@@ -702,7 +771,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
             />
           )}
 
-          {fileNeedsProcessing ? (
+          {fileNeedsProcessing && uploadMode === "document" ? (
             <Select
               id="process-type"
               labelText="Process type"
@@ -720,8 +789,12 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
             file && (
               <InlineNotification
                 kind="info"
-                title="PDF upload"
-                subtitle="This file will be uploaded and stored without any processing job."
+                title={uploadMode === "template" ? "Template upload" : "PDF upload"}
+                subtitle={
+                  uploadMode === "template"
+                    ? "This file will be stored as a template and will not create a processing job."
+                    : "This file will be uploaded and stored without any processing job."
+                }
                 lowContrast
               />
             )

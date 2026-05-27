@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -26,6 +27,8 @@ type CreateDocumentInput struct {
 	UploadedBy       uuid.UUID
 	ProcessType      models.ProcessType
 	Status           db.DocumentStatus
+	IsTemplate       bool
+	Metadata         map[string]any
 }
 
 type EditDocumentInput struct {
@@ -59,7 +62,6 @@ func (s *DocumentService) CreateDocument(
 	ctx context.Context,
 	input CreateDocumentInput,
 ) (db.Document, error) {
-
 	docID := uuid.New()
 
 	var checksum sql.NullString
@@ -74,15 +76,26 @@ func (s *DocumentService) CreateDocument(
 
 	status := input.Status
 	if status == "" {
-		if needsProcessing {
+		if needsProcessing && !input.IsTemplate {
 			status = db.DocumentStatusPENDING
 		} else {
 			status = db.DocumentStatusCOMPLETED
 		}
 	}
 
-	if needsProcessing && !input.ProcessType.IsValid() {
+	if needsProcessing && !input.IsTemplate && !input.ProcessType.IsValid() {
 		return db.Document{}, errors.New("invalid process type for processable document")
+	}
+
+	metadata := json.RawMessage([]byte(`{}`))
+
+	if len(input.Metadata) > 0 {
+		raw, err := json.Marshal(input.Metadata)
+		if err != nil {
+			return db.Document{}, err
+		}
+
+		metadata = raw
 	}
 
 	doc, err := s.repo.CreateDocument(
@@ -100,13 +113,15 @@ func (s *DocumentService) CreateDocument(
 			ObjectKey:         input.ObjectKey,
 			UploadedBy:        input.UploadedBy,
 			Status:            status,
+			Metadata:          metadata,
+			IsTemplate:        input.IsTemplate,
 		},
 	)
 	if err != nil {
 		return db.Document{}, err
 	}
 
-	if needsProcessing {
+	if needsProcessing && !input.IsTemplate {
 		_, err = s.processRepo.CreateProcess(ctx, db.CreateProcessParams{
 			ID:          uuid.New(),
 			DocumentID:  doc.ID,
@@ -120,6 +135,7 @@ func (s *DocumentService) CreateDocument(
 
 	if s.notifications != nil {
 		nt := models.DocumentCreated
+
 		s.notifications.Notify(ctx, models.Notification{
 			Type:     string(nt),
 			Title:    nt.Title(),

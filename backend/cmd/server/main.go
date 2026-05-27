@@ -17,11 +17,6 @@ import (
 	logger "github.com/moh-sso-dashboard/internal/log"
 	db "github.com/moh-sso-dashboard/internal/migrate"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
-	"github.com/moh-sso-dashboard/internal/service"
-	"github.com/moh-sso-dashboard/internal/worker"
-
-	"github.com/moh-sso-dashboard/internal/storage"
-
 	announcementRepo "github.com/moh-sso-dashboard/internal/repository/announcements"
 	authRepo "github.com/moh-sso-dashboard/internal/repository/auth"
 	clientRepo "github.com/moh-sso-dashboard/internal/repository/client"
@@ -37,13 +32,15 @@ import (
 	storageLocationRepo "github.com/moh-sso-dashboard/internal/repository/storage_locations"
 	repository "github.com/moh-sso-dashboard/internal/repository/surveillance"
 	userRepo "github.com/moh-sso-dashboard/internal/repository/user"
+	"github.com/moh-sso-dashboard/internal/service"
 	importSvc "github.com/moh-sso-dashboard/internal/service/import"
+	"github.com/moh-sso-dashboard/internal/storage"
+	"github.com/moh-sso-dashboard/internal/worker"
 
 	"github.com/rs/zerolog"
 )
 
 func main() {
-
 	// ==================================================
 	// Root Context
 	// ==================================================
@@ -174,6 +171,7 @@ func main() {
 	notificationsRepository := notificationsRepo.NewNotificationsRepository(store, *appLogger)
 
 	documentRepository := documentRepo.NewDocumentRepository(cfg, store, *appLogger)
+	documentStockImportRepository := documentRepo.NewStockImportRepository()
 
 	documentTemplateRepository := documentTemplateRepo.NewDocumentTemplateRepository(store)
 	documentTemplateColumnRepository := documentTemplateColumnRepo.NewDocumentTemplateColumnRepository(store)
@@ -208,7 +206,11 @@ func main() {
 	sessionService := service.NewSessionService(sessionRepository)
 
 	publisher := cache.NewNotificationPublisher(rdb)
-	notificationsService := service.NewNotificationsService(notificationsRepository, publisher)
+
+	notificationsService := service.NewNotificationsService(
+		notificationsRepository,
+		publisher,
+	)
 
 	documentService := service.NewDocumentService(
 		documentRepository,
@@ -217,12 +219,30 @@ func main() {
 		fileStorage,
 	)
 
-	clientService := service.NewClientService(clientRepository, notificationsService)
-	userService := service.NewUserService(userRepository, notificationsService)
-	announcementService := service.NewAnnouncementService(announcementRepository, notificationsService)
+	clientService := service.NewClientService(
+		clientRepository,
+		notificationsService,
+	)
 
-	diseaseService := service.NewSurveillanceDiseaseService(appLogger, diseaseRepository)
-	epiWeekService := service.NewSurveillanceEpiWeekService(appLogger, epiWeekRepository)
+	userService := service.NewUserService(
+		userRepository,
+		notificationsService,
+	)
+
+	announcementService := service.NewAnnouncementService(
+		announcementRepository,
+		notificationsService,
+	)
+
+	diseaseService := service.NewSurveillanceDiseaseService(
+		appLogger,
+		diseaseRepository,
+	)
+
+	epiWeekService := service.NewSurveillanceEpiWeekService(
+		appLogger,
+		epiWeekRepository,
+	)
 
 	locationService := service.NewSurveillanceLocationService(
 		appLogger,
@@ -242,7 +262,9 @@ func main() {
 		weeklyStatusRepository,
 	)
 
-	surveillanceImportService := service.NewSurveillanceImportService(importRepository)
+	surveillanceImportService := service.NewSurveillanceImportService(
+		importRepository,
+	)
 
 	alertsService := service.NewSurveillanceAlertService(
 		appLogger,
@@ -250,17 +272,10 @@ func main() {
 		importRepository,
 	)
 
-	importService := importSvc.NewService(
-		documentRepository,
-		processRepository,
-		fileRepository,
-		importRepository,
-		facilityWeeklyMetricsService,
-		weeklyStatusService,
-		alertsService,
-		fileStorage,
-		remoteDB,
-	)
+	// ==================================================
+	// TEMPLATE SERVICES
+	// ==================================================
+
 	documentTemplateService := service.NewDocumentTemplateService(
 		documentTemplateRepository,
 		documentTemplateSheetRepository,
@@ -275,6 +290,19 @@ func main() {
 		documentTemplateColumnRepository,
 	)
 
+	importService := importSvc.NewService(
+		documentRepository,
+		documentStockImportRepository,
+		processRepository,
+		fileRepository,
+		importRepository,
+		documentTemplateService,
+		facilityWeeklyMetricsService,
+		weeklyStatusService,
+		alertsService,
+		fileStorage,
+		remoteDB,
+	)
 	templateManager, err := service.NewTemplateManager(appLogger)
 	if err != nil {
 		appLogger.Fatal("Failed to initialize email template manager: ", err)
@@ -298,7 +326,6 @@ func main() {
 	if err != nil {
 		appLogger.Fatal("Failed to initialize email application service: ", err)
 	}
-
 	// ==================================================
 	// HANDLERS
 	// ==================================================

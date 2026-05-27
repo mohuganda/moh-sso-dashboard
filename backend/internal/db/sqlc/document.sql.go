@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/google/uuid"
 )
@@ -22,23 +23,27 @@ INSERT INTO documents (
     storage_location_id,
     object_key,
     uploaded_by,
-    status
+    status,
+    metadata,
+    is_template
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
 RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 `
 
 type CreateDocumentParams struct {
-	ID                uuid.UUID      `json:"id"`
-	OriginalFilename  string         `json:"original_filename"`
-	ContentType       sql.NullString `json:"content_type"`
-	SizeBytes         int64          `json:"size_bytes"`
-	ChecksumSha256    sql.NullString `json:"checksum_sha256"`
-	StorageLocationID uuid.UUID      `json:"storage_location_id"`
-	ObjectKey         string         `json:"object_key"`
-	UploadedBy        uuid.UUID      `json:"uploaded_by"`
-	Status            DocumentStatus `json:"status"`
+	ID                uuid.UUID       `json:"id"`
+	OriginalFilename  string          `json:"original_filename"`
+	ContentType       sql.NullString  `json:"content_type"`
+	SizeBytes         int64           `json:"size_bytes"`
+	ChecksumSha256    sql.NullString  `json:"checksum_sha256"`
+	StorageLocationID uuid.UUID       `json:"storage_location_id"`
+	ObjectKey         string          `json:"object_key"`
+	UploadedBy        uuid.UUID       `json:"uploaded_by"`
+	Status            DocumentStatus  `json:"status"`
+	Metadata          json.RawMessage `json:"metadata"`
+	IsTemplate        bool            `json:"is_template"`
 }
 
 func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error) {
@@ -52,6 +57,8 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		arg.ObjectKey,
 		arg.UploadedBy,
 		arg.Status,
+		arg.Metadata,
+		arg.IsTemplate,
 	)
 	var i Document
 	err := row.Scan(

@@ -7,7 +7,9 @@ export type ProcessStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 export type CreateDocumentPayload = {
   file: File;
   storageLocation: string;
+  isTemplate?: boolean;
   processType?: DocumentProcessType;
+  metadata?: Record<string, unknown>;
 };
 
 export type UpdateDocumentPayload = {

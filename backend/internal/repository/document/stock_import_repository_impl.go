@@ -98,7 +98,7 @@ func (r *stockImportRepository) InsertNMSStockIssuesBatch(
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO nms_stock_issues (
+		INSERT INTO import.nms_stock_issues (
 			document_id,
 			row_number,
 			order_type,
@@ -184,7 +184,7 @@ func (r *stockImportRepository) InsertNMSStockOnHandBatch(
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO nms_stock_on_hand (
+		INSERT INTO import.nms_stock_on_hand (
 			document_id,
 			row_number,
 			item_code,
@@ -263,7 +263,7 @@ func (r *stockImportRepository) InsertJMSStockIssuesBatch(
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO jms_stock_issues (
+		INSERT INTO import.jms_stock_issues (
 			document_id,
 			row_number,
 			order_no,

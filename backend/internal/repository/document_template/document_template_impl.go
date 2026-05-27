@@ -121,3 +121,13 @@ func (r *DocumentTemplateRepositoryImpl) ExistsCode(
 
 	return exists, nil
 }
+
+func (r *DocumentTemplateRepositoryImpl) GetByDocumentID(
+	ctx context.Context,
+	documentID uuid.UUID,
+) (db.DocumentTemplate, error) {
+	return r.q.GetDocumentTemplateByDocumentID(ctx, uuid.NullUUID{
+		UUID:  documentID,
+		Valid: documentID != uuid.Nil,
+	})
+}

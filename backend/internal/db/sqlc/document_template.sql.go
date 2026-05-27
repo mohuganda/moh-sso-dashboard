@@ -125,13 +125,42 @@ const getDocumentTemplateByCode = `-- name: GetDocumentTemplateByCode :one
 SELECT id, document_id, code, name, description, file_type, version, is_active, configuration, created_by, created_at, updated_at, archived_at
 FROM document_templates
 WHERE code = $1
-  AND is_active = TRUE
+  AND archived_at IS NULL
 ORDER BY version DESC
 LIMIT 1
 `
 
 func (q *Queries) GetDocumentTemplateByCode(ctx context.Context, code string) (DocumentTemplate, error) {
 	row := q.db.QueryRowContext(ctx, getDocumentTemplateByCode, code)
+	var i DocumentTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.DocumentID,
+		&i.Code,
+		&i.Name,
+		&i.Description,
+		&i.FileType,
+		&i.Version,
+		&i.IsActive,
+		&i.Configuration,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const getDocumentTemplateByDocumentID = `-- name: GetDocumentTemplateByDocumentID :one
+SELECT id, document_id, code, name, description, file_type, version, is_active, configuration, created_by, created_at, updated_at, archived_at
+FROM document_templates
+WHERE document_id = $1
+  AND archived_at IS NULL
+LIMIT 1
+`
+
+func (q *Queries) GetDocumentTemplateByDocumentID(ctx context.Context, documentID uuid.NullUUID) (DocumentTemplate, error) {
+	row := q.db.QueryRowContext(ctx, getDocumentTemplateByDocumentID, documentID)
 	var i DocumentTemplate
 	err := row.Scan(
 		&i.ID,

@@ -139,6 +139,7 @@ type Querier interface {
 	GetDistrictByName(ctx context.Context, lower string) (District, error)
 	GetDocumentByID(ctx context.Context, id uuid.UUID) (Document, error)
 	GetDocumentTemplateByCode(ctx context.Context, code string) (DocumentTemplate, error)
+	GetDocumentTemplateByDocumentID(ctx context.Context, documentID uuid.NullUUID) (DocumentTemplate, error)
 	GetDocumentTemplateByID(ctx context.Context, id uuid.UUID) (DocumentTemplate, error)
 	GetDocumentTemplateColumnByID(ctx context.Context, id uuid.UUID) (DocumentTemplateColumn, error)
 	GetDocumentTemplateColumnByKey(ctx context.Context, arg GetDocumentTemplateColumnByKeyParams) (DocumentTemplateColumn, error)
