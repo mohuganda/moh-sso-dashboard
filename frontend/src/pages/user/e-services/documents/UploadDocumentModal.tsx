@@ -158,22 +158,30 @@ async function extractSheetsFromFile(file: File): Promise<DetectedSheet[]> {
       sheetRows: 1,
     });
 
-    return workbook.SheetNames.map((sheetName) => {
-      const worksheet = workbook.Sheets[sheetName];
+    const visibleSheetNames = workbook.SheetNames.filter((sheetName, index) => {
+      const sheetMeta = workbook.Workbook?.Sheets?.[index];
 
-      const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(worksheet, {
-        header: 1,
-        defval: "",
-        blankrows: false,
-      });
+      return !sheetMeta?.Hidden;
+    });
 
-      const firstRow = Array.isArray(rows[0]) ? rows[0] : [];
+    return visibleSheetNames
+      .map((sheetName) => {
+        const worksheet = workbook.Sheets[sheetName];
 
-      return {
-        name: sheetName,
-        headers: firstRow.map(normalizeHeader).filter(Boolean),
-      };
-    }).filter((sheet) => sheet.headers.length > 0);
+        const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(worksheet, {
+          header: 1,
+          defval: "",
+          blankrows: false,
+        });
+
+        const firstRow = Array.isArray(rows[0]) ? rows[0] : [];
+
+        return {
+          name: sheetName,
+          headers: firstRow.map(normalizeHeader).filter(Boolean),
+        };
+      })
+      .filter((sheet) => sheet.headers.length > 0);
   }
 
   return [];
