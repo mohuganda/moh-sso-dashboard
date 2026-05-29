@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -52,9 +54,26 @@ func (s *UserService) CreateUser(
 	req CreateUserRequest,
 	adminID uuid.UUID,
 ) (*models.User, error) {
+	if s == nil {
+		return nil, errors.New("user service is nil")
+	}
 
-	if req.Username == "" || req.Email == "" {
-		return nil, errors.New("username and email are required")
+	if s.repo == nil {
+		return nil, errors.New("user repository is nil")
+	}
+
+	req.Username = strings.TrimSpace(req.Username)
+	req.Email = strings.TrimSpace(req.Email)
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
+	req.FullName = strings.TrimSpace(req.FullName)
+
+	if req.Username == "" {
+		return nil, errors.New("username is required")
+	}
+
+	if req.Email == "" {
+		return nil, errors.New("email is required")
 	}
 
 	enabled := true
@@ -71,21 +90,29 @@ func (s *UserService) CreateUser(
 	}
 
 	if _, err := s.repo.CreateUser(user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create user: %w", err)
 	}
 
 	nt := models.UserCreated
-	s.notifications.Notify(ctx, models.Notification{
+	s.notify(ctx, models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
 		Message:    "New user account created",
 		TargetRole: "admin",
+		UserID:     user.ID,
 		Metadata: utils.MustJSON(map[string]any{
-			"user_id":  user.ID,
-			"username": user.Username,
-			"email":    user.Email,
-			"admin_id": adminID.String(),
+			"user_id":            user.ID,
+			"username":           user.Username,
+			"email":              user.Email,
+			"first_name":         user.FirstName,
+			"last_name":          user.LastName,
+			"enabled":            user.Enabled,
+			"send_invite":        req.SendInvite,
+			"require_pwd_change": req.RequirePwdChange != nil && *req.RequirePwdChange,
+			"realm_roles":        req.RealmRoles,
+			"client_roles":       req.ClientRoles,
+			"admin_id":           adminID.String(),
 		}),
 	})
 
@@ -98,10 +125,21 @@ func (s *UserService) SetUserEnabled(
 	enabled bool,
 	adminID uuid.UUID,
 ) error {
+	if s == nil {
+		return errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("user repository is nil")
+	}
+
+	if userID == uuid.Nil {
+		return errors.New("user id is required")
+	}
 
 	user, err := s.repo.GetUserByID(userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("get user before toggle enabled: %w", err)
 	}
 
 	if user.Enabled == enabled {
@@ -109,7 +147,7 @@ func (s *UserService) SetUserEnabled(
 	}
 
 	if err := s.repo.ToggleUserEnabled(ctx, userID.String(), enabled); err != nil {
-		return err
+		return fmt.Errorf("toggle user enabled: %w", err)
 	}
 
 	var nt models.NotificationType
@@ -123,16 +161,20 @@ func (s *UserService) SetUserEnabled(
 		msg = "User account disabled"
 	}
 
-	s.notifications.Notify(ctx, models.Notification{
+	s.notify(ctx, models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
 		Message:    msg,
 		TargetRole: "admin",
+		UserID:     user.ID,
 		Metadata: utils.MustJSON(map[string]any{
-			"user_id":  user.ID,
-			"username": user.Username,
-			"admin_id": adminID.String(),
+			"user_id":          user.ID,
+			"username":         user.Username,
+			"email":            user.Email,
+			"previous_enabled": user.Enabled,
+			"enabled":          enabled,
+			"admin_id":         adminID.String(),
 		}),
 	})
 
@@ -144,20 +186,36 @@ func (s *UserService) ResetUserPassword(
 	userID uuid.UUID,
 	adminID uuid.UUID,
 ) error {
+	if s == nil {
+		return errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("user repository is nil")
+	}
+
+	if userID == uuid.Nil {
+		return errors.New("user id is required")
+	}
+
+	user, _ := s.repo.GetUserByID(userID)
 
 	if err := s.repo.ResetUserPassword(ctx, userID.String()); err != nil {
-		return err
+		return fmt.Errorf("reset user password: %w", err)
 	}
 
 	nt := models.UserPasswordReset
-	s.notifications.Notify(ctx, models.Notification{
+	s.notify(ctx, models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
 		Message:    "User password reset",
 		TargetRole: "admin",
+		UserID:     userID.String(),
 		Metadata: utils.MustJSON(map[string]any{
 			"user_id":  userID.String(),
+			"username": user.Username,
+			"email":    user.Email,
 			"admin_id": adminID.String(),
 		}),
 	})
@@ -169,15 +227,46 @@ func (s *UserService) GetUserClientRoles(
 	ctx context.Context,
 	userID uuid.UUID,
 ) ([]keycloak.UserClientRoleAssignment, error) {
+	if s == nil {
+		return nil, errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("user repository is nil")
+	}
+
+	if userID == uuid.Nil {
+		return nil, errors.New("user id is required")
+	}
 
 	return s.repo.GetUserClientRoles(ctx, userID.String())
 }
+
 func (s *UserService) GetUserClientRolesForClient(
 	ctx context.Context,
 	userID uuid.UUID,
 	clientID uuid.UUID,
 	clientUUID uuid.UUID,
 ) ([]keycloak.ClientRoleRep, error) {
+	if s == nil {
+		return nil, errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("user repository is nil")
+	}
+
+	if userID == uuid.Nil {
+		return nil, errors.New("user id is required")
+	}
+
+	if clientID == uuid.Nil {
+		return nil, errors.New("client id is required")
+	}
+
+	if clientUUID == uuid.Nil {
+		return nil, errors.New("client uuid is required")
+	}
 
 	return s.repo.GetUserClientRolesForClient(
 		ctx,
@@ -195,6 +284,28 @@ func (s *UserService) UpdateUserClientRoles(
 	roles []string,
 	adminID uuid.UUID,
 ) error {
+	if s == nil {
+		return errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("user repository is nil")
+	}
+
+	if userID == uuid.Nil {
+		return errors.New("user id is required")
+	}
+
+	if clientID == uuid.Nil {
+		return errors.New("client id is required")
+	}
+
+	if clientUUID == uuid.Nil {
+		return errors.New("client uuid is required")
+	}
+
+	roles = normalizeRoleNames(roles)
+
 	current, err := s.repo.GetUserClientRolesForClient(
 		ctx,
 		userID.String(),
@@ -202,12 +313,15 @@ func (s *UserService) UpdateUserClientRoles(
 		clientUUID.String(),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("get current user client roles: %w", err)
 	}
 
 	currentSet := make(map[string]bool)
 	for _, r := range current {
-		currentSet[r.Name] = true
+		roleName := strings.TrimSpace(r.Name)
+		if roleName != "" {
+			currentSet[roleName] = true
+		}
 	}
 
 	desiredSet := make(map[string]bool)
@@ -215,7 +329,8 @@ func (s *UserService) UpdateUserClientRoles(
 		desiredSet[r] = true
 	}
 
-	var toAdd, toRemove []string
+	var toAdd []string
+	var toRemove []string
 
 	for r := range desiredSet {
 		if !currentSet[r] {
@@ -229,6 +344,10 @@ func (s *UserService) UpdateUserClientRoles(
 		}
 	}
 
+	if len(toAdd) == 0 && len(toRemove) == 0 {
+		return nil
+	}
+
 	if len(toAdd) > 0 {
 		if err := s.repo.AddUserClientRoles(
 			ctx,
@@ -237,7 +356,7 @@ func (s *UserService) UpdateUserClientRoles(
 			clientUUID.String(),
 			toAdd,
 		); err != nil {
-			return err
+			return fmt.Errorf("add user client roles: %w", err)
 		}
 	}
 
@@ -249,23 +368,31 @@ func (s *UserService) UpdateUserClientRoles(
 			clientUUID.String(),
 			toRemove,
 		); err != nil {
-			return err
+			return fmt.Errorf("remove user client roles: %w", err)
 		}
 	}
 
+	user, _ := s.repo.GetUserByID(userID)
+
 	nt := models.ClientRolesUpdated
-	s.notifications.Notify(ctx, models.Notification{
+	s.notify(ctx, models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
 		Message:    "User client roles updated",
 		TargetRole: "admin",
+		UserID:     userID.String(),
+		ClientID:   clientID.String(),
 		Metadata: utils.MustJSON(map[string]any{
-			"user_id":   userID.String(),
-			"client_id": clientID.String(),
-			"added":     toAdd,
-			"removed":   toRemove,
-			"admin_id":  adminID.String(),
+			"user_id":     userID.String(),
+			"username":    user.Username,
+			"email":       user.Email,
+			"client_id":   clientID.String(),
+			"client_uuid": clientUUID.String(),
+			"added":       toAdd,
+			"removed":     toRemove,
+			"roles":       roles,
+			"admin_id":    adminID.String(),
 		}),
 	})
 
@@ -273,11 +400,41 @@ func (s *UserService) UpdateUserClientRoles(
 }
 
 func (s *UserService) GetUser(id uuid.UUID) (*models.User, error) {
-	return s.repo.GetUserByID(id)
+	if s == nil {
+		return nil, errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("user repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return nil, errors.New("user id is required")
+	}
+
+	user, err := s.repo.GetUserByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+
+	return user, nil
 }
 
 func (s *UserService) ListUsers() ([]models.User, error) {
-	return s.repo.ListUsers()
+	if s == nil {
+		return nil, errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("user repository is nil")
+	}
+
+	users, err := s.repo.ListUsers()
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+
+	return users, nil
 }
 
 func (s *UserService) DeleteUser(
@@ -285,29 +442,84 @@ func (s *UserService) DeleteUser(
 	id uuid.UUID,
 	adminID uuid.UUID,
 ) error {
+	if s == nil {
+		return errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("user repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return errors.New("user id is required")
+	}
 
 	user, err := s.repo.GetUserByID(id)
 	if err != nil {
-		return err
+		return fmt.Errorf("get user before delete: %w", err)
 	}
 
 	if err := s.repo.DeleteUser(id.String()); err != nil {
-		return err
+		return fmt.Errorf("delete user: %w", err)
 	}
 
 	nt := models.UserDeleted
-	s.notifications.Notify(ctx, models.Notification{
+	s.notify(ctx, models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
 		Message:    "User account deleted",
 		TargetRole: "admin",
+		UserID:     user.ID,
 		Metadata: utils.MustJSON(map[string]any{
 			"user_id":  user.ID,
 			"username": user.Username,
+			"email":    user.Email,
 			"admin_id": adminID.String(),
 		}),
 	})
 
 	return nil
+}
+
+func (s *UserService) notify(
+	ctx context.Context,
+	notification models.Notification,
+) {
+	if s == nil || s.notifications == nil {
+		return
+	}
+
+	if strings.TrimSpace(notification.TargetRole) == "" {
+		notification.TargetRole = "admin"
+	}
+
+	if _, err := s.notifications.Notify(ctx, notification); err != nil {
+		fmt.Printf("user notification failed type=%s error=%v\n", notification.Type, err)
+	}
+}
+
+func normalizeRoleNames(roles []string) []string {
+	if len(roles) == 0 {
+		return []string{}
+	}
+
+	seen := make(map[string]bool)
+	out := make([]string, 0, len(roles))
+
+	for _, role := range roles {
+		role = strings.TrimSpace(role)
+		if role == "" {
+			continue
+		}
+
+		if seen[role] {
+			continue
+		}
+
+		seen[role] = true
+		out = append(out, role)
+	}
+
+	return out
 }

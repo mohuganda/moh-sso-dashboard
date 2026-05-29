@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,6 +27,7 @@ import (
 	documentTemplateSheetRepo "github.com/moh-sso-dashboard/internal/repository/document_template_sheet"
 	emailRepo "github.com/moh-sso-dashboard/internal/repository/email"
 	metricsRepo "github.com/moh-sso-dashboard/internal/repository/metrics"
+	notificationDeliveryRepo "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
 	notificationsRepo "github.com/moh-sso-dashboard/internal/repository/notifications"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
 	sessionRepository "github.com/moh-sso-dashboard/internal/repository/session"
@@ -58,6 +60,22 @@ func main() {
 	appLogger := logger.NewLogger()
 	appLogger.SetLevel(zerolog.InfoLevel)
 	appLogger.Info("Starting MOH SSO Dashboard - Environment: " + cfg.Environment)
+
+	appLogger.Info(
+		"notification config loaded",
+		"platform_name", cfg.Notification.PlatformName,
+		"system_admin_name", cfg.Notification.SystemAdminName,
+		"system_admin_email", cfg.Notification.SystemAdminEmail,
+		"admin_dashboard_url", cfg.Notification.AdminDashboardURL,
+	)
+
+	appLogger.Info(
+		"smtp config loaded",
+		"smtp_host", cfg.SMTP.Host,
+		"smtp_port", cfg.SMTP.Port,
+		"smtp_from_email", cfg.SMTP.FromEmail,
+		"smtp_from_name", cfg.SMTP.FromName,
+	)
 
 	// ==================================================
 	// DATABASES
@@ -168,7 +186,13 @@ func main() {
 	clientRepository := clientRepo.NewClientRepository(adminKC, cfg, store, *appLogger)
 	userRepository := userRepo.NewUserRepository(adminKC, cfg, store, *appLogger)
 	metricsRepository := metricsRepo.NewMetricsRepository(cfg, store, *appLogger)
+
 	notificationsRepository := notificationsRepo.NewNotificationsRepository(store, *appLogger)
+
+	notificationDeliveryRepository := notificationDeliveryRepo.NewNotificationDeliveryRepository(
+		store,
+		*appLogger,
+	)
 
 	documentRepository := documentRepo.NewDocumentRepository(cfg, store, *appLogger)
 	documentStockImportRepository := documentRepo.NewStockImportRepository()
@@ -196,22 +220,60 @@ func main() {
 	alertRepository := surveillanceRepositories.Alerts
 
 	// ==================================================
-	// SERVICES
+	// CORE SERVICES
 	// ==================================================
-
 	authService := service.NewAuthService(authRepository, rdb)
 	metricsService := service.NewMetricsService(metricsRepository)
 	auditService := service.NewAuditService(store, cacheAdapter)
 	storageLocationService := service.NewStorageLocationService(storageRepo)
 	sessionService := service.NewSessionService(sessionRepository)
 
+	// ==================================================
+	// EMAIL SERVICES
+	// ==================================================
+	templateManager, err := service.NewTemplateManager(appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email template manager: ", err)
+	}
+
+	if err := service.RegisterDefaultTemplates(templateManager); err != nil {
+		appLogger.Fatal("Failed to register default email templates: ", err)
+	}
+
+	appLogger.Info("Default email templates registered")
+
+	smtpService, err := service.NewSMTPService(cfg, templateManager, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize SMTP service: ", err)
+	}
+
+	queueService, err := service.NewQueueService(emailRepository, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email queue service: ", err)
+	}
+
+	emailAppService, err := service.NewEmailService(smtpService, queueService, templateManager)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize email application service: ", err)
+	}
+
+	appLogger.Info("Email application service initialized")
+
+	// ==================================================
+	// NOTIFICATION SERVICES
+	// ==================================================
 	publisher := cache.NewNotificationPublisher(rdb)
 
 	notificationsService := service.NewNotificationsService(
+		cfg,
 		notificationsRepository,
+		notificationDeliveryRepository,
 		publisher,
 	)
 
+	// ==================================================
+	// DOMAIN SERVICES
+	// ==================================================
 	documentService := service.NewDocumentService(
 		documentRepository,
 		processRepository,
@@ -275,7 +337,6 @@ func main() {
 	// ==================================================
 	// TEMPLATE SERVICES
 	// ==================================================
-
 	documentTemplateService := service.NewDocumentTemplateService(
 		documentTemplateRepository,
 		documentTemplateSheetRepository,
@@ -303,29 +364,7 @@ func main() {
 		fileStorage,
 		remoteDB,
 	)
-	templateManager, err := service.NewTemplateManager(appLogger)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize email template manager: ", err)
-	}
 
-	if err := service.RegisterDefaultTemplates(templateManager); err != nil {
-		appLogger.Fatal("Failed to register default email templates: ", err)
-	}
-
-	smtpService, err := service.NewSMTPService(cfg, templateManager, appLogger)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize SMTP service: ", err)
-	}
-
-	queueService, err := service.NewQueueService(emailRepository, appLogger)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize email queue service: ", err)
-	}
-
-	emailAppService, err := service.NewEmailService(smtpService, queueService, templateManager)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize email application service: ", err)
-	}
 	// ==================================================
 	// HANDLERS
 	// ==================================================
@@ -388,7 +427,6 @@ func main() {
 	// ==================================================
 	// BACKGROUND WORKERS
 	// ==================================================
-
 	documentWorker, err := worker.NewDocumentWorker(
 		processRepository,
 		importService,
@@ -399,12 +437,15 @@ func main() {
 	if err != nil {
 		appLogger.Fatal("Failed to initialize document worker: ", err)
 	}
+
 	go func() {
 		appLogger.Info("Background document worker started")
-		if err := documentWorker.Start(ctx); err != nil {
+
+		if err := documentWorker.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			appLogger.Error("Document worker stopped with error: ", err)
 		}
 	}()
+
 	emailWorker, err := worker.NewEmailWorker(
 		emailRepository,
 		smtpService,
@@ -416,12 +457,37 @@ func main() {
 	if err != nil {
 		appLogger.Fatal("Failed to initialize email worker: ", err)
 	}
+
 	go func() {
 		appLogger.Info("Background email worker started")
-		if err := emailWorker.Start(ctx); err != nil {
+
+		if err := emailWorker.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			appLogger.Error("Email worker stopped with error: ", err)
 		}
 	}()
+
+	notificationEmailDeliveryWorker, err := worker.NewNotificationEmailDeliveryWorker(
+		notificationDeliveryRepository,
+		emailAppService,
+		3*time.Second,
+		20,
+		3,
+		appLogger,
+	)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize notification email delivery worker: ", err)
+	}
+
+	go func() {
+		appLogger.Info("Background notification email delivery worker started")
+
+		if err := notificationEmailDeliveryWorker.Start(ctx); err != nil &&
+			!errors.Is(err, context.Canceled) {
+			appLogger.Error("Notification email delivery worker stopped with error: ", err)
+		}
+	}()
+
+	notificationsService.NotifySystemStartup(ctx, cfg.Environment)
 
 	// ==================================================
 	// ROUTER
@@ -479,6 +545,8 @@ func main() {
 	<-quit
 
 	appLogger.Info("Shutdown signal received")
+
+	notificationsService.NotifySystemShutdown(context.Background(), "shutdown signal received")
 
 	cancel()
 
