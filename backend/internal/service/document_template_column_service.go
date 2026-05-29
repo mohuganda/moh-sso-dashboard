@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 	documentTemplateColumnRepo "github.com/moh-sso-dashboard/internal/repository/document_template_column"
@@ -40,20 +41,23 @@ type DocumentTemplateColumnService interface {
 type documentTemplateColumnService struct {
 	repo          documentTemplateColumnRepo.DocumentTemplateColumnRepository
 	notifications NotificationsService
+	cfg           *config.Config
 }
 
 func NewDocumentTemplateColumnService(
 	repo documentTemplateColumnRepo.DocumentTemplateColumnRepository,
-	notifications ...NotificationsService,
+	notifications NotificationsService,
+	cfg ...*config.Config,
 ) DocumentTemplateColumnService {
-	var notificationSvc NotificationsService
-	if len(notifications) > 0 {
-		notificationSvc = notifications[0]
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
 	}
 
 	return &documentTemplateColumnService{
 		repo:          repo,
-		notifications: notificationSvc,
+		notifications: notifications,
+		cfg:           appConfig,
 	}
 }
 
@@ -136,6 +140,7 @@ func (s *documentTemplateColumnService) CreateColumn(
 
 	mapped := mapColumn(col)
 
+	// In-app only.
 	s.notify(ctx, model.Notification{
 		Type:       "DOCUMENT_TEMPLATE_COLUMN_CREATED",
 		Title:      "Template column created",
@@ -320,6 +325,7 @@ func (s *documentTemplateColumnService) UpdateColumn(
 
 	mapped := mapColumn(col)
 
+	// In-app only.
 	s.notify(ctx, model.Notification{
 		Type:       "DOCUMENT_TEMPLATE_COLUMN_UPDATED",
 		Title:      "Template column updated",
@@ -362,7 +368,7 @@ func (s *documentTemplateColumnService) ArchiveColumn(ctx context.Context, id uu
 	if col.ID != uuid.Nil {
 		mapped := mapColumn(col)
 
-		s.notify(ctx, model.Notification{
+		notification := model.Notification{
 			Type:       "DOCUMENT_TEMPLATE_COLUMN_ARCHIVED",
 			Title:      "Template column archived",
 			Severity:   "warning",
@@ -375,7 +381,32 @@ func (s *documentTemplateColumnService) ArchiveColumn(ctx context.Context, id uu
 				"column_name": mapped.ColumnName,
 				"data_type":   mapped.DataType,
 			}),
-		})
+		}
+
+		s.attachAdminEmailDelivery(
+			&notification,
+			"document-template-column-archived",
+			"Document template column archived",
+			"A document template column was archived.",
+			map[string]any{
+				"Name":       s.systemAdminName(),
+				"Platform":   s.platformName(),
+				"ColumnName": mapped.ColumnName,
+				"ColumnKey":  mapped.ColumnKey,
+				"DataType":   mapped.DataType,
+				"ActionURL":  s.adminTemplatesURL(),
+				"Details": fmt.Sprintf(
+					"Column ID: %s\nSheet ID: %s\nColumn Key: %s\nColumn Name: %s\nData Type: %s",
+					mapped.ID.String(),
+					mapped.SheetID.String(),
+					mapped.ColumnKey,
+					mapped.ColumnName,
+					mapped.DataType,
+				),
+			},
+		)
+
+		s.notify(ctx, notification)
 	}
 
 	return nil
@@ -403,7 +434,7 @@ func (s *documentTemplateColumnService) DeleteColumn(ctx context.Context, id uui
 	if col.ID != uuid.Nil {
 		mapped := mapColumn(col)
 
-		s.notify(ctx, model.Notification{
+		notification := model.Notification{
 			Type:       "DOCUMENT_TEMPLATE_COLUMN_DELETED",
 			Title:      "Template column deleted",
 			Severity:   "critical",
@@ -416,7 +447,32 @@ func (s *documentTemplateColumnService) DeleteColumn(ctx context.Context, id uui
 				"column_name": mapped.ColumnName,
 				"data_type":   mapped.DataType,
 			}),
-		})
+		}
+
+		s.attachAdminEmailDelivery(
+			&notification,
+			"document-template-column-deleted",
+			"Document template column deleted",
+			"A document template column was deleted.",
+			map[string]any{
+				"Name":       s.systemAdminName(),
+				"Platform":   s.platformName(),
+				"ColumnName": mapped.ColumnName,
+				"ColumnKey":  mapped.ColumnKey,
+				"DataType":   mapped.DataType,
+				"ActionURL":  s.adminTemplatesURL(),
+				"Details": fmt.Sprintf(
+					"Column ID: %s\nSheet ID: %s\nColumn Key: %s\nColumn Name: %s\nData Type: %s",
+					mapped.ID.String(),
+					mapped.SheetID.String(),
+					mapped.ColumnKey,
+					mapped.ColumnName,
+					mapped.DataType,
+				),
+			},
+		)
+
+		s.notify(ctx, notification)
 	}
 
 	return nil
@@ -575,6 +631,111 @@ func (s *documentTemplateColumnService) notify(
 	if _, err := s.notifications.Notify(ctx, notification); err != nil {
 		fmt.Printf("document template column notification failed type=%s error=%v\n", notification.Type, err)
 	}
+}
+
+func (s *documentTemplateColumnService) attachAdminEmailDelivery(
+	notification *model.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminTemplatesURL()
+	}
+
+	notification.Deliveries = []model.NotificationDeliveryRequest{
+		{
+			Channel: model.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: model.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *documentTemplateColumnService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *documentTemplateColumnService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *documentTemplateColumnService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *documentTemplateColumnService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
+}
+
+func (s *documentTemplateColumnService) adminTemplatesURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/admin/document-templates"
+	}
+
+	return base + "/document-templates"
 }
 
 func toString(ns sql.NullString) string {

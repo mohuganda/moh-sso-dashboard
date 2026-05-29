@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -21,6 +22,7 @@ type SurveillanceLocationService struct {
 	districtRepo  interfaces.DistrictRepository
 	subCountyRepo interfaces.SubCountyRepository
 	notifications NotificationsService
+	cfg           *config.Config
 }
 
 func NewSurveillanceLocationService(
@@ -28,11 +30,12 @@ func NewSurveillanceLocationService(
 	regionRepo interfaces.RegionRepository,
 	districtRepo interfaces.DistrictRepository,
 	subCountyRepo interfaces.SubCountyRepository,
-	notifications ...NotificationsService,
+	notifications NotificationsService,
+	cfg ...*config.Config,
 ) *SurveillanceLocationService {
-	var notificationSvc NotificationsService
-	if len(notifications) > 0 {
-		notificationSvc = notifications[0]
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
 	}
 
 	return &SurveillanceLocationService{
@@ -40,7 +43,8 @@ func NewSurveillanceLocationService(
 		regionRepo:    regionRepo,
 		districtRepo:  districtRepo,
 		subCountyRepo: subCountyRepo,
-		notifications: notificationSvc,
+		notifications: notifications,
+		cfg:           appConfig,
 	}
 }
 
@@ -168,6 +172,7 @@ func (s *SurveillanceLocationService) UpsertRegion(
 		return db.Region{}, fmt.Errorf("upsert region: %w", err)
 	}
 
+	// In-app only. Location upserts can happen during imports.
 	s.notify(ctx, model.Notification{
 		Type:       "SURVEILLANCE_REGION_UPSERTED",
 		Title:      "Region updated",
@@ -328,8 +333,17 @@ func (s *SurveillanceLocationService) UpsertDistrict(
 		return db.District{}, errors.New("district name is required")
 	}
 
+	if !arg.RegionID.Valid || arg.RegionID.UUID == uuid.Nil {
+		return db.District{}, errors.New("region id is required")
+	}
+
 	if s.log != nil {
-		s.log.Info(ctx, "upserting district", "name", arg.Name, "region_id", arg.RegionID)
+		s.log.Info(
+			ctx,
+			"upserting district",
+			"name", arg.Name,
+			"region_id", arg.RegionID.UUID.String(),
+		)
 	}
 
 	item, err := s.districtRepo.Upsert(ctx, arg)
@@ -341,6 +355,7 @@ func (s *SurveillanceLocationService) UpsertDistrict(
 		return db.District{}, fmt.Errorf("upsert district: %w", err)
 	}
 
+	// In-app only. Location upserts can happen during imports.
 	s.notify(ctx, model.Notification{
 		Type:       "SURVEILLANCE_DISTRICT_UPSERTED",
 		Title:      "District updated",
@@ -350,6 +365,7 @@ func (s *SurveillanceLocationService) UpsertDistrict(
 		Metadata: utils.MustJSON(map[string]any{
 			"district_id": item.ID.String(),
 			"name":        item.Name,
+			"region_id":   nullUUIDString(item.RegionID),
 		}),
 	})
 
@@ -458,6 +474,7 @@ func (s *SurveillanceLocationService) UpsertSubcounty(
 		return db.SubCounty{}, fmt.Errorf("upsert subcounty: %w", err)
 	}
 
+	// In-app only. Location upserts can happen during imports.
 	s.notify(ctx, model.Notification{
 		Type:       "SURVEILLANCE_SUBCOUNTY_UPSERTED",
 		Title:      "Sub-county updated",
@@ -505,7 +522,7 @@ func (s *SurveillanceLocationService) DeleteSubcounty(
 	}
 
 	if item.ID != uuid.Nil {
-		s.notify(ctx, model.Notification{
+		notification := model.Notification{
 			Type:       "SURVEILLANCE_SUBCOUNTY_DELETED",
 			Title:      "Sub-county deleted",
 			Severity:   "warning",
@@ -516,7 +533,31 @@ func (s *SurveillanceLocationService) DeleteSubcounty(
 				"name":         item.Name,
 				"district_id":  item.DistrictID.String(),
 			}),
-		})
+		}
+
+		s.attachAdminEmailDelivery(
+			&notification,
+			"admin-alert",
+			"Surveillance sub-county deleted",
+			fmt.Sprintf("Surveillance sub-county %s was deleted.", item.Name),
+			map[string]any{
+				"Name":          s.systemAdminName(),
+				"Platform":      s.platformName(),
+				"Message":       "A surveillance sub-county was deleted.",
+				"SubCountyName": item.Name,
+				"SubCountyID":   item.ID.String(),
+				"DistrictID":    item.DistrictID.String(),
+				"ActionURL":     s.adminSurveillanceURL(),
+				"Details": fmt.Sprintf(
+					"Sub-county ID: %s\nName: %s\nDistrict ID: %s",
+					item.ID.String(),
+					item.Name,
+					item.DistrictID.String(),
+				),
+			},
+		)
+
+		s.notify(ctx, notification)
 	}
 
 	return nil
@@ -544,4 +585,109 @@ func (s *SurveillanceLocationService) notify(
 			)
 		}
 	}
+}
+
+func (s *SurveillanceLocationService) attachAdminEmailDelivery(
+	notification *model.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminSurveillanceURL()
+	}
+
+	notification.Deliveries = []model.NotificationDeliveryRequest{
+		{
+			Channel: model.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: model.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *SurveillanceLocationService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *SurveillanceLocationService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *SurveillanceLocationService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *SurveillanceLocationService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
+}
+
+func (s *SurveillanceLocationService) adminSurveillanceURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/surveillance"
+	}
+
+	return base + "/surveillance"
 }

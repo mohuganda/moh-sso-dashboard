@@ -214,19 +214,11 @@ func main() {
 	subCountyRepository := surveillanceRepositories.SubCounties
 	diseaseRepository := surveillanceRepositories.Diseases
 	epiWeekRepository := surveillanceRepositories.EpiWeeks
+	facilityRepository := surveillanceRepositories.Facilities
 	facilityWeeklyMetricsRepository := surveillanceRepositories.FacilityMetrics
 	weeklyStatusRepository := surveillanceRepositories.WeeklyStatus
 	importRepository := surveillanceRepositories.Imports
 	alertRepository := surveillanceRepositories.Alerts
-
-	// ==================================================
-	// CORE SERVICES
-	// ==================================================
-	authService := service.NewAuthService(authRepository, rdb)
-	metricsService := service.NewMetricsService(metricsRepository)
-	auditService := service.NewAuditService(store, cacheAdapter)
-	storageLocationService := service.NewStorageLocationService(storageRepo)
-	sessionService := service.NewSessionService(sessionRepository)
 
 	// ==================================================
 	// EMAIL SERVICES
@@ -272,6 +264,27 @@ func main() {
 	)
 
 	// ==================================================
+	// CORE SERVICES
+	// ==================================================
+	authService := service.NewAuthService(authRepository, rdb)
+	metricsService := service.NewMetricsService(metricsRepository)
+
+	auditService := service.NewAuditService(
+		store,
+		cacheAdapter,
+		notificationsService,
+		cfg,
+	)
+
+	storageLocationService := service.NewStorageLocationService(
+		storageRepo,
+		notificationsService,
+		cfg,
+	)
+
+	sessionService := service.NewSessionService(sessionRepository)
+
+	// ==================================================
 	// DOMAIN SERVICES
 	// ==================================================
 	documentService := service.NewDocumentService(
@@ -279,31 +292,38 @@ func main() {
 		processRepository,
 		notificationsService,
 		fileStorage,
+		cfg,
 	)
 
 	clientService := service.NewClientService(
 		clientRepository,
 		notificationsService,
+		cfg,
 	)
 
 	userService := service.NewUserService(
 		userRepository,
 		notificationsService,
+		cfg,
 	)
 
 	announcementService := service.NewAnnouncementService(
 		announcementRepository,
 		notificationsService,
+		cfg,
 	)
 
 	diseaseService := service.NewSurveillanceDiseaseService(
 		appLogger,
 		diseaseRepository,
+		notificationsService,
+		cfg,
 	)
 
 	epiWeekService := service.NewSurveillanceEpiWeekService(
 		appLogger,
 		epiWeekRepository,
+		notificationsService,
 	)
 
 	locationService := service.NewSurveillanceLocationService(
@@ -311,6 +331,14 @@ func main() {
 		regionRepository,
 		districtRepository,
 		subCountyRepository,
+		notificationsService,
+		cfg,
+	)
+
+	facilityService := service.NewSurveillanceFacilityService(
+		appLogger,
+		facilityRepository,
+		notificationsService,
 	)
 
 	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(
@@ -332,6 +360,8 @@ func main() {
 		appLogger,
 		alertRepository,
 		importRepository,
+		notificationsService,
+		cfg,
 	)
 
 	// ==================================================
@@ -341,14 +371,20 @@ func main() {
 		documentTemplateRepository,
 		documentTemplateSheetRepository,
 		documentTemplateColumnRepository,
+		notificationsService,
+		cfg,
 	)
 
 	documentTemplateSheetService := service.NewDocumentTemplateSheetService(
 		documentTemplateSheetRepository,
+		notificationsService,
+		cfg,
 	)
 
 	documentTemplateColumnService := service.NewDocumentTemplateColumnService(
 		documentTemplateColumnRepository,
+		notificationsService,
+		cfg,
 	)
 
 	importService := importSvc.NewService(
@@ -423,6 +459,8 @@ func main() {
 		func(ctx context.Context) error { return adminKC.Authenticate() },
 		rdb,
 	)
+
+	_ = facilityService
 
 	// ==================================================
 	// BACKGROUND WORKERS

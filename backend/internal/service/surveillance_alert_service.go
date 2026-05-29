@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -50,24 +51,27 @@ type SurveillanceAlertService struct {
 	alertRepo              interfaces.AlertRepository
 	surveillanceImportRepo interfaces.ImportRepository
 	notifications          NotificationsService
+	cfg                    *config.Config
 }
 
 func NewSurveillanceAlertService(
 	log *logger.Logger,
 	alertRepo interfaces.AlertRepository,
 	surveillanceImportRepo interfaces.ImportRepository,
-	notifications ...NotificationsService,
+	notifications NotificationsService,
+	cfg ...*config.Config,
 ) *SurveillanceAlertService {
-	var notificationSvc NotificationsService
-	if len(notifications) > 0 {
-		notificationSvc = notifications[0]
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
 	}
 
 	return &SurveillanceAlertService{
 		log:                    log,
 		alertRepo:              alertRepo,
 		surveillanceImportRepo: surveillanceImportRepo,
-		notifications:          notificationSvc,
+		notifications:          notifications,
+		cfg:                    appConfig,
 	}
 }
 
@@ -244,7 +248,7 @@ func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uu
 		return nil
 	})
 	if err != nil {
-		s.notify(ctx, model.Notification{
+		notification := model.Notification{
 			Type:       "SURVEILLANCE_ALERT_IMPORT_FAILED",
 			Title:      "Alert import failed",
 			Severity:   "critical",
@@ -256,7 +260,32 @@ func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uu
 				"failed_rows":  failedRows,
 				"error":        err.Error(),
 			}),
-		})
+		}
+
+		s.attachAdminEmailDelivery(
+			&notification,
+			"surveillance-alert-import-failed",
+			"Surveillance alert import failed",
+			"Surveillance alert batch processing failed.",
+			map[string]any{
+				"Name":        s.systemAdminName(),
+				"Platform":    s.platformName(),
+				"BatchID":     batchID.String(),
+				"SuccessRows": successRows,
+				"FailedRows":  failedRows,
+				"Error":       err.Error(),
+				"ActionURL":   s.adminSurveillanceURL(),
+				"Details": fmt.Sprintf(
+					"Batch ID: %s\nSuccess Rows: %d\nFailed Rows: %d\nError: %s",
+					batchID.String(),
+					successRows,
+					failedRows,
+					err.Error(),
+				),
+			},
+		)
+
+		s.notify(ctx, notification)
 
 		return err
 	}
@@ -281,7 +310,7 @@ func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uu
 		message = "Surveillance alert batch processing completed with failed rows"
 	}
 
-	s.notify(ctx, model.Notification{
+	notification := model.Notification{
 		Type:       "SURVEILLANCE_ALERT_IMPORT_COMPLETED",
 		Title:      title,
 		Severity:   severity,
@@ -292,7 +321,34 @@ func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uu
 			"success_rows": successRows,
 			"failed_rows":  failedRows,
 		}),
-	})
+	}
+
+	// Email only when import completed with failed rows.
+	// Fully successful imports remain in-app only.
+	if failedRows > 0 {
+		s.attachAdminEmailDelivery(
+			&notification,
+			"surveillance-alert-import-completed",
+			"Surveillance alert import completed with errors",
+			"Surveillance alert batch processing completed with failed rows.",
+			map[string]any{
+				"Name":        s.systemAdminName(),
+				"Platform":    s.platformName(),
+				"BatchID":     batchID.String(),
+				"SuccessRows": successRows,
+				"FailedRows":  failedRows,
+				"ActionURL":   s.adminSurveillanceURL(),
+				"Details": fmt.Sprintf(
+					"Batch ID: %s\nSuccess Rows: %d\nFailed Rows: %d",
+					batchID.String(),
+					successRows,
+					failedRows,
+				),
+			},
+		)
+	}
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -470,4 +526,109 @@ func (s *SurveillanceAlertService) notify(
 			)
 		}
 	}
+}
+
+func (s *SurveillanceAlertService) attachAdminEmailDelivery(
+	notification *model.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminSurveillanceURL()
+	}
+
+	notification.Deliveries = []model.NotificationDeliveryRequest{
+		{
+			Channel: model.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: model.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *SurveillanceAlertService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *SurveillanceAlertService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *SurveillanceAlertService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *SurveillanceAlertService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
+}
+
+func (s *SurveillanceAlertService) adminSurveillanceURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/surveillance"
+	}
+
+	return base + "/surveillance"
 }

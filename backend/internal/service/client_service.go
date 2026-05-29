@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	models "github.com/moh-sso-dashboard/internal/model"
 	repository "github.com/moh-sso-dashboard/internal/repository/client"
@@ -42,15 +43,23 @@ type CreateClientRequest struct {
 type ClientService struct {
 	repo          repository.ClientRepository
 	notifications NotificationsService
+	cfg           *config.Config
 }
 
 func NewClientService(
 	repo repository.ClientRepository,
 	notifications NotificationsService,
+	cfg ...*config.Config,
 ) *ClientService {
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
+	}
+
 	return &ClientService{
 		repo:          repo,
 		notifications: notifications,
+		cfg:           appConfig,
 	}
 }
 
@@ -93,6 +102,7 @@ func (s *ClientService) CreateClient(
 		return nil, fmt.Errorf("create client: %w", err)
 	}
 
+	// In-app only.
 	nt := models.ClientCreated
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -118,6 +128,10 @@ func (s *ClientService) GetClient(id uuid.UUID) (*models.Client, error) {
 
 	if s.repo == nil {
 		return nil, errors.New("client repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return nil, errors.New("client id is required")
 	}
 
 	return s.repo.GetClientByID(id)
@@ -148,6 +162,10 @@ func (s *ClientService) DeleteClient(
 		return errors.New("client repository is nil")
 	}
 
+	if id == uuid.Nil {
+		return errors.New("client id is required")
+	}
+
 	client, err := s.repo.GetClientByID(id)
 	if err != nil {
 		return fmt.Errorf("get client before delete: %w", err)
@@ -158,7 +176,7 @@ func (s *ClientService) DeleteClient(
 	}
 
 	nt := models.ClientDeleted
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
@@ -170,7 +188,29 @@ func (s *ClientService) DeleteClient(
 			"name":      client.Name,
 			"admin_id":  adminID.String(),
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"client-deleted",
+		"Client application deleted",
+		"A client application was deleted.",
+		map[string]any{
+			"Name":       s.systemAdminName(),
+			"Platform":   s.platformName(),
+			"ClientID":   client.ClientID,
+			"ClientName": client.Name,
+			"ActionURL":  s.adminDashboardURL(),
+			"Details": fmt.Sprintf(
+				"Client ID: %s\nClient Name: %s\nAdmin ID: %s",
+				client.ClientID,
+				client.Name,
+				adminID.String(),
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -189,6 +229,15 @@ func (s *ClientService) ToggleClientEnabled(
 		return errors.New("client repository is nil")
 	}
 
+	if clientID == uuid.Nil {
+		return errors.New("client id is required")
+	}
+
+	var client *models.Client
+	if existing, err := s.repo.GetClientByID(clientID); err == nil {
+		client = existing
+	}
+
 	if err := s.repo.ToggleClientEnabled(ctx, clientID, enabled); err != nil {
 		return fmt.Errorf("toggle client enabled: %w", err)
 	}
@@ -204,19 +253,53 @@ func (s *ClientService) ToggleClientEnabled(
 		msg = "Client disabled"
 	}
 
-	s.notify(ctx, models.Notification{
+	clientName := ""
+	clientIdentifier := clientID.String()
+	if client != nil {
+		clientName = client.Name
+		clientIdentifier = client.ClientID
+	}
+
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
 		Message:    msg,
 		TargetRole: "admin",
-		ClientID:   clientID.String(),
+		ClientID:   clientIdentifier,
 		Metadata: utils.MustJSON(map[string]any{
-			"client_id": clientID.String(),
-			"enabled":   enabled,
-			"admin_id":  adminID.String(),
+			"client_id":   clientID.String(),
+			"client_name": clientName,
+			"enabled":     enabled,
+			"admin_id":    adminID.String(),
 		}),
-	})
+	}
+
+	// Email only when disabled. Enabling remains in-app only.
+	if !enabled {
+		s.attachAdminEmailDelivery(
+			&notification,
+			"client-disabled",
+			"Client application disabled",
+			"A client application was disabled.",
+			map[string]any{
+				"Name":       s.systemAdminName(),
+				"Platform":   s.platformName(),
+				"ClientID":   clientIdentifier,
+				"ClientName": clientName,
+				"ActionURL":  s.adminDashboardURL(),
+				"Details": fmt.Sprintf(
+					"Client UUID: %s\nClient ID: %s\nClient Name: %s\nAdmin ID: %s",
+					clientID.String(),
+					clientIdentifier,
+					clientName,
+					adminID.String(),
+				),
+			},
+		)
+	}
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -235,6 +318,10 @@ func (s *ClientService) CreateClientRole(
 		return errors.New("client repository is nil")
 	}
 
+	if clientID == uuid.Nil {
+		return errors.New("client id is required")
+	}
+
 	if payload == nil {
 		return errors.New("client role payload is required")
 	}
@@ -246,24 +333,62 @@ func (s *ClientService) CreateClientRole(
 
 	payload.Role = role
 
+	var client *models.Client
+	if existing, err := s.repo.GetClientByID(clientID); err == nil {
+		client = existing
+	}
+
 	if err := s.repo.CreateClientRole(ctx, clientID, payload); err != nil {
 		return fmt.Errorf("create client role: %w", err)
 	}
 
+	clientName := ""
+	clientIdentifier := clientID.String()
+	if client != nil {
+		clientName = client.Name
+		clientIdentifier = client.ClientID
+	}
+
 	nt := models.ClientRoleCreated
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
 		Message:    "Client role created",
 		TargetRole: "admin",
-		ClientID:   clientID.String(),
+		ClientID:   clientIdentifier,
 		Metadata: utils.MustJSON(map[string]any{
-			"client_id": clientID.String(),
-			"role":      role,
-			"admin_id":  adminID.String(),
+			"client_id":   clientID.String(),
+			"client_name": clientName,
+			"role":        role,
+			"admin_id":    adminID.String(),
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"client-role-created",
+		"Client role created",
+		"A client role was created.",
+		map[string]any{
+			"Name":       s.systemAdminName(),
+			"Platform":   s.platformName(),
+			"ClientID":   clientIdentifier,
+			"ClientName": clientName,
+			"Role":       role,
+			"ActionURL":  s.adminDashboardURL(),
+			"Details": fmt.Sprintf(
+				"Client UUID: %s\nClient ID: %s\nClient Name: %s\nRole: %s\nAdmin ID: %s",
+				clientID.String(),
+				clientIdentifier,
+				clientName,
+				role,
+				adminID.String(),
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -278,6 +403,10 @@ func (s *ClientService) ListClientRoles(
 
 	if s.repo == nil {
 		return nil, errors.New("client repository is nil")
+	}
+
+	if clientID == uuid.Nil {
+		return nil, errors.New("client id is required")
 	}
 
 	return s.repo.ListClientRoles(ctx, clientID)
@@ -297,29 +426,71 @@ func (s *ClientService) DeleteClientRole(
 		return errors.New("client repository is nil")
 	}
 
+	if clientID == uuid.Nil {
+		return errors.New("client id is required")
+	}
+
 	role = strings.TrimSpace(role)
 	if role == "" {
 		return errors.New("role name is required")
+	}
+
+	var client *models.Client
+	if existing, err := s.repo.GetClientByID(clientID); err == nil {
+		client = existing
 	}
 
 	if err := s.repo.DeleteClientRole(ctx, clientID, role); err != nil {
 		return fmt.Errorf("delete client role: %w", err)
 	}
 
+	clientName := ""
+	clientIdentifier := clientID.String()
+	if client != nil {
+		clientName = client.Name
+		clientIdentifier = client.ClientID
+	}
+
 	nt := models.ClientRoleDeleted
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
 		Message:    "Client role deleted",
 		TargetRole: "admin",
-		ClientID:   clientID.String(),
+		ClientID:   clientIdentifier,
 		Metadata: utils.MustJSON(map[string]any{
-			"client_id": clientID.String(),
-			"role":      role,
-			"admin_id":  adminID.String(),
+			"client_id":   clientID.String(),
+			"client_name": clientName,
+			"role":        role,
+			"admin_id":    adminID.String(),
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"client-role-deleted",
+		"Client role deleted",
+		"A client role was deleted.",
+		map[string]any{
+			"Name":       s.systemAdminName(),
+			"Platform":   s.platformName(),
+			"ClientID":   clientIdentifier,
+			"ClientName": clientName,
+			"Role":       role,
+			"ActionURL":  s.adminDashboardURL(),
+			"Details": fmt.Sprintf(
+				"Client UUID: %s\nClient ID: %s\nClient Name: %s\nRole: %s\nAdmin ID: %s",
+				clientID.String(),
+				clientIdentifier,
+				clientName,
+				role,
+				adminID.String(),
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -332,7 +503,106 @@ func (s *ClientService) notify(
 		return
 	}
 
+	if strings.TrimSpace(notification.TargetRole) == "" {
+		notification.TargetRole = "admin"
+	}
+
 	if _, err := s.notifications.Notify(ctx, notification); err != nil {
 		fmt.Printf("client notification failed type=%s error=%v\n", notification.Type, err)
 	}
+}
+
+func (s *ClientService) attachAdminEmailDelivery(
+	notification *models.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminDashboardURL()
+	}
+
+	notification.Deliveries = []models.NotificationDeliveryRequest{
+		{
+			Channel: models.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: models.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *ClientService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *ClientService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *ClientService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *ClientService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
 }

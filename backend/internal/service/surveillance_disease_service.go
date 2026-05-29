@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -19,22 +20,25 @@ type SurveillanceDiseaseService struct {
 	log           *logger.Logger
 	diseaseRepo   interfaces.DiseaseRepository
 	notifications NotificationsService
+	cfg           *config.Config
 }
 
 func NewSurveillanceDiseaseService(
 	log *logger.Logger,
 	diseaseRepo interfaces.DiseaseRepository,
-	notifications ...NotificationsService,
+	notifications NotificationsService,
+	cfg ...*config.Config,
 ) *SurveillanceDiseaseService {
-	var notificationSvc NotificationsService
-	if len(notifications) > 0 {
-		notificationSvc = notifications[0]
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
 	}
 
 	return &SurveillanceDiseaseService{
 		log:           log,
 		diseaseRepo:   diseaseRepo,
-		notifications: notificationSvc,
+		notifications: notifications,
+		cfg:           appConfig,
 	}
 }
 
@@ -183,6 +187,7 @@ func (s *SurveillanceDiseaseService) CreateDisease(
 		return db.Disease{}, fmt.Errorf("create disease: %w", err)
 	}
 
+	// In-app only.
 	s.notify(ctx, model.Notification{
 		Type:       "SURVEILLANCE_DISEASE_CREATED",
 		Title:      "Disease created",
@@ -231,6 +236,7 @@ func (s *SurveillanceDiseaseService) UpsertDisease(
 		return db.Disease{}, fmt.Errorf("upsert disease: %w", err)
 	}
 
+	// In-app only.
 	s.notify(ctx, model.Notification{
 		Type:       "SURVEILLANCE_DISEASE_UPSERTED",
 		Title:      "Disease updated",
@@ -290,7 +296,7 @@ func (s *SurveillanceDiseaseService) SetDiseaseActiveState(
 		severity = "info"
 	}
 
-	s.notify(ctx, model.Notification{
+	notification := model.Notification{
 		Type:       notificationType,
 		Title:      title,
 		Severity:   severity,
@@ -303,7 +309,35 @@ func (s *SurveillanceDiseaseService) SetDiseaseActiveState(
 			"category":   nullStringValue(item.Category),
 			"is_active":  item.IsActive,
 		}),
-	})
+	}
+
+	// Email only when disabled. Enabling remains in-app only.
+	if !item.IsActive {
+		s.attachAdminEmailDelivery(
+			&notification,
+			"surveillance-disease-disabled",
+			"Surveillance disease disabled",
+			fmt.Sprintf("Surveillance disease %s was disabled.", item.Name),
+			map[string]any{
+				"Name":        s.systemAdminName(),
+				"Platform":    s.platformName(),
+				"DiseaseName": item.Name,
+				"DiseaseCode": nullStringValue(item.Code),
+				"Category":    nullStringValue(item.Category),
+				"ActionURL":   s.adminSurveillanceURL(),
+				"Details": fmt.Sprintf(
+					"Disease ID: %s\nName: %s\nCode: %s\nCategory: %s\nIs Active: %v",
+					item.ID.String(),
+					item.Name,
+					nullStringValue(item.Code),
+					nullStringValue(item.Category),
+					item.IsActive,
+				),
+			},
+		)
+	}
+
+	s.notify(ctx, notification)
 
 	return item, nil
 }
@@ -336,7 +370,7 @@ func (s *SurveillanceDiseaseService) DeleteDisease(ctx context.Context, id uuid.
 	}
 
 	if item.ID != uuid.Nil {
-		s.notify(ctx, model.Notification{
+		notification := model.Notification{
 			Type:       "SURVEILLANCE_DISEASE_DELETED",
 			Title:      "Disease deleted",
 			Severity:   "critical",
@@ -349,7 +383,32 @@ func (s *SurveillanceDiseaseService) DeleteDisease(ctx context.Context, id uuid.
 				"category":   nullStringValue(item.Category),
 				"is_active":  item.IsActive,
 			}),
-		})
+		}
+
+		s.attachAdminEmailDelivery(
+			&notification,
+			"surveillance-disease-deleted",
+			"Surveillance disease deleted",
+			fmt.Sprintf("Surveillance disease %s was deleted.", item.Name),
+			map[string]any{
+				"Name":        s.systemAdminName(),
+				"Platform":    s.platformName(),
+				"DiseaseName": item.Name,
+				"DiseaseCode": nullStringValue(item.Code),
+				"Category":    nullStringValue(item.Category),
+				"ActionURL":   s.adminSurveillanceURL(),
+				"Details": fmt.Sprintf(
+					"Disease ID: %s\nName: %s\nCode: %s\nCategory: %s\nWas Active: %v",
+					item.ID.String(),
+					item.Name,
+					nullStringValue(item.Code),
+					nullStringValue(item.Category),
+					item.IsActive,
+				),
+			},
+		)
+
+		s.notify(ctx, notification)
 	}
 
 	return nil
@@ -377,4 +436,109 @@ func (s *SurveillanceDiseaseService) notify(
 			)
 		}
 	}
+}
+
+func (s *SurveillanceDiseaseService) attachAdminEmailDelivery(
+	notification *model.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminSurveillanceURL()
+	}
+
+	notification.Deliveries = []model.NotificationDeliveryRequest{
+		{
+			Channel: model.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: model.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *SurveillanceDiseaseService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *SurveillanceDiseaseService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *SurveillanceDiseaseService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *SurveillanceDiseaseService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
+}
+
+func (s *SurveillanceDiseaseService) adminSurveillanceURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/surveillance"
+	}
+
+	return base + "/surveillance"
 }

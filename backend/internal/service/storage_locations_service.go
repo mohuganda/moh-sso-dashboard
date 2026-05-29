@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 	repository "github.com/moh-sso-dashboard/internal/repository/storage_locations"
@@ -30,20 +31,23 @@ type StorageLocationService interface {
 type storageLocationService struct {
 	repo          repository.StorageLocationRepository
 	notifications NotificationsService
+	cfg           *config.Config
 }
 
 func NewStorageLocationService(
 	repo repository.StorageLocationRepository,
-	notifications ...NotificationsService,
+	notifications NotificationsService,
+	cfg ...*config.Config,
 ) StorageLocationService {
-	var notificationSvc NotificationsService
-	if len(notifications) > 0 {
-		notificationSvc = notifications[0]
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
 	}
 
 	return &storageLocationService{
 		repo:          repo,
-		notifications: notificationSvc,
+		notifications: notifications,
+		cfg:           appConfig,
 	}
 }
 
@@ -93,6 +97,7 @@ func (s *storageLocationService) Create(
 		return db.StorageLocation{}, fmt.Errorf("create storage location: %w", err)
 	}
 
+	// In-app only.
 	s.notify(ctx, model.Notification{
 		Type:       "STORAGE_LOCATION_CREATED",
 		Title:      "Storage location created",
@@ -226,10 +231,10 @@ func (s *storageLocationService) Update(
 		return db.StorageLocation{}, fmt.Errorf("update storage location: %w", err)
 	}
 
-	s.notify(ctx, model.Notification{
+	notification := model.Notification{
 		Type:       "STORAGE_LOCATION_UPDATED",
 		Title:      "Storage location updated",
-		Severity:   "info",
+		Severity:   "warning",
 		Message:    "Storage location updated",
 		TargetRole: "admin",
 		Metadata: utils.MustJSON(map[string]any{
@@ -246,7 +251,36 @@ func (s *storageLocationService) Update(
 				"is_active": before.IsActive,
 			},
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"storage-location-updated",
+		"Storage location updated",
+		fmt.Sprintf("Storage location %s was updated.", location.Name),
+		map[string]any{
+			"Name":      s.systemAdminName(),
+			"Platform":  s.platformName(),
+			"Code":      location.Code,
+			"Provider":  location.Provider,
+			"ActionURL": s.adminStorageURL(),
+			"Details": fmt.Sprintf(
+				"Storage Location ID: %s\nCode: %s\nName: %s\nProvider: %s\nBase URI: %s\nIs Active: %v\n\nPrevious Name: %s\nPrevious Provider: %s\nPrevious Base URI: %s\nPrevious Active: %v",
+				location.ID.String(),
+				location.Code,
+				location.Name,
+				location.Provider,
+				location.BaseUri,
+				location.IsActive,
+				before.Name,
+				before.Provider,
+				before.BaseUri,
+				before.IsActive,
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return location, nil
 }
@@ -275,10 +309,10 @@ func (s *storageLocationService) Delete(
 	}
 
 	if location.ID != uuid.Nil {
-		s.notify(ctx, model.Notification{
+		notification := model.Notification{
 			Type:       "STORAGE_LOCATION_DELETED",
 			Title:      "Storage location deleted",
-			Severity:   "warning",
+			Severity:   "critical",
 			Message:    "Storage location deleted",
 			TargetRole: "admin",
 			Metadata: utils.MustJSON(map[string]any{
@@ -289,7 +323,32 @@ func (s *storageLocationService) Delete(
 				"base_uri":            location.BaseUri,
 				"is_active":           location.IsActive,
 			}),
-		})
+		}
+
+		s.attachAdminEmailDelivery(
+			&notification,
+			"storage-location-deleted",
+			"Storage location deleted",
+			fmt.Sprintf("Storage location %s was deleted.", location.Name),
+			map[string]any{
+				"Name":      s.systemAdminName(),
+				"Platform":  s.platformName(),
+				"Code":      location.Code,
+				"Provider":  location.Provider,
+				"ActionURL": s.adminStorageURL(),
+				"Details": fmt.Sprintf(
+					"Storage Location ID: %s\nCode: %s\nName: %s\nProvider: %s\nBase URI: %s\nWas Active: %v",
+					location.ID.String(),
+					location.Code,
+					location.Name,
+					location.Provider,
+					location.BaseUri,
+					location.IsActive,
+				),
+			},
+		)
+
+		s.notify(ctx, notification)
 	}
 
 	return nil
@@ -310,4 +369,109 @@ func (s *storageLocationService) notify(
 	if _, err := s.notifications.Notify(ctx, notification); err != nil {
 		fmt.Printf("storage location notification failed type=%s error=%v\n", notification.Type, err)
 	}
+}
+
+func (s *storageLocationService) attachAdminEmailDelivery(
+	notification *model.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminStorageURL()
+	}
+
+	notification.Deliveries = []model.NotificationDeliveryRequest{
+		{
+			Channel: model.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: model.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *storageLocationService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *storageLocationService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *storageLocationService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *storageLocationService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
+}
+
+func (s *storageLocationService) adminStorageURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/admin/storage-locations"
+	}
+
+	return base + "/storage-locations"
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	models "github.com/moh-sso-dashboard/internal/model"
 	repository "github.com/moh-sso-dashboard/internal/repository/user"
@@ -31,15 +32,23 @@ type CreateUserRequest struct {
 type UserService struct {
 	repo          repository.UserRepository
 	notifications NotificationsService
+	cfg           *config.Config
 }
 
 func NewUserService(
 	repo repository.UserRepository,
 	notifications NotificationsService,
+	cfg ...*config.Config,
 ) *UserService {
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
+	}
+
 	return &UserService{
 		repo:          repo,
 		notifications: notifications,
+		cfg:           appConfig,
 	}
 }
 
@@ -93,6 +102,7 @@ func (s *UserService) CreateUser(
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
+	// In-app only.
 	nt := models.UserCreated
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -161,7 +171,7 @@ func (s *UserService) SetUserEnabled(
 		msg = "User account disabled"
 	}
 
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
@@ -176,7 +186,35 @@ func (s *UserService) SetUserEnabled(
 			"enabled":          enabled,
 			"admin_id":         adminID.String(),
 		}),
-	})
+	}
+
+	// Email only when disabled. Enabling remains in-app only.
+	if !enabled {
+		s.attachAdminEmailDelivery(
+			&notification,
+			"user-disabled",
+			"User account disabled",
+			fmt.Sprintf("User account %s was disabled.", user.Username),
+			map[string]any{
+				"Name":      s.systemAdminName(),
+				"Platform":  s.platformName(),
+				"Username":  user.Username,
+				"Email":     user.Email,
+				"ActionURL": s.adminUsersURL(),
+				"Details": fmt.Sprintf(
+					"User ID: %s\nUsername: %s\nEmail: %s\nPrevious Enabled: %v\nEnabled: %v\nAdmin ID: %s",
+					user.ID,
+					user.Username,
+					user.Email,
+					user.Enabled,
+					enabled,
+					adminID.String(),
+				),
+			},
+		)
+	}
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -205,7 +243,7 @@ func (s *UserService) ResetUserPassword(
 	}
 
 	nt := models.UserPasswordReset
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
@@ -218,7 +256,30 @@ func (s *UserService) ResetUserPassword(
 			"email":    user.Email,
 			"admin_id": adminID.String(),
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"user-password-reset",
+		"User password reset",
+		fmt.Sprintf("Password reset was triggered for user %s.", user.Username),
+		map[string]any{
+			"Name":      s.systemAdminName(),
+			"Platform":  s.platformName(),
+			"Username":  user.Username,
+			"Email":     user.Email,
+			"ActionURL": s.adminUsersURL(),
+			"Details": fmt.Sprintf(
+				"User ID: %s\nUsername: %s\nEmail: %s\nAdmin ID: %s",
+				userID.String(),
+				user.Username,
+				user.Email,
+				adminID.String(),
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -375,7 +436,7 @@ func (s *UserService) UpdateUserClientRoles(
 	user, _ := s.repo.GetUserByID(userID)
 
 	nt := models.ClientRolesUpdated
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
@@ -394,7 +455,42 @@ func (s *UserService) UpdateUserClientRoles(
 			"roles":       roles,
 			"admin_id":    adminID.String(),
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"client-roles-updated",
+		"User client roles updated",
+		fmt.Sprintf("Client roles were updated for user %s.", user.Username),
+		map[string]any{
+			"Name":       s.systemAdminName(),
+			"Platform":   s.platformName(),
+			"Username":   user.Username,
+			"Email":      user.Email,
+			"ClientID":   clientID.String(),
+			"ClientUUID": clientUUID.String(),
+			"AddedRoles": strings.Join(toAdd, ", "),
+			"RemovedRoles": strings.Join(
+				toRemove,
+				", ",
+			),
+			"ActionURL": s.adminUsersURL(),
+			"Details": fmt.Sprintf(
+				"User ID: %s\nUsername: %s\nEmail: %s\nClient ID: %s\nClient UUID: %s\nAdded Roles: %s\nRemoved Roles: %s\nAll Roles: %s\nAdmin ID: %s",
+				userID.String(),
+				user.Username,
+				user.Email,
+				clientID.String(),
+				clientUUID.String(),
+				strings.Join(toAdd, ", "),
+				strings.Join(toRemove, ", "),
+				strings.Join(roles, ", "),
+				adminID.String(),
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -464,7 +560,7 @@ func (s *UserService) DeleteUser(
 	}
 
 	nt := models.UserDeleted
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
@@ -477,7 +573,30 @@ func (s *UserService) DeleteUser(
 			"email":    user.Email,
 			"admin_id": adminID.String(),
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"user-deleted",
+		"User account deleted",
+		fmt.Sprintf("User account %s was deleted.", user.Username),
+		map[string]any{
+			"Name":      s.systemAdminName(),
+			"Platform":  s.platformName(),
+			"Username":  user.Username,
+			"Email":     user.Email,
+			"ActionURL": s.adminUsersURL(),
+			"Details": fmt.Sprintf(
+				"User ID: %s\nUsername: %s\nEmail: %s\nAdmin ID: %s",
+				user.ID,
+				user.Username,
+				user.Email,
+				adminID.String(),
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -497,6 +616,111 @@ func (s *UserService) notify(
 	if _, err := s.notifications.Notify(ctx, notification); err != nil {
 		fmt.Printf("user notification failed type=%s error=%v\n", notification.Type, err)
 	}
+}
+
+func (s *UserService) attachAdminEmailDelivery(
+	notification *models.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminUsersURL()
+	}
+
+	notification.Deliveries = []models.NotificationDeliveryRequest{
+		{
+			Channel: models.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: models.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *UserService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *UserService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *UserService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *UserService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
+}
+
+func (s *UserService) adminUsersURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/admin/users"
+	}
+
+	return base + "/users"
 }
 
 func normalizeRoleNames(roles []string) []string {

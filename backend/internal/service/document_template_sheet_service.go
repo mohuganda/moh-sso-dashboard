@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 	documentTemplateSheetRepo "github.com/moh-sso-dashboard/internal/repository/document_template_sheet"
@@ -52,20 +53,23 @@ type DocumentTemplateSheetService interface {
 type documentTemplateSheetService struct {
 	repo          documentTemplateSheetRepo.DocumentTemplateSheetRepository
 	notifications NotificationsService
+	cfg           *config.Config
 }
 
 func NewDocumentTemplateSheetService(
 	repo documentTemplateSheetRepo.DocumentTemplateSheetRepository,
-	notifications ...NotificationsService,
+	notifications NotificationsService,
+	cfg ...*config.Config,
 ) DocumentTemplateSheetService {
-	var notificationSvc NotificationsService
-	if len(notifications) > 0 {
-		notificationSvc = notifications[0]
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
 	}
 
 	return &documentTemplateSheetService{
 		repo:          repo,
-		notifications: notificationSvc,
+		notifications: notifications,
+		cfg:           appConfig,
 	}
 }
 
@@ -162,6 +166,7 @@ func (s *documentTemplateSheetService) CreateSheet(
 
 	mapped := mapSheet(sheet)
 
+	// In-app only.
 	s.notify(ctx, model.Notification{
 		Type:       "DOCUMENT_TEMPLATE_SHEET_CREATED",
 		Title:      "Template sheet created",
@@ -375,6 +380,7 @@ func (s *documentTemplateSheetService) UpdateSheet(
 
 	mapped := mapSheet(sheet)
 
+	// In-app only.
 	s.notify(ctx, model.Notification{
 		Type:       "DOCUMENT_TEMPLATE_SHEET_UPDATED",
 		Title:      "Template sheet updated",
@@ -428,7 +434,7 @@ func (s *documentTemplateSheetService) ArchiveSheet(
 	if sheet.ID != uuid.Nil {
 		mapped := mapSheet(sheet)
 
-		s.notify(ctx, model.Notification{
+		notification := model.Notification{
 			Type:       "DOCUMENT_TEMPLATE_SHEET_ARCHIVED",
 			Title:      "Template sheet archived",
 			Severity:   "warning",
@@ -441,7 +447,35 @@ func (s *documentTemplateSheetService) ArchiveSheet(
 				"name":        mapped.Name,
 				"required":    mapped.Required,
 			}),
-		})
+		}
+
+		s.attachAdminEmailDelivery(
+			&notification,
+			"document-template-sheet-archived",
+			"Document template sheet archived",
+			"A document template sheet was archived.",
+			map[string]any{
+				"Name":       s.systemAdminName(),
+				"Platform":   s.platformName(),
+				"SheetName":  mapped.Name,
+				"SheetCode":  mapped.Code,
+				"TemplateID": mapped.TemplateID.String(),
+				"Required":   mapped.Required,
+				"ActionURL":  s.adminTemplatesURL(),
+				"Details": fmt.Sprintf(
+					"Sheet ID: %s\nTemplate ID: %s\nCode: %s\nName: %s\nRequired: %v\nHeader Row: %d\nStart Row: %d",
+					mapped.ID.String(),
+					mapped.TemplateID.String(),
+					mapped.Code,
+					mapped.Name,
+					mapped.Required,
+					mapped.HeaderRow,
+					mapped.StartRow,
+				),
+			},
+		)
+
+		s.notify(ctx, notification)
 	}
 
 	return nil
@@ -472,7 +506,7 @@ func (s *documentTemplateSheetService) DeleteSheet(
 	if sheet.ID != uuid.Nil {
 		mapped := mapSheet(sheet)
 
-		s.notify(ctx, model.Notification{
+		notification := model.Notification{
 			Type:       "DOCUMENT_TEMPLATE_SHEET_DELETED",
 			Title:      "Template sheet deleted",
 			Severity:   "critical",
@@ -485,7 +519,35 @@ func (s *documentTemplateSheetService) DeleteSheet(
 				"name":        mapped.Name,
 				"required":    mapped.Required,
 			}),
-		})
+		}
+
+		s.attachAdminEmailDelivery(
+			&notification,
+			"document-template-sheet-deleted",
+			"Document template sheet deleted",
+			"A document template sheet was deleted.",
+			map[string]any{
+				"Name":       s.systemAdminName(),
+				"Platform":   s.platformName(),
+				"SheetName":  mapped.Name,
+				"SheetCode":  mapped.Code,
+				"TemplateID": mapped.TemplateID.String(),
+				"Required":   mapped.Required,
+				"ActionURL":  s.adminTemplatesURL(),
+				"Details": fmt.Sprintf(
+					"Sheet ID: %s\nTemplate ID: %s\nCode: %s\nName: %s\nRequired: %v\nHeader Row: %d\nStart Row: %d",
+					mapped.ID.String(),
+					mapped.TemplateID.String(),
+					mapped.Code,
+					mapped.Name,
+					mapped.Required,
+					mapped.HeaderRow,
+					mapped.StartRow,
+				),
+			},
+		)
+
+		s.notify(ctx, notification)
 	}
 
 	return nil
@@ -587,4 +649,109 @@ func (s *documentTemplateSheetService) notify(
 	if _, err := s.notifications.Notify(ctx, notification); err != nil {
 		fmt.Printf("document template sheet notification failed type=%s error=%v\n", notification.Type, err)
 	}
+}
+
+func (s *documentTemplateSheetService) attachAdminEmailDelivery(
+	notification *model.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminTemplatesURL()
+	}
+
+	notification.Deliveries = []model.NotificationDeliveryRequest{
+		{
+			Channel: model.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: model.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *documentTemplateSheetService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *documentTemplateSheetService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *documentTemplateSheetService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *documentTemplateSheetService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
+}
+
+func (s *documentTemplateSheetService) adminTemplatesURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/admin/document-templates"
+	}
+
+	return base + "/document-templates"
 }

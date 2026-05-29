@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/moh-sso-dashboard/internal/cache"
+	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
@@ -19,22 +20,20 @@ type AuditService struct {
 	store         db.Store
 	cache         *cache.RedisCache
 	notifications NotificationsService
+	cfg           *config.Config
 }
 
 func NewAuditService(
 	store db.Store,
 	cache *cache.RedisCache,
-	notifications ...NotificationsService,
+	notifications NotificationsService,
+	cfg *config.Config,
 ) *AuditService {
-	var notificationSvc NotificationsService
-	if len(notifications) > 0 {
-		notificationSvc = notifications[0]
-	}
-
 	return &AuditService{
 		store:         store,
 		cache:         cache,
-		notifications: notificationSvc,
+		notifications: notifications,
+		cfg:           cfg,
 	}
 }
 
@@ -120,7 +119,7 @@ func (a *AuditService) notifyForAuditEvent(
 		return
 	}
 
-	notification := auditNotificationFromAction(userID, action, metadata)
+	notification := a.auditNotificationFromAction(userID, action, metadata)
 	if notification == nil {
 		return
 	}
@@ -130,7 +129,7 @@ func (a *AuditService) notifyForAuditEvent(
 	}
 }
 
-func auditNotificationFromAction(
+func (a *AuditService) auditNotificationFromAction(
 	userID uuid.NullUUID,
 	action string,
 	metadata map[string]interface{},
@@ -142,7 +141,7 @@ func auditNotificationFromAction(
 			return nil
 		}
 
-		return &model.Notification{
+		notification := model.Notification{
 			Type:       "AUTH_LOGIN_FAILED",
 			Title:      "Failed login attempt",
 			Severity:   "warning",
@@ -161,8 +160,32 @@ func auditNotificationFromAction(
 			}),
 		}
 
+		a.attachAdminEmailDelivery(
+			&notification,
+			"login-failed",
+			"Failed login attempt",
+			"A failed login attempt was recorded.",
+			map[string]any{
+				"Name":      a.systemAdminName(),
+				"Platform":  a.platformName(),
+				"Username":  nullUUIDStringValue(userID),
+				"IP":        metadataString(metadata, "ip"),
+				"UserAgent": metadataString(metadata, "user_agent"),
+				"ActionURL": a.adminDashboardURL(),
+				"Details": fmt.Sprintf(
+					"Client ID: %s\nCountry: %s\nCity: %s\nUser Agent: %s",
+					metadataString(metadata, "client_id"),
+					metadataString(metadata, "country"),
+					metadataString(metadata, "city"),
+					metadataString(metadata, "user_agent"),
+				),
+			},
+		)
+
+		return &notification
+
 	case "auth.refresh_failed":
-		return &model.Notification{
+		notification := model.Notification{
 			Type:       "AUTH_TOKEN_REFRESH_FAILED",
 			Title:      "Token refresh failed",
 			Severity:   "warning",
@@ -178,6 +201,27 @@ func auditNotificationFromAction(
 			}),
 		}
 
+		a.attachAdminEmailDelivery(
+			&notification,
+			"admin-alert",
+			"Token refresh failed",
+			"A token refresh attempt failed.",
+			map[string]any{
+				"Name":      a.systemAdminName(),
+				"Platform":  a.platformName(),
+				"Message":   "A token refresh attempt failed.",
+				"ActionURL": a.adminDashboardURL(),
+				"Details": fmt.Sprintf(
+					"User ID: %s\nIP: %s\nUser Agent: %s",
+					nullUUIDStringValue(userID),
+					metadataString(metadata, "ip"),
+					metadataString(metadata, "user_agent"),
+				),
+			},
+		)
+
+		return &notification
+
 	case "auth.password_reset":
 		success, _ := metadataBool(metadata, "success")
 		severity := "info"
@@ -190,7 +234,7 @@ func auditNotificationFromAction(
 			message = "A password reset attempt failed"
 		}
 
-		return &model.Notification{
+		notification := model.Notification{
 			Type:       "AUTH_PASSWORD_RESET",
 			Title:      title,
 			Severity:   severity,
@@ -205,7 +249,31 @@ func auditNotificationFromAction(
 			}),
 		}
 
+		if !success {
+			a.attachAdminEmailDelivery(
+				&notification,
+				"admin-alert",
+				title,
+				message,
+				map[string]any{
+					"Name":      a.systemAdminName(),
+					"Platform":  a.platformName(),
+					"Message":   message,
+					"ActionURL": a.adminDashboardURL(),
+					"Details": fmt.Sprintf(
+						"User ID: %s\nIP: %s\nSuccess: %v",
+						nullUUIDStringValue(userID),
+						metadataString(metadata, "ip"),
+						success,
+					),
+				},
+			)
+		}
+
+		return &notification
+
 	case "client.create":
+		// In-app only. ClientService already handles client lifecycle notifications.
 		return &model.Notification{
 			Type:       "CLIENT_CREATED",
 			Title:      "Client created",
@@ -224,7 +292,7 @@ func auditNotificationFromAction(
 		}
 
 	case "client.delete":
-		return &model.Notification{
+		notification := model.Notification{
 			Type:       "CLIENT_DELETED",
 			Title:      "Client deleted",
 			Severity:   "critical",
@@ -241,9 +309,32 @@ func auditNotificationFromAction(
 			}),
 		}
 
+		a.attachAdminEmailDelivery(
+			&notification,
+			"client-deleted",
+			"Client deleted",
+			"Client application deleted.",
+			map[string]any{
+				"Name":       a.systemAdminName(),
+				"Platform":   a.platformName(),
+				"ClientID":   metadataString(metadata, "client_id"),
+				"ClientName": metadataString(metadata, "client_id"),
+				"ActionURL":  a.adminDashboardURL(),
+				"Details": fmt.Sprintf(
+					"Admin ID: %s\nClient ID: %s\nIP: %s\nUser Agent: %s",
+					nullUUIDStringValue(userID),
+					metadataString(metadata, "client_id"),
+					metadataString(metadata, "ip"),
+					metadataString(metadata, "user_agent"),
+				),
+			},
+		)
+
+		return &notification
+
 	default:
 		if isSensitiveAdminAction(action) {
-			return &model.Notification{
+			notification := model.Notification{
 				Type:       "ADMIN_ACTION_RECORDED",
 				Title:      "Admin action recorded",
 				Severity:   adminActionSeverity(action),
@@ -256,9 +347,95 @@ func auditNotificationFromAction(
 					"metadata": metadata,
 				}),
 			}
+
+			if shouldEmailAdminAction(action) {
+				a.attachAdminEmailDelivery(
+					&notification,
+					"admin-alert",
+					"Sensitive admin action recorded",
+					"A sensitive admin action was recorded.",
+					map[string]any{
+						"Name":      a.systemAdminName(),
+						"Platform":  a.platformName(),
+						"Message":   "A sensitive admin action was recorded.",
+						"ActionURL": a.adminDashboardURL(),
+						"Details": fmt.Sprintf(
+							"Action: %s\nAdmin ID: %s\nMetadata: %v",
+							action,
+							nullUUIDStringValue(userID),
+							metadata,
+						),
+					},
+				)
+			}
+
+			return &notification
 		}
 
 		return nil
+	}
+}
+
+func (a *AuditService) attachAdminEmailDelivery(
+	notification *model.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(a.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = a.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = a.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = a.adminDashboardURL()
+	}
+
+	notification.Deliveries = []model.NotificationDeliveryRequest{
+		{
+			Channel: model.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: model.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  a.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
 	}
 }
 
@@ -284,6 +461,36 @@ func isSensitiveAdminAction(action string) bool {
 
 	for _, prefix := range sensitivePrefixes {
 		if strings.HasPrefix(action, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func shouldEmailAdminAction(action string) bool {
+	action = strings.ToLower(strings.TrimSpace(action))
+
+	if action == "" {
+		return false
+	}
+
+	emailKeywords := []string{
+		"delete",
+		"disable",
+		"archive",
+		"failed",
+		"failure",
+		"role.assign",
+		"role.remove",
+		"backup.",
+		"system.",
+		"storage.delete",
+		"storage.update",
+	}
+
+	for _, keyword := range emailKeywords {
+		if strings.Contains(action, keyword) {
 			return true
 		}
 	}
@@ -361,6 +568,38 @@ func nullUUIDStringValue(value uuid.NullUUID) string {
 	}
 
 	return value.UUID.String()
+}
+
+func (a *AuditService) platformName() string {
+	if a != nil && a.cfg != nil && strings.TrimSpace(a.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(a.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (a *AuditService) systemAdminName() string {
+	if a != nil && a.cfg != nil && strings.TrimSpace(a.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(a.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (a *AuditService) systemAdminEmail() string {
+	if a != nil && a.cfg != nil && strings.TrimSpace(a.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(a.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (a *AuditService) adminDashboardURL() string {
+	if a != nil && a.cfg != nil && strings.TrimSpace(a.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(a.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
 }
 
 //

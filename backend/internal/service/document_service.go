@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	models "github.com/moh-sso-dashboard/internal/model"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
@@ -44,6 +45,7 @@ type DocumentService struct {
 	processRepo   processRepo.ProcessRepository
 	notifications NotificationsService
 	storage       storage.Storage
+	cfg           *config.Config
 }
 
 func NewDocumentService(
@@ -51,12 +53,19 @@ func NewDocumentService(
 	processRepo processRepo.ProcessRepository,
 	notifications NotificationsService,
 	storage storage.Storage,
+	cfg ...*config.Config,
 ) *DocumentService {
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
+	}
+
 	return &DocumentService{
 		repo:          repo,
 		processRepo:   processRepo,
 		notifications: notifications,
 		storage:       storage,
+		cfg:           appConfig,
 	}
 }
 
@@ -163,7 +172,7 @@ func (s *DocumentService) CreateDocument(
 	}
 
 	nt := models.DocumentCreated
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
@@ -184,7 +193,37 @@ func (s *DocumentService) CreateDocument(
 			"storage_location":  input.StorageLocation.String(),
 			"checksum_provided": checksum.Valid,
 		}),
-	})
+	}
+
+	// Email only when the document has been queued for processing.
+	// Simple uploads and template uploads remain in-app only.
+	if needsProcessing && !input.IsTemplate {
+		s.attachAdminEmailDelivery(
+			&notification,
+			"document-created",
+			"Document created and queued for processing",
+			fmt.Sprintf("Document %s was created and queued for processing.", doc.OriginalFilename),
+			map[string]any{
+				"Name":         s.systemAdminName(),
+				"Platform":     s.platformName(),
+				"DocumentName": doc.OriginalFilename,
+				"DocumentType": nullStringValue(doc.ContentType),
+				"Status":       string(doc.Status),
+				"ActionURL":    s.adminDocumentsURL(),
+				"Details": fmt.Sprintf(
+					"Document ID: %s\nFilename: %s\nContent Type: %s\nProcess Type: %s\nUploaded By: %s\nObject Key: %s",
+					doc.ID.String(),
+					doc.OriginalFilename,
+					nullStringValue(doc.ContentType),
+					string(input.ProcessType),
+					input.UploadedBy.String(),
+					doc.ObjectKey,
+				),
+			},
+		)
+	}
+
+	s.notify(ctx, notification)
 
 	return doc, nil
 }
@@ -199,6 +238,10 @@ func (s *DocumentService) GetDocument(
 
 	if s.repo == nil {
 		return db.Document{}, errors.New("document repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return db.Document{}, errors.New("document id is required")
 	}
 
 	doc, err := s.repo.GetDocument(ctx, id)
@@ -241,6 +284,7 @@ func (s *DocumentService) EditDocument(
 		return db.Document{}, fmt.Errorf("edit document: %w", err)
 	}
 
+	// In-app only.
 	nt := models.DocumentEdited
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -284,6 +328,7 @@ func (s *DocumentService) DeleteDocument(
 		return fmt.Errorf("delete document: %w", err)
 	}
 
+	// In-app only. Add email here later if document deletion must be escalated.
 	nt := models.DocumentDeleted
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -401,7 +446,7 @@ func (s *DocumentService) Reprocess(
 	}
 
 	nt := models.DocumentEdited
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      "Document reprocessing queued",
 		Severity:   nt.Severity(),
@@ -415,7 +460,32 @@ func (s *DocumentService) Reprocess(
 			"process_type": proc.ProcessType,
 			"created_by":   proc.CreatedBy.String(),
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"document-created",
+		"Document reprocessing queued",
+		fmt.Sprintf("Document %s was queued for reprocessing.", doc.OriginalFilename),
+		map[string]any{
+			"Name":         s.systemAdminName(),
+			"Platform":     s.platformName(),
+			"DocumentName": doc.OriginalFilename,
+			"DocumentType": nullStringValue(doc.ContentType),
+			"Status":       "PENDING",
+			"ActionURL":    s.adminDocumentsURL(),
+			"Details": fmt.Sprintf(
+				"Document ID: %s\nFilename: %s\nContent Type: %s\nProcess Type: %s\nQueued By: %s",
+				doc.ID.String(),
+				doc.OriginalFilename,
+				nullStringValue(doc.ContentType),
+				proc.ProcessType,
+				proc.CreatedBy.String(),
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return nil
 }
@@ -430,6 +500,10 @@ func (s *DocumentService) MarkDocumentProcessing(
 
 	if s.repo == nil {
 		return db.Document{}, errors.New("document repository is nil")
+	}
+
+	if documentID == uuid.Nil {
+		return db.Document{}, errors.New("document id is required")
 	}
 
 	doc, err := s.repo.MarkDocumentProcessing(ctx, documentID)
@@ -452,13 +526,17 @@ func (s *DocumentService) MarkDocumentCompleted(
 		return db.Document{}, errors.New("document repository is nil")
 	}
 
+	if documentID == uuid.Nil {
+		return db.Document{}, errors.New("document id is required")
+	}
+
 	doc, err := s.repo.MarkDocumentCompleted(ctx, documentID)
 	if err != nil {
 		return db.Document{}, fmt.Errorf("mark document completed: %w", err)
 	}
 
 	nt := models.DocumentEdited
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      "Document processing completed",
 		Severity:   "info",
@@ -471,7 +549,31 @@ func (s *DocumentService) MarkDocumentCompleted(
 			"status":       string(doc.Status),
 			"object_key":   doc.ObjectKey,
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"document-processed",
+		"Document processing completed",
+		fmt.Sprintf("Document %s was processed successfully.", doc.OriginalFilename),
+		map[string]any{
+			"Name":         s.systemAdminName(),
+			"Platform":     s.platformName(),
+			"DocumentName": doc.OriginalFilename,
+			"DocumentType": nullStringValue(doc.ContentType),
+			"ActionURL":    s.adminDocumentsURL(),
+			"Details": fmt.Sprintf(
+				"Document ID: %s\nFilename: %s\nContent Type: %s\nStatus: %s\nObject Key: %s",
+				doc.ID.String(),
+				doc.OriginalFilename,
+				nullStringValue(doc.ContentType),
+				string(doc.Status),
+				doc.ObjectKey,
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return doc, nil
 }
@@ -488,13 +590,17 @@ func (s *DocumentService) MarkDocumentFailed(
 		return db.Document{}, errors.New("document repository is nil")
 	}
 
+	if documentID == uuid.Nil {
+		return db.Document{}, errors.New("document id is required")
+	}
+
 	doc, err := s.repo.MarkDocumentFailed(ctx, documentID)
 	if err != nil {
 		return db.Document{}, fmt.Errorf("mark document failed: %w", err)
 	}
 
 	nt := models.DocumentDeleted
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      "Document processing failed",
 		Severity:   "critical",
@@ -507,7 +613,32 @@ func (s *DocumentService) MarkDocumentFailed(
 			"status":       string(doc.Status),
 			"object_key":   doc.ObjectKey,
 		}),
-	})
+	}
+
+	s.attachAdminEmailDelivery(
+		&notification,
+		"document-failed",
+		"Document processing failed",
+		fmt.Sprintf("Document %s failed during processing.", doc.OriginalFilename),
+		map[string]any{
+			"Name":         s.systemAdminName(),
+			"Platform":     s.platformName(),
+			"DocumentName": doc.OriginalFilename,
+			"DocumentType": nullStringValue(doc.ContentType),
+			"Reason":       "Processing failed. Please review process logs for details.",
+			"ActionURL":    s.adminDocumentsURL(),
+			"Details": fmt.Sprintf(
+				"Document ID: %s\nFilename: %s\nContent Type: %s\nStatus: %s\nObject Key: %s",
+				doc.ID.String(),
+				doc.OriginalFilename,
+				nullStringValue(doc.ContentType),
+				string(doc.Status),
+				doc.ObjectKey,
+			),
+		},
+	)
+
+	s.notify(ctx, notification)
 
 	return doc, nil
 }
@@ -527,6 +658,111 @@ func (s *DocumentService) notify(
 	if _, err := s.notifications.Notify(ctx, notification); err != nil {
 		fmt.Printf("document notification failed type=%s error=%v\n", notification.Type, err)
 	}
+}
+
+func (s *DocumentService) attachAdminEmailDelivery(
+	notification *models.Notification,
+	templateName string,
+	subject string,
+	textBody string,
+	templateData map[string]any,
+) {
+	if notification == nil {
+		return
+	}
+
+	adminEmail := strings.TrimSpace(s.systemAdminEmail())
+	if adminEmail == "" {
+		return
+	}
+
+	if templateData == nil {
+		templateData = map[string]any{}
+	}
+
+	if _, ok := templateData["Name"]; !ok {
+		templateData["Name"] = s.systemAdminName()
+	}
+
+	if _, ok := templateData["Platform"]; !ok {
+		templateData["Platform"] = s.platformName()
+	}
+
+	if _, ok := templateData["ActionURL"]; !ok {
+		templateData["ActionURL"] = s.adminDocumentsURL()
+	}
+
+	notification.Deliveries = []models.NotificationDeliveryRequest{
+		{
+			Channel: models.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: models.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"name":  s.systemAdminName(),
+				"email": adminEmail,
+			},
+			TemplateName: templateName,
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   subject,
+				"text_body": textBody,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func (s *DocumentService) platformName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.PlatformName)
+	}
+
+	return "MOH Integrated Health Portal"
+}
+
+func (s *DocumentService) systemAdminName() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
+	}
+
+	return "System Administrator"
+}
+
+func (s *DocumentService) systemAdminEmail() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
+		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
+	}
+
+	return ""
+}
+
+func (s *DocumentService) adminDashboardURL() string {
+	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
+		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
+	}
+
+	return "http://localhost:3000/admin/home"
+}
+
+func (s *DocumentService) adminDocumentsURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/admin/documents"
+	}
+
+	return base + "/documents"
 }
 
 func buildDocumentCreatedMessage(
