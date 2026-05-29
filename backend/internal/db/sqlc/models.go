@@ -568,6 +568,25 @@ type Notification struct {
 	CreatedAt  sql.NullTime          `json:"created_at"`
 }
 
+type NotificationDelivery struct {
+	ID             uuid.UUID             `json:"id"`
+	NotificationID uuid.UUID             `json:"notification_id"`
+	Channel        string                `json:"channel"`
+	Status         string                `json:"status"`
+	Recipient      pqtype.NullRawMessage `json:"recipient"`
+	TemplateName   sql.NullString        `json:"template_name"`
+	TemplateData   pqtype.NullRawMessage `json:"template_data"`
+	Payload        pqtype.NullRawMessage `json:"payload"`
+	ScheduledAt    sql.NullTime          `json:"scheduled_at"`
+	LockedAt       sql.NullTime          `json:"locked_at"`
+	SentAt         sql.NullTime          `json:"sent_at"`
+	Attempts       int32                 `json:"attempts"`
+	MaxAttempts    int32                 `json:"max_attempts"`
+	LastError      sql.NullString        `json:"last_error"`
+	CreatedAt      time.Time             `json:"created_at"`
+	UpdatedAt      time.Time             `json:"updated_at"`
+}
+
 type Process struct {
 	ID          uuid.UUID      `json:"id"`
 	DocumentID  uuid.UUID      `json:"document_id"`

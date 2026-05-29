@@ -22,9 +22,11 @@ type Querier interface {
 	ArchiveDocumentTemplateColumn(ctx context.Context, id uuid.UUID) error
 	ArchiveDocumentTemplateSheet(ctx context.Context, id uuid.UUID) error
 	AuditMetricsOverview(ctx context.Context, arg AuditMetricsOverviewParams) (AuditMetricsOverviewRow, error)
+	CancelNotificationDelivery(ctx context.Context, id uuid.UUID) error
 	CancelProcess(ctx context.Context, id uuid.UUID) error
 	ClaimEmailOutboxBatch(ctx context.Context, limit int32) ([]EmailOutbox, error)
 	ClaimNextPendingProcess(ctx context.Context) (Process, error)
+	ClaimPendingNotificationDeliveries(ctx context.Context, arg ClaimPendingNotificationDeliveriesParams) ([]NotificationDelivery, error)
 	ClientUsageForUserInRange(ctx context.Context, arg ClientUsageForUserInRangeParams) ([]ClientUsageForUserInRangeRow, error)
 	CompleteProcess(ctx context.Context, id uuid.UUID) error
 	CompleteSurveillanceImportBatch(ctx context.Context, arg CompleteSurveillanceImportBatchParams) error
@@ -45,8 +47,10 @@ type Querier interface {
 	CountNewClientsToday(ctx context.Context) (int64, error)
 	CountNewUsersThisWeek(ctx context.Context) (int64, error)
 	CountNewUsersToday(ctx context.Context) (int64, error)
+	CountNotificationDeliveries(ctx context.Context, arg CountNotificationDeliveriesParams) (int64, error)
 	CountNotifications(ctx context.Context, targetRole string) (int64, error)
 	CountPasswordResetsInRange(ctx context.Context, arg CountPasswordResetsInRangeParams) (int64, error)
+	CountPendingNotificationDeliveriesByChannel(ctx context.Context, channel string) (int64, error)
 	CountSearchAnnouncementsAdmin(ctx context.Context, searchText sql.NullString) (int64, error)
 	CountUnreadNotifications(ctx context.Context, targetRole string) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
@@ -80,6 +84,10 @@ type Querier interface {
 	// Notifications
 	// =====================================================
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	// =====================================================
+	// Notification Deliveries
+	// =====================================================
+	CreateNotificationDelivery(ctx context.Context, arg CreateNotificationDeliveryParams) (NotificationDelivery, error)
 	CreateProcess(ctx context.Context, arg CreateProcessParams) (Process, error)
 	CreateRegion(ctx context.Context, arg CreateRegionParams) (Region, error)
 	CreateStorageLocation(ctx context.Context, arg CreateStorageLocationParams) (StorageLocation, error)
@@ -163,6 +171,7 @@ type Querier interface {
 	GetLatestProcessByDocumentID(ctx context.Context, documentID uuid.UUID) (Process, error)
 	GetNationalWeeklyStatusSummary(ctx context.Context, epiWeekID uuid.UUID) ([]GetNationalWeeklyStatusSummaryRow, error)
 	GetNotificationByID(ctx context.Context, id uuid.UUID) (Notification, error)
+	GetNotificationDeliveryByID(ctx context.Context, id uuid.UUID) (NotificationDelivery, error)
 	GetProcessByID(ctx context.Context, id uuid.UUID) (Process, error)
 	GetRegionByID(ctx context.Context, id uuid.UUID) (Region, error)
 	GetRegionByName(ctx context.Context, lower string) (Region, error)
@@ -242,6 +251,8 @@ type Querier interface {
 	ListIndicators(ctx context.Context) ([]Indicator, error)
 	ListNationalWeeklyStatusesByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]WeeklyStatus, error)
 	ListNationalWeeklySubjectsByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]ListNationalWeeklySubjectsByWeekRow, error)
+	ListNotificationDeliveries(ctx context.Context, arg ListNotificationDeliveriesParams) ([]NotificationDelivery, error)
+	ListNotificationDeliveriesByNotificationID(ctx context.Context, notificationID uuid.UUID) ([]NotificationDelivery, error)
 	ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error)
 	ListNotificationsByCursor(ctx context.Context, arg ListNotificationsByCursorParams) ([]Notification, error)
 	ListProcesses(ctx context.Context, arg ListProcessesParams) ([]Process, error)
@@ -292,6 +303,9 @@ type Querier interface {
 	MarkEmailOutboxProcessing(ctx context.Context, id uuid.UUID) error
 	MarkEmailOutboxRetry(ctx context.Context, arg MarkEmailOutboxRetryParams) error
 	MarkEmailOutboxSent(ctx context.Context, id uuid.UUID) error
+	MarkNotificationDeliveryFailed(ctx context.Context, arg MarkNotificationDeliveryFailedParams) error
+	MarkNotificationDeliveryRetry(ctx context.Context, arg MarkNotificationDeliveryRetryParams) error
+	MarkNotificationDeliverySent(ctx context.Context, id uuid.UUID) error
 	MarkNotificationRead(ctx context.Context, id uuid.UUID) error
 	MarkSurveillanceImportRawRowFailed(ctx context.Context, arg MarkSurveillanceImportRawRowFailedParams) error
 	MarkSurveillanceImportRawRowProcessed(ctx context.Context, id uuid.UUID) error
