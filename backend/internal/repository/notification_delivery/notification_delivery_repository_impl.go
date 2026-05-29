@@ -9,30 +9,23 @@ import (
 	logger "github.com/moh-sso-dashboard/internal/log"
 )
 
-type repository struct {
+type notificationDeliveryRepository struct {
 	store  db.Store
 	logger *logger.Logger
 }
 
 func NewNotificationDeliveryRepository(
 	store db.Store,
-	logger *logger.Logger,
-) (Repository, error) {
-	if store == nil {
-		return nil, fmt.Errorf("notification delivery repository store is required")
-	}
+	logger logger.Logger,
+) NotificationDeliveryRepository {
 
-	if logger == nil {
-		return nil, fmt.Errorf("notification delivery repository logger is required")
-	}
-
-	return &repository{
+	return &notificationDeliveryRepository{
 		store:  store,
-		logger: logger,
-	}, nil
+		logger: &logger,
+	}
 }
 
-func (r *repository) Create(
+func (r *notificationDeliveryRepository) Create(
 	ctx context.Context,
 	arg db.CreateNotificationDeliveryParams,
 ) (db.NotificationDelivery, error) {
@@ -59,7 +52,7 @@ func (r *repository) Create(
 	return delivery, nil
 }
 
-func (r *repository) ListByNotificationID(
+func (r *notificationDeliveryRepository) ListByNotificationID(
 	ctx context.Context,
 	notificationID uuid.UUID,
 ) ([]db.NotificationDelivery, error) {
@@ -71,7 +64,7 @@ func (r *repository) ListByNotificationID(
 	return deliveries, nil
 }
 
-func (r *repository) GetByID(
+func (r *notificationDeliveryRepository) GetByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.NotificationDelivery, error) {
@@ -83,7 +76,7 @@ func (r *repository) GetByID(
 	return delivery, nil
 }
 
-func (r *repository) ClaimPending(
+func (r *notificationDeliveryRepository) ClaimPending(
 	ctx context.Context,
 	channel string,
 	limit int32,
@@ -102,7 +95,7 @@ func (r *repository) ClaimPending(
 	return deliveries, nil
 }
 
-func (r *repository) MarkSent(
+func (r *notificationDeliveryRepository) MarkSent(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
@@ -113,7 +106,7 @@ func (r *repository) MarkSent(
 	return nil
 }
 
-func (r *repository) MarkRetry(
+func (r *notificationDeliveryRepository) MarkRetry(
 	ctx context.Context,
 	arg db.MarkNotificationDeliveryRetryParams,
 ) error {
@@ -124,7 +117,7 @@ func (r *repository) MarkRetry(
 	return nil
 }
 
-func (r *repository) MarkFailed(
+func (r *notificationDeliveryRepository) MarkFailed(
 	ctx context.Context,
 	arg db.MarkNotificationDeliveryFailedParams,
 ) error {
@@ -135,7 +128,7 @@ func (r *repository) MarkFailed(
 	return nil
 }
 
-func (r *repository) Cancel(
+func (r *notificationDeliveryRepository) Cancel(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
@@ -146,7 +139,7 @@ func (r *repository) Cancel(
 	return nil
 }
 
-func (r *repository) CountPendingByChannel(
+func (r *notificationDeliveryRepository) CountPendingByChannel(
 	ctx context.Context,
 	channel string,
 ) (int64, error) {
@@ -158,7 +151,7 @@ func (r *repository) CountPendingByChannel(
 	return count, nil
 }
 
-func (r *repository) List(
+func (r *notificationDeliveryRepository) List(
 	ctx context.Context,
 	arg db.ListNotificationDeliveriesParams,
 ) ([]db.NotificationDelivery, error) {
@@ -170,7 +163,7 @@ func (r *repository) List(
 	return deliveries, nil
 }
 
-func (r *repository) Count(
+func (r *notificationDeliveryRepository) Count(
 	ctx context.Context,
 	arg db.CountNotificationDeliveriesParams,
 ) (int64, error) {
