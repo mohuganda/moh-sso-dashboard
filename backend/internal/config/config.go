@@ -127,10 +127,11 @@ type Config struct {
 	DWHDBName   string `mapstructure:"DWH_DB"`
 
 	// ==================================================
-	// SMTP / Retry
+	// SMTP / Retry / Notifications
 	// ==================================================
-	SMTP  SMTPConfig  `mapstructure:",squash"`
-	Retry RetryConfig `mapstructure:",squash"`
+	SMTP         SMTPConfig         `mapstructure:",squash"`
+	Retry        RetryConfig        `mapstructure:",squash"`
+	Notification NotificationConfig `mapstructure:",squash"`
 }
 
 type SMTPConfig struct {
@@ -149,10 +150,19 @@ type RetryConfig struct {
 	BaseDelay   time.Duration `mapstructure:"RETRY_BASE_DELAY"`
 }
 
+type NotificationConfig struct {
+	PlatformName      string `mapstructure:"PLATFORM_NAME"`
+	SystemAdminName   string `mapstructure:"SYSTEM_ADMIN_NAME"`
+	SystemAdminEmail  string `mapstructure:"SYSTEM_ADMIN_EMAIL"`
+	AdminDashboardURL string `mapstructure:"ADMIN_DASHBOARD_URL"`
+}
+
 func LoadConfig(path string) (*Config, error) {
 	viper.SetConfigName("app")
 	viper.SetConfigType("env")
 	viper.AddConfigPath(path)
+
+	setDefaults()
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -164,7 +174,54 @@ func LoadConfig(path string) (*Config, error) {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AllowEmptyEnv(true)
 
-	bindings := map[string]string{
+	for key, env := range envBindings() {
+		_ = viper.BindEnv(key, env)
+	}
+
+	var config Config
+	if err := viper.Unmarshal(&config); err != nil {
+		return nil, err
+	}
+
+	normalizeConfig(&config)
+
+	if err := validateConfig(&config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+func setDefaults() {
+	// ==================================================
+	// SMTP defaults for local MailHog
+	// ==================================================
+	viper.SetDefault("SMTP_HOST", "mailhog")
+	viper.SetDefault("SMTP_PORT", 1025)
+	viper.SetDefault("SMTP_USERNAME", "")
+	viper.SetDefault("SMTP_PASSWORD", "")
+	viper.SetDefault("SMTP_FROM_EMAIL", "noreply@moh.go.ug")
+	viper.SetDefault("SMTP_FROM_NAME", "MOH Integrated Health Portal")
+	viper.SetDefault("SMTP_CONNECT_TIMEOUT", "10s")
+	viper.SetDefault("SMTP_SEND_TIMEOUT", "15s")
+
+	// ==================================================
+	// Retry defaults
+	// ==================================================
+	viper.SetDefault("RETRY_MAX_ATTEMPTS", 3)
+	viper.SetDefault("RETRY_BASE_DELAY", "2s")
+
+	// ==================================================
+	// Notification defaults
+	// ==================================================
+	viper.SetDefault("PLATFORM_NAME", "MOH Integrated Health Portal")
+	viper.SetDefault("SYSTEM_ADMIN_NAME", "System Administrator")
+	viper.SetDefault("SYSTEM_ADMIN_EMAIL", "admin@example.com")
+	viper.SetDefault("ADMIN_DASHBOARD_URL", "http://localhost:3000/admin/home")
+}
+
+func envBindings() map[string]string {
+	return map[string]string{
 		"ENVIRONMENT":                  "ENVIRONMENT",
 		"GIN_MODE":                     "GIN_MODE",
 		"FRONTEND_BASE_URL":            "FRONTEND_BASE_URL",
@@ -238,22 +295,57 @@ func LoadConfig(path string) (*Config, error) {
 		"SMTP_SEND_TIMEOUT":            "SMTP_SEND_TIMEOUT",
 		"RETRY_MAX_ATTEMPTS":           "RETRY_MAX_ATTEMPTS",
 		"RETRY_BASE_DELAY":             "RETRY_BASE_DELAY",
+		"PLATFORM_NAME":                "PLATFORM_NAME",
+		"SYSTEM_ADMIN_NAME":            "SYSTEM_ADMIN_NAME",
+		"SYSTEM_ADMIN_EMAIL":           "SYSTEM_ADMIN_EMAIL",
+		"ADMIN_DASHBOARD_URL":          "ADMIN_DASHBOARD_URL",
 	}
+}
 
-	for key, env := range bindings {
-		_ = viper.BindEnv(key, env)
+func normalizeConfig(c *Config) {
+	c.Environment = strings.TrimSpace(c.Environment)
+	c.GinMode = strings.TrimSpace(c.GinMode)
+
+	c.FrontendBaseURL = strings.TrimRight(strings.TrimSpace(c.FrontendBaseURL), "/")
+	c.FrontendRedirectURI = strings.TrimSpace(c.FrontendRedirectURI)
+	c.LoginURL = strings.TrimSpace(c.LoginURL)
+
+	c.ServerPort = strings.TrimSpace(c.ServerPort)
+	c.AppBaseURL = strings.TrimRight(strings.TrimSpace(c.AppBaseURL), "/")
+
+	c.DBDriver = strings.TrimSpace(c.DBDriver)
+	c.DBHost = strings.TrimSpace(c.DBHost)
+	c.DBUser = strings.TrimSpace(c.DBUser)
+	c.DBName = strings.TrimSpace(c.DBName)
+	c.DBPort = strings.TrimSpace(c.DBPort)
+
+	c.StorageProvider = strings.ToLower(strings.TrimSpace(c.StorageProvider))
+	c.LocalBasePath = strings.TrimSpace(c.LocalBasePath)
+	c.NFSBasePath = strings.TrimSpace(c.NFSBasePath)
+
+	c.SMTP.Host = strings.TrimSpace(c.SMTP.Host)
+	c.SMTP.Username = strings.TrimSpace(c.SMTP.Username)
+	c.SMTP.FromEmail = strings.TrimSpace(c.SMTP.FromEmail)
+	c.SMTP.FromName = strings.TrimSpace(c.SMTP.FromName)
+
+	c.Notification.PlatformName = strings.TrimSpace(c.Notification.PlatformName)
+	c.Notification.SystemAdminName = strings.TrimSpace(c.Notification.SystemAdminName)
+	c.Notification.SystemAdminEmail = strings.TrimSpace(c.Notification.SystemAdminEmail)
+	c.Notification.AdminDashboardURL = strings.TrimSpace(c.Notification.AdminDashboardURL)
+
+	if c.Notification.PlatformName == "" {
+		c.Notification.PlatformName = "MOH Integrated Health Portal"
 	}
-
-	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
-		return nil, err
+	if c.Notification.SystemAdminName == "" {
+		c.Notification.SystemAdminName = "System Administrator"
 	}
-
-	if err := validateConfig(&config); err != nil {
-		return nil, err
+	if c.Notification.AdminDashboardURL == "" {
+		if c.AppBaseURL != "" {
+			c.Notification.AdminDashboardURL = strings.TrimRight(c.AppBaseURL, "/") + "/admin/home"
+		} else {
+			c.Notification.AdminDashboardURL = "http://localhost:3000/admin/home"
+		}
 	}
-
-	return &config, nil
 }
 
 func (c *Config) DbSource() string {
@@ -326,18 +418,18 @@ func (c *Config) DwhDbSource() string {
 }
 
 func validateConfig(c *Config) error {
-	if c.DBUser == "" {
+	if strings.TrimSpace(c.DBUser) == "" {
 		return errors.New("DB_USER is required")
 	}
-	if c.DBPassword == "" {
+	if strings.TrimSpace(c.DBPassword) == "" {
 		return errors.New("DB_PASSWORD is required")
 	}
-	if c.DBHost == "" {
+	if strings.TrimSpace(c.DBHost) == "" {
 		return errors.New("DB_HOST is required")
 	}
 
 	if c.StorageProvider != "" {
-		switch strings.ToLower(strings.TrimSpace(c.StorageProvider)) {
+		switch c.StorageProvider {
 		case "local":
 			if strings.TrimSpace(c.LocalBasePath) == "" {
 				return errors.New("LOCAL_BASE_PATH is required when STORAGE_PROVIDER=local")
@@ -366,6 +458,8 @@ func validateConfig(c *Config) error {
 			if strings.TrimSpace(c.MinioBucket) == "" {
 				return errors.New("MINIO_BUCKET is required when STORAGE_PROVIDER=minio")
 			}
+		default:
+			return fmt.Errorf("unsupported STORAGE_PROVIDER: %s", c.StorageProvider)
 		}
 	}
 
@@ -373,14 +467,11 @@ func validateConfig(c *Config) error {
 		if c.SMTP.Port <= 0 {
 			return errors.New("SMTP_PORT must be greater than 0")
 		}
-		if c.SMTP.FromEmail == "" {
+		if strings.TrimSpace(c.SMTP.FromEmail) == "" {
 			return errors.New("SMTP_FROM_EMAIL is required when SMTP is enabled")
 		}
-		if strings.TrimSpace(c.SMTP.FromEmail) == "" {
-			return errors.New("smtp from email is required")
-		}
 		if strings.TrimSpace(c.SMTP.FromName) == "" {
-			return errors.New("smtp from name is required")
+			return errors.New("SMTP_FROM_NAME is required when SMTP is enabled")
 		}
 	}
 
@@ -389,6 +480,19 @@ func validateConfig(c *Config) error {
 	}
 	if c.Retry.BaseDelay < 0 {
 		return errors.New("RETRY_BASE_DELAY cannot be negative")
+	}
+
+	if strings.TrimSpace(c.Notification.PlatformName) == "" {
+		return errors.New("PLATFORM_NAME is required")
+	}
+	if strings.TrimSpace(c.Notification.SystemAdminName) == "" {
+		return errors.New("SYSTEM_ADMIN_NAME is required")
+	}
+	if strings.TrimSpace(c.Notification.SystemAdminEmail) == "" {
+		return errors.New("SYSTEM_ADMIN_EMAIL is required")
+	}
+	if strings.TrimSpace(c.Notification.AdminDashboardURL) == "" {
+		return errors.New("ADMIN_DASHBOARD_URL is required")
 	}
 
 	return nil

@@ -113,6 +113,15 @@ func (s *service) Queue(ctx context.Context, msg model.Message) error {
 		return err
 	}
 
+	if strings.TrimSpace(msg.TemplateName) != "" {
+		renderedMsg, err := s.applyTemplate(msg)
+		if err != nil {
+			return fmt.Errorf("apply template before queue: %w", err)
+		}
+
+		msg = renderedMsg
+	}
+
 	if err := utils.ValidateMessage(msg); err != nil {
 		return fmt.Errorf("validate message: %w", err)
 	}

@@ -158,11 +158,15 @@ type Notification struct {
 	Message    string          `json:"message"`
 	Severity   string          `json:"severity"`    // info | warning | critical
 	TargetRole string          `json:"target_role"` // admin | super_admin | etc
-	ClientID   string          `json:"client_id"`
-	UserID     string          `json:"user_id"`
-	Metadata   json.RawMessage `json:"metadata"` // JSONB from Postgres
+	ClientID   string          `json:"client_id,omitempty"`
+	UserID     string          `json:"user_id,omitempty"`
+	Metadata   json.RawMessage `json:"metadata,omitempty"` // JSONB from Postgres
 	Read       bool            `json:"read"`
 	CreatedAt  time.Time       `json:"created_at"`
+
+	// Optional delivery channels for this notification.
+	// If empty, the service will create a default in-app delivery.
+	Deliveries []NotificationDeliveryRequest `json:"deliveries,omitempty"`
 }
 
 type NotificationType string

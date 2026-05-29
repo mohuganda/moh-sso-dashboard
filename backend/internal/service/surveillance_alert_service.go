@@ -12,7 +12,9 @@ import (
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
+	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+	"github.com/moh-sso-dashboard/internal/utils"
 )
 
 const alertImportSource = "csv_import"
@@ -47,17 +49,25 @@ type SurveillanceAlertService struct {
 	log                    *logger.Logger
 	alertRepo              interfaces.AlertRepository
 	surveillanceImportRepo interfaces.ImportRepository
+	notifications          NotificationsService
 }
 
 func NewSurveillanceAlertService(
 	log *logger.Logger,
 	alertRepo interfaces.AlertRepository,
 	surveillanceImportRepo interfaces.ImportRepository,
+	notifications ...NotificationsService,
 ) *SurveillanceAlertService {
+	var notificationSvc NotificationsService
+	if len(notifications) > 0 {
+		notificationSvc = notifications[0]
+	}
+
 	return &SurveillanceAlertService{
 		log:                    log,
 		alertRepo:              alertRepo,
 		surveillanceImportRepo: surveillanceImportRepo,
+		notifications:          notificationSvc,
 	}
 }
 
@@ -66,11 +76,16 @@ func (s *SurveillanceAlertService) GetAlertByID(ctx context.Context, id uuid.UUI
 		return db.Alert{}, err
 	}
 
-	s.log.Debug(ctx, "getting alert by id", "alert_id", id)
+	if s.log != nil {
+		s.log.Debug(ctx, "getting alert by id", "alert_id", id)
+	}
 
 	item, err := s.alertRepo.GetByID(ctx, id)
 	if err != nil {
-		s.log.Error(ctx, "failed to get alert by id", "alert_id", id, "error", err)
+		if s.log != nil {
+			s.log.Error(ctx, "failed to get alert by id", "alert_id", id, "error", err)
+		}
+
 		return db.Alert{}, err
 	}
 
@@ -85,11 +100,16 @@ func (s *SurveillanceAlertService) ListAlertsByDisease(
 		return nil, err
 	}
 
-	s.log.Debug(ctx, "listing alerts by disease", "disease_id", diseaseID)
+	if s.log != nil {
+		s.log.Debug(ctx, "listing alerts by disease", "disease_id", diseaseID)
+	}
 
 	items, err := s.alertRepo.ListByDisease(ctx, diseaseID)
 	if err != nil {
-		s.log.Error(ctx, "failed to list alerts by disease", "disease_id", diseaseID, "error", err)
+		if s.log != nil {
+			s.log.Error(ctx, "failed to list alerts by disease", "disease_id", diseaseID, "error", err)
+		}
+
 		return nil, err
 	}
 
@@ -104,11 +124,16 @@ func (s *SurveillanceAlertService) ListAlertsByDistrict(
 		return nil, err
 	}
 
-	s.log.Debug(ctx, "listing alerts by district", "district_id", districtID)
+	if s.log != nil {
+		s.log.Debug(ctx, "listing alerts by district", "district_id", districtID)
+	}
 
 	items, err := s.alertRepo.ListByDistrict(ctx, districtID)
 	if err != nil {
-		s.log.Error(ctx, "failed to list alerts by district", "district_id", districtID, "error", err)
+		if s.log != nil {
+			s.log.Error(ctx, "failed to list alerts by district", "district_id", districtID, "error", err)
+		}
+
 		return nil, err
 	}
 
@@ -123,11 +148,16 @@ func (s *SurveillanceAlertService) ListAlertsByWeek(
 		return nil, err
 	}
 
-	s.log.Debug(ctx, "listing alerts by week", "epi_week_id", epiWeekID)
+	if s.log != nil {
+		s.log.Debug(ctx, "listing alerts by week", "epi_week_id", epiWeekID)
+	}
 
 	items, err := s.alertRepo.ListByWeek(ctx, epiWeekID)
 	if err != nil {
-		s.log.Error(ctx, "failed to list alerts by week", "epi_week_id", epiWeekID, "error", err)
+		if s.log != nil {
+			s.log.Error(ctx, "failed to list alerts by week", "epi_week_id", epiWeekID, "error", err)
+		}
+
 		return nil, err
 	}
 
@@ -138,44 +168,54 @@ func (s *SurveillanceAlertService) ListAlerts(
 	ctx context.Context,
 	params db.ListAlertsParams,
 ) ([]db.ListAlertsRow, error) {
-	s.log.Debug(ctx, "listing alerts")
+	if s.log != nil {
+		s.log.Debug(ctx, "listing alerts")
+	}
 
 	items, err := s.alertRepo.ListAlerts(ctx, params)
 	if err != nil {
-		s.log.Error(ctx, "failed to list alerts", "error", err)
+		if s.log != nil {
+			s.log.Error(ctx, "failed to list alerts", "error", err)
+		}
+
 		return nil, err
 	}
 
 	return items, nil
 }
+
 func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) error {
 	if err := requireUUID("batch id", batchID); err != nil {
 		return err
 	}
 
-	s.log.Info(ctx, "processing alert batch", "batch_id", batchID)
+	if s.log != nil {
+		s.log.Info(ctx, "processing alert batch", "batch_id", batchID)
+	}
 
-	return s.alertRepo.WithTx(ctx, func(q db.Querier) error {
+	var successRows int32
+	var failedRows int32
+
+	err := s.alertRepo.WithTx(ctx, func(q db.Querier) error {
 		rows, err := s.surveillanceImportRepo.ListImportRawRowsByBatch(ctx, batchID)
 		if err != nil {
 			return fmt.Errorf("list import raw rows by batch: %w", err)
 		}
 
-		var successRows int32
-		var failedRows int32
-
 		for _, raw := range rows {
 			if err := s.processAlertRow(ctx, q, raw); err != nil {
 				failedRows++
 
-				s.log.Warn(
-					ctx,
-					"failed to process alert row",
-					"batch_id", batchID,
-					"raw_row_id", raw.ID,
-					"row_number", raw.RowNumber,
-					"error", err,
-				)
+				if s.log != nil {
+					s.log.Warn(
+						ctx,
+						"failed to process alert row",
+						"batch_id", batchID,
+						"raw_row_id", raw.ID,
+						"row_number", raw.RowNumber,
+						"error", err,
+					)
+				}
 
 				if markErr := s.surveillanceImportRepo.MarkRawRowFailed(ctx, raw.ID, err.Error()); markErr != nil {
 					return fmt.Errorf("mark raw row failed: %w", markErr)
@@ -201,6 +241,27 @@ func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uu
 			}
 		}
 
+		return nil
+	})
+	if err != nil {
+		s.notify(ctx, model.Notification{
+			Type:       "SURVEILLANCE_ALERT_IMPORT_FAILED",
+			Title:      "Alert import failed",
+			Severity:   "critical",
+			Message:    "Surveillance alert batch processing failed",
+			TargetRole: "admin",
+			Metadata: utils.MustJSON(map[string]any{
+				"batch_id":     batchID.String(),
+				"success_rows": successRows,
+				"failed_rows":  failedRows,
+				"error":        err.Error(),
+			}),
+		})
+
+		return err
+	}
+
+	if s.log != nil {
 		s.log.Info(
 			ctx,
 			"completed alert batch processing",
@@ -208,9 +269,32 @@ func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uu
 			"success_rows", successRows,
 			"failed_rows", failedRows,
 		)
+	}
 
-		return nil
+	severity := "info"
+	title := "Alert import completed"
+	message := "Surveillance alert batch processing completed"
+
+	if failedRows > 0 {
+		severity = "warning"
+		title = "Alert import completed with errors"
+		message = "Surveillance alert batch processing completed with failed rows"
+	}
+
+	s.notify(ctx, model.Notification{
+		Type:       "SURVEILLANCE_ALERT_IMPORT_COMPLETED",
+		Title:      title,
+		Severity:   severity,
+		Message:    message,
+		TargetRole: "admin",
+		Metadata: utils.MustJSON(map[string]any{
+			"batch_id":     batchID.String(),
+			"success_rows": successRows,
+			"failed_rows":  failedRows,
+		}),
 	})
+
+	return nil
 }
 
 func (s *SurveillanceAlertService) processAlertRow(
@@ -329,6 +413,10 @@ func parseAlertsPayload(rawPayload []byte) (parsedAlertsPayload, error) {
 		return parsedAlertsPayload{}, fmt.Errorf("weeks is required")
 	}
 
+	if raw.EpiWeek > 53 {
+		return parsedAlertsPayload{}, fmt.Errorf("weeks must not be greater than 53")
+	}
+
 	return parsedAlertsPayload{
 		CreatedAt:   createdAt,
 		Narrative:   raw.Narrative,
@@ -358,4 +446,28 @@ func buildAlertExternalID(payload parsedAlertsPayload) string {
 	}
 
 	return strings.Join(parts, "|")
+}
+
+func (s *SurveillanceAlertService) notify(
+	ctx context.Context,
+	notification model.Notification,
+) {
+	if s == nil || s.notifications == nil {
+		return
+	}
+
+	if strings.TrimSpace(notification.TargetRole) == "" {
+		notification.TargetRole = "admin"
+	}
+
+	if _, err := s.notifications.Notify(ctx, notification); err != nil {
+		if s.log != nil {
+			s.log.Error(
+				ctx,
+				"surveillance alert notification failed",
+				"type", notification.Type,
+				"error", err,
+			)
+		}
+	}
 }

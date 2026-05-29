@@ -12,32 +12,30 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
+	notificationDeliveryRepo "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
+	"github.com/moh-sso-dashboard/internal/service"
 	"github.com/sqlc-dev/pqtype"
 )
 
-type EmailQueueService interface {
-	Queue(ctx context.Context, msg model.Message) error
-}
-
 type NotificationEmailDeliveryWorker struct {
-	store      db.Store
-	emailSvc   EmailQueueService
-	pollDelay  time.Duration
-	batchSize  int32
-	maxRetries int32
-	logger     *logger.Logger
+	notificationDelivery notificationDeliveryRepo.NotificationDeliveryRepository
+	emailSvc             service.EmailService
+	pollDelay            time.Duration
+	batchSize            int32
+	maxRetries           int32
+	logger               *logger.Logger
 }
 
 func NewNotificationEmailDeliveryWorker(
-	store db.Store,
-	emailSvc EmailQueueService,
+	notificationDelivery notificationDeliveryRepo.NotificationDeliveryRepository,
+	emailSvc service.EmailService,
 	pollDelay time.Duration,
 	batchSize int32,
 	maxRetries int32,
 	logger *logger.Logger,
 ) (*NotificationEmailDeliveryWorker, error) {
-	if store == nil {
-		return nil, errors.New("store is required")
+	if notificationDelivery == nil {
+		return nil, errors.New("notification delivery repository is required")
 	}
 
 	if emailSvc == nil {
@@ -61,12 +59,12 @@ func NewNotificationEmailDeliveryWorker(
 	}
 
 	return &NotificationEmailDeliveryWorker{
-		store:      store,
-		emailSvc:   emailSvc,
-		pollDelay:  pollDelay,
-		batchSize:  batchSize,
-		maxRetries: maxRetries,
-		logger:     logger,
+		notificationDelivery: notificationDelivery,
+		emailSvc:             emailSvc,
+		pollDelay:            pollDelay,
+		batchSize:            batchSize,
+		maxRetries:           maxRetries,
+		logger:               logger,
 	}, nil
 }
 
@@ -79,6 +77,7 @@ func (w *NotificationEmailDeliveryWorker) Start(ctx context.Context) error {
 		"notification email delivery worker started",
 		"poll_delay", w.pollDelay.String(),
 		"batch_size", w.batchSize,
+		"max_retries", w.maxRetries,
 	)
 
 	for {
@@ -101,12 +100,10 @@ func (w *NotificationEmailDeliveryWorker) Start(ctx context.Context) error {
 }
 
 func (w *NotificationEmailDeliveryWorker) process(ctx context.Context) error {
-	items, err := w.store.ClaimPendingNotificationDeliveries(
+	items, err := w.notificationDelivery.ClaimPending(
 		ctx,
-		db.ClaimPendingNotificationDeliveriesParams{
-			Channel: string(model.NotificationChannelEmail),
-			Limit:   w.batchSize,
-		},
+		string(model.NotificationChannelEmail),
+		w.batchSize,
 	)
 	if err != nil {
 		return fmt.Errorf("claim email notification deliveries: %w", err)
@@ -143,7 +140,7 @@ func (w *NotificationEmailDeliveryWorker) processOne(
 		return w.failOrRetry(ctx, item, err)
 	}
 
-	if err := w.store.MarkNotificationDeliverySent(ctx, item.ID); err != nil {
+	if err := w.notificationDelivery.MarkSent(ctx, item.ID); err != nil {
 		return fmt.Errorf("mark notification email delivery sent: %w", err)
 	}
 
@@ -151,6 +148,8 @@ func (w *NotificationEmailDeliveryWorker) processOne(
 		"notification email delivery queued",
 		"delivery_id", item.ID,
 		"notification_id", item.NotificationID,
+		"subject", msg.Subject,
+		"to_count", len(msg.To),
 	)
 
 	return nil
@@ -164,31 +163,55 @@ func (w *NotificationEmailDeliveryWorker) failOrRetry(
 	nextAttempts := item.Attempts + 1
 
 	if nextAttempts >= item.MaxAttempts {
-		if err := w.store.MarkNotificationDeliveryFailed(
+		if err := w.notificationDelivery.MarkFailed(
 			ctx,
 			db.MarkNotificationDeliveryFailedParams{
-				ID:        item.ID,
-				LastError: sql.NullString{String: cause.Error(), Valid: true},
+				ID: item.ID,
+				LastError: sql.NullString{
+					String: cause.Error(),
+					Valid:  true,
+				},
 			},
 		); err != nil {
 			return fmt.Errorf("mark notification delivery failed: %w", err)
 		}
+
+		w.logger.Error(
+			"notification email delivery failed permanently",
+			"error", cause,
+			"delivery_id", item.ID,
+			"notification_id", item.NotificationID,
+			"attempts", nextAttempts,
+			"max_attempts", item.MaxAttempts,
+		)
 
 		return cause
 	}
 
 	delay := retryDelay(nextAttempts)
 
-	if err := w.store.MarkNotificationDeliveryRetry(
+	if err := w.notificationDelivery.MarkRetry(
 		ctx,
 		db.MarkNotificationDeliveryRetryParams{
-			ID:        item.ID,
-			LastError: sql.NullString{String: cause.Error(), Valid: true},
-			Column3:   delay.String(),
+			ID: item.ID,
+			LastError: sql.NullString{
+				String: cause.Error(),
+				Valid:  true,
+			},
+			Column3: delay.String(),
 		},
 	); err != nil {
 		return fmt.Errorf("mark notification delivery retry: %w", err)
 	}
+
+	w.logger.Error(
+		"notification email delivery scheduled for retry",
+		"error", cause,
+		"delivery_id", item.ID,
+		"notification_id", item.NotificationID,
+		"attempts", nextAttempts,
+		"retry_after", delay.String(),
+	)
 
 	return cause
 }
@@ -241,7 +264,7 @@ func notificationDeliveryToEmailMessage(
 
 	templateName := ""
 	if item.TemplateName.Valid {
-		templateName = item.TemplateName.String
+		templateName = strings.TrimSpace(item.TemplateName.String)
 	}
 
 	subject := strings.TrimSpace(payload.Subject)

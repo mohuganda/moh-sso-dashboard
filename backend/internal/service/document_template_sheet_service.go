@@ -5,11 +5,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
+
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 	documentTemplateSheetRepo "github.com/moh-sso-dashboard/internal/repository/document_template_sheet"
+	"github.com/moh-sso-dashboard/internal/utils"
 )
 
 var (
@@ -46,26 +50,60 @@ type DocumentTemplateSheetService interface {
 }
 
 type documentTemplateSheetService struct {
-	repo documentTemplateSheetRepo.DocumentTemplateSheetRepository
+	repo          documentTemplateSheetRepo.DocumentTemplateSheetRepository
+	notifications NotificationsService
 }
 
 func NewDocumentTemplateSheetService(
 	repo documentTemplateSheetRepo.DocumentTemplateSheetRepository,
+	notifications ...NotificationsService,
 ) DocumentTemplateSheetService {
-	return &documentTemplateSheetService{repo: repo}
+	var notificationSvc NotificationsService
+	if len(notifications) > 0 {
+		notificationSvc = notifications[0]
+	}
+
+	return &documentTemplateSheetService{
+		repo:          repo,
+		notifications: notificationSvc,
+	}
 }
 
 /* =========================================================
  * CREATE
  * ========================================================= */
+
 func (s *documentTemplateSheetService) CreateSheet(
 	ctx context.Context,
 	req model.CreateSheetRequest,
 ) (*model.DocumentTemplateSheet, error) {
+	if s == nil {
+		return nil, errors.New("document template sheet service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("document template sheet repository is nil")
+	}
+
+	req.Code = strings.TrimSpace(req.Code)
+	req.Name = strings.TrimSpace(req.Name)
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+
+	if req.TemplateID == uuid.Nil {
+		return nil, errors.New("template id is required")
+	}
+
+	if req.Code == "" {
+		return nil, errors.New("sheet code is required")
+	}
+
+	if req.Name == "" {
+		return nil, errors.New("sheet name is required")
+	}
 
 	exists, err := s.repo.ExistsCode(ctx, req.TemplateID, req.Code)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check sheet code exists: %w", err)
 	}
 	if exists {
 		return nil, ErrSheetCodeExists
@@ -73,7 +111,7 @@ func (s *documentTemplateSheetService) CreateSheet(
 
 	nameExists, err := s.repo.ExistsName(ctx, req.TemplateID, req.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check sheet name exists: %w", err)
 	}
 	if nameExists {
 		return nil, ErrSheetNameExists
@@ -96,7 +134,7 @@ func (s *documentTemplateSheetService) CreateSheet(
 
 	configJSON, err := json.Marshal(req.Configuration)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal sheet configuration: %w", err)
 	}
 
 	sheet, err := s.repo.Create(ctx, db.CreateDocumentTemplateSheetParams{
@@ -104,18 +142,14 @@ func (s *documentTemplateSheetService) CreateSheet(
 		TemplateID: req.TemplateID,
 		Code:       req.Code,
 		Name:       req.Name,
-
 		DisplayName: sql.NullString{
 			String: req.DisplayName,
 			Valid:  req.DisplayName != "",
 		},
-
-		Required: req.Required,
-
+		Required:   req.Required,
 		SheetOrder: sheetOrder,
-
-		HeaderRow: int32(req.HeaderRow),
-		StartRow:  int32(req.StartRow),
+		HeaderRow:  int32(req.HeaderRow),
+		StartRow:   int32(req.StartRow),
 
 		AllowExtraColumns:     req.AllowExtraColumns,
 		AllowDuplicateHeaders: req.AllowDuplicateHeaders,
@@ -123,23 +157,58 @@ func (s *documentTemplateSheetService) CreateSheet(
 		Configuration: configJSON,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create document template sheet: %w", err)
 	}
 
-	return mapSheet(sheet), nil
+	mapped := mapSheet(sheet)
+
+	s.notify(ctx, model.Notification{
+		Type:       "DOCUMENT_TEMPLATE_SHEET_CREATED",
+		Title:      "Template sheet created",
+		Severity:   "info",
+		Message:    "Document template sheet created",
+		TargetRole: "admin",
+		Metadata: utils.MustJSON(map[string]any{
+			"sheet_id":                mapped.ID.String(),
+			"template_id":             mapped.TemplateID.String(),
+			"code":                    mapped.Code,
+			"name":                    mapped.Name,
+			"display_name":            mapped.DisplayName,
+			"required":                mapped.Required,
+			"sheet_order":             mapped.SheetOrder,
+			"header_row":              mapped.HeaderRow,
+			"start_row":               mapped.StartRow,
+			"allow_extra_columns":     mapped.AllowExtraColumns,
+			"allow_duplicate_headers": mapped.AllowDuplicateHeaders,
+		}),
+	})
+
+	return mapped, nil
 }
 
 /* =========================================================
  * READ
  * ========================================================= */
+
 func (s *documentTemplateSheetService) GetSheet(
 	ctx context.Context,
 	id uuid.UUID,
 ) (*model.DocumentTemplateSheet, error) {
+	if s == nil {
+		return nil, errors.New("document template sheet service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("document template sheet repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return nil, errors.New("sheet id is required")
+	}
 
 	sheet, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get document template sheet: %w", err)
 	}
 
 	return mapSheet(sheet), nil
@@ -150,10 +219,26 @@ func (s *documentTemplateSheetService) GetSheetByCode(
 	templateID uuid.UUID,
 	code string,
 ) (*model.DocumentTemplateSheet, error) {
+	if s == nil {
+		return nil, errors.New("document template sheet service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("document template sheet repository is nil")
+	}
+
+	if templateID == uuid.Nil {
+		return nil, errors.New("template id is required")
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return nil, errors.New("sheet code is required")
+	}
 
 	sheet, err := s.repo.GetByCode(ctx, templateID, code)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get document template sheet by code: %w", err)
 	}
 
 	return mapSheet(sheet), nil
@@ -163,10 +248,21 @@ func (s *documentTemplateSheetService) ListSheets(
 	ctx context.Context,
 	templateID uuid.UUID,
 ) ([]model.DocumentTemplateSheet, error) {
+	if s == nil {
+		return nil, errors.New("document template sheet service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("document template sheet repository is nil")
+	}
+
+	if templateID == uuid.Nil {
+		return nil, errors.New("template id is required")
+	}
 
 	items, err := s.repo.List(ctx, templateID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list document template sheets: %w", err)
 	}
 
 	result := make([]model.DocumentTemplateSheet, 0, len(items))
@@ -181,10 +277,21 @@ func (s *documentTemplateSheetService) ListRequiredSheets(
 	ctx context.Context,
 	templateID uuid.UUID,
 ) ([]model.DocumentTemplateSheet, error) {
+	if s == nil {
+		return nil, errors.New("document template sheet service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("document template sheet repository is nil")
+	}
+
+	if templateID == uuid.Nil {
+		return nil, errors.New("template id is required")
+	}
 
 	items, err := s.repo.ListRequired(ctx, templateID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list required document template sheets: %w", err)
 	}
 
 	result := make([]model.DocumentTemplateSheet, 0, len(items))
@@ -198,10 +305,29 @@ func (s *documentTemplateSheetService) ListRequiredSheets(
 /* =========================================================
  * UPDATE
  * ========================================================= */
+
 func (s *documentTemplateSheetService) UpdateSheet(
 	ctx context.Context,
 	req model.UpdateSheetRequest,
 ) (*model.DocumentTemplateSheet, error) {
+	if s == nil {
+		return nil, errors.New("document template sheet service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("document template sheet repository is nil")
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+
+	if req.ID == uuid.Nil {
+		return nil, errors.New("sheet id is required")
+	}
+
+	if req.Name == "" {
+		return nil, errors.New("sheet name is required")
+	}
 
 	if req.HeaderRow < 1 {
 		return nil, ErrInvalidHeaderRow
@@ -220,7 +346,7 @@ func (s *documentTemplateSheetService) UpdateSheet(
 
 	configJSON, err := json.Marshal(req.Configuration)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal sheet configuration: %w", err)
 	}
 
 	sheet, err := s.repo.Update(ctx, db.UpdateDocumentTemplateSheetParams{
@@ -232,8 +358,7 @@ func (s *documentTemplateSheetService) UpdateSheet(
 			Valid:  req.DisplayName != "",
 		},
 
-		Required: req.Required,
-
+		Required:   req.Required,
 		SheetOrder: sheetOrder,
 
 		HeaderRow: int32(req.HeaderRow),
@@ -245,37 +370,137 @@ func (s *documentTemplateSheetService) UpdateSheet(
 		Configuration: configJSON,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("update document template sheet: %w", err)
 	}
 
-	return mapSheet(sheet), nil
+	mapped := mapSheet(sheet)
+
+	s.notify(ctx, model.Notification{
+		Type:       "DOCUMENT_TEMPLATE_SHEET_UPDATED",
+		Title:      "Template sheet updated",
+		Severity:   "info",
+		Message:    "Document template sheet updated",
+		TargetRole: "admin",
+		Metadata: utils.MustJSON(map[string]any{
+			"sheet_id":                mapped.ID.String(),
+			"template_id":             mapped.TemplateID.String(),
+			"code":                    mapped.Code,
+			"name":                    mapped.Name,
+			"display_name":            mapped.DisplayName,
+			"required":                mapped.Required,
+			"sheet_order":             mapped.SheetOrder,
+			"header_row":              mapped.HeaderRow,
+			"start_row":               mapped.StartRow,
+			"allow_extra_columns":     mapped.AllowExtraColumns,
+			"allow_duplicate_headers": mapped.AllowDuplicateHeaders,
+		}),
+	})
+
+	return mapped, nil
 }
 
 /* =========================================================
  * DELETE / ARCHIVE
  * ========================================================= */
+
 func (s *documentTemplateSheetService) ArchiveSheet(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-	return s.repo.Archive(ctx, id)
+	if s == nil {
+		return errors.New("document template sheet service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("document template sheet repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return errors.New("sheet id is required")
+	}
+
+	sheet, _ := s.repo.GetByID(ctx, id)
+
+	if err := s.repo.Archive(ctx, id); err != nil {
+		return fmt.Errorf("archive document template sheet: %w", err)
+	}
+
+	if sheet.ID != uuid.Nil {
+		mapped := mapSheet(sheet)
+
+		s.notify(ctx, model.Notification{
+			Type:       "DOCUMENT_TEMPLATE_SHEET_ARCHIVED",
+			Title:      "Template sheet archived",
+			Severity:   "warning",
+			Message:    "Document template sheet archived",
+			TargetRole: "admin",
+			Metadata: utils.MustJSON(map[string]any{
+				"sheet_id":    mapped.ID.String(),
+				"template_id": mapped.TemplateID.String(),
+				"code":        mapped.Code,
+				"name":        mapped.Name,
+				"required":    mapped.Required,
+			}),
+		})
+	}
+
+	return nil
 }
 
 func (s *documentTemplateSheetService) DeleteSheet(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-	return s.repo.Delete(ctx, id)
+	if s == nil {
+		return errors.New("document template sheet service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("document template sheet repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return errors.New("sheet id is required")
+	}
+
+	sheet, _ := s.repo.GetByID(ctx, id)
+
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return fmt.Errorf("delete document template sheet: %w", err)
+	}
+
+	if sheet.ID != uuid.Nil {
+		mapped := mapSheet(sheet)
+
+		s.notify(ctx, model.Notification{
+			Type:       "DOCUMENT_TEMPLATE_SHEET_DELETED",
+			Title:      "Template sheet deleted",
+			Severity:   "critical",
+			Message:    "Document template sheet deleted",
+			TargetRole: "admin",
+			Metadata: utils.MustJSON(map[string]any{
+				"sheet_id":    mapped.ID.String(),
+				"template_id": mapped.TemplateID.String(),
+				"code":        mapped.Code,
+				"name":        mapped.Name,
+				"required":    mapped.Required,
+			}),
+		})
+	}
+
+	return nil
 }
 
 /* =========================================================
  * RUNTIME HELPERS
  * ========================================================= */
+
 func (s *documentTemplateSheetService) GetSheetRuntime(
 	ctx context.Context,
 	tpl *model.TemplateRuntime,
 	sheetCode string,
 ) (*model.TemplateSheetRuntime, error) {
+	sheetCode = strings.TrimSpace(sheetCode)
 
 	if tpl == nil || tpl.Sheets == nil {
 		return nil, ErrSheetNotFound
@@ -294,6 +519,7 @@ func (s *documentTemplateSheetService) ValidateSheetExists(
 	tpl *model.TemplateRuntime,
 	sheetCode string,
 ) error {
+	sheetCode = strings.TrimSpace(sheetCode)
 
 	if tpl == nil || tpl.Sheets == nil {
 		return ErrSheetNotFound
@@ -307,10 +533,10 @@ func (s *documentTemplateSheetService) ValidateSheetExists(
 }
 
 /* =========================================================
- * MAPPER
+ * MAPPER / HELPERS
  * ========================================================= */
-func mapSheet(s db.DocumentTemplateSheet) *model.DocumentTemplateSheet {
 
+func mapSheet(s db.DocumentTemplateSheet) *model.DocumentTemplateSheet {
 	var display string
 	if s.DisplayName.Valid {
 		display = s.DisplayName.String
@@ -326,6 +552,9 @@ func mapSheet(s db.DocumentTemplateSheet) *model.DocumentTemplateSheet {
 	if len(s.Configuration) > 0 {
 		_ = json.Unmarshal(s.Configuration, &config)
 	}
+	if config == nil {
+		config = map[string]any{}
+	}
 
 	return &model.DocumentTemplateSheet{
 		ID:                    s.ID,
@@ -340,5 +569,22 @@ func mapSheet(s db.DocumentTemplateSheet) *model.DocumentTemplateSheet {
 		AllowExtraColumns:     s.AllowExtraColumns,
 		AllowDuplicateHeaders: s.AllowDuplicateHeaders,
 		Configuration:         config,
+	}
+}
+
+func (s *documentTemplateSheetService) notify(
+	ctx context.Context,
+	notification model.Notification,
+) {
+	if s == nil || s.notifications == nil {
+		return
+	}
+
+	if strings.TrimSpace(notification.TargetRole) == "" {
+		notification.TargetRole = "admin"
+	}
+
+	if _, err := s.notifications.Notify(ctx, notification); err != nil {
+		fmt.Printf("document template sheet notification failed type=%s error=%v\n", notification.Type, err)
 	}
 }

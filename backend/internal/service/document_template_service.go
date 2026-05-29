@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 
@@ -16,6 +18,7 @@ import (
 	documentTemplateRepo "github.com/moh-sso-dashboard/internal/repository/document_template"
 	documentTemplateColumnRepo "github.com/moh-sso-dashboard/internal/repository/document_template_column"
 	documentTemplateSheetRepo "github.com/moh-sso-dashboard/internal/repository/document_template_sheet"
+	"github.com/moh-sso-dashboard/internal/utils"
 )
 
 var (
@@ -26,8 +29,8 @@ type DocumentTemplateService interface {
 	CreateTemplate(ctx context.Context, req model.CreateTemplateRequest) (*model.DocumentTemplate, error)
 
 	GetTemplate(ctx context.Context, id uuid.UUID) (*model.DocumentTemplate, error)
-	CreateTemplateStructure(
 
+	CreateTemplateStructure(
 		ctx context.Context,
 		req model.CreateTemplateStructureRequest,
 	) (*model.TemplateStructure, error)
@@ -49,8 +52,8 @@ type DocumentTemplateService interface {
 	PublishTemplate(ctx context.Context, id uuid.UUID) error
 
 	GetTemplateStructure(ctx context.Context, code string) (*model.TemplateStructure, error)
-	GetTemplateStructureByDocumentID(
 
+	GetTemplateStructureByDocumentID(
 		ctx context.Context,
 		documentID uuid.UUID,
 	) (*model.TemplateStructure, error)
@@ -61,18 +64,25 @@ type documentTemplateService struct {
 	documentTemplateRepo documentTemplateRepo.DocumentTemplateRepository
 	sheetRepo            documentTemplateSheetRepo.DocumentTemplateSheetRepository
 	columnRepo           documentTemplateColumnRepo.DocumentTemplateColumnRepository
+	notifications        NotificationsService
 }
 
 func NewDocumentTemplateService(
 	documentTemplateRepo documentTemplateRepo.DocumentTemplateRepository,
 	sheetRepo documentTemplateSheetRepo.DocumentTemplateSheetRepository,
 	columnRepo documentTemplateColumnRepo.DocumentTemplateColumnRepository,
+	notifications ...NotificationsService,
 ) DocumentTemplateService {
+	var notificationSvc NotificationsService
+	if len(notifications) > 0 {
+		notificationSvc = notifications[0]
+	}
 
 	return &documentTemplateService{
 		documentTemplateRepo: documentTemplateRepo,
 		sheetRepo:            sheetRepo,
 		columnRepo:           columnRepo,
+		notifications:        notificationSvc,
 	}
 }
 
@@ -80,44 +90,64 @@ func (s *documentTemplateService) GetTemplate(
 	ctx context.Context,
 	id uuid.UUID,
 ) (*model.DocumentTemplate, error) {
+	if s == nil {
+		return nil, errors.New("document template service is nil")
+	}
+
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return nil, errors.New("template id is required")
+	}
 
 	t, err := s.documentTemplateRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get document template: %w", err)
 	}
 
-	var config map[string]any
-	if len(t.Configuration) > 0 {
-		_ = json.Unmarshal(t.Configuration, &config)
-	}
-
-	return &model.DocumentTemplate{
-		ID:            t.ID,
-		Code:          t.Code,
-		Name:          t.Name,
-		Description:   t.Description.String,
-		FileType:      t.FileType,
-		Version:       int(t.Version),
-		IsActive:      t.IsActive,
-		Configuration: config,
-	}, nil
+	return mapDocumentTemplate(t), nil
 }
 
 func (s *documentTemplateService) CreateTemplate(
 	ctx context.Context,
 	req model.CreateTemplateRequest,
 ) (*model.DocumentTemplate, error) {
+	if s == nil {
+		return nil, errors.New("document template service is nil")
+	}
 
-	// 1. Validate uniqueness
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	req.Code = strings.TrimSpace(req.Code)
+	req.Name = strings.TrimSpace(req.Name)
+	req.Description = strings.TrimSpace(req.Description)
+	req.FileType = strings.TrimSpace(req.FileType)
+
+	if req.Code == "" {
+		return nil, errors.New("template code is required")
+	}
+
+	if req.Name == "" {
+		return nil, errors.New("template name is required")
+	}
+
+	if req.FileType == "" {
+		return nil, errors.New("template file type is required")
+	}
+
 	exists, err := s.documentTemplateRepo.ExistsCode(ctx, req.Code)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check template code exists: %w", err)
 	}
+
 	if exists {
 		return nil, ErrTemplateCodeExists
 	}
 
-	// 2. Create template
 	template, err := s.documentTemplateRepo.Create(ctx, db.CreateDocumentTemplateParams{
 		ID:   uuid.New(),
 		Code: req.Code,
@@ -133,29 +163,52 @@ func (s *documentTemplateService) CreateTemplate(
 		CreatedBy:     req.CreatedBy,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create document template: %w", err)
 	}
 
-	return &model.DocumentTemplate{
-		ID:            template.ID,
-		Code:          template.Code,
-		Name:          template.Name,
-		Description:   template.Description.String,
-		FileType:      template.FileType,
-		Version:       int(template.Version),
-		IsActive:      template.IsActive,
-		Configuration: mustMap(template.Configuration),
-	}, nil
+	out := mapDocumentTemplate(template)
+
+	s.notify(ctx, model.Notification{
+		Type:       "DOCUMENT_TEMPLATE_CREATED",
+		Title:      "Document template created",
+		Severity:   "info",
+		Message:    "Document template created",
+		TargetRole: "admin",
+		UserID:     req.CreatedBy.String(),
+		Metadata: utils.MustJSON(map[string]any{
+			"template_id": out.ID.String(),
+			"code":        out.Code,
+			"name":        out.Name,
+			"file_type":   out.FileType,
+			"version":     out.Version,
+			"is_active":   out.IsActive,
+			"created_by":  req.CreatedBy.String(),
+		}),
+	})
+
+	return out, nil
 }
 
 func (s *documentTemplateService) GetTemplateRuntime(
 	ctx context.Context,
 	code string,
 ) (*model.TemplateRuntime, error) {
+	if s == nil {
+		return nil, errors.New("document template service is nil")
+	}
+
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return nil, errors.New("template code is required")
+	}
 
 	t, err := s.documentTemplateRepo.GetByCode(ctx, code)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get template runtime: %w", err)
 	}
 
 	return &model.TemplateRuntime{
@@ -163,85 +216,72 @@ func (s *documentTemplateService) GetTemplateRuntime(
 		Code:    t.Code,
 		Version: int(t.Version),
 	}, nil
-
 }
 
 func (s *documentTemplateService) GetTemplateByCode(
 	ctx context.Context,
 	code string,
 ) (*model.DocumentTemplate, error) {
+	if s == nil {
+		return nil, errors.New("document template service is nil")
+	}
+
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return nil, errors.New("template code is required")
+	}
 
 	t, err := s.documentTemplateRepo.GetByCode(ctx, code)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get document template by code: %w", err)
 	}
 
-	var config map[string]any
-	if len(t.Configuration) > 0 {
-		_ = json.Unmarshal(t.Configuration, &config)
-	}
-
-	return &model.DocumentTemplate{
-		ID:            t.ID,
-		Code:          t.Code,
-		Name:          t.Name,
-		Description:   t.Description.String,
-		FileType:      t.FileType,
-		Version:       int(t.Version),
-		IsActive:      t.IsActive,
-		Configuration: config,
-	}, nil
+	return mapDocumentTemplate(t), nil
 }
 
 func (s *documentTemplateService) ListTemplates(ctx context.Context) ([]model.DocumentTemplate, error) {
-	items, err := s.documentTemplateRepo.List(ctx)
-	if err != nil {
-		return nil, err
+	if s == nil {
+		return nil, errors.New("document template service is nil")
 	}
 
-	var result []model.DocumentTemplate
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	items, err := s.documentTemplateRepo.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list document templates: %w", err)
+	}
+
+	result := make([]model.DocumentTemplate, 0, len(items))
 	for _, t := range items {
-		var config map[string]any
-		if len(t.Configuration) > 0 {
-			_ = json.Unmarshal(t.Configuration, &config)
-		}
-		result = append(result, model.DocumentTemplate{
-			ID:            t.ID,
-			Code:          t.Code,
-			Name:          t.Name,
-			Description:   t.Description.String,
-			FileType:      t.FileType,
-			Version:       int(t.Version),
-			IsActive:      t.IsActive,
-			Configuration: config,
-		})
+		result = append(result, *mapDocumentTemplate(t))
 	}
 
 	return result, nil
 }
 
 func (s *documentTemplateService) ListActiveTemplates(ctx context.Context) ([]model.DocumentTemplate, error) {
-	items, err := s.documentTemplateRepo.ListActive(ctx)
-	if err != nil {
-		return nil, err
+	if s == nil {
+		return nil, errors.New("document template service is nil")
 	}
 
-	var result []model.DocumentTemplate
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	items, err := s.documentTemplateRepo.ListActive(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list active document templates: %w", err)
+	}
+
+	result := make([]model.DocumentTemplate, 0, len(items))
 	for _, t := range items {
-		var config map[string]any
-		if len(t.Configuration) > 0 {
-			_ = json.Unmarshal(t.Configuration, &config)
-		}
-		result = append(result, model.DocumentTemplate{
-			ID:            t.ID,
-			Code:          t.Code,
-			Name:          t.Name,
-			Description:   t.Description.String,
-			FileType:      t.FileType,
-			Version:       int(t.Version),
-			IsActive:      t.IsActive,
-			Configuration: config,
-		})
+		result = append(result, *mapDocumentTemplate(t))
 	}
 
 	return result, nil
@@ -251,22 +291,29 @@ func (s *documentTemplateService) PublishTemplate(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-
-	// 1. Get template
-	t, err := s.documentTemplateRepo.GetByID(ctx, id)
-	if err != nil {
-		return err
+	if s == nil {
+		return errors.New("document template service is nil")
 	}
 
-	// 2. Deactivate all other versions
+	if s.documentTemplateRepo == nil {
+		return errors.New("document template repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return errors.New("template id is required")
+	}
+
+	t, err := s.documentTemplateRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get template before publish: %w", err)
+	}
+
 	versions, err := s.documentTemplateRepo.ListVersions(ctx, t.Code)
 	if err != nil {
-		return err
+		return fmt.Errorf("list template versions before publish: %w", err)
 	}
 
 	for _, v := range versions {
-		v.IsActive = false
-
 		_, err := s.documentTemplateRepo.Update(ctx, db.UpdateDocumentTemplateParams{
 			ID:            v.ID,
 			Name:          v.Name,
@@ -276,12 +323,9 @@ func (s *documentTemplateService) PublishTemplate(
 			IsActive:      false,
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("deactivate template version %s: %w", v.ID.String(), err)
 		}
 	}
-
-	// 3. Activate selected version
-	t.IsActive = true
 
 	_, err = s.documentTemplateRepo.Update(ctx, db.UpdateDocumentTemplateParams{
 		ID:            t.ID,
@@ -291,30 +335,110 @@ func (s *documentTemplateService) PublishTemplate(
 		Configuration: t.Configuration,
 		IsActive:      true,
 	})
+	if err != nil {
+		return fmt.Errorf("publish document template: %w", err)
+	}
 
-	return err
+	s.notify(ctx, model.Notification{
+		Type:       "DOCUMENT_TEMPLATE_PUBLISHED",
+		Title:      "Document template published",
+		Severity:   "info",
+		Message:    "Document template published and activated",
+		TargetRole: "admin",
+		UserID:     t.CreatedBy.String(),
+		Metadata: utils.MustJSON(map[string]any{
+			"template_id": t.ID.String(),
+			"code":        t.Code,
+			"name":        t.Name,
+			"file_type":   t.FileType,
+			"version":     int(t.Version),
+			"is_active":   true,
+			"created_by":  t.CreatedBy.String(),
+		}),
+	})
+
+	return nil
 }
 
 func (s *documentTemplateService) ArchiveTemplate(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
+	if s == nil {
+		return errors.New("document template service is nil")
+	}
 
-	return s.documentTemplateRepo.Archive(ctx, id)
+	if s.documentTemplateRepo == nil {
+		return errors.New("document template repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return errors.New("template id is required")
+	}
+
+	t, err := s.documentTemplateRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get template before archive: %w", err)
+	}
+
+	if err := s.documentTemplateRepo.Archive(ctx, id); err != nil {
+		return fmt.Errorf("archive document template: %w", err)
+	}
+
+	s.notify(ctx, model.Notification{
+		Type:       "DOCUMENT_TEMPLATE_ARCHIVED",
+		Title:      "Document template archived",
+		Severity:   "warning",
+		Message:    "Document template archived",
+		TargetRole: "admin",
+		UserID:     t.CreatedBy.String(),
+		Metadata: utils.MustJSON(map[string]any{
+			"template_id": t.ID.String(),
+			"code":        t.Code,
+			"name":        t.Name,
+			"file_type":   t.FileType,
+			"version":     int(t.Version),
+			"is_active":   t.IsActive,
+			"created_by":  t.CreatedBy.String(),
+		}),
+	})
+
+	return nil
 }
 
 func (s *documentTemplateService) GetTemplateStructure(
 	ctx context.Context,
 	code string,
 ) (*model.TemplateStructure, error) {
+	if s == nil {
+		return nil, errors.New("document template service is nil")
+	}
+
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	if s.sheetRepo == nil {
+		return nil, errors.New("document template sheet repository is nil")
+	}
+
+	if s.columnRepo == nil {
+		return nil, errors.New("document template column repository is nil")
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return nil, errors.New("template code is required")
+	}
+
 	t, err := s.documentTemplateRepo.GetByCode(ctx, code)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get template by code: %w", err)
 	}
 
 	sheets, err := s.sheetRepo.List(ctx, t.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list template sheets: %w", err)
 	}
 
 	structure := &model.TemplateStructure{
@@ -339,7 +463,7 @@ func (s *documentTemplateService) GetTemplateStructure(
 	for _, sh := range sheets {
 		cols, err := s.columnRepo.List(ctx, sh.ID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("list template sheet columns: %w", err)
 		}
 
 		sheet := model.TemplateSheetStructure{
@@ -385,9 +509,21 @@ func (s *documentTemplateService) GetTemplateStructureByDocumentID(
 	ctx context.Context,
 	documentID uuid.UUID,
 ) (*model.TemplateStructure, error) {
+	if s == nil {
+		return nil, errors.New("document template service is nil")
+	}
+
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	if documentID == uuid.Nil {
+		return nil, errors.New("document id is required")
+	}
+
 	t, err := s.documentTemplateRepo.GetByDocumentID(ctx, documentID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get template by document id: %w", err)
 	}
 
 	return s.GetTemplateStructure(ctx, t.Code)
@@ -397,81 +533,128 @@ func (s *documentTemplateService) UpdateTemplate(
 	ctx context.Context,
 	req model.UpdateTemplateRequest,
 ) (*model.DocumentTemplate, error) {
+	if s == nil {
+		return nil, errors.New("document template service is nil")
+	}
 
-	// 1. Get existing template
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	if req.ID == uuid.Nil {
+		return nil, errors.New("template id is required")
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.Description = strings.TrimSpace(req.Description)
+	req.FileType = strings.TrimSpace(req.FileType)
+
+	if req.Name == "" {
+		return nil, errors.New("template name is required")
+	}
+
+	if req.FileType == "" {
+		return nil, errors.New("template file type is required")
+	}
+
 	t, err := s.documentTemplateRepo.GetByID(ctx, req.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get template before update: %w", err)
 	}
 
-	// 2. Marshal configuration
 	configJSON, err := json.Marshal(req.Configuration)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal template configuration: %w", err)
 	}
 
-	// 3. Update template
 	updated, err := s.documentTemplateRepo.Update(ctx, db.UpdateDocumentTemplateParams{
 		ID:   t.ID,
 		Name: req.Name,
-
 		Description: sql.NullString{
 			String: req.Description,
 			Valid:  req.Description != "",
 		},
-
-		FileType: req.FileType,
-
+		FileType:      req.FileType,
 		Configuration: configJSON,
-
-		IsActive: req.IsActive,
+		IsActive:      req.IsActive,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("update document template: %w", err)
 	}
 
-	// 4. Convert configuration back to map
-	var config map[string]any
+	out := mapDocumentTemplate(updated)
 
-	if len(updated.Configuration) > 0 {
-		_ = json.Unmarshal(updated.Configuration, &config)
-	}
+	s.notify(ctx, model.Notification{
+		Type:       "DOCUMENT_TEMPLATE_UPDATED",
+		Title:      "Document template updated",
+		Severity:   "info",
+		Message:    "Document template updated",
+		TargetRole: "admin",
+		UserID:     updated.CreatedBy.String(),
+		Metadata: utils.MustJSON(map[string]any{
+			"template_id": out.ID.String(),
+			"code":        out.Code,
+			"name":        out.Name,
+			"file_type":   out.FileType,
+			"version":     out.Version,
+			"is_active":   out.IsActive,
+			"created_by":  updated.CreatedBy.String(),
+		}),
+	})
 
-	return &model.DocumentTemplate{
-		ID:            updated.ID,
-		Code:          updated.Code,
-		Name:          updated.Name,
-		Description:   updated.Description.String,
-		FileType:      updated.FileType,
-		Version:       int(updated.Version),
-		IsActive:      updated.IsActive,
-		Configuration: config,
-	}, nil
+	return out, nil
 }
 
 func (s *documentTemplateService) DeleteTemplate(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-
-	// 1. Get template
-	t, err := s.documentTemplateRepo.GetByID(ctx, id)
-	if err != nil {
-		return err
+	if s == nil {
+		return errors.New("document template service is nil")
 	}
 
-	// 2. Delete all versions of the template
+	if s.documentTemplateRepo == nil {
+		return errors.New("document template repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return errors.New("template id is required")
+	}
+
+	t, err := s.documentTemplateRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get template before delete: %w", err)
+	}
+
 	versions, err := s.documentTemplateRepo.ListVersions(ctx, t.Code)
 	if err != nil {
-		return err
+		return fmt.Errorf("list template versions before delete: %w", err)
 	}
 
 	for _, v := range versions {
 		err := s.documentTemplateRepo.Delete(ctx, v.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("delete template version %s: %w", v.ID.String(), err)
 		}
 	}
+
+	s.notify(ctx, model.Notification{
+		Type:       "DOCUMENT_TEMPLATE_DELETED",
+		Title:      "Document template deleted",
+		Severity:   "critical",
+		Message:    "Document template and all its versions deleted",
+		TargetRole: "admin",
+		UserID:     t.CreatedBy.String(),
+		Metadata: utils.MustJSON(map[string]any{
+			"template_id":      t.ID.String(),
+			"code":             t.Code,
+			"name":             t.Name,
+			"file_type":        t.FileType,
+			"version":          int(t.Version),
+			"versions_deleted": len(versions),
+			"created_by":       t.CreatedBy.String(),
+		}),
+	})
 
 	return nil
 }
@@ -480,6 +663,48 @@ func (s *documentTemplateService) CreateTemplateStructure(
 	ctx context.Context,
 	req model.CreateTemplateStructureRequest,
 ) (*model.TemplateStructure, error) {
+	if s == nil {
+		return nil, errors.New("document template service is nil")
+	}
+
+	if s.documentTemplateRepo == nil {
+		return nil, errors.New("document template repository is nil")
+	}
+
+	if s.sheetRepo == nil {
+		return nil, errors.New("document template sheet repository is nil")
+	}
+
+	if s.columnRepo == nil {
+		return nil, errors.New("document template column repository is nil")
+	}
+
+	req.Template.Code = strings.TrimSpace(req.Template.Code)
+	req.Template.Name = strings.TrimSpace(req.Template.Name)
+	req.Template.Description = strings.TrimSpace(req.Template.Description)
+	req.Template.FileType = strings.TrimSpace(req.Template.FileType)
+
+	if req.Template.Code == "" {
+		return nil, errors.New("template code is required")
+	}
+
+	if req.Template.Name == "" {
+		return nil, errors.New("template name is required")
+	}
+
+	if req.Template.FileType == "" {
+		return nil, errors.New("template file type is required")
+	}
+
+	exists, err := s.documentTemplateRepo.ExistsCode(ctx, req.Template.Code)
+	if err != nil {
+		return nil, fmt.Errorf("check template code exists: %w", err)
+	}
+
+	if exists {
+		return nil, ErrTemplateCodeExists
+	}
+
 	template, err := s.documentTemplateRepo.Create(ctx, db.CreateDocumentTemplateParams{
 		ID: uuid.New(),
 		DocumentID: uuid.NullUUID{
@@ -498,23 +723,41 @@ func (s *documentTemplateService) CreateTemplateStructure(
 			String: req.Template.Description,
 			Valid:  req.Template.Description != "",
 		},
-		FileType: req.Template.FileType,
-		Version:  1,
-		IsActive: false,
-		Configuration: toJSON(
-			req.Template.Configuration,
-		),
-		CreatedBy: req.Template.CreatedBy,
+		FileType:      req.Template.FileType,
+		Version:       1,
+		IsActive:      false,
+		Configuration: toJSON(req.Template.Configuration),
+		CreatedBy:     req.Template.CreatedBy,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create template structure template: %w", err)
 	}
+
 	sheets := make([]model.TemplateSheetStructure, 0, len(req.Sheets))
 
 	for _, sheetReq := range req.Sheets {
 		sheetInput := sheetReq.Sheet
 
 		sheetInput.TemplateID = template.ID
+		sheetInput.Code = strings.TrimSpace(sheetInput.Code)
+		sheetInput.Name = strings.TrimSpace(sheetInput.Name)
+		sheetInput.DisplayName = strings.TrimSpace(sheetInput.DisplayName)
+
+		if sheetInput.Code == "" {
+			return nil, errors.New("sheet code is required")
+		}
+
+		if sheetInput.Name == "" {
+			return nil, errors.New("sheet name is required")
+		}
+
+		sheetOrder := sql.NullInt32{}
+		if sheetInput.SheetOrder != nil {
+			sheetOrder = sql.NullInt32{
+				Int32: int32(*sheetInput.SheetOrder),
+				Valid: true,
+			}
+		}
 
 		sheet, err := s.sheetRepo.Create(ctx, db.CreateDocumentTemplateSheetParams{
 			ID:         uuid.New(),
@@ -525,11 +768,8 @@ func (s *documentTemplateService) CreateTemplateStructure(
 				String: sheetInput.DisplayName,
 				Valid:  sheetInput.DisplayName != "",
 			},
-			Required: sheetInput.Required,
-			SheetOrder: sql.NullInt32{
-				Int32: int32(*sheetInput.SheetOrder),
-				Valid: sheetInput.SheetOrder != nil,
-			},
+			Required:              sheetInput.Required,
+			SheetOrder:            sheetOrder,
 			HeaderRow:             int32(sheetInput.HeaderRow),
 			StartRow:              int32(sheetInput.StartRow),
 			AllowExtraColumns:     sheetInput.AllowExtraColumns,
@@ -537,13 +777,32 @@ func (s *documentTemplateService) CreateTemplateStructure(
 			Configuration:         toJSON(sheetInput.Configuration),
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("create template structure sheet: %w", err)
 		}
 
 		columnStructures := make([]model.TemplateColumnStructure, 0, len(sheetReq.Columns))
 
 		for _, columnReq := range sheetReq.Columns {
 			columnReq.SheetID = sheet.ID
+			columnReq.ColumnKey = strings.TrimSpace(columnReq.ColumnKey)
+			columnReq.ColumnName = strings.TrimSpace(columnReq.ColumnName)
+			columnReq.DisplayName = strings.TrimSpace(columnReq.DisplayName)
+
+			if columnReq.ColumnKey == "" {
+				return nil, errors.New("column key is required")
+			}
+
+			if columnReq.ColumnName == "" {
+				return nil, errors.New("column name is required")
+			}
+
+			columnOrder := sql.NullInt32{}
+			if columnReq.ColumnOrder != nil {
+				columnOrder = sql.NullInt32{
+					Int32: int32(*columnReq.ColumnOrder),
+					Valid: true,
+				}
+			}
 
 			column, err := s.columnRepo.Create(ctx, db.CreateDocumentTemplateColumnParams{
 				ID:         uuid.New(),
@@ -554,29 +813,20 @@ func (s *documentTemplateService) CreateTemplateStructure(
 					String: columnReq.DisplayName,
 					Valid:  columnReq.DisplayName != "",
 				},
-				DataType: normalizeColumnDataType(columnReq.DataType),
-				Required: columnReq.Required,
-				IsUnique: columnReq.IsUnique,
-				ColumnOrder: sql.NullInt32{
-					Int32: int32(*columnReq.ColumnOrder),
-					Valid: columnReq.ColumnOrder != nil,
-				},
+				DataType:    normalizeColumnDataType(columnReq.DataType),
+				Required:    columnReq.Required,
+				IsUnique:    columnReq.IsUnique,
+				ColumnOrder: columnOrder,
 				DefaultValue: sql.NullString{
-					String: func() string {
-						if columnReq.DefaultValue == nil {
-							return ""
-						}
-
-						return *columnReq.DefaultValue
-					}(),
-					Valid: columnReq.DefaultValue != nil,
+					String: stringPtrValue(columnReq.DefaultValue),
+					Valid:  columnReq.DefaultValue != nil,
 				},
 				Configuration: toJSON(columnReq.Configuration),
 				AllowedValues: toJSON(columnReq.AllowedValues),
 				Aliases:       toJSON(columnReq.Aliases),
 			})
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("create template structure column: %w", err)
 			}
 
 			columnStructures = append(columnStructures, model.TemplateColumnStructure{
@@ -612,7 +862,7 @@ func (s *documentTemplateService) CreateTemplateStructure(
 		})
 	}
 
-	return &model.TemplateStructure{
+	structure := &model.TemplateStructure{
 		Template: model.DocumentTemplate{
 			ID:            template.ID,
 			DocumentID:    nullUUIDPtr(template.DocumentID),
@@ -629,7 +879,30 @@ func (s *documentTemplateService) CreateTemplateStructure(
 			ArchivedAt:    nullTimeStringPtr(template.ArchivedAt),
 		},
 		Sheets: sheets,
-	}, nil
+	}
+
+	s.notify(ctx, model.Notification{
+		Type:       "DOCUMENT_TEMPLATE_STRUCTURE_CREATED",
+		Title:      "Document template structure created",
+		Severity:   "info",
+		Message:    "Document template structure created",
+		TargetRole: "admin",
+		UserID:     template.CreatedBy.String(),
+		Metadata: utils.MustJSON(map[string]any{
+			"template_id":     template.ID.String(),
+			"document_id":     uuidPtrString(nullUUIDPtr(template.DocumentID)),
+			"code":            template.Code,
+			"name":            template.Name,
+			"file_type":       template.FileType,
+			"version":         int(template.Version),
+			"sheets_count":    len(sheets),
+			"columns_count":   countTemplateStructureColumns(sheets),
+			"created_by":      template.CreatedBy.String(),
+			"has_document_id": template.DocumentID.Valid,
+		}),
+	})
+
+	return structure, nil
 }
 
 func normalizeColumnDataType(value string) db.DocumentTemplateColumnType {
@@ -657,6 +930,58 @@ func normalizeColumnDataType(value string) db.DocumentTemplateColumnType {
 	}
 }
 
+func mapDocumentTemplate(t db.DocumentTemplate) *model.DocumentTemplate {
+	return &model.DocumentTemplate{
+		ID:            t.ID,
+		DocumentID:    nullUUIDPtr(t.DocumentID),
+		Code:          t.Code,
+		Name:          t.Name,
+		Description:   nullStringValue(t.Description),
+		FileType:      t.FileType,
+		Version:       int(t.Version),
+		IsActive:      t.IsActive,
+		Configuration: fromJSON(t.Configuration),
+		CreatedBy:     t.CreatedBy,
+		CreatedAt:     t.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     t.UpdatedAt.Format(time.RFC3339),
+		ArchivedAt:    nullTimeStringPtr(t.ArchivedAt),
+	}
+}
+
+func (s *documentTemplateService) notify(
+	ctx context.Context,
+	notification model.Notification,
+) {
+	if s == nil || s.notifications == nil {
+		return
+	}
+
+	if strings.TrimSpace(notification.TargetRole) == "" {
+		notification.TargetRole = "admin"
+	}
+
+	if _, err := s.notifications.Notify(ctx, notification); err != nil {
+		fmt.Printf("document template notification failed type=%s error=%v\n", notification.Type, err)
+	}
+}
+
+func countTemplateStructureColumns(sheets []model.TemplateSheetStructure) int {
+	total := 0
+	for _, sheet := range sheets {
+		total += len(sheet.Columns)
+	}
+
+	return total
+}
+
+func uuidPtrString(value *uuid.UUID) string {
+	if value == nil {
+		return ""
+	}
+
+	return value.String()
+}
+
 func fromJSON(raw json.RawMessage) map[string]any {
 	if len(raw) == 0 {
 		return map[string]any{}
@@ -664,6 +989,10 @@ func fromJSON(raw json.RawMessage) map[string]any {
 
 	var result map[string]any
 	if err := json.Unmarshal(raw, &result); err != nil {
+		return map[string]any{}
+	}
+
+	if result == nil {
 		return map[string]any{}
 	}
 
@@ -677,6 +1006,10 @@ func fromJSONStringArray(raw json.RawMessage) []string {
 
 	var result []string
 	if err := json.Unmarshal(raw, &result); err != nil {
+		return []string{}
+	}
+
+	if result == nil {
 		return []string{}
 	}
 
