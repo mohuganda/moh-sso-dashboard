@@ -7,7 +7,7 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 )
 
-type NotificationDeliveryRepository interface {
+type Repository interface {
 	Create(ctx context.Context, arg db.CreateNotificationDeliveryParams) (db.NotificationDelivery, error)
 
 	ListByNotificationID(ctx context.Context, notificationID uuid.UUID) ([]db.NotificationDelivery, error)
