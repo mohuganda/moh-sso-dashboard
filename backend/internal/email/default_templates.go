@@ -37,20 +37,20 @@ func DefaultTemplates() map[string]string {
             <td style="padding:32px;">
               <h2 style="margin-top:0; color:` + headingColor + `;">` + heading + `</h2>
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                Hello {{.Name}},
+                Hello {{if .Name}}{{.Name}}{{else}}Administrator{{end}},
               </p>
 ` + body + buttonBlock + `
               {{if .Details}}
               <pre style="background:#f4f4f4; padding:16px; border-radius:4px; color:#161616; font-size:12px; white-space:pre-wrap;">{{.Details}}</pre>
               {{end}}
               <p style="color:#6f6f6f; font-size:12px; line-height:1.5;">
-                This is an automated message from {{.Platform}}.
+                This is an automated message from {{if .Platform}}{{.Platform}}{{else}}MOH Integrated Health Portal{{end}}.
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding:16px 32px; background:#f4f4f4; color:#6f6f6f; font-size:12px;">
-              {{.Platform}}
+              {{if .Platform}}{{.Platform}}{{else}}MOH Integrated Health Portal{{end}}
             </td>
           </tr>
         </table>
@@ -209,42 +209,19 @@ func DefaultTemplates() map[string]string {
 			"#0f62fe",
 		),
 
-		"admin-alert": `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <title>Admin Alert</title>
-</head>
-<body style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4; padding:24px 0;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; overflow:hidden;">
-          <tr>
-            <td style="padding:32px;">
-              <h2 style="margin-top:0; color:#da1e28;">Admin Alert</h2>
+		"admin-alert": baseLayout(
+			"Admin Alert",
+			"Admin Alert",
+			"#da1e28",
+			`
+              {{if .Message}}
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 A document named <strong>{{.DocumentName}}</strong> has been uploaded to <strong>{{.Platform}}</strong>.
               </p>
-              {{if .DocumentType}}
-              <p style="color:#525252; font-size:14px; line-height:1.6;">
-                Type: <strong>{{.DocumentType}}</strong>
-              </p>
-              {{end}}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 32px; background:#f4f4f4; color:#6f6f6f; font-size:12px;">
-              {{.Platform}}
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`,
+              {{end}}`,
+			"Review Alert",
+			"#da1e28",
+		),
 
 		"weekly-summary": baseLayout(
 			"Weekly Summary",
@@ -264,7 +241,7 @@ func DefaultTemplates() map[string]string {
 		),
 
 		// ----------------------------------------------------
-		// Document templates
+		// Documents
 		// ----------------------------------------------------
 
 		"document-created": baseLayout(
@@ -295,7 +272,7 @@ func DefaultTemplates() map[string]string {
 			"#24a148",
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                Your document <strong>{{.DocumentName}}</strong> has been processed successfully.
+                Document <strong>{{.DocumentName}}</strong> has been processed successfully.
               </p>
               {{if .DocumentType}}
               <p style="color:#525252; font-size:14px; line-height:1.6;">
@@ -312,7 +289,7 @@ func DefaultTemplates() map[string]string {
 			"#da1e28",
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                We were unable to process <strong>{{.DocumentName}}</strong>.
+                The system was unable to process <strong>{{.DocumentName}}</strong>.
               </p>
               {{if .Reason}}
               <p style="color:#525252; font-size:14px; line-height:1.6;">
@@ -348,7 +325,7 @@ func DefaultTemplates() map[string]string {
 		),
 
 		// ----------------------------------------------------
-		// User templates
+		// Users
 		// ----------------------------------------------------
 
 		"user-created": baseLayout(
@@ -374,7 +351,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 The user account <strong>{{.Username}}</strong> has been enabled.
-              </p>`,
+              </p>
+              {{if .Email}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Email: <strong>{{.Email}}</strong>
+              </p>
+              {{end}}`,
 			"View User",
 			"#24a148",
 		),
@@ -386,7 +368,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 The user account <strong>{{.Username}}</strong> has been disabled.
-              </p>`,
+              </p>
+              {{if .Email}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Email: <strong>{{.Email}}</strong>
+              </p>
+              {{end}}`,
 			"View User",
 			"#8d6b00",
 		),
@@ -398,7 +385,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 A password reset was performed for user <strong>{{.Username}}</strong>.
-              </p>`,
+              </p>
+              {{if .Email}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Email: <strong>{{.Email}}</strong>
+              </p>
+              {{end}}`,
 			"View User",
 			"#8d6b00",
 		),
@@ -410,7 +402,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 The user account <strong>{{.Username}}</strong> has been deleted.
-              </p>`,
+              </p>
+              {{if .Email}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Email: <strong>{{.Email}}</strong>
+              </p>
+              {{end}}`,
 			"Open Users",
 			"#da1e28",
 		),
@@ -423,9 +420,24 @@ func DefaultTemplates() map[string]string {
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Client roles were updated for user <strong>{{.Username}}</strong>.
               </p>
+              {{if .Email}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Email: <strong>{{.Email}}</strong>
+              </p>
+              {{end}}
               {{if .ClientID}}
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Client ID: <strong>{{.ClientID}}</strong>
+              </p>
+              {{end}}
+              {{if .AddedRoles}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Added Roles: <strong>{{.AddedRoles}}</strong>
+              </p>
+              {{end}}
+              {{if .RemovedRoles}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Removed Roles: <strong>{{.RemovedRoles}}</strong>
               </p>
               {{end}}`,
 			"Review Roles",
@@ -433,7 +445,7 @@ func DefaultTemplates() map[string]string {
 		),
 
 		// ----------------------------------------------------
-		// Client templates
+		// Clients
 		// ----------------------------------------------------
 
 		"client-created": baseLayout(
@@ -512,6 +524,61 @@ func DefaultTemplates() map[string]string {
 		),
 
 		// ----------------------------------------------------
+		// Announcements
+		// ----------------------------------------------------
+
+		"announcement-published": baseLayout(
+			"Announcement Published",
+			"Announcement published",
+			"#24a148",
+			`
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Announcement <strong>{{.Title}}</strong> has been published.
+              </p>
+              {{if .Status}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Status: <strong>{{.Status}}</strong>
+              </p>
+              {{end}}`,
+			"Open Announcements",
+			"#24a148",
+		),
+
+		"announcement-archived": baseLayout(
+			"Announcement Archived",
+			"Announcement archived",
+			"#f1c21b",
+			`
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Announcement <strong>{{.Title}}</strong> has been archived.
+              </p>
+              {{if .Status}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Status: <strong>{{.Status}}</strong>
+              </p>
+              {{end}}`,
+			"Open Announcements",
+			"#8d6b00",
+		),
+
+		"announcement-deleted": baseLayout(
+			"Announcement Deleted",
+			"Announcement deleted",
+			"#da1e28",
+			`
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Announcement <strong>{{.Title}}</strong> has been deleted.
+              </p>
+              {{if .Status}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Previous Status: <strong>{{.Status}}</strong>
+              </p>
+              {{end}}`,
+			"Open Announcements",
+			"#da1e28",
+		),
+
+		// ----------------------------------------------------
 		// Document template management
 		// ----------------------------------------------------
 
@@ -538,7 +605,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Template <strong>{{.TemplateName}}</strong> has been updated.
-              </p>`,
+              </p>
+              {{if .TemplateCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Code: <strong>{{.TemplateCode}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#0f62fe",
 		),
@@ -550,7 +622,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Template <strong>{{.TemplateName}}</strong> has been published and activated.
-              </p>`,
+              </p>
+              {{if .TemplateCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Code: <strong>{{.TemplateCode}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#24a148",
 		),
@@ -562,7 +639,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Template <strong>{{.TemplateName}}</strong> has been archived.
-              </p>`,
+              </p>
+              {{if .TemplateCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Code: <strong>{{.TemplateCode}}</strong>
+              </p>
+              {{end}}`,
 			"Open Templates",
 			"#8d6b00",
 		),
@@ -574,7 +656,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Template <strong>{{.TemplateName}}</strong> and its versions have been deleted.
-              </p>`,
+              </p>
+              {{if .TemplateCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Code: <strong>{{.TemplateCode}}</strong>
+              </p>
+              {{end}}`,
 			"Open Templates",
 			"#da1e28",
 		),
@@ -601,8 +688,13 @@ func DefaultTemplates() map[string]string {
 			"#161616",
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                Sheet <strong>{{.SheetName}}</strong> has been added to template <strong>{{.TemplateName}}</strong>.
-              </p>`,
+                Sheet <strong>{{.SheetName}}</strong> has been added.
+              </p>
+              {{if .SheetCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Sheet Code: <strong>{{.SheetCode}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#0f62fe",
 		),
@@ -614,7 +706,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Sheet <strong>{{.SheetName}}</strong> has been updated.
-              </p>`,
+              </p>
+              {{if .SheetCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Sheet Code: <strong>{{.SheetCode}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#0f62fe",
 		),
@@ -626,7 +723,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Sheet <strong>{{.SheetName}}</strong> has been archived.
-              </p>`,
+              </p>
+              {{if .SheetCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Sheet Code: <strong>{{.SheetCode}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#8d6b00",
 		),
@@ -638,7 +740,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Sheet <strong>{{.SheetName}}</strong> has been deleted.
-              </p>`,
+              </p>
+              {{if .SheetCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Sheet Code: <strong>{{.SheetCode}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#da1e28",
 		),
@@ -666,7 +773,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Column <strong>{{.ColumnName}}</strong> has been updated.
-              </p>`,
+              </p>
+              {{if .ColumnKey}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Key: <strong>{{.ColumnKey}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#0f62fe",
 		),
@@ -678,7 +790,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Column <strong>{{.ColumnName}}</strong> has been archived.
-              </p>`,
+              </p>
+              {{if .ColumnKey}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Key: <strong>{{.ColumnKey}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#8d6b00",
 		),
@@ -690,7 +807,12 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Column <strong>{{.ColumnName}}</strong> has been deleted.
-              </p>`,
+              </p>
+              {{if .ColumnKey}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Key: <strong>{{.ColumnKey}}</strong>
+              </p>
+              {{end}}`,
 			"View Template",
 			"#da1e28",
 		),
@@ -705,7 +827,7 @@ func DefaultTemplates() map[string]string {
 			"#161616",
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                Storage location <strong>{{.Name}}</strong> has been created.
+                Storage location <strong>{{.StorageLocationName}}</strong> has been created.
               </p>
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Code: <strong>{{.Code}}</strong><br/>
@@ -718,13 +840,17 @@ func DefaultTemplates() map[string]string {
 		"storage-location-updated": baseLayout(
 			"Storage Location Updated",
 			"Storage location updated",
-			"#161616",
+			"#f1c21b",
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                Storage location <strong>{{.Name}}</strong> has been updated.
+                Storage location <strong>{{.StorageLocationName}}</strong> has been updated.
+              </p>
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Code: <strong>{{.Code}}</strong><br/>
+                Provider: <strong>{{.Provider}}</strong>
               </p>`,
 			"View Storage",
-			"#0f62fe",
+			"#8d6b00",
 		),
 
 		"storage-location-deleted": baseLayout(
@@ -733,7 +859,11 @@ func DefaultTemplates() map[string]string {
 			"#da1e28",
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                Storage location <strong>{{.Name}}</strong> has been deleted.
+                Storage location <strong>{{.StorageLocationName}}</strong> has been deleted.
+              </p>
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Code: <strong>{{.Code}}</strong><br/>
+                Provider: <strong>{{.Provider}}</strong>
               </p>`,
 			"Open Storage",
 			"#da1e28",
@@ -745,18 +875,19 @@ func DefaultTemplates() map[string]string {
 
 		"surveillance-alert-import-completed": baseLayout(
 			"Surveillance Alert Import Completed",
-			"Alert import completed",
-			"#24a148",
+			"Alert import completed with errors",
+			"#f1c21b",
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                Surveillance alert batch processing has completed.
+                Surveillance alert batch processing completed with failed rows.
               </p>
               <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Batch ID: <strong>{{.BatchID}}</strong><br/>
                 Success rows: <strong>{{.SuccessRows}}</strong><br/>
                 Failed rows: <strong>{{.FailedRows}}</strong>
               </p>`,
 			"View Imports",
-			"#24a148",
+			"#8d6b00",
 		),
 
 		"surveillance-alert-import-failed": baseLayout(
@@ -767,6 +898,11 @@ func DefaultTemplates() map[string]string {
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Surveillance alert batch processing failed.
               </p>
+              {{if .BatchID}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Batch ID: <strong>{{.BatchID}}</strong>
+              </p>
+              {{end}}
               {{if .Error}}
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Error: <strong>{{.Error}}</strong>
@@ -819,7 +955,17 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Disease <strong>{{.DiseaseName}}</strong> has been disabled.
-              </p>`,
+              </p>
+              {{if .DiseaseCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Code: <strong>{{.DiseaseCode}}</strong>
+              </p>
+              {{end}}
+              {{if .Category}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Category: <strong>{{.Category}}</strong>
+              </p>
+              {{end}}`,
 			"View Diseases",
 			"#8d6b00",
 		),
@@ -831,7 +977,17 @@ func DefaultTemplates() map[string]string {
 			`
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Disease <strong>{{.DiseaseName}}</strong> has been deleted.
-              </p>`,
+              </p>
+              {{if .DiseaseCode}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Code: <strong>{{.DiseaseCode}}</strong>
+              </p>
+              {{end}}
+              {{if .Category}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Category: <strong>{{.Category}}</strong>
+              </p>
+              {{end}}`,
 			"View Diseases",
 			"#da1e28",
 		),
@@ -863,6 +1019,23 @@ func DefaultTemplates() map[string]string {
               </p>`,
 			"View EPI Weeks",
 			"#0f62fe",
+		),
+
+		"surveillance-subcounty-deleted": baseLayout(
+			"Sub-county Deleted",
+			"Surveillance sub-county deleted",
+			"#da1e28",
+			`
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Sub-county <strong>{{.SubCountyName}}</strong> has been deleted from the surveillance location hierarchy.
+              </p>
+              {{if .DistrictID}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                District ID: <strong>{{.DistrictID}}</strong>
+              </p>
+              {{end}}`,
+			"Open Surveillance",
+			"#da1e28",
 		),
 
 		// ----------------------------------------------------
