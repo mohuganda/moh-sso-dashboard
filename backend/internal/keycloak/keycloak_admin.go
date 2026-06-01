@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/moh-sso-dashboard/internal/model"
@@ -196,7 +197,10 @@ type KeyAdminClient struct {
 	RedirectURI string
 
 	httpClient *http.Client
-	Token      string
+
+	mu        sync.Mutex
+	Token     string
+	expiresAt time.Time
 }
 
 func NewAdminClient(
@@ -228,31 +232,95 @@ func (c *KeyAdminClient) WithEmailActionRedirect(
 // ----------------------------------------------------
 
 func (c *KeyAdminClient) Authenticate() error {
-	if strings.TrimSpace(c.ClientID) == "" || strings.TrimSpace(c.ClientSecret) == "" {
-		return fmt.Errorf("client_id or client_secret is empty")
+	_, err := c.ensureAdminToken(context.Background())
+	if err != nil {
+		return err
 	}
 
+	log.Println("✅ Admin client authenticated successfully")
+	return nil
+}
+
+func (c *KeyAdminClient) ensureAdminToken(ctx context.Context) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if strings.TrimSpace(c.ClientID) == "" {
+		return "", fmt.Errorf("client_id is empty")
+	}
+
+	if strings.TrimSpace(c.ClientSecret) == "" {
+		return "", fmt.Errorf("client_secret is empty")
+	}
+
+	// Reuse token if it is still valid for at least 30 seconds.
+	if strings.TrimSpace(c.Token) != "" && time.Now().Before(c.expiresAt.Add(-30*time.Second)) {
+		return c.Token, nil
+	}
+
+	token, expiresAt, err := c.requestAdminToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	c.Token = token
+	c.expiresAt = expiresAt
+
+	return c.Token, nil
+}
+
+func (c *KeyAdminClient) forceRefreshAdminToken(ctx context.Context) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.Token = ""
+	c.expiresAt = time.Time{}
+
+	token, expiresAt, err := c.requestAdminToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	c.Token = token
+	c.expiresAt = expiresAt
+
+	return c.Token, nil
+}
+
+func (c *KeyAdminClient) requestAdminToken(ctx context.Context) (string, time.Time, error) {
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", c.ClientID)
-	form.Set("client_secret", c.ClientSecret)
+	form.Set("client_id", strings.TrimSpace(c.ClientID))
+	form.Set("client_secret", strings.TrimSpace(c.ClientSecret))
 
 	tokenURL := fmt.Sprintf(
 		"%s/realms/%s/protocol/openid-connect/token",
-		c.BaseURL,
+		strings.TrimRight(c.BaseURL, "/"),
 		url.PathEscape(c.Realm),
 	)
 
-	res, err := c.httpClient.PostForm(tokenURL, form)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		tokenURL,
+		strings.NewReader(form.Encode()),
+	)
 	if err != nil {
-		return fmt.Errorf("failed to call token endpoint: %w", err)
+		return "", time.Time{}, fmt.Errorf("create admin token request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to call admin token endpoint: %w", err)
 	}
 	defer res.Body.Close()
 
 	bodyBytes, _ := io.ReadAll(res.Body)
 
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf(
+		return "", time.Time{}, fmt.Errorf(
 			"admin authentication failed [%d]: %s",
 			res.StatusCode,
 			string(bodyBytes),
@@ -261,20 +329,25 @@ func (c *KeyAdminClient) Authenticate() error {
 
 	var body struct {
 		AccessToken string `json:"access_token"`
+		ExpiresIn   int64  `json:"expires_in"`
+		TokenType   string `json:"token_type"`
 	}
 
 	if err := json.Unmarshal(bodyBytes, &body); err != nil {
-		return fmt.Errorf("failed to parse token response: %w", err)
+		return "", time.Time{}, fmt.Errorf("failed to parse admin token response: %w", err)
 	}
 
 	if strings.TrimSpace(body.AccessToken) == "" {
-		return fmt.Errorf("access token empty in response")
+		return "", time.Time{}, fmt.Errorf("admin token response missing access_token")
 	}
 
-	c.Token = body.AccessToken
-	log.Println("✅ Admin client authenticated successfully")
+	if body.ExpiresIn <= 0 {
+		body.ExpiresIn = 60
+	}
 
-	return nil
+	expiresAt := time.Now().Add(time.Duration(body.ExpiresIn) * time.Second)
+
+	return body.AccessToken, expiresAt, nil
 }
 
 // ----------------------------------------------------
@@ -1681,10 +1754,11 @@ func (c *KeyAdminClient) attachDefaultClientScopes(
 		if err != nil {
 			return err
 		}
+
+		body, _ := io.ReadAll(res.Body)
 		res.Body.Close()
 
 		if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(res.Body)
 			return fmt.Errorf(
 				"failed to attach default client scope %q: %s",
 				name,
@@ -1752,10 +1826,16 @@ func (c *KeyAdminClient) EnsureClientScopes(
 		if err != nil {
 			return nil, err
 		}
+
+		body, _ := io.ReadAll(res.Body)
 		res.Body.Close()
 
 		if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusConflict {
-			return nil, fmt.Errorf("failed to create client scope %q", name)
+			return nil, fmt.Errorf(
+				"failed to create client scope %q: %s",
+				name,
+				string(body),
+			)
 		}
 
 		existing, err = c.ListClientScopes(ctx)
@@ -2019,41 +2099,14 @@ func (c *KeyAdminClient) doRequest(
 	body any,
 	rawBody io.Reader,
 ) (*http.Response, error) {
-	if strings.TrimSpace(c.Token) == "" {
-		return nil, fmt.Errorf("keycloak admin client is not authenticated")
-	}
-
 	adminURL := fmt.Sprintf(
 		"%s/admin/realms/%s/%s",
-		c.BaseURL,
+		strings.TrimRight(c.BaseURL, "/"),
 		url.PathEscape(c.Realm),
 		strings.TrimPrefix(path, "/"),
 	)
 
-	var reqBody io.Reader
-
-	if rawBody != nil {
-		reqBody = rawBody
-	} else if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		reqBody = bytes.NewBuffer(jsonBody)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, adminURL, reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+c.Token)
-
-	if body != nil || rawBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	return c.httpClient.Do(req)
+	return c.doAuthenticatedRequest(ctx, method, adminURL, body, rawBody)
 }
 
 func (c *KeyAdminClient) doRawAdminRequest(
@@ -2063,40 +2116,99 @@ func (c *KeyAdminClient) doRawAdminRequest(
 	body any,
 	rawBody io.Reader,
 ) (*http.Response, error) {
-	if strings.TrimSpace(c.Token) == "" {
-		return nil, fmt.Errorf("keycloak admin client is not authenticated")
-	}
-
 	adminURL := fmt.Sprintf(
 		"%s/admin/%s",
-		c.BaseURL,
+		strings.TrimRight(c.BaseURL, "/"),
 		strings.TrimPrefix(path, "/"),
 	)
 
-	var reqBody io.Reader
+	return c.doAuthenticatedRequest(ctx, method, adminURL, body, rawBody)
+}
 
-	if rawBody != nil {
-		reqBody = rawBody
-	} else if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		reqBody = bytes.NewBuffer(jsonBody)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, adminURL, reqBody)
+func (c *KeyAdminClient) doAuthenticatedRequest(
+	ctx context.Context,
+	method string,
+	fullURL string,
+	body any,
+	rawBody io.Reader,
+) (*http.Response, error) {
+	bodyBytes, err := buildRequestBodyBytes(body, rawBody)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.Token)
+	token, err := c.ensureAdminToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("keycloak admin client authentication failed: %w", err)
+	}
 
-	if body != nil || rawBody != nil {
+	res, err := c.executeAdminRequest(ctx, method, fullURL, bodyBytes, token)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusUnauthorized {
+		return res, nil
+	}
+
+	// Token may have expired or been invalidated.
+	// Close the failed response and retry once using a freshly requested token.
+	_ = res.Body.Close()
+
+	token, err = c.forceRefreshAdminToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("keycloak admin token refresh failed after 401: %w", err)
+	}
+
+	return c.executeAdminRequest(ctx, method, fullURL, bodyBytes, token)
+}
+
+func (c *KeyAdminClient) executeAdminRequest(
+	ctx context.Context,
+	method string,
+	fullURL string,
+	bodyBytes []byte,
+	token string,
+) (*http.Response, error) {
+	var reqBody io.Reader
+	if bodyBytes != nil {
+		reqBody = bytes.NewReader(bodyBytes)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	if bodyBytes != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
 	return c.httpClient.Do(req)
+}
+
+func buildRequestBodyBytes(body any, rawBody io.Reader) ([]byte, error) {
+	if rawBody != nil {
+		bodyBytes, err := io.ReadAll(rawBody)
+		if err != nil {
+			return nil, err
+		}
+
+		return bodyBytes, nil
+	}
+
+	if body == nil {
+		return nil, nil
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	return bodyBytes, nil
 }
 
 func (c *KeyAdminClient) Get(path string) (*http.Response, error) {
