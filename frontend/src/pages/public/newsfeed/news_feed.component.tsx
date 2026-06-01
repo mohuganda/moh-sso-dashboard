@@ -1,19 +1,25 @@
 import { useMemo } from "react";
-import { Information, Time, ChevronRight, Pin } from "@carbon/react/icons";
-import { Tile, Link, Tag, SkeletonText } from "@carbon/react";
+import {
+  Document,
+  Help,
+  Information,
+  Pin,
+  Time,
+  WarningAlt,
+  ChevronRight,
+} from "@carbon/react/icons";
+import { Link, SkeletonText, Tag, Tile } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
 
 import { EmptyState } from "../../../components/emptystate/EmptyState";
 import { ErrorState } from "../../../components/errorstate/ErrorState";
-import "./news-feed.css";
+import { useListPublicAnnouncementsQuery } from "../../../store/api/announcement.api";
 import type {
   Announcement,
   AnnouncementLevel,
   AnnouncementStatus,
 } from "../../../store/types/announcements.types";
-import { useListPublicAnnouncementsQuery } from "../../../store/api/announcement.api";
-import { selectAuthenticated } from "../../../store/auth/auth.selectors";
+import "./news-feed.css";
 
 const CASE_REPORTING = [
   {
@@ -38,6 +44,24 @@ const CASE_REPORTING = [
   },
 ];
 
+const QUICK_LINKS = [
+  {
+    label: "Support",
+    href: "/support",
+    icon: Help,
+  },
+  {
+    label: "FAQ",
+    href: "/faq",
+    icon: Help,
+  },
+  {
+    label: "Guidelines & Documents",
+    href: "/documents",
+    icon: Document,
+  },
+];
+
 type CarbonTagType =
   | "red"
   | "magenta"
@@ -52,7 +76,12 @@ type CarbonTagType =
   | "high-contrast"
   | "outline";
 
-function mapLevelTag(level: AnnouncementLevel): { label: string; type: CarbonTagType } {
+type TagConfig = {
+  label: string;
+  type: CarbonTagType;
+};
+
+function mapLevelTag(level: AnnouncementLevel): TagConfig {
   switch (level) {
     case "CRITICAL":
       return { label: "Critical", type: "red" };
@@ -66,7 +95,7 @@ function mapLevelTag(level: AnnouncementLevel): { label: string; type: CarbonTag
   }
 }
 
-function mapStatusTag(status: AnnouncementStatus): { label: string; type: CarbonTagType } | null {
+function mapStatusTag(status: AnnouncementStatus): TagConfig | null {
   switch (status) {
     case "PUBLISHED":
       return null;
@@ -81,38 +110,60 @@ function mapStatusTag(status: AnnouncementStatus): { label: string; type: Carbon
   }
 }
 
-function mapCustomTag(tag?: string | null): { label: string; type: CarbonTagType } | null {
-  if (!tag?.trim()) return null;
+function mapCustomTag(tag?: string | null): TagConfig | null {
+  const label = tag?.trim();
 
-  const normalized = tag.trim().toLowerCase();
+  if (!label) {
+    return null;
+  }
 
-  switch (normalized) {
+  switch (label.toLowerCase()) {
     case "critical":
     case "urgent":
     case "alert":
     case "action":
-      return { label: tag, type: "red" };
+      return { label, type: "red" };
 
     case "scheduled":
     case "maintenance":
     case "warning":
-      return { label: tag, type: "warm-gray" };
+      return { label, type: "warm-gray" };
 
     case "event":
     case "new":
     case "update":
-      return { label: tag, type: "blue" };
+      return { label, type: "blue" };
 
     case "success":
     case "resolved":
-      return { label: tag, type: "green" };
+      return { label, type: "green" };
 
     default:
-      return { label: tag, type: "gray" };
+      return { label, type: "gray" };
   }
 }
 
-function formatTimestamp(dateString: string): string {
+function getAnnouncementDate(item: Announcement): string | null {
+  return item.publish_at || item.created_at || null;
+}
+
+function getAnnouncementTime(item: Announcement): number {
+  const rawDate = getAnnouncementDate(item);
+
+  if (!rawDate) {
+    return 0;
+  }
+
+  const time = new Date(rawDate).getTime();
+
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function formatTimestamp(dateString?: string | null): string {
+  if (!dateString) {
+    return "Recently posted";
+  }
+
   const date = new Date(dateString);
 
   if (Number.isNaN(date.getTime())) {
@@ -125,15 +176,100 @@ function formatTimestamp(dateString: string): string {
   }).format(date);
 }
 
-function renderAnnouncementLink(item: Announcement) {
-  if (!item.link_url) return null;
+function formatRelativeTimestamp(dateString?: string | null): string {
+  if (!dateString) {
+    return "Recently posted";
+  }
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Recently posted";
+  }
+
+  const diffMs = Date.now() - date.getTime();
+
+  if (diffMs < 0) {
+    return formatTimestamp(dateString);
+  }
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) {
+    return "Just now";
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+  }
+
+  if (diffHours < 24) {
+    return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  }
+
+  if (diffDays < 7) {
+    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  }
+
+  return formatTimestamp(dateString);
+}
+
+function isExternalHref(href: string): boolean {
+  return /^https?:\/\//i.test(href);
+}
+
+function isPlaceholderHref(href: string): boolean {
+  return href.trim() === "#";
+}
+
+interface AppLinkProps {
+  href: string;
+  className?: string;
+  children: React.ReactNode;
+}
+
+function AppLink({ href, className, children }: AppLinkProps) {
+  const navigate = useNavigate();
+
+  if (isPlaceholderHref(href)) {
+    return (
+      <button type="button" className={className} disabled>
+        {children}
+      </button>
+    );
+  }
+
+  if (isExternalHref(href)) {
+    return (
+      <Link href={href} target="_blank" rel="noopener noreferrer" className={className}>
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" className={className} onClick={() => navigate(href)}>
+      {children}
+    </button>
+  );
+}
+
+function AnnouncementLink({ item }: { item: Announcement }) {
+  const href = item.link_url?.trim();
+
+  if (!href) {
+    return null;
+  }
 
   return (
     <div className="feed-link-row">
-      <Link href={item.link_url} target="_blank" rel="noopener noreferrer" className="feed-link">
+      <AppLink href={href} className="feed-link">
         Read more
         <ChevronRight size={16} />
-      </Link>
+      </AppLink>
     </div>
   );
 }
@@ -142,66 +278,123 @@ function AnnouncementCard({ item }: { item: Announcement }) {
   const levelTag = mapLevelTag(item.level);
   const customTag = mapCustomTag(item.tag);
   const statusTag = mapStatusTag(item.status);
+  const timestampSource = getAnnouncementDate(item);
 
   return (
-    <Tile className={`feed-item ${item.is_pinned ? "feed-item-pinned" : ""}`}>
-      <div className="feed-header">
-        <Information size={16} />
-        <h4>{item.title}</h4>
+    <Tile className={`feed-item ${item.is_pinned ? "feed-item--pinned" : ""}`}>
+      <div className="feed-item__top">
+        <div className="feed-item__title-row">
+          <span
+            className={`feed-item__level-icon feed-item__level-icon--${item.level.toLowerCase()}`}
+          >
+            <Information size={16} />
+          </span>
 
-        {item.is_pinned && (
-          <Tag type="warm-gray" size="sm">
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <Pin size={12} />
-              Pinned
-            </span>
+          <h4 className="feed-item__title">{item.title}</h4>
+        </div>
+
+        <div className="feed-item__tags">
+          {item.is_pinned && (
+            <Tag type="warm-gray" size="sm">
+              <span className="feed-tag-with-icon">
+                <Pin size={12} />
+                Pinned
+              </span>
+            </Tag>
+          )}
+
+          <Tag type={levelTag.type} size="sm">
+            {levelTag.label}
           </Tag>
-        )}
 
-        <Tag type={levelTag.type} size="sm">
-          {levelTag.label}
-        </Tag>
+          {customTag && (
+            <Tag type={customTag.type} size="sm">
+              {customTag.label}
+            </Tag>
+          )}
 
-        {customTag ? (
-          <Tag type={customTag.type} size="sm">
-            {customTag.label}
-          </Tag>
-        ) : null}
-
-        {statusTag ? (
-          <Tag type={statusTag.type} size="sm">
-            {statusTag.label}
-          </Tag>
-        ) : null}
+          {statusTag && (
+            <Tag type={statusTag.type} size="sm">
+              {statusTag.label}
+            </Tag>
+          )}
+        </div>
       </div>
 
-      {item.summary ? <p className="feed-summary">{item.summary}</p> : null}
+      {item.summary && <p className="feed-summary">{item.summary}</p>}
 
       <p className="feed-message">{item.message}</p>
 
-      {renderAnnouncementLink(item)}
+      <AnnouncementLink item={item} />
 
-      <div className="feed-timestamp">
+      <div className="feed-timestamp" title={formatTimestamp(timestampSource)}>
         <Time size={14} />
-        <span>{formatTimestamp(item.publish_at || item.created_at)}</span>
+        <span>{formatRelativeTimestamp(timestampSource)}</span>
       </div>
     </Tile>
   );
 }
 
+function LoadingFeed() {
+  return (
+    <div className="feed-section-list" aria-label="Loading announcements">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <Tile className="feed-item feed-item--loading" key={index}>
+          <SkeletonText width="45%" />
+          <SkeletonText paragraph lineCount={3} />
+          <SkeletonText width="25%" />
+        </Tile>
+      ))}
+    </div>
+  );
+}
+
+interface FeedSectionProps {
+  title: string;
+  subtitle?: string;
+  icon: React.ElementType;
+  count?: number;
+  children: React.ReactNode;
+}
+
+function FeedSection({ title, subtitle, icon: Icon, count, children }: FeedSectionProps) {
+  return (
+    <section className="feed-section">
+      <div className="feed-section-header">
+        <div>
+          <div className="feed-section-title">
+            <Icon size={18} />
+            <h4>{title}</h4>
+
+            {typeof count === "number" && (
+              <Tag type="gray" size="sm">
+                {count}
+              </Tag>
+            )}
+          </div>
+
+          {subtitle && <p className="feed-section-subtitle">{subtitle}</p>}
+        </div>
+      </div>
+
+      <div className="feed-section-list">{children}</div>
+    </section>
+  );
+}
+
 export default function NewsFeedPage() {
   const navigate = useNavigate();
-  const authenticated = useSelector(selectAuthenticated);
 
-  const queryArgs = { limit: 20, offset: 0 };
-
-  const publicQuery = useListPublicAnnouncementsQuery(queryArgs, {
-    refetchOnMountOrArgChange: true,
-  });
+  const publicQuery = useListPublicAnnouncementsQuery(
+    { limit: 20, offset: 0 },
+    {
+      refetchOnMountOrArgChange: true,
+    },
+  );
 
   const announcements = useMemo<Announcement[]>(() => {
     return publicQuery.data ?? [];
-  }, [authenticated, publicQuery.data]);
+  }, [publicQuery.data]);
 
   const sortedAnnouncements = useMemo(() => {
     return [...announcements].sort((a, b) => {
@@ -209,10 +402,7 @@ export default function NewsFeedPage() {
         return a.is_pinned ? -1 : 1;
       }
 
-      const aTime = new Date(a.publish_at || a.created_at).getTime();
-      const bTime = new Date(b.publish_at || b.created_at).getTime();
-
-      return bTime - aTime;
+      return getAnnouncementTime(b) - getAnnouncementTime(a);
     });
   }, [announcements]);
 
@@ -226,17 +416,15 @@ export default function NewsFeedPage() {
     [sortedAnnouncements],
   );
 
-  const isLoading = publicQuery.isLoading || !publicQuery.data?.length;
+  const shouldShowInitialLoading = publicQuery.isLoading && announcements.length === 0;
+  const shouldShowRefreshing = publicQuery.isFetching && announcements.length > 0;
 
-  const isFetching = publicQuery.isFetching || publicQuery.isFetching;
-
-  const hasError = !publicQuery.data?.length && (publicQuery.isError || publicQuery.isError);
-
-  const errorMessage = "Unable to load announcements at the moment.";
+  const hasError = publicQuery.isError && announcements.length === 0;
 
   const isEmpty =
-    !isLoading &&
-    !isFetching &&
+    !publicQuery.isLoading &&
+    !publicQuery.isFetching &&
+    !hasError &&
     pinnedAnnouncements.length === 0 &&
     regularAnnouncements.length === 0;
 
@@ -245,20 +433,28 @@ export default function NewsFeedPage() {
   };
 
   return (
-    <div className="page-container">
-      <header className="page-header">
-        <h3 className="page-title">News & Updates</h3>
-        <p className="page-subtitle">Latest system updates, announcements, and notices.</p>
+    <div className="page-container news-page">
+      <header className="page-header news-page__header">
+        <div>
+          <h3 className="page-title">News & Updates</h3>
+          <p className="page-subtitle">Latest system updates, announcements, and notices.</p>
+        </div>
+
+        {shouldShowRefreshing && (
+          <Tag type="blue" size="sm">
+            Refreshing
+          </Tag>
+        )}
       </header>
 
-      <section className="page-content">
+      <section className="page-content news-page__content">
         <main className="news-feed">
-          {(isLoading || isFetching) && <SkeletonText paragraph lineCount={4} />}
+          {shouldShowInitialLoading && <LoadingFeed />}
 
-          {hasError && !isLoading && (
+          {hasError && (
             <ErrorState
               title="Failed to load announcements"
-              description={errorMessage}
+              description="Unable to load announcements at the moment."
               primaryAction={{
                 label: "Retry",
                 onClick: handleRetry,
@@ -270,106 +466,93 @@ export default function NewsFeedPage() {
             />
           )}
 
-          {!hasError && isEmpty && (
+          {isEmpty && (
             <EmptyState
               title="No announcements yet"
               description="System updates and important notices will appear here when available."
             />
           )}
 
-          {!hasError && !isLoading && pinnedAnnouncements.length > 0 && (
-            <section className="feed-section">
-              <div className="feed-section-header">
-                <div className="feed-section-title">
-                  <Pin size={18} />
-                  <h4>Pinned Announcements</h4>
-                </div>
-                <p className="feed-section-subtitle">
-                  Important notices highlighted for quick access.
-                </p>
-              </div>
-
-              <div className="feed-section-list">
-                {pinnedAnnouncements.map((item) => (
-                  <AnnouncementCard key={item.id} item={item} />
-                ))}
-              </div>
-            </section>
+          {!hasError && !shouldShowInitialLoading && pinnedAnnouncements.length > 0 && (
+            <FeedSection
+              title="Pinned Announcements"
+              subtitle="Important notices highlighted for quick access."
+              icon={Pin}
+              count={pinnedAnnouncements.length}
+            >
+              {pinnedAnnouncements.map((item) => (
+                <AnnouncementCard key={item.id} item={item} />
+              ))}
+            </FeedSection>
           )}
 
-          {!hasError && !isLoading && regularAnnouncements.length > 0 && (
-            <section className="feed-section">
-              <div className="feed-section-header">
-                <div className="feed-section-title">
-                  <Information size={18} />
-                  <h4>All Announcements</h4>
-                </div>
-              </div>
-
-              <div className="feed-section-list">
-                {regularAnnouncements.map((item) => (
-                  <AnnouncementCard key={item.id} item={item} />
-                ))}
-              </div>
-            </section>
+          {!hasError && !shouldShowInitialLoading && regularAnnouncements.length > 0 && (
+            <FeedSection
+              title="All Announcements"
+              icon={Information}
+              count={regularAnnouncements.length}
+            >
+              {regularAnnouncements.map((item) => (
+                <AnnouncementCard key={item.id} item={item} />
+              ))}
+            </FeedSection>
           )}
         </main>
 
         <aside className="news-sidebar">
-          <Tile>
-            <h4>Case Reporting</h4>
+          <Tile className="news-sidebar__tile">
+            <div className="news-sidebar__heading">
+              <WarningAlt size={18} />
+              <h4>Case Reporting</h4>
+            </div>
 
-            <ul className="case-reporting-list">
+            <ul className="sidebar-link-list">
               {CASE_REPORTING.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="case-reporting-link"
-                  >
-                    {item.label}
+                <li key={item.label}>
+                  <AppLink href={item.href} className="sidebar-link">
+                    <span>{item.label}</span>
                     <ChevronRight size={16} />
-                  </Link>
+                  </AppLink>
                 </li>
               ))}
             </ul>
           </Tile>
 
-          <Tile>
-            <h4>Quick Links</h4>
+          <Tile className="news-sidebar__tile">
+            <div className="news-sidebar__heading">
+              <Document size={18} />
+              <h4>Quick Links</h4>
+            </div>
 
-            <ul className="case-reporting-list">
-              <li>
-                <Link href="/support" className="case-reporting-link">
-                  Support
-                  <ChevronRight size={16} />
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="case-reporting-link">
-                  FAQ
-                  <ChevronRight size={16} />
-                </Link>
-              </li>
-              <li>
-                <Link href="/documents" className="case-reporting-link">
-                  Guidelines & Documents
-                  <ChevronRight size={16} />
-                </Link>
-              </li>
+            <ul className="sidebar-link-list">
+              {QUICK_LINKS.map(({ label, href, icon: Icon }) => (
+                <li key={label}>
+                  <AppLink href={href} className="sidebar-link">
+                    <span className="sidebar-link__label">
+                      <Icon size={16} />
+                      {label}
+                    </span>
+                    <ChevronRight size={16} />
+                  </AppLink>
+                </li>
+              ))}
             </ul>
           </Tile>
 
-          <Tile>
-            <h4>Need Help?</h4>
+          <Tile className="news-sidebar__tile news-sidebar__help">
+            <div className="news-sidebar__heading">
+              <Help size={18} />
+              <h4>Need Help?</h4>
+            </div>
+
             <p className="sidebar-help-text">
               Reach out to support for account issues, access requests, or reporting assistance.
             </p>
-            <Link href="/support" className="feed-link">
+
+            <AppLink href="/support" className="feed-link">
               Contact support
               <ChevronRight size={16} />
-            </Link>
+            </AppLink>
           </Tile>
         </aside>
       </section>

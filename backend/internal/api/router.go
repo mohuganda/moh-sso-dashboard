@@ -125,7 +125,7 @@ func SetupRouter(
 			ratelimit.Middleware(
 				limiter,
 				ratelimit.ByIP,
-				30,
+				60,
 				time.Minute,
 			),
 			authHandler.HandleAuthRefreshToken,
