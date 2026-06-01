@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -52,13 +53,15 @@ func (h *AuthHandler) HandleAuthLogin(c *gin.Context) {
 	codeVerifier := utils.GenerateCodeVerifier()
 	codeChallenge := utils.GenerateCodeChallenge(codeVerifier)
 
-	// Store verifier securely (env-agnostic)
+	// Store verifier securely for a short time only.
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "pkce_verifier",
 		Value:    codeVerifier,
 		Path:     "/",
+		MaxAge:   300, // 5 minutes
+		Expires:  time.Now().Add(5 * time.Minute),
 		HttpOnly: true,
-		Secure:   false, // set true when TLS is enabled
+		Secure:   h.isProduction(),
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -84,6 +87,7 @@ func (h *AuthHandler) HandleAuthLogin(c *gin.Context) {
 	q.Set("code_challenge_method", "S256")
 
 	authURL.RawQuery = q.Encode()
+
 	c.Redirect(http.StatusTemporaryRedirect, authURL.String())
 }
 
@@ -104,6 +108,13 @@ func (h *AuthHandler) HandleAuthGetMe(c *gin.Context) {
 
 	user, err := h.authService.GetMe(accessToken)
 	if err != nil {
+		log.Printf(
+			"[AUTH ME] failed: ip=%s user_agent=%s err=%v",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			err,
+		)
+
 		response.Fail(
 			c,
 			http.StatusUnauthorized,
@@ -147,9 +158,15 @@ func (h *AuthHandler) HandleAuthCallback(c *gin.Context) {
 	codeVerifier, err := c.Cookie("pkce_verifier")
 	if err != nil || codeVerifier == "" {
 		h.auditLoginFailure(c)
+
+		details := "pkce verifier cookie not found"
+		if err != nil {
+			details = err.Error()
+		}
+
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "missing pkce verifier",
-			"details": err.Error(),
+			"details": details,
 		})
 		return
 	}
@@ -173,15 +190,18 @@ func (h *AuthHandler) HandleAuthCallback(c *gin.Context) {
 		return
 	}
 
-	// Clear PKCE verifier (one-time use)
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "pkce_verifier",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	if tokens == nil || tokens.AccessToken == "" {
+		h.auditLoginFailure(c)
+
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			gin.H{"error": "authentication failed", "details": "empty access token"},
+		)
+		return
+	}
+
+	// Clear PKCE verifier because it is one-time use.
+	h.clearCookie(c, "pkce_verifier", true)
 
 	userID := utils.ExtractUserIDFromJWT(tokens.AccessToken)
 
@@ -197,16 +217,22 @@ func (h *AuthHandler) HandleAuthCallback(c *gin.Context) {
 	)
 
 	h.setSecureAccessTokenCookie(c, tokens.AccessToken, tokens.ExpiresIn)
-	h.setSecureRefreshTokenCookie(c, tokens.RefreshToken, tokens.RefreshExpiresIn)
-	h.setSecureIDTokenCookie(c, tokens.IDToken, int(tokens.ExpiresIn))
+
+	if tokens.RefreshToken != "" && tokens.RefreshExpiresIn > 0 {
+		h.setSecureRefreshTokenCookie(c, tokens.RefreshToken, tokens.RefreshExpiresIn)
+	}
+
+	if tokens.IDToken != "" {
+		h.setSecureIDTokenCookie(c, tokens.IDToken, int(tokens.ExpiresIn))
+	}
+
 	// ------------------------------------------------------------------
 	// Role-based redirect (authoritative)
 	// ------------------------------------------------------------------
-
 	isAdmin := utils.TokenHasRealmRole(tokens.AccessToken, "admin")
 	isUser := utils.TokenHasRealmRole(tokens.AccessToken, "user")
 
-	baseURL := h.config.FrontendBaseURL // e.g. http://localhost:3000
+	baseURL := strings.TrimRight(h.config.FrontendBaseURL, "/")
 
 	redirectURL := baseURL + "/"
 	if isAdmin {
@@ -243,6 +269,13 @@ func (h *AuthHandler) HandleAuthRefreshToken(c *gin.Context) {
 
 	tokens, err := h.authService.GetAccessToken(refreshToken)
 	if err != nil {
+		log.Printf(
+			"[AUTH REFRESH] failed: ip=%s user_agent=%s err=%v",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			err,
+		)
+
 		h.notificationService.NotifyTokenRefreshFailed(
 			c.Request.Context(),
 			c.ClientIP(),
@@ -257,13 +290,27 @@ func (h *AuthHandler) HandleAuthRefreshToken(c *gin.Context) {
 			c.Request.UserAgent(),
 		)
 
-		h.setSecureRefreshTokenCookie(c, "", -1)
+		h.clearAuthCookies(c)
 
 		response.Fail(
 			c,
 			http.StatusUnauthorized,
 			apierror.ErrTokenInvalid.Code,
-			"Invalid refresh token",
+			"Invalid or expired refresh token",
+		)
+		return
+	}
+
+	if tokens == nil || tokens.AccessToken == "" {
+		log.Printf("[AUTH REFRESH] invalid token response from Keycloak")
+
+		h.clearAuthCookies(c)
+
+		response.Fail(
+			c,
+			http.StatusUnauthorized,
+			apierror.ErrTokenInvalid.Code,
+			"Invalid token response",
 		)
 		return
 	}
@@ -279,11 +326,27 @@ func (h *AuthHandler) HandleAuthRefreshToken(c *gin.Context) {
 	)
 
 	h.setSecureAccessTokenCookie(c, tokens.AccessToken, tokens.ExpiresIn)
-	h.setSecureRefreshTokenCookie(c, tokens.RefreshToken, tokens.RefreshExpiresIn)
+
+	// Important:
+	// With refresh token rotation, Keycloak may return a new refresh token.
+	// Only overwrite the cookie if a new refresh token was actually returned.
+	if tokens.RefreshToken != "" && tokens.RefreshExpiresIn > 0 {
+		h.setSecureRefreshTokenCookie(c, tokens.RefreshToken, tokens.RefreshExpiresIn)
+	}
+
+	if tokens.IDToken != "" {
+		h.setSecureIDTokenCookie(c, tokens.IDToken, int(tokens.ExpiresIn))
+	}
 
 	response.OK(c, http.StatusOK, gin.H{
-		"access_token": tokens.AccessToken,
-		"expires_in":   tokens.ExpiresIn,
+		"expires_in": tokens.ExpiresIn,
+		"cookie_debug": gin.H{
+			"secure":             h.isProduction(),
+			"has_access_token":   tokens.AccessToken != "",
+			"has_refresh_token":  tokens.RefreshToken != "",
+			"refresh_expires_in": tokens.RefreshExpiresIn,
+			"frontend_base_url":  h.config.FrontendBaseURL,
+		},
 	})
 }
 
@@ -295,7 +358,6 @@ func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
 
 	userID := utils.ToNullUUID(c.GetString("user_id"))
 
-	// Audit logout
 	_ = h.auditService.Logout(
 		ctx,
 		userID,
@@ -303,47 +365,27 @@ func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
 		c.Request.UserAgent(),
 	)
 
-	// Read tokens from cookies
 	refreshToken, _ := c.Cookie("refresh_token")
 	idTokenHint, _ := c.Cookie("id_token")
 
-	// Revoke refresh token (server-side logout)
 	if refreshToken != "" {
-		if err := h.authService.LogOut(
-			refreshToken,
-		); err != nil {
+		if err := h.authService.LogOut(refreshToken); err != nil {
 			log.Printf("[AUTH LOGOUT] token revocation failed: %v", err)
 		}
 	}
 
-	// Build Keycloak logout redirect URL
 	redirectURL := h.authService.GetLogoutURL(
 		idTokenHint,
 		h.config.FrontendBaseURL,
 	)
 
-	// Clear cookies
-	clear := func(name string, httpOnly bool) {
-		http.SetCookie(c.Writer, &http.Cookie{
-			Name:     name,
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: httpOnly,
-			Secure:   false,
-			SameSite: http.SameSiteLaxMode,
-		})
-	}
-
-	clear("refresh_token", true)
-	clear("access_token", false)
-	clear("id_token", false)
+	h.clearAuthCookies(c)
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // ----------------------------------------------------
-// Helpers
+// HELPERS
 // ----------------------------------------------------
 func (h *AuthHandler) auditLoginFailure(c *gin.Context) {
 	_ = h.auditService.LoginResult(
@@ -358,6 +400,15 @@ func (h *AuthHandler) auditLoginFailure(c *gin.Context) {
 	)
 }
 
+func (h *AuthHandler) isProduction() bool {
+	if h == nil || h.config == nil {
+		return false
+	}
+
+	return strings.EqualFold(h.config.Environment, "production") ||
+		strings.EqualFold(h.config.Environment, "prod")
+}
+
 // ----------------------------------------------------
 // COOKIE HELPERS
 // ----------------------------------------------------
@@ -366,13 +417,18 @@ func (h *AuthHandler) setSecureAccessTokenCookie(
 	token string,
 	maxAge int64,
 ) {
+	if token == "" || maxAge <= 0 {
+		return
+	}
+
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "access_token",
 		Value:    token,
-		Expires:  time.Now().Add(time.Duration(maxAge) * time.Second),
 		Path:     "/",
-		HttpOnly: false,
-		Secure:   false,
+		MaxAge:   int(maxAge),
+		Expires:  time.Now().Add(time.Duration(maxAge) * time.Second),
+		HttpOnly: true,
+		Secure:   h.isProduction(),
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -382,25 +438,63 @@ func (h *AuthHandler) setSecureRefreshTokenCookie(
 	token string,
 	maxAge int64,
 ) {
+	if token == "" || maxAge <= 0 {
+		return
+	}
+
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    token,
-		Expires:  time.Now().Add(time.Duration(maxAge) * time.Second),
 		Path:     "/",
+		MaxAge:   int(maxAge),
+		Expires:  time.Now().Add(time.Duration(maxAge) * time.Second),
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   h.isProduction(),
 		SameSite: http.SameSiteLaxMode,
 	})
 }
 
-func (h *AuthHandler) setSecureIDTokenCookie(c *gin.Context, token string, expiresIn int) {
+func (h *AuthHandler) setSecureIDTokenCookie(
+	c *gin.Context,
+	token string,
+	expiresIn int,
+) {
+	if token == "" || expiresIn <= 0 {
+		return
+	}
+
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "id_token",
 		Value:    token,
 		Path:     "/",
 		MaxAge:   expiresIn,
-		HttpOnly: false, // Keycloak logout redirect may require browser visibility
-		Secure:   false,
+		Expires:  time.Now().Add(time.Duration(expiresIn) * time.Second),
+		HttpOnly: true,
+		Secure:   h.isProduction(),
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+func (h *AuthHandler) clearCookie(
+	c *gin.Context,
+	name string,
+	httpOnly bool,
+) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     name,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HttpOnly: httpOnly,
+		Secure:   h.isProduction(),
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (h *AuthHandler) clearAuthCookies(c *gin.Context) {
+	h.clearCookie(c, "access_token", true)
+	h.clearCookie(c, "refresh_token", true)
+	h.clearCookie(c, "id_token", true)
+	h.clearCookie(c, "pkce_verifier", true)
 }

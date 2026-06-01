@@ -158,7 +158,7 @@ async function extractSheetsFromFile(file: File): Promise<DetectedSheet[]> {
       sheetRows: 1,
     });
 
-    const visibleSheetNames = workbook.SheetNames.filter((sheetName, index) => {
+    const visibleSheetNames = workbook.SheetNames.filter((index) => {
       const sheetMeta = workbook.Workbook?.Sheets?.[index];
 
       return !sheetMeta?.Hidden;

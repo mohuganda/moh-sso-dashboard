@@ -1,10 +1,5 @@
 import { API } from "../../lib/constants/api.constants";
-import {
-  loginSuccess,
-  logout as logoutAction,
-  authLoaded,
-  setAccessToken,
-} from "../auth/auth.slice";
+import { loginSuccess, logout as logoutAction, authLoaded } from "../auth/auth.slice";
 import type { AuthUser } from "../auth/auth.types";
 
 import { baseApi } from "./baseApi";
@@ -15,7 +10,7 @@ type ApiEnvelope<T> = {
 };
 
 type RefreshResponse = ApiEnvelope<{
-  access_token: string;
+  expires_in: number;
 }>;
 
 export const authApi = baseApi.injectEndpoints({
@@ -26,9 +21,30 @@ export const authApi = baseApi.injectEndpoints({
     me: builder.query<AuthUser, void>({
       query: () => ({
         url: API.auth.me(),
+        method: "GET",
         credentials: "include",
       }),
-      transformResponse: (res: ApiEnvelope<{ user: AuthUser }>) => res.data.user,
+
+      transformResponse: (res: ApiEnvelope<{ user: AuthUser }>) => {
+        return res.data.user;
+      },
+
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data: user } = await queryFulfilled;
+
+          dispatch(
+            loginSuccess({
+              accessToken: null,
+              user,
+            }),
+          );
+        } catch {
+          dispatch(logoutAction());
+        } finally {
+          dispatch(authLoaded());
+        }
+      },
     }),
 
     /* -----------------------------
@@ -41,10 +57,18 @@ export const authApi = baseApi.injectEndpoints({
         body,
         credentials: "include",
       }),
+
+      transformResponse: (res: ApiEnvelope<{ user: AuthUser }>) => {
+        return res.data.user;
+      },
     }),
 
     /* -----------------------------
      * Refresh session
+     *
+     * Backend sets HttpOnly cookies.
+     * Do not store access_token in Redux.
+     * Do not call /me here.
      * ----------------------------- */
     refresh: builder.mutation<RefreshResponse, void>({
       query: () => ({
@@ -52,31 +76,6 @@ export const authApi = baseApi.injectEndpoints({
         method: "POST",
         credentials: "include",
       }),
-
-      async onQueryStarted(_, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-
-          dispatch(setAccessToken(data.data.access_token));
-
-          const user = await dispatch(
-            authApi.endpoints.me.initiate(undefined, {
-              forceRefetch: true,
-            }),
-          ).unwrap();
-
-          dispatch(
-            loginSuccess({
-              accessToken: data.data.access_token,
-              user,
-            }),
-          );
-        } catch {
-          dispatch(logoutAction());
-        } finally {
-          dispatch(authLoaded());
-        }
-      },
     }),
   }),
 });

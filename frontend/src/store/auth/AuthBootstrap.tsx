@@ -1,22 +1,34 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
 
-import { useRefreshMutation } from "../api/auth.api";
+import { authApi } from "../api/auth.api";
+import { authLoaded, logout as logoutAction } from "../auth/auth.slice";
+
+let bootstrapStarted = false;
 
 export default function AuthBootstrap() {
-  const [refresh] = useRefreshMutation();
-  const didRun = useRef(false);
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    if (didRun.current) return;
-    didRun.current = true;
+    if (bootstrapStarted) {
+      return;
+    }
 
-    refresh()
+    bootstrapStarted = true;
+
+    dispatch(
+      authApi.endpoints.me.initiate(undefined, {
+        forceRefetch: true,
+      }) as any,
+    )
       .unwrap()
       .catch(() => {
-        // refresh failure is handled inside the mutation
-        // authLoaded() will still be dispatched there
+        dispatch(logoutAction());
+      })
+      .finally(() => {
+        dispatch(authLoaded());
       });
-  }, [refresh]);
+  }, [dispatch]);
 
   return null;
 }

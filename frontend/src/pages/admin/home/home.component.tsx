@@ -12,7 +12,6 @@ import { QuickAction } from "../../../components/home/quick-action/quick-action.
 import { SignalTile } from "../../../components/home/signal-tile/signal-tile.component";
 import { ClientFormPanel } from "../../../components/panels/client-form-panel";
 import { UserFormPanel } from "../../../components/panels/create-user-panel";
-import { ImportUsersPanel } from "../../../components/panels/import-users-panel";
 import { UserClientRolesPanel } from "../../../components/panels/user-client-roles-panel";
 import { useListClientsQuery } from "../../../store/api/clients.api";
 import { useAuditOverviewQuery } from "../../../store/api/metrics.api";
@@ -305,20 +304,6 @@ export default function HomePage() {
               openPanel({
                 title: "Create Announcement",
                 content: <ManageAnnouncementsPanel />,
-                size: "lg",
-              });
-            }}
-          />
-
-          {/* Import users */}
-          <QuickAction
-            icon={<UserFollow size={20} />}
-            label="Import users"
-            description="Bulk upload users via CSV"
-            onClick={() => {
-              openPanel({
-                title: "Import users",
-                content: <ImportUsersPanel />,
                 size: "lg",
               });
             }}

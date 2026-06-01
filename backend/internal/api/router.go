@@ -50,11 +50,17 @@ func SetupRouter(
 			"http://localhost:3000",
 		},
 		AllowMethods: []string{
-			"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS",
+			"GET",
+			"POST",
+			"PUT",
+			"PATCH",
+			"DELETE",
+			"OPTIONS",
 		},
 		AllowHeaders: []string{
 			"Origin",
 			"Content-Type",
+			"Accept",
 			"Authorization",
 			"X-Requested-With",
 		},
@@ -97,12 +103,29 @@ func SetupRouter(
 			authHandler.HandleAuthCallback,
 		)
 
+		// IMPORTANT:
+		// /auth/me must NOT be inside the protected middleware group.
+		// It reads and validates the access_token cookie itself.
+		auth.GET(
+			"/me",
+			ratelimit.Middleware(
+				limiter,
+				ratelimit.ByIP,
+				60,
+				time.Minute,
+			),
+			authHandler.HandleAuthGetMe,
+		)
+
+		// IMPORTANT:
+		// /auth/refresh must stay public because the access_token may already be expired.
+		// It uses the refresh_token cookie.
 		auth.POST(
 			"/refresh",
 			ratelimit.Middleware(
 				limiter,
 				ratelimit.ByIP,
-				10,
+				30,
 				time.Minute,
 			),
 			authHandler.HandleAuthRefreshToken,
@@ -112,12 +135,8 @@ func SetupRouter(
 	}
 
 	// -------------------------------------
-	// announcements
-	// -----------------------------------------
+	// User / published announcements
 	// -------------------------------------
-	// user / published announcements
-	// -------------------------------------
-
 	userAnnouncements := api.Group("/announcements")
 	{
 		userAnnouncements.GET("/public", announcementHandler.ListPublicAnnouncements)
@@ -147,11 +166,9 @@ func SetupRouter(
 	)
 
 	{
-		protected.GET("/auth/me", authHandler.HandleAuthGetMe)
 		// ------------------
 		// Email
 		// ------------------
-
 		email := protected.Group("/emails")
 		{
 			email.POST("/send", emailHandler.Send)
@@ -252,7 +269,7 @@ func SetupRouter(
 
 		// ------------------------------
 		// Session Management
-		// --------------------------------
+		// ------------------------------
 		sessions := protected.Group("/sessions")
 		{
 			sessions.GET("", sessionHandler.GetUserSessions)
@@ -272,11 +289,10 @@ func SetupRouter(
 		}
 
 		// ----------------------------------
-		//  Visualiser
-		// ---------------------------------------
-		visualiser := protected.Group("visualizer")
+		// Visualiser
+		// ----------------------------------
+		visualiser := protected.Group("/visualizer")
 		{
-
 			// Admin units endpoints
 			visualiser.GET("/adminunits/orgunits", adminunitsHandler.GetOrgUnits)
 			visualiser.GET("/adminunits/facilities", adminunitsHandler.GetFacilities)
@@ -297,12 +313,11 @@ func SetupRouter(
 			visualiser.GET("/hiv/summary", visualiserHandler.GetHIVSummary)
 			visualiser.GET("/hiv/tested", visualiserHandler.GetHIVTested)
 			visualiser.GET("/hiv/regimen", visualiserHandler.GetHIVRegimen)
-
 		}
 
 		// ------------------------------
 		// Surveillance
-		// --------------------------------
+		// ------------------------------
 		surveillance := protected.Group("/surveillance")
 		{
 			surveillance.GET("/weeks", surveillanceHandler.ListEpiWeeksByYear)
@@ -436,7 +451,7 @@ func SetupRouter(
 				notifications.DELETE("/cleanup", notificationsHandler.DeleteOldNotifications)
 			}
 
-			//  -------- announcements --------------------
+			// -------- Announcements --------
 			announcements := admin.Group("/announcements")
 			{
 				announcements.GET("", announcementHandler.ListAnnouncementsAdmin)
@@ -458,5 +473,6 @@ func SetupRouter(
 			}
 		}
 	}
+
 	return r
 }

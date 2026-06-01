@@ -30,7 +30,6 @@ func NewUserRepository(
 	store db.Store,
 	log logger.Logger,
 ) UserRepository {
-
 	return &userRepository{
 		keycloakClient: keycloakClient,
 		config:         config,
@@ -39,8 +38,28 @@ func NewUserRepository(
 	}
 }
 
+// ----------------------------------------------------
+// USERS
+// ----------------------------------------------------
+
 func (r *userRepository) CreateUser(user *models.User) (string, error) {
 	ctx := context.Background()
+
+	if user == nil {
+		return "", fmt.Errorf("user is required")
+	}
+
+	if strings.TrimSpace(user.Username) == "" {
+		return "", fmt.Errorf("username is required")
+	}
+
+	if strings.TrimSpace(user.Email) == "" {
+		return "", fmt.Errorf("email is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return "", fmt.Errorf("user repository is not configured")
+	}
 
 	kcID, err := r.keycloakClient.CreateUser(user)
 	if err != nil {
@@ -53,25 +72,17 @@ func (r *userRepository) CreateUser(user *models.User) (string, error) {
 		return "", fmt.Errorf("invalid keycloak user id: %w", err)
 	}
 
-	if err := r.db.UpsertUser(ctx, db.UpsertUserParams{
-		ID:       uid,
-		Username: user.Username,
-		Email:    user.Email,
-		FirstName: sql.NullString{
-			String: user.FirstName,
-			Valid:  user.FirstName != "",
-		},
-		LastName: sql.NullString{
-			String: user.LastName,
-			Valid:  user.LastName != "",
-		},
-		Enabled: sql.NullBool{
-			Bool:  user.Enabled,
-			Valid: true,
-		},
-	}); err != nil {
+	if err := r.upsertLocalUser(ctx, uid, user); err != nil {
 		r.logger.Warn(
 			"user created in keycloak but db sync failed",
+			"userId", kcID,
+			"error", err,
+		)
+	}
+
+	if err := r.keycloakClient.SendUserOnboardingEmail(ctx, kcID); err != nil {
+		r.logger.Warn(
+			"user created in keycloak but onboarding email failed",
 			"userId", kcID,
 			"error", err,
 		)
@@ -82,6 +93,10 @@ func (r *userRepository) CreateUser(user *models.User) (string, error) {
 
 func (r *userRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
 	ctx := context.Background()
+
+	if r == nil || r.keycloakClient == nil {
+		return nil, fmt.Errorf("user repository is not configured")
+	}
 
 	kcUser, err := r.keycloakClient.GetUser(id.String())
 	if err != nil {
@@ -95,12 +110,21 @@ func (r *userRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
 
 	var createdAt time.Time
 	var updatedAt time.Time
+	var lastLoginAt *time.Time
 
-	if row.CreatedAt.Valid {
-		createdAt = row.CreatedAt.Time
-	}
-	if row.UpdatedAt.Valid {
-		updatedAt = row.UpdatedAt.Time
+	if err == nil {
+		if row.CreatedAt.Valid {
+			createdAt = row.CreatedAt.Time
+		}
+
+		if row.UpdatedAt.Valid {
+			updatedAt = row.UpdatedAt.Time
+		}
+
+		lastLoginAt = pickTime(row.LastLoginAt, kcUser.LastLoginAt)
+	} else {
+		lastLoginAt = kcUser.LastLoginAt
+		createdAt = keycloakCreatedAt(kcUser)
 	}
 
 	return &models.User{
@@ -109,13 +133,13 @@ func (r *userRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
 		Email:         kcUser.Email,
 		FirstName:     kcUser.FirstName,
 		LastName:      kcUser.LastName,
-		FullName:      strings.TrimSpace(kcUser.FirstName + " " + kcUser.LastName),
+		FullName:      fullName(kcUser.FirstName, kcUser.LastName),
 		RealmRoles:    kcUser.RealmRoles,
 		ClientRoles:   kcUser.ClientRoles,
 		IsAdmin:       slices.Contains(kcUser.RealmRoles, "admin"),
 		Enabled:       kcUser.Enabled,
 		EmailVerified: kcUser.EmailVerified,
-		LastLoginAt:   kcUser.LastLoginAt,
+		LastLoginAt:   lastLoginAt,
 		CreatedAt:     createdAt,
 		UpdatedAt:     updatedAt,
 	}, nil
@@ -123,6 +147,10 @@ func (r *userRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
 
 func (r *userRepository) ListUsers() ([]models.User, error) {
 	ctx := context.Background()
+
+	if r == nil || r.keycloakClient == nil {
+		return nil, fmt.Errorf("user repository is not configured")
+	}
 
 	kcUsers, err := r.keycloakClient.ListUsers()
 	if err != nil {
@@ -134,46 +162,46 @@ func (r *userRepository) ListUsers() ([]models.User, error) {
 		return nil, err
 	}
 
-	dbMap := map[string]db.User{}
-	for _, u := range dbUsers {
-		dbMap[u.ID.String()] = u
+	dbMap := make(map[string]db.User, len(dbUsers))
+	for _, user := range dbUsers {
+		dbMap[user.ID.String()] = user
 	}
 
-	var result []models.User
-	for _, kc := range kcUsers {
-		if entry, ok := dbMap[kc.ID]; ok {
-			result = append(result, models.User{
-				ID:            entry.ID.String(),
-				Username:      kc.Username,
-				Email:         kc.Email,
-				FirstName:     kc.FirstName,
-				LastName:      kc.LastName,
-				FullName:      strings.TrimSpace(kc.FirstName + " " + kc.LastName),
-				RealmRoles:    kc.RealmRoles,
-				ClientRoles:   kc.ClientRoles,
-				IsAdmin:       slices.Contains(kc.RealmRoles, "admin"),
-				Enabled:       kc.Enabled,
-				EmailVerified: kc.EmailVerified,
-				LastLoginAt:   pickTime(entry.LastLoginAt, kc.LastLoginAt),
-				CreatedAt:     kc.CreatedAt,
-			})
-		} else {
-			result = append(result, models.User{
-				ID:            kc.ID,
-				Username:      kc.Username,
-				Email:         kc.Email,
-				FirstName:     kc.FirstName,
-				LastName:      kc.LastName,
-				FullName:      strings.TrimSpace(kc.FirstName + " " + kc.LastName),
-				RealmRoles:    kc.RealmRoles,
-				ClientRoles:   kc.ClientRoles,
-				IsAdmin:       slices.Contains(kc.RealmRoles, "admin"),
-				Enabled:       kc.Enabled,
-				EmailVerified: kc.EmailVerified,
-				LastLoginAt:   kc.LastLoginAt,
-				CreatedAt:     kc.CreatedAt,
-			})
+	result := make([]models.User, 0, len(kcUsers))
+
+	for _, kcUser := range kcUsers {
+		localUser, hasLocalUser := dbMap[kcUser.ID]
+
+		user := models.User{
+			ID:            kcUser.ID,
+			Username:      kcUser.Username,
+			Email:         kcUser.Email,
+			FirstName:     kcUser.FirstName,
+			LastName:      kcUser.LastName,
+			FullName:      fullName(kcUser.FirstName, kcUser.LastName),
+			RealmRoles:    kcUser.RealmRoles,
+			ClientRoles:   kcUser.ClientRoles,
+			IsAdmin:       slices.Contains(kcUser.RealmRoles, "admin"),
+			Enabled:       kcUser.Enabled,
+			EmailVerified: kcUser.EmailVerified,
+			LastLoginAt:   kcUser.LastLoginAt,
+			CreatedAt:     keycloakCreatedAt(&kcUser),
 		}
+
+		if hasLocalUser {
+			user.ID = localUser.ID.String()
+			user.LastLoginAt = pickTime(localUser.LastLoginAt, kcUser.LastLoginAt)
+
+			if localUser.CreatedAt.Valid {
+				user.CreatedAt = localUser.CreatedAt.Time
+			}
+
+			if localUser.UpdatedAt.Valid {
+				user.UpdatedAt = localUser.UpdatedAt.Time
+			}
+		}
+
+		result = append(result, user)
 	}
 
 	return result, nil
@@ -182,8 +210,26 @@ func (r *userRepository) ListUsers() ([]models.User, error) {
 func (r *userRepository) UpdateUser(user *models.User) error {
 	ctx := context.Background()
 
+	if user == nil {
+		return fmt.Errorf("user is required")
+	}
+
+	if strings.TrimSpace(user.ID) == "" {
+		return fmt.Errorf("user id is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	uid, err := uuid.Parse(user.ID)
+	if err != nil {
+		return fmt.Errorf("invalid UUID: %w", err)
+	}
+
 	if err := r.keycloakClient.UpdateUser(&models.User{
 		ID:        user.ID,
+		Username:  user.Username,
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
@@ -192,23 +238,7 @@ func (r *userRepository) UpdateUser(user *models.User) error {
 		return fmt.Errorf("keycloak update failed: %w", err)
 	}
 
-	if err := r.db.UpsertUser(ctx, db.UpsertUserParams{
-		ID:       uuid.MustParse(user.ID),
-		Username: user.Username,
-		Email:    user.Email,
-		FirstName: sql.NullString{
-			String: user.FirstName,
-			Valid:  user.FirstName != "",
-		},
-		LastName: sql.NullString{
-			String: user.LastName,
-			Valid:  user.LastName != "",
-		},
-		Enabled: sql.NullBool{
-			Bool:  user.Enabled,
-			Valid: true,
-		},
-	}); err != nil {
+	if err := r.upsertLocalUser(ctx, uid, user); err != nil {
 		r.logger.Warn(
 			"user updated in keycloak but db sync failed",
 			"userId", user.ID,
@@ -221,6 +251,15 @@ func (r *userRepository) UpdateUser(user *models.User) error {
 
 func (r *userRepository) DeleteUser(id string) error {
 	ctx := context.Background()
+
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("user id is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
 
 	uid, err := uuid.Parse(id)
 	if err != nil {
@@ -242,23 +281,21 @@ func (r *userRepository) DeleteUser(id string) error {
 	return nil
 }
 
-func pickTime(db sql.NullTime, kc *time.Time) *time.Time {
-	if db.Valid {
-		return &db.Time
-	}
-	return kc
-}
-
 func (r *userRepository) ToggleUserEnabled(
 	ctx context.Context,
 	userID string,
 	enabled bool,
 ) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
 
-	if err := r.keycloakClient.UpdateUser(&models.User{
-		ID:      userID,
-		Enabled: enabled,
-	}); err != nil {
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	if err := r.keycloakClient.SetUserEnabled(ctx, userID, enabled); err != nil {
 		return fmt.Errorf("keycloak toggle user failed: %w", err)
 	}
 
@@ -282,27 +319,119 @@ func (r *userRepository) ToggleUserEnabled(
 	return nil
 }
 
+// ResetUserPassword sends a Keycloak UPDATE_PASSWORD email.
+// It does not generate or store a temporary password.
 func (r *userRepository) ResetUserPassword(
 	ctx context.Context,
 	userID string,
 ) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
 
-	if err := r.keycloakClient.ResetUserPassword(ctx, userID); err != nil {
-		return fmt.Errorf("reset password failed: %w", err)
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	if err := r.keycloakClient.SendUserPasswordResetEmail(ctx, userID); err != nil {
+		return fmt.Errorf("send password reset email failed: %w", err)
 	}
 
 	r.logger.Info(
-		"user password reset",
+		"user password reset email sent",
 		"userId", userID,
 	)
 
 	return nil
 }
 
+// ----------------------------------------------------
+// USER EMAIL ACTIONS
+// ----------------------------------------------------
+
+func (r *userRepository) SendUserOnboardingEmail(
+	ctx context.Context,
+	userID string,
+) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	if err := r.keycloakClient.SendUserOnboardingEmail(ctx, userID); err != nil {
+		return fmt.Errorf("send onboarding email failed: %w", err)
+	}
+
+	r.logger.Info("user onboarding email sent", "userId", userID)
+
+	return nil
+}
+
+func (r *userRepository) SendUserVerificationEmail(
+	ctx context.Context,
+	userID string,
+) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	if err := r.keycloakClient.SendUserVerificationEmail(ctx, userID); err != nil {
+		return fmt.Errorf("send verification email failed: %w", err)
+	}
+
+	r.logger.Info("user verification email sent", "userId", userID)
+
+	return nil
+}
+
+func (r *userRepository) SendUserPasswordResetEmail(
+	ctx context.Context,
+	userID string,
+) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	if err := r.keycloakClient.SendUserPasswordResetEmail(ctx, userID); err != nil {
+		return fmt.Errorf("send password reset email failed: %w", err)
+	}
+
+	r.logger.Info("user password reset email sent", "userId", userID)
+
+	return nil
+}
+
+// ----------------------------------------------------
+// CLIENT ROLES
+// ----------------------------------------------------
+
 func (r *userRepository) GetUserClientRoles(
 	ctx context.Context,
 	userID string,
 ) ([]keycloak.UserClientRoleAssignment, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return nil, fmt.Errorf("user repository is not configured")
+	}
 
 	clients, err := r.keycloakClient.ListClients()
 	if err != nil {
@@ -312,19 +441,42 @@ func (r *userRepository) GetUserClientRoles(
 	out := make([]keycloak.UserClientRoleAssignment, 0)
 
 	for _, client := range clients {
+		if strings.TrimSpace(client.ID) == "" || strings.TrimSpace(client.ClientID) == "" {
+			continue
+		}
+
 		roles, err := r.keycloakClient.GetUserClientRoles(
 			ctx,
 			userID,
-			"",
+			client.ClientID,
 			client.ID,
 		)
-		if err != nil || len(roles) == 0 {
+		if err != nil {
+			r.logger.Warn(
+				"failed to fetch user client roles",
+				"userId", userID,
+				"clientId", client.ClientID,
+				"clientUuid", client.ID,
+				"error", err,
+			)
+			continue
+		}
+
+		if len(roles) == 0 {
 			continue
 		}
 
 		names := make([]string, 0, len(roles))
-		for _, r := range roles {
-			names = append(names, r.Name)
+		for _, role := range roles {
+			if strings.TrimSpace(role.Name) == "" {
+				continue
+			}
+
+			names = append(names, role.Name)
+		}
+
+		if len(names) == 0 {
+			continue
 		}
 
 		out = append(out, keycloak.UserClientRoleAssignment{
@@ -338,6 +490,49 @@ func (r *userRepository) GetUserClientRoles(
 	return out, nil
 }
 
+func (r *userRepository) GetUserClientRolesForClient(
+	ctx context.Context,
+	userID string,
+	clientID string,
+	clientUUID string,
+) ([]keycloak.ClientRoleRep, error) {
+	userID = strings.TrimSpace(userID)
+	clientID = strings.TrimSpace(clientID)
+	clientUUID = strings.TrimSpace(clientUUID)
+
+	if userID == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+
+	if clientID == "" {
+		return nil, fmt.Errorf("clientID is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return nil, fmt.Errorf("user repository is not configured")
+	}
+
+	if clientUUID == "" {
+		client, err := r.keycloakClient.GetClientByClientID(clientID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve client by clientID: %w", err)
+		}
+
+		if client == nil {
+			return nil, fmt.Errorf("client not found: %s", clientID)
+		}
+
+		clientUUID = client.ID
+	}
+
+	return r.keycloakClient.GetUserClientRoles(
+		ctx,
+		userID,
+		clientID,
+		clientUUID,
+	)
+}
+
 func (r *userRepository) AddUserClientRoles(
 	ctx context.Context,
 	userID string,
@@ -345,13 +540,45 @@ func (r *userRepository) AddUserClientRoles(
 	clientUUID string,
 	roles []string,
 ) error {
+	userID = strings.TrimSpace(userID)
+	clientID = strings.TrimSpace(clientID)
+	clientUUID = strings.TrimSpace(clientUUID)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if clientID == "" {
+		return fmt.Errorf("clientID is required")
+	}
+
+	if len(roles) == 0 {
+		return nil
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	if clientUUID == "" {
+		client, err := r.keycloakClient.GetClientByClientID(clientID)
+		if err != nil {
+			return fmt.Errorf("resolve client by clientID: %w", err)
+		}
+
+		if client == nil {
+			return fmt.Errorf("client not found: %s", clientID)
+		}
+
+		clientUUID = client.ID
+	}
 
 	return r.keycloakClient.AssignClientRolesToUser(
 		ctx,
 		userID,
 		clientID,
 		clientUUID,
-		roles,
+		normalizeRoleNames(roles),
 	)
 }
 
@@ -362,27 +589,133 @@ func (r *userRepository) RemoveUserClientRoles(
 	clientUUID string,
 	roles []string,
 ) error {
+	userID = strings.TrimSpace(userID)
+	clientID = strings.TrimSpace(clientID)
+	clientUUID = strings.TrimSpace(clientUUID)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if clientID == "" {
+		return fmt.Errorf("clientID is required")
+	}
+
+	if len(roles) == 0 {
+		return nil
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	if clientUUID == "" {
+		client, err := r.keycloakClient.GetClientByClientID(clientID)
+		if err != nil {
+			return fmt.Errorf("resolve client by clientID: %w", err)
+		}
+
+		if client == nil {
+			return fmt.Errorf("client not found: %s", clientID)
+		}
+
+		clientUUID = client.ID
+	}
 
 	return r.keycloakClient.RemoveClientRolesFromUser(
 		ctx,
 		userID,
 		clientID,
 		clientUUID,
-		roles,
+		normalizeRoleNames(roles),
 	)
 }
 
-func (r *userRepository) GetUserClientRolesForClient(
-	ctx context.Context,
-	userID string,
-	clientID string,
-	clientUUID string,
-) ([]keycloak.ClientRoleRep, error) {
+// ----------------------------------------------------
+// HELPERS
+// ----------------------------------------------------
 
-	return r.keycloakClient.GetUserClientRoles(
-		ctx,
-		userID,
-		clientID,
-		clientUUID,
+func (r *userRepository) upsertLocalUser(
+	ctx context.Context,
+	id uuid.UUID,
+	user *models.User,
+) error {
+	if user == nil {
+		return fmt.Errorf("user is required")
+	}
+
+	return r.db.UpsertUser(ctx, db.UpsertUserParams{
+		ID:       id,
+		Username: strings.TrimSpace(user.Username),
+		Email:    strings.TrimSpace(user.Email),
+		FirstName: sql.NullString{
+			String: strings.TrimSpace(user.FirstName),
+			Valid:  strings.TrimSpace(user.FirstName) != "",
+		},
+		LastName: sql.NullString{
+			String: strings.TrimSpace(user.LastName),
+			Valid:  strings.TrimSpace(user.LastName) != "",
+		},
+		Enabled: sql.NullBool{
+			Bool:  user.Enabled,
+			Valid: true,
+		},
+	})
+}
+
+func pickTime(dbTime sql.NullTime, kcTime *time.Time) *time.Time {
+	if dbTime.Valid {
+		return &dbTime.Time
+	}
+
+	return kcTime
+}
+
+func fullName(firstName string, lastName string) string {
+	return strings.TrimSpace(
+		strings.Join(
+			[]string{
+				strings.TrimSpace(firstName),
+				strings.TrimSpace(lastName),
+			},
+			" ",
+		),
 	)
+}
+
+func keycloakCreatedAt(user *keycloak.UserInfo) time.Time {
+	if user == nil {
+		return time.Time{}
+	}
+
+	if !user.CreatedAt.IsZero() {
+		return user.CreatedAt
+	}
+
+	if user.CreatedTimestamp > 0 {
+		return time.UnixMilli(user.CreatedTimestamp)
+	}
+
+	return time.Time{}
+}
+
+func normalizeRoleNames(roles []string) []string {
+	out := make([]string, 0, len(roles))
+	seen := make(map[string]bool, len(roles))
+
+	for _, role := range roles {
+		role = strings.TrimSpace(role)
+		if role == "" {
+			continue
+		}
+
+		if seen[role] {
+			continue
+		}
+
+		seen[role] = true
+		out = append(out, role)
+	}
+
+	return out
 }
