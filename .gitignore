@@ -1,3 +1,17 @@
 .idea/
 .vscode
 .DS_Store
+docker-compose.dev.yml
+
+# Environment files
+*.env
+app.env
+
+# Secrets / credentials
+secrets/
+
+# Local frontend config
+frontend/public/config.js
+
+# Frontend dependencies
+frontend/node_modules/

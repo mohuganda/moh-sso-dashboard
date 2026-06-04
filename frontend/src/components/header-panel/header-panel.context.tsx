@@ -8,6 +8,7 @@ type HeaderPanelState = {
   isOpen: boolean;
   title?: string;
   content?: React.ReactNode;
+  contentKey: number;
   size: PanelSize;
   primaryActionLabel?: string;
   secondaryActionLabel?: string;
@@ -42,6 +43,7 @@ export function HeaderPanelProvider({ children }: { children: React.ReactNode })
   const [state, setState] = useState<HeaderPanelState>({
     isOpen: false,
     size: "md",
+    contentKey: 0,
   });
 
   const openPanel = ({
@@ -54,17 +56,18 @@ export function HeaderPanelProvider({ children }: { children: React.ReactNode })
     onSecondaryAction,
     disablePrimaryAction,
   }: OpenPanelOptions) => {
-    setState({
+    setState((prev) => ({
       isOpen: true,
       title,
       content,
+      contentKey: prev.contentKey + 1,
       size,
       primaryActionLabel,
       secondaryActionLabel,
       onPrimaryAction,
       onSecondaryAction,
       disablePrimaryAction,
-    });
+    }));
   };
 
   const closePanel = () => {
@@ -82,6 +85,7 @@ export function HeaderPanelProvider({ children }: { children: React.ReactNode })
         isOpen={state.isOpen}
         title={state.title}
         content={state.content}
+        contentKey={state.contentKey}
         size={state.size}
         onClose={closePanel}
         primaryActionLabel={state.primaryActionLabel}

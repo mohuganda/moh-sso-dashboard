@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
 	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
@@ -103,9 +104,23 @@ func (s *Service) Execute(ctx context.Context, processID uuid.UUID) error {
 	// 3️⃣ Execute processor
 	if err := processor.Process(ctx, proc); err != nil {
 		_ = s.processRepo.Fail(ctx, processID, err.Error())
+		_, _ = s.documentRepo.UpdateDocumentStatus(ctx, db.UpdateDocumentStatusParams{
+			ID:     proc.DocumentID,
+			Status: db.DocumentStatusFAILED,
+		})
 		return err
 	}
 
 	// 4️⃣ Mark complete
-	return s.processRepo.Complete(ctx, processID)
+	if err := s.processRepo.Complete(ctx, processID); err != nil {
+		return err
+	}
+
+	// 5️⃣ Update document status to COMPLETED
+	_, err = s.documentRepo.UpdateDocumentStatus(ctx, db.UpdateDocumentStatusParams{
+		ID:     proc.DocumentID,
+		Status: db.DocumentStatusCOMPLETED,
+	})
+	return err
+
 }

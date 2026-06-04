@@ -33,6 +33,8 @@ export default function PublicLayout() {
               style={{
                 marginTop: "3rem",
                 flex: 1,
+                minWidth: 0,
+                overflowX: "hidden",
                 background: "#f9fafb",
               }}
             >

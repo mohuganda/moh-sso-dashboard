@@ -9,6 +9,7 @@ type Props = {
   isOpen: boolean;
   title?: string;
   content?: React.ReactNode;
+  contentKey?: number;
   onClose: () => void;
   size: PanelSize;
   primaryActionLabel?: string;
@@ -24,6 +25,7 @@ export function ReusableHeaderPanel({
   isOpen,
   title,
   content,
+  contentKey,
   onClose,
   size,
   primaryActionLabel,
@@ -113,7 +115,7 @@ export function ReusableHeaderPanel({
           </div>
         </div>
 
-        <div className="app-side-panel__body">{content}</div>
+        <div key={contentKey} className="app-side-panel__body">{content}</div>
 
         {(primaryActionLabel || secondaryActionLabel) && (
           <div className="app-side-panel__footer">

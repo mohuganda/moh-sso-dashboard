@@ -1,6 +1,7 @@
 import type { DocumentTemplate } from "../types/document_template.types";
 import type {
   CreateDocumentPayload,
+  DataPreviewResponse,
   DocumentProcess,
   DocumentResponse,
   UpdateDocumentPayload,
@@ -23,7 +24,7 @@ export const documentsApi = baseApi.injectEndpoints({
         url: `/documents`,
         method: "GET",
       }),
-      transformResponse: (response: ApiEnvelope<DocumentResponse[]>) => response.data,
+      transformResponse: (response: ApiEnvelope<DocumentResponse[]>) => response.data ?? [],
       providesTags: (result) =>
         result
           ? [
@@ -184,10 +185,36 @@ export const documentsApi = baseApi.injectEndpoints({
 
     listDocumentTemplates: builder.query<DocumentTemplate[], void>({
       query: () => "/document-templates",
-
       transformResponse: (res: ApiEnvelope<DocumentTemplate[]>) => res.data,
-
       providesTags: ["DocumentTemplates"],
+    }),
+
+    // -----------------------------
+    // DOCUMENT STATS
+    // -----------------------------
+    getDocumentStats: builder.query<{
+      total: number;
+      total_size: number;
+      pending: number;
+      processing: number;
+      completed: number;
+      failed: number;
+    }, void>({
+      query: () => `/documents/stats`,
+      transformResponse: (res: ApiEnvelope<{
+        total: number; total_size: number;
+        pending: number; processing: number; completed: number; failed: number;
+      }>) => res.data,
+      providesTags: [{ type: "Documents", id: "LIST" }],
+    }),
+
+    // -----------------------------
+    // DATA PREVIEW
+    // -----------------------------
+    getDocumentDataPreview: builder.query<DataPreviewResponse, string>({
+      query: (id) => `/documents/${id}/data-preview`,
+      transformResponse: (res: ApiEnvelope<DataPreviewResponse>) => res.data,
+      providesTags: (_res, _err, id) => [{ type: "Document", id }],
     }),
   }),
 });
@@ -207,4 +234,7 @@ export const {
   useListStorageLocationsQuery,
   useGetStorageLocationQuery,
   useListDocumentTemplatesQuery,
+  useGetDocumentDataPreviewQuery,
+  useLazyGetDocumentDataPreviewQuery,
+  useGetDocumentStatsQuery,
 } = documentsApi;

@@ -199,6 +199,7 @@ func SetupRouter(
 		documents := protected.Group("/documents")
 		{
 			documents.GET("", documentHandler.ListDocuments)
+			documents.GET("/stats", documentHandler.GetDocumentStats)
 			documents.POST("", documentHandler.CreateDocument)
 
 			documents.GET("/:id", documentHandler.GetDocument)
@@ -210,6 +211,7 @@ func SetupRouter(
 
 			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
 			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
+			documents.GET("/:id/data-preview", documentHandler.DataPreview)
 		}
 
 		documentTemplates := protected.Group("/document-templates")
@@ -222,6 +224,7 @@ func SetupRouter(
 
 			// Get runtime/structure by template code
 			documentTemplates.GET("/code/:code/structure", documentTemplateHandler.GetTemplateStructure)
+			documentTemplates.GET("/code/:code/has-data", documentTemplateHandler.HasData)
 
 			documentTemplates.GET("/:id", documentTemplateHandler.GetTemplate)
 			documentTemplates.PUT("/:id", documentTemplateHandler.UpdateTemplate)
@@ -236,6 +239,7 @@ func SetupRouter(
 			// UI builder helpers
 			documentTemplates.GET("/:id/sheets", documentTemplateHandler.ListSheets)
 			documentTemplates.GET("/:id/sheets/:sheetId/columns", documentTemplateHandler.ListColumns)
+			documentTemplates.PUT("/:id/sheets/:sheetId/columns/:columnId", documentTemplateHandler.UpdateColumn)
 		}
 
 		// --------------------------

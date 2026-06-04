@@ -81,7 +81,7 @@ services:
     volumes:
       - backend_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5435:5432"
     networks:
       - sso_network
 
@@ -177,7 +177,7 @@ services:
       POSTGRES_PASSWORD: 12345678=j
       POSTGRES_DB: file_upload
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - remote_pg_data:/var/lib/postgresql/data
     networks:

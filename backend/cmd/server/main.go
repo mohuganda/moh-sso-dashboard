@@ -105,6 +105,10 @@ func main() {
 		appLogger.Fatal("Migration failed: ", err)
 	}
 
+	if err := db.MigrateDB(remoteDB, "file://internal/db/migrations"); err != nil {
+		appLogger.Fatal("Remote DB migration failed: ", err)
+	}
+
 	// ==================================================
 	// REDIS
 	// ==================================================
@@ -342,6 +346,8 @@ func main() {
 		storageLocationService,
 		fileStorage,
 		storageFactory,
+		primaryDB,
+		remoteDB,
 	)
 
 	storageLocationHandler := handler.NewStorageLocationHandler(storageLocationService, auditService)
@@ -368,6 +374,8 @@ func main() {
 		documentTemplateService,
 		documentTemplateSheetService,
 		documentTemplateColumnService,
+		primaryDB,
+		remoteDB,
 	)
 
 	documentTemplateSheetHandler := handler.NewDocumentTemplateSheetHandler(

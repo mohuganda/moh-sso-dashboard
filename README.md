@@ -151,6 +151,7 @@ cd sso-dashboard
 ### Step 2 — Backend Setup
 Install dependencies:
 ```bash
+cd bachend
 go mod tidy
 ```
 

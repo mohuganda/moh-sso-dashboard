@@ -7,6 +7,8 @@ import type {
   DocumentTemplateSheet,
   TemplateStructure,
   CreateTemplateStructureRequest,
+  UpdateTemplatePayload,
+  UpdateColumnPayload,
 } from "../types/document_template.types";
 import { baseApi } from "./baseApi";
 
@@ -19,13 +21,13 @@ export const documentTemplateApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getTemplates: builder.query<DocumentTemplate[], void>({
       query: () => "/document-templates",
-      transformResponse: (res: ApiEnvelope<DocumentTemplate[]>) => res.data,
+      transformResponse: (res: ApiEnvelope<DocumentTemplate[]>) => res.data ?? [],
       providesTags: ["DocumentTemplates"],
     }),
 
     listActiveTemplates: builder.query<DocumentTemplate[], void>({
       query: () => "/document-templates?active=true",
-      transformResponse: (res: ApiEnvelope<DocumentTemplate[]>) => res.data,
+      transformResponse: (res: ApiEnvelope<DocumentTemplate[]>) => res.data ?? [],
       providesTags: ["DocumentTemplates"],
     }),
 
@@ -39,6 +41,11 @@ export const documentTemplateApi = baseApi.injectEndpoints({
       query: (code) => `/document-templates/code/${code}/structure`,
       transformResponse: (res: ApiEnvelope<TemplateStructure>) => res.data,
       providesTags: ["DocumentTemplates", "DocumentSheets", "DocumentColumns"],
+    }),
+
+    getTemplateHasData: builder.query<{ has_data: boolean }, string>({
+      query: (code) => `/document-templates/code/${code}/has-data`,
+      transformResponse: (res: ApiEnvelope<{ has_data: boolean }>) => res.data,
     }),
 
     getTemplateSheets: builder.query<DocumentTemplateSheet[], string>({
@@ -96,6 +103,41 @@ export const documentTemplateApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiEnvelope<DocumentTemplateColumn>) => res.data,
       invalidatesTags: ["DocumentColumns"],
     }),
+
+    updateColumn: builder.mutation<DocumentTemplateColumn, UpdateColumnPayload>({
+      query: ({ templateId, sheetId, columnId, ...body }) => ({
+        url: `/document-templates/${templateId}/sheets/${sheetId}/columns/${columnId}`,
+        method: "PUT",
+        body,
+      }),
+      transformResponse: (res: ApiEnvelope<DocumentTemplateColumn>) => res.data,
+      invalidatesTags: ["DocumentTemplates", "DocumentColumns"],
+    }),
+
+    updateTemplate: builder.mutation<DocumentTemplate, UpdateTemplatePayload>({
+      query: ({ id, ...body }) => ({
+        url: `/document-templates/${id}`,
+        method: "PUT",
+        body,
+      }),
+      transformResponse: (res: ApiEnvelope<DocumentTemplate>) => res.data,
+      invalidatesTags: (_r, _e, { id }) => [{ type: "DocumentTemplates", id }, "DocumentTemplates"],
+    }),
+
+    publishTemplate: builder.mutation<void, string>({
+      query: (id) => ({ url: `/document-templates/${id}/publish`, method: "POST" }),
+      invalidatesTags: ["DocumentTemplates"],
+    }),
+
+    archiveTemplate: builder.mutation<void, string>({
+      query: (id) => ({ url: `/document-templates/${id}/archive`, method: "POST" }),
+      invalidatesTags: ["DocumentTemplates"],
+    }),
+
+    deleteTemplate: builder.mutation<void, string>({
+      query: (id) => ({ url: `/document-templates/${id}`, method: "DELETE" }),
+      invalidatesTags: ["DocumentTemplates"],
+    }),
   }),
 });
 
@@ -104,10 +146,16 @@ export const {
   useListActiveTemplatesQuery,
   useGetTemplateByIdQuery,
   useGetTemplateStructureQuery,
+  useGetTemplateHasDataQuery,
   useGetTemplateSheetsQuery,
   useGetSheetColumnsQuery,
   useCreateTemplateMutation,
+  useUpdateTemplateMutation,
+  useUpdateColumnMutation,
   useCreateTemplateStructureMutation,
   useCreateSheetMutation,
   useCreateColumnMutation,
+  usePublishTemplateMutation,
+  useArchiveTemplateMutation,
+  useDeleteTemplateMutation,
 } = documentTemplateApi;

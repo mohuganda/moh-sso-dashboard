@@ -26,6 +26,7 @@ WHERE id = $1;
 -- name: ListDocuments :many
 SELECT *
 FROM documents
+WHERE is_template = false
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
 
@@ -34,6 +35,7 @@ LIMIT $1 OFFSET $2;
 SELECT *
 FROM documents
 WHERE uploaded_by = $1
+  AND is_template = false
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 

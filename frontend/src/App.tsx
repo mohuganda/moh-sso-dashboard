@@ -33,6 +33,7 @@ import MyTimeSheet from "./pages/user/utilities/my-timesheet.component";
 import FileUpload from "./pages/public/fileupload/file-upload.tsx";
 import DocumentPage from "./pages/user/e-services/documents/documents.component";
 import DocumentDetailsPage from "./pages/user/e-services/documents/document-details.component";
+import DocumentPreviewPage from "./pages/user/e-services/documents/DocumentPreviewPage";
 import MyProfilePage from "./pages/user/settings/Profile/profile.component.tsx";
 import SecurityPage from "./pages/user/settings/security/security.component.tsx";
 import ActiveSessionsPage from "./pages/user/settings/sessions/active-sesssions.component.tsx";
@@ -445,6 +446,15 @@ function App() {
                     element={
                       <UserRoute>
                         <DocumentDetailsPage />
+                      </UserRoute>
+                    }
+                  />
+
+                  <Route
+                    path="document-upload/:id/preview"
+                    element={
+                      <UserRoute>
+                        <DocumentPreviewPage />
                       </UserRoute>
                     }
                   />

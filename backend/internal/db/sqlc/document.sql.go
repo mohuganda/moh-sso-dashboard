@@ -131,6 +131,7 @@ func (q *Queries) GetDocumentByID(ctx context.Context, id uuid.UUID) (Document, 
 const listDocuments = `-- name: ListDocuments :many
 SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 FROM documents
+WHERE is_template = false
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -244,6 +245,7 @@ const listDocumentsByUser = `-- name: ListDocumentsByUser :many
 SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
 FROM documents
 WHERE uploaded_by = $1
+  AND is_template = false
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
 `
