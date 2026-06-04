@@ -1,5 +1,5 @@
-import { API } from "../../lib/constants/api.constants";
-import type { Client, CreateClientPayload } from "../types/client.types";
+import { API } from "@/lib/constants/api.constants";
+import type { Client, CreateClientPayload } from "@/store/types/client.types";
 
 import { baseApi } from "./baseApi";
 

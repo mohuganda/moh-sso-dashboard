@@ -1,5 +1,5 @@
-import { API } from "../../lib/constants/api.constants";
-import type { AuditOverview, AuditMetricsFilters } from "../types/audit-metrics.types";
+import { API } from "@/lib/constants/api.constants";
+import type { AuditOverview, AuditMetricsFilters } from "@/store/types/audit-metrics.types";
 
 import { baseApi } from "./baseApi";
 

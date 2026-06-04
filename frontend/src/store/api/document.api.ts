@@ -1,11 +1,11 @@
-import type { DocumentTemplate } from "../types/document_template.types";
+import type { DocumentTemplate } from "@/store/types/document_template.types";
 import type {
   CreateDocumentPayload,
   DocumentProcess,
   DocumentResponse,
   UpdateDocumentPayload,
-} from "../types/documents.types";
-import type { StorageLocation } from "../types/storage.types";
+} from "@/store/types/documents.types";
+import type { StorageLocation } from "@/store/types/storage.types";
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {

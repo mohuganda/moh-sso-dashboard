@@ -18,7 +18,7 @@ import type {
   FacilityWeeklyMetricTrend,
   DiseaseWeeklyTrendAggregate,
   FacilityWeeklyMetricRow,
-} from "../types/surveillance.types";
+} from "@/store/types/surveillance.types";
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {

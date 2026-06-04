@@ -1,4 +1,4 @@
-import type { Client } from "../types/client.types";
+import type { Client } from "@/store/types/client.types";
 
 export const DEFAULT_CLIENT_ID = "__default__";
 export const UTILITIES_CLIENT_ID = "__utilities__";

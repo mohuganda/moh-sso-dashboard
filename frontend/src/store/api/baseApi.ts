@@ -6,7 +6,7 @@ import {
   type FetchBaseQueryError,
 } from "@reduxjs/toolkit/query/react";
 
-import { API } from "../../lib/constants/api.constants";
+import { API } from "@/lib/constants/api.constants";
 import { loginSuccess, logout } from "../auth/auth.slice";
 
 type ApiEnvelope<T> = {

@@ -103,9 +103,6 @@ func SetupRouter(
 			authHandler.HandleAuthCallback,
 		)
 
-		// IMPORTANT:
-		// /auth/me must NOT be inside the protected middleware group.
-		// It reads and validates the access_token cookie itself.
 		auth.GET(
 			"/me",
 			ratelimit.Middleware(
@@ -117,9 +114,6 @@ func SetupRouter(
 			authHandler.HandleAuthGetMe,
 		)
 
-		// IMPORTANT:
-		// /auth/refresh must stay public because the access_token may already be expired.
-		// It uses the refresh_token cookie.
 		auth.POST(
 			"/refresh",
 			ratelimit.Middleware(
@@ -155,7 +149,6 @@ func SetupRouter(
 	protected.Use(middleware.RequireAuth())
 	protected.Use(middleware.AuditMiddleware(auditService))
 
-	// moderate user-based rate limit
 	protected.Use(
 		ratelimit.Middleware(
 			limiter,
@@ -180,6 +173,9 @@ func SetupRouter(
 			email.DELETE("/:id", emailHandler.Delete)
 		}
 
+		// ------------------
+		// GeoJSON
+		// ------------------
 		geojson := protected.Group("/geojson")
 		{
 			geojson.GET("/:name", geojsonHandler.GetGeoJSON)
@@ -200,14 +196,13 @@ func SetupRouter(
 
 		// ------------------
 		// Users
+		// General authenticated user routes.
+		// Keep sensitive actions under /admin/users below.
 		// ------------------
 		users := protected.Group("/users")
 		{
 			users.GET("", userHandler.ListUsers)
 			users.GET("/:id", userHandler.GetUser)
-			users.POST("", userHandler.CreateUser)
-			users.DELETE("/:id", userHandler.DeleteUser)
-			users.PATCH("/:id/toggle", userHandler.SetUserEnabled)
 		}
 
 		// -----------------------
@@ -234,10 +229,8 @@ func SetupRouter(
 			documentTemplates.GET("", documentTemplateHandler.ListTemplates)
 			documentTemplates.POST("", documentTemplateHandler.CreateTemplate)
 
-			// Create template + sheets + columns in one request
 			documentTemplates.POST("/structure", documentTemplateHandler.CreateTemplateWithStructure)
 
-			// Get runtime/structure by template code
 			documentTemplates.GET("/code/:code/structure", documentTemplateHandler.GetTemplateStructure)
 
 			documentTemplates.GET("/:id", documentTemplateHandler.GetTemplate)
@@ -247,10 +240,8 @@ func SetupRouter(
 			documentTemplates.POST("/:id/publish", documentTemplateHandler.PublishTemplate)
 			documentTemplates.POST("/:id/archive", documentTemplateHandler.ArchiveTemplate)
 
-			// Get structure by template id if your handler supports id-based lookup
 			documentTemplates.GET("/:id/structure", documentTemplateHandler.GetTemplateStructure)
 
-			// UI builder helpers
 			documentTemplates.GET("/:id/sheets", documentTemplateHandler.ListSheets)
 			documentTemplates.GET("/:id/sheets/:sheetId/columns", documentTemplateHandler.ListColumns)
 		}
@@ -293,7 +284,6 @@ func SetupRouter(
 		// ----------------------------------
 		visualiser := protected.Group("/visualizer")
 		{
-			// Admin units endpoints
 			visualiser.GET("/adminunits/orgunits", adminunitsHandler.GetOrgUnits)
 			visualiser.GET("/adminunits/facilities", adminunitsHandler.GetFacilities)
 			visualiser.GET("/adminunits/district", adminunitsHandler.GetDistricts)
@@ -304,7 +294,6 @@ func SetupRouter(
 			visualiser.GET("/adminunits/national", adminunitsHandler.GetNational)
 			visualiser.GET("/adminunits/hierarchy", adminunitsHandler.GetHierarchy)
 
-			// Visualizer endpoints
 			visualiser.GET("/datasets", visualiserHandler.GetDatasets)
 			visualiser.POST("/dataelements", visualiserHandler.GetDataElements)
 			visualiser.POST("/datavalues", visualiserHandler.GetDataValues)
@@ -342,7 +331,6 @@ func SetupRouter(
 			surveillance.GET("/facility-weekly-metrics/week/:epiWeekID/disease/:diseaseID", surveillanceHandler.ListFacilityDiseaseMetricsByWeekAndDisease)
 			surveillance.GET("/facility-weekly-metrics/disease-trend", surveillanceHandler.ListDiseaseWeeklyTrendAggregated)
 
-			// weekly statuses
 			surveillance.GET("/weekly-statuses/list", surveillanceHandler.ListWeeklyStatuses)
 			surveillance.GET("/weekly-statuses/detailed", surveillanceHandler.ListWeeklyStatusesDetailed)
 			surveillance.GET("/weekly-statuses/district/week/:epiWeekID", surveillanceHandler.ListDistrictWeeklyStatusesByWeek)
@@ -362,7 +350,6 @@ func SetupRouter(
 		admin := protected.Group("/admin")
 		admin.Use(middleware.RequireAdmin())
 
-		// stricter admin rate limit
 		admin.Use(
 			ratelimit.Middleware(
 				limiter,
@@ -373,21 +360,51 @@ func SetupRouter(
 		)
 
 		{
-			// -------- Users --------
-			admin.GET("/users", userHandler.ListUsers)
-			admin.GET("/users/:id", userHandler.GetUser)
-			admin.POST("/users", userHandler.CreateUser)
-			admin.DELETE("/users/:id", userHandler.DeleteUser)
+			// --------------------------------------------------
+			// Admin Users
+			// --------------------------------------------------
+			adminUsers := admin.Group("/users")
+			{
+				// CRUD
+				adminUsers.GET("", userHandler.ListUsers)
+				adminUsers.GET("/:id", userHandler.GetUser)
+				adminUsers.POST("", userHandler.CreateUser)
+				adminUsers.PUT("/:id", userHandler.UpdateUser)
+				adminUsers.DELETE("/:id", userHandler.DeleteUser)
 
-			admin.GET("/users/:id/client-roles", userHandler.GetUserClientRoles)
-			admin.PUT("/users/:id/client-roles", userHandler.UpdateUserClientRoles)
-			admin.POST("/users/:id/reset-password", userHandler.ResetUserPassword)
+				// Enable / disable
+				adminUsers.PATCH("/:id/enabled", userHandler.SetUserEnabled)
 
-			// -------- Client Roles --------
+				// Backward-compatible alias for existing frontend calls.
+				adminUsers.PATCH("/:id/toggle", userHandler.SetUserEnabled)
+
+				// Keycloak email actions
+				adminUsers.POST("/:id/onboarding-email", userHandler.SendUserOnboardingEmail)
+				adminUsers.POST("/:id/verification-email", userHandler.SendUserVerificationEmail)
+				adminUsers.POST("/:id/password-reset", userHandler.SendUserPasswordResetEmail)
+
+				// Backward-compatible alias.
+				adminUsers.POST("/:id/reset-password", userHandler.ResetUserPassword)
+
+				// Client roles
+				adminUsers.GET("/:id/client-roles", userHandler.GetUserClientRoles)
+				adminUsers.GET("/:id/clients/:clientID/roles", userHandler.GetUserClientRolesForClient)
+				adminUsers.POST("/:id/clients/:clientID/roles", userHandler.AddUserClientRoles)
+				adminUsers.DELETE("/:id/clients/:clientID/roles", userHandler.RemoveUserClientRoles)
+
+				// Backward-compatible bulk update route.
+				adminUsers.PUT("/:id/client-roles", userHandler.UpdateUserClientRoles)
+			}
+
+			// --------------------------------------------------
+			// Admin Client Roles
+			// --------------------------------------------------
 			admin.POST("/clients/:id/roles", clientHandler.CreateClientRole)
 			admin.DELETE("/clients/:id/roles/:role", clientHandler.DeleteClientRole)
 
-			// -------- Metrics --------
+			// --------------------------------------------------
+			// Metrics
+			// --------------------------------------------------
 			metrics := admin.Group("/metrics")
 			{
 				metrics.GET("/overview", metricsHandler.Overview)
@@ -414,7 +431,9 @@ func SetupRouter(
 				metrics.GET("/users/client-usage/:userID", metricsHandler.UserClientUsage)
 			}
 
-			// -------- Audit Logs (rate-limit tighter) --------
+			// --------------------------------------------------
+			// Audit Logs
+			// --------------------------------------------------
 			audit := admin.Group("/audit-logs")
 			audit.Use(
 				ratelimit.Middleware(
@@ -436,7 +455,9 @@ func SetupRouter(
 				audit.GET("/export", auditHandler.ExportAuditLogs)
 			}
 
-			// -------- Notifications --------
+			// --------------------------------------------------
+			// Notifications
+			// --------------------------------------------------
 			notifications := admin.Group("/notifications")
 			{
 				notifications.POST("", notificationsHandler.Notify)
@@ -451,7 +472,9 @@ func SetupRouter(
 				notifications.DELETE("/cleanup", notificationsHandler.DeleteOldNotifications)
 			}
 
-			// -------- Announcements --------
+			// --------------------------------------------------
+			// Announcements
+			// --------------------------------------------------
 			announcements := admin.Group("/announcements")
 			{
 				announcements.GET("", announcementHandler.ListAnnouncementsAdmin)

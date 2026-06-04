@@ -1,0 +1,52 @@
+@use "@carbon/styles/scss/type";
+
+.issue-container {
+  margin-top: 1rem;
+  background-color: white;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+}
+
+.issue-label-container {
+  justify-content: space-between;
+  background: unset;
+  border-bottom: unset;
+}
+
+.issue-label {
+  @include type.type-style("heading-01");
+  font-size: 1.5rem;
+}
+
+.issue-clickable-cell {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #0f62fe;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: inherit;
+
+  &:hover {
+    color: #0043ce;
+    text-decoration: underline;
+  }
+}
+
+.issue-btn-container {
+  height: 44px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.cds--tree-node__label {
+  display: flex;
+  align-items: center;
+
+  .cds--checkbox-wrapper {
+    margin-top: 0;
+    margin-right: 4px;
+  }
+}

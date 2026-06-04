@@ -1,4 +1,4 @@
-import { API } from "../../lib/constants/api.constants";
+import { API } from "@/lib/constants/api.constants";
 import { loginSuccess, logout as logoutAction, authLoaded } from "../auth/auth.slice";
 import type { AuthUser } from "../auth/auth.types";
 

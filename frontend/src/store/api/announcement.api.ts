@@ -7,7 +7,7 @@ import type {
   ScheduleAnnouncementRequest,
   SetAnnouncementPinnedRequest,
   SetAnnouncementPriorityRequest,
-} from "../types/announcements.types";
+} from "@/store/types/announcements.types";
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {

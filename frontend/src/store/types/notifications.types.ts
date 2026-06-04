@@ -1,4 +1,4 @@
-import type { Severity } from "../../ui/severity";
+import type { Severity } from "@/ui/severity";
 
 export type Notification = {
   id: string;

@@ -1,5 +1,5 @@
-import { API } from "../../lib/constants/api.constants";
-import type { ClientRole } from "../types/client-role.types";
+import { API } from "@/lib/constants/api.constants";
+import type { ClientRole } from "@/store/types/client-role.types";
 
 import { baseApi } from "./baseApi";
 
