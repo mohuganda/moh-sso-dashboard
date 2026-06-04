@@ -183,13 +183,15 @@ const (
 	AccountUnlocked        NotificationType = "ACCOUNT_UNLOCKED"
 )
 const (
-	UserImported    NotificationType = "USER_IMPORTED"
-	UserCreated     NotificationType = "USER_CREATED"
-	UserUpdated     NotificationType = "USER_UPDATED"
-	UserDisabled    NotificationType = "USER_DISABLED"
-	UserDeleted     NotificationType = "USER_DELETED"
-	UserEnabled     NotificationType = "USER_ENABLED"
-	UserRoleChanged NotificationType = "USER_ROLE_CHANGED"
+	UserImported              NotificationType = "USER_IMPORTED"
+	UserCreated               NotificationType = "USER_CREATED"
+	UserUpdated               NotificationType = "USER_UPDATED"
+	UserDisabled              NotificationType = "USER_DISABLED"
+	UserDeleted               NotificationType = "USER_DELETED"
+	UserEnabled               NotificationType = "USER_ENABLED"
+	UserRoleChanged           NotificationType = "USER_ROLE_CHANGED"
+	UserInvitationSent        NotificationType = "USER_INVITATION_SENT"
+	UserVerificationEmailSent NotificationType = "USER_VERIFICATION_EMAIL_SENT"
 )
 const (
 	ClientCreated       NotificationType = "CLIENT_CREATED"

@@ -27,12 +27,12 @@ func NewAnnouncementRepository(
 }
 
 type txStore interface {
-	ExecTx(ctx context.Context, fn func(*db.Queries) error) error
+	ExecTx(ctx context.Context, fn func(db.Querier) error) error
 }
 
 func (r *announcementsRepository) execTx(
 	ctx context.Context,
-	fn func(*db.Queries) error,
+	fn func(db.Querier) error,
 ) error {
 	tx, ok := r.db.(txStore)
 	if !ok {
@@ -414,7 +414,7 @@ func (r *announcementsRepository) ReplaceClientAudience(
 	announcementID uuid.UUID,
 	clientIDs []uuid.UUID,
 ) error {
-	err := r.execTx(ctx, func(q *db.Queries) error {
+	err := r.execTx(ctx, func(q db.Querier) error {
 		if err := q.DeleteAnnouncementClients(ctx, announcementID); err != nil {
 			return fmt.Errorf("delete existing client audience: %w", err)
 		}
@@ -473,7 +473,7 @@ func (r *announcementsRepository) ReplaceRoleAudience(
 	announcementID uuid.UUID,
 	roleNames []string,
 ) error {
-	err := r.execTx(ctx, func(q *db.Queries) error {
+	err := r.execTx(ctx, func(q db.Querier) error {
 		if err := q.DeleteAnnouncementRoles(ctx, announcementID); err != nil {
 			return fmt.Errorf("delete existing role audience: %w", err)
 		}
@@ -532,7 +532,7 @@ func (r *announcementsRepository) ReplaceUserAudience(
 	announcementID uuid.UUID,
 	userIDs []uuid.UUID,
 ) error {
-	err := r.execTx(ctx, func(q *db.Queries) error {
+	err := r.execTx(ctx, func(q db.Querier) error {
 		if err := q.DeleteAnnouncementUsers(ctx, announcementID); err != nil {
 			return fmt.Errorf("delete existing user audience: %w", err)
 		}

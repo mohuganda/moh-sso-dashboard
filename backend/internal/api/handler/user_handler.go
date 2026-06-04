@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -245,6 +246,55 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 }
 
 /* =========================================================
+ * Update User
+ * ========================================================= */
+
+func (h *UserHandler) UpdateUser(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID format")
+		return
+	}
+
+	var req service.UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.audit(c, "user.update_failed", map[string]interface{}{
+			"user_id": userID.String(),
+			"reason":  "invalid_body",
+		})
+
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "Invalid request payload")
+		return
+	}
+
+	req.ID = userID.String()
+	actorID, _ := uuid.Parse(c.GetString("user_id"))
+
+	user, err := h.service.UpdateUser(c.Request.Context(), req, actorID)
+	if err != nil {
+		h.audit(c, "user.update_failed", map[string]interface{}{
+			"user_id": userID.String(),
+			"reason":  err.Error(),
+		})
+
+		var apiErr *apierror.APIError
+		if errors.As(err, &apiErr) {
+			response.Fail(c, apiErr.HTTPStatus, apiErr.Code, apiErr.Message)
+			return
+		}
+
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update user")
+		return
+	}
+
+	h.audit(c, "user.update_success", map[string]interface{}{
+		"user_id": userID.String(),
+	})
+
+	response.OK(c, http.StatusOK, toUserResponse(user))
+}
+
+/* =========================================================
  * Get User Client Roles (ADMIN)
  * ========================================================= */
 
@@ -347,8 +397,8 @@ func (h *UserHandler) GetUserClientRolesForClient(c *gin.Context) {
 	roles, err := h.service.GetUserClientRolesForClient(
 		c.Request.Context(),
 		userID,
-		clientID,
-		clientUUID,
+		clientID.String(),
+		clientUUID.String(),
 	)
 	if err != nil {
 		h.audit(
@@ -448,8 +498,8 @@ func (h *UserHandler) UpdateUserClientRoles(c *gin.Context) {
 	if err := h.service.UpdateUserClientRoles(
 		c.Request.Context(),
 		userID,
-		clientID,
-		clientUUID,
+		clientID.String(),
+		clientUUID.String(),
 		body.Roles,
 		adminID,
 	); err != nil {
@@ -477,6 +527,124 @@ func (h *UserHandler) UpdateUserClientRoles(c *gin.Context) {
 		"client_uuid": clientUUID.String(),
 		"roles":       body.Roles,
 	})
+
+	c.Status(http.StatusNoContent)
+}
+
+/* =========================================================
+ * Add User Client Roles (ADMIN)
+ * ========================================================= */
+
+func (h *UserHandler) AddUserClientRoles(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID")
+		return
+	}
+
+	var body struct {
+		ClientID   string   `json:"clientId"`
+		ClientUUID string   `json:"clientUuid"`
+		Roles      []string `json:"roles"`
+	}
+
+	if err := c.ShouldBindJSON(&body); err != nil || body.ClientID == "" || body.ClientUUID == "" {
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "clientId, clientUuid and roles are required")
+		return
+	}
+
+	clientID, err := uuid.Parse(body.ClientID)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
+		return
+	}
+
+	clientUUID, err := uuid.Parse(body.ClientUUID)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client UUID")
+		return
+	}
+
+	adminID, _ := uuid.Parse(c.GetString("user_id"))
+
+	if err := h.service.AddUserClientRoles(
+		c.Request.Context(),
+		userID,
+		clientID.String(),
+		clientUUID.String(),
+		body.Roles,
+		adminID,
+	); err != nil {
+		h.audit(c, "user.client_roles_add_failed", map[string]interface{}{
+			"user_id":     userID.String(),
+			"client_id":   clientID.String(),
+			"client_uuid": clientUUID.String(),
+			"roles":       body.Roles,
+			"reason":      err.Error(),
+		})
+
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to add user client roles")
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+/* =========================================================
+ * Remove User Client Roles (ADMIN)
+ * ========================================================= */
+
+func (h *UserHandler) RemoveUserClientRoles(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID")
+		return
+	}
+
+	var body struct {
+		ClientID   string   `json:"clientId"`
+		ClientUUID string   `json:"clientUuid"`
+		Roles      []string `json:"roles"`
+	}
+
+	if err := c.ShouldBindJSON(&body); err != nil || body.ClientID == "" || body.ClientUUID == "" {
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "clientId, clientUuid and roles are required")
+		return
+	}
+
+	clientID, err := uuid.Parse(body.ClientID)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
+		return
+	}
+
+	clientUUID, err := uuid.Parse(body.ClientUUID)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client UUID")
+		return
+	}
+
+	adminID, _ := uuid.Parse(c.GetString("user_id"))
+
+	if err := h.service.RemoveUserClientRoles(
+		c.Request.Context(),
+		userID,
+		clientID.String(),
+		clientUUID.String(),
+		body.Roles,
+		adminID,
+	); err != nil {
+		h.audit(c, "user.client_roles_remove_failed", map[string]interface{}{
+			"user_id":     userID.String(),
+			"client_id":   clientID.String(),
+			"client_uuid": clientUUID.String(),
+			"roles":       body.Roles,
+			"reason":      err.Error(),
+		})
+
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to remove user client roles")
+		return
+	}
 
 	c.Status(http.StatusNoContent)
 }
@@ -510,6 +678,48 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 	}
 
 	h.audit(c, "user.password_reset_success", map[string]interface{}{
+		"user_id": userID.String(),
+	})
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *UserHandler) SendUserOnboardingEmail(c *gin.Context) {
+	h.sendUserEmailAction(c, "user.onboarding_email", h.service.SendUserOnboardingEmail)
+}
+
+func (h *UserHandler) SendUserVerificationEmail(c *gin.Context) {
+	h.sendUserEmailAction(c, "user.verification_email", h.service.SendUserVerificationEmail)
+}
+
+func (h *UserHandler) SendUserPasswordResetEmail(c *gin.Context) {
+	h.sendUserEmailAction(c, "user.password_reset_email", h.service.SendUserPasswordResetEmail)
+}
+
+func (h *UserHandler) sendUserEmailAction(
+	c *gin.Context,
+	auditPrefix string,
+	action func(context.Context, uuid.UUID, uuid.UUID) error,
+) {
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID")
+		return
+	}
+
+	adminID, _ := uuid.Parse(c.GetString("user_id"))
+
+	if err := action(c.Request.Context(), userID, adminID); err != nil {
+		h.audit(c, auditPrefix+"_failed", map[string]interface{}{
+			"user_id": userID.String(),
+			"reason":  err.Error(),
+		})
+
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to send user email action")
+		return
+	}
+
+	h.audit(c, auditPrefix+"_success", map[string]interface{}{
 		"user_id": userID.String(),
 	})
 
