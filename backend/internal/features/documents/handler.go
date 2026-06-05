@@ -2,17 +2,14 @@ package documents
 
 import (
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -29,81 +26,6 @@ type Handler struct {
 	storageLocationService service.StorageLocationService
 	storage                storage.Storage
 	storageFactory         *storage.StorageFactory
-}
-
-type UpdateDocumentRequest struct {
-	OriginalFilename *string `json:"original_filename"`
-	ContentType      *string `json:"content_type"`
-}
-
-type DocumentResponse struct {
-	ID               uuid.UUID `json:"id"`
-	OriginalFilename string    `json:"original_filename"`
-	ContentType      string    `json:"content_type"`
-	SizeBytes        int64     `json:"size_bytes"`
-	ChecksumSHA256   *string   `json:"checksum_sha256,omitempty"`
-	StorageLocation  uuid.UUID `json:"storage_location"`
-	ObjectKey        string    `json:"object_key"`
-	UploadedBy       uuid.UUID `json:"uploaded_by"`
-	Status           string    `json:"status"`
-	ObjectURL        string    `json:"object_url,omitempty"`
-	ViewURL          string    `json:"view_url,omitempty"`
-	DownloadURL      string    `json:"download_url,omitempty"`
-	CreatedAt        string    `json:"created_at"`
-	UpdatedAt        string    `json:"updated_at"`
-}
-
-func toDocumentResponse(doc db.Document, objectURL, viewURL, downloadURL string) DocumentResponse {
-	return DocumentResponse{
-		ID:               doc.ID,
-		OriginalFilename: doc.OriginalFilename,
-		ContentType:      nullStringValue(doc.ContentType),
-		SizeBytes:        doc.SizeBytes,
-		ChecksumSHA256:   nullStringPtr(doc.ChecksumSha256),
-		StorageLocation:  doc.StorageLocationID,
-		ObjectKey:        doc.ObjectKey,
-		UploadedBy:       doc.UploadedBy,
-		Status:           normalizeStatus(doc.Status),
-		ObjectURL:        objectURL,
-		ViewURL:          viewURL,
-		DownloadURL:      downloadURL,
-		CreatedAt:        doc.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        doc.UpdatedAt.Format(time.RFC3339),
-	}
-}
-
-type ProcessResponse struct {
-	ID          uuid.UUID  `json:"id"`
-	DocumentID  uuid.UUID  `json:"document_id"`
-	ProcessType string     `json:"process_type"`
-	Status      string     `json:"status"`
-	Progress    int32      `json:"progress"`
-	Message     *string    `json:"message,omitempty"`
-	Error       *string    `json:"error,omitempty"`
-	Attempts    int32      `json:"attempts"`
-	CreatedBy   uuid.UUID  `json:"created_by"`
-	StartedAt   *time.Time `json:"started_at,omitempty"`
-	FinishedAt  *time.Time `json:"finished_at,omitempty"`
-	CreatedAt   *time.Time `json:"created_at,omitempty"`
-	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
-}
-
-func toProcessResponse(process db.Process) ProcessResponse {
-	return ProcessResponse{
-		ID:          process.ID,
-		DocumentID:  process.DocumentID,
-		ProcessType: process.ProcessType,
-		Status:      normalizeStatus(process.Status),
-		Progress:    process.Progress,
-		Message:     nullStringPtr(process.Message),
-		Error:       nullStringPtr(process.Error),
-		Attempts:    process.Attempts,
-		CreatedBy:   process.CreatedBy,
-		StartedAt:   nullTimePtr(process.StartedAt),
-		FinishedAt:  nullTimePtr(process.FinishedAt),
-		CreatedAt:   nullTimePtr(process.CreatedAt),
-		UpdatedAt:   nullTimePtr(process.UpdatedAt),
-	}
 }
 
 func NewHandler(
@@ -680,68 +602,4 @@ func (h *Handler) ReprocessDocument(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusOK, gin.H{"message": "reprocessing started"})
-}
-
-func normalizeStatus(v any) string {
-	switch s := v.(type) {
-	case nil:
-		return ""
-	case string:
-		return s
-	case []byte:
-		return string(s)
-	case fmt.Stringer:
-		return s.String()
-	default:
-		return fmt.Sprint(v)
-	}
-}
-
-func nullStringPtr(ns sql.NullString) *string {
-	if !ns.Valid {
-		return nil
-	}
-	return &ns.String
-}
-
-func nullTimePtr(nt sql.NullTime) *time.Time {
-	if !nt.Valid {
-		return nil
-	}
-	return &nt.Time
-}
-
-func nullStringValue(ns sql.NullString) string {
-	if !ns.Valid {
-		return ""
-	}
-	return ns.String
-}
-
-func nullTimeRFC3339(nt sql.NullTime) string {
-	if !nt.Valid {
-		return ""
-	}
-	return nt.Time.UTC().Format(time.RFC3339)
-}
-
-func requiresProcessing(mimeType, fileName string) bool {
-	switch strings.ToLower(strings.TrimSpace(mimeType)) {
-	case "text/csv",
-		"application/vnd.ms-excel",
-		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-		return true
-	case "application/pdf":
-		return false
-	}
-
-	ext := strings.ToLower(filepath.Ext(fileName))
-	switch ext {
-	case ".csv", ".xls", ".xlsx":
-		return true
-	case ".pdf":
-		return false
-	default:
-		return false
-	}
 }

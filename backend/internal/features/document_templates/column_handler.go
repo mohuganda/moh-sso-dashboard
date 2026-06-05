@@ -226,10 +226,7 @@ func (h *ColumnHandler) DeleteColumn(c *gin.Context) {
  * ========================================================= */
 func (h *ColumnHandler) ProcessValue(c *gin.Context) {
 
-	var body struct {
-		Column model.DocumentTemplateColumn `json:"column"`
-		Value  any                          `json:"value"`
-	}
+	var body processValueRequest
 
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Fail(

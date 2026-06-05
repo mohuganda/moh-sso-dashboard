@@ -4,46 +4,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/moh-sso-dashboard/internal/http/response"
-	"github.com/moh-sso-dashboard/internal/model"
 	repository "github.com/moh-sso-dashboard/internal/repository/email"
 	"github.com/moh-sso-dashboard/internal/service"
 )
-
-type EmailAddressRequest struct {
-	Name  string `json:"name"`
-	Email string `json:"email" binding:"required,email"`
-}
-
-type EmailAttachmentRequest struct {
-	FileName    string `json:"file_name"`
-	ContentType string `json:"content_type,omitempty"`
-	Path        string `json:"path,omitempty"`
-	ContentID   string `json:"content_id,omitempty"`
-	Inline      bool   `json:"inline,omitempty"`
-}
-
-type SendEmailRequest struct {
-	ID           string                   `json:"id,omitempty"`
-	From         *EmailAddressRequest     `json:"from,omitempty"`
-	To           []EmailAddressRequest    `json:"to" binding:"required,min=1,dive"`
-	Cc           []EmailAddressRequest    `json:"cc,omitempty"`
-	Bcc          []EmailAddressRequest    `json:"bcc,omitempty"`
-	ReplyTo      []EmailAddressRequest    `json:"reply_to,omitempty"`
-	Subject      string                   `json:"subject" binding:"required"`
-	TextBody     string                   `json:"text_body,omitempty"`
-	HTMLBody     string                   `json:"html_body,omitempty"`
-	TemplateName string                   `json:"template_name,omitempty"`
-	TemplateData map[string]any           `json:"template_data,omitempty"`
-	Attachments  []EmailAttachmentRequest `json:"attachments,omitempty"`
-	Headers      map[string]string        `json:"headers,omitempty"`
-	Metadata     map[string]string        `json:"metadata,omitempty"`
-	ScheduledAt  *string                  `json:"scheduled_at,omitempty"`
-}
 
 type Handler struct {
 	service service.EmailService
@@ -272,74 +239,6 @@ func (h *Handler) Delete(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{
 		"message": "email deleted successfully",
 	})
-}
-
-func mapSendEmailRequest(req SendEmailRequest) (model.Message, error) {
-	var scheduledAt *time.Time
-
-	if req.ScheduledAt != nil && strings.TrimSpace(*req.ScheduledAt) != "" {
-		t, err := time.Parse(time.RFC3339, strings.TrimSpace(*req.ScheduledAt))
-		if err != nil {
-			return model.Message{}, err
-		}
-
-		scheduledAt = &t
-	}
-
-	msg := model.Message{
-		ID:           strings.TrimSpace(req.ID),
-		To:           mapAddresses(req.To),
-		Cc:           mapAddresses(req.Cc),
-		Bcc:          mapAddresses(req.Bcc),
-		ReplyTo:      mapAddresses(req.ReplyTo),
-		Subject:      strings.TrimSpace(req.Subject),
-		TextBody:     req.TextBody,
-		HTMLBody:     req.HTMLBody,
-		TemplateName: strings.TrimSpace(req.TemplateName),
-		TemplateData: req.TemplateData,
-		Attachments:  mapAttachments(req.Attachments),
-		Headers:      req.Headers,
-		Metadata:     req.Metadata,
-		ScheduledAt:  scheduledAt,
-	}
-
-	if req.From != nil {
-		msg.From = &model.Address{
-			Name:  strings.TrimSpace(req.From.Name),
-			Email: strings.TrimSpace(req.From.Email),
-		}
-	}
-
-	return msg, nil
-}
-
-func mapAddresses(in []EmailAddressRequest) []model.Address {
-	out := make([]model.Address, 0, len(in))
-
-	for _, a := range in {
-		out = append(out, model.Address{
-			Name:  strings.TrimSpace(a.Name),
-			Email: strings.TrimSpace(a.Email),
-		})
-	}
-
-	return out
-}
-
-func mapAttachments(in []EmailAttachmentRequest) []model.Attachment {
-	out := make([]model.Attachment, 0, len(in))
-
-	for _, a := range in {
-		out = append(out, model.Attachment{
-			FileName:    strings.TrimSpace(a.FileName),
-			ContentType: strings.TrimSpace(a.ContentType),
-			Path:        strings.TrimSpace(a.Path),
-			ContentID:   strings.TrimSpace(a.ContentID),
-			Inline:      a.Inline,
-		})
-	}
-
-	return out
 }
 
 func parsePagination(c *gin.Context) (int32, int32) {

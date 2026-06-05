@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -22,82 +21,6 @@ func NewHandler(db *sql.DB) *Handler {
 	return &Handler{
 		db: db,
 	}
-}
-
-type issueResponse struct {
-	IssueID      int64   `json:"issue_id"`
-	IssueCode    *string `json:"issue_code,omitempty"`
-	Dataset      *string `json:"dataset,omitempty"`
-	DataElement  *string `json:"data_element,omitempty"`
-	OrgUnit      *string `json:"org_unit,omitempty"`
-	Issue        *string `json:"issue,omitempty"`
-	IssueType    *string `json:"issue_type,omitempty"`
-	DateReported string  `json:"date_reported"`
-	ReportedBy   *string `json:"reported_by,omitempty"`
-	Status       *string `json:"status,omitempty"`
-	Priority     *string `json:"priority,omitempty"`
-	Severity     *string `json:"severity,omitempty"`
-	UpdatedDate  *string `json:"updated_date,omitempty"`
-	UpdatedBy    *string `json:"updated_by,omitempty"`
-	TimePeriod   *string `json:"time_Period,omitempty"`
-}
-
-type createIssueRequest struct {
-	Dataset     *string `json:"dataset"`
-	DataElement *string `json:"data_element"`
-	OrgUnit     *string `json:"org_unit"`
-	Issue       string  `json:"issue" binding:"required"`
-	IssueType   *string `json:"issue_type"`
-	ReportedBy  *string `json:"reported_by"`
-	TimePeriod  *string `json:"time_Period"`
-}
-
-type updateIssueRequest struct {
-	Dataset      *string `json:"dataset"`
-	DataElement  *string `json:"data_element"`
-	OrgUnit      *string `json:"org_unit"`
-	Issue        *string `json:"issue"`
-	IssueType    *string `json:"issue_type"`
-	DateReported *string `json:"date_reported"`
-	ReportedBy   *string `json:"reported_by"`
-	Status       *string `json:"status"`
-	Priority     *string `json:"priority"`
-	Severity     *string `json:"severity"`
-	UpdatedBy    *string `json:"updated_by"`
-	TimePeriod   *string `json:"time_Period"`
-}
-
-type createIssueResolutionRequest struct {
-	Stage              *string `json:"stage"`
-	Status             *string `json:"status"`
-	ResolutionAction   *string `json:"resolution_action"`
-	ResolvedBy         *string `json:"resolved_by"`
-	ResolutionDate     *string `json:"resolution_date"`
-	VerificationStatus *string `json:"verification_status"`
-	VerifiedBy         *string `json:"verified_by"`
-	VerificationDate   *string `json:"verification_date"`
-	PreventiveAction   *string `json:"preventive_action"`
-	ProcessChange      *string `json:"process_change"`
-	PreventiveOwner    *string `json:"preventive_owner"`
-	DueDate            *string `json:"due_date"`
-}
-
-type issueStageResponse struct {
-	ID                 int64   `json:"id"`
-	IssueCode          string  `json:"issue_code"`
-	Status             *string `json:"status,omitempty"`
-	Stage              *string `json:"stage,omitempty"`
-	IsCurrent          bool    `json:"is_current"`
-	ResolutionAction   *string `json:"resolution_action,omitempty"`
-	ResolvedBy         *string `json:"resolved_by,omitempty"`
-	ResolutionDate     *string `json:"resolution_date,omitempty"`
-	VerificationStatus *string `json:"verification_status,omitempty"`
-	VerifiedBy         *string `json:"verified_by,omitempty"`
-	VerificationDate   *string `json:"verification_date,omitempty"`
-	PreventiveAction   *string `json:"preventive_action,omitempty"`
-	ProcessChange      *string `json:"process_change,omitempty"`
-	PreventiveOwner    *string `json:"preventive_owner,omitempty"`
-	DueDate            *string `json:"due_date,omitempty"`
 }
 
 func parseListLimit(c *gin.Context, defaultValue int, maxValue int) int {
@@ -128,63 +51,6 @@ func parseListOffset(c *gin.Context) int {
 	return offset
 }
 
-func parseDateOnly(value string) (time.Time, error) {
-	return time.Parse("2006-01-02", strings.TrimSpace(value))
-}
-
-func dqNullableString(value *string) sql.NullString {
-	if value == nil {
-		return sql.NullString{}
-	}
-
-	trimmed := strings.TrimSpace(*value)
-	if trimmed == "" {
-		return sql.NullString{}
-	}
-
-	return sql.NullString{
-		String: trimmed,
-		Valid:  true,
-	}
-}
-
-func dqNullStringPtr(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	v := value.String
-	return &v
-}
-
-func dqNullInt64Ptr(value sql.NullInt64) *int64 {
-	if !value.Valid {
-		return nil
-	}
-	v := value.Int64
-	return &v
-}
-
-func dqNullDatePtr(value sql.NullTime) *string {
-	if !value.Valid {
-		return nil
-	}
-	v := value.Time.Format("2006-01-02")
-	return &v
-}
-
-func optionalTrimmedParam(value *string, emptyAsNil bool) interface{} {
-	if value == nil {
-		return nil
-	}
-
-	trimmed := strings.TrimSpace(*value)
-	if emptyAsNil && trimmed == "" {
-		return nil
-	}
-
-	return trimmed
-}
-
 func issueDBErrorMessage(err error, fallback string) string {
 	if err == nil {
 		return fallback
@@ -208,66 +74,6 @@ func isUniqueViolation(err error) bool {
 	}
 
 	return string(pqErr.Code) == "23505"
-}
-
-func scanIssue(scanner interface {
-	Scan(dest ...interface{}) error
-}) (issueResponse, error) {
-	var (
-		issueID      int64
-		issueCode    sql.NullString
-		dataset      sql.NullString
-		dataElement  sql.NullString
-		orgUnit      sql.NullString
-		issueText    sql.NullString
-		dateReported time.Time
-		reportedBy   sql.NullString
-		status       sql.NullString
-		priority     sql.NullString
-		severity     sql.NullString
-		updatedDate  sql.NullTime
-		updatedBy    sql.NullString
-		issueType    sql.NullString
-		timePeriod   sql.NullString
-	)
-
-	if err := scanner.Scan(
-		&issueID,
-		&issueCode,
-		&dataset,
-		&dataElement,
-		&orgUnit,
-		&issueText,
-		&dateReported,
-		&reportedBy,
-		&status,
-		&priority,
-		&severity,
-		&updatedDate,
-		&updatedBy,
-		&issueType,
-		&timePeriod,
-	); err != nil {
-		return issueResponse{}, err
-	}
-
-	return issueResponse{
-		IssueID:      issueID,
-		IssueCode:    dqNullStringPtr(issueCode),
-		Dataset:      dqNullStringPtr(dataset),
-		DataElement:  dqNullStringPtr(dataElement),
-		OrgUnit:      dqNullStringPtr(orgUnit),
-		Issue:        dqNullStringPtr(issueText),
-		IssueType:    dqNullStringPtr(issueType),
-		DateReported: dateReported.Format("2006-01-02"),
-		ReportedBy:   dqNullStringPtr(reportedBy),
-		Status:       dqNullStringPtr(status),
-		Priority:     dqNullStringPtr(priority),
-		Severity:     dqNullStringPtr(severity),
-		UpdatedDate:  dqNullDatePtr(updatedDate),
-		UpdatedBy:    dqNullStringPtr(updatedBy),
-		TimePeriod:   dqNullStringPtr(timePeriod),
-	}, nil
 }
 
 func (h *Handler) CreateIssue(c *gin.Context) {
