@@ -1,0 +1,17 @@
+package surveillance
+
+import surveillanceports "github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+
+type AlertRepository = surveillanceports.AlertRepository
+type DashboardRepository = surveillanceports.DashboardRepository
+type DiseaseRepository = surveillanceports.DiseaseRepository
+type DistrictRepository = surveillanceports.DistrictRepository
+type EpiWeekRepository = surveillanceports.EpiWeekRepository
+type FacilityRepository = surveillanceports.FacilityRepository
+type FacilityWeeklyMetricsRepository = surveillanceports.FacilityWeeklyMetricsRepository
+type ImportRepository = surveillanceports.ImportRepository
+type IndicatorRepository = surveillanceports.IndicatorRepository
+type LookupRepository = surveillanceports.LookupRepository
+type RegionRepository = surveillanceports.RegionRepository
+type SubCountyRepository = surveillanceports.SubCountyRepository
+type WeeklyStatusRepository = surveillanceports.WeeklyStatusRepository

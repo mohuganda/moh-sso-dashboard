@@ -104,14 +104,14 @@ func buildServices(deps serviceDependencies) services {
 		deps.Config,
 	)
 
-	storageLocationService := service.NewStorageLocationService(
+	storageLocationService := storagelocationfeature.NewService(
 		deps.Repositories.StorageLocations,
 		notificationsService,
 		deps.Config,
 	)
 
-	sessionService := service.NewSessionService(deps.Repositories.Sessions)
-	documentService := service.NewDocumentService(
+	sessionService := sessionfeature.NewService(deps.Repositories.Sessions)
+	documentService := documentfeature.NewService(
 		deps.Repositories.Documents,
 		deps.Repositories.Processes,
 		notificationsService,
@@ -119,38 +119,38 @@ func buildServices(deps serviceDependencies) services {
 		deps.Config,
 	)
 
-	clientService := service.NewClientService(
+	clientService := clientfeature.NewService(
 		deps.Repositories.Clients,
 		notificationsService,
 		deps.Config,
 	)
 
-	userService := service.NewUserService(
+	userService := userfeature.NewService(
 		deps.Repositories.Users,
 		notificationsService,
 		deps.Config,
 	)
 
-	announcementService := service.NewAnnouncementService(
+	announcementService := announcementfeature.NewService(
 		deps.Repositories.Announcements,
 		notificationsService,
 		deps.Config,
 	)
 
-	diseaseService := service.NewSurveillanceDiseaseService(
+	diseaseService := surveillancefeature.NewDiseaseService(
 		deps.Logger,
 		deps.Repositories.Surveillance.Diseases,
 		notificationsService,
 		deps.Config,
 	)
 
-	epiWeekService := service.NewSurveillanceEpiWeekService(
+	epiWeekService := surveillancefeature.NewEpiWeekService(
 		deps.Logger,
 		deps.Repositories.Surveillance.EpiWeeks,
 		notificationsService,
 	)
 
-	locationService := service.NewSurveillanceLocationService(
+	locationService := surveillancefeature.NewLocationService(
 		deps.Logger,
 		deps.Repositories.Surveillance.Regions,
 		deps.Repositories.Surveillance.Districts,
@@ -159,28 +159,28 @@ func buildServices(deps serviceDependencies) services {
 		deps.Config,
 	)
 
-	facilityService := service.NewSurveillanceFacilityService(
+	facilityService := surveillancefeature.NewFacilityService(
 		deps.Logger,
 		deps.Repositories.Surveillance.Facilities,
 		notificationsService,
 	)
 
-	facilityWeeklyMetricsService := service.NewSurveillanceFacilityWeeklyMetricsService(
+	facilityWeeklyMetricsService := surveillancefeature.NewFacilityWeeklyMetricsService(
 		deps.Logger,
 		deps.Repositories.Surveillance.FacilityMetrics,
 		deps.Repositories.Surveillance.Imports,
 	)
 
-	weeklyStatusService := service.NewSurveillanceWeeklyStatusService(
+	weeklyStatusService := surveillancefeature.NewWeeklyStatusService(
 		deps.Logger,
 		deps.Repositories.Surveillance.WeeklyStatus,
 	)
 
-	surveillanceImportService := service.NewSurveillanceImportService(
+	surveillanceImportService := surveillancefeature.NewImportService(
 		deps.Repositories.Surveillance.Imports,
 	)
 
-	alertsService := service.NewSurveillanceAlertService(
+	alertsService := surveillancefeature.NewAlertService(
 		deps.Logger,
 		deps.Repositories.Surveillance.Alerts,
 		deps.Repositories.Surveillance.Imports,
@@ -188,7 +188,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.Config,
 	)
 
-	documentTemplateService := service.NewDocumentTemplateService(
+	documentTemplateService := documenttemplatefeature.NewService(
 		deps.Repositories.DocumentTemplates,
 		deps.Repositories.DocumentTemplateSheets,
 		deps.Repositories.DocumentTemplateColumns,
@@ -196,13 +196,13 @@ func buildServices(deps serviceDependencies) services {
 		deps.Config,
 	)
 
-	documentTemplateSheetService := service.NewDocumentTemplateSheetService(
+	documentTemplateSheetService := documenttemplatefeature.NewSheetService(
 		deps.Repositories.DocumentTemplateSheets,
 		notificationsService,
 		deps.Config,
 	)
 
-	documentTemplateColumnService := service.NewDocumentTemplateColumnService(
+	documentTemplateColumnService := documenttemplatefeature.NewColumnService(
 		deps.Repositories.DocumentTemplateColumns,
 		notificationsService,
 		deps.Config,
