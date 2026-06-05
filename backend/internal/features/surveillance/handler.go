@@ -1,4 +1,4 @@
-package handler
+package surveillance
 
 import (
 	"database/sql"
@@ -15,7 +15,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/service"
 )
 
-type SurveillanceHandler struct {
+type Handler struct {
 	epiWeekService               *service.SurveillanceEpiWeekService
 	diseaseService               *service.SurveillanceDiseaseService
 	locationService              *service.SurveillanceLocationService
@@ -377,7 +377,7 @@ func toFacilityWeeklyDiseaseMetricByWeekAndDiseaseResponses(
 	return out
 }
 
-func NewSurveillanceHandler(
+func NewHandler(
 	epiWeekService *service.SurveillanceEpiWeekService,
 	diseaseService *service.SurveillanceDiseaseService,
 	locationService *service.SurveillanceLocationService,
@@ -386,8 +386,8 @@ func NewSurveillanceHandler(
 	alertService *service.SurveillanceAlertService,
 	importService *service.SurveillanceImportService,
 
-) *SurveillanceHandler {
-	return &SurveillanceHandler{
+) *Handler {
+	return &Handler{
 		epiWeekService:               epiWeekService,
 		diseaseService:               diseaseService,
 		locationService:              locationService,
@@ -399,7 +399,7 @@ func NewSurveillanceHandler(
 }
 
 // weeks
-func (h *SurveillanceHandler) ListEpiWeeksByYearWeek(c *gin.Context) {
+func (h *Handler) ListEpiWeeksByYearWeek(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	yearStr := c.Query("year")
@@ -440,7 +440,7 @@ func (h *SurveillanceHandler) ListEpiWeeksByYearWeek(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListEpiWeeksByYear(c *gin.Context) {
+func (h *Handler) ListEpiWeeksByYear(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	yearStr := c.Query("year")
@@ -465,7 +465,7 @@ func (h *SurveillanceHandler) ListEpiWeeksByYear(c *gin.Context) {
 }
 
 // diseases
-func (h *SurveillanceHandler) ListDiseases(c *gin.Context) {
+func (h *Handler) ListDiseases(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	data, err := h.diseaseService.ListDiseases(ctx)
@@ -478,7 +478,7 @@ func (h *SurveillanceHandler) ListDiseases(c *gin.Context) {
 }
 
 // locations
-func (h *SurveillanceHandler) ListRegions(c *gin.Context) {
+func (h *Handler) ListRegions(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	data, err := h.locationService.ListRegions(ctx)
@@ -490,7 +490,7 @@ func (h *SurveillanceHandler) ListRegions(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListDistricts(c *gin.Context) {
+func (h *Handler) ListDistricts(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	data, err := h.locationService.ListDistricts(ctx)
@@ -502,7 +502,7 @@ func (h *SurveillanceHandler) ListDistricts(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListDistrictsByRegion(c *gin.Context) {
+func (h *Handler) ListDistrictsByRegion(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	regionIDParam := c.Param("regionID")
@@ -525,7 +525,7 @@ func (h *SurveillanceHandler) ListDistrictsByRegion(c *gin.Context) {
 
 	response.OK(c, http.StatusOK, data)
 }
-func (h *SurveillanceHandler) ListSubcountiesByDistrict(c *gin.Context) {
+func (h *Handler) ListSubcountiesByDistrict(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	districtIDParam := c.Param("districtID")
@@ -549,7 +549,7 @@ func (h *SurveillanceHandler) ListSubcountiesByDistrict(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) GetSubcountyByID(c *gin.Context) {
+func (h *Handler) GetSubcountyByID(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	idParam := c.Param("id")
@@ -573,7 +573,7 @@ func (h *SurveillanceHandler) GetSubcountyByID(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) UpsertDistrict(c *gin.Context) {
+func (h *Handler) UpsertDistrict(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req db.UpsertDistrictParams
@@ -591,7 +591,7 @@ func (h *SurveillanceHandler) UpsertDistrict(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) UpsertSubcounty(c *gin.Context) {
+func (h *Handler) UpsertSubcounty(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req db.UpsertSubCountyParams
@@ -609,7 +609,7 @@ func (h *SurveillanceHandler) UpsertSubcounty(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) DeleteSubcounty(c *gin.Context) {
+func (h *Handler) DeleteSubcounty(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	idParam := c.Param("id")
@@ -633,7 +633,7 @@ func (h *SurveillanceHandler) DeleteSubcounty(c *gin.Context) {
 }
 
 // facility weekly metrics
-func (h *SurveillanceHandler) ListFacilityWeeklyMetricsByWeek(c *gin.Context) {
+func (h *Handler) ListFacilityWeeklyMetricsByWeek(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	epiWeekIDParam := c.Param("epiWeekID")
@@ -660,7 +660,7 @@ func (h *SurveillanceHandler) ListFacilityWeeklyMetricsByWeek(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListFacilityWeeklyMetricsByFacility(c *gin.Context) {
+func (h *Handler) ListFacilityWeeklyMetricsByFacility(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	facilityIDParam := c.Param("facilityID")
@@ -684,7 +684,7 @@ func (h *SurveillanceHandler) ListFacilityWeeklyMetricsByFacility(c *gin.Context
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
+func (h *Handler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	facilityIDParam := c.Param("facilityID")
@@ -720,7 +720,7 @@ func (h *SurveillanceHandler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListFacilityIndicatorMetricsTrend(c *gin.Context) {
+func (h *Handler) ListFacilityIndicatorMetricsTrend(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	facilityIDParam := c.Param("facilityID")
@@ -756,7 +756,7 @@ func (h *SurveillanceHandler) ListFacilityIndicatorMetricsTrend(c *gin.Context) 
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.Context) {
+func (h *Handler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	epiWeekIDParam := c.Param("epiWeekID")
@@ -795,7 +795,7 @@ func (h *SurveillanceHandler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
+func (h *Handler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	epiYearParam := c.Query("epiYear")
@@ -861,7 +861,7 @@ func (h *SurveillanceHandler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 
 // district weekly status
 
-func (h *SurveillanceHandler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
+func (h *Handler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	epiWeekIDParam := c.Param("epiWeekID")
@@ -887,7 +887,7 @@ func (h *SurveillanceHandler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
 
 // weekly status
 
-func (h *SurveillanceHandler) ListWeeklyStatuses(c *gin.Context) {
+func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	params := db.ListWeeklyStatusesParams{}
@@ -962,7 +962,7 @@ func (h *SurveillanceHandler) ListWeeklyStatuses(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListWeeklyStatusesDetailed(c *gin.Context) {
+func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	params := db.ListWeeklyStatusesDetailedParams{}
@@ -1050,7 +1050,7 @@ func (h *SurveillanceHandler) ListWeeklyStatusesDetailed(c *gin.Context) {
 
 // region weekly status
 
-func (h *SurveillanceHandler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
+func (h *Handler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	epiWeekIDParam := c.Param("epiWeekID")
@@ -1076,7 +1076,7 @@ func (h *SurveillanceHandler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
 
 // national weekly status
 
-func (h *SurveillanceHandler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
+func (h *Handler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	epiWeekIDParam := c.Param("epiWeekID")
@@ -1101,7 +1101,7 @@ func (h *SurveillanceHandler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 }
 
 // alerts
-func (h *SurveillanceHandler) ListAlerts(c *gin.Context) {
+func (h *Handler) ListAlerts(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	params := AlertListParams{}
@@ -1169,7 +1169,7 @@ func (h *SurveillanceHandler) ListAlerts(c *gin.Context) {
 
 // imports
 
-func (h *SurveillanceHandler) ListImportBatches(c *gin.Context) {
+func (h *Handler) ListImportBatches(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	data, err := h.importService.ListImportBatches(ctx)
@@ -1181,7 +1181,7 @@ func (h *SurveillanceHandler) ListImportBatches(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) GetImportBatchByID(c *gin.Context) {
+func (h *Handler) GetImportBatchByID(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	batchIDParam := c.Param("batchID")
@@ -1205,7 +1205,7 @@ func (h *SurveillanceHandler) GetImportBatchByID(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) ListImportRawRowsByBatch(c *gin.Context) {
+func (h *Handler) ListImportRawRowsByBatch(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	batchIDParam := c.Param("batchID")
@@ -1229,7 +1229,7 @@ func (h *SurveillanceHandler) ListImportRawRowsByBatch(c *gin.Context) {
 	response.OK(c, http.StatusOK, data)
 }
 
-func (h *SurveillanceHandler) CreateImportBatch(c *gin.Context) {
+func (h *Handler) CreateImportBatch(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req db.CreateImportBatchParams
@@ -1247,7 +1247,7 @@ func (h *SurveillanceHandler) CreateImportBatch(c *gin.Context) {
 	response.OK(c, http.StatusCreated, data)
 }
 
-func (h *SurveillanceHandler) UpdateImportBatchStatus(c *gin.Context) {
+func (h *Handler) UpdateImportBatchStatus(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	batchIDParam := c.Param("batchID")

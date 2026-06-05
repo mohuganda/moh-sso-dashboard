@@ -1,4 +1,4 @@
-package handler
+package document_templates
 
 import (
 	"net/http"
@@ -11,15 +11,15 @@ import (
 	"github.com/moh-sso-dashboard/internal/service"
 )
 
-type DocumentTemplateColumnHandler struct {
+type ColumnHandler struct {
 	service service.DocumentTemplateColumnService
 }
 
-func NewDocumentTemplateColumnHandler(
+func NewColumnHandler(
 	columnService service.DocumentTemplateColumnService,
-) *DocumentTemplateColumnHandler {
+) *ColumnHandler {
 
-	return &DocumentTemplateColumnHandler{
+	return &ColumnHandler{
 		service: columnService,
 	}
 }
@@ -27,7 +27,7 @@ func NewDocumentTemplateColumnHandler(
 /* =========================================================
  * CREATE COLUMN
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) CreateColumn(c *gin.Context) {
+func (h *ColumnHandler) CreateColumn(c *gin.Context) {
 
 	var req model.CreateColumnRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -57,7 +57,7 @@ func (h *DocumentTemplateColumnHandler) CreateColumn(c *gin.Context) {
 /* =========================================================
  * GET COLUMN
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) GetColumn(c *gin.Context) {
+func (h *ColumnHandler) GetColumn(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -77,7 +77,7 @@ func (h *DocumentTemplateColumnHandler) GetColumn(c *gin.Context) {
 /* =========================================================
  * LIST COLUMNS
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) ListColumns(c *gin.Context) {
+func (h *ColumnHandler) ListColumns(c *gin.Context) {
 
 	sheetID, err := uuid.Parse(c.Param("sheetId"))
 	if err != nil {
@@ -97,7 +97,7 @@ func (h *DocumentTemplateColumnHandler) ListColumns(c *gin.Context) {
 /* =========================================================
  * LIST REQUIRED COLUMNS
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) ListRequiredColumns(c *gin.Context) {
+func (h *ColumnHandler) ListRequiredColumns(c *gin.Context) {
 
 	sheetID, err := uuid.Parse(c.Param("sheetId"))
 	if err != nil {
@@ -117,7 +117,7 @@ func (h *DocumentTemplateColumnHandler) ListRequiredColumns(c *gin.Context) {
 /* =========================================================
  * LIST UNIQUE COLUMNS
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) ListUniqueColumns(c *gin.Context) {
+func (h *ColumnHandler) ListUniqueColumns(c *gin.Context) {
 
 	sheetID, err := uuid.Parse(c.Param("sheetId"))
 	if err != nil {
@@ -137,7 +137,7 @@ func (h *DocumentTemplateColumnHandler) ListUniqueColumns(c *gin.Context) {
 /* =========================================================
  * UPDATE COLUMN
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) UpdateColumn(c *gin.Context) {
+func (h *ColumnHandler) UpdateColumn(c *gin.Context) {
 
 	var req model.UpdateColumnRequest
 
@@ -176,7 +176,7 @@ func (h *DocumentTemplateColumnHandler) UpdateColumn(c *gin.Context) {
 /* =========================================================
  * ARCHIVE COLUMN
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) ArchiveColumn(c *gin.Context) {
+func (h *ColumnHandler) ArchiveColumn(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -200,7 +200,7 @@ func (h *DocumentTemplateColumnHandler) ArchiveColumn(c *gin.Context) {
 /* =========================================================
  * DELETE COLUMN
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) DeleteColumn(c *gin.Context) {
+func (h *ColumnHandler) DeleteColumn(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -224,7 +224,7 @@ func (h *DocumentTemplateColumnHandler) DeleteColumn(c *gin.Context) {
 /* =========================================================
  * PROCESS VALUE (runtime helper endpoint)
  * ========================================================= */
-func (h *DocumentTemplateColumnHandler) ProcessValue(c *gin.Context) {
+func (h *ColumnHandler) ProcessValue(c *gin.Context) {
 
 	var body struct {
 		Column model.DocumentTemplateColumn `json:"column"`

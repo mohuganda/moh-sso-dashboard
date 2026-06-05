@@ -1,4 +1,4 @@
-package handler
+package auth
 
 import (
 	"log"
@@ -17,20 +17,20 @@ import (
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
-type AuthHandler struct {
+type Handler struct {
 	authService         service.AuthService
 	auditService        *service.AuditService
 	notificationService service.NotificationsService
 	config              *config.Config
 }
 
-func NewAuthHandler(
+func NewHandler(
 	authService service.AuthService,
 	auditService *service.AuditService,
 	notificationService service.NotificationsService,
 	config *config.Config,
-) *AuthHandler {
-	return &AuthHandler{
+) *Handler {
+	return &Handler{
 		authService:         authService,
 		auditService:        auditService,
 		notificationService: notificationService,
@@ -41,7 +41,7 @@ func NewAuthHandler(
 // ----------------------------------------------------
 // LOGIN (redirect → Keycloak with PKCE)
 // ----------------------------------------------------
-func (h *AuthHandler) HandleAuthLogin(c *gin.Context) {
+func (h *Handler) HandleAuthLogin(c *gin.Context) {
 	_ = h.auditService.LoginInitiated(
 		c.Request.Context(),
 		c.ClientIP(),
@@ -94,7 +94,7 @@ func (h *AuthHandler) HandleAuthLogin(c *gin.Context) {
 // ----------------------------------------------------
 // GET CURRENT USER (API)
 // ----------------------------------------------------
-func (h *AuthHandler) HandleAuthGetMe(c *gin.Context) {
+func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 	accessToken, err := c.Cookie("access_token")
 	if err != nil || accessToken == "" {
 		response.Fail(
@@ -144,7 +144,7 @@ func (h *AuthHandler) HandleAuthGetMe(c *gin.Context) {
 // ----------------------------------------------------
 // OIDC CALLBACK (PKCE verification)
 // ----------------------------------------------------
-func (h *AuthHandler) HandleAuthCallback(c *gin.Context) {
+func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
 		h.auditLoginFailure(c)
@@ -247,7 +247,7 @@ func (h *AuthHandler) HandleAuthCallback(c *gin.Context) {
 // ----------------------------------------------------
 // REFRESH TOKEN (API)
 // ----------------------------------------------------
-func (h *AuthHandler) HandleAuthRefreshToken(c *gin.Context) {
+func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil || refreshToken == "" {
 		_ = h.auditService.TokenRefresh(
@@ -353,7 +353,7 @@ func (h *AuthHandler) HandleAuthRefreshToken(c *gin.Context) {
 // ----------------------------------------------------
 // LOGOUT
 // ----------------------------------------------------
-func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
+func (h *Handler) HandleAuthLogout(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	userID := utils.ToNullUUID(c.GetString("user_id"))
@@ -387,7 +387,7 @@ func (h *AuthHandler) HandleAuthLogout(c *gin.Context) {
 // ----------------------------------------------------
 // HELPERS
 // ----------------------------------------------------
-func (h *AuthHandler) auditLoginFailure(c *gin.Context) {
+func (h *Handler) auditLoginFailure(c *gin.Context) {
 	_ = h.auditService.LoginResult(
 		c.Request.Context(),
 		uuid.NullUUID{},
@@ -400,7 +400,7 @@ func (h *AuthHandler) auditLoginFailure(c *gin.Context) {
 	)
 }
 
-func (h *AuthHandler) isProduction() bool {
+func (h *Handler) isProduction() bool {
 	if h == nil || h.config == nil {
 		return false
 	}
@@ -412,7 +412,7 @@ func (h *AuthHandler) isProduction() bool {
 // ----------------------------------------------------
 // COOKIE HELPERS
 // ----------------------------------------------------
-func (h *AuthHandler) setSecureAccessTokenCookie(
+func (h *Handler) setSecureAccessTokenCookie(
 	c *gin.Context,
 	token string,
 	maxAge int64,
@@ -433,7 +433,7 @@ func (h *AuthHandler) setSecureAccessTokenCookie(
 	})
 }
 
-func (h *AuthHandler) setSecureRefreshTokenCookie(
+func (h *Handler) setSecureRefreshTokenCookie(
 	c *gin.Context,
 	token string,
 	maxAge int64,
@@ -454,7 +454,7 @@ func (h *AuthHandler) setSecureRefreshTokenCookie(
 	})
 }
 
-func (h *AuthHandler) setSecureIDTokenCookie(
+func (h *Handler) setSecureIDTokenCookie(
 	c *gin.Context,
 	token string,
 	expiresIn int,
@@ -475,7 +475,7 @@ func (h *AuthHandler) setSecureIDTokenCookie(
 	})
 }
 
-func (h *AuthHandler) clearCookie(
+func (h *Handler) clearCookie(
 	c *gin.Context,
 	name string,
 	httpOnly bool,
@@ -492,7 +492,7 @@ func (h *AuthHandler) clearCookie(
 	})
 }
 
-func (h *AuthHandler) clearAuthCookies(c *gin.Context) {
+func (h *Handler) clearAuthCookies(c *gin.Context) {
 	h.clearCookie(c, "access_token", true)
 	h.clearCookie(c, "refresh_token", true)
 	h.clearCookie(c, "id_token", true)

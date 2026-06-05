@@ -4,7 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
+	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
 	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
+	geojsonfeature "github.com/moh-sso-dashboard/internal/features/geojson"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	userfeature "github.com/moh-sso-dashboard/internal/features/users"
@@ -28,10 +30,7 @@ func registerEmailRoutes(protected *gin.RouterGroup, deps Dependencies) {
 }
 
 func registerGeoJSONRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	geojson := protected.Group("/geojson")
-	{
-		geojson.GET("/:name", deps.GeoJSON.GetGeoJSON)
-	}
+	geojsonfeature.RegisterProtectedRoutes(protected, deps.GeoJSON)
 }
 
 func registerClientRoutes(protected *gin.RouterGroup, deps Dependencies) {
@@ -51,12 +50,5 @@ func registerSessionRoutes(protected *gin.RouterGroup, deps Dependencies) {
 }
 
 func registerDataQualityRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	issues := protected.Group("/issues")
-	{
-		issues.POST("", deps.DataQuality.CreateIssue)
-		issues.GET("", deps.DataQuality.ListIssues)
-		issues.PUT("/:issueCode", deps.DataQuality.UpdateIssue)
-		issues.POST("/:issueCode/resolveIssue", deps.DataQuality.ResolveIssue)
-		issues.GET("/:issueCode/transactions", deps.DataQuality.ListIssueResolutionTransactions)
-	}
+	dataqualityfeature.RegisterProtectedRoutes(protected, deps.DataQuality)
 }

@@ -1,4 +1,4 @@
-package handler
+package data_quality
 
 import (
 	"database/sql"
@@ -14,12 +14,12 @@ import (
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
-type DataQualityHandler struct {
+type Handler struct {
 	db *sql.DB
 }
 
-func NewDataQualityHandler(db *sql.DB) *DataQualityHandler {
-	return &DataQualityHandler{
+func NewHandler(db *sql.DB) *Handler {
+	return &Handler{
 		db: db,
 	}
 }
@@ -270,7 +270,7 @@ func scanIssue(scanner interface {
 	}, nil
 }
 
-func (h *DataQualityHandler) CreateIssue(c *gin.Context) {
+func (h *Handler) CreateIssue(c *gin.Context) {
 	var req createIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
@@ -341,7 +341,7 @@ func (h *DataQualityHandler) CreateIssue(c *gin.Context) {
 	response.OK(c, http.StatusCreated, issue)
 }
 
-func (h *DataQualityHandler) ListIssues(c *gin.Context) {
+func (h *Handler) ListIssues(c *gin.Context) {
 	limit := parseListLimit(c, 20, 100)
 	offset := parseListOffset(c)
 
@@ -378,7 +378,7 @@ func (h *DataQualityHandler) ListIssues(c *gin.Context) {
 	response.OK(c, http.StatusOK, issues)
 }
 
-func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
+func (h *Handler) UpdateIssue(c *gin.Context) {
 	issueCode := strings.TrimSpace(c.Param("issueCode"))
 	if issueCode == "" {
 		response.Fail(c, http.StatusBadRequest, "INVALID_ISSUE_CODE", "issue code is required")
@@ -522,7 +522,7 @@ func (h *DataQualityHandler) UpdateIssue(c *gin.Context) {
 	response.OK(c, http.StatusOK, issue)
 }
 
-func (h *DataQualityHandler) ResolveIssue(c *gin.Context) {
+func (h *Handler) ResolveIssue(c *gin.Context) {
 	issueCode := strings.TrimSpace(c.Param("issueCode"))
 	if issueCode == "" {
 		response.Fail(c, http.StatusBadRequest, "INVALID_ISSUE_CODE", "issue code is required")
@@ -769,7 +769,7 @@ func (h *DataQualityHandler) ResolveIssue(c *gin.Context) {
 	response.OK(c, http.StatusCreated, stageRow)
 }
 
-func (h *DataQualityHandler) ListIssueResolutionTransactions(c *gin.Context) {
+func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
 	issueCode := strings.TrimSpace(c.Param("issueCode"))
 	if issueCode == "" {
 		response.Fail(c, http.StatusBadRequest, "INVALID_ISSUE_CODE", "issue code is required")

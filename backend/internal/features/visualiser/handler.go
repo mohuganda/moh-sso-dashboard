@@ -1,4 +1,4 @@
-package handler
+package visualiser
 
 import (
 	"context"
@@ -14,23 +14,23 @@ import (
 	"github.com/moh-sso-dashboard/internal/dto"
 )
 
-type VisualiserHandler struct {
+type Handler struct {
 	config *config.Config
 	db     *sql.DB
 }
 
-func NewVisualiserHandler(
+func NewHandler(
 	config *config.Config,
 	db *sql.DB,
-) *VisualiserHandler {
-	return &VisualiserHandler{
+) *Handler {
+	return &Handler{
 		config: config,
 		db:     db,
 	}
 }
 
 // GetDatasets gets all datasets
-func (h *VisualiserHandler) GetDatasets(c *gin.Context) {
+func (h *Handler) GetDatasets(c *gin.Context) {
 	ctx := c.Request.Context()
 	query := `
 		SELECT dataset_key, dataset_id, display_name, is_current, create_date
@@ -60,7 +60,7 @@ func (h *VisualiserHandler) GetDatasets(c *gin.Context) {
 }
 
 // GetDataElements gets data elements, optionally filtered by data_set_id
-func (h *VisualiserHandler) GetDataElements(c *gin.Context) {
+func (h *Handler) GetDataElements(c *gin.Context) {
 	ctx := c.Request.Context()
 	type Request struct {
 		DataSetID *string `json:"data_set_id"`
@@ -115,7 +115,7 @@ func (h *VisualiserHandler) GetDataElements(c *gin.Context) {
 }
 
 // GetDataValues gets data values with optional filters
-func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
+func (h *Handler) GetDataValues(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	type Request struct {
@@ -448,7 +448,7 @@ func (h *VisualiserHandler) GetDataValues(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"rows": rowsList})
 }
 
-func (h *VisualiserHandler) resolveAggregationLevel(ctx context.Context, requested *string, ou []string) string {
+func (h *Handler) resolveAggregationLevel(ctx context.Context, requested *string, ou []string) string {
 	if requested != nil {
 		level := strings.TrimSpace(*requested)
 		switch level {
@@ -534,7 +534,7 @@ func aggregationExpressions(level string) (orgUnitExpr, facilityExpr, levelExpr,
 }
 
 // GetThemes gets all themes
-func (h *VisualiserHandler) GetThemes(c *gin.Context) {
+func (h *Handler) GetThemes(c *gin.Context) {
 	ctx := c.Request.Context()
 	query := `
 		SELECT theme_id, theme_name 
@@ -562,7 +562,7 @@ func (h *VisualiserHandler) GetThemes(c *gin.Context) {
 }
 
 // GetDataElementsByTheme gets data elements for a specific theme
-func (h *VisualiserHandler) GetDataElementsByTheme(c *gin.Context) {
+func (h *Handler) GetDataElementsByTheme(c *gin.Context) {
 	ctx := c.Request.Context()
 	type Request struct {
 		ThemeID string `json:"theme_id" binding:"required"`
@@ -609,7 +609,7 @@ func (h *VisualiserHandler) GetDataElementsByTheme(c *gin.Context) {
 }
 
 // GetHIVSummary gets HIV summary data
-func (h *VisualiserHandler) GetHIVSummary(c *gin.Context) {
+func (h *Handler) GetHIVSummary(c *gin.Context) {
 	ctx := c.Request.Context()
 	query := `
 		SELECT
@@ -653,7 +653,7 @@ func (h *VisualiserHandler) GetHIVSummary(c *gin.Context) {
 }
 
 // GetHIVTested gets HIV tested data
-func (h *VisualiserHandler) GetHIVTested(c *gin.Context) {
+func (h *Handler) GetHIVTested(c *gin.Context) {
 	ctx := c.Request.Context()
 	query := `
 		SELECT year,
@@ -686,7 +686,7 @@ func (h *VisualiserHandler) GetHIVTested(c *gin.Context) {
 }
 
 // GetHIVRegimen gets HIV regimen data
-func (h *VisualiserHandler) GetHIVRegimen(c *gin.Context) {
+func (h *Handler) GetHIVRegimen(c *gin.Context) {
 
 	ctx := c.Request.Context()
 

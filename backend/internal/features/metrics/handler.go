@@ -1,4 +1,4 @@
-package handler
+package metrics
 
 import (
 	"net/http"
@@ -12,19 +12,19 @@ import (
 	"github.com/moh-sso-dashboard/internal/service"
 )
 
-type MetricsHandler struct {
+type Handler struct {
 	service *service.MetricsService
 }
 
-func NewMetricsHandler(s *service.MetricsService) *MetricsHandler {
-	return &MetricsHandler{service: s}
+func NewHandler(s *service.MetricsService) *Handler {
+	return &Handler{service: s}
 }
 
 /* =========================================================
  * Helpers
  * ========================================================= */
 
-func (h *MetricsHandler) parseRange(c *gin.Context) (time.Time, time.Time, bool) {
+func (h *Handler) parseRange(c *gin.Context) (time.Time, time.Time, bool) {
 	startStr := c.Query("start")
 	endStr := c.Query("end")
 
@@ -67,7 +67,7 @@ func (h *MetricsHandler) parseRange(c *gin.Context) (time.Time, time.Time, bool)
  * System Metrics
  * ========================================================= */
 
-func (h *MetricsHandler) CountUsers(c *gin.Context) {
+func (h *Handler) CountUsers(c *gin.Context) {
 	v, err := h.service.CountUsers(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to count users")
@@ -77,7 +77,7 @@ func (h *MetricsHandler) CountUsers(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{"total_users": v})
 }
 
-func (h *MetricsHandler) CountDisabledUsers(c *gin.Context) {
+func (h *Handler) CountDisabledUsers(c *gin.Context) {
 	v, err := h.service.CountDisabledUsers(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to count disabled users")
@@ -87,7 +87,7 @@ func (h *MetricsHandler) CountDisabledUsers(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{"disabled_users": v})
 }
 
-func (h *MetricsHandler) ActiveUsersToday(c *gin.Context) {
+func (h *Handler) ActiveUsersToday(c *gin.Context) {
 	v, err := h.service.ActiveUsersToday(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch active users today")
@@ -97,7 +97,7 @@ func (h *MetricsHandler) ActiveUsersToday(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{"active_users_today": v})
 }
 
-func (h *MetricsHandler) ActiveUsersThisWeek(c *gin.Context) {
+func (h *Handler) ActiveUsersThisWeek(c *gin.Context) {
 	v, err := h.service.ActiveUsersThisWeek(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch active users this week")
@@ -111,7 +111,7 @@ func (h *MetricsHandler) ActiveUsersThisWeek(c *gin.Context) {
  * Login Trends
  * ========================================================= */
 
-func (h *MetricsHandler) LoginTrend(c *gin.Context) {
+func (h *Handler) LoginTrend(c *gin.Context) {
 	rows, err := h.service.LoginTrend(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch login trend")
@@ -121,7 +121,7 @@ func (h *MetricsHandler) LoginTrend(c *gin.Context) {
 	response.OK(c, http.StatusOK, rows)
 }
 
-func (h *MetricsHandler) LoginTrendByDay(c *gin.Context) {
+func (h *Handler) LoginTrendByDay(c *gin.Context) {
 	start, end, ok := h.parseRange(c)
 	if !ok {
 		return
@@ -140,7 +140,7 @@ func (h *MetricsHandler) LoginTrendByDay(c *gin.Context) {
  * Security Metrics
  * ========================================================= */
 
-func (h *MetricsHandler) CountFailedLogins(c *gin.Context) {
+func (h *Handler) CountFailedLogins(c *gin.Context) {
 	v, err := h.service.CountFailedLogins(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to count failed logins")
@@ -150,7 +150,7 @@ func (h *MetricsHandler) CountFailedLogins(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{"failed_logins": v})
 }
 
-func (h *MetricsHandler) CountFailedLoginsInRange(c *gin.Context) {
+func (h *Handler) CountFailedLoginsInRange(c *gin.Context) {
 	start, end, ok := h.parseRange(c)
 	if !ok {
 		return
@@ -165,7 +165,7 @@ func (h *MetricsHandler) CountFailedLoginsInRange(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{"failed_logins": v})
 }
 
-func (h *MetricsHandler) SuspiciousLogins(c *gin.Context) {
+func (h *Handler) SuspiciousLogins(c *gin.Context) {
 	start, end, ok := h.parseRange(c)
 	if !ok {
 		return
@@ -191,7 +191,7 @@ func (h *MetricsHandler) SuspiciousLogins(c *gin.Context) {
  * Client Metrics
  * ========================================================= */
 
-func (h *MetricsHandler) CountClients(c *gin.Context) {
+func (h *Handler) CountClients(c *gin.Context) {
 	v, err := h.service.CountClients(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to count clients")
@@ -201,7 +201,7 @@ func (h *MetricsHandler) CountClients(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{"total_clients": v})
 }
 
-func (h *MetricsHandler) MostAccessedClients(c *gin.Context) {
+func (h *Handler) MostAccessedClients(c *gin.Context) {
 	start, end, ok := h.parseRange(c)
 	if !ok {
 		return
@@ -228,7 +228,7 @@ func (h *MetricsHandler) MostAccessedClients(c *gin.Context) {
 	response.OK(c, http.StatusOK, rows)
 }
 
-func (h *MetricsHandler) ActiveUsersPerClientToday(c *gin.Context) {
+func (h *Handler) ActiveUsersPerClientToday(c *gin.Context) {
 	rows, err := h.service.ActiveUsersPerClientToday(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch active users per client")
@@ -238,7 +238,7 @@ func (h *MetricsHandler) ActiveUsersPerClientToday(c *gin.Context) {
 	response.OK(c, http.StatusOK, rows)
 }
 
-func (h *MetricsHandler) LoginCountForClient(c *gin.Context) {
+func (h *Handler) LoginCountForClient(c *gin.Context) {
 	clientID := c.Query("client_id")
 	if clientID == "" {
 		response.Fail(c, http.StatusBadRequest, "CLIENT_ID NOT FOUND", "client_id required")
@@ -263,7 +263,7 @@ func (h *MetricsHandler) LoginCountForClient(c *gin.Context) {
  * User Metrics
  * ========================================================= */
 
-func (h *MetricsHandler) LastLoginForUser(c *gin.Context) {
+func (h *Handler) LastLoginForUser(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("userID"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID format")
@@ -279,7 +279,7 @@ func (h *MetricsHandler) LastLoginForUser(c *gin.Context) {
 	response.OK(c, http.StatusOK, row)
 }
 
-func (h *MetricsHandler) UserClientUsage(c *gin.Context) {
+func (h *Handler) UserClientUsage(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("userID"))
 	if err != nil {
 		response.Fail(c, http.StatusBadGateway, "INVALID_UUID", "Invalid user ID format")
@@ -305,7 +305,7 @@ func (h *MetricsHandler) UserClientUsage(c *gin.Context) {
 	response.OK(c, http.StatusOK, rows)
 }
 
-func (h *MetricsHandler) NewUsersInRange(c *gin.Context) {
+func (h *Handler) NewUsersInRange(c *gin.Context) {
 	start, end, ok := h.parseRange(c)
 	if !ok {
 		return
@@ -320,7 +320,7 @@ func (h *MetricsHandler) NewUsersInRange(c *gin.Context) {
 	response.OK(c, http.StatusOK, rows)
 }
 
-func (h *MetricsHandler) NewUsersTrend(c *gin.Context) {
+func (h *Handler) NewUsersTrend(c *gin.Context) {
 	start, end, ok := h.parseRange(c)
 	if !ok {
 		return
@@ -335,7 +335,7 @@ func (h *MetricsHandler) NewUsersTrend(c *gin.Context) {
 	response.OK(c, http.StatusOK, rows)
 }
 
-func (h *MetricsHandler) NeverLoggedInUsers(c *gin.Context) {
+func (h *Handler) NeverLoggedInUsers(c *gin.Context) {
 	rows, err := h.service.NeverLoggedInUsers(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch users")
@@ -349,7 +349,7 @@ func (h *MetricsHandler) NeverLoggedInUsers(c *gin.Context) {
  * Overview (Dashboard)
  * ========================================================= */
 
-func (h *MetricsHandler) Overview(c *gin.Context) {
+func (h *Handler) Overview(c *gin.Context) {
 	ctx := c.Request.Context()
 	now := time.Now()
 	start := now.AddDate(0, 0, -30)

@@ -1,4 +1,4 @@
-package handler
+package document_templates
 
 import (
 	"errors"
@@ -18,23 +18,23 @@ var (
 /* =========================================================
  * Handler
  * ========================================================= */
-type DocumentTemplateSheetHandler struct {
+type SheetHandler struct {
 	service service.DocumentTemplateSheetService
 }
 
 /* =========================================================
  * Constructor
  * ========================================================= */
-func NewDocumentTemplateSheetHandler(
+func NewSheetHandler(
 	service service.DocumentTemplateSheetService,
-) *DocumentTemplateSheetHandler {
+) *SheetHandler {
 
-	return &DocumentTemplateSheetHandler{
+	return &SheetHandler{
 		service: service,
 	}
 }
 
-func (h *DocumentTemplateSheetHandler) CreateSheet(c *gin.Context) {
+func (h *SheetHandler) CreateSheet(c *gin.Context) {
 	var req model.CreateSheetRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -55,7 +55,7 @@ func (h *DocumentTemplateSheetHandler) CreateSheet(c *gin.Context) {
 	c.JSON(http.StatusCreated, sheet)
 }
 
-func (h *DocumentTemplateSheetHandler) GetSheet(c *gin.Context) {
+func (h *SheetHandler) GetSheet(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -75,7 +75,7 @@ func (h *DocumentTemplateSheetHandler) GetSheet(c *gin.Context) {
 	c.JSON(http.StatusOK, sheet)
 }
 
-func (h *DocumentTemplateSheetHandler) GetSheetByCode(c *gin.Context) {
+func (h *SheetHandler) GetSheetByCode(c *gin.Context) {
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -103,7 +103,7 @@ func (h *DocumentTemplateSheetHandler) GetSheetByCode(c *gin.Context) {
 	c.JSON(http.StatusOK, sheet)
 }
 
-func (h *DocumentTemplateSheetHandler) ListSheets(c *gin.Context) {
+func (h *SheetHandler) ListSheets(c *gin.Context) {
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -123,7 +123,7 @@ func (h *DocumentTemplateSheetHandler) ListSheets(c *gin.Context) {
 	c.JSON(http.StatusOK, sheets)
 }
 
-func (h *DocumentTemplateSheetHandler) ListRequiredSheets(c *gin.Context) {
+func (h *SheetHandler) ListRequiredSheets(c *gin.Context) {
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -143,7 +143,7 @@ func (h *DocumentTemplateSheetHandler) ListRequiredSheets(c *gin.Context) {
 	c.JSON(http.StatusOK, sheets)
 }
 
-func (h *DocumentTemplateSheetHandler) UpdateSheet(c *gin.Context) {
+func (h *SheetHandler) UpdateSheet(c *gin.Context) {
 	var req model.UpdateSheetRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -164,7 +164,7 @@ func (h *DocumentTemplateSheetHandler) UpdateSheet(c *gin.Context) {
 	c.JSON(http.StatusOK, sheet)
 }
 
-func (h *DocumentTemplateSheetHandler) DeleteSheet(c *gin.Context) {
+func (h *SheetHandler) DeleteSheet(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -189,7 +189,7 @@ func (h *DocumentTemplateSheetHandler) DeleteSheet(c *gin.Context) {
 
  * ========================================================= */
 
-func (h *DocumentTemplateSheetHandler) ArchiveSheet(c *gin.Context) {
+func (h *SheetHandler) ArchiveSheet(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -210,7 +210,7 @@ func (h *DocumentTemplateSheetHandler) ArchiveSheet(c *gin.Context) {
 
  * ========================================================= */
 
-func (h *DocumentTemplateSheetHandler) GetSheetRuntime(c *gin.Context) {
+func (h *SheetHandler) GetSheetRuntime(c *gin.Context) {
 
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {
@@ -230,7 +230,7 @@ func (h *DocumentTemplateSheetHandler) GetSheetRuntime(c *gin.Context) {
 
 }
 
-func (h *DocumentTemplateSheetHandler) ValidateSheetExists(c *gin.Context) {
+func (h *SheetHandler) ValidateSheetExists(c *gin.Context) {
 
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {

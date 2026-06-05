@@ -1,4 +1,4 @@
-package handler
+package documents
 
 import (
 	"crypto/sha256"
@@ -23,7 +23,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/storage"
 )
 
-type DocumentHandler struct {
+type Handler struct {
 	documentService        *service.DocumentService
 	auditService           *service.AuditService
 	storageLocationService service.StorageLocationService
@@ -106,14 +106,14 @@ func toProcessResponse(process db.Process) ProcessResponse {
 	}
 }
 
-func NewDocumentHandler(
+func NewHandler(
 	documentService *service.DocumentService,
 	auditService *service.AuditService,
 	storageLocationService service.StorageLocationService,
 	storage storage.Storage,
 	storageFactory *storage.StorageFactory,
-) *DocumentHandler {
-	return &DocumentHandler{
+) *Handler {
+	return &Handler{
 		documentService:        documentService,
 		auditService:           auditService,
 		storageLocationService: storageLocationService,
@@ -122,7 +122,7 @@ func NewDocumentHandler(
 	}
 }
 
-func (h *DocumentHandler) CreateDocument(c *gin.Context) {
+func (h *Handler) CreateDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	log.Printf("[CreateDocument] Request received")
@@ -405,7 +405,7 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	)
 }
 
-func (h *DocumentHandler) GetDocument(c *gin.Context) {
+func (h *Handler) GetDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	idParam := c.Param("id")
@@ -440,7 +440,7 @@ func (h *DocumentHandler) GetDocument(c *gin.Context) {
 	response.OK(c, http.StatusOK, toDocumentResponse(doc, objectURL, viewURL, downloadURL))
 }
 
-func (h *DocumentHandler) EditDocument(c *gin.Context) {
+func (h *Handler) EditDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	idParam := c.Param("id")
@@ -490,7 +490,7 @@ func (h *DocumentHandler) EditDocument(c *gin.Context) {
 	response.OK(c, http.StatusOK, toDocumentResponse(doc, objectURL, viewURL, downloadURL))
 }
 
-func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
+func (h *Handler) DeleteDocument(c *gin.Context) {
 	idParam := c.Param("id")
 
 	id, err := uuid.Parse(idParam)
@@ -509,7 +509,7 @@ func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	})
 }
 
-func (h *DocumentHandler) DownloadDocument(c *gin.Context) {
+func (h *Handler) DownloadDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 	id := c.Param("id")
 
@@ -555,7 +555,7 @@ func (h *DocumentHandler) DownloadDocument(c *gin.Context) {
 	_, _ = io.Copy(c.Writer, reader)
 }
 
-func (h *DocumentHandler) ViewDocument(c *gin.Context) {
+func (h *Handler) ViewDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 	id := c.Param("id")
 
@@ -601,7 +601,7 @@ func (h *DocumentHandler) ViewDocument(c *gin.Context) {
 	_, _ = io.Copy(c.Writer, reader)
 }
 
-func (h *DocumentHandler) ListDocuments(c *gin.Context) {
+func (h *Handler) ListDocuments(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	limitStr := c.DefaultQuery("limit", "20")
@@ -643,7 +643,7 @@ func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 	response.OK(c, http.StatusOK, out)
 }
 
-func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {
+func (h *Handler) ListDocumentProcesses(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	idParam := c.Param("id")
@@ -666,7 +666,7 @@ func (h *DocumentHandler) ListDocumentProcesses(c *gin.Context) {
 	response.OK(c, http.StatusOK, out)
 }
 
-func (h *DocumentHandler) ReprocessDocument(c *gin.Context) {
+func (h *Handler) ReprocessDocument(c *gin.Context) {
 	documentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "error", "invalid document id")

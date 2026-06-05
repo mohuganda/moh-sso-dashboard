@@ -1,4 +1,4 @@
-package handler
+package geojson
 
 import (
 	"net/http"
@@ -8,17 +8,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type GeoJSONHandler struct {
+type Handler struct {
 	basePath string
 }
 
-func NewGeoJSONHandler(basePath string) *GeoJSONHandler {
-	return &GeoJSONHandler{
+func NewHandler(basePath string) *Handler {
+	return &Handler{
 		basePath: basePath,
 	}
 }
 
-func (h *GeoJSONHandler) GetGeoJSON(c *gin.Context) {
+func (h *Handler) GetGeoJSON(c *gin.Context) {
 	name := c.Param("name")
 
 	files := map[string]string{

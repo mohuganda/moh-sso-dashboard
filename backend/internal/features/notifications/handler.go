@@ -1,4 +1,4 @@
-package handler
+package notifications
 
 import (
 	"net/http"
@@ -11,14 +11,14 @@ import (
 	"github.com/moh-sso-dashboard/internal/service"
 )
 
-type NotificationsHandler struct {
+type Handler struct {
 	NotificationsSvc service.NotificationsService
 }
 
-func NewNotificationsHandler(
+func NewHandler(
 	svc service.NotificationsService,
-) *NotificationsHandler {
-	return &NotificationsHandler{
+) *Handler {
+	return &Handler{
 		NotificationsSvc: svc,
 	}
 }
@@ -27,38 +27,38 @@ func NewNotificationsHandler(
  * Create notification
  * ========================================================= */
 
-	func (h *NotificationsHandler) Notify(c *gin.Context) {
-		var input model.Notification
+func (h *Handler) Notify(c *gin.Context) {
+	var input model.Notification
 
-		if err := c.ShouldBindJSON(&input); err != nil {
-			response.Fail(
-				c,
-				http.StatusBadRequest,
-				"VALIDATION_FAILED",
-				"Invalid notification payload",
-			)
-			return
-		}
-
-		n, err := h.NotificationsSvc.Notify(c.Request.Context(), input)
-		if err != nil {
-			response.Fail(
-				c,
-				http.StatusInternalServerError,
-				"INTERNAL_ERROR",
-				"Failed to create notification",
-			)
-			return
-		}
-
-		response.OK(c, http.StatusCreated, n)
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Invalid notification payload",
+		)
+		return
 	}
+
+	n, err := h.NotificationsSvc.Notify(c.Request.Context(), input)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"INTERNAL_ERROR",
+			"Failed to create notification",
+		)
+		return
+	}
+
+	response.OK(c, http.StatusCreated, n)
+}
 
 /* =========================================================
  * List notifications
  * ========================================================= */
 
-func (h *NotificationsHandler) ListNotifications(c *gin.Context) {
+func (h *Handler) ListNotifications(c *gin.Context) {
 	role := getTargetRole(c)
 
 	// unread (optional)
@@ -108,7 +108,7 @@ func (h *NotificationsHandler) ListNotifications(c *gin.Context) {
  * Get notification by ID
  * ========================================================= */
 
-func (h *NotificationsHandler) GetNotificationByID(c *gin.Context) {
+func (h *Handler) GetNotificationByID(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
 		response.Fail(
@@ -151,7 +151,7 @@ func (h *NotificationsHandler) GetNotificationByID(c *gin.Context) {
  * Mark notification as read
  * ========================================================= */
 
-func (h *NotificationsHandler) MarkNotificationAsRead(c *gin.Context) {
+func (h *Handler) MarkNotificationAsRead(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
 		response.Fail(
@@ -183,7 +183,7 @@ func (h *NotificationsHandler) MarkNotificationAsRead(c *gin.Context) {
  * Delete notification
  * ========================================================= */
 
-func (h *NotificationsHandler) DeleteNotification(c *gin.Context) {
+func (h *Handler) DeleteNotification(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
 		response.Fail(
@@ -215,7 +215,7 @@ func (h *NotificationsHandler) DeleteNotification(c *gin.Context) {
  * Delete old notifications
  * ========================================================= */
 
-func (h *NotificationsHandler) DeleteOldNotifications(c *gin.Context) {
+func (h *Handler) DeleteOldNotifications(c *gin.Context) {
 	if err := h.NotificationsSvc.DeleteOldNotifications(
 		c.Request.Context(),
 	); err != nil {
@@ -235,7 +235,7 @@ func (h *NotificationsHandler) DeleteOldNotifications(c *gin.Context) {
  * Counts
  * ========================================================= */
 
-func (h *NotificationsHandler) CountNotifications(c *gin.Context) {
+func (h *Handler) CountNotifications(c *gin.Context) {
 	role := getTargetRole(c)
 
 	count, err := h.NotificationsSvc.CountNotifications(
@@ -257,7 +257,7 @@ func (h *NotificationsHandler) CountNotifications(c *gin.Context) {
 	})
 }
 
-func (h *NotificationsHandler) CountUnreadNotificationsCount(c *gin.Context) {
+func (h *Handler) CountUnreadNotificationsCount(c *gin.Context) {
 	role := getTargetRole(c)
 
 	count, err := h.NotificationsSvc.CountUnreadNotificationsCount(

@@ -1,4 +1,4 @@
-package handler
+package admin_units
 
 import (
 	"database/sql"
@@ -11,22 +11,22 @@ import (
 	"github.com/moh-sso-dashboard/internal/dto"
 )
 
-type AdminUnitsHandler struct {
+type Handler struct {
 	config *config.Config
 	db     *sql.DB
 }
 
-func NewAdminUnitsHandler(
+func NewHandler(
 	config *config.Config,
 	db *sql.DB,
-) *AdminUnitsHandler {
-	return &AdminUnitsHandler{
+) *Handler {
+	return &Handler{
 		config: config,
 		db:     db,
 	}
 }
 
-func (h *AdminUnitsHandler) GetOrgUnits(c *gin.Context) {
+func (h *Handler) GetOrgUnits(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	query := `
@@ -100,7 +100,7 @@ func (h *AdminUnitsHandler) GetOrgUnits(c *gin.Context) {
 }
 
 // GetFacilities gets all facilities (level 6)
-func (h *AdminUnitsHandler) GetFacilities(c *gin.Context) {
+func (h *Handler) GetFacilities(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	query := `
@@ -172,7 +172,7 @@ func (h *AdminUnitsHandler) GetFacilities(c *gin.Context) {
 }
 
 // GetDistricts gets all districts (level 3)
-func (h *AdminUnitsHandler) GetDistricts(c *gin.Context) {
+func (h *Handler) GetDistricts(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	query := `
@@ -219,7 +219,7 @@ func (h *AdminUnitsHandler) GetDistricts(c *gin.Context) {
 }
 
 // GetSubCounties gets subcounties (level 5), optionally filtered by sub_county
-func (h *AdminUnitsHandler) GetSubCounties(c *gin.Context) {
+func (h *Handler) GetSubCounties(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	type Request struct {
@@ -287,7 +287,7 @@ func (h *AdminUnitsHandler) GetSubCounties(c *gin.Context) {
 }
 
 // GetLocalGovt gets local government units (level 4), optionally filtered by district
-func (h *AdminUnitsHandler) GetLocalGovt(c *gin.Context) {
+func (h *Handler) GetLocalGovt(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	type Request struct {
@@ -354,7 +354,7 @@ func (h *AdminUnitsHandler) GetLocalGovt(c *gin.Context) {
 }
 
 // GetDistrictsByRegion gets districts (level 3) filtered by region
-func (h *AdminUnitsHandler) GetDistrictsByRegion(c *gin.Context) {
+func (h *Handler) GetDistrictsByRegion(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	type Request struct {
@@ -421,7 +421,7 @@ func (h *AdminUnitsHandler) GetDistrictsByRegion(c *gin.Context) {
 }
 
 // GetRegions gets all regions (level 2)
-func (h *AdminUnitsHandler) GetRegions(c *gin.Context) {
+func (h *Handler) GetRegions(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	query := `
@@ -468,7 +468,7 @@ func (h *AdminUnitsHandler) GetRegions(c *gin.Context) {
 }
 
 // GetNational gets national level (level 1)
-func (h *AdminUnitsHandler) GetNational(c *gin.Context) {
+func (h *Handler) GetNational(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	query := `
@@ -515,7 +515,7 @@ func (h *AdminUnitsHandler) GetNational(c *gin.Context) {
 }
 
 // GetHierarchy gets the full organizational hierarchy as a tree structure
-func (h *AdminUnitsHandler) GetHierarchy(c *gin.Context) {
+func (h *Handler) GetHierarchy(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	query := `

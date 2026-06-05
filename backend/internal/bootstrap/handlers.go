@@ -8,13 +8,23 @@ import (
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
+	adminunitsfeature "github.com/moh-sso-dashboard/internal/features/admin_units"
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
 	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
+	authfeature "github.com/moh-sso-dashboard/internal/features/auth"
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
+	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
+	documenttemplatesfeature "github.com/moh-sso-dashboard/internal/features/document_templates"
+	documentsfeature "github.com/moh-sso-dashboard/internal/features/documents"
 	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
+	geojsonfeature "github.com/moh-sso-dashboard/internal/features/geojson"
+	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
+	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
+	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
 	userfeature "github.com/moh-sso-dashboard/internal/features/users"
+	visualiserfeature "github.com/moh-sso-dashboard/internal/features/visualiser"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	db "github.com/moh-sso-dashboard/internal/migrate"
 	"github.com/moh-sso-dashboard/internal/storage"
@@ -40,7 +50,7 @@ type handlerDependencies struct {
 }
 
 func buildHandlers(deps handlerDependencies) handlers {
-	authHandler := handler.NewAuthHandler(
+	authHandler := authfeature.NewHandler(
 		deps.Services.Auth,
 		deps.Services.Audit,
 		deps.Services.Notifications,
@@ -48,11 +58,11 @@ func buildHandlers(deps handlerDependencies) handlers {
 	)
 	clientHandler := clientfeature.NewHandler(deps.Services.Clients, deps.Services.Audit, deps.Cache)
 	userHandler := userfeature.NewHandler(deps.Services.Users, deps.Services.Audit, deps.Cache)
-	metricsHandler := handler.NewMetricsHandler(deps.Services.Metrics)
+	metricsHandler := metricsfeature.NewHandler(deps.Services.Metrics)
 	auditHandler := auditfeature.NewHandler(deps.Store, deps.Cache)
-	notificationsHandler := handler.NewNotificationsHandler(deps.Services.Notifications)
+	notificationsHandler := notificationsfeature.NewHandler(deps.Services.Notifications)
 
-	documentHandler := handler.NewDocumentHandler(
+	documentHandler := documentsfeature.NewHandler(
 		deps.Services.Documents,
 		deps.Services.Audit,
 		deps.Services.StorageLocations,
@@ -65,17 +75,17 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.Audit,
 	)
 	sessionHandler := sessionfeature.NewHandler(deps.Services.Sessions)
-	dataQualityHandler := handler.NewDataQualityHandler(deps.Databases.DWH)
+	dataQualityHandler := dataqualityfeature.NewHandler(deps.Databases.DWH)
 	announcementHandler := announcementfeature.NewHandler(
 		deps.Services.Announcements,
 		deps.Services.Audit,
 	)
-	adminunitsHandler := handler.NewAdminUnitsHandler(deps.Config, deps.Databases.DWH)
-	visualiserHandler := handler.NewVisualiserHandler(deps.Config, deps.Databases.DWH)
-	geoJSONHandler := handler.NewGeoJSONHandler("./assets/geojson")
+	adminunitsHandler := adminunitsfeature.NewHandler(deps.Config, deps.Databases.DWH)
+	visualiserHandler := visualiserfeature.NewHandler(deps.Config, deps.Databases.DWH)
+	geoJSONHandler := geojsonfeature.NewHandler("./assets/geojson")
 	emailHandler := emailfeature.NewHandler(deps.Services.Email, deps.Repositories.Email)
 
-	surveillanceHandler := handler.NewSurveillanceHandler(
+	surveillanceHandler := surveillancefeature.NewHandler(
 		deps.Services.EpiWeeks,
 		deps.Services.Diseases,
 		deps.Services.Locations,
@@ -85,15 +95,15 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.SurveillanceImport,
 	)
 
-	documentTemplateHandler := handler.NewDocumentTemplateHandler(
+	documentTemplateHandler := documenttemplatesfeature.NewHandler(
 		deps.Services.DocumentTemplates,
 		deps.Services.DocumentTemplateSheets,
 		deps.Services.DocumentTemplateColumns,
 	)
-	documentTemplateSheetHandler := handler.NewDocumentTemplateSheetHandler(
+	documentTemplateSheetHandler := documenttemplatesfeature.NewSheetHandler(
 		deps.Services.DocumentTemplateSheets,
 	)
-	documentTemplateColumnHandler := handler.NewDocumentTemplateColumnHandler(
+	documentTemplateColumnHandler := documenttemplatesfeature.NewColumnHandler(
 		deps.Services.DocumentTemplateColumns,
 	)
 

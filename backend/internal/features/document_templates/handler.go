@@ -1,4 +1,4 @@
-package handler
+package document_templates
 
 import (
 	"errors"
@@ -13,19 +13,19 @@ import (
 	"github.com/moh-sso-dashboard/internal/service"
 )
 
-type DocumentTemplateHandler struct {
+type Handler struct {
 	service       service.DocumentTemplateService
 	sheetService  service.DocumentTemplateSheetService
 	columnService service.DocumentTemplateColumnService
 }
 
-func NewDocumentTemplateHandler(
+func NewHandler(
 	service service.DocumentTemplateService,
 	sheetService service.DocumentTemplateSheetService,
 	columnService service.DocumentTemplateColumnService,
-) *DocumentTemplateHandler {
+) *Handler {
 
-	return &DocumentTemplateHandler{
+	return &Handler{
 		service: service,
 	}
 }
@@ -34,7 +34,7 @@ func NewDocumentTemplateHandler(
  * Create Template
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) CreateTemplate(c *gin.Context) {
+func (h *Handler) CreateTemplate(c *gin.Context) {
 
 	var req model.CreateTemplateRequest
 
@@ -102,7 +102,7 @@ func (h *DocumentTemplateHandler) CreateTemplate(c *gin.Context) {
  * Get Template
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) GetTemplate(c *gin.Context) {
+func (h *Handler) GetTemplate(c *gin.Context) {
 
 	code := c.Param("code")
 
@@ -141,7 +141,7 @@ func (h *DocumentTemplateHandler) GetTemplate(c *gin.Context) {
  * Get Template Structure
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) GetTemplateStructure(c *gin.Context) {
+func (h *Handler) GetTemplateStructure(c *gin.Context) {
 
 	code := c.Param("code")
 
@@ -180,7 +180,7 @@ func (h *DocumentTemplateHandler) GetTemplateStructure(c *gin.Context) {
  * List Templates
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) ListTemplates(c *gin.Context) {
+func (h *Handler) ListTemplates(c *gin.Context) {
 
 	templates, err := h.service.ListTemplates(
 		c.Request.Context(),
@@ -204,7 +204,7 @@ func (h *DocumentTemplateHandler) ListTemplates(c *gin.Context) {
  * Update Template
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) UpdateTemplate(c *gin.Context) {
+func (h *Handler) UpdateTemplate(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -258,7 +258,7 @@ func (h *DocumentTemplateHandler) UpdateTemplate(c *gin.Context) {
  * Publish Template
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) PublishTemplate(c *gin.Context) {
+func (h *Handler) PublishTemplate(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -295,7 +295,7 @@ func (h *DocumentTemplateHandler) PublishTemplate(c *gin.Context) {
  * Archive Template
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) ArchiveTemplate(c *gin.Context) {
+func (h *Handler) ArchiveTemplate(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -332,7 +332,7 @@ func (h *DocumentTemplateHandler) ArchiveTemplate(c *gin.Context) {
  * Delete Template
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) DeleteTemplate(c *gin.Context) {
+func (h *Handler) DeleteTemplate(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -369,7 +369,7 @@ func (h *DocumentTemplateHandler) DeleteTemplate(c *gin.Context) {
  * List Sheets
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) ListSheets(c *gin.Context) {
+func (h *Handler) ListSheets(c *gin.Context) {
 
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {
@@ -407,7 +407,7 @@ func (h *DocumentTemplateHandler) ListSheets(c *gin.Context) {
  * List Columns
  * ========================================================= */
 
-func (h *DocumentTemplateHandler) ListColumns(c *gin.Context) {
+func (h *Handler) ListColumns(c *gin.Context) {
 
 	sheetID, err := uuid.Parse(c.Param("sheetId"))
 	if err != nil {
@@ -441,7 +441,7 @@ func (h *DocumentTemplateHandler) ListColumns(c *gin.Context) {
 	response.OK(c, http.StatusOK, columns)
 }
 
-func (h *DocumentTemplateHandler) CreateTemplateWithStructure(c *gin.Context) {
+func (h *Handler) CreateTemplateWithStructure(c *gin.Context) {
 	var req model.CreateTemplateStructureRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
