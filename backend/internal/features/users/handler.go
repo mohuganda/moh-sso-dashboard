@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,27 +16,6 @@ import (
 	"github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
-
-func toUserResponse(u *models.User) models.UserResponse {
-	fullName := strings.TrimSpace(
-		strings.Join([]string{u.FirstName, u.LastName}, " "),
-	)
-
-	return models.UserResponse{
-		ID:               u.ID,
-		Username:         u.Username,
-		Email:            u.Email,
-		FullName:         fullName,
-		IsAdmin:          u.IsAdmin,
-		RealmRoles:       u.RealmRoles,
-		ClientRoles:      u.ClientRoles,
-		IsActive:         u.Enabled,
-		EmailVerified:    u.EmailVerified,
-		RequirePwdChange: u.RequirePwdChange,
-		LastLoginAt:      u.LastLoginAt,
-		CreatedAt:        &u.CreatedAt,
-	}
-}
 
 type Handler struct {
 	service      *service.UserService
@@ -348,10 +326,7 @@ func (h *Handler) GetUserClientRolesForClient(c *gin.Context) {
 	// -----------------------------
 	// Request body
 	// -----------------------------
-	var body struct {
-		ClientID   string `json:"clientId"`
-		ClientUUID string `json:"clientUuid"`
-	}
+	var body userClientRolesForClientRequest
 
 	if err := c.ShouldBindJSON(&body); err != nil ||
 		body.ClientID == "" ||
@@ -455,11 +430,7 @@ func (h *Handler) UpdateUserClientRoles(c *gin.Context) {
 		return
 	}
 
-	var body struct {
-		ClientID   string   `json:"clientId"`
-		ClientUUID string   `json:"clientUuid"`
-		Roles      []string `json:"roles"`
-	}
+	var body userClientRolesRequest
 
 	if err := c.ShouldBindJSON(&body); err != nil || body.ClientUUID == "" || body.ClientID == "" {
 		response.Fail(
@@ -542,11 +513,7 @@ func (h *Handler) AddUserClientRoles(c *gin.Context) {
 		return
 	}
 
-	var body struct {
-		ClientID   string   `json:"clientId"`
-		ClientUUID string   `json:"clientUuid"`
-		Roles      []string `json:"roles"`
-	}
+	var body userClientRolesRequest
 
 	if err := c.ShouldBindJSON(&body); err != nil || body.ClientID == "" || body.ClientUUID == "" {
 		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "clientId, clientUuid and roles are required")
@@ -601,11 +568,7 @@ func (h *Handler) RemoveUserClientRoles(c *gin.Context) {
 		return
 	}
 
-	var body struct {
-		ClientID   string   `json:"clientId"`
-		ClientUUID string   `json:"clientUuid"`
-		Roles      []string `json:"roles"`
-	}
+	var body userClientRolesRequest
 
 	if err := c.ShouldBindJSON(&body); err != nil || body.ClientID == "" || body.ClientUUID == "" {
 		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "clientId, clientUuid and roles are required")
@@ -742,9 +705,7 @@ func (h *Handler) SetUserEnabled(c *gin.Context) {
 		return
 	}
 
-	var body struct {
-		Enabled bool `json:"enabled"`
-	}
+	var body setUserEnabledRequest
 
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Fail(

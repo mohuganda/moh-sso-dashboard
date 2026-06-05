@@ -183,27 +183,7 @@ func (h *Handler) ListClients(c *gin.Context) {
 
 	clientRoles := c.MustGet("client_roles").(map[string][]string)
 	isAdmin := c.GetBool("is_admin")
-
-	filtered := make([]model.Client, 0)
-
-	for _, client := range clients {
-		if client.Attributes == nil || client.Attributes["ui.icon"] == "" {
-			continue
-		}
-
-		if isAdmin {
-			filtered = append(filtered, client)
-			continue
-		}
-
-		expectedRole := client.ClientID + "_access"
-		for _, r := range clientRoles[client.ClientID] {
-			if r == expectedRole {
-				filtered = append(filtered, client)
-				break
-			}
-		}
-	}
+	filtered := filterAccessibleClients(clients, clientRoles, isAdmin)
 
 	h.audit(c, "client.list", nil)
 	response.OK(c, http.StatusOK, filtered)
@@ -252,9 +232,7 @@ func (h *Handler) ToggleClientEnabled(c *gin.Context) {
 		return
 	}
 
-	var body struct {
-		Enabled bool `json:"enabled"`
-	}
+	var body toggleClientEnabledRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Fail(
 			c,
