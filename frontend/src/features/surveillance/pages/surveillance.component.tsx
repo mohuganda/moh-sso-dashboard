@@ -184,9 +184,6 @@ export default function SurveillanceDashboardPage() {
     : EMPTY_LIST;
   const alerts = Array.isArray(alertsResponse) ? alertsResponse : EMPTY_LIST;
 
-  console.log("districtGeoJson features", districtGeoJson.features.length);
-  console.log("subcountyGeoJson features", subcountyGeoJson.features.length);
-
   useEffect(() => {
     if (!selectedWeekId && weeks.length > 0) {
       setSelectedWeekId(weeks[0].id);

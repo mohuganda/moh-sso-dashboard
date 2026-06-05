@@ -507,9 +507,7 @@ func (s *Service) notify(
 		notification.TargetRole = "admin"
 	}
 
-	if _, err := s.notifications.Notify(ctx, notification); err != nil {
-		fmt.Printf("client notification failed type=%s error=%v\n", notification.Type, err)
-	}
+	_, _ = s.notifications.Notify(ctx, notification)
 }
 
 func (s *Service) attachAdminEmailDelivery(

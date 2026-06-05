@@ -8,6 +8,7 @@ import (
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
 	documenttemplatefeature "github.com/moh-sso-dashboard/internal/features/document_templates"
 	documentfeature "github.com/moh-sso-dashboard/internal/features/documents"
+	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -22,6 +23,7 @@ import (
 
 type services struct {
 	Email                   service.EmailService
+	EmailFeature            *emailfeature.Service
 	SMTP                    worker.EmailSender
 	Notifications           service.NotificationsService
 	Auth                    service.AuthService
@@ -86,6 +88,7 @@ func buildServices(deps serviceDependencies) services {
 	}
 
 	deps.Logger.Info("Email application service initialized")
+	emailFeatureService := emailfeature.NewService(emailService, deps.Repositories.Email)
 
 	publisher := cache.NewNotificationPublisher(deps.CacheClient)
 	notificationsService := service.NewNotificationsService(
@@ -224,6 +227,7 @@ func buildServices(deps serviceDependencies) services {
 
 	return services{
 		Email:                   emailService,
+		EmailFeature:            emailFeatureService,
 		SMTP:                    smtpService,
 		Notifications:           notificationsService,
 		Auth:                    authService,

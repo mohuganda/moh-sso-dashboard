@@ -11,6 +11,7 @@ import {
   InlineLoading,
 } from "@carbon/react";
 import { useMemo, useState, type SyntheticEvent } from "react";
+import { useCreateImportBatchMutation } from "@/store/api/surveillance.api";
 
 type UploadCSVModalProps = {
   onClose: () => void;
@@ -54,7 +55,7 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
   const [file, setFile] = useState<File | null>(null);
   const [surveillanceFileType, setSurveillanceFileType] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [createImportBatch, { isLoading: isUploading }] = useCreateImportBatchMutation();
 
   const isFormValid = useMemo(() => {
     return Boolean(file && surveillanceFileType);
@@ -99,14 +100,13 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
 
     try {
       setError(null);
-      setIsUploading(true);
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("surveillanceFileType", surveillanceFileType);
-
-      // TODO: replace with your actual API mutation/call
-      // await uploadSurveillanceFile(formData).unwrap();
+      await createImportBatch({
+        source_name: file.name,
+        file_name: file.name,
+        dataset_type: surveillanceFileType,
+        status: "pending",
+      }).unwrap();
 
       onClose();
     } catch (err: unknown) {
@@ -118,9 +118,7 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
           ? (err as { data?: { message?: string } }).data?.message
           : "Upload failed. Please try again.";
 
-      setError(message!);
-    } finally {
-      setIsUploading(false);
+      setError(message);
     }
   };
 

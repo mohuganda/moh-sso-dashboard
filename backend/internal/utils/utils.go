@@ -75,8 +75,6 @@ func ProjectRoot() string {
 		log.Fatal(err)
 	}
 
-	log.Printf("Current working directory: %s", wd)
-
 	for {
 		if _, err := os.Stat(filepath.Join(wd, "app.env")); err == nil {
 			return wd

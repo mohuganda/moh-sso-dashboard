@@ -8,19 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/moh-sso-dashboard/internal/http/response"
-	repository "github.com/moh-sso-dashboard/internal/repository/email"
-	"github.com/moh-sso-dashboard/internal/service"
 )
 
 type Handler struct {
-	service service.EmailService
-	repo    repository.EmailRepository
+	service *Service
 }
 
-func NewHandler(service service.EmailService, repo repository.EmailRepository) *Handler {
+func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
-		repo:    repo,
 	}
 }
 
@@ -105,7 +101,7 @@ func (h *Handler) Queue(c *gin.Context) {
 func (h *Handler) List(c *gin.Context) {
 	limit, offset := parsePagination(c)
 
-	items, err := h.repo.List(c.Request.Context(), limit, offset)
+	items, err := h.service.List(c.Request.Context(), limit, offset)
 	if err != nil {
 		response.Fail(
 			c,
@@ -131,7 +127,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	item, err := h.repo.GetByID(c.Request.Context(), id)
+	item, err := h.service.GetByID(c.Request.Context(), id)
 	if err != nil {
 		response.Fail(
 			c,
@@ -159,7 +155,7 @@ func (h *Handler) ListByStatus(c *gin.Context) {
 
 	limit, offset := parsePagination(c)
 
-	items, err := h.repo.ListByStatus(c.Request.Context(), status, limit, offset)
+	items, err := h.service.ListByStatus(c.Request.Context(), status, limit, offset)
 	if err != nil {
 		response.Fail(
 			c,
@@ -185,7 +181,7 @@ func (h *Handler) Retry(c *gin.Context) {
 		return
 	}
 
-	item, err := h.repo.GetByID(c.Request.Context(), id)
+	item, err := h.service.GetByID(c.Request.Context(), id)
 	if err != nil {
 		response.Fail(
 			c,
@@ -226,7 +222,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.repo.DeleteByID(c.Request.Context(), id); err != nil {
+	if err := h.service.Delete(c.Request.Context(), id); err != nil {
 		response.Fail(
 			c,
 			http.StatusInternalServerError,

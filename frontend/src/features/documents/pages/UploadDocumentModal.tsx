@@ -546,9 +546,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
           })),
         };
 
-        const createdTemplate = await createTemplateStructure(payload).unwrap();
-
-        console.log("[UploadDocumentModal] template structure created", createdTemplate);
+        await createTemplateStructure(payload).unwrap();
       } else {
         await createDocument({
           file,

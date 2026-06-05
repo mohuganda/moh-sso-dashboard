@@ -83,7 +83,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 	adminunitsHandler := adminunitsfeature.NewHandler(deps.Config, deps.Databases.DWH)
 	visualiserHandler := visualiserfeature.NewHandler(deps.Config, deps.Databases.DWH)
 	geoJSONHandler := geojsonfeature.NewHandler("./assets/geojson")
-	emailHandler := emailfeature.NewHandler(deps.Services.Email, deps.Repositories.Email)
+	emailHandler := emailfeature.NewHandler(deps.Services.EmailFeature)
 
 	surveillanceHandler := surveillancefeature.NewHandler(
 		deps.Services.EpiWeeks,

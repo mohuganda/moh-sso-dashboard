@@ -124,9 +124,7 @@ func (a *AuditService) notifyForAuditEvent(
 		return
 	}
 
-	if _, err := a.notifications.Notify(ctx, *notification); err != nil {
-		fmt.Printf("audit notification failed action=%s error=%v\n", action, err)
-	}
+	_, _ = a.notifications.Notify(ctx, *notification)
 }
 
 func (a *AuditService) auditNotificationFromAction(
