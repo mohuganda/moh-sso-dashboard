@@ -11,7 +11,7 @@ import (
 	"time"
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
-	documentRepository "github.com/moh-sso-dashboard/internal/repository/document"
+	documentRepository "github.com/moh-sso-dashboard/internal/features/documents"
 	processRepository "github.com/moh-sso-dashboard/internal/repository/processes"
 	"github.com/moh-sso-dashboard/internal/storage"
 )

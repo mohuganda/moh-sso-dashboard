@@ -1,5 +1,10 @@
 package sessions
 
-import sessionrepo "github.com/moh-sso-dashboard/internal/repository/session"
+import "github.com/moh-sso-dashboard/internal/keycloak"
 
-type Repository = sessionrepo.SessionRepository
+type SessionRepository interface {
+	GetUserSessions(userID string) ([]keycloak.Session, error)
+	LogoutSession(sessionID string) error
+}
+
+type Repository = SessionRepository

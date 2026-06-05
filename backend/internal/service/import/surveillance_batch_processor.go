@@ -8,12 +8,12 @@ import (
 	"github.com/google/uuid"
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	"github.com/moh-sso-dashboard/internal/features/surveillance"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 )
 
 type SurveillanceBatchProcessor struct {
-	repo                   interfaces.ImportRepository
+	repo                   surveillance.ImportRepository
 	facilityMetricsService *surveillancefeature.FacilityWeeklyMetricsService
 	alertsService          *surveillancefeature.AlertService
 }
@@ -23,7 +23,7 @@ type SurveillanceBatchProcessPayload struct {
 }
 
 func NewSurveillanceBatchProcessor(
-	repo interfaces.ImportRepository,
+	repo surveillance.ImportRepository,
 	facilityMetricsService *surveillancefeature.FacilityWeeklyMetricsService,
 	alertsService *surveillancefeature.AlertService,
 ) *SurveillanceBatchProcessor {
