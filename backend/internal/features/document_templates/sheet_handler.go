@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/service"
 )
 
 var (
@@ -19,14 +18,14 @@ var (
  * Handler
  * ========================================================= */
 type SheetHandler struct {
-	service service.DocumentTemplateSheetService
+	service SheetService
 }
 
 /* =========================================================
  * Constructor
  * ========================================================= */
 func NewSheetHandler(
-	service service.DocumentTemplateSheetService,
+	service SheetService,
 ) *SheetHandler {
 
 	return &SheetHandler{

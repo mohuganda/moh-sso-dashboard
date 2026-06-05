@@ -8,15 +8,14 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/service"
 )
 
 type ColumnHandler struct {
-	service service.DocumentTemplateColumnService
+	service ColumnService
 }
 
 func NewColumnHandler(
-	columnService service.DocumentTemplateColumnService,
+	columnService ColumnService,
 ) *ColumnHandler {
 
 	return &ColumnHandler{

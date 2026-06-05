@@ -4,15 +4,14 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/moh-sso-dashboard/internal/service"
 )
 
 type Handler struct {
-	sessionService service.SessionService
+	sessionService Service
 }
 
 func NewHandler(
-	sessionService service.SessionService,
+	sessionService Service,
 ) *Handler {
 	return &Handler{
 		sessionService: sessionService,

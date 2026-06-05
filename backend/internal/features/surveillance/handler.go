@@ -10,27 +10,26 @@ import (
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
-	"github.com/moh-sso-dashboard/internal/service"
 )
 
 type Handler struct {
-	epiWeekService               *service.SurveillanceEpiWeekService
-	diseaseService               *service.SurveillanceDiseaseService
-	locationService              *service.SurveillanceLocationService
-	facilityWeeklyMetricsService *service.SurveillanceFacilityWeeklyMetricsService
-	weeklyStatusService          *service.SurveillanceWeeklyStatusService
-	alertService                 *service.SurveillanceAlertService
-	importService                *service.SurveillanceImportService
+	epiWeekService               *EpiWeekService
+	diseaseService               *DiseaseService
+	locationService              *LocationService
+	facilityWeeklyMetricsService *FacilityWeeklyMetricsService
+	weeklyStatusService          *WeeklyStatusService
+	alertService                 *AlertService
+	importService                *ImportService
 }
 
 func NewHandler(
-	epiWeekService *service.SurveillanceEpiWeekService,
-	diseaseService *service.SurveillanceDiseaseService,
-	locationService *service.SurveillanceLocationService,
-	facilityWeeklyMetricsService *service.SurveillanceFacilityWeeklyMetricsService,
-	weeklyStatusService *service.SurveillanceWeeklyStatusService,
-	alertService *service.SurveillanceAlertService,
-	importService *service.SurveillanceImportService,
+	epiWeekService *EpiWeekService,
+	diseaseService *DiseaseService,
+	locationService *LocationService,
+	facilityWeeklyMetricsService *FacilityWeeklyMetricsService,
+	weeklyStatusService *WeeklyStatusService,
+	alertService *AlertService,
+	importService *ImportService,
 
 ) *Handler {
 	return &Handler{

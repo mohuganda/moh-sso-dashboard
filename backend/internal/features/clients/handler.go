@@ -12,19 +12,19 @@ import (
 	"github.com/moh-sso-dashboard/internal/http/apierror"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/service"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
 type Handler struct {
-	service      *service.ClientService
-	auditService *service.AuditService
+	service      *Service
+	auditService *sharedservice.AuditService
 	cache        *cache.RedisCache
 }
 
 func NewHandler(
-	s *service.ClientService,
-	audit *service.AuditService,
+	s *Service,
+	audit *sharedservice.AuditService,
 	cache *cache.RedisCache,
 ) *Handler {
 	return &Handler{
@@ -40,7 +40,7 @@ func NewHandler(
 func (h *Handler) CreateClient(c *gin.Context) {
 	userID, _ := uuid.Parse(c.GetString("user_id"))
 
-	var req service.CreateClientRequest
+	var req CreateClientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.audit(c, "client.create_failed", map[string]any{
 			"reason": "invalid_body",

@@ -13,19 +13,19 @@ import (
 	"github.com/moh-sso-dashboard/internal/http/apierror"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	models "github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/service"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
 type Handler struct {
-	service      *service.UserService
-	auditService *service.AuditService
+	service      *Service
+	auditService *sharedservice.AuditService
 	cache        *cache.RedisCache
 }
 
 func NewHandler(
-	s *service.UserService,
-	audit *service.AuditService,
+	s *Service,
+	audit *sharedservice.AuditService,
 	cache *cache.RedisCache,
 ) *Handler {
 	return &Handler{
@@ -40,7 +40,7 @@ func NewHandler(
  * ========================================================= */
 
 func (h *Handler) CreateUser(c *gin.Context) {
-	var req service.CreateUserRequest
+	var req CreateUserRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.audit(c, "user.create_failed", map[string]interface{}{
@@ -234,7 +234,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	var req service.UpdateUserRequest
+	var req UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.audit(c, "user.update_failed", map[string]interface{}{
 			"user_id": userID.String(),

@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/http/response"
-	"github.com/moh-sso-dashboard/internal/service"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 )
 
 var (
@@ -17,13 +17,13 @@ var (
 )
 
 type Handler struct {
-	storageLocationService service.StorageLocationService
-	auditService           *service.AuditService
+	storageLocationService Service
+	auditService           *sharedservice.AuditService
 }
 
 func NewHandler(
-	storageLocationService service.StorageLocationService,
-	auditService *service.AuditService,
+	storageLocationService Service,
+	auditService *sharedservice.AuditService,
 ) *Handler {
 	return &Handler{
 		storageLocationService: storageLocationService,
@@ -45,7 +45,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	loc, err := h.storageLocationService.Create(c.Request.Context(), service.CreateStorageLocationInput{
+	loc, err := h.storageLocationService.Create(c.Request.Context(), CreateStorageLocationInput{
 		Code:     req.Code,
 		Name:     req.Name,
 		Provider: req.Provider,
@@ -95,7 +95,7 @@ func (h *Handler) ListActive(c *gin.Context) {
 func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 
-	var req service.UpdateStorageLocationInput
+	var req UpdateStorageLocationInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
 		return

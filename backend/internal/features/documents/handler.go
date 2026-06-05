@@ -16,22 +16,22 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/service"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type Handler struct {
-	documentService        *service.DocumentService
-	auditService           *service.AuditService
-	storageLocationService service.StorageLocationService
+	documentService        *Service
+	auditService           *sharedservice.AuditService
+	storageLocationService sharedservice.StorageLocationService
 	storage                storage.Storage
 	storageFactory         *storage.StorageFactory
 }
 
 func NewHandler(
-	documentService *service.DocumentService,
-	auditService *service.AuditService,
-	storageLocationService service.StorageLocationService,
+	documentService *Service,
+	auditService *sharedservice.AuditService,
+	storageLocationService sharedservice.StorageLocationService,
 	storage storage.Storage,
 	storageFactory *storage.StorageFactory,
 ) *Handler {
@@ -276,7 +276,7 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 
 	log.Printf("[CreateDocument] final metadata=%v", metadata)
 
-	input := service.CreateDocumentInput{
+	input := CreateDocumentInput{
 		OriginalFilename: header.Filename,
 		ContentType:      contentType,
 		SizeBytes:        header.Size,
@@ -383,7 +383,7 @@ func (h *Handler) EditDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.documentService.EditDocument(ctx, service.EditDocumentInput{
+	doc, err := h.documentService.EditDocument(ctx, EditDocumentInput{
 		ID:               id,
 		OriginalFilename: *req.OriginalFilename,
 		ContentType:      *req.ContentType,

@@ -10,19 +10,18 @@ import (
 	"github.com/moh-sso-dashboard/internal/http/apierror"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/service"
 )
 
 type Handler struct {
-	service       service.DocumentTemplateService
-	sheetService  service.DocumentTemplateSheetService
-	columnService service.DocumentTemplateColumnService
+	service       Service
+	sheetService  SheetService
+	columnService ColumnService
 }
 
 func NewHandler(
-	service service.DocumentTemplateService,
-	sheetService service.DocumentTemplateSheetService,
-	columnService service.DocumentTemplateColumnService,
+	service Service,
+	sheetService SheetService,
+	columnService ColumnService,
 ) *Handler {
 
 	return &Handler{

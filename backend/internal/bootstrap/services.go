@@ -4,6 +4,14 @@ import (
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
+	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
+	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
+	documenttemplatefeature "github.com/moh-sso-dashboard/internal/features/document_templates"
+	documentfeature "github.com/moh-sso-dashboard/internal/features/documents"
+	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
+	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
+	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
+	userfeature "github.com/moh-sso-dashboard/internal/features/users"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/service"
 	importsvc "github.com/moh-sso-dashboard/internal/service/import"
@@ -19,23 +27,23 @@ type services struct {
 	Auth                    service.AuthService
 	Metrics                 *service.MetricsService
 	Audit                   *service.AuditService
-	StorageLocations        service.StorageLocationService
-	Sessions                service.SessionService
-	Documents               *service.DocumentService
-	Clients                 *service.ClientService
-	Users                   *service.UserService
-	Announcements           *service.AnnouncementService
-	Diseases                *service.SurveillanceDiseaseService
-	EpiWeeks                *service.SurveillanceEpiWeekService
-	Locations               *service.SurveillanceLocationService
-	Facilities              *service.SurveillanceFacilityService
-	FacilityWeeklyMetrics   *service.SurveillanceFacilityWeeklyMetricsService
-	WeeklyStatus            *service.SurveillanceWeeklyStatusService
-	SurveillanceImport      *service.SurveillanceImportService
-	Alerts                  *service.SurveillanceAlertService
-	DocumentTemplates       service.DocumentTemplateService
-	DocumentTemplateSheets  service.DocumentTemplateSheetService
-	DocumentTemplateColumns service.DocumentTemplateColumnService
+	StorageLocations        storagelocationfeature.Service
+	Sessions                sessionfeature.Service
+	Documents               *documentfeature.Service
+	Clients                 *clientfeature.Service
+	Users                   *userfeature.Service
+	Announcements           *announcementfeature.Service
+	Diseases                *surveillancefeature.DiseaseService
+	EpiWeeks                *surveillancefeature.EpiWeekService
+	Locations               *surveillancefeature.LocationService
+	Facilities              *surveillancefeature.FacilityService
+	FacilityWeeklyMetrics   *surveillancefeature.FacilityWeeklyMetricsService
+	WeeklyStatus            *surveillancefeature.WeeklyStatusService
+	SurveillanceImport      *surveillancefeature.ImportService
+	Alerts                  *surveillancefeature.AlertService
+	DocumentTemplates       documenttemplatefeature.Service
+	DocumentTemplateSheets  documenttemplatefeature.SheetService
+	DocumentTemplateColumns documenttemplatefeature.ColumnService
 	Import                  *importsvc.Service
 }
 

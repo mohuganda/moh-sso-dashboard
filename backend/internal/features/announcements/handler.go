@@ -13,18 +13,18 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/service"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
 type Handler struct {
-	announcementService *service.AnnouncementService
-	auditService        *service.AuditService
+	announcementService *Service
+	auditService        *sharedservice.AuditService
 }
 
 func NewHandler(
-	announcementService *service.AnnouncementService,
-	auditService *service.AuditService,
+	announcementService *Service,
+	auditService *sharedservice.AuditService,
 ) *Handler {
 	return &Handler{
 		announcementService: announcementService,
