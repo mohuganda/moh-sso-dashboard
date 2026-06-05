@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 )
 
 type facilityWeeklyMetricsPayload struct {
@@ -42,25 +41,25 @@ type rawFacilityWeeklyMetricsPayload struct {
 	EpiWeek   json.RawMessage `json:"epi_week"`
 }
 
-type SurveillanceFacilityWeeklyMetricsService struct {
+type FacilityWeeklyMetricsService struct {
 	log                       *logger.Logger
-	facilityWeeklyMetricsRepo interfaces.FacilityWeeklyMetricsRepository
-	surveillanceImportRepo    interfaces.ImportRepository
+	facilityWeeklyMetricsRepo FacilityWeeklyMetricsRepository
+	surveillanceImportRepo    ImportRepository
 }
 
-func NewSurveillanceFacilityWeeklyMetricsService(
+func NewFacilityWeeklyMetricsService(
 	log *logger.Logger,
-	facilityWeeklyMetricsRepo interfaces.FacilityWeeklyMetricsRepository,
-	surveillanceImportRepo interfaces.ImportRepository,
-) *SurveillanceFacilityWeeklyMetricsService {
-	return &SurveillanceFacilityWeeklyMetricsService{
+	facilityWeeklyMetricsRepo FacilityWeeklyMetricsRepository,
+	surveillanceImportRepo ImportRepository,
+) *FacilityWeeklyMetricsService {
+	return &FacilityWeeklyMetricsService{
 		log:                       log,
 		facilityWeeklyMetricsRepo: facilityWeeklyMetricsRepo,
 		surveillanceImportRepo:    surveillanceImportRepo,
 	}
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyMetricsByWeek(
+func (s *FacilityWeeklyMetricsService) ListFacilityWeeklyMetricsByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekRow, error) {
@@ -79,7 +78,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyMetricsByWe
 	return items, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyMetricsByFacility(
+func (s *FacilityWeeklyMetricsService) ListFacilityWeeklyMetricsByFacility(
 	ctx context.Context,
 	facilityID uuid.UUID,
 ) ([]db.ListFacilityMetricsByFacilityRow, error) {
@@ -98,7 +97,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyMetricsByFa
 	return items, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) UpsertFacilityWeeklyIndicatorMetric(
+func (s *FacilityWeeklyMetricsService) UpsertFacilityWeeklyIndicatorMetric(
 	ctx context.Context,
 	arg db.UpsertFacilityWeeklyIndicatorMetricParams,
 ) (db.FacilityWeeklyMetric, error) {
@@ -113,7 +112,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) UpsertFacilityWeeklyIndicator
 	return item, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) GetFacilityMetricBySourceRecordID(
+func (s *FacilityWeeklyMetricsService) GetFacilityMetricBySourceRecordID(
 	ctx context.Context,
 	sourceRecordID string,
 ) (db.FacilityWeeklyMetric, error) {
@@ -128,7 +127,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) GetFacilityMetricBySourceReco
 	return item, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyDiseaseMetricsByWeek(
+func (s *FacilityWeeklyMetricsService) ListFacilityWeeklyDiseaseMetricsByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekRow, error) {
@@ -147,7 +146,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyDiseaseMetr
 	return items, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyIndicatorMetricsByWeek(
+func (s *FacilityWeeklyMetricsService) ListFacilityWeeklyIndicatorMetricsByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.ListFacilityWeeklyIndicatorMetricsByWeekRow, error) {
@@ -166,7 +165,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityWeeklyIndicatorMe
 	return items, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityDiseaseMetricsTrend(
+func (s *FacilityWeeklyMetricsService) ListFacilityDiseaseMetricsTrend(
 	ctx context.Context,
 	facilityID, diseaseID uuid.UUID,
 ) ([]db.ListFacilityDiseaseMetricsTrendRow, error) {
@@ -202,7 +201,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityDiseaseMetricsTre
 	return rows, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityIndicatorMetricsTrend(
+func (s *FacilityWeeklyMetricsService) ListFacilityIndicatorMetricsTrend(
 	ctx context.Context,
 	facilityID, indicatorID uuid.UUID,
 ) ([]db.ListFacilityIndicatorMetricsTrendRow, error) {
@@ -238,7 +237,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityIndicatorMetricsT
 	return rows, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityDiseaseMetricsByWeekAndDisease(
+func (s *FacilityWeeklyMetricsService) ListFacilityDiseaseMetricsByWeekAndDisease(
 	ctx context.Context,
 	epiWeekID, diseaseID uuid.UUID,
 ) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow, error) {
@@ -277,7 +276,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityDiseaseMetricsByW
 	return rows, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListDiseaseWeeklyTrendAggregated(
+func (s *FacilityWeeklyMetricsService) ListDiseaseWeeklyTrendAggregated(
 	ctx context.Context,
 	epiYear int32,
 	diseaseID uuid.UUID,
@@ -338,7 +337,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListDiseaseWeeklyTrendAggrega
 	return rows, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) UpsertFacilityWeeklyDiseaseMetric(
+func (s *FacilityWeeklyMetricsService) UpsertFacilityWeeklyDiseaseMetric(
 	ctx context.Context,
 	arg db.UpsertFacilityWeeklyDiseaseMetricParams,
 ) (db.FacilityWeeklyMetric, error) {
@@ -353,7 +352,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) UpsertFacilityWeeklyDiseaseMe
 	return item, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityMetricsByFacility(
+func (s *FacilityWeeklyMetricsService) ListFacilityMetricsByFacility(
 	ctx context.Context,
 	facilityID uuid.UUID,
 ) ([]db.ListFacilityMetricsByFacilityRow, error) {
@@ -372,7 +371,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ListFacilityMetricsByFacility
 	return items, nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) ProcessFacilityMetrics(
+func (s *FacilityWeeklyMetricsService) ProcessFacilityMetrics(
 	ctx context.Context,
 	batchID uuid.UUID,
 ) error {
@@ -423,7 +422,7 @@ func (s *SurveillanceFacilityWeeklyMetricsService) ProcessFacilityMetrics(
 	return nil
 }
 
-func (s *SurveillanceFacilityWeeklyMetricsService) processFacilityMetricRow(
+func (s *FacilityWeeklyMetricsService) processFacilityMetricRow(
 	ctx context.Context,
 	q db.Querier,
 	raw db.SurveillanceImportRawRow,

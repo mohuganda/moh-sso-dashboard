@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -6,25 +6,24 @@ import (
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 )
 
-type SurveillanceDashboardService struct {
+type DashboardService struct {
 	log           *logger.Logger
-	dashboardRepo interfaces.DashboardRepository
+	dashboardRepo DashboardRepository
 }
 
-func NewSurveillanceDashboardService(
+func NewDashboardService(
 	log *logger.Logger,
-	dashboardRepo interfaces.DashboardRepository,
-) *SurveillanceDashboardService {
-	return &SurveillanceDashboardService{
+	dashboardRepo DashboardRepository,
+) *DashboardService {
+	return &DashboardService{
 		log:           log,
 		dashboardRepo: dashboardRepo,
 	}
 }
 
-func (s *SurveillanceDashboardService) GetNationalWeeklyStatusSummary(ctx context.Context, epiWeekID uuid.UUID) ([]db.GetNationalWeeklyStatusSummaryRow, error) {
+func (s *DashboardService) GetNationalWeeklyStatusSummary(ctx context.Context, epiWeekID uuid.UUID) ([]db.GetNationalWeeklyStatusSummaryRow, error) {
 	s.log.Debug(ctx, "getting national weekly status summary")
 
 	items, err := s.dashboardRepo.GetNationalWeeklyStatusSummary(ctx, epiWeekID)
@@ -36,7 +35,7 @@ func (s *SurveillanceDashboardService) GetNationalWeeklyStatusSummary(ctx contex
 	return items, nil
 }
 
-func (s *SurveillanceDashboardService) GetDiseaseDashboardSummaryByWeek(ctx context.Context, arg db.GetDiseaseDashboardSummaryByWeekParams) (db.GetDiseaseDashboardSummaryByWeekRow, error) {
+func (s *DashboardService) GetDiseaseDashboardSummaryByWeek(ctx context.Context, arg db.GetDiseaseDashboardSummaryByWeekParams) (db.GetDiseaseDashboardSummaryByWeekRow, error) {
 	s.log.Debug(ctx, "getting disease dashboard summary by week")
 
 	item, err := s.dashboardRepo.GetDiseaseDashboardSummaryByWeek(ctx, arg)
@@ -48,7 +47,7 @@ func (s *SurveillanceDashboardService) GetDiseaseDashboardSummaryByWeek(ctx cont
 	return item, nil
 }
 
-func (s *SurveillanceDashboardService) GetIndicatorDashboardSummaryByWeek(ctx context.Context, arg db.GetIndicatorDashboardSummaryByWeekParams) (db.GetIndicatorDashboardSummaryByWeekRow, error) {
+func (s *DashboardService) GetIndicatorDashboardSummaryByWeek(ctx context.Context, arg db.GetIndicatorDashboardSummaryByWeekParams) (db.GetIndicatorDashboardSummaryByWeekRow, error) {
 	s.log.Debug(ctx, "getting indicator dashboard summary by week")
 
 	item, err := s.dashboardRepo.GetIndicatorDashboardSummaryByWeek(ctx, arg)
@@ -60,7 +59,7 @@ func (s *SurveillanceDashboardService) GetIndicatorDashboardSummaryByWeek(ctx co
 	return item, nil
 }
 
-func (s *SurveillanceDashboardService) GetTopFacilitiesByDiseaseAndWeek(ctx context.Context, arg db.GetTopFacilitiesByDiseaseAndWeekParams) ([]db.GetTopFacilitiesByDiseaseAndWeekRow, error) {
+func (s *DashboardService) GetTopFacilitiesByDiseaseAndWeek(ctx context.Context, arg db.GetTopFacilitiesByDiseaseAndWeekParams) ([]db.GetTopFacilitiesByDiseaseAndWeekRow, error) {
 	s.log.Debug(ctx, "getting top facilities by disease and week")
 
 	items, err := s.dashboardRepo.GetTopFacilitiesByDiseaseAndWeek(ctx, arg)
@@ -72,7 +71,7 @@ func (s *SurveillanceDashboardService) GetTopFacilitiesByDiseaseAndWeek(ctx cont
 	return items, nil
 }
 
-func (s *SurveillanceDashboardService) GetTopFacilitiesByIndicatorAndWeek(ctx context.Context, arg db.GetTopFacilitiesByIndicatorAndWeekParams) ([]db.GetTopFacilitiesByIndicatorAndWeekRow, error) {
+func (s *DashboardService) GetTopFacilitiesByIndicatorAndWeek(ctx context.Context, arg db.GetTopFacilitiesByIndicatorAndWeekParams) ([]db.GetTopFacilitiesByIndicatorAndWeekRow, error) {
 	s.log.Debug(ctx, "getting top facilities by indicator and week")
 
 	items, err := s.dashboardRepo.GetTopFacilitiesByIndicatorAndWeek(ctx, arg)

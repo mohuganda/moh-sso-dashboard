@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -11,34 +11,34 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
-type SurveillanceFacilityService struct {
+type FacilityService struct {
 	log           *logger.Logger
-	facilityRepo  interfaces.FacilityRepository
-	notifications NotificationsService
+	facilityRepo  FacilityRepository
+	notifications sharedservice.NotificationsService
 }
 
-func NewSurveillanceFacilityService(
+func NewFacilityService(
 	log *logger.Logger,
-	facilityRepo interfaces.FacilityRepository,
-	notifications ...NotificationsService,
-) *SurveillanceFacilityService {
-	var notificationSvc NotificationsService
+	facilityRepo FacilityRepository,
+	notifications ...sharedservice.NotificationsService,
+) *FacilityService {
+	var notificationSvc sharedservice.NotificationsService
 	if len(notifications) > 0 {
 		notificationSvc = notifications[0]
 	}
 
-	return &SurveillanceFacilityService{
+	return &FacilityService{
 		log:           log,
 		facilityRepo:  facilityRepo,
 		notifications: notificationSvc,
 	}
 }
 
-func (s *SurveillanceFacilityService) ListFacilities(
+func (s *FacilityService) ListFacilities(
 	ctx context.Context,
 ) ([]db.ListFacilitiesRow, error) {
 	if s == nil {
@@ -65,7 +65,7 @@ func (s *SurveillanceFacilityService) ListFacilities(
 	return items, nil
 }
 
-func (s *SurveillanceFacilityService) ListFacilitiesByDistrict(
+func (s *FacilityService) ListFacilitiesByDistrict(
 	ctx context.Context,
 	districtID uuid.UUID,
 ) ([]db.Facility, error) {
@@ -97,7 +97,7 @@ func (s *SurveillanceFacilityService) ListFacilitiesByDistrict(
 	return items, nil
 }
 
-func (s *SurveillanceFacilityService) GetFacilityByID(
+func (s *FacilityService) GetFacilityByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.Facility, error) {
@@ -129,7 +129,7 @@ func (s *SurveillanceFacilityService) GetFacilityByID(
 	return item, nil
 }
 
-func (s *SurveillanceFacilityService) GetFacilityByExternalID(
+func (s *FacilityService) GetFacilityByExternalID(
 	ctx context.Context,
 	externalID string,
 ) (db.Facility, error) {
@@ -162,7 +162,7 @@ func (s *SurveillanceFacilityService) GetFacilityByExternalID(
 	return item, nil
 }
 
-func (s *SurveillanceFacilityService) UpsertFacilityByExternalID(
+func (s *FacilityService) UpsertFacilityByExternalID(
 	ctx context.Context,
 	arg db.UpsertFacilityByExternalIDParams,
 ) (db.Facility, error) {
@@ -213,7 +213,7 @@ func (s *SurveillanceFacilityService) UpsertFacilityByExternalID(
 	return item, nil
 }
 
-func (s *SurveillanceFacilityService) UpsertFacilityByNameDistrict(
+func (s *FacilityService) UpsertFacilityByNameDistrict(
 	ctx context.Context,
 	arg db.UpsertFacilityByNameDistrictParams,
 ) (db.Facility, error) {
@@ -265,7 +265,7 @@ func (s *SurveillanceFacilityService) UpsertFacilityByNameDistrict(
 	return item, nil
 }
 
-func (s *SurveillanceFacilityService) notify(
+func (s *FacilityService) notify(
 	ctx context.Context,
 	notification model.Notification,
 ) {

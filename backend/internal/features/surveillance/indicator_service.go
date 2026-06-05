@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -6,25 +6,24 @@ import (
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 )
 
-type SurveillanceIndicatorService struct {
+type IndicatorService struct {
 	log           *logger.Logger
-	indicatorRepo interfaces.IndicatorRepository
+	indicatorRepo IndicatorRepository
 }
 
-func NewSurveillanceIndicatorService(
+func NewIndicatorService(
 	log *logger.Logger,
-	indicatorRepo interfaces.IndicatorRepository,
-) *SurveillanceIndicatorService {
-	return &SurveillanceIndicatorService{
+	indicatorRepo IndicatorRepository,
+) *IndicatorService {
+	return &IndicatorService{
 		log:           log,
 		indicatorRepo: indicatorRepo,
 	}
 }
 
-func (s *SurveillanceIndicatorService) ListIndicators(ctx context.Context) ([]db.Indicator, error) {
+func (s *IndicatorService) ListIndicators(ctx context.Context) ([]db.Indicator, error) {
 	s.log.Debug(ctx, "listing indicators")
 
 	items, err := s.indicatorRepo.List(ctx)
@@ -36,7 +35,7 @@ func (s *SurveillanceIndicatorService) ListIndicators(ctx context.Context) ([]db
 	return items, nil
 }
 
-func (s *SurveillanceIndicatorService) ListActiveIndicators(ctx context.Context) ([]db.Indicator, error) {
+func (s *IndicatorService) ListActiveIndicators(ctx context.Context) ([]db.Indicator, error) {
 	s.log.Debug(ctx, "listing active indicators")
 
 	items, err := s.indicatorRepo.ListActive(ctx)
@@ -48,7 +47,7 @@ func (s *SurveillanceIndicatorService) ListActiveIndicators(ctx context.Context)
 	return items, nil
 }
 
-func (s *SurveillanceIndicatorService) GetIndicatorByID(ctx context.Context, id uuid.UUID) (db.Indicator, error) {
+func (s *IndicatorService) GetIndicatorByID(ctx context.Context, id uuid.UUID) (db.Indicator, error) {
 	s.log.Debug(ctx, "getting indicator by id", "indicator_id", id)
 
 	item, err := s.indicatorRepo.GetByID(ctx, id)
@@ -60,7 +59,7 @@ func (s *SurveillanceIndicatorService) GetIndicatorByID(ctx context.Context, id 
 	return item, nil
 }
 
-func (s *SurveillanceIndicatorService) GetIndicatorByName(ctx context.Context, name string) (db.Indicator, error) {
+func (s *IndicatorService) GetIndicatorByName(ctx context.Context, name string) (db.Indicator, error) {
 	s.log.Debug(ctx, "getting indicator by name", "name", name)
 
 	item, err := s.indicatorRepo.GetByName(ctx, name)
@@ -72,7 +71,7 @@ func (s *SurveillanceIndicatorService) GetIndicatorByName(ctx context.Context, n
 	return item, nil
 }
 
-func (s *SurveillanceIndicatorService) CreateIndicator(ctx context.Context, arg db.CreateIndicatorParams) (db.Indicator, error) {
+func (s *IndicatorService) CreateIndicator(ctx context.Context, arg db.CreateIndicatorParams) (db.Indicator, error) {
 	s.log.Info(ctx, "creating indicator", "name", arg.Name)
 
 	item, err := s.indicatorRepo.Create(ctx, arg)
@@ -84,7 +83,7 @@ func (s *SurveillanceIndicatorService) CreateIndicator(ctx context.Context, arg 
 	return item, nil
 }
 
-func (s *SurveillanceIndicatorService) UpsertIndicator(ctx context.Context, arg db.UpsertIndicatorParams) (db.Indicator, error) {
+func (s *IndicatorService) UpsertIndicator(ctx context.Context, arg db.UpsertIndicatorParams) (db.Indicator, error) {
 	s.log.Info(ctx, "upserting indicator", "name", arg.Name)
 
 	item, err := s.indicatorRepo.Upsert(ctx, arg)
@@ -96,7 +95,7 @@ func (s *SurveillanceIndicatorService) UpsertIndicator(ctx context.Context, arg 
 	return item, nil
 }
 
-func (s *SurveillanceIndicatorService) SetIndicatorActiveState(ctx context.Context, arg db.SetIndicatorActiveStateParams) (db.Indicator, error) {
+func (s *IndicatorService) SetIndicatorActiveState(ctx context.Context, arg db.SetIndicatorActiveStateParams) (db.Indicator, error) {
 	s.log.Info(ctx, "setting indicator active state", "indicator_id", arg.ID)
 
 	item, err := s.indicatorRepo.SetActiveState(ctx, arg)
@@ -108,7 +107,7 @@ func (s *SurveillanceIndicatorService) SetIndicatorActiveState(ctx context.Conte
 	return item, nil
 }
 
-func (s *SurveillanceIndicatorService) DeleteIndicator(ctx context.Context, id uuid.UUID) error {
+func (s *IndicatorService) DeleteIndicator(ctx context.Context, id uuid.UUID) error {
 	s.log.Info(ctx, "deleting indicator", "indicator_id", id)
 
 	if err := s.indicatorRepo.Delete(ctx, id); err != nil {

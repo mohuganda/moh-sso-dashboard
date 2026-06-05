@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -10,34 +10,34 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
-type SurveillanceEpiWeekService struct {
+type EpiWeekService struct {
 	log           *logger.Logger
-	epiWeekRepo   interfaces.EpiWeekRepository
-	notifications NotificationsService
+	epiWeekRepo   EpiWeekRepository
+	notifications sharedservice.NotificationsService
 }
 
-func NewSurveillanceEpiWeekService(
+func NewEpiWeekService(
 	log *logger.Logger,
-	epiWeekRepo interfaces.EpiWeekRepository,
-	notifications ...NotificationsService,
-) *SurveillanceEpiWeekService {
-	var notificationSvc NotificationsService
+	epiWeekRepo EpiWeekRepository,
+	notifications ...sharedservice.NotificationsService,
+) *EpiWeekService {
+	var notificationSvc sharedservice.NotificationsService
 	if len(notifications) > 0 {
 		notificationSvc = notifications[0]
 	}
 
-	return &SurveillanceEpiWeekService{
+	return &EpiWeekService{
 		log:           log,
 		epiWeekRepo:   epiWeekRepo,
 		notifications: notificationSvc,
 	}
 }
 
-func (s *SurveillanceEpiWeekService) GetEpiWeekByID(
+func (s *EpiWeekService) GetEpiWeekByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.EpiWeek, error) {
@@ -69,7 +69,7 @@ func (s *SurveillanceEpiWeekService) GetEpiWeekByID(
 	return item, nil
 }
 
-func (s *SurveillanceEpiWeekService) GetEpiWeekByYearWeek(
+func (s *EpiWeekService) GetEpiWeekByYearWeek(
 	ctx context.Context,
 	arg db.GetEpiWeekByYearWeekParams,
 ) (db.EpiWeek, error) {
@@ -105,7 +105,7 @@ func (s *SurveillanceEpiWeekService) GetEpiWeekByYearWeek(
 	return item, nil
 }
 
-func (s *SurveillanceEpiWeekService) ListEpiWeeksByYear(
+func (s *EpiWeekService) ListEpiWeeksByYear(
 	ctx context.Context,
 	year int32,
 ) ([]db.EpiWeek, error) {
@@ -137,7 +137,7 @@ func (s *SurveillanceEpiWeekService) ListEpiWeeksByYear(
 	return items, nil
 }
 
-func (s *SurveillanceEpiWeekService) UpsertEpiWeek(
+func (s *EpiWeekService) UpsertEpiWeek(
 	ctx context.Context,
 	arg db.UpsertEpiWeekParams,
 ) (db.EpiWeek, error) {
@@ -192,7 +192,7 @@ func (s *SurveillanceEpiWeekService) UpsertEpiWeek(
 	return item, nil
 }
 
-func (s *SurveillanceEpiWeekService) notify(
+func (s *EpiWeekService) notify(
 	ctx context.Context,
 	notification model.Notification,
 ) {

@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -12,29 +12,29 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
-type SurveillanceDiseaseService struct {
+type DiseaseService struct {
 	log           *logger.Logger
-	diseaseRepo   interfaces.DiseaseRepository
-	notifications NotificationsService
+	diseaseRepo   DiseaseRepository
+	notifications sharedservice.NotificationsService
 	cfg           *config.Config
 }
 
-func NewSurveillanceDiseaseService(
+func NewDiseaseService(
 	log *logger.Logger,
-	diseaseRepo interfaces.DiseaseRepository,
-	notifications NotificationsService,
+	diseaseRepo DiseaseRepository,
+	notifications sharedservice.NotificationsService,
 	cfg ...*config.Config,
-) *SurveillanceDiseaseService {
+) *DiseaseService {
 	var appConfig *config.Config
 	if len(cfg) > 0 {
 		appConfig = cfg[0]
 	}
 
-	return &SurveillanceDiseaseService{
+	return &DiseaseService{
 		log:           log,
 		diseaseRepo:   diseaseRepo,
 		notifications: notifications,
@@ -42,7 +42,7 @@ func NewSurveillanceDiseaseService(
 	}
 }
 
-func (s *SurveillanceDiseaseService) ListDiseases(ctx context.Context) ([]db.Disease, error) {
+func (s *DiseaseService) ListDiseases(ctx context.Context) ([]db.Disease, error) {
 	if s == nil {
 		return nil, errors.New("surveillance disease service is nil")
 	}
@@ -67,7 +67,7 @@ func (s *SurveillanceDiseaseService) ListDiseases(ctx context.Context) ([]db.Dis
 	return items, nil
 }
 
-func (s *SurveillanceDiseaseService) ListActiveDiseases(ctx context.Context) ([]db.Disease, error) {
+func (s *DiseaseService) ListActiveDiseases(ctx context.Context) ([]db.Disease, error) {
 	if s == nil {
 		return nil, errors.New("surveillance disease service is nil")
 	}
@@ -92,7 +92,7 @@ func (s *SurveillanceDiseaseService) ListActiveDiseases(ctx context.Context) ([]
 	return items, nil
 }
 
-func (s *SurveillanceDiseaseService) GetDiseaseByID(
+func (s *DiseaseService) GetDiseaseByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.Disease, error) {
@@ -124,7 +124,7 @@ func (s *SurveillanceDiseaseService) GetDiseaseByID(
 	return item, nil
 }
 
-func (s *SurveillanceDiseaseService) GetDiseaseByName(
+func (s *DiseaseService) GetDiseaseByName(
 	ctx context.Context,
 	name string,
 ) (db.Disease, error) {
@@ -157,7 +157,7 @@ func (s *SurveillanceDiseaseService) GetDiseaseByName(
 	return item, nil
 }
 
-func (s *SurveillanceDiseaseService) CreateDisease(
+func (s *DiseaseService) CreateDisease(
 	ctx context.Context,
 	arg db.CreateDiseaseParams,
 ) (db.Disease, error) {
@@ -206,7 +206,7 @@ func (s *SurveillanceDiseaseService) CreateDisease(
 	return item, nil
 }
 
-func (s *SurveillanceDiseaseService) UpsertDisease(
+func (s *DiseaseService) UpsertDisease(
 	ctx context.Context,
 	arg db.UpsertDiseaseParams,
 ) (db.Disease, error) {
@@ -255,7 +255,7 @@ func (s *SurveillanceDiseaseService) UpsertDisease(
 	return item, nil
 }
 
-func (s *SurveillanceDiseaseService) SetDiseaseActiveState(
+func (s *DiseaseService) SetDiseaseActiveState(
 	ctx context.Context,
 	arg db.SetDiseaseActiveStateParams,
 ) (db.Disease, error) {
@@ -342,7 +342,7 @@ func (s *SurveillanceDiseaseService) SetDiseaseActiveState(
 	return item, nil
 }
 
-func (s *SurveillanceDiseaseService) DeleteDisease(ctx context.Context, id uuid.UUID) error {
+func (s *DiseaseService) DeleteDisease(ctx context.Context, id uuid.UUID) error {
 	if s == nil {
 		return errors.New("surveillance disease service is nil")
 	}
@@ -414,7 +414,7 @@ func (s *SurveillanceDiseaseService) DeleteDisease(ctx context.Context, id uuid.
 	return nil
 }
 
-func (s *SurveillanceDiseaseService) notify(
+func (s *DiseaseService) notify(
 	ctx context.Context,
 	notification model.Notification,
 ) {
@@ -438,7 +438,7 @@ func (s *SurveillanceDiseaseService) notify(
 	}
 }
 
-func (s *SurveillanceDiseaseService) attachAdminEmailDelivery(
+func (s *DiseaseService) attachAdminEmailDelivery(
 	notification *model.Notification,
 	templateName string,
 	subject string,
@@ -501,7 +501,7 @@ func (s *SurveillanceDiseaseService) attachAdminEmailDelivery(
 	}
 }
 
-func (s *SurveillanceDiseaseService) platformName() string {
+func (s *DiseaseService) platformName() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
 		return strings.TrimSpace(s.cfg.Notification.PlatformName)
 	}
@@ -509,7 +509,7 @@ func (s *SurveillanceDiseaseService) platformName() string {
 	return "MOH Integrated Health Portal"
 }
 
-func (s *SurveillanceDiseaseService) systemAdminName() string {
+func (s *DiseaseService) systemAdminName() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
 		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
 	}
@@ -517,7 +517,7 @@ func (s *SurveillanceDiseaseService) systemAdminName() string {
 	return "System Administrator"
 }
 
-func (s *SurveillanceDiseaseService) systemAdminEmail() string {
+func (s *DiseaseService) systemAdminEmail() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
 		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
 	}
@@ -525,7 +525,7 @@ func (s *SurveillanceDiseaseService) systemAdminEmail() string {
 	return ""
 }
 
-func (s *SurveillanceDiseaseService) adminDashboardURL() string {
+func (s *DiseaseService) adminDashboardURL() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
 		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
 	}
@@ -533,7 +533,7 @@ func (s *SurveillanceDiseaseService) adminDashboardURL() string {
 	return "http://localhost:3000/admin/home"
 }
 
-func (s *SurveillanceDiseaseService) adminSurveillanceURL() string {
+func (s *DiseaseService) adminSurveillanceURL() string {
 	base := strings.TrimRight(s.adminDashboardURL(), "/")
 
 	if strings.HasSuffix(base, "/admin/home") {

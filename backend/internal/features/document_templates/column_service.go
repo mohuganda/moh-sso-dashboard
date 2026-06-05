@@ -1,4 +1,4 @@
-package service
+package document_templates
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
-	documentTemplateColumnRepo "github.com/moh-sso-dashboard/internal/repository/document_template_column"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
@@ -24,7 +24,7 @@ var (
 	ErrInvalidDataType  = errors.New("invalid column data type")
 )
 
-type DocumentTemplateColumnService interface {
+type ColumnService interface {
 	CreateColumn(ctx context.Context, req model.CreateColumnRequest) (*model.DocumentTemplateColumn, error)
 	GetColumn(ctx context.Context, id uuid.UUID) (*model.DocumentTemplateColumn, error)
 	ListColumns(ctx context.Context, sheetID uuid.UUID) ([]model.DocumentTemplateColumn, error)
@@ -39,16 +39,16 @@ type DocumentTemplateColumnService interface {
 }
 
 type documentTemplateColumnService struct {
-	repo          documentTemplateColumnRepo.DocumentTemplateColumnRepository
-	notifications NotificationsService
+	repo          ColumnRepository
+	notifications sharedservice.NotificationsService
 	cfg           *config.Config
 }
 
-func NewDocumentTemplateColumnService(
-	repo documentTemplateColumnRepo.DocumentTemplateColumnRepository,
-	notifications NotificationsService,
+func NewColumnService(
+	repo ColumnRepository,
+	notifications sharedservice.NotificationsService,
 	cfg ...*config.Config,
-) DocumentTemplateColumnService {
+) ColumnService {
 	var appConfig *config.Config
 	if len(cfg) > 0 {
 		appConfig = cfg[0]

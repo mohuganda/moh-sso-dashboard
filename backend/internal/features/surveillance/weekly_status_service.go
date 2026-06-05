@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 )
 
 var (
@@ -23,22 +22,22 @@ var (
 	ErrSubCountyIDRequired    = errors.New("sub county id is required")
 )
 
-type SurveillanceWeeklyStatusService struct {
+type WeeklyStatusService struct {
 	log  *logger.Logger
-	repo interfaces.WeeklyStatusRepository
+	repo WeeklyStatusRepository
 }
 
-func NewSurveillanceWeeklyStatusService(
+func NewWeeklyStatusService(
 	log *logger.Logger,
-	repo interfaces.WeeklyStatusRepository,
-) *SurveillanceWeeklyStatusService {
-	return &SurveillanceWeeklyStatusService{
+	repo WeeklyStatusRepository,
+) *WeeklyStatusService {
+	return &WeeklyStatusService{
 		log:  log,
 		repo: repo,
 	}
 }
 
-func (s *SurveillanceWeeklyStatusService) Create(
+func (s *WeeklyStatusService) Create(
 	ctx context.Context,
 	arg db.CreateWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -54,7 +53,7 @@ func (s *SurveillanceWeeklyStatusService) Create(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) GetByID(
+func (s *WeeklyStatusService) GetByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.WeeklyStatus, error) {
@@ -75,7 +74,7 @@ func (s *SurveillanceWeeklyStatusService) GetByID(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) Delete(
+func (s *WeeklyStatusService) Delete(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
@@ -95,7 +94,7 @@ func (s *SurveillanceWeeklyStatusService) Delete(
 	return nil
 }
 
-func (s *SurveillanceWeeklyStatusService) List(
+func (s *WeeklyStatusService) List(
 	ctx context.Context,
 	arg db.ListWeeklyStatusesParams,
 ) ([]db.WeeklyStatus, error) {
@@ -111,7 +110,7 @@ func (s *SurveillanceWeeklyStatusService) List(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListDetailed(
+func (s *WeeklyStatusService) ListDetailed(
 	ctx context.Context,
 	arg db.ListWeeklyStatusesDetailedParams,
 ) ([]db.ListWeeklyStatusesDetailedRow, error) {
@@ -127,7 +126,7 @@ func (s *SurveillanceWeeklyStatusService) ListDetailed(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListByWeek(
+func (s *WeeklyStatusService) ListByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.WeeklyStatus, error) {
@@ -148,7 +147,7 @@ func (s *SurveillanceWeeklyStatusService) ListByWeek(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListByRegion(
+func (s *WeeklyStatusService) ListByRegion(
 	ctx context.Context,
 	regionID uuid.UUID,
 ) ([]db.WeeklyStatus, error) {
@@ -169,7 +168,7 @@ func (s *SurveillanceWeeklyStatusService) ListByRegion(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListByDistrict(
+func (s *WeeklyStatusService) ListByDistrict(
 	ctx context.Context,
 	districtID uuid.UUID,
 ) ([]db.WeeklyStatus, error) {
@@ -190,7 +189,7 @@ func (s *SurveillanceWeeklyStatusService) ListByDistrict(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListBySubCounty(
+func (s *WeeklyStatusService) ListBySubCounty(
 	ctx context.Context,
 	subCountyID uuid.UUID,
 ) ([]db.WeeklyStatus, error) {
@@ -211,7 +210,7 @@ func (s *SurveillanceWeeklyStatusService) ListBySubCounty(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListNationalByWeek(
+func (s *WeeklyStatusService) ListNationalByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.WeeklyStatus, error) {
@@ -232,7 +231,7 @@ func (s *SurveillanceWeeklyStatusService) ListNationalByWeek(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListRegionByWeek(
+func (s *WeeklyStatusService) ListRegionByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.WeeklyStatus, error) {
@@ -253,7 +252,7 @@ func (s *SurveillanceWeeklyStatusService) ListRegionByWeek(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListDistrictByWeek(
+func (s *WeeklyStatusService) ListDistrictByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.WeeklyStatus, error) {
@@ -274,7 +273,7 @@ func (s *SurveillanceWeeklyStatusService) ListDistrictByWeek(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) ListSubCountyByWeek(
+func (s *WeeklyStatusService) ListSubCountyByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.WeeklyStatus, error) {
@@ -295,7 +294,7 @@ func (s *SurveillanceWeeklyStatusService) ListSubCountyByWeek(
 	return rows, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) UpsertNationalDisease(
+func (s *WeeklyStatusService) UpsertNationalDisease(
 	ctx context.Context,
 	arg db.UpsertNationalDiseaseWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -311,7 +310,7 @@ func (s *SurveillanceWeeklyStatusService) UpsertNationalDisease(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) UpsertNationalIndicator(
+func (s *WeeklyStatusService) UpsertNationalIndicator(
 	ctx context.Context,
 	arg db.UpsertNationalIndicatorWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -327,7 +326,7 @@ func (s *SurveillanceWeeklyStatusService) UpsertNationalIndicator(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) UpsertRegionDisease(
+func (s *WeeklyStatusService) UpsertRegionDisease(
 	ctx context.Context,
 	arg db.UpsertRegionDiseaseWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -343,7 +342,7 @@ func (s *SurveillanceWeeklyStatusService) UpsertRegionDisease(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) UpsertRegionIndicator(
+func (s *WeeklyStatusService) UpsertRegionIndicator(
 	ctx context.Context,
 	arg db.UpsertRegionIndicatorWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -359,7 +358,7 @@ func (s *SurveillanceWeeklyStatusService) UpsertRegionIndicator(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) UpsertDistrictDisease(
+func (s *WeeklyStatusService) UpsertDistrictDisease(
 	ctx context.Context,
 	arg db.UpsertDistrictDiseaseWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -375,7 +374,7 @@ func (s *SurveillanceWeeklyStatusService) UpsertDistrictDisease(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) UpsertDistrictIndicator(
+func (s *WeeklyStatusService) UpsertDistrictIndicator(
 	ctx context.Context,
 	arg db.UpsertDistrictIndicatorWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -391,7 +390,7 @@ func (s *SurveillanceWeeklyStatusService) UpsertDistrictIndicator(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) UpsertSubCountyDisease(
+func (s *WeeklyStatusService) UpsertSubCountyDisease(
 	ctx context.Context,
 	arg db.UpsertSubCountyDiseaseWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -407,7 +406,7 @@ func (s *SurveillanceWeeklyStatusService) UpsertSubCountyDisease(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) UpsertSubCountyIndicator(
+func (s *WeeklyStatusService) UpsertSubCountyIndicator(
 	ctx context.Context,
 	arg db.UpsertSubCountyIndicatorWeeklyStatusParams,
 ) (db.WeeklyStatus, error) {
@@ -423,7 +422,7 @@ func (s *SurveillanceWeeklyStatusService) UpsertSubCountyIndicator(
 	return status, nil
 }
 
-func (s *SurveillanceWeeklyStatusService) WithTx(
+func (s *WeeklyStatusService) WithTx(
 	ctx context.Context,
 	fn func(q db.Querier) error,
 ) error {

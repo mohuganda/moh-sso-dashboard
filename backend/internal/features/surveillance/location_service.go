@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -12,33 +12,33 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
-type SurveillanceLocationService struct {
+type LocationService struct {
 	log           *logger.Logger
-	regionRepo    interfaces.RegionRepository
-	districtRepo  interfaces.DistrictRepository
-	subCountyRepo interfaces.SubCountyRepository
-	notifications NotificationsService
+	regionRepo    RegionRepository
+	districtRepo  DistrictRepository
+	subCountyRepo SubCountyRepository
+	notifications sharedservice.NotificationsService
 	cfg           *config.Config
 }
 
-func NewSurveillanceLocationService(
+func NewLocationService(
 	log *logger.Logger,
-	regionRepo interfaces.RegionRepository,
-	districtRepo interfaces.DistrictRepository,
-	subCountyRepo interfaces.SubCountyRepository,
-	notifications NotificationsService,
+	regionRepo RegionRepository,
+	districtRepo DistrictRepository,
+	subCountyRepo SubCountyRepository,
+	notifications sharedservice.NotificationsService,
 	cfg ...*config.Config,
-) *SurveillanceLocationService {
+) *LocationService {
 	var appConfig *config.Config
 	if len(cfg) > 0 {
 		appConfig = cfg[0]
 	}
 
-	return &SurveillanceLocationService{
+	return &LocationService{
 		log:           log,
 		regionRepo:    regionRepo,
 		districtRepo:  districtRepo,
@@ -52,7 +52,7 @@ func NewSurveillanceLocationService(
 // Regions
 // ============================================================
 
-func (s *SurveillanceLocationService) ListRegions(ctx context.Context) ([]db.Region, error) {
+func (s *LocationService) ListRegions(ctx context.Context) ([]db.Region, error) {
 	if s == nil {
 		return nil, errors.New("surveillance location service is nil")
 	}
@@ -77,7 +77,7 @@ func (s *SurveillanceLocationService) ListRegions(ctx context.Context) ([]db.Reg
 	return items, nil
 }
 
-func (s *SurveillanceLocationService) GetRegionByID(
+func (s *LocationService) GetRegionByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.Region, error) {
@@ -109,7 +109,7 @@ func (s *SurveillanceLocationService) GetRegionByID(
 	return item, nil
 }
 
-func (s *SurveillanceLocationService) GetRegionByName(
+func (s *LocationService) GetRegionByName(
 	ctx context.Context,
 	name string,
 ) (db.Region, error) {
@@ -142,7 +142,7 @@ func (s *SurveillanceLocationService) GetRegionByName(
 	return item, nil
 }
 
-func (s *SurveillanceLocationService) UpsertRegion(
+func (s *LocationService) UpsertRegion(
 	ctx context.Context,
 	arg db.UpsertRegionParams,
 ) (db.Region, error) {
@@ -192,7 +192,7 @@ func (s *SurveillanceLocationService) UpsertRegion(
 // Districts
 // ============================================================
 
-func (s *SurveillanceLocationService) ListDistricts(
+func (s *LocationService) ListDistricts(
 	ctx context.Context,
 ) ([]db.ListDistrictsRow, error) {
 	if s == nil {
@@ -219,7 +219,7 @@ func (s *SurveillanceLocationService) ListDistricts(
 	return items, nil
 }
 
-func (s *SurveillanceLocationService) ListDistrictsByRegion(
+func (s *LocationService) ListDistrictsByRegion(
 	ctx context.Context,
 	regionID uuid.UUID,
 ) ([]db.District, error) {
@@ -251,7 +251,7 @@ func (s *SurveillanceLocationService) ListDistrictsByRegion(
 	return items, nil
 }
 
-func (s *SurveillanceLocationService) GetDistrictByID(
+func (s *LocationService) GetDistrictByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.District, error) {
@@ -283,7 +283,7 @@ func (s *SurveillanceLocationService) GetDistrictByID(
 	return item, nil
 }
 
-func (s *SurveillanceLocationService) GetDistrictByName(
+func (s *LocationService) GetDistrictByName(
 	ctx context.Context,
 	name string,
 ) (db.District, error) {
@@ -316,7 +316,7 @@ func (s *SurveillanceLocationService) GetDistrictByName(
 	return item, nil
 }
 
-func (s *SurveillanceLocationService) UpsertDistrict(
+func (s *LocationService) UpsertDistrict(
 	ctx context.Context,
 	arg db.UpsertDistrictParams,
 ) (db.District, error) {
@@ -376,7 +376,7 @@ func (s *SurveillanceLocationService) UpsertDistrict(
 // Sub-counties
 // ============================================================
 
-func (s *SurveillanceLocationService) ListSubcountiesByDistrict(
+func (s *LocationService) ListSubcountiesByDistrict(
 	ctx context.Context,
 	districtID uuid.UUID,
 ) ([]db.SubCounty, error) {
@@ -408,7 +408,7 @@ func (s *SurveillanceLocationService) ListSubcountiesByDistrict(
 	return items, nil
 }
 
-func (s *SurveillanceLocationService) GetSubcountyByID(
+func (s *LocationService) GetSubcountyByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (db.SubCounty, error) {
@@ -440,7 +440,7 @@ func (s *SurveillanceLocationService) GetSubcountyByID(
 	return item, nil
 }
 
-func (s *SurveillanceLocationService) UpsertSubcounty(
+func (s *LocationService) UpsertSubcounty(
 	ctx context.Context,
 	arg db.UpsertSubCountyParams,
 ) (db.SubCounty, error) {
@@ -491,7 +491,7 @@ func (s *SurveillanceLocationService) UpsertSubcounty(
 	return item, nil
 }
 
-func (s *SurveillanceLocationService) DeleteSubcounty(
+func (s *LocationService) DeleteSubcounty(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
@@ -563,7 +563,7 @@ func (s *SurveillanceLocationService) DeleteSubcounty(
 	return nil
 }
 
-func (s *SurveillanceLocationService) notify(
+func (s *LocationService) notify(
 	ctx context.Context,
 	notification model.Notification,
 ) {
@@ -587,7 +587,7 @@ func (s *SurveillanceLocationService) notify(
 	}
 }
 
-func (s *SurveillanceLocationService) attachAdminEmailDelivery(
+func (s *LocationService) attachAdminEmailDelivery(
 	notification *model.Notification,
 	templateName string,
 	subject string,
@@ -650,7 +650,7 @@ func (s *SurveillanceLocationService) attachAdminEmailDelivery(
 	}
 }
 
-func (s *SurveillanceLocationService) platformName() string {
+func (s *LocationService) platformName() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
 		return strings.TrimSpace(s.cfg.Notification.PlatformName)
 	}
@@ -658,7 +658,7 @@ func (s *SurveillanceLocationService) platformName() string {
 	return "MOH Integrated Health Portal"
 }
 
-func (s *SurveillanceLocationService) systemAdminName() string {
+func (s *LocationService) systemAdminName() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
 		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
 	}
@@ -666,7 +666,7 @@ func (s *SurveillanceLocationService) systemAdminName() string {
 	return "System Administrator"
 }
 
-func (s *SurveillanceLocationService) systemAdminEmail() string {
+func (s *LocationService) systemAdminEmail() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
 		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
 	}
@@ -674,7 +674,7 @@ func (s *SurveillanceLocationService) systemAdminEmail() string {
 	return ""
 }
 
-func (s *SurveillanceLocationService) adminDashboardURL() string {
+func (s *LocationService) adminDashboardURL() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
 		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
 	}
@@ -682,7 +682,7 @@ func (s *SurveillanceLocationService) adminDashboardURL() string {
 	return "http://localhost:3000/admin/home"
 }
 
-func (s *SurveillanceLocationService) adminSurveillanceURL() string {
+func (s *LocationService) adminSurveillanceURL() string {
 	base := strings.TrimRight(s.adminDashboardURL(), "/")
 
 	if strings.HasSuffix(base, "/admin/home") {

@@ -1,4 +1,4 @@
-package service
+package surveillance
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
@@ -39,34 +39,27 @@ type parsedAlertsPayload struct {
 	SubmittedBy string
 }
 
-type AlertListParams struct {
-	EpiWeekID  uuid.UUID
-	DiseaseID  uuid.UUID
-	DistrictID uuid.UUID
-	RegionID   uuid.UUID
-}
-
-type SurveillanceAlertService struct {
+type AlertService struct {
 	log                    *logger.Logger
-	alertRepo              interfaces.AlertRepository
-	surveillanceImportRepo interfaces.ImportRepository
-	notifications          NotificationsService
+	alertRepo              AlertRepository
+	surveillanceImportRepo ImportRepository
+	notifications          sharedservice.NotificationsService
 	cfg                    *config.Config
 }
 
-func NewSurveillanceAlertService(
+func NewAlertService(
 	log *logger.Logger,
-	alertRepo interfaces.AlertRepository,
-	surveillanceImportRepo interfaces.ImportRepository,
-	notifications NotificationsService,
+	alertRepo AlertRepository,
+	surveillanceImportRepo ImportRepository,
+	notifications sharedservice.NotificationsService,
 	cfg ...*config.Config,
-) *SurveillanceAlertService {
+) *AlertService {
 	var appConfig *config.Config
 	if len(cfg) > 0 {
 		appConfig = cfg[0]
 	}
 
-	return &SurveillanceAlertService{
+	return &AlertService{
 		log:                    log,
 		alertRepo:              alertRepo,
 		surveillanceImportRepo: surveillanceImportRepo,
@@ -75,7 +68,7 @@ func NewSurveillanceAlertService(
 	}
 }
 
-func (s *SurveillanceAlertService) GetAlertByID(ctx context.Context, id uuid.UUID) (db.Alert, error) {
+func (s *AlertService) GetAlertByID(ctx context.Context, id uuid.UUID) (db.Alert, error) {
 	if err := requireUUID("alert id", id); err != nil {
 		return db.Alert{}, err
 	}
@@ -96,7 +89,7 @@ func (s *SurveillanceAlertService) GetAlertByID(ctx context.Context, id uuid.UUI
 	return item, nil
 }
 
-func (s *SurveillanceAlertService) ListAlertsByDisease(
+func (s *AlertService) ListAlertsByDisease(
 	ctx context.Context,
 	diseaseID uuid.UUID,
 ) ([]db.ListAlertsByDiseaseRow, error) {
@@ -120,7 +113,7 @@ func (s *SurveillanceAlertService) ListAlertsByDisease(
 	return items, nil
 }
 
-func (s *SurveillanceAlertService) ListAlertsByDistrict(
+func (s *AlertService) ListAlertsByDistrict(
 	ctx context.Context,
 	districtID uuid.UUID,
 ) ([]db.ListAlertsByDistrictRow, error) {
@@ -144,7 +137,7 @@ func (s *SurveillanceAlertService) ListAlertsByDistrict(
 	return items, nil
 }
 
-func (s *SurveillanceAlertService) ListAlertsByWeek(
+func (s *AlertService) ListAlertsByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
 ) ([]db.ListAlertsByWeekRow, error) {
@@ -168,7 +161,7 @@ func (s *SurveillanceAlertService) ListAlertsByWeek(
 	return items, nil
 }
 
-func (s *SurveillanceAlertService) ListAlerts(
+func (s *AlertService) ListAlerts(
 	ctx context.Context,
 	params db.ListAlertsParams,
 ) ([]db.ListAlertsRow, error) {
@@ -188,7 +181,7 @@ func (s *SurveillanceAlertService) ListAlerts(
 	return items, nil
 }
 
-func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) error {
+func (s *AlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) error {
 	if err := requireUUID("batch id", batchID); err != nil {
 		return err
 	}
@@ -353,7 +346,7 @@ func (s *SurveillanceAlertService) ProcessAlerts(ctx context.Context, batchID uu
 	return nil
 }
 
-func (s *SurveillanceAlertService) processAlertRow(
+func (s *AlertService) processAlertRow(
 	ctx context.Context,
 	q db.Querier,
 	raw db.SurveillanceImportRawRow,
@@ -504,7 +497,7 @@ func buildAlertExternalID(payload parsedAlertsPayload) string {
 	return strings.Join(parts, "|")
 }
 
-func (s *SurveillanceAlertService) notify(
+func (s *AlertService) notify(
 	ctx context.Context,
 	notification model.Notification,
 ) {
@@ -528,7 +521,7 @@ func (s *SurveillanceAlertService) notify(
 	}
 }
 
-func (s *SurveillanceAlertService) attachAdminEmailDelivery(
+func (s *AlertService) attachAdminEmailDelivery(
 	notification *model.Notification,
 	templateName string,
 	subject string,
@@ -591,7 +584,7 @@ func (s *SurveillanceAlertService) attachAdminEmailDelivery(
 	}
 }
 
-func (s *SurveillanceAlertService) platformName() string {
+func (s *AlertService) platformName() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
 		return strings.TrimSpace(s.cfg.Notification.PlatformName)
 	}
@@ -599,7 +592,7 @@ func (s *SurveillanceAlertService) platformName() string {
 	return "MOH Integrated Health Portal"
 }
 
-func (s *SurveillanceAlertService) systemAdminName() string {
+func (s *AlertService) systemAdminName() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminName) != "" {
 		return strings.TrimSpace(s.cfg.Notification.SystemAdminName)
 	}
@@ -607,7 +600,7 @@ func (s *SurveillanceAlertService) systemAdminName() string {
 	return "System Administrator"
 }
 
-func (s *SurveillanceAlertService) systemAdminEmail() string {
+func (s *AlertService) systemAdminEmail() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.SystemAdminEmail) != "" {
 		return strings.TrimSpace(s.cfg.Notification.SystemAdminEmail)
 	}
@@ -615,7 +608,7 @@ func (s *SurveillanceAlertService) systemAdminEmail() string {
 	return ""
 }
 
-func (s *SurveillanceAlertService) adminDashboardURL() string {
+func (s *AlertService) adminDashboardURL() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.AdminDashboardURL) != "" {
 		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
 	}
@@ -623,7 +616,7 @@ func (s *SurveillanceAlertService) adminDashboardURL() string {
 	return "http://localhost:3000/admin/home"
 }
 
-func (s *SurveillanceAlertService) adminSurveillanceURL() string {
+func (s *AlertService) adminSurveillanceURL() string {
 	base := strings.TrimRight(s.adminDashboardURL(), "/")
 
 	if strings.HasSuffix(base, "/admin/home") {

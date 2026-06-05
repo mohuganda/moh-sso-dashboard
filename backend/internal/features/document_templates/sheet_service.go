@@ -1,4 +1,4 @@
-package service
+package document_templates
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
-	documentTemplateSheetRepo "github.com/moh-sso-dashboard/internal/repository/document_template_sheet"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
@@ -26,7 +26,7 @@ var (
 	ErrSheetNotFound    = errors.New("sheet not found in template")
 )
 
-type DocumentTemplateSheetService interface {
+type SheetService interface {
 	CreateSheet(ctx context.Context, req model.CreateSheetRequest) (*model.DocumentTemplateSheet, error)
 	GetSheet(ctx context.Context, id uuid.UUID) (*model.DocumentTemplateSheet, error)
 	GetSheetByCode(ctx context.Context, templateID uuid.UUID, code string) (*model.DocumentTemplateSheet, error)
@@ -51,16 +51,16 @@ type DocumentTemplateSheetService interface {
 }
 
 type documentTemplateSheetService struct {
-	repo          documentTemplateSheetRepo.DocumentTemplateSheetRepository
-	notifications NotificationsService
+	repo          SheetRepository
+	notifications sharedservice.NotificationsService
 	cfg           *config.Config
 }
 
-func NewDocumentTemplateSheetService(
-	repo documentTemplateSheetRepo.DocumentTemplateSheetRepository,
-	notifications NotificationsService,
+func NewSheetService(
+	repo SheetRepository,
+	notifications sharedservice.NotificationsService,
 	cfg ...*config.Config,
-) DocumentTemplateSheetService {
+) SheetService {
 	var appConfig *config.Config
 	if len(cfg) > 0 {
 		appConfig = cfg[0]

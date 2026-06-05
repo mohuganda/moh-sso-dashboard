@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
@@ -23,7 +24,7 @@ import (
 type Handler struct {
 	documentService        *Service
 	auditService           *sharedservice.AuditService
-	storageLocationService sharedservice.StorageLocationService
+	storageLocationService storagelocationfeature.Service
 	storage                storage.Storage
 	storageFactory         *storage.StorageFactory
 }
@@ -31,7 +32,7 @@ type Handler struct {
 func NewHandler(
 	documentService *Service,
 	auditService *sharedservice.AuditService,
-	storageLocationService sharedservice.StorageLocationService,
+	storageLocationService storagelocationfeature.Service,
 	storage storage.Storage,
 	storageFactory *storage.StorageFactory,
 ) *Handler {

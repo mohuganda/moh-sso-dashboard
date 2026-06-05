@@ -102,6 +102,13 @@ func sqlNullStringValue(ns sql.NullString) string {
 	return strings.TrimSpace(ns.String)
 }
 
+func nullStringValue(ns sql.NullString) string {
+	if !ns.Valid {
+		return ""
+	}
+	return ns.String
+}
+
 func toWeeklyStatusDetailedResponse(row db.ListWeeklyStatusesDetailedRow) WeeklyStatusDetailedResponse {
 	var regionID *uuid.UUID
 	if row.RegionID.Valid {

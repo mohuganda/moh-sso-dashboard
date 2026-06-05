@@ -1,17 +1,12 @@
 package document_templates
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
-)
-
-var (
-	ErrSheetNotFound = errors.New("sheet not found in template")
 )
 
 /* =========================================================
