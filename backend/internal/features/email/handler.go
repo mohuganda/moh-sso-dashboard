@@ -1,4 +1,4 @@
-package handler
+package email
 
 import (
 	"net/http"
@@ -45,19 +45,19 @@ type SendEmailRequest struct {
 	ScheduledAt  *string                  `json:"scheduled_at,omitempty"`
 }
 
-type EmailHandler struct {
+type Handler struct {
 	service service.EmailService
 	repo    repository.EmailRepository
 }
 
-func NewEmailHandler(service service.EmailService, repo repository.EmailRepository) *EmailHandler {
-	return &EmailHandler{
+func NewHandler(service service.EmailService, repo repository.EmailRepository) *Handler {
+	return &Handler{
 		service: service,
 		repo:    repo,
 	}
 }
 
-func (h *EmailHandler) Send(c *gin.Context) {
+func (h *Handler) Send(c *gin.Context) {
 	var req SendEmailRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -96,7 +96,7 @@ func (h *EmailHandler) Send(c *gin.Context) {
 	})
 }
 
-func (h *EmailHandler) Queue(c *gin.Context) {
+func (h *Handler) Queue(c *gin.Context) {
 	var req SendEmailRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -135,7 +135,7 @@ func (h *EmailHandler) Queue(c *gin.Context) {
 	})
 }
 
-func (h *EmailHandler) List(c *gin.Context) {
+func (h *Handler) List(c *gin.Context) {
 	limit, offset := parsePagination(c)
 
 	items, err := h.repo.List(c.Request.Context(), limit, offset)
@@ -152,7 +152,7 @@ func (h *EmailHandler) List(c *gin.Context) {
 	response.OK(c, http.StatusOK, items)
 }
 
-func (h *EmailHandler) GetByID(c *gin.Context) {
+func (h *Handler) GetByID(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
 		response.Fail(
@@ -178,7 +178,7 @@ func (h *EmailHandler) GetByID(c *gin.Context) {
 	response.OK(c, http.StatusOK, item)
 }
 
-func (h *EmailHandler) ListByStatus(c *gin.Context) {
+func (h *Handler) ListByStatus(c *gin.Context) {
 	status := strings.TrimSpace(strings.ToUpper(c.Param("status")))
 	if status == "" {
 		response.Fail(
@@ -206,7 +206,7 @@ func (h *EmailHandler) ListByStatus(c *gin.Context) {
 	response.OK(c, http.StatusOK, items)
 }
 
-func (h *EmailHandler) Retry(c *gin.Context) {
+func (h *Handler) Retry(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
 		response.Fail(
@@ -247,7 +247,7 @@ func (h *EmailHandler) Retry(c *gin.Context) {
 	})
 }
 
-func (h *EmailHandler) Delete(c *gin.Context) {
+func (h *Handler) Delete(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
 		response.Fail(

@@ -1,4 +1,4 @@
-package handler
+package audit
 
 import (
 	"crypto/sha256"
@@ -24,13 +24,13 @@ import (
  * Handler
  * ========================================================= */
 
-type AuditHandler struct {
+type Handler struct {
 	store db.Store
 	cache *cache.RedisCache
 }
 
-func NewAuditHandler(store db.Store, cache *cache.RedisCache) *AuditHandler {
-	return &AuditHandler{store: store,
+func NewHandler(store db.Store, cache *cache.RedisCache) *Handler {
+	return &Handler{store: store,
 		cache: cache}
 }
 
@@ -67,7 +67,7 @@ func parseUUIDParam(v string) (*uuid.UUID, bool) {
  * List Audit Logs (cursor pagination)
  * ========================================================= */
 
-func (h *AuditHandler) ListAuditLogs(c *gin.Context) {
+func (h *Handler) ListAuditLogs(c *gin.Context) {
 	from, ok := mustParseTimeRFC3339(c, "from")
 	if !ok {
 		return
@@ -201,7 +201,7 @@ func (h *AuditHandler) ListAuditLogs(c *gin.Context) {
  * Get Single Audit Log
  * ========================================================= */
 
-func (h *AuditHandler) GetAuditLog(c *gin.Context) {
+func (h *Handler) GetAuditLog(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid audit log ID")
@@ -221,7 +221,7 @@ func (h *AuditHandler) GetAuditLog(c *gin.Context) {
  * Audit Metadata / Metrics
  * ========================================================= */
 
-func (h *AuditHandler) ListAuditActions(c *gin.Context) {
+func (h *Handler) ListAuditActions(c *gin.Context) {
 	rows, err := h.store.ListAuditActions(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list audit actions")
@@ -231,7 +231,7 @@ func (h *AuditHandler) ListAuditActions(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{"actions": rows})
 }
 
-func (h *AuditHandler) AuditMetricsOverview(c *gin.Context) {
+func (h *Handler) AuditMetricsOverview(c *gin.Context) {
 	from, ok := mustParseTimeRFC3339(c, "from")
 	if !ok {
 		return
@@ -256,7 +256,7 @@ func (h *AuditHandler) AuditMetricsOverview(c *gin.Context) {
 	response.OK(c, http.StatusOK, row)
 }
 
-func (h *AuditHandler) FailedLoginsByDay(c *gin.Context) {
+func (h *Handler) FailedLoginsByDay(c *gin.Context) {
 	from, ok := mustParseTimeRFC3339(c, "from")
 	if !ok {
 		return
@@ -281,7 +281,7 @@ func (h *AuditHandler) FailedLoginsByDay(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{"series": rows})
 }
 
-func (h *AuditHandler) TopFailureIPs(c *gin.Context) {
+func (h *Handler) TopFailureIPs(c *gin.Context) {
 	from, ok := mustParseTimeRFC3339(c, "from")
 	if !ok {
 		return
@@ -321,7 +321,7 @@ func (h *AuditHandler) TopFailureIPs(c *gin.Context) {
  * Export (CSV / JSON) – streaming, no envelope
  * ========================================================= */
 
-func (h *AuditHandler) ExportAuditLogs(c *gin.Context) {
+func (h *Handler) ExportAuditLogs(c *gin.Context) {
 	from, ok := mustParseTimeRFC3339(c, "from")
 	if !ok {
 		return

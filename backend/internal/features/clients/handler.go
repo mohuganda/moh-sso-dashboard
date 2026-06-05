@@ -1,4 +1,4 @@
-package handler
+package clients
 
 import (
 	"errors"
@@ -16,18 +16,18 @@ import (
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
-type ClientHandler struct {
+type Handler struct {
 	service      *service.ClientService
 	auditService *service.AuditService
 	cache        *cache.RedisCache
 }
 
-func NewClientHandler(
+func NewHandler(
 	s *service.ClientService,
 	audit *service.AuditService,
 	cache *cache.RedisCache,
-) *ClientHandler {
-	return &ClientHandler{
+) *Handler {
+	return &Handler{
 		service:      s,
 		auditService: audit,
 		cache:        cache,
@@ -37,7 +37,7 @@ func NewClientHandler(
 /* =========================================================
  * Create Client
  * ========================================================= */
-func (h *ClientHandler) CreateClient(c *gin.Context) {
+func (h *Handler) CreateClient(c *gin.Context) {
 	userID, _ := uuid.Parse(c.GetString("user_id"))
 
 	var req service.CreateClientRequest
@@ -91,7 +91,7 @@ func (h *ClientHandler) CreateClient(c *gin.Context) {
 /* =========================================================
  * Get Client
  * ========================================================= */
-func (h *ClientHandler) GetClient(c *gin.Context) {
+func (h *Handler) GetClient(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
 		h.audit(
@@ -142,7 +142,7 @@ func (h *ClientHandler) GetClient(c *gin.Context) {
 /* =========================================================
  * List Clients
  * ========================================================= */
-func (h *ClientHandler) ListClients(c *gin.Context) {
+func (h *Handler) ListClients(c *gin.Context) {
 
 	var (
 		clients   []model.Client
@@ -212,7 +212,7 @@ func (h *ClientHandler) ListClients(c *gin.Context) {
 /* =========================================================
  * Delete Client
  * ========================================================= */
-func (h *ClientHandler) DeleteClient(c *gin.Context) {
+func (h *Handler) DeleteClient(c *gin.Context) {
 	clientID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
@@ -245,7 +245,7 @@ func (h *ClientHandler) DeleteClient(c *gin.Context) {
 /* =========================================================
  * Toggle Client Enabled
  * ========================================================= */
-func (h *ClientHandler) ToggleClientEnabled(c *gin.Context) {
+func (h *Handler) ToggleClientEnabled(c *gin.Context) {
 	clientID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
@@ -295,7 +295,7 @@ func (h *ClientHandler) ToggleClientEnabled(c *gin.Context) {
  * ========================================================= */
 
 // POST /clients/:id/roles
-func (h *ClientHandler) CreateClientRole(c *gin.Context) {
+func (h *Handler) CreateClientRole(c *gin.Context) {
 	clientID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
@@ -339,7 +339,7 @@ func (h *ClientHandler) CreateClientRole(c *gin.Context) {
 }
 
 // GET /clients/:id/roles
-func (h *ClientHandler) ListClientRoles(c *gin.Context) {
+func (h *Handler) ListClientRoles(c *gin.Context) {
 	clientID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
@@ -368,7 +368,7 @@ func (h *ClientHandler) ListClientRoles(c *gin.Context) {
 }
 
 // DELETE /clients/:id/roles/:role
-func (h *ClientHandler) DeleteClientRole(c *gin.Context) {
+func (h *Handler) DeleteClientRole(c *gin.Context) {
 	clientID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
@@ -414,7 +414,7 @@ func (h *ClientHandler) DeleteClientRole(c *gin.Context) {
 /* =========================================================
  * Audit helper
  * ========================================================= */
-func (h *ClientHandler) audit(
+func (h *Handler) audit(
 	c *gin.Context,
 	action string,
 	meta map[string]any,

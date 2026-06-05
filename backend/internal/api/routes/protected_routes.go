@@ -1,6 +1,14 @@
 package routes
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+
+	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
+	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
+	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
+	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
+	userfeature "github.com/moh-sso-dashboard/internal/features/users"
+)
 
 func RegisterProtectedRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	registerEmailRoutes(protected, deps)
@@ -16,16 +24,7 @@ func RegisterProtectedRoutes(protected *gin.RouterGroup, deps Dependencies) {
 }
 
 func registerEmailRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	email := protected.Group("/emails")
-	{
-		email.POST("/send", deps.Email.Send)
-		email.POST("/queue", deps.Email.Queue)
-		email.GET("", deps.Email.List)
-		email.GET("/status/:status", deps.Email.ListByStatus)
-		email.GET("/:id", deps.Email.GetByID)
-		email.POST("/:id/retry", deps.Email.Retry)
-		email.DELETE("/:id", deps.Email.Delete)
-	}
+	emailfeature.RegisterProtectedRoutes(protected, deps.Email)
 }
 
 func registerGeoJSONRoutes(protected *gin.RouterGroup, deps Dependencies) {
@@ -36,42 +35,19 @@ func registerGeoJSONRoutes(protected *gin.RouterGroup, deps Dependencies) {
 }
 
 func registerClientRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	clients := protected.Group("/clients")
-	{
-		clients.GET("", deps.Clients.ListClients)
-		clients.GET("/:id", deps.Clients.GetClient)
-		clients.POST("", deps.Clients.CreateClient)
-		clients.PATCH("/:id/toggle", deps.Clients.ToggleClientEnabled)
-		clients.DELETE("/:id", deps.Clients.DeleteClient)
-		clients.GET("/:id/roles", deps.Clients.ListClientRoles)
-	}
+	clientfeature.RegisterProtectedRoutes(protected, deps.Clients)
 }
 
 func registerUserRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	users := protected.Group("/users")
-	{
-		users.GET("", deps.Users.ListUsers)
-		users.GET("/:id", deps.Users.GetUser)
-	}
+	userfeature.RegisterProtectedRoutes(protected, deps.Users)
 }
 
 func registerStorageLocationRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	storageLocations := protected.Group("/storage-locations")
-	{
-		storageLocations.POST("", deps.StorageLocations.Create)
-		storageLocations.GET("", deps.StorageLocations.ListActive)
-		storageLocations.GET("/:id", deps.StorageLocations.GetByID)
-		storageLocations.PUT("/:id", deps.StorageLocations.Update)
-		storageLocations.DELETE("/:id", deps.StorageLocations.Delete)
-	}
+	storagelocationfeature.RegisterProtectedRoutes(protected, deps.StorageLocations)
 }
 
 func registerSessionRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	sessions := protected.Group("/sessions")
-	{
-		sessions.GET("", deps.Sessions.GetUserSessions)
-		sessions.DELETE("/:id", deps.Sessions.LogoutSession)
-	}
+	sessionfeature.RegisterProtectedRoutes(protected, deps.Sessions)
 }
 
 func registerDataQualityRoutes(protected *gin.RouterGroup, deps Dependencies) {

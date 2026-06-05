@@ -5,6 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
+	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
+	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
+	userfeature "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/middleware"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
 )
@@ -23,30 +27,11 @@ func RegisterAdminRoutes(protected *gin.RouterGroup, deps Dependencies) {
 }
 
 func registerAdminUserRoutes(admin *gin.RouterGroup, deps Dependencies) {
-	users := admin.Group("/users")
-	{
-		users.GET("", deps.Users.ListUsers)
-		users.GET("/:id", deps.Users.GetUser)
-		users.POST("", deps.Users.CreateUser)
-		users.PUT("/:id", deps.Users.UpdateUser)
-		users.DELETE("/:id", deps.Users.DeleteUser)
-		users.PATCH("/:id/enabled", deps.Users.SetUserEnabled)
-		users.PATCH("/:id/toggle", deps.Users.SetUserEnabled)
-		users.POST("/:id/onboarding-email", deps.Users.SendUserOnboardingEmail)
-		users.POST("/:id/verification-email", deps.Users.SendUserVerificationEmail)
-		users.POST("/:id/password-reset", deps.Users.SendUserPasswordResetEmail)
-		users.POST("/:id/reset-password", deps.Users.ResetUserPassword)
-		users.GET("/:id/client-roles", deps.Users.GetUserClientRoles)
-		users.GET("/:id/clients/:clientID/roles", deps.Users.GetUserClientRolesForClient)
-		users.POST("/:id/clients/:clientID/roles", deps.Users.AddUserClientRoles)
-		users.DELETE("/:id/clients/:clientID/roles", deps.Users.RemoveUserClientRoles)
-		users.PUT("/:id/client-roles", deps.Users.UpdateUserClientRoles)
-	}
+	userfeature.RegisterAdminRoutes(admin, deps.Users)
 }
 
 func registerAdminClientRoleRoutes(admin *gin.RouterGroup, deps Dependencies) {
-	admin.POST("/clients/:id/roles", deps.Clients.CreateClientRole)
-	admin.DELETE("/clients/:id/roles/:role", deps.Clients.DeleteClientRole)
+	clientfeature.RegisterAdminRoutes(admin, deps.Clients)
 }
 
 func registerAdminMetricRoutes(admin *gin.RouterGroup, deps Dependencies) {
@@ -75,17 +60,12 @@ func registerAdminMetricRoutes(admin *gin.RouterGroup, deps Dependencies) {
 }
 
 func registerAdminAuditRoutes(admin *gin.RouterGroup, deps Dependencies) {
-	audit := admin.Group("/audit-logs")
-	audit.Use(ratelimit.Middleware(deps.Limiter, ratelimit.ByUser, deps.AuditLogRateLimitPerMin, time.Minute))
-	{
-		audit.GET("", deps.Audit.ListAuditLogs)
-		audit.GET("/actions", deps.Audit.ListAuditActions)
-		audit.GET("/:id", deps.Audit.GetAuditLog)
-		audit.GET("/metrics/overview", deps.Audit.AuditMetricsOverview)
-		audit.GET("/metrics/failed-logins-by-day", deps.Audit.FailedLoginsByDay)
-		audit.GET("/metrics/top-failure-ips", deps.Audit.TopFailureIPs)
-		audit.GET("/export", deps.Audit.ExportAuditLogs)
-	}
+	auditfeature.RegisterAdminRoutes(
+		admin,
+		deps.Audit,
+		deps.Limiter,
+		deps.AuditLogRateLimitPerMin,
+	)
 }
 
 func registerAdminNotificationRoutes(admin *gin.RouterGroup, deps Dependencies) {
@@ -103,20 +83,5 @@ func registerAdminNotificationRoutes(admin *gin.RouterGroup, deps Dependencies) 
 }
 
 func registerAdminAnnouncementRoutes(admin *gin.RouterGroup, deps Dependencies) {
-	announcements := admin.Group("/announcements")
-	{
-		announcements.GET("", deps.Announcements.ListAnnouncementsAdmin)
-		announcements.GET("/stats", deps.Announcements.GetAnnouncementStats)
-		announcements.GET("/:id", deps.Announcements.GetAnnouncementByID)
-		announcements.POST("", deps.Announcements.CreateAnnouncement)
-		announcements.PUT("/:id", deps.Announcements.UpdateAnnouncement)
-		announcements.DELETE("/:id", deps.Announcements.DeleteAnnouncement)
-		announcements.POST("/:id/restore", deps.Announcements.RestoreAnnouncement)
-		announcements.POST("/:id/publish", deps.Announcements.PublishAnnouncementNow)
-		announcements.POST("/:id/draft", deps.Announcements.MoveAnnouncementToDraft)
-		announcements.POST("/:id/schedule", deps.Announcements.ScheduleAnnouncement)
-		announcements.POST("/:id/archive", deps.Announcements.ArchiveAnnouncement)
-		announcements.PATCH("/:id/pin", deps.Announcements.SetAnnouncementPinned)
-		announcements.PATCH("/:id/priority", deps.Announcements.SetAnnouncementPriority)
-	}
+	announcementfeature.RegisterAdminRoutes(admin, deps.Announcements)
 }

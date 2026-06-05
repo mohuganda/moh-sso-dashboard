@@ -1,4 +1,4 @@
-package handler
+package storage_locations
 
 import (
 	"database/sql"
@@ -16,22 +16,22 @@ var (
 	ErrStorageNotFound   = errors.New("storage location not found")
 )
 
-type StorageLocationHandler struct {
+type Handler struct {
 	storageLocationService service.StorageLocationService
 	auditService           *service.AuditService
 }
 
-func NewStorageLocationHandler(
+func NewHandler(
 	storageLocationService service.StorageLocationService,
 	auditService *service.AuditService,
-) *StorageLocationHandler {
-	return &StorageLocationHandler{
+) *Handler {
+	return &Handler{
 		storageLocationService: storageLocationService,
 		auditService:           auditService,
 	}
 }
 
-func (h *StorageLocationHandler) Create(c *gin.Context) {
+func (h *Handler) Create(c *gin.Context) {
 	var req struct {
 		Code     string `json:"code" binding:"required"`
 		Name     string `json:"name" binding:"required"`
@@ -66,7 +66,7 @@ func (h *StorageLocationHandler) Create(c *gin.Context) {
 	response.OK(c, http.StatusCreated, loc)
 }
 
-func (h *StorageLocationHandler) GetByID(c *gin.Context) {
+func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
 	loc, err := h.storageLocationService.GetByID(c.Request.Context(), id)
@@ -82,7 +82,7 @@ func (h *StorageLocationHandler) GetByID(c *gin.Context) {
 	response.OK(c, http.StatusOK, loc)
 }
 
-func (h *StorageLocationHandler) ListActive(c *gin.Context) {
+func (h *Handler) ListActive(c *gin.Context) {
 	locs, err := h.storageLocationService.ListActive(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", err.Error())
@@ -92,7 +92,7 @@ func (h *StorageLocationHandler) ListActive(c *gin.Context) {
 	response.OK(c, http.StatusOK, locs)
 }
 
-func (h *StorageLocationHandler) Update(c *gin.Context) {
+func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 
 	var req service.UpdateStorageLocationInput
@@ -110,7 +110,7 @@ func (h *StorageLocationHandler) Update(c *gin.Context) {
 	response.OK(c, http.StatusOK, loc)
 }
 
-func (h *StorageLocationHandler) Delete(c *gin.Context) {
+func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.storageLocationService.Delete(c.Request.Context(), id); err != nil {

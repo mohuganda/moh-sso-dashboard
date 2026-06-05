@@ -1,4 +1,4 @@
-package handler
+package users
 
 import (
 	"context"
@@ -39,18 +39,18 @@ func toUserResponse(u *models.User) models.UserResponse {
 	}
 }
 
-type UserHandler struct {
+type Handler struct {
 	service      *service.UserService
 	auditService *service.AuditService
 	cache        *cache.RedisCache
 }
 
-func NewUserHandler(
+func NewHandler(
 	s *service.UserService,
 	audit *service.AuditService,
 	cache *cache.RedisCache,
-) *UserHandler {
-	return &UserHandler{
+) *Handler {
+	return &Handler{
 		service:      s,
 		auditService: audit,
 		cache:        cache,
@@ -61,7 +61,7 @@ func NewUserHandler(
  * Create User
  * ========================================================= */
 
-func (h *UserHandler) CreateUser(c *gin.Context) {
+func (h *Handler) CreateUser(c *gin.Context) {
 	var req service.CreateUserRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -110,7 +110,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
  * Get User
  * ========================================================= */
 
-func (h *UserHandler) GetUser(c *gin.Context) {
+func (h *Handler) GetUser(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
 		h.audit(c, "user.get_failed", map[string]interface{}{
@@ -148,7 +148,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
  * List Users
  * ========================================================= */
 
-func (h *UserHandler) ListUsers(c *gin.Context) {
+func (h *Handler) ListUsers(c *gin.Context) {
 	h.audit(c, "user.list", nil)
 
 	var (
@@ -198,7 +198,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
  * Delete User
  * ========================================================= */
 
-func (h *UserHandler) DeleteUser(c *gin.Context) {
+func (h *Handler) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
 		h.audit(c, "user.delete_failed", map[string]interface{}{
@@ -249,7 +249,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
  * Update User
  * ========================================================= */
 
-func (h *UserHandler) UpdateUser(c *gin.Context) {
+func (h *Handler) UpdateUser(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID format")
@@ -298,7 +298,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
  * Get User Client Roles (ADMIN)
  * ========================================================= */
 
-func (h *UserHandler) GetUserClientRoles(c *gin.Context) {
+func (h *Handler) GetUserClientRoles(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID")
@@ -329,7 +329,7 @@ func (h *UserHandler) GetUserClientRoles(c *gin.Context) {
 /* =========================================================
  * Get user client roles for a specific client (ADMIN)
  * ========================================================= */
-func (h *UserHandler) GetUserClientRolesForClient(c *gin.Context) {
+func (h *Handler) GetUserClientRolesForClient(c *gin.Context) {
 
 	// -----------------------------
 	// User ID (path param)
@@ -442,7 +442,7 @@ func (h *UserHandler) GetUserClientRolesForClient(c *gin.Context) {
  * Update User Client Roles (ADMIN, PUT)
  * ========================================================= */
 
-func (h *UserHandler) UpdateUserClientRoles(c *gin.Context) {
+func (h *Handler) UpdateUserClientRoles(c *gin.Context) {
 
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -535,7 +535,7 @@ func (h *UserHandler) UpdateUserClientRoles(c *gin.Context) {
  * Add User Client Roles (ADMIN)
  * ========================================================= */
 
-func (h *UserHandler) AddUserClientRoles(c *gin.Context) {
+func (h *Handler) AddUserClientRoles(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID")
@@ -594,7 +594,7 @@ func (h *UserHandler) AddUserClientRoles(c *gin.Context) {
  * Remove User Client Roles (ADMIN)
  * ========================================================= */
 
-func (h *UserHandler) RemoveUserClientRoles(c *gin.Context) {
+func (h *Handler) RemoveUserClientRoles(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID")
@@ -653,7 +653,7 @@ func (h *UserHandler) RemoveUserClientRoles(c *gin.Context) {
  * Reset User Password (ADMIN)
  * ========================================================= */
 
-func (h *UserHandler) ResetUserPassword(c *gin.Context) {
+func (h *Handler) ResetUserPassword(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid user ID")
@@ -684,19 +684,19 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *UserHandler) SendUserOnboardingEmail(c *gin.Context) {
+func (h *Handler) SendUserOnboardingEmail(c *gin.Context) {
 	h.sendUserEmailAction(c, "user.onboarding_email", h.service.SendUserOnboardingEmail)
 }
 
-func (h *UserHandler) SendUserVerificationEmail(c *gin.Context) {
+func (h *Handler) SendUserVerificationEmail(c *gin.Context) {
 	h.sendUserEmailAction(c, "user.verification_email", h.service.SendUserVerificationEmail)
 }
 
-func (h *UserHandler) SendUserPasswordResetEmail(c *gin.Context) {
+func (h *Handler) SendUserPasswordResetEmail(c *gin.Context) {
 	h.sendUserEmailAction(c, "user.password_reset_email", h.service.SendUserPasswordResetEmail)
 }
 
-func (h *UserHandler) sendUserEmailAction(
+func (h *Handler) sendUserEmailAction(
 	c *gin.Context,
 	auditPrefix string,
 	action func(context.Context, uuid.UUID, uuid.UUID) error,
@@ -729,7 +729,7 @@ func (h *UserHandler) sendUserEmailAction(
 /* =========================================================
  * Enable / Disable user (ADMIN)
  * ========================================================= */
-func (h *UserHandler) SetUserEnabled(c *gin.Context) {
+func (h *Handler) SetUserEnabled(c *gin.Context) {
 
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -792,7 +792,7 @@ func (h *UserHandler) SetUserEnabled(c *gin.Context) {
  * Audit helper
  * ========================================================= */
 
-func (h *UserHandler) audit(
+func (h *Handler) audit(
 	c *gin.Context,
 	action string,
 	meta map[string]interface{},

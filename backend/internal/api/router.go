@@ -8,6 +8,13 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/api/handler"
 	"github.com/moh-sso-dashboard/internal/api/routes"
+	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
+	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
+	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
+	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
+	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
+	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
+	userfeature "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	"github.com/moh-sso-dashboard/internal/middleware"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
@@ -24,24 +31,24 @@ type RouterDependencies struct {
 
 type HandlerSet struct {
 	Auth                    *handler.AuthHandler
-	Clients                 *handler.ClientHandler
-	Users                   *handler.UserHandler
+	Clients                 *clientfeature.Handler
+	Users                   *userfeature.Handler
 	Metrics                 *handler.MetricsHandler
-	Audit                   *handler.AuditHandler
+	Audit                   *auditfeature.Handler
 	Notifications           *handler.NotificationsHandler
 	Documents               *handler.DocumentHandler
 	DocumentTemplates       *handler.DocumentTemplateHandler
 	DocumentTemplateSheets  *handler.DocumentTemplateSheetHandler
 	DocumentTemplateColumns *handler.DocumentTemplateColumnHandler
-	StorageLocations        *handler.StorageLocationHandler
-	Sessions                *handler.SessionHandler
+	StorageLocations        *storagelocationfeature.Handler
+	Sessions                *sessionfeature.Handler
 	DataQuality             *handler.DataQualityHandler
-	Announcements           *handler.AnnouncementHandler
+	Announcements           *announcementfeature.Handler
 	AdminUnits              *handler.AdminUnitsHandler
 	Visualiser              *handler.VisualiserHandler
 	Surveillance            *handler.SurveillanceHandler
 	GeoJSON                 *handler.GeoJSONHandler
-	Email                   *handler.EmailHandler
+	Email                   *emailfeature.Handler
 }
 
 type RateLimits struct {

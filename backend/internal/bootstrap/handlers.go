@@ -8,6 +8,13 @@ import (
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
+	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
+	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
+	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
+	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
+	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
+	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
+	userfeature "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	db "github.com/moh-sso-dashboard/internal/migrate"
 	"github.com/moh-sso-dashboard/internal/storage"
@@ -39,10 +46,10 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.Notifications,
 		deps.Config,
 	)
-	clientHandler := handler.NewClientHandler(deps.Services.Clients, deps.Services.Audit, deps.Cache)
-	userHandler := handler.NewUserHandler(deps.Services.Users, deps.Services.Audit, deps.Cache)
+	clientHandler := clientfeature.NewHandler(deps.Services.Clients, deps.Services.Audit, deps.Cache)
+	userHandler := userfeature.NewHandler(deps.Services.Users, deps.Services.Audit, deps.Cache)
 	metricsHandler := handler.NewMetricsHandler(deps.Services.Metrics)
-	auditHandler := handler.NewAuditHandler(deps.Store, deps.Cache)
+	auditHandler := auditfeature.NewHandler(deps.Store, deps.Cache)
 	notificationsHandler := handler.NewNotificationsHandler(deps.Services.Notifications)
 
 	documentHandler := handler.NewDocumentHandler(
@@ -53,20 +60,20 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.StorageFactory,
 	)
 
-	storageLocationHandler := handler.NewStorageLocationHandler(
+	storageLocationHandler := storagelocationfeature.NewHandler(
 		deps.Services.StorageLocations,
 		deps.Services.Audit,
 	)
-	sessionHandler := handler.NewSessionHandler(deps.Services.Sessions)
+	sessionHandler := sessionfeature.NewHandler(deps.Services.Sessions)
 	dataQualityHandler := handler.NewDataQualityHandler(deps.Databases.DWH)
-	announcementHandler := handler.NewAnnouncementHandler(
+	announcementHandler := announcementfeature.NewHandler(
 		deps.Services.Announcements,
 		deps.Services.Audit,
 	)
 	adminunitsHandler := handler.NewAdminUnitsHandler(deps.Config, deps.Databases.DWH)
 	visualiserHandler := handler.NewVisualiserHandler(deps.Config, deps.Databases.DWH)
 	geoJSONHandler := handler.NewGeoJSONHandler("./assets/geojson")
-	emailHandler := handler.NewEmailHandler(deps.Services.Email, deps.Repositories.Email)
+	emailHandler := emailfeature.NewHandler(deps.Services.Email, deps.Repositories.Email)
 
 	surveillanceHandler := handler.NewSurveillanceHandler(
 		deps.Services.EpiWeeks,

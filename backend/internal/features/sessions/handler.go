@@ -1,4 +1,4 @@
-package handler
+package sessions
 
 import (
 	"net/http"
@@ -7,19 +7,19 @@ import (
 	"github.com/moh-sso-dashboard/internal/service"
 )
 
-type SessionHandler struct {
+type Handler struct {
 	sessionService service.SessionService
 }
 
-func NewSessionHandler(
+func NewHandler(
 	sessionService service.SessionService,
-) *SessionHandler {
-	return &SessionHandler{
+) *Handler {
+	return &Handler{
 		sessionService: sessionService,
 	}
 }
 
-func (h *SessionHandler) GetUserSessions(c *gin.Context) {
+func (h *Handler) GetUserSessions(c *gin.Context) {
 	userIDValue, exists := c.Get("user_id")
 	if !exists {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -41,7 +41,7 @@ func (h *SessionHandler) GetUserSessions(c *gin.Context) {
 	c.JSON(http.StatusOK, sessions)
 }
 
-func (h *SessionHandler) LogoutSession(c *gin.Context) {
+func (h *Handler) LogoutSession(c *gin.Context) {
 	sessionID := c.Param("id")
 	if sessionID == "" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{

@@ -1,4 +1,4 @@
-package handler
+package announcements
 
 import (
 	"database/sql"
@@ -17,16 +17,16 @@ import (
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
-type AnnouncementHandler struct {
+type Handler struct {
 	announcementService *service.AnnouncementService
 	auditService        *service.AuditService
 }
 
-func NewAnnouncementHandler(
+func NewHandler(
 	announcementService *service.AnnouncementService,
 	auditService *service.AuditService,
-) *AnnouncementHandler {
-	return &AnnouncementHandler{
+) *Handler {
+	return &Handler{
 		announcementService: announcementService,
 		auditService:        auditService,
 	}
@@ -92,6 +92,20 @@ type AnnouncementResponse struct {
 	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
 	DeletedBy    *string    `json:"deleted_by,omitempty"`
 	Version      int32      `json:"version"`
+}
+
+func nullStringPtr(ns sql.NullString) *string {
+	if !ns.Valid {
+		return nil
+	}
+	return &ns.String
+}
+
+func nullTimePtr(nt sql.NullTime) *time.Time {
+	if !nt.Valid {
+		return nil
+	}
+	return &nt.Time
 }
 
 func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
@@ -249,7 +263,7 @@ func nullUUIDString(v uuid.NullUUID) string {
 	return v.UUID.String()
 }
 
-func (h *AnnouncementHandler) ListAnnouncementsAdmin(c *gin.Context) {
+func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
@@ -273,7 +287,7 @@ func (h *AnnouncementHandler) ListAnnouncementsAdmin(c *gin.Context) {
 	response.OK(c, http.StatusOK, res)
 }
 
-func (h *AnnouncementHandler) GetAnnouncementByID(c *gin.Context) {
+func (h *Handler) GetAnnouncementByID(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -288,7 +302,7 @@ func (h *AnnouncementHandler) GetAnnouncementByID(c *gin.Context) {
 	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
 
-func (h *AnnouncementHandler) ListPublicAnnouncements(c *gin.Context) {
+func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	limit, err := strconv.ParseInt(c.DefaultQuery("limit", "20"), 10, 32)
@@ -320,7 +334,7 @@ func (h *AnnouncementHandler) ListPublicAnnouncements(c *gin.Context) {
 	response.OK(c, http.StatusOK, res)
 }
 
-func (h *AnnouncementHandler) CreateAnnouncement(c *gin.Context) {
+func (h *Handler) CreateAnnouncement(c *gin.Context) {
 	var req createAnnouncementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
@@ -426,7 +440,7 @@ func (h *AnnouncementHandler) CreateAnnouncement(c *gin.Context) {
 	response.OK(c, http.StatusCreated, item)
 }
 
-func (h *AnnouncementHandler) UpdateAnnouncement(c *gin.Context) {
+func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -530,7 +544,7 @@ func (h *AnnouncementHandler) UpdateAnnouncement(c *gin.Context) {
 	response.OK(c, http.StatusOK, item)
 }
 
-func (h *AnnouncementHandler) PublishAnnouncementNow(c *gin.Context) {
+func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -561,7 +575,7 @@ func (h *AnnouncementHandler) PublishAnnouncementNow(c *gin.Context) {
 
 	response.OK(c, http.StatusOK, item)
 }
-func (h *AnnouncementHandler) MoveAnnouncementToDraft(c *gin.Context) {
+func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -601,7 +615,7 @@ func (h *AnnouncementHandler) MoveAnnouncementToDraft(c *gin.Context) {
 	response.OK(c, http.StatusOK, item)
 }
 
-func (h *AnnouncementHandler) ScheduleAnnouncement(c *gin.Context) {
+func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -659,7 +673,7 @@ func (h *AnnouncementHandler) ScheduleAnnouncement(c *gin.Context) {
 	response.OK(c, http.StatusOK, item)
 }
 
-func (h *AnnouncementHandler) ArchiveAnnouncement(c *gin.Context) {
+func (h *Handler) ArchiveAnnouncement(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -691,7 +705,7 @@ func (h *AnnouncementHandler) ArchiveAnnouncement(c *gin.Context) {
 	response.OK(c, http.StatusOK, item)
 }
 
-func (h *AnnouncementHandler) RestoreAnnouncement(c *gin.Context) {
+func (h *Handler) RestoreAnnouncement(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -723,7 +737,7 @@ func (h *AnnouncementHandler) RestoreAnnouncement(c *gin.Context) {
 	response.OK(c, http.StatusOK, item)
 }
 
-func (h *AnnouncementHandler) DeleteAnnouncement(c *gin.Context) {
+func (h *Handler) DeleteAnnouncement(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -755,7 +769,7 @@ func (h *AnnouncementHandler) DeleteAnnouncement(c *gin.Context) {
 	})
 }
 
-func (h *AnnouncementHandler) SetAnnouncementPinned(c *gin.Context) {
+func (h *Handler) SetAnnouncementPinned(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -798,7 +812,7 @@ func (h *AnnouncementHandler) SetAnnouncementPinned(c *gin.Context) {
 	response.OK(c, http.StatusOK, item)
 }
 
-func (h *AnnouncementHandler) SetAnnouncementPriority(c *gin.Context) {
+func (h *Handler) SetAnnouncementPriority(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
 		return
@@ -841,7 +855,7 @@ func (h *AnnouncementHandler) SetAnnouncementPriority(c *gin.Context) {
 	response.OK(c, http.StatusOK, item)
 }
 
-func (h *AnnouncementHandler) GetAnnouncementStats(c *gin.Context) {
+func (h *Handler) GetAnnouncementStats(c *gin.Context) {
 	stats, err := h.announcementService.GetAnnouncementStats(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcement stats")
@@ -851,7 +865,7 @@ func (h *AnnouncementHandler) GetAnnouncementStats(c *gin.Context) {
 	response.OK(c, http.StatusOK, stats)
 }
 
-func (h *AnnouncementHandler) ListActivePublishedAnnouncements(c *gin.Context) {
+func (h *Handler) ListActivePublishedAnnouncements(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
@@ -870,7 +884,7 @@ func (h *AnnouncementHandler) ListActivePublishedAnnouncements(c *gin.Context) {
 	response.OK(c, http.StatusOK, items)
 }
 
-func (h *AnnouncementHandler) ListAnnouncementsForClient(c *gin.Context) {
+func (h *Handler) ListAnnouncementsForClient(c *gin.Context) {
 	clientIDParam := c.Param("client_id")
 	if clientIDParam == "" {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "client id is required")
@@ -902,7 +916,7 @@ func (h *AnnouncementHandler) ListAnnouncementsForClient(c *gin.Context) {
 	response.OK(c, http.StatusOK, items)
 }
 
-func (h *AnnouncementHandler) ListAnnouncementsForRole(c *gin.Context) {
+func (h *Handler) ListAnnouncementsForRole(c *gin.Context) {
 	roleName := strings.TrimSpace(c.Param("role_name"))
 	if roleName == "" {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "role name is required")
@@ -928,7 +942,7 @@ func (h *AnnouncementHandler) ListAnnouncementsForRole(c *gin.Context) {
 	response.OK(c, http.StatusOK, items)
 }
 
-func (h *AnnouncementHandler) ListAnnouncementsForUser(c *gin.Context) {
+func (h *Handler) ListAnnouncementsForUser(c *gin.Context) {
 	userID, ok := getCurrentUserID(c)
 	if !ok {
 		return
@@ -953,7 +967,7 @@ func (h *AnnouncementHandler) ListAnnouncementsForUser(c *gin.Context) {
 	response.OK(c, http.StatusOK, items)
 }
 
-func (h *AnnouncementHandler) ListMyAnnouncements(c *gin.Context) {
+func (h *Handler) ListMyAnnouncements(c *gin.Context) {
 	userID, ok := getCurrentUserID(c)
 	if !ok {
 		return
