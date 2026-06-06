@@ -1,1 +1,7 @@
-{"name":"@moh-sso/announcements","private":true,"type":"module","main":"./src/index.ts","types":"./src/index.ts"}
+{
+  "name": "@moh-sso/announcements",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts"
+}
