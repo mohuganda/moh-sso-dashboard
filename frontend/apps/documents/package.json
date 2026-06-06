@@ -32,5 +32,19 @@
   },
   "publishConfig": {
     "access": "restricted"
+  },
+  "dependencies": {
+    "@moh-sso/api": "0.1.0",
+    "@moh-sso/microfrontend": "0.1.0",
+    "@moh-sso/types": "0.1.0",
+    "@moh-sso/ui": "0.1.0",
+    "@moh-sso/utils": "0.1.0"
+  },
+  "peerDependencies": {
+    "@carbon/react": "^1.95.0",
+    "papaparse": "^5.5.3",
+    "react": "^19.2.0",
+    "react-router-dom": "^7.9.6",
+    "xlsx": "^0.18.5"
   }
 }

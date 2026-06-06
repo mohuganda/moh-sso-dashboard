@@ -32,5 +32,23 @@
   },
   "publishConfig": {
     "access": "restricted"
+  },
+  "dependencies": {
+    "@moh-sso/api": "0.1.0",
+    "@moh-sso/microfrontend": "0.1.0",
+    "@moh-sso/types": "0.1.0",
+    "@moh-sso/ui": "0.1.0"
+  },
+  "peerDependencies": {
+    "@carbon/charts": "^1.27.3",
+    "@carbon/charts-react": "^1.27.3",
+    "@carbon/react": "^1.95.0",
+    "leaflet": "^1.9.4",
+    "react": "^19.2.0",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.9.6"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16"
   }
 }

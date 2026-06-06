@@ -81,7 +81,7 @@ function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
   singleSpa.registerApplication({
     name: route.appName,
     app: loader,
-    activeWhen: [route.path],
+    activeWhen: route.paths ?? [route.path],
     customProps: {
       basename: route.path,
     },

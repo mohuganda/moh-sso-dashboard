@@ -32,5 +32,8 @@
   },
   "publishConfig": {
     "access": "restricted"
+  },
+  "dependencies": {
+    "@moh-sso/microfrontend": "0.1.0"
   }
 }

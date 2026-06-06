@@ -1,0 +1,102 @@
+# Troubleshooting
+
+## Vite Warns About Node Version
+
+Vite 7 expects Node `20.19+` or `22.12+`.
+
+Fix:
+
+```bash
+node --version
+```
+
+Switch to Node 20.19+ or 22.12+.
+
+## Failed To Resolve `single-spa-react`
+
+Fix:
+
+```bash
+npm install
+```
+
+The React lifecycle helper has a manual fallback, but the package should still be installed for normal single-spa React behavior.
+
+## `npm ci` Fails
+
+Cause: `package.json` and `package-lock.json` are out of sync.
+
+Fix:
+
+```bash
+cd frontend
+npm install
+```
+
+Commit the updated lockfile.
+
+## Docker Build Fails At `npm ci`
+
+Same cause as local `npm ci` failure.
+
+Fix:
+
+```bash
+cd frontend
+npm install
+```
+
+Commit `package-lock.json`, then rerun Docker.
+
+## App Build Fails Due Missing Dependency
+
+Run:
+
+```bash
+npm run audit:packages
+```
+
+Add the missing dependency or peer dependency to the app/package manifest.
+
+## Remote Mode Loads A Blank App
+
+Check:
+
+- import map URL
+- app `single-spa.js` is served
+- app `basename`
+- browser console
+- network tab for failed module requests
+
+## Duplicate React Or Invalid Hook Call
+
+Likely cause: remote bundles are loading more than one React instance.
+
+Fix:
+
+- keep React as a peer dependency
+- share React through the import map
+- avoid bundling duplicate React into remote apps
+
+## Route Works In Shell But Fails In Remote App
+
+Check:
+
+- app root `basename`
+- nested app routes
+- shell route path
+- `MicrofrontendRuntimeProps.basename`
+
+## Docker Dev Only Starts Shell
+
+Default Docker dev runs shell-only mode.
+
+Use:
+
+```bash
+FRONTEND_DEV_COMMAND="npm run dev:remote:all" docker compose -f docker-compose.dev.yml up frontend
+```
+
+## Import Map Points To Missing Vendor Files
+
+The current production import map uses pinned CDN ESM URLs. If using self-hosted vendor files, make sure those files exist and are served.

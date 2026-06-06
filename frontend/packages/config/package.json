@@ -22,5 +22,8 @@
   },
   "publishConfig": {
     "access": "restricted"
+  },
+  "dependencies": {
+    "@moh-sso/types": "0.1.0"
   }
 }

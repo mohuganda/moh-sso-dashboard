@@ -7,9 +7,14 @@
     <title>Integrated Health Portal</title>
     <script src="/config.js"></script>
     <!--
-      Future independent-deployment mode can load /import-map.json here,
-      plus import-map-overrides, once remote bundles are published.
-      Vite workspace builds intentionally keep this passive for now.
+      Remote microfrontend mode:
+      1. Set window.__APP_CONFIG__.singleSpaOrchestration = true
+      2. Set window.__APP_CONFIG__.microfrontendMode = "remote"
+      3. Enable the import map below when deploying independently hosted bundles.
+      The default Vite workspace build keeps local/hybrid mode active.
+
+      <script type="importmap" src="/import-map.json"></script>
+      <script async src="https://unpkg.com/import-map-overrides@6.1.0/dist/import-map-overrides.js"></script>
     -->
   </head>
 

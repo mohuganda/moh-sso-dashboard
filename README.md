@@ -7,20 +7,38 @@ Built with **Keycloak**, **Go (Gin)**, **React**, and **Carbon Design System**.
 
 ## Table of Contents
 
-- [1. Introduction](#1-introduction)  
-- [2. System Architecture Overview](#2-system-architecture-overview)  
-  - [2.1 Frontend](#21-frontend-react--carbon)  
-  - [2.2 Backend](#22-backend-go--gin)  
-  - [2.3 Keycloak](#23-keycloak-identity-provider)  
-- [3. Features](#3-features)  
-- [4. API Reference](#4-api-reference)  
-- [5. Development Setup](#5-development-setup)  
-- [6. Docker Deployment](#6-docker-deployment)  
-- [7. Environment Variables](#7-environment-variables)  
-- [8. Database Schema Overview](#8-database-schema-overview)  
-- [9. Keycloak Realm Requirements](#9-keycloak-realm-requirements)  
-- [10. Future Enhancements](#10-future-enhancements)  
-- [11. License](#11-license)
+- [MOH SSO Dashboard](#moh-sso-dashboard)
+  - [Table of Contents](#table-of-contents)
+  - [1. Introduction](#1-introduction)
+  - [2. System Architecture Overview](#2-system-architecture-overview)
+    - [2.1 Frontend (React + Carbon)](#21-frontend-react--carbon)
+    - [2.2 Backend (Go + Gin)](#22-backend-go--gin)
+    - [2.3 Keycloak (Identity Provider)](#23-keycloak-identity-provider)
+  - [3. Features](#3-features)
+    - [3.1 Authentication \& Authorization](#31-authentication--authorization)
+    - [3.2 Client Management](#32-client-management)
+    - [3.3 User Management](#33-user-management)
+  - [4. API Reference](#4-api-reference)
+    - [Authentication API](#authentication-api)
+    - [Client API](#client-api)
+    - [User API](#user-api)
+  - [5. Development Setup](#5-development-setup)
+    - [Step 1 — Clone Repository](#step-1--clone-repository)
+    - [Step 2 — Backend Setup](#step-2--backend-setup)
+    - [Step 3 — Frontend Setup](#step-3--frontend-setup)
+  - [6. Docker Deployment](#6-docker-deployment)
+    - [Step 1 — Start Development **Stack**](#step-1--start-development-stack)
+    - [Step 2 — **Production** Build](#step-2--production-build)
+  - [7. Environment Variables](#7-environment-variables)
+    - [Backend `.env`](#backend-env)
+    - [Frontend `.env`](#frontend-env)
+  - [8. Database Schema Overview](#8-database-schema-overview)
+  - [9. Keycloak Realm Requirements](#9-keycloak-realm-requirements)
+    - [Realm](#realm)
+    - [Roles](#roles)
+    - [Dashboard Client](#dashboard-client)
+  - [10. Future Enhancements](#10-future-enhancements)
+  - [11. License](#11-license)
 
 ---
 
@@ -169,7 +187,7 @@ npm run dev
 
 ## 6. Docker Deployment
 
-### Step 1 — Start Development Stack
+### Step 1 — Start Development **Stack**
 ```bash
 sudo docker compose -f docker-compose.dev.yml up -d --build
 ```
@@ -180,7 +198,7 @@ Starts:
 - Backend  
 - Frontend  
 
-### Step 2 — Production Build
+### Step 2 — **Production** Build
 ```bash
 docker build -t moh-sso-backend ./backend
 docker build -t moh-sso-frontend ./frontend

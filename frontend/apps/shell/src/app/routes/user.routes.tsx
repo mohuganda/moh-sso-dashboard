@@ -1,22 +1,20 @@
 import type { ReactElement } from "react";
-import { Navigate, Outlet, Route } from "react-router-dom";
+import { Navigate, Route } from "react-router-dom";
 
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import { UserRoute } from "./guards/UserRoute";
 import UserLayout from "../layouts/user/UserLayout";
 import NewsFeedPage from "@/app/newsfeed/pages/news_feed.component";
-import { DocumentDetailsPage, DocumentPage } from "@moh-sso/documents";
 import MyProfilePage from "@/app/settings/pages/Profile/profile.component";
 import SecurityPage from "@/app/settings/pages/security/security.component";
 import ActiveSessionsPage from "@/app/settings/pages/sessions/active-sesssions.component";
-import { DiseaseDetailsPage } from "@moh-sso/surveillance";
-import { AbsenceRequests, Elearning, LeavePlan, MyAbsenceDashboard, MyTimeSheet } from "@moh-sso/utilities";
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
 import {
   dataVisualizerLifecycles,
   documentsLifecycles,
   issueTrackerLifecycles,
   surveillanceLifecycles,
+  utilitiesLifecycles,
 } from "@/app/microfrontends/lifecycles";
 
 const userPage = (element: ReactElement) => <UserRoute>{element}</UserRoute>;
@@ -62,19 +60,18 @@ export const userRoutes = (
           )
         }
       />
-      <Route path="surveillance" element={userPage(<Outlet />)}>
-        <Route
-          index
-          element={
+      <Route
+        path="surveillance/*"
+        element={
+          userPage(
             <SingleSpaApp
               appName="@moh-sso/surveillance"
               lifecycles={surveillanceLifecycles}
               basename="/apps/dwh/surveillance"
-            />
-          }
-        />
-        <Route path=":diseaseName" element={<DiseaseDetailsPage />} />
-      </Route>
+            />,
+          )
+        }
+      />
       <Route
         path="issue-tracker"
         element={
@@ -139,14 +136,91 @@ export const userRoutes = (
     <Route path="utilities">
       <Route index element={<Navigate to="self-service/timesheet" replace />} />
       <Route path="self-service">
-        <Route path="timesheet" element={userPage(<MyTimeSheet />)} />
-        <Route path="elearning" element={userPage(<Elearning />)} />
-        <Route path="leave-plan" element={userPage(<LeavePlan />)} />
-        <Route path="absence-requests" element={userPage(<AbsenceRequests />)} />
-        <Route path="absence-dashboard" element={userPage(<MyAbsenceDashboard />)} />
+        <Route
+          path="timesheet"
+          element={
+            userPage(
+              <SingleSpaApp
+                appName="@moh-sso/utilities"
+                lifecycles={utilitiesLifecycles}
+                basename="/apps/utilities/self-service"
+              />,
+            )
+          }
+        />
+        <Route
+          path="elearning"
+          element={
+            userPage(
+              <SingleSpaApp
+                appName="@moh-sso/utilities"
+                lifecycles={utilitiesLifecycles}
+                basename="/apps/utilities/self-service"
+              />,
+            )
+          }
+        />
+        <Route
+          path="leave-plan"
+          element={
+            userPage(
+              <SingleSpaApp
+                appName="@moh-sso/utilities"
+                lifecycles={utilitiesLifecycles}
+                basename="/apps/utilities/self-service"
+              />,
+            )
+          }
+        />
+        <Route
+          path="absence-requests"
+          element={
+            userPage(
+              <SingleSpaApp
+                appName="@moh-sso/utilities"
+                lifecycles={utilitiesLifecycles}
+                basename="/apps/utilities/self-service"
+              />,
+            )
+          }
+        />
+        <Route
+          path="absence-dashboard"
+          element={
+            userPage(
+              <SingleSpaApp
+                appName="@moh-sso/utilities"
+                lifecycles={utilitiesLifecycles}
+                basename="/apps/utilities/self-service"
+              />,
+            )
+          }
+        />
         <Route path="eservice">
-          <Route path="document-upload" element={userPage(<DocumentPage />)} />
-          <Route path="document-upload/:id" element={userPage(<DocumentDetailsPage />)} />
+          <Route
+            path="document-upload"
+            element={
+              userPage(
+                <SingleSpaApp
+                  appName="@moh-sso/documents"
+                  lifecycles={documentsLifecycles}
+                  basename="/apps/utilities/self-service/eservice/document-upload"
+                />,
+              )
+            }
+          />
+          <Route
+            path="document-upload/:id"
+            element={
+              userPage(
+                <SingleSpaApp
+                  appName="@moh-sso/documents"
+                  lifecycles={documentsLifecycles}
+                  basename="/apps/utilities/self-service/eservice/document-upload"
+                />,
+              )
+            }
+          />
           <Route path="service-access" element={<div>Service Access</div>} />
           <Route path="equipment-request" element={<div>Equipment Request</div>} />
         </Route>

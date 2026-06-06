@@ -22,11 +22,12 @@ const apps = [
 const packages = ["api", "auth", "config", "microfrontend", "state", "types", "ui", "utils"];
 
 const imports = {
-  react: "/vendor/react.js",
-  "react-dom": "/vendor/react-dom.js",
-  "react-redux": "/vendor/react-redux.js",
-  "single-spa": "/vendor/single-spa.js",
-  "single-spa-react": "/vendor/single-spa-react.js",
+  react: "https://esm.sh/react@19.2.0",
+  "react-dom": "https://esm.sh/react-dom@19.2.0",
+  "react-dom/client": "https://esm.sh/react-dom@19.2.0/client",
+  "react-redux": "https://esm.sh/react-redux@9.2.0",
+  "single-spa": "https://esm.sh/single-spa@6.0.3",
+  "single-spa-react": "https://esm.sh/single-spa-react@6.0.2",
 };
 
 for (const app of apps) {
