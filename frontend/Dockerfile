@@ -5,11 +5,9 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
-
 COPY . .
-RUN npm run build
+RUN npm ci
+RUN npm run build:docker
 
 # ======================
 # Stage 2: Production (Static server)

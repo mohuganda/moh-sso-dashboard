@@ -1,7 +1,33 @@
 {
   "name": "@moh-sso/microfrontend",
-  "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts"
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "module": "./dist/index.js",
+  "files": [
+    "dist",
+    "src",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "vite build --config vite.config.ts && node ../../scripts/write-package-declarations.mjs package microfrontend"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-redux": "^9.2.0",
+    "single-spa": "^6.0.3",
+    "single-spa-react": "^6.0.2"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  }
 }

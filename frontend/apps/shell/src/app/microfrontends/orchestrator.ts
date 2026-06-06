@@ -42,16 +42,25 @@ const lifecycleLoaders: Record<string, () => Promise<MicrofrontendLifecycle>> = 
 };
 
 function shouldUseSingleSpaOrchestration() {
-  const runtimeConfig = (window as Window & { __APP_CONFIG__?: { singleSpaOrchestration?: boolean } })
-    .__APP_CONFIG__;
+  const runtimeConfig = (
+    window as Window & {
+      __APP_CONFIG__?: { singleSpaOrchestration?: boolean; microfrontendMode?: "local" | "remote" };
+    }
+  ).__APP_CONFIG__;
   return import.meta.env.VITE_SINGLE_SPA_ORCHESTRATION === "true" || runtimeConfig?.singleSpaOrchestration === true;
+}
+
+function getMicrofrontendMode() {
+  const runtimeConfig = (
+    window as Window & {
+      __APP_CONFIG__?: { microfrontendMode?: "local" | "remote" };
+    }
+  ).__APP_CONFIG__;
+  return runtimeConfig?.microfrontendMode ?? import.meta.env.VITE_MICROFRONTEND_MODE ?? "local";
 }
 
 async function loadSingleSpa(): Promise<SingleSpaModule | null> {
   try {
-    const runtimeImport = new Function("specifier", "return import(specifier)") as (
-      specifier: string,
-    ) => Promise<SingleSpaModule>;
     return await runtimeImport("single-spa");
   } catch {
     return null;
@@ -59,7 +68,11 @@ async function loadSingleSpa(): Promise<SingleSpaModule | null> {
 }
 
 function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
-  const loader = lifecycleLoaders[route.appName];
+  const mode = getMicrofrontendMode();
+  const loader =
+    mode === "remote"
+      ? () => runtimeImport<MicrofrontendLifecycle>(route.appName)
+      : lifecycleLoaders[route.appName];
 
   if (!loader) {
     return;
@@ -73,6 +86,13 @@ function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
       basename: route.path,
     },
   });
+}
+
+function runtimeImport<T>(specifier: string): Promise<T> {
+  const load = new Function("specifier", "return import(specifier)") as (
+    specifier: string,
+  ) => Promise<T>;
+  return load(specifier);
 }
 
 export async function startMicrofrontendOrchestration() {

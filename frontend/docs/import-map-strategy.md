@@ -22,6 +22,24 @@ Example:
 }
 ```
 
+Local development ports are reserved as follows:
+
+- shell: `3000`
+- users: `4101`
+- clients: `4102`
+- announcements: `4103`
+- audit: `4104`
+- email: `4105`
+- documents: `4106`
+- surveillance: `4107`
+- data visualizer: `4108`
+- issue tracker: `4109`
+- report browser: `4110`
+- e-services: `4111`
+- utilities: `4112`
+
+Use `public/import-map.local.json` as the starting point for local overrides.
+
 ## Staging And Production
 
 Each environment should publish its own import map:
@@ -37,11 +55,15 @@ When remote loading is enabled, these should be shared import-map entries:
 - `react`
 - `react-dom`
 - `single-spa`
+- `react-redux`
 - `@moh-sso/api`
 - `@moh-sso/auth`
+- `@moh-sso/config`
+- `@moh-sso/microfrontend`
 - `@moh-sso/state`
 - `@moh-sso/ui`
 - `@moh-sso/types`
+- `@moh-sso/utils`
 
 ## Rollback
 

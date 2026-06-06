@@ -157,8 +157,22 @@ services:
       VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-moh-realm}
       VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_WEB_CLIENT_ID:-dashboard-web}
       VITE_KEYCLOAK_REDIRECT_URI: ${VITE_KEYCLOAK_REDIRECT_URI:-http://localhost:9000/api/v1/auth/callback}
+      VITE_SINGLE_SPA_ORCHESTRATION: ${VITE_SINGLE_SPA_ORCHESTRATION:-false}
+      VITE_MICROFRONTEND_MODE: ${VITE_MICROFRONTEND_MODE:-local}
     ports:
       - "3000:3000"
+      - "4101:4101"
+      - "4102:4102"
+      - "4103:4103"
+      - "4104:4104"
+      - "4105:4105"
+      - "4106:4106"
+      - "4107:4107"
+      - "4108:4108"
+      - "4109:4109"
+      - "4110:4110"
+      - "4111:4111"
+      - "4112:4112"
     volumes:
       - ./frontend:/app
       - /app/node_modules

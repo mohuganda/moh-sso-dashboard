@@ -4,6 +4,7 @@
     "react-dom": "/vendor/react-dom.js",
     "react-redux": "/vendor/react-redux.js",
     "single-spa": "/vendor/single-spa.js",
+    "single-spa-react": "/vendor/single-spa-react.js",
     "@moh-sso/announcements": "/mf/announcements/single-spa.js",
     "@moh-sso/audit": "/mf/audit/single-spa.js",
     "@moh-sso/clients": "/mf/clients/single-spa.js",

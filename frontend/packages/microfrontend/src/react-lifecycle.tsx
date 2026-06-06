@@ -1,9 +1,10 @@
 import type { ComponentType, ReactNode } from "react";
+import React from "react";
 import ReactDOMClient, { type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 
 import { store } from "@moh-sso/state";
-import { HeaderPanelProvider , ModalProvider , ToastProvider } from "@moh-sso/ui";
+import { HeaderPanelProvider, ModalProvider, ToastProvider } from "@moh-sso/ui";
 
 import type { MicrofrontendLifecycle } from "./lifecycle";
 import type { MicrofrontendMountProps, MicrofrontendRuntimeProps } from "./props";
@@ -21,6 +22,13 @@ const defaultOptions: Required<ReactLifecycleOptions> = {
   withToast: true,
   withHeaderPanel: true,
 };
+
+type SingleSpaReactFactory = (options: {
+  React: typeof React;
+  ReactDOMClient: typeof ReactDOMClient;
+  rootComponent: ComponentType<MicrofrontendMountProps>;
+  domElementGetter: (props: MicrofrontendMountProps) => HTMLElement;
+}) => MicrofrontendLifecycle;
 
 function withProviders(children: ReactNode, options: Required<ReactLifecycleOptions>) {
   let tree = children;
@@ -44,26 +52,86 @@ function withProviders(children: ReactNode, options: Required<ReactLifecycleOpti
   return tree;
 }
 
+function renderRoot(
+  RootComponent: ComponentType<MicrofrontendRuntimeProps>,
+  props: MicrofrontendMountProps,
+  options: Required<ReactLifecycleOptions>,
+) {
+  const { domElement: _domElement, ...runtimeProps } = props;
+  return withProviders(<RootComponent {...runtimeProps} />, options);
+}
+
+function createManualLifecycle(
+  RootComponent: ComponentType<MicrofrontendRuntimeProps>,
+  options: Required<ReactLifecycleOptions>,
+): MicrofrontendLifecycle {
+  let root: Root | null = null;
+
+  return {
+    async bootstrap() {
+      return undefined;
+    },
+    async mount(props) {
+      root = ReactDOMClient.createRoot(props.domElement);
+      root.render(renderRoot(RootComponent, props, options));
+    },
+    async unmount() {
+      root?.unmount();
+      root = null;
+    },
+  };
+}
+
+async function loadSingleSpaReact(): Promise<SingleSpaReactFactory | null> {
+  try {
+    const runtimeImport = new Function("specifier", "return import(specifier)") as (
+      specifier: string,
+    ) => Promise<{ default?: SingleSpaReactFactory }>;
+    const module = await runtimeImport("single-spa-react");
+    return module.default ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function createReactMicrofrontendLifecycle(
   RootComponent: ComponentType<MicrofrontendRuntimeProps>,
   lifecycleOptions: ReactLifecycleOptions = {},
 ): MicrofrontendLifecycle {
   const options = { ...defaultOptions, ...lifecycleOptions };
-  let root: Root | null = null;
+  const manualLifecycle = createManualLifecycle(RootComponent, options);
+  let lifecycle: MicrofrontendLifecycle | null = null;
+
+  async function getLifecycle() {
+    if (lifecycle) {
+      return lifecycle;
+    }
+
+    const singleSpaReact = await loadSingleSpaReact();
+    lifecycle = singleSpaReact
+      ? singleSpaReact({
+          React,
+          ReactDOMClient,
+          rootComponent: (props) => renderRoot(RootComponent, props, options),
+          domElementGetter: ({ domElement }) => domElement,
+        })
+      : manualLifecycle;
+
+    return lifecycle;
+  }
 
   return {
-    async bootstrap() {
-      return;
+    async bootstrap(props) {
+      const currentLifecycle = await getLifecycle();
+      return currentLifecycle.bootstrap(props);
     },
-
-    async mount({ domElement, ...props }: MicrofrontendMountProps) {
-      root = ReactDOMClient.createRoot(domElement);
-      root.render(withProviders(<RootComponent {...props} />, options));
+    async mount(props) {
+      const currentLifecycle = await getLifecycle();
+      return currentLifecycle.mount(props);
     },
-
-    async unmount() {
-      root?.unmount();
-      root = null;
+    async unmount(props) {
+      const currentLifecycle = lifecycle ?? manualLifecycle;
+      return currentLifecycle.unmount(props);
     },
   };
 }

@@ -5,14 +5,12 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install dependencies
-COPY package*.json ./
+COPY . .
 RUN npm install
 
-# Copy source code
-COPY . .
-
-# Expose dev server port
+# Expose shell and local microfrontend dev server ports
 EXPOSE 3000
+EXPOSE 4101 4102 4103 4104 4105 4106 4107 4108 4109 4110 4111 4112
 
 # Start dev server
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev:shell"]

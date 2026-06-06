@@ -1,1 +1,36 @@
-{"name":"@moh-sso/e-services","private":true,"type":"module","main":"./src/index.ts","types":"./src/index.ts","exports":{".":"./src/index.ts","./single-spa":"./src/single-spa.tsx","./routes":"./src/routes.tsx"}}
+{
+  "name": "@moh-sso/e-services",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./single-spa": {
+      "types": "./dist/single-spa.d.ts",
+      "import": "./dist/single-spa.js"
+    },
+    "./routes": {
+      "types": "./dist/routes.d.ts",
+      "import": "./dist/routes.js"
+    }
+  },
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "module": "./dist/index.js",
+  "files": [
+    "dist",
+    "src",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "vite build --config vite.config.ts && node ../../scripts/write-package-declarations.mjs app e-services",
+    "dev": "vite --config vite.config.ts --host 0.0.0.0",
+    "preview": "vite preview --config vite.config.ts"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  }
+}

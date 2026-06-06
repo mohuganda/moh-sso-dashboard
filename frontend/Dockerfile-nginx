@@ -5,15 +5,12 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Install ALL deps (including dev deps)
-COPY package*.json ./
+# Install ALL deps (including workspace dev deps)
+COPY . .
 RUN npm ci
 
-# Copy all source code
-COPY . .
-
-# Build the app
-RUN npm run build
+# Build shell, packages, and standalone microfrontend bundles
+RUN npm run build:docker
 
 # ======================
 # Stage 2: Production (Nginx)
