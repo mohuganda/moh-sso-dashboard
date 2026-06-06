@@ -4,9 +4,6 @@ import { Navigate, Outlet, Route } from "react-router-dom";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import { UserRoute } from "./guards/UserRoute";
 import UserLayout from "../layouts/user/UserLayout";
-import DataVisualizer from "@/features/data-visualizer/pages/data-visualizer";
-import FileUpload from "@/features/documents/pages/file-upload";
-import IssueTracker from "@/features/issue-tracker/pages/issue-tracker";
 import NewsFeedPage from "@/app/newsfeed/pages/news_feed.component";
 import DocumentDetailsPage from "@/features/documents/pages/document-details.component";
 import DocumentPage from "@/features/documents/pages/documents.component";
@@ -14,12 +11,18 @@ import MyProfilePage from "@/app/settings/pages/Profile/profile.component";
 import SecurityPage from "@/app/settings/pages/security/security.component";
 import ActiveSessionsPage from "@/app/settings/pages/sessions/active-sesssions.component";
 import DiseaseDetailsPage from "@/features/surveillance/pages/surveillance-details/surveillance-details.component";
-import SurveillancePage from "@/features/surveillance/pages/surveillance.component";
 import AbsenceRequests from "@/features/utilities/pages/absence-requests.component";
 import Elearning from "@/features/utilities/pages/elearning.component";
 import LeavePlan from "@/features/utilities/pages/leave-plan.component";
 import MyAbsenceDashboard from "@/features/utilities/pages/my-absence-dashboard.component";
 import MyTimeSheet from "@/features/utilities/pages/my-timesheet.component";
+import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
+import {
+  dataVisualizerLifecycles,
+  documentsLifecycles,
+  issueTrackerLifecycles,
+  surveillanceLifecycles,
+} from "@/app/microfrontends/lifecycles";
 
 const userPage = (element: ReactElement) => <UserRoute>{element}</UserRoute>;
 
@@ -37,16 +40,58 @@ export const userRoutes = (
 
     <Route path="dwh">
       <Route index element={<Navigate to="data-visualizer" replace />} />
-      <Route path="data-visualizer" element={userPage(<DataVisualizer />)} />
+      <Route
+        path="data-visualizer"
+        element={
+          userPage(
+            <SingleSpaApp
+              appName="@moh-sso/data-visualizer"
+              lifecycles={dataVisualizerLifecycles}
+              basename="/apps/dwh/data-visualizer"
+            />,
+          )
+        }
+      />
       <Route path="dashboards" element={userPage(<div>Dashboards</div>)} />
       <Route path="reports" element={userPage(<div>Reports</div>)} />
       <Route path="exports" element={userPage(<div>Data Exports</div>)} />
-      <Route path="filesvr" element={userPage(<FileUpload />)} />
+      <Route
+        path="filesvr"
+        element={
+          userPage(
+            <SingleSpaApp
+              appName="@moh-sso/documents"
+              lifecycles={documentsLifecycles}
+              basename="/apps/dwh/filesvr"
+            />,
+          )
+        }
+      />
       <Route path="surveillance" element={userPage(<Outlet />)}>
-        <Route index element={<SurveillancePage />} />
+        <Route
+          index
+          element={
+            <SingleSpaApp
+              appName="@moh-sso/surveillance"
+              lifecycles={surveillanceLifecycles}
+              basename="/apps/dwh/surveillance"
+            />
+          }
+        />
         <Route path=":diseaseName" element={<DiseaseDetailsPage />} />
       </Route>
-      <Route path="issue-tracker" element={userPage(<IssueTracker />)} />
+      <Route
+        path="issue-tracker"
+        element={
+          userPage(
+            <SingleSpaApp
+              appName="@moh-sso/issue-tracker"
+              lifecycles={issueTrackerLifecycles}
+              basename="/apps/dwh/issue-tracker"
+            />,
+          )
+        }
+      />
     </Route>
 
     <Route path="eservices">

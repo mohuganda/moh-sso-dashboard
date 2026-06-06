@@ -3,12 +3,15 @@ import { Navigate, Route } from "react-router-dom";
 import { AdminRoute } from "./guards/AdminRoute";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import AdminLayout from "../layouts/admin/AdminLayout";
-import { AnnouncementsPage } from "@/features/announcements/pages/announcements.components";
-import AuditLogsPage from "@/features/audit/pages/audit_component";
-import ClientsPage from "@/features/clients/pages/client.component";
-import EmailOutbox from "@/features/email/pages/email-outbox.component";
 import HomePage from "@/app/home/pages/home.component";
-import UsersPage from "@/features/users/pages/user.component";
+import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
+import {
+  announcementsLifecycles,
+  auditLifecycles,
+  clientsLifecycles,
+  emailLifecycles,
+  usersLifecycles,
+} from "@/app/microfrontends/lifecycles";
 
 export const adminRoutes = (
   <Route
@@ -32,7 +35,11 @@ export const adminRoutes = (
       path="users"
       element={
         <AdminRoute>
-          <UsersPage />
+          <SingleSpaApp
+            appName="@moh-sso/users"
+            lifecycles={usersLifecycles}
+            basename="/admin/users"
+          />
         </AdminRoute>
       }
     />
@@ -40,7 +47,11 @@ export const adminRoutes = (
       path="clients"
       element={
         <AdminRoute>
-          <ClientsPage />
+          <SingleSpaApp
+            appName="@moh-sso/clients"
+            lifecycles={clientsLifecycles}
+            basename="/admin/clients"
+          />
         </AdminRoute>
       }
     />
@@ -48,7 +59,11 @@ export const adminRoutes = (
       path="audit-logs"
       element={
         <AdminRoute>
-          <AuditLogsPage />
+          <SingleSpaApp
+            appName="@moh-sso/audit"
+            lifecycles={auditLifecycles}
+            basename="/admin/audit-logs"
+          />
         </AdminRoute>
       }
     />
@@ -56,7 +71,11 @@ export const adminRoutes = (
       path="announcements"
       element={
         <AdminRoute>
-          <AnnouncementsPage />
+          <SingleSpaApp
+            appName="@moh-sso/announcements"
+            lifecycles={announcementsLifecycles}
+            basename="/admin/announcements"
+          />
         </AdminRoute>
       }
     />
@@ -64,7 +83,11 @@ export const adminRoutes = (
       path="emails"
       element={
         <AdminRoute>
-          <EmailOutbox />
+          <SingleSpaApp
+            appName="@moh-sso/email"
+            lifecycles={emailLifecycles}
+            basename="/admin/emails"
+          />
         </AdminRoute>
       }
     />
