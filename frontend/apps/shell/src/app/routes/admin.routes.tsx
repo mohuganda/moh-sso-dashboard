@@ -7,7 +7,7 @@ import { AnnouncementsPage } from "@/features/announcements/pages/announcements.
 import AuditLogsPage from "@/features/audit/pages/audit_component";
 import ClientsPage from "@/features/clients/pages/client.component";
 import EmailOutbox from "@/features/email/pages/email-outbox.component";
-import HomePage from "@/features/home/pages/home.component";
+import HomePage from "@/app/home/pages/home.component";
 import UsersPage from "@/features/users/pages/user.component";
 
 export const adminRoutes = (

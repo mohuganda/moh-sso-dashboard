@@ -3,7 +3,7 @@ import { TextInput, Button, Form, Stack, Tile, Tag, InlineLoading } from "@carbo
 import { Save } from "@carbon/react/icons";
 
 import { useMeQuery, useUpdateProfileMutation } from "@/store/api/auth.api";
-import UserSessionsTable from "@/features/sessions/components/UserSessionsTable";
+import UserSessionsTable from "@/app/settings/sessions/UserSessionsTable";
 
 export default function MyProfilePage() {
   const { data: user, isLoading } = useMeQuery();
