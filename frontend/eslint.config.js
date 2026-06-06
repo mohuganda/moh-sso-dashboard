@@ -10,7 +10,7 @@ import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
   {
-    ignores: ["dist", "node_modules"],
+    ignores: ["dist", "**/dist", "node_modules", "**/node_modules"],
   },
 
   // 1. Base Recommended Configs
