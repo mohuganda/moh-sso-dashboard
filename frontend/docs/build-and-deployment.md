@@ -38,6 +38,12 @@ Build the static Docker-ready artifact:
 npm run build:docker
 ```
 
+Generate version metadata:
+
+```bash
+npm run generate:versions
+```
+
 ## What `build:docker` Does
 
 `build:docker` runs:
@@ -46,7 +52,8 @@ npm run build:docker
 2. generate import map
 3. build apps
 4. build shell
-5. stage microfrontends into `dist`
+5. generate version manifest
+6. stage microfrontends into `dist`
 
 ## Final `dist` Layout
 
@@ -54,6 +61,7 @@ npm run build:docker
 dist/index.html
 dist/assets/*
 dist/import-map.json
+dist/version-manifest.json
 dist/mf/<app>/single-spa.js
 dist/packages/<package>/index.js
 ```
@@ -112,6 +120,13 @@ In this mode:
 - shell reads the import map
 - apps are hosted separately
 - changing an app version can be done by updating the import map
+
+Versioned deployment paths should look like:
+
+```text
+/mf/users/0.4.1/single-spa.js
+/packages/api/0.2.0/index.js
+```
 
 ## Static Hosting Notes
 

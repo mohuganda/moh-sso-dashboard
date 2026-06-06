@@ -1,4 +1,5 @@
-import { writeFileSync } from "node:fs";
+/* global process */
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +21,29 @@ const apps = [
 ];
 
 const packages = ["api", "auth", "config", "microfrontend", "state", "types", "ui", "utils"];
+const versionedImports = process.env.FRONTEND_VERSIONED_IMPORTS === "true";
+const assetBaseUrl = (process.env.FRONTEND_ASSET_BASE_URL ?? "").replace(/\/$/, "");
+
+function readVersion(group, name) {
+  const packageJson = JSON.parse(readFileSync(join(root, group, name, "package.json"), "utf8"));
+  return packageJson.version;
+}
+
+function appUrl(app) {
+  if (!versionedImports || !assetBaseUrl) {
+    return `/mf/${app}/single-spa.js`;
+  }
+
+  return `${assetBaseUrl}/mf/${app}/${readVersion("apps", app)}/single-spa.js`;
+}
+
+function packageUrl(pkg) {
+  if (!versionedImports || !assetBaseUrl) {
+    return `/packages/${pkg}/index.js`;
+  }
+
+  return `${assetBaseUrl}/packages/${pkg}/${readVersion("packages", pkg)}/index.js`;
+}
 
 const imports = {
   react: "https://esm.sh/react@19.2.0",
@@ -31,11 +55,11 @@ const imports = {
 };
 
 for (const app of apps) {
-  imports[`@moh-sso/${app}`] = `/mf/${app}/single-spa.js`;
+  imports[`@moh-sso/${app}`] = appUrl(app);
 }
 
 for (const pkg of packages) {
-  imports[`@moh-sso/${pkg}`] = `/packages/${pkg}/index.js`;
+  imports[`@moh-sso/${pkg}`] = packageUrl(pkg);
 }
 
 writeFileSync(join(root, "public", "import-map.json"), `${JSON.stringify({ imports }, null, 2)}\n`);

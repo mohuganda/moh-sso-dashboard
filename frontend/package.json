@@ -18,6 +18,12 @@
     "preview": "npm run preview -w @moh-sso/shell",
     "prepare": "husky",
     "audit:packages": "node scripts/audit-package-dependencies.mjs",
+    "changeset": "changeset",
+    "version:packages": "changeset version",
+    "release:packages": "changeset publish",
+    "release:dry-run": "changeset publish --dry-run",
+    "preversion:check": "npm run audit:packages && npm run typecheck && npm run lint && npm run build:all",
+    "release:check": "npm run audit:packages && npm run typecheck && npm run lint && npm run build:all",
     "dev:shell": "npm run dev -w @moh-sso/shell",
     "dev:remote:users": "node scripts/dev-microfrontends.mjs users",
     "dev:remote:clients": "node scripts/dev-microfrontends.mjs clients",
@@ -29,6 +35,8 @@
     "build:mf": "npm run generate:import-map && npm run build:apps",
     "build:all": "npm run build:packages && npm run build:mf && npm run build:shell",
     "generate:import-map": "node scripts/generate-import-map.mjs",
+    "generate:import-map:versioned": "FRONTEND_VERSIONED_IMPORTS=true node scripts/generate-import-map.mjs",
+    "generate:versions": "node scripts/generate-version-manifest.mjs",
     "dev:mf:announcements": "npm run dev -w @moh-sso/announcements -- --port 4103",
     "dev:mf:audit": "npm run dev -w @moh-sso/audit -- --port 4104",
     "dev:mf:clients": "npm run dev -w @moh-sso/clients -- --port 4102",
@@ -54,7 +62,7 @@
     "preview:mf:users": "npm run preview -w @moh-sso/users -- --port 4101",
     "preview:mf:utilities": "npm run preview -w @moh-sso/utilities -- --port 4112",
     "stage:mf": "node scripts/stage-microfrontends.mjs",
-    "build:docker": "npm run build:all && npm run stage:mf"
+    "build:docker": "npm run build:all && npm run generate:versions && npm run stage:mf"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -93,6 +101,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "@eslint/js": "^9.39.2",
     "@types/node": "^24.10.0",
     "@types/papaparse": "^5.5.2",

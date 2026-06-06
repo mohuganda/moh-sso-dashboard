@@ -12,6 +12,7 @@ npm run build:shell
 npm run build:packages
 npm run build:apps
 npm run build:all
+npm run generate:versions
 npm run build:docker
 ```
 
@@ -66,6 +67,7 @@ dist/packages/*/index.js
 - shell build passes
 - all package builds pass
 - all app builds pass
+- version manifest generation passes
 - docker production build passes
 - docker dev build passes
 - no old compatibility imports exist

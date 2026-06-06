@@ -2,6 +2,8 @@
   "name": "@moh-sso/shell",
   "private": true,
   "type": "module",
+  "version": "0.1.0",
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "vite --config ../../vite.config.ts",
     "build": "tsc -b ../../tsconfig.json && vite build --config ../../vite.config.ts",

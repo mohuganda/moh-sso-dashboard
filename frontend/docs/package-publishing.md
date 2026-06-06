@@ -2,6 +2,8 @@
 
 Every frontend app and shared package has npm-style metadata so it can build and be published independently.
 
+Changesets controls normal version bumps. Do not manually edit app/package versions unless doing an emergency/manual release.
+
 ## Package Requirements
 
 Each app/package should have:
@@ -56,6 +58,12 @@ npm run build -w @moh-sso/documents
 
 ## Publish Dry Run
 
+Run release checks before any publish attempt:
+
+```bash
+npm run release:check
+```
+
 ```bash
 npm publish --dry-run -w @moh-sso/users
 ```
@@ -64,6 +72,12 @@ npm publish --dry-run -w @moh-sso/users
 
 ```bash
 npm publish -w @moh-sso/users
+```
+
+The preferred release command is:
+
+```bash
+npm run release:packages
 ```
 
 ## Registry And Auth
@@ -94,3 +108,20 @@ npm install
 ```
 
 Commit both `package.json` and `package-lock.json`. Docker uses `npm ci`, so stale lockfiles will fail builds.
+
+## Changesets Commands
+
+```bash
+npm run changeset
+npm run version:packages
+npm run release:dry-run
+npm run release:packages
+```
+
+Install Changesets first if needed:
+
+```bash
+npm install -D @changesets/cli
+```
+
+More detail: [Versioning And Releases](versioning.md).

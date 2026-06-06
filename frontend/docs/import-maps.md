@@ -38,6 +38,38 @@ Shared packages:
 /packages/<package>/index.js
 ```
 
+## Versioned Import Map Mode
+
+Default mode writes local/static paths:
+
+```text
+/mf/users/single-spa.js
+/packages/api/index.js
+```
+
+Versioned mode writes CDN/base URLs with package versions:
+
+```bash
+FRONTEND_ASSET_BASE_URL=https://cdn.example.com FRONTEND_VERSIONED_IMPORTS=true npm run generate:import-map
+```
+
+Example:
+
+```json
+{
+  "imports": {
+    "@moh-sso/users": "https://cdn.example.com/mf/users/0.4.1/single-spa.js",
+    "@moh-sso/documents": "https://cdn.example.com/mf/documents/0.8.0/single-spa.js",
+    "@moh-sso/api": "https://cdn.example.com/packages/api/0.2.0/index.js"
+  }
+}
+```
+
+Environment variables:
+
+- `FRONTEND_VERSIONED_IMPORTS=true`
+- `FRONTEND_ASSET_BASE_URL=https://cdn.example.com`
+
 ## Local Import Map
 
 The local map points apps to dev servers:
@@ -81,7 +113,7 @@ The shell `index.html` keeps import maps passive by default. To enable remote mo
 
 Rollback is import-map driven:
 
-1. Point the affected app entry back to a previous bundle URL.
+1. Point the affected app entry back to a previous versioned bundle URL.
 2. Redeploy the import map or shell config.
 3. Clear CDN/browser cache if required.
 

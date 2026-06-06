@@ -43,3 +43,8 @@ for (const pkg of packages) {
     join(root, "dist", "packages", pkg, "index.js"),
   );
 }
+
+copyRequired(
+  join(root, "public", "version-manifest.json"),
+  join(root, "dist", "version-manifest.json"),
+);

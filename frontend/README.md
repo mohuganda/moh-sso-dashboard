@@ -12,7 +12,7 @@ frontend/
     audit/
     clients/
     data-visualizer/
-    documents/****
+    documents/
     e-services/
     email/
     issue-tracker/
@@ -96,10 +96,17 @@ npm run build:shell
 npm run build:packages
 npm run build:apps
 npm run build:all
+npm run generate:versions
 npm run build:docker
 ```
 
 `npm run audit:packages` verifies that every app/package declares the packages it imports. Run it after changing imports or package manifests.
+
+## Versioning And Releases
+
+Shared packages release together as a fixed release train, while apps version independently as deployable units. Changesets records public changes and controls version bumps. Remote deployments can pin app/package versions through the import map.
+
+More detail: [docs/versioning.md](docs/versioning.md).
 
 ## Docker
 
@@ -140,6 +147,8 @@ More detail: [docs/build-and-deployment.md](docs/build-and-deployment.md).
 - [Import Maps](docs/import-maps.md)
 - [Package Publishing](docs/package-publishing.md)
 - [Build And Deployment](docs/build-and-deployment.md)
+- [Versioning And Releases](docs/versioning.md)
+- [Release CI](docs/release-ci.md)
 - [Verification](docs/verification.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Adding A New App](docs/adding-a-new-app.md)
