@@ -13,8 +13,8 @@ import {
   OverflowMenuItem,
 } from "@carbon/react";
 
-import { useListClientRolesQuery, useDeleteClientRoleMutation } from "@/store/api/clientRoles.api";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
+import { useListClientRolesQuery, useDeleteClientRoleMutation } from "@moh-sso/api";
+import { useToast } from "@moh-sso/ui";
 
 import { CreateClientRoleForm } from "./create-client-role-form";
 

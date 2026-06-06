@@ -1,6 +1,6 @@
 import { OverflowMenu, OverflowMenuItem } from "@carbon/react";
 
-import type { User } from "@/store/types/user.types";
+import type { User } from "@moh-sso/types";
 
 type Props = {
   user: User;

@@ -12,8 +12,8 @@ import {
   useLazyDownloadDocumentQuery,
   useLazyViewDocumentQuery,
   useReprocessDocumentMutation,
-} from "@/store/api/document.api";
-import type { DocumentProcess, DocumentResponse } from "@/store/types/documents.types";
+} from "@moh-sso/api";
+import type { DocumentProcess, DocumentResponse } from "@moh-sso/types";
 
 function StatusTag({ status }: { status: string }) {
   const colorMap: Record<string, "gray" | "blue" | "green" | "red" | "magenta"> = {

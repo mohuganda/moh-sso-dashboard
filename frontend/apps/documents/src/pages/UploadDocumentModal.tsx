@@ -17,17 +17,16 @@ import {
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
-import { useCreateDocumentMutation, useListStorageLocationsQuery } from "@/store/api/document.api";
-
-import {
+import { useCreateDocumentMutation, useListStorageLocationsQuery ,
   useCreateTemplateStructureMutation,
   useListActiveTemplatesQuery,
-} from "@/store/api/document_template.api";
+} from "@moh-sso/api";
+
 
 import {
   DOCUMENT_PROCESS_TYPE_OPTIONS,
   type DocumentProcessType,
-} from "@/store/types/documents.types";
+} from "@moh-sso/types";
 
 import {
   formatFileSize,
@@ -36,7 +35,7 @@ import {
   isPdfFile,
   requiresProcessing,
   validateProcessTypeAgainstFile,
-} from "@/utils/utils";
+} from "@moh-sso/utils";
 
 type UploadMode = "document" | "template";
 

@@ -15,16 +15,14 @@ import {
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { ErrorState } from "@/shared/components/errorstate/ErrorState";
-import { useHeaderPanel } from "@/shared/components/header-panel/header-panel.context";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
-import { UserFormPanel } from "@/features/users/components/create-user-panel";
-import { UserClientRolesPanel } from "@/features/clients/components/user-client-roles-panel";
-import { useEnableUserModal } from "@/features/users/components/useEnableUserModal";
-import { useResetPasswordModal } from "@/features/users/components/useResetPasswordModal";
-import { UserFilters } from "@/features/users/components/UserFilters";
-import { useListUsersQuery, useToggleUserMutation } from "@/store/api/users.api";
-import type { User } from "@/store/types/user.types";
+import { ErrorState , useHeaderPanel , useToast } from "@moh-sso/ui";
+import { UserClientRolesPanel } from "@moh-sso/clients";
+import { UserFormPanel } from "../components/create-user-panel";
+import { useEnableUserModal } from "../components/useEnableUserModal";
+import { useResetPasswordModal } from "../components/useResetPasswordModal";
+import { UserFilters } from "../components/UserFilters";
+import { useListUsersQuery, useToggleUserMutation } from "@moh-sso/api";
+import type { User } from "@moh-sso/types";
 
 import { UserActionsMenu } from "./user-actions-menu.component";
 import { UserBulkActions } from "./user-bulk-actions.component";

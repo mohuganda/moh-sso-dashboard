@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { authApi } from "@/store/api/auth.api";
+import { authApi } from "@moh-sso/api";
 import { authLoaded, logout as logoutAction } from "./auth.slice";
 
 let bootstrapStarted = false;

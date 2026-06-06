@@ -1,4 +1,4 @@
-import type { Client } from "@/store/types/client.types";
+import type { Client } from "@moh-sso/types";
 
 export const DEFAULT_CLIENT_ID = "__default__";
 export const UTILITIES_CLIENT_ID = "__utilities__";

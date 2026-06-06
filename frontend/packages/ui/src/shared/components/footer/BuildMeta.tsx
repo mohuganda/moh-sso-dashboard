@@ -1,5 +1,5 @@
 // src/components/footer/BuildMeta.tsx
-import { APP_VERSION, BUILD_TIME } from "@/config/appMeta";
+import { APP_VERSION, BUILD_TIME } from "@moh-sso/config";
 
 export function BuildMeta() {
   return (

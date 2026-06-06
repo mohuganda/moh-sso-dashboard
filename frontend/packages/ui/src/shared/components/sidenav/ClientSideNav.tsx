@@ -2,8 +2,8 @@ import { SideNav, SideNavItems, SideNavLink, SideNavMenu } from "@carbon/react";
 import { useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { selectClients, selectActiveClient } from "@/store/clients/clients.selectors";
-import type { Client } from "@/store/types/client.types";
+import { selectClients, selectActiveClient } from "@moh-sso/state";
+import type { Client } from "@moh-sso/types";
 
 type SideNavItem = {
   id: string;

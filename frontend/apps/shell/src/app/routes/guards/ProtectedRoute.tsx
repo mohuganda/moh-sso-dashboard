@@ -4,12 +4,12 @@ import { useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { Outlet } from "react-router-dom";
 
-import { API } from "@/lib/constants/api.constants";
+import { API } from "@moh-sso/config";
 import {
   selectAuthenticated,
   selectAuthLoaded,
   selectAuthLoading,
-} from "@/store/auth/auth.selectors";
+} from "@moh-sso/auth";
 
 export const ProtectedRoute = ({ children }: { children?: JSX.Element }) => {
   const authenticated = useSelector(selectAuthenticated);

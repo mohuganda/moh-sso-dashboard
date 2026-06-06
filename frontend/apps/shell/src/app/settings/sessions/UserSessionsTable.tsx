@@ -11,7 +11,7 @@ import {
   Tag,
   InlineLoading,
 } from "@carbon/react";
-import { useGetSessionsQuery, useLogoutSessionMutation } from "@/store/api/sessions.api";
+import { useGetSessionsQuery, useLogoutSessionMutation } from "@moh-sso/api";
 
 const headers = [
   { key: "ip", header: "IP Address" },

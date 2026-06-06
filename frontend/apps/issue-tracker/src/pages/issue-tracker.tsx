@@ -1,4 +1,4 @@
-import DataList from "@/features/data-visualizer/pages/components/data-table/data-table.component.tsx";
+import { DataList } from "@moh-sso/data-visualizer";
 import { Button } from "@carbon/react";
 import { Add } from "@carbon/react/icons";
 import "./issue-tracker.scss";

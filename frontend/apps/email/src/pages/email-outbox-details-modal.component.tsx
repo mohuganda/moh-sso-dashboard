@@ -1,6 +1,6 @@
 import { Modal, Stack, Tag } from "@carbon/react";
 
-import type { EmailOutboxItem } from "@/store/types/email.types";
+import type { EmailOutboxItem } from "@moh-sso/types";
 import "./email-outbox-details.scss";
 
 type Props = {

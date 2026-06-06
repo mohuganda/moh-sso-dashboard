@@ -12,8 +12,8 @@ import {
   Tile,
 } from "@carbon/react";
 
-import { useQueueEmailMutation, useSendEmailMutation } from "@/store/api/email.api";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
+import { useQueueEmailMutation, useSendEmailMutation } from "@moh-sso/api";
+import { useToast } from "@moh-sso/ui";
 import "./email.scss";
 
 type DeliveryMode = "send" | "queue";

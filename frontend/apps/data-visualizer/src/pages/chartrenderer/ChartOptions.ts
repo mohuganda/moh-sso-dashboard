@@ -1,5 +1,5 @@
-import { baseApi } from "@/store/api/baseApi.ts";
-import { API } from "@/lib/constants/api.constants.ts";
+import { baseApi } from "@moh-sso/api";
+import { API } from "@moh-sso/config";
 
 export type DataItem = {
   rows: row[];

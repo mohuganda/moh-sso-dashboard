@@ -1,6 +1,6 @@
-import { API } from "@/lib/constants/api.constants";
-import { loginSuccess, logout as logoutAction, authLoaded } from "@/store/auth/auth.slice";
-import type { AuthUser } from "@/store/auth/auth.types";
+import { API } from "@moh-sso/config";
+import { loginSuccess, logout as logoutAction, authLoaded } from "@moh-sso/auth";
+import type { AuthUser } from "@moh-sso/auth";
 
 import { baseApi } from "./baseApi";
 

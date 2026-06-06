@@ -1,4 +1,4 @@
-import type { Severity } from "@/ui/severity";
+import type { Severity } from "@moh-sso/ui";
 
 export type Notification = {
   id: string;

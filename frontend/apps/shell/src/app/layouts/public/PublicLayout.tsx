@@ -1,10 +1,7 @@
 import { Content } from "@carbon/react";
 import { Outlet } from "react-router-dom";
 
-import { PublicFooter } from "@/shared/components/footer/PublicFooter";
-import PublicHeader from "@/shared/components/header/PublicHeader.component";
-import { ToastProvider } from "@/shared/components/notifications/toast/ToastProvider";
-import { HeaderPanelProvider } from "@/shared/components/header-panel/header-panel.context";
+import { HeaderPanelProvider, PublicFooter, PublicHeader, ToastProvider } from "@moh-sso/ui";
 
 export default function PublicLayout() {
   return (

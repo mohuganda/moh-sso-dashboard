@@ -1,7 +1,7 @@
 import { Tile, Stack } from "@carbon/react";
 
-import type { CreateAnnouncementRequest } from "@/store/types/announcements.types";
-import { useCreateAnnouncementMutation } from "@/store/api/announcement.api";
+import type { CreateAnnouncementRequest } from "@moh-sso/types";
+import { useCreateAnnouncementMutation } from "@moh-sso/api";
 import { AnnouncementForm } from "./announcements-form.component";
 
 export function ManageAnnouncementsPanel() {

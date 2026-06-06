@@ -21,9 +21,14 @@ export default defineConfig({
       { find: "@/lib", replacement: pathFromFrontend("packages/config/src/lib") },
       { find: "@/ui", replacement: pathFromFrontend("packages/ui/src/ui") },
       { find: "@moh-sso/api", replacement: pathFromFrontend("packages/api/src") },
+      { find: "@moh-sso/auth", replacement: pathFromFrontend("packages/auth/src") },
+      { find: "@moh-sso/config", replacement: pathFromFrontend("packages/config/src") },
       { find: "@moh-sso/microfrontend", replacement: pathFromFrontend("packages/microfrontend/src") },
       { find: "@moh-sso/state", replacement: pathFromFrontend("packages/state/src") },
+      { find: "@moh-sso/types", replacement: pathFromFrontend("packages/types/src") },
       { find: "@moh-sso/ui", replacement: pathFromFrontend("packages/ui/src") },
+      { find: "@moh-sso/utils", replacement: pathFromFrontend("packages/utils/src") },
+      { find: "@moh-sso/clients", replacement: pathFromFrontend("apps/clients/src") },
     ],
   },
   build: {
@@ -36,7 +41,7 @@ export default defineConfig({
       fileName: () => "single-spa.js",
     },
     rollupOptions: {
-      external: ["react", "react-dom", "react-redux"],
+      external: ["react", "react-dom", "react-redux", "single-spa", "@moh-sso/clients"],
     },
   },
 });

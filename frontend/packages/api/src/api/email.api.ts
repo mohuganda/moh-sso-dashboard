@@ -4,7 +4,7 @@ import type {
   EmailListParams,
   EmailListByStatusParams,
   SendEmailRequest,
-} from "@/store/types/email.types";
+} from "@moh-sso/types";
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {

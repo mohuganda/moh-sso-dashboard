@@ -6,8 +6,8 @@ import {
   type FetchBaseQueryError,
 } from "@reduxjs/toolkit/query/react";
 
-import { API } from "@/lib/constants/api.constants";
-import { loginSuccess, logout } from "@/store/auth/auth.slice";
+import { API } from "@moh-sso/config";
+import { loginSuccess, logout } from "@moh-sso/auth";
 
 type ApiEnvelope<T> = {
   success: boolean;

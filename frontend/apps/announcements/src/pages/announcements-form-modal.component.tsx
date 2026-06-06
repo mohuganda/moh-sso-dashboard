@@ -3,8 +3,8 @@ import type {
   Announcement,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
-} from "@/store/types/announcements.types";
-import { AnnouncementForm } from "@/features/announcements/components/announcements-form.component";
+} from "@moh-sso/types";
+import { AnnouncementForm } from "../components/announcements-form.component";
 
 interface AnnouncementFormModalProps {
   open: boolean;

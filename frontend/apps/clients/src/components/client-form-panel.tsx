@@ -11,10 +11,9 @@ import {
 } from "@carbon/react";
 import { useMemo, useState } from "react";
 
-import { useCreateClientMutation, useUpdateClientMutation } from "@/store/api/clients.api";
+import { useCreateClientMutation, useUpdateClientMutation } from "@moh-sso/api";
 import { ClientRolesPanel } from "./roles/client-roles-panel";
-import { FormInlineAlert } from "@/shared/components/notifications/in-line-alerts/FormInlineAlert";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
+import { FormInlineAlert , useToast } from "@moh-sso/ui";
 
 export type ClientFormMode = "create" | "edit";
 

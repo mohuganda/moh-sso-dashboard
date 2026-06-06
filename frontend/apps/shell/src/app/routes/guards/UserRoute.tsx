@@ -4,7 +4,7 @@ import type { JSX } from "react";
 import { useSelector } from "react-redux";
 import { Navigate } from "react-router-dom";
 
-import { selectAuthenticated, selectAuthLoaded, selectIsUser } from "@/store/auth/auth.selectors";
+import { selectAuthenticated, selectAuthLoaded, selectIsUser } from "@moh-sso/auth";
 
 export const UserRoute = ({ children }: { children: JSX.Element }) => {
   const loaded = useSelector(selectAuthLoaded);

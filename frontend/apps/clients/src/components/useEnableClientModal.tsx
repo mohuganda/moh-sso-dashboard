@@ -1,4 +1,4 @@
-import { useModal } from "@/shared/components/modal/modal.context";
+import { useModal } from "@moh-sso/ui";
 
 import { EnableClientModal } from "./EnableClientModal";
 

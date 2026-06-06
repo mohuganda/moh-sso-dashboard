@@ -1,7 +1,7 @@
 import { Pin } from "@carbon/react/icons";
 import { Stack, Tag, OverflowMenu, OverflowMenuItem } from "@carbon/react";
-import type { Announcement } from "@/store/types/announcements.types";
-import { formatRelativeTime, getStatusTagType, getTagType, truncateText } from "@/utils/utils";
+import type { Announcement } from "@moh-sso/types";
+import { formatRelativeTime, getStatusTagType, getTagType, truncateText } from "@moh-sso/utils";
 
 export default function AnnouncementSection({
   title,

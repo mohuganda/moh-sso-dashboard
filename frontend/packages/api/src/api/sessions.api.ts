@@ -1,4 +1,4 @@
-import type { UserSession } from "@/store/types/sessions.types";
+import type { UserSession } from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 

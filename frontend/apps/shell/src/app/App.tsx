@@ -1,4 +1,4 @@
-import { ModalProvider } from "@/shared/components/modal/modal.context";
+import { ModalProvider } from "@moh-sso/ui";
 import AppRouter from "./routes/AppRouter";
 
 function App() {

@@ -26,11 +26,10 @@ import {
   useListEmailsByStatusQuery,
   useRetryEmailMutation,
   useDeleteEmailMutation,
-} from "@/store/api/email.api";
-import type { EmailStatus, EmailOutboxItem } from "@/store/types/email.types";
+} from "@moh-sso/api";
+import type { EmailStatus, EmailOutboxItem } from "@moh-sso/types";
 import { EmailOutboxActionsMenu } from "./email-outbox-actions-menu.component";
-import { useHeaderPanel } from "@/shared/components/header-panel/header-panel.context";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
+import { useHeaderPanel , useToast } from "@moh-sso/ui";
 import EmailPanelComponent from "./email-panel.component";
 import { EmailDetailsModal } from "./email-outbox-details-modal.component";
 

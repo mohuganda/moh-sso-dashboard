@@ -10,12 +10,12 @@ import type React from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
-import { API } from "@/lib/constants/api.constants";
-import { selectUser } from "@/store/auth/auth.selectors";
+import { API } from "@moh-sso/config";
+import { selectUser } from "@moh-sso/auth";
 import AppMenuAction from "../appmenu/AppMenu.component";
 import "./public-header.css";
 
-import imagePath from "@/assets/logo.png";
+const imagePath = "/logo.png";
 
 const UserHeader: React.FC = () => {
   const navigate = useNavigate();

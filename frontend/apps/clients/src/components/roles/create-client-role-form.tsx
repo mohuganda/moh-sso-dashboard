@@ -1,8 +1,8 @@
 import { Stack, TextInput, Button, InlineLoading } from "@carbon/react";
 import { useState } from "react";
 
-import { useCreateClientRoleMutation } from "@/store/api/clientRoles.api";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
+import { useCreateClientRoleMutation } from "@moh-sso/api";
+import { useToast } from "@moh-sso/ui";
 
 type Props = {
   clientId: string;

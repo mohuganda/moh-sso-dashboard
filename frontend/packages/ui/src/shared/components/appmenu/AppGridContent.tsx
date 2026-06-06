@@ -3,9 +3,9 @@ import { InlineLoading, Tile } from "@carbon/react";
 import React, { useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { useListClientsQuery } from "@/store/api/clients.api";
-import { setClients } from "@/store/clients/clients.slice";
-import type { Client } from "@/store/types/client.types";
+import { useListClientsQuery } from "@moh-sso/api";
+import { setClients } from "@moh-sso/state";
+import type { Client } from "@moh-sso/types";
 
 import AppTile from "./AppMenuItem.component";
 import "./AppMenu.css";

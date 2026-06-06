@@ -1,4 +1,4 @@
-import type { DocumentProcessType } from "@/store/types/documents.types";
+import type { DocumentProcessType } from "@moh-sso/types";
 
 export type StandardTemplateKey =
   | ""

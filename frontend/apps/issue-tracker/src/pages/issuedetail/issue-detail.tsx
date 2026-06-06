@@ -8,7 +8,7 @@ import {
   useGetTransactionsQuery,
 } from "../Modals/issue-modal.ts";
 import { useSelector } from "react-redux";
-import { selectUser } from "@/store/auth/auth.selectors.ts";
+import { selectUser } from "@moh-sso/auth";
 import type { Issue } from "../issue-tracker.tsx";
 import { IssueModal } from "../Modals/issue-modal.tsx";
 type ModalMode = "resolve" | "close" | "comment" | null;

@@ -15,14 +15,12 @@ import {
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { ClientFilters } from "@/features/clients/components/ClientFilters";
-import { useEnableClientModal } from "@/features/clients/components/useEnableClientModal";
-import { ErrorState } from "@/shared/components/errorstate/ErrorState";
-import { useHeaderPanel } from "@/shared/components/header-panel/header-panel.context";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
-import { ClientFormPanel } from "@/features/clients/components/client-form-panel";
-import { useListClientsQuery, useToggleClientMutation } from "@/store/api/clients.api";
-import type { Client } from "@/store/types/client.types";
+import { ClientFilters } from "../components/ClientFilters";
+import { useEnableClientModal } from "../components/useEnableClientModal";
+import { ErrorState , useHeaderPanel , useToast } from "@moh-sso/ui";
+import { ClientFormPanel } from "../components/client-form-panel";
+import { useListClientsQuery, useToggleClientMutation } from "@moh-sso/api";
+import type { Client } from "@moh-sso/types";
 
 import { ClientActionsMenu } from "./client-actions-menu.component";
 import { ClientBulkActions } from "./client-bulk-actions.component";

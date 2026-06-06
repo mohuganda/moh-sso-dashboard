@@ -1,5 +1,5 @@
-import { API } from "@/lib/constants/api.constants";
-import type { GetNotificationsParams, Notification } from "@/store/types/notifications.types";
+import { API } from "@moh-sso/config";
+import type { GetNotificationsParams, Notification } from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 

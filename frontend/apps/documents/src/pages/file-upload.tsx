@@ -18,7 +18,7 @@ import {
   Tag,
 } from "@carbon/react";
 import type { FileUploaderItemProps } from "@carbon/react";
-import { useCreateDocumentMutation, useListStorageLocationsQuery } from "@/store/api/document.api";
+import { useCreateDocumentMutation, useListStorageLocationsQuery } from "@moh-sso/api";
 import {
   ACCEPTED_EXTENSIONS,
   formatFileSize,
@@ -26,11 +26,11 @@ import {
   getSuggestedProcessType,
   isAcceptedFile,
   validateProcessTypeAgainstFile,
-} from "@/utils/utils";
+} from "@moh-sso/utils";
 import {
   DOCUMENT_PROCESS_TYPE_OPTIONS,
   type DocumentProcessType,
-} from "@/store/types/documents.types";
+} from "@moh-sso/types";
 
 type Row = Record<string, unknown>;
 type FileItemStatus = NonNullable<FileUploaderItemProps["status"]>;

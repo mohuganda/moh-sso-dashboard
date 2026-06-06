@@ -20,8 +20,8 @@ import type {
   AnnouncementStatus,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
-} from "@/store/types/announcements.types";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
+} from "@moh-sso/types";
+import { useToast } from "@moh-sso/ui";
 
 export interface AnnouncementFormValues {
   title: string;

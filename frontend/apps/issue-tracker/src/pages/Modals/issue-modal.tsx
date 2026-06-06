@@ -4,17 +4,16 @@ import {
   type ThemeElement,
   useGetThemesQuery,
   useLazyGetThemeElementsQuery,
-} from "@/features/data-visualizer/pages/modals/data-model/data-model.ts";
+} from "@moh-sso/data-visualizer";
 import { useCallback, useEffect, useState } from "react";
 import { useCreateIssueMutation, useUpdateIssueMutation } from "./issue-modal.ts";
 import { IssueTypes, Priority } from "../constants.ts";
 import { useSelector } from "react-redux";
-import { selectUser } from "@/store/auth/auth.selectors.ts";
+import { selectUser } from "@moh-sso/auth";
 import type { Issue } from "../issue-tracker.tsx";
 import { ChevronDown, ChevronUp } from "@carbon/react/icons";
-import { useGetHierarchyQuery } from "@/features/data-visualizer/pages/modals/orgunit/org-unit.ts";
+import { useGetHierarchyQuery , getAvailablePeriods, periodType } from "@moh-sso/data-visualizer";
 import { OrgUnitNode } from "../function.tsx";
-import { getAvailablePeriods, periodType } from "@/features/data-visualizer/pages/Constants.tsx";
 
 export const IssueModal = ({
   onClose,

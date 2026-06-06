@@ -25,13 +25,13 @@ import {
   useCreateAnnouncementMutation,
   useSetAnnouncementPinnedMutation,
   useDraftAnnouncementMutation,
-} from "@/store/api/announcement.api";
+} from "@moh-sso/api";
 import type {
   Announcement,
   AnnouncementLevel,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
-} from "@/store/types/announcements.types";
+} from "@moh-sso/types";
 import AnnouncementSection from "./announcements-section.component";
 import MetadataItem from "./announcements-metadata-item.components";
 import SummaryCard from "./announcements-summary-card.component";
@@ -41,7 +41,7 @@ import {
   getStatusTagType,
   formatRelativeTime,
   formatDateTime,
-} from "@/utils/utils";
+} from "@moh-sso/utils";
 import { AnnouncementFormModal } from "./announcements-form-modal.component";
 
 type AudienceFilter = "ALL" | "ALL_USERS" | "ADMINS_ONLY" | "SPECIFIC_ROLES";

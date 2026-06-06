@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { TextInput, Button, Form, Stack, Tile, Tag, InlineLoading } from "@carbon/react";
 import { Save } from "@carbon/react/icons";
 
-import { useMeQuery, useUpdateProfileMutation } from "@/store/api/auth.api";
+import { useMeQuery, useUpdateProfileMutation } from "@moh-sso/api";
 import UserSessionsTable from "@/app/settings/sessions/UserSessionsTable";
 
 export default function MyProfilePage() {

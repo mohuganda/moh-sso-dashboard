@@ -1,6 +1,6 @@
 import { Tile, Tag, Stack } from "@carbon/react";
 
-import { getSeverityTagType, type Severity } from "@/ui/severity";
+import { getSeverityTagType, type Severity } from "@moh-sso/ui";
 
 type Props = {
   label: string;

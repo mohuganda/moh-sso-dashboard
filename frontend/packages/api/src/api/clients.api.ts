@@ -1,5 +1,5 @@
-import { API } from "@/lib/constants/api.constants";
-import type { Client, CreateClientPayload } from "@/store/types/client.types";
+import { API } from "@moh-sso/config";
+import type { Client, CreateClientPayload } from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 

@@ -4,7 +4,7 @@ import type { GeoJSON as GeoJSONType, Feature, Geometry } from "geojson";
 import type { Layer, PathOptions } from "leaflet";
 import L from "leaflet";
 
-import type { WeeklyStatus, WeeklyStatusDetailed } from "@/store/types/surveillance.types";
+import type { WeeklyStatus, WeeklyStatusDetailed } from "@moh-sso/types";
 
 type StatusKey = "maroon" | "red" | "yellow" | "green" | "default";
 type MapLevel = "district" | "subcounty";

@@ -1,6 +1,6 @@
 import { Button, ButtonSet, InlineLoading } from "@carbon/react";
 
-import type { Client } from "@/store/types/client.types";
+import type { Client } from "@moh-sso/types";
 
 type Props = {
   clients: Client[];

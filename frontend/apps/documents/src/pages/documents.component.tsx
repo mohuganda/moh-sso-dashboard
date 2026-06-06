@@ -22,12 +22,11 @@ import {
 } from "@carbon/react";
 import { Upload } from "@carbon/react/icons";
 
-import { EmptyState } from "@/shared/components/emptystate/EmptyState";
-import { useHeaderPanel } from "@/shared/components/header-panel/header-panel.context";
+import { EmptyState , useHeaderPanel } from "@moh-sso/ui";
 import { UploadDocumentModal } from "./UploadDocumentModal";
-import { useListDocumentsQuery } from "@/store/api/document.api";
+import { useListDocumentsQuery } from "@moh-sso/api";
 import { DocumentRow } from "./document-row.component";
-import type { DocumentResponse } from "@/store/types/documents.types";
+import type { DocumentResponse } from "@moh-sso/types";
 
 const headers = [
   { key: "filename", header: "Filename" },

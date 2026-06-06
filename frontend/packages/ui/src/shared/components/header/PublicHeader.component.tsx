@@ -9,10 +9,10 @@ import {
 import type React from "react";
 import { useNavigate } from "react-router-dom";
 
-import { API } from "@/lib/constants/api.constants";
+import { API } from "@moh-sso/config";
 import "./public-header.css";
 
-import imagePath from "@/assets/logo.png";
+const imagePath = "/logo.png";
 
 const PublicHeader: React.FC = () => {
   const navigate = useNavigate();

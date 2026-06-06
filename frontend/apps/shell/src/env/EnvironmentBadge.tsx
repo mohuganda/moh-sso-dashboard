@@ -1,7 +1,7 @@
 // src/components/env/EnvironmentBadge.tsx
 import { Tag } from "@carbon/react";
 
-import { APP_ENV } from "@/config/appMeta";
+import { APP_ENV } from "@moh-sso/config";
 
 const ENV_COLORS: Record<string, "red" | "purple" | "blue" | "gray"> = {
   development: "purple",

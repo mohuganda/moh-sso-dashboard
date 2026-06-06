@@ -18,7 +18,7 @@ import type {
   FacilityWeeklyMetricTrend,
   DiseaseWeeklyTrendAggregate,
   FacilityWeeklyMetricRow,
-} from "@/store/types/surveillance.types";
+} from "@moh-sso/types";
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {

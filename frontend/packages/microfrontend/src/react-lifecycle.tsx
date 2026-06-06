@@ -3,9 +3,7 @@ import ReactDOMClient, { type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 
 import { store } from "@moh-sso/state";
-import { HeaderPanelProvider } from "@/shared/components/header-panel/header-panel.context";
-import { ModalProvider } from "@/shared/components/modal/modal.context";
-import { ToastProvider } from "@/shared/components/notifications/toast/ToastProvider";
+import { HeaderPanelProvider , ModalProvider , ToastProvider } from "@moh-sso/ui";
 
 import type { MicrofrontendLifecycle } from "./lifecycle";
 import type { MicrofrontendMountProps, MicrofrontendRuntimeProps } from "./props";

@@ -11,14 +11,13 @@ import {
 import { Tile, Link, Tag, SkeletonText } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
 
-import { EmptyState } from "@/shared/components/emptystate/EmptyState";
-import { ErrorState } from "@/shared/components/errorstate/ErrorState";
+import { EmptyState , ErrorState } from "@moh-sso/ui";
 import "./news-feed.css";
 import type {
   Announcement,
   AnnouncementLevel,
   AnnouncementStatus,
-} from "@/store/types/announcements.types";
+} from "@moh-sso/types";
 
 const CASE_REPORTING = [
   {

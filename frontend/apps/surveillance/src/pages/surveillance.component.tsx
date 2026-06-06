@@ -20,9 +20,8 @@ import {
   useListSubcountiesByDistrictQuery,
   useListWeeklyStatusesDetailedQuery,
   useListWeeklyStatusesQuery,
-} from "@/store/api/surveillance.api";
-import { useGetGeoJsonQuery } from "@/store/api/geojson.api";
-import { useHeaderPanel } from "@/shared/components/header-panel/header-panel.context";
+ useGetGeoJsonQuery } from "@moh-sso/api";
+import { useHeaderPanel } from "@moh-sso/ui";
 import { UploadCSVModal } from "./surveillance-csv-upload.component";
 
 type FilterOption = {

@@ -17,7 +17,7 @@ import {
   Tag,
   Tile,
 } from "@carbon/react";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
+import { useToast } from "@moh-sso/ui";
 import {
   useDeleteDocumentMutation,
   useGetDocumentProcessesQuery,
@@ -25,8 +25,8 @@ import {
   useLazyDownloadDocumentQuery,
   useLazyViewDocumentQuery,
   useReprocessDocumentMutation,
-} from "@/store/api/document.api";
-import type { DocumentProcess, DocumentResponse } from "@/store/types/documents.types";
+} from "@moh-sso/api";
+import type { DocumentProcess, DocumentResponse } from "@moh-sso/types";
 
 /* --------------------------------------------
    Helpers

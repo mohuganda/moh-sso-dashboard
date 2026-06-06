@@ -1,5 +1,5 @@
-import { API } from "@/lib/constants/api.constants";
-import type { AuditFilters, AuditListResponse } from "@/store/types/audit.types";
+import { API } from "@moh-sso/config";
+import type { AuditFilters, AuditListResponse } from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 

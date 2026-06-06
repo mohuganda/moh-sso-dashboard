@@ -1,7 +1,7 @@
 import { Tile, InlineLoading } from "@carbon/react";
 import type React from "react";
 
-import { useAuditOverviewQuery } from "@/store/api/metrics.api";
+import { useAuditOverviewQuery } from "@moh-sso/api";
 
 type Props = {
   from: string;

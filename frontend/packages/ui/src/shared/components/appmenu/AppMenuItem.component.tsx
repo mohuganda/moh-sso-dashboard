@@ -1,7 +1,7 @@
 import React from "react";
 import { useDispatch } from "react-redux";
 
-import { setActiveClient } from "@/store/clients/clients.slice";
+import { setActiveClient } from "@moh-sso/state";
 
 import "./AppMenu.css";
 import { ClickableTile } from "@carbon/react";

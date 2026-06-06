@@ -1,4 +1,4 @@
-import { useListPublicAnnouncementsQuery } from "@/store/api/announcement.api";
+import { useListPublicAnnouncementsQuery } from "@moh-sso/api";
 import NewsFeedView from "./news-feed-view.component";
 
 export default function PublicNewsFeedPage() {

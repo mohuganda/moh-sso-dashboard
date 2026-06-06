@@ -7,7 +7,7 @@ import type {
   DocumentTemplateSheet,
   TemplateStructure,
   CreateTemplateStructureRequest,
-} from "@/store/types/document_template.types";
+} from "@moh-sso/types";
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {

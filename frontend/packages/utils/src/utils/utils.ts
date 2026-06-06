@@ -2,8 +2,7 @@ import type {
   Announcement,
   AnnouncementLevel,
   AnnouncementStatus,
-} from "@/store/types/announcements.types";
-import type { DocumentProcessType } from "@/store/types/documents.types";
+ DocumentProcessType } from "@moh-sso/types";
 
 export function getTagType(
   level: AnnouncementLevel,

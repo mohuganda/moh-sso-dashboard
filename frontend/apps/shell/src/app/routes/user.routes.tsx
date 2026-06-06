@@ -5,17 +5,12 @@ import { ProtectedRoute } from "./guards/ProtectedRoute";
 import { UserRoute } from "./guards/UserRoute";
 import UserLayout from "../layouts/user/UserLayout";
 import NewsFeedPage from "@/app/newsfeed/pages/news_feed.component";
-import DocumentDetailsPage from "@/features/documents/pages/document-details.component";
-import DocumentPage from "@/features/documents/pages/documents.component";
+import { DocumentDetailsPage, DocumentPage } from "@moh-sso/documents";
 import MyProfilePage from "@/app/settings/pages/Profile/profile.component";
 import SecurityPage from "@/app/settings/pages/security/security.component";
 import ActiveSessionsPage from "@/app/settings/pages/sessions/active-sesssions.component";
-import DiseaseDetailsPage from "@/features/surveillance/pages/surveillance-details/surveillance-details.component";
-import AbsenceRequests from "@/features/utilities/pages/absence-requests.component";
-import Elearning from "@/features/utilities/pages/elearning.component";
-import LeavePlan from "@/features/utilities/pages/leave-plan.component";
-import MyAbsenceDashboard from "@/features/utilities/pages/my-absence-dashboard.component";
-import MyTimeSheet from "@/features/utilities/pages/my-timesheet.component";
+import { DiseaseDetailsPage } from "@moh-sso/surveillance";
+import { AbsenceRequests, Elearning, LeavePlan, MyAbsenceDashboard, MyTimeSheet } from "@moh-sso/utilities";
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
 import {
   dataVisualizerLifecycles,

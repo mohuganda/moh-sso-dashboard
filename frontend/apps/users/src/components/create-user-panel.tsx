@@ -11,10 +11,9 @@ import {
 } from "@carbon/react";
 import { useMemo, useState } from "react";
 
-import { useCreateUserMutation, useUpdateUserMutation } from "@/store/api/users.api";
-import type { User } from "@/store/types/user.types";
-import { FormInlineAlert } from "@/shared/components/notifications/in-line-alerts/FormInlineAlert";
-import { useToast } from "@/shared/components/notifications/toast/useToast";
+import { useCreateUserMutation, useUpdateUserMutation } from "@moh-sso/api";
+import type { User } from "@moh-sso/types";
+import { FormInlineAlert , useToast } from "@moh-sso/ui";
 
 export type UserFormMode = "create" | "edit";
 

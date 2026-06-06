@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import type { Client, ClientsState } from "@/store/types/client.types";
+import type { Client, ClientsState } from "@moh-sso/types";
 
 const initialState: ClientsState = {
   items: [],

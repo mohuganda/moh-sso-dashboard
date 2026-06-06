@@ -2,7 +2,7 @@ import { Close } from "@carbon/react/icons";
 import { Button, CodeSnippet, Tag } from "@carbon/react";
 import React from "react";
 
-import type { AuditLog } from "@/store/types/audit.types";
+import type { AuditLog } from "@moh-sso/types";
 
 export const AuditLogPanel: React.FC<{
   log: AuditLog | null;

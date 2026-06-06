@@ -1,6 +1,6 @@
 import { Dropdown, Button, Stack } from "@carbon/react";
 
-import { useHeaderPanel } from "@/shared/components/header-panel/header-panel.context";
+import { useHeaderPanel } from "@moh-sso/ui";
 import { ImportUsersPanel } from "./import-users-panel";
 
 interface UserFiltersProps {

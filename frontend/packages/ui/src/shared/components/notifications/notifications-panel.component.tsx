@@ -8,10 +8,10 @@ import {
   Stack,
 } from "@carbon/react";
 
-import type { Notification } from "@/store/types/notifications.types";
+import type { Notification } from "@moh-sso/types";
 
 import "./notifications-panel.css";
-import { getSeverityTagType } from "@/ui/severity";
+import { getSeverityTagType } from "@moh-sso/ui";
 
 type Props = {
   notifications: Notification[];
