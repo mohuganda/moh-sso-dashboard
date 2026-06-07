@@ -1,61 +1,121 @@
-import { useEffect, useMemo, useState } from "react";
 import {
-  Button,
-  Search,
-  Tag,
-  Tile,
+  DataTable,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeader,
+  TableBody,
+  TableCell,
+  TableSelectRow,
+  TableSelectAll,
   InlineLoading,
-  Stack,
-  Tabs,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
-  InlineNotification,
-  Dropdown,
+  Tile,
+  Tag,
+  Pagination,
+  Button,
 } from "@carbon/react";
-import { Notification, Time, Add, Edit, Launch } from "@carbon/react/icons";
+import { Add } from "@carbon/react/icons";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   useListAnnouncementsAdminQuery,
   usePublishAnnouncementMutation,
   useArchiveAnnouncementMutation,
   useDeleteAnnouncementMutation,
-  useUpdateAnnouncementMutation,
-  useCreateAnnouncementMutation,
   useSetAnnouncementPinnedMutation,
   useDraftAnnouncementMutation,
 } from "@moh-sso/api";
-import type {
-  Announcement,
-  AnnouncementLevel,
-  CreateAnnouncementRequest,
-  UpdateAnnouncementRequest,
-} from "@moh-sso/types";
-import AnnouncementSection from "./announcements-section.component";
-import MetadataItem from "./announcements-metadata-item.components";
-import SummaryCard from "./announcements-summary-card.component";
-import {
-  isAnnouncementActive,
-  getTagType,
-  getStatusTagType,
-  formatRelativeTime,
-  formatDateTime,
-} from "@moh-sso/utils";
-import { AnnouncementFormModal } from "./announcements-form-modal.component";
 
-type AudienceFilter = "ALL" | "ALL_USERS" | "ADMINS_ONLY" | "SPECIFIC_ROLES";
-type LevelFilter = "ALL" | AnnouncementLevel;
-type StatusTab = "ALL" | "PUBLISHED" | "DRAFT" | "SCHEDULED" | "ARCHIVED";
+import type { Announcement, AnnouncementLevel } from "@moh-sso/types";
+
+import { ErrorState, useHeaderPanel, useToast } from "@moh-sso/ui";
+
+import { formatDateTime, getStatusTagType, getTagType, isAnnouncementActive } from "@moh-sso/utils";
+
+import { AnnouncementFilters } from "../components/announcement-filters.component";
+import { AnnouncementBulkActions } from "../components/announcement-bulk-actions.component";
+import { AnnouncementActionsMenu } from "../components/announcement-actions-menu.component";
+import { ManageAnnouncementsPanel } from "../components/manage-announcement-panel";
+
+/* -----------------------------
+ * Filters
+ * ----------------------------- */
+type StatusFilter = "all" | "published" | "draft" | "scheduled" | "archived";
+type LevelFilter = "all" | Lowercase<AnnouncementLevel>;
+type AudienceFilter = "all" | "all_users" | "admins_only" | "specific_roles";
+type PinFilter = "all" | "pinned" | "unpinned";
+
+const STATUS_OPTIONS = [
+  { id: "all", label: "All" },
+  { id: "published", label: "Published" },
+  { id: "draft", label: "Draft" },
+  { id: "scheduled", label: "Scheduled" },
+  { id: "archived", label: "Archived" },
+] as const;
+
+const LEVEL_OPTIONS = [
+  { id: "all", label: "All" },
+  { id: "info", label: "Info" },
+  { id: "success", label: "Success" },
+  { id: "warning", label: "Warning" },
+  { id: "critical", label: "Critical" },
+] as const;
+
+const AUDIENCE_OPTIONS = [
+  { id: "all", label: "All" },
+  { id: "all_users", label: "All users" },
+  { id: "admins_only", label: "Admins only" },
+  { id: "specific_roles", label: "Specific roles" },
+] as const;
+
+const PIN_OPTIONS = [
+  { id: "all", label: "All" },
+  { id: "pinned", label: "Pinned" },
+  { id: "unpinned", label: "Unpinned" },
+] as const;
+
+/* -----------------------------
+ * Table headers
+ * ----------------------------- */
+const headers = [
+  { key: "title", header: "Title" },
+  { key: "level", header: "Level" },
+  { key: "audience", header: "Audience" },
+  { key: "status", header: "Status" },
+  { key: "pinned", header: "Pinned" },
+  { key: "active", header: "Active" },
+  { key: "publishAt", header: "Publish at" },
+  { key: "expiresAt", header: "Expires at" },
+  { key: "actions", header: "" },
+  { key: "raw", header: "" }, // hidden
+];
 
 export function AnnouncementsPage() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusTab, setStatusTab] = useState<StatusTab>("ALL");
-  const [levelFilter, setLevelFilter] = useState<LevelFilter>("ALL");
-  const [audienceFilter, setAudienceFilter] = useState<AudienceFilter>("ALL");
-  const [pinnedOnly, setPinnedOnly] = useState(false);
+  const toast = useToast();
+  const { openPanel, closePanel } = useHeaderPanel();
 
+  const [bulkAction, setBulkAction] = useState<
+    "publish" | "draft" | "archive" | "pin" | "unpin" | "delete" | null
+  >(null);
+
+  /* -----------------------------
+   * Filters
+   * ----------------------------- */
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
+  const [audienceFilter, setAudienceFilter] = useState<AudienceFilter>("all");
+  const [pinFilter, setPinFilter] = useState<PinFilter>("all");
+
+  /* -----------------------------
+   * Pagination
+   * ----------------------------- */
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  /* -----------------------------
+   * Data
+   * ----------------------------- */
   const {
     data: announcements = [],
     isLoading,
@@ -63,689 +123,590 @@ export function AnnouncementsPage() {
     error,
     refetch,
   } = useListAnnouncementsAdminQuery({
-    limit: 50,
+    limit: 500,
     offset: 0,
   });
 
-  const [publishAnnouncement, publishState] = usePublishAnnouncementMutation();
-  const [archiveAnnouncement, archiveState] = useArchiveAnnouncementMutation();
-  const [setAnnouncementPinned, pinnedState] = useSetAnnouncementPinnedMutation();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [publishAnnouncement] = usePublishAnnouncementMutation();
+  const [archiveAnnouncement] = useArchiveAnnouncementMutation();
+  const [deleteAnnouncement] = useDeleteAnnouncementMutation();
+  const [setAnnouncementPinned] = useSetAnnouncementPinnedMutation();
+  const [draftAnnouncement] = useDraftAnnouncementMutation();
 
-  const [createAnnouncement, createState] = useCreateAnnouncementMutation();
-  const [updateAnnouncement, updateState] = useUpdateAnnouncementMutation();
-  const [deleteAnnouncement, deleteState] = useDeleteAnnouncementMutation();
-  const [draftAnnouncement, draftState] = useDraftAnnouncementMutation();
-
+  /* -----------------------------
+   * Reset page on filter change
+   * ----------------------------- */
   useEffect(() => {
-    if (!selectedId && announcements.length > 0) {
-      setSelectedId(announcements[0].id);
-    }
-  }, [announcements, selectedId]);
+    setPage(1);
+  }, [search, statusFilter, levelFilter, audienceFilter, pinFilter]);
 
+  /* -----------------------------
+   * Filtering
+   * ----------------------------- */
   const filteredAnnouncements = useMemo(() => {
     const q = search.trim().toLowerCase();
 
     return announcements.filter((item) => {
-      const matchesSearch =
-        !q ||
+      const status = item.status.toLowerCase();
+      const level = item.level.toLowerCase();
+      const audience = item.audience_type.toLowerCase();
+
+      if (statusFilter !== "all" && status !== statusFilter) return false;
+      if (levelFilter !== "all" && level !== levelFilter) return false;
+      if (audienceFilter !== "all" && audience !== audienceFilter) return false;
+      if (pinFilter === "pinned" && !item.is_pinned) return false;
+      if (pinFilter === "unpinned" && item.is_pinned) return false;
+
+      if (!q) return true;
+
+      return (
         item.title.toLowerCase().includes(q) ||
         item.message.toLowerCase().includes(q) ||
-        (item.summary?.toLowerCase().includes(q) ?? false) ||
-        (item.tag?.toLowerCase().includes(q) ?? false) ||
+        item.status.toLowerCase().includes(q) ||
         item.level.toLowerCase().includes(q) ||
-        item.status.toLowerCase().includes(q);
-
-      const matchesStatus = statusTab === "ALL" ? true : item.status === statusTab;
-      const matchesLevel = levelFilter === "ALL" ? true : item.level === levelFilter;
-      const matchesAudience =
-        audienceFilter === "ALL" ? true : item.audience_type === audienceFilter;
-      const matchesPinned = pinnedOnly ? item.is_pinned : true;
-
-      return matchesSearch && matchesStatus && matchesLevel && matchesAudience && matchesPinned;
+        item.audience_type.toLowerCase().includes(q) ||
+        (item.summary?.toLowerCase().includes(q) ?? false) ||
+        (item.tag?.toLowerCase().includes(q) ?? false)
+      );
     });
-  }, [announcements, search, statusTab, levelFilter, audienceFilter, pinnedOnly]);
+  }, [announcements, search, statusFilter, levelFilter, audienceFilter, pinFilter]);
 
-  useEffect(() => {
-    if (filteredAnnouncements.length === 0) {
-      setSelectedId(null);
-      return;
-    }
+  /* -----------------------------
+   * Pagination slice
+   * ----------------------------- */
+  const paginatedAnnouncements = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredAnnouncements.slice(start, start + pageSize);
+  }, [filteredAnnouncements, page, pageSize]);
 
-    const stillExists = filteredAnnouncements.some((item) => item.id === selectedId);
-    if (!stillExists) {
-      setSelectedId(filteredAnnouncements[0].id);
-    }
-  }, [filteredAnnouncements, selectedId]);
+  /* -----------------------------
+   * Rows
+   * ----------------------------- */
+  const rows = paginatedAnnouncements.map((item) => ({
+    id: item.id,
+    title: item.title,
+    level: item.level,
+    audience: item.audience_type,
+    status: item.status,
+    pinned: item.is_pinned ? "Yes" : "No",
+    active: isAnnouncementActive(item) ? "Yes" : "No",
+    publishAt: formatDateTime(item.publish_at),
+    expiresAt: formatDateTime(item.expires_at),
+    actions: "",
+    raw: item,
+  }));
 
-  const selectedAnnouncement = useMemo(
-    () => filteredAnnouncements.find((item) => item.id === selectedId) ?? null,
-    [filteredAnnouncements, selectedId],
-  );
-
-  const counts = useMemo(() => {
-    return {
-      total: announcements.length,
-      published: announcements.filter((item) => item.status === "PUBLISHED").length,
-      drafts: announcements.filter((item) => item.status === "DRAFT").length,
-      scheduled: announcements.filter((item) => item.status === "SCHEDULED").length,
-      archived: announcements.filter((item) => item.status === "ARCHIVED").length,
-      pinned: announcements.filter((item) => item.is_pinned).length,
-      active: announcements.filter((item) => isAnnouncementActive(item)).length,
-    };
-  }, [announcements]);
-
-  const handleSelect = (id: string) => {
-    setSelectedId(id);
+  /* -----------------------------
+   * Panel handlers
+   * ----------------------------- */
+  const handleOpenCreatePanel = () => {
+    openPanel({
+      title: "Create announcement",
+      content: (
+        <ManageAnnouncementsPanel
+          mode="create"
+          onSuccess={() => {
+            closePanel();
+            refetch();
+          }}
+          onCancel={closePanel}
+        />
+      ),
+      size: "md",
+    });
   };
 
-  const handleCreate = () => {
-    setIsCreateModalOpen(true);
+  const handleOpenEditPanel = (announcement: Announcement) => {
+    openPanel({
+      title: "Edit announcement",
+      content: (
+        <ManageAnnouncementsPanel
+          mode="edit"
+          announcement={announcement}
+          onSuccess={() => {
+            closePanel();
+            refetch();
+          }}
+          onCancel={closePanel}
+        />
+      ),
+      size: "md",
+    });
   };
 
-  const handleEdit = (item: Announcement) => {
-    setEditingAnnouncement(item);
+  /* -----------------------------
+   * Row action handlers
+   * ----------------------------- */
+  const handlePublish = async (announcement: Announcement) => {
+    await publishAnnouncement(announcement.id).unwrap();
+
+    toast.success({
+      title: "Announcement published",
+      subtitle: `${announcement.title} has been published.`,
+    });
   };
 
-  const handleCreateSubmit = async (
-    payload: CreateAnnouncementRequest | UpdateAnnouncementRequest,
-  ) => {
-    await createAnnouncement(payload as CreateAnnouncementRequest).unwrap();
-    setIsCreateModalOpen(false);
+  const handleMoveToDraft = async (announcement: Announcement) => {
+    await draftAnnouncement(announcement.id).unwrap();
+
+    toast.warning({
+      title: "Moved to draft",
+      subtitle: `${announcement.title} has been moved to draft.`,
+    });
   };
 
-  const handleEditSubmit = async (
-    payload: CreateAnnouncementRequest | UpdateAnnouncementRequest,
-  ) => {
-    if (!editingAnnouncement) return;
+  const handleArchive = async (announcement: Announcement) => {
+    await archiveAnnouncement(announcement.id).unwrap();
 
-    await updateAnnouncement({
-      id: editingAnnouncement.id,
-      body: payload as UpdateAnnouncementRequest,
+    toast.warning({
+      title: "Announcement archived",
+      subtitle: `${announcement.title} has been archived.`,
+    });
+  };
+
+  const handleTogglePin = async (announcement: Announcement) => {
+    await setAnnouncementPinned({
+      id: announcement.id,
+      body: {
+        is_pinned: !announcement.is_pinned,
+      },
     }).unwrap();
 
-    setEditingAnnouncement(null);
+    toast.success({
+      title: announcement.is_pinned ? "Announcement unpinned" : "Announcement pinned",
+      subtitle: `${announcement.title} updated successfully.`,
+    });
   };
 
-  const handlePublishNow = async (item: Announcement) => {
-    try {
-      await publishAnnouncement(item.id).unwrap();
-    } catch (err) {
-      console.error("Failed to publish announcement", err);
-    }
-  };
-
-  const handleMoveToDraft = async (item: Announcement) => {
-    try {
-      await draftAnnouncement(item.id).unwrap();
-    } catch (err) {
-      console.error("Failed to move announcement to draft", err);
-    }
-  };
-
-  const handleArchive = async (item: Announcement) => {
-    try {
-      await archiveAnnouncement(item.id).unwrap();
-    } catch (err) {
-      console.error("Failed to archive announcement", err);
-    }
-  };
-
-  const handleDelete = async (item: Announcement) => {
+  const handleDelete = async (announcement: Announcement) => {
     const confirmed = window.confirm(
-      `Delete "${item.title}"? This action should only be used when you're sure.`,
+      `Delete "${announcement.title}"? This action should only be used when you're sure.`,
     );
+
     if (!confirmed) return;
 
-    try {
-      await deleteAnnouncement(item.id).unwrap();
-      if (selectedId === item.id) {
-        setSelectedId(null);
-      }
-    } catch (err) {
-      console.error("Failed to delete announcement", err);
-    }
+    await deleteAnnouncement(announcement.id).unwrap();
+
+    toast.error({
+      title: "Announcement deleted",
+      subtitle: `${announcement.title} was deleted.`,
+    });
   };
 
-  const handleTogglePin = async (item: Announcement) => {
-    try {
-      await setAnnouncementPinned({
-        id: item.id,
-        body: {
-          is_pinned: !item.is_pinned,
-        },
-      }).unwrap();
-    } catch (err) {
-      console.error("Failed to update pin state", err);
-    }
-  };
-
-  const isMutating =
-    publishState.isLoading ||
-    archiveState.isLoading ||
-    deleteState.isLoading ||
-    updateState.isLoading ||
-    pinnedState.isLoading ||
-    draftState.isLoading;
-
+  /* -----------------------------
+   * Loading / Error
+   * ----------------------------- */
   if (isLoading) {
     return (
-      <Tile style={{ minHeight: "420px" }}>
-        <Stack gap={5}>
-          <InlineLoading description="Loading admin announcements..." />
-        </Stack>
-      </Tile>
+      <div style={{ padding: "2rem" }}>
+        <InlineLoading description="Loading announcements…" />
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <Tile style={{ minHeight: "420px", padding: "1rem" }}>
-        <Stack gap={5}>
-          <InlineNotification
-            kind="error"
-            lowContrast
-            title="Failed to load announcements"
-            subtitle={
-              (error as any)?.data?.message ||
-              (error as any)?.error ||
-              "An unexpected error occurred while fetching announcements."
-            }
-          />
-          <div>
-            <Button kind="secondary" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </div>
-        </Stack>
-      </Tile>
+      <ErrorState
+        title="Failed to load announcements"
+        description={(error as any)?.data?.message ?? "Failed to load announcements"}
+        primaryAction={{ label: "Retry", onClick: refetch }}
+      />
     );
   }
 
   return (
-    <>
+    <div style={{ padding: 16, display: "grid", gap: 16 }}>
+      {/* Header */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "820px 1fr",
-          gap: "1rem",
-          alignItems: "start",
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 16,
+          alignItems: "flex-start",
         }}
       >
-        <Tile style={{ padding: "1rem" }}>
-          <Stack gap={5}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                gap: "1rem",
-              }}
-            >
-              <div>
-                <h3
-                  style={{
-                    margin: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <Notification size={20} />
-                  Admin Announcements
-                </h3>
-                <p
-                  style={{
-                    margin: "0.35rem 0 0",
-                    color: "#6f6f6f",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  Manage drafts, scheduled notices, published alerts, and archived updates
-                </p>
-              </div>
+        <div>
+          <h3 style={{ margin: 0 }}>Announcements</h3>
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            Manage platform notices, alerts, drafts, schedules, and archived updates.
+          </p>
+        </div>
 
-              <Button renderIcon={Add} onClick={handleCreate}>
-                New announcement
-              </Button>
-            </div>
-
-            {isMutating && (
-              <InlineNotification
-                kind="info"
-                lowContrast
-                title="Updating announcements"
-                subtitle="Your changes are being processed."
-              />
-            )}
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                gap: "0.75rem",
-              }}
-            >
-              <SummaryCard label="Total" value={counts.total} />
-              <SummaryCard label="Published" value={counts.published} />
-              <SummaryCard label="Drafts" value={counts.drafts} />
-              <SummaryCard label="Scheduled" value={counts.scheduled} />
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: "0.75rem",
-              }}
-            >
-              <SummaryCard label="Archived" value={counts.archived} />
-              <SummaryCard label="Pinned" value={counts.pinned} />
-              <SummaryCard label="Active now" value={counts.active} />
-            </div>
-
-            <Search
-              id="admin-announcements-search"
-              labelText="Search announcements"
-              placeholder="Search by title, message, tag, level, status..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              size="lg"
-            />
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr)) auto",
-                gap: "0.75rem",
-                alignItems: "end",
-              }}
-            >
-              <Dropdown
-                id="announcement-level-filter"
-                titleText="Level"
-                label="All levels"
-                items={["ALL", "INFO", "SUCCESS", "WARNING", "CRITICAL"]}
-                selectedItem={levelFilter}
-                onChange={({ selectedItem }) =>
-                  setLevelFilter((selectedItem as LevelFilter) ?? "ALL")
-                }
-              />
-
-              <Dropdown
-                id="announcement-audience-filter"
-                titleText="Audience"
-                label="All audiences"
-                items={["ALL", "ALL_USERS", "ADMINS_ONLY", "SPECIFIC_ROLES"]}
-                selectedItem={audienceFilter}
-                onChange={({ selectedItem }) =>
-                  setAudienceFilter((selectedItem as AudienceFilter) ?? "ALL")
-                }
-              />
-
-              <Dropdown
-                id="announcement-pin-filter"
-                titleText="Pin state"
-                label="All items"
-                items={["ALL", "PINNED_ONLY"]}
-                selectedItem={pinnedOnly ? "PINNED_ONLY" : "ALL"}
-                onChange={({ selectedItem }) => setPinnedOnly(selectedItem === "PINNED_ONLY")}
-              />
-
-              <Button
-                kind="ghost"
-                onClick={() => {
-                  setSearch("");
-                  setStatusTab("ALL");
-                  setLevelFilter("ALL");
-                  setAudienceFilter("ALL");
-                  setPinnedOnly(false);
-                }}
-              >
-                Reset
-              </Button>
-            </div>
-
-            <Tabs
-              selectedIndex={
-                {
-                  ALL: 0,
-                  PUBLISHED: 1,
-                  DRAFT: 2,
-                  SCHEDULED: 3,
-                  ARCHIVED: 4,
-                }[statusTab]
-              }
-              onChange={({ selectedIndex }) => {
-                const next =
-                  (["ALL", "PUBLISHED", "DRAFT", "SCHEDULED", "ARCHIVED"][
-                    selectedIndex
-                  ] as StatusTab) ?? "ALL";
-                setStatusTab(next);
-              }}
-            >
-              <TabList aria-label="Admin announcement tabs" contained>
-                <Tab>All</Tab>
-                <Tab>Published</Tab>
-                <Tab>Drafts</Tab>
-                <Tab>Scheduled</Tab>
-                <Tab>Archived</Tab>
-              </TabList>
-
-              <TabPanels>
-                <TabPanel style={{ paddingInline: 0 }}>
-                  <AnnouncementSection
-                    title="All announcements"
-                    items={filteredAnnouncements}
-                    selectedId={selectedId}
-                    onSelect={handleSelect}
-                    onEdit={handleEdit}
-                    onPublish={handlePublishNow}
-                    onMoveToDraft={handleMoveToDraft}
-                    onArchive={handleArchive}
-                    onDelete={handleDelete}
-                    onTogglePin={handleTogglePin}
-                  />
-                </TabPanel>
-
-                <TabPanel style={{ paddingInline: 0 }}>
-                  <AnnouncementSection
-                    title="Published announcements"
-                    items={filteredAnnouncements}
-                    selectedId={selectedId}
-                    onSelect={handleSelect}
-                    onEdit={handleEdit}
-                    onPublish={handlePublishNow}
-                    onMoveToDraft={handleMoveToDraft}
-                    onArchive={handleArchive}
-                    onDelete={handleDelete}
-                    onTogglePin={handleTogglePin}
-                  />
-                </TabPanel>
-
-                <TabPanel style={{ paddingInline: 0 }}>
-                  <AnnouncementSection
-                    title="Draft announcements"
-                    items={filteredAnnouncements}
-                    selectedId={selectedId}
-                    onSelect={handleSelect}
-                    onEdit={handleEdit}
-                    onPublish={handlePublishNow}
-                    onMoveToDraft={handleMoveToDraft}
-                    onArchive={handleArchive}
-                    onDelete={handleDelete}
-                    onTogglePin={handleTogglePin}
-                  />
-                </TabPanel>
-
-                <TabPanel style={{ paddingInline: 0 }}>
-                  <AnnouncementSection
-                    title="Scheduled announcements"
-                    items={filteredAnnouncements}
-                    selectedId={selectedId}
-                    onSelect={handleSelect}
-                    onEdit={handleEdit}
-                    onPublish={handlePublishNow}
-                    onMoveToDraft={handleMoveToDraft}
-                    onArchive={handleArchive}
-                    onDelete={handleDelete}
-                    onTogglePin={handleTogglePin}
-                  />
-                </TabPanel>
-
-                <TabPanel style={{ paddingInline: 0 }}>
-                  <AnnouncementSection
-                    title="Archived announcements"
-                    items={filteredAnnouncements}
-                    selectedId={selectedId}
-                    onSelect={handleSelect}
-                    onEdit={handleEdit}
-                    onPublish={handlePublishNow}
-                    onMoveToDraft={handleMoveToDraft}
-                    onArchive={handleArchive}
-                    onDelete={handleDelete}
-                    onTogglePin={handleTogglePin}
-                  />
-                </TabPanel>
-              </TabPanels>
-            </Tabs>
-          </Stack>
-        </Tile>
-
-        <Tile style={{ padding: "1.25rem", minHeight: "420px" }}>
-          {selectedAnnouncement ? (
-            <Stack gap={6}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "1rem",
-                  alignItems: "flex-start",
-                }}
-              >
-                <div>
-                  <h3 style={{ margin: 0 }}>{selectedAnnouncement.title}</h3>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "0.5rem",
-                      alignItems: "center",
-                      marginTop: "0.75rem",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <Tag type={getTagType(selectedAnnouncement.level)}>
-                      {selectedAnnouncement.level}
-                    </Tag>
-
-                    <Tag type={getStatusTagType(selectedAnnouncement.status)}>
-                      {selectedAnnouncement.status}
-                    </Tag>
-
-                    {selectedAnnouncement.is_pinned && <Tag type="warm-gray">Pinned</Tag>}
-
-                    {selectedAnnouncement.tag && (
-                      <Tag type="warm-gray">{selectedAnnouncement.tag}</Tag>
-                    )}
-
-                    <Tag type="blue">{selectedAnnouncement.audience_type}</Tag>
-
-                    {isAnnouncementActive(selectedAnnouncement) && (
-                      <Tag type="green">Active now</Tag>
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.35rem",
-                    color: "#6f6f6f",
-                    fontSize: "0.875rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <Time size={16} />
-                  {formatRelativeTime(selectedAnnouncement.created_at)}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.75rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <Button
-                  size="sm"
-                  renderIcon={Edit}
-                  onClick={() => handleEdit(selectedAnnouncement)}
-                >
-                  Edit
-                </Button>
-
-                {selectedAnnouncement.status !== "PUBLISHED" && (
-                  <Button
-                    size="sm"
-                    kind="secondary"
-                    onClick={() => handlePublishNow(selectedAnnouncement)}
-                  >
-                    Publish now
-                  </Button>
-                )}
-
-                {selectedAnnouncement.status !== "DRAFT" && (
-                  <Button
-                    size="sm"
-                    kind="ghost"
-                    onClick={() => handleMoveToDraft(selectedAnnouncement)}
-                  >
-                    Move to draft
-                  </Button>
-                )}
-
-                <Button
-                  size="sm"
-                  kind="ghost"
-                  onClick={() => handleTogglePin(selectedAnnouncement)}
-                >
-                  {selectedAnnouncement.is_pinned ? "Unpin" : "Pin"}
-                </Button>
-
-                {selectedAnnouncement.status !== "ARCHIVED" && (
-                  <Button
-                    size="sm"
-                    kind="ghost"
-                    onClick={() => handleArchive(selectedAnnouncement)}
-                  >
-                    Archive
-                  </Button>
-                )}
-
-                <Button
-                  size="sm"
-                  kind="danger--tertiary"
-                  onClick={() => handleDelete(selectedAnnouncement)}
-                >
-                  Delete
-                </Button>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: "1rem",
-                  padding: "1rem",
-                  background: "#f4f4f4",
-                }}
-              >
-                <MetadataItem label="Audience" value={selectedAnnouncement.audience_type} />
-                <MetadataItem label="Level" value={selectedAnnouncement.level} />
-                <MetadataItem label="Status" value={selectedAnnouncement.status} />
-                <MetadataItem
-                  label="Pinned"
-                  value={selectedAnnouncement.is_pinned ? "Yes" : "No"}
-                />
-                <MetadataItem
-                  label="Publish at"
-                  value={formatDateTime(selectedAnnouncement.publish_at)}
-                />
-                <MetadataItem
-                  label="Expires at"
-                  value={formatDateTime(selectedAnnouncement.expires_at)}
-                />
-                <MetadataItem
-                  label="Created at"
-                  value={formatDateTime(selectedAnnouncement.created_at)}
-                />
-                <MetadataItem
-                  label="Updated at"
-                  value={formatDateTime(selectedAnnouncement.updated_at)}
-                />
-              </div>
-
-              {selectedAnnouncement.summary ? (
-                <div
-                  style={{
-                    fontSize: "0.9rem",
-                    color: "#525252",
-                    lineHeight: 1.5,
-                    padding: "0.9rem 1rem",
-                    background: "#f4f4f4",
-                    borderLeft: "4px solid #0f62fe",
-                  }}
-                >
-                  {selectedAnnouncement.summary}
-                </div>
-              ) : null}
-
-              <div
-                style={{
-                  fontSize: "0.95rem",
-                  lineHeight: 1.7,
-                  color: "#161616",
-                }}
-              >
-                {selectedAnnouncement.message}
-              </div>
-
-              {selectedAnnouncement.link_url ? (
-                <div>
-                  <a
-                    href={selectedAnnouncement.link_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      color: "#0f62fe",
-                      textDecoration: "none",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.35rem",
-                    }}
-                  >
-                    Open related link
-                    <Launch size={16} />
-                  </a>
-                </div>
-              ) : null}
-            </Stack>
-          ) : (
-            <div
-              style={{
-                minHeight: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#6f6f6f",
-              }}
-            >
-              No announcement selected
-            </div>
-          )}
-        </Tile>
+        <Button renderIcon={Add} onClick={handleOpenCreatePanel}>
+          New announcement
+        </Button>
       </div>
 
-      <AnnouncementFormModal
-        open={isCreateModalOpen}
-        mode={"create"}
-        isSubmitting={createState.isLoading}
-        onRequestClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateSubmit}
-      />
+      {/* Filters */}
+      <Tile>
+        <AnnouncementFilters
+          search={search}
+          status={statusFilter}
+          level={levelFilter}
+          audience={audienceFilter}
+          pin={pinFilter}
+          statusOptions={STATUS_OPTIONS}
+          levelOptions={LEVEL_OPTIONS}
+          audienceOptions={AUDIENCE_OPTIONS}
+          pinOptions={PIN_OPTIONS}
+          onSearchChange={setSearch}
+          onStatusChange={setStatusFilter}
+          onLevelChange={setLevelFilter}
+          onAudienceChange={setAudienceFilter}
+          onPinChange={setPinFilter}
+          onReset={() => {
+            setSearch("");
+            setStatusFilter("all");
+            setLevelFilter("all");
+            setAudienceFilter("all");
+            setPinFilter("all");
+          }}
+        />
+      </Tile>
 
-      <AnnouncementFormModal
-        open={Boolean(editingAnnouncement)}
-        mode={"edit"}
-        announcement={editingAnnouncement}
-        isSubmitting={updateState.isLoading}
-        onRequestClose={() => setEditingAnnouncement(null)}
-        onSubmit={handleEditSubmit}
-      />
-    </>
+      {/* Table */}
+      <Tile>
+        <DataTable rows={rows} headers={headers}>
+          {({ rows, headers, getHeaderProps, getRowProps, getSelectionProps, selectedRows }) => {
+            const selectedAnnouncements = selectedRows.map(
+              (row) => row.cells.find((cell) => cell.info.header === "raw")?.value as Announcement,
+            );
+
+            return (
+              <>
+                <AnnouncementBulkActions
+                  announcements={selectedAnnouncements}
+                  loadingAction={bulkAction}
+                  onPublish={async () => {
+                    try {
+                      setBulkAction("publish");
+
+                      await Promise.all(
+                        selectedAnnouncements.map((item) => publishAnnouncement(item.id).unwrap()),
+                      );
+
+                      toast.success({
+                        title: "Announcements published",
+                        subtitle: `${selectedAnnouncements.length} announcement(s) published.`,
+                      });
+                    } catch {
+                      toast.error({
+                        title: "Publish failed",
+                        subtitle: "Some announcements could not be published.",
+                      });
+                    } finally {
+                      setBulkAction(null);
+                    }
+                  }}
+                  onMoveToDraft={async () => {
+                    try {
+                      setBulkAction("draft");
+
+                      await Promise.all(
+                        selectedAnnouncements.map((item) => draftAnnouncement(item.id).unwrap()),
+                      );
+
+                      toast.warning({
+                        title: "Moved to draft",
+                        subtitle: `${selectedAnnouncements.length} announcement(s) moved to draft.`,
+                      });
+                    } catch {
+                      toast.error({
+                        title: "Draft failed",
+                        subtitle: "Some announcements could not be moved to draft.",
+                      });
+                    } finally {
+                      setBulkAction(null);
+                    }
+                  }}
+                  onArchive={async () => {
+                    try {
+                      setBulkAction("archive");
+
+                      await Promise.all(
+                        selectedAnnouncements.map((item) => archiveAnnouncement(item.id).unwrap()),
+                      );
+
+                      toast.warning({
+                        title: "Announcements archived",
+                        subtitle: `${selectedAnnouncements.length} announcement(s) archived.`,
+                      });
+                    } catch {
+                      toast.error({
+                        title: "Archive failed",
+                        subtitle: "Some announcements could not be archived.",
+                      });
+                    } finally {
+                      setBulkAction(null);
+                    }
+                  }}
+                  onPin={async () => {
+                    try {
+                      setBulkAction("pin");
+
+                      await Promise.all(
+                        selectedAnnouncements.map((item) =>
+                          setAnnouncementPinned({
+                            id: item.id,
+                            body: { is_pinned: true },
+                          }).unwrap(),
+                        ),
+                      );
+
+                      toast.success({
+                        title: "Announcements pinned",
+                        subtitle: `${selectedAnnouncements.length} announcement(s) pinned.`,
+                      });
+                    } catch {
+                      toast.error({
+                        title: "Pin failed",
+                        subtitle: "Some announcements could not be pinned.",
+                      });
+                    } finally {
+                      setBulkAction(null);
+                    }
+                  }}
+                  onUnpin={async () => {
+                    try {
+                      setBulkAction("unpin");
+
+                      await Promise.all(
+                        selectedAnnouncements.map((item) =>
+                          setAnnouncementPinned({
+                            id: item.id,
+                            body: { is_pinned: false },
+                          }).unwrap(),
+                        ),
+                      );
+
+                      toast.success({
+                        title: "Announcements unpinned",
+                        subtitle: `${selectedAnnouncements.length} announcement(s) unpinned.`,
+                      });
+                    } catch {
+                      toast.error({
+                        title: "Unpin failed",
+                        subtitle: "Some announcements could not be unpinned.",
+                      });
+                    } finally {
+                      setBulkAction(null);
+                    }
+                  }}
+                  onDelete={async () => {
+                    const confirmed = window.confirm(
+                      `Delete ${selectedAnnouncements.length} selected announcement(s)?`,
+                    );
+
+                    if (!confirmed) return;
+
+                    try {
+                      setBulkAction("delete");
+
+                      await Promise.all(
+                        selectedAnnouncements.map((item) => deleteAnnouncement(item.id).unwrap()),
+                      );
+
+                      toast.error({
+                        title: "Announcements deleted",
+                        subtitle: `${selectedAnnouncements.length} announcement(s) deleted.`,
+                      });
+                    } catch {
+                      toast.error({
+                        title: "Delete failed",
+                        subtitle: "Some announcements could not be deleted.",
+                      });
+                    } finally {
+                      setBulkAction(null);
+                    }
+                  }}
+                />
+
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableSelectAll {...getSelectionProps()} />
+
+                      {headers
+                        .filter((header) => header.key !== "raw")
+                        .map((header) => (
+                          <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
+                        ))}
+                    </TableRow>
+                  </TableHead>
+
+                  <TableBody>
+                    {rows.map((row) => {
+                      const announcement = row.cells.find((cell) => cell.info.header === "raw")
+                        ?.value as Announcement;
+
+                      return (
+                        <TableRow {...getRowProps({ row })}>
+                          <TableSelectRow {...getSelectionProps({ row })} />
+
+                          {row.cells.map((cell) => {
+                            if (cell.info.header === "raw") return null;
+
+                            if (cell.info.header === "title") {
+                              return (
+                                <TableCell key={cell.id}>
+                                  <div style={{ display: "grid", gap: 4 }}>
+                                    <strong>{announcement.title}</strong>
+
+                                    {announcement.summary && (
+                                      <span
+                                        style={{
+                                          maxWidth: 340,
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                          whiteSpace: "nowrap",
+                                          opacity: 0.75,
+                                          fontSize: "0.8125rem",
+                                        }}
+                                      >
+                                        {announcement.summary}
+                                      </span>
+                                    )}
+
+                                    {announcement.tag && (
+                                      <span>
+                                        <Tag size="sm" type="warm-gray">
+                                          {announcement.tag}
+                                        </Tag>
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              );
+                            }
+
+                            if (cell.info.header === "level") {
+                              return (
+                                <TableCell key={cell.id}>
+                                  <Tag type={getTagType(announcement.level)}>
+                                    {announcement.level}
+                                  </Tag>
+                                </TableCell>
+                              );
+                            }
+
+                            if (cell.info.header === "status") {
+                              return (
+                                <TableCell key={cell.id}>
+                                  <Tag type={getStatusTagType(announcement.status)}>
+                                    {announcement.status}
+                                  </Tag>
+                                </TableCell>
+                              );
+                            }
+
+                            if (cell.info.header === "pinned") {
+                              return (
+                                <TableCell key={cell.id}>
+                                  <Tag type={announcement.is_pinned ? "warm-gray" : "gray"}>
+                                    {announcement.is_pinned ? "Pinned" : "No"}
+                                  </Tag>
+                                </TableCell>
+                              );
+                            }
+
+                            if (cell.info.header === "active") {
+                              const active = isAnnouncementActive(announcement);
+
+                              return (
+                                <TableCell key={cell.id}>
+                                  <Tag type={active ? "green" : "gray"}>
+                                    {active ? "Active" : "Inactive"}
+                                  </Tag>
+                                </TableCell>
+                              );
+                            }
+
+                            if (cell.info.header === "actions") {
+                              return (
+                                <TableCell key={cell.id}>
+                                  {row.isSelected && (
+                                    <AnnouncementActionsMenu
+                                      announcement={announcement}
+                                      onEdit={() => handleOpenEditPanel(announcement)}
+                                      onPublish={async () => {
+                                        try {
+                                          await handlePublish(announcement);
+                                        } catch {
+                                          toast.error({
+                                            title: "Publish failed",
+                                            subtitle: "Failed to publish announcement.",
+                                          });
+                                        }
+                                      }}
+                                      onMoveToDraft={async () => {
+                                        try {
+                                          await handleMoveToDraft(announcement);
+                                        } catch {
+                                          toast.error({
+                                            title: "Draft failed",
+                                            subtitle: "Failed to move announcement to draft.",
+                                          });
+                                        }
+                                      }}
+                                      onTogglePin={async () => {
+                                        try {
+                                          await handleTogglePin(announcement);
+                                        } catch {
+                                          toast.error({
+                                            title: "Pin update failed",
+                                            subtitle: "Failed to update pin state.",
+                                          });
+                                        }
+                                      }}
+                                      onArchive={async () => {
+                                        try {
+                                          await handleArchive(announcement);
+                                        } catch {
+                                          toast.error({
+                                            title: "Archive failed",
+                                            subtitle: "Failed to archive announcement.",
+                                          });
+                                        }
+                                      }}
+                                      onDelete={async () => {
+                                        try {
+                                          await handleDelete(announcement);
+                                        } catch {
+                                          toast.error({
+                                            title: "Delete failed",
+                                            subtitle: "Failed to delete announcement.",
+                                          });
+                                        }
+                                      }}
+                                    />
+                                  )}
+                                </TableCell>
+                              );
+                            }
+
+                            return <TableCell key={cell.id}>{cell.value || "—"}</TableCell>;
+                          })}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </>
+            );
+          }}
+        </DataTable>
+
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          pageSizes={[10, 20, 30, 50]}
+          totalItems={filteredAnnouncements.length}
+          onChange={({ page, pageSize }) => {
+            setPage(page);
+            setPageSize(pageSize);
+          }}
+        />
+      </Tile>
+    </div>
   );
 }

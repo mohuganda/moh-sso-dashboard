@@ -14,7 +14,7 @@ import {
 
 import { useQueueEmailMutation, useSendEmailMutation } from "@moh-sso/api";
 import { useToast } from "@moh-sso/ui";
-import "./email.scss";
+import "./email-outbox-panel.scss";
 
 type DeliveryMode = "send" | "queue";
 

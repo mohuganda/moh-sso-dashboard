@@ -1,40 +1,23 @@
 import { Add, UserFollow, Security, Notification, Need } from "@carbon/react/icons";
 import { Tile, Button, Tag, Stack, InlineLoading } from "@carbon/react";
-import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import "./home.css";
 
-import { EmptyState , ErrorState , useHeaderPanel , getSeverityTagType } from "@moh-sso/ui";
+import { EmptyState, ErrorState, useHeaderPanel, getSeverityTagType } from "@moh-sso/ui";
 import { ApplicationTile } from "@/app/home/components/app/ApplicationTile";
 import { QuickAction } from "@/app/home/components/quick-action/quick-action.component";
-import { SignalTile } from "@/app/home/components/signal-tile/signal-tile.component";
 import { ClientFormPanel, UserClientRolesPanel } from "@moh-sso/clients";
 import { UserFormPanel } from "@moh-sso/users";
-import { useListClientsQuery , useAuditOverviewQuery ,
+import {
+  useListClientsQuery,
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
 } from "@moh-sso/api";
 import { selectUser } from "@moh-sso/auth";
 import { ManageAnnouncementsPanel } from "@moh-sso/announcements";
 
-/* -----------------------------
- * Utils
- * ----------------------------- */
-const toRFC3339 = (d: Date) => d.toISOString();
-
 export default function HomePage() {
   const { openPanel } = useHeaderPanel();
-  /* -----------------------------
-   * Date range (last 7 days)
-   * ----------------------------- */
-  const { from, to } = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return {
-      from: toRFC3339(start),
-      to: toRFC3339(now),
-    };
-  }, []);
 
   /* -----------------------------
    * Identity
@@ -51,32 +34,6 @@ export default function HomePage() {
     refetch: refetchApps,
   } = useListClientsQuery();
 
-  /* -----------------------------
-   * Metrics
-   * ----------------------------- */
-  const {
-    data: metrics,
-    isLoading: metricsLoading,
-    isError: metricsError,
-    refetch: refetchMetrics,
-  } = useAuditOverviewQuery({ from, to }, { skip: !from || !to });
-
-  /* -----------------------------
-   * Security Health Score
-   * ----------------------------- */
-  // const securityScore = useMemo(() => {
-  //   if (!metrics) return 100;
-
-  //   let score = 100;
-  //   score -= Math.min(metrics.failed_logins * 2, 40);
-  //   score -= Math.min((metrics.suspicious_logins ?? 0) * 5, 40);
-
-  //   return Math.max(score, 0);
-  // }, [metrics]);
-
-  /* -----------------------------
-   * Notifications
-   * ----------------------------- */
   const { data: notifications = [], isLoading: notificationsLoading } = useGetNotificationsQuery({
     unread: true,
     limit: 5,
@@ -114,38 +71,6 @@ export default function HomePage() {
               </span>
             </Stack>
           </Stack>
-        )}
-      </Tile>
-      {/* ==================================================
-       * SYSTEM SIGNALS
-       * ================================================== */}
-      <Tile>
-        <h4>System signals</h4>
-
-        {metricsLoading && <InlineLoading description="Loading metrics…" />}
-
-        {metricsError && (
-          <ErrorState
-            title="Failed to load metrics"
-            description="System metrics are currently unavailable."
-            primaryAction={{ label: "Retry", onClick: refetchMetrics }}
-          />
-        )}
-
-        {metrics && (
-          <div className="home-grid">
-            {/* <SignalTile
-              label="Security health score"
-              value={`${securityScore}%`}
-              severity={securityScore > 80 ? "success" : securityScore > 50 ? "warning" : "danger"}
-            /> */}
-            <SignalTile
-              label="Failed logins (24h)"
-              value={metrics.failed_logins}
-              severity="warning"
-            />
-            <SignalTile label="Suspicious logins" value={0} severity="danger" />
-          </div>
         )}
       </Tile>
       {/* ==================================================
@@ -191,37 +116,7 @@ export default function HomePage() {
           </div>
         )}
       </Tile>
-      {/* ==================================================
-       * CLIENT USAGE METRICS
-       * ================================================== */}
-      <Tile>
-        <h4>Client usage (last 7 days)</h4>
 
-        {/* {!metrics?.top_clients?.length && (
-          <EmptyState
-            title="No usage data"
-            description="No client activity recorded for this period."
-          />
-        )} */}
-
-        {/* {metrics?.top_clients?.length > 0 && (
-          <Stack gap={3}>
-            {metrics.top_clients.map((c) => (
-              <div
-                key={c.client_id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <strong>{c.name}</strong>
-                <Tag type="cool-gray">{c.logins} logins</Tag>
-              </div>
-            ))}
-          </Stack>
-        )} */}
-      </Tile>
       {/* ==================================================
        * QUICK ACTIONS
        * ================================================== */}
@@ -297,19 +192,10 @@ export default function HomePage() {
             onClick={() => {
               openPanel({
                 title: "Create Announcement",
-                content: <ManageAnnouncementsPanel />,
+                content: <ManageAnnouncementsPanel mode={"create"} />,
                 size: "lg",
               });
             }}
-          />
-
-          {/* Security alerts */}
-          <QuickAction
-            icon={<Security size={20} />}
-            label="Security alerts"
-            description="Review suspicious activity"
-            href="/admin/security/alerts"
-            tone="warning"
           />
         </div>
       </Tile>

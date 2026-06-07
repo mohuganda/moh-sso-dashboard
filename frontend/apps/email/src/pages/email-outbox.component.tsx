@@ -1,58 +1,68 @@
-import { useMemo, useState } from "react";
 import {
-  Button,
-  Column,
   DataTable,
-  Grid,
-  InlineLoading,
-  Pagination,
-  Select,
-  SelectItem,
-  Stack,
   Table,
+  TableHead,
+  TableRow,
+  TableHeader,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Tag,
+  TableSelectRow,
+  TableSelectAll,
+  InlineLoading,
   Tile,
+  Tag,
+  Pagination,
+  Button,
 } from "@carbon/react";
 import { Add } from "@carbon/react/icons";
+import { useEffect, useMemo, useState } from "react";
 
-import "./email-outbox.scss";
 import {
   useListEmailsQuery,
   useListEmailsByStatusQuery,
   useRetryEmailMutation,
   useDeleteEmailMutation,
 } from "@moh-sso/api";
+
 import type { EmailStatus, EmailOutboxItem } from "@moh-sso/types";
-import { EmailOutboxActionsMenu } from "./email-outbox-actions-menu.component";
-import { useHeaderPanel , useToast } from "@moh-sso/ui";
-import EmailPanelComponent from "./email-panel.component";
-import { EmailDetailsModal } from "./email-outbox-details-modal.component";
 
-type StatusFilter = "ALL" | EmailStatus | string;
+import { ErrorState, useHeaderPanel, useToast } from "@moh-sso/ui";
 
-const EMAIL_STATUS_OPTIONS: StatusFilter[] = [
-  "ALL",
-  "PENDING",
-  "PROCESSING",
-  "SENT",
-  "FAILED",
-  "RETRY",
-];
+import EmailPanelComponent from "../components/email-outbox-panel/email-outbox-panel.component";
+import { EmailDetailsModal } from "../components/email-outbox-detail/email-outbox-details-modal.component";
+import { EmailOutboxActionsMenu } from "../components/email-outbox-actions-menu.component";
 
+import "./email-outbox.scss";
+import { EmailOutboxFilters } from "../components/email-outbox-filters.component";
+import { EmailOutboxBulkActions } from "../components/email-outbox-bulk-actions.component";
+
+/* -----------------------------
+ * Filters
+ * ----------------------------- */
+type StatusFilter = "all" | Lowercase<EmailStatus>;
+
+const STATUS_OPTIONS = [
+  { id: "all", label: "All emails" },
+  { id: "pending", label: "Pending" },
+  { id: "processing", label: "Processing" },
+  { id: "sent", label: "Sent" },
+  { id: "failed", label: "Failed" },
+  { id: "retry", label: "Retry" },
+] as const;
+
+/* -----------------------------
+ * Table headers
+ * ----------------------------- */
 const headers = [
   { key: "subject", header: "Subject" },
   { key: "to", header: "Recipient" },
   { key: "status", header: "Status" },
   { key: "attempts", header: "Attempts" },
-  { key: "scheduled_at", header: "Scheduled" },
-  { key: "sent_at", header: "Sent" },
-  { key: "created_at", header: "Created" },
+  { key: "scheduledAt", header: "Scheduled" },
+  { key: "sentAt", header: "Sent" },
+  { key: "createdAt", header: "Created" },
   { key: "actions", header: "" },
+  { key: "raw", header: "" }, // hidden
 ];
 
 function formatDate(value?: string | null) {
@@ -89,73 +99,126 @@ function getSubject(item?: EmailOutboxItem) {
   return item?.message?.subject || "—";
 }
 
+function toApiStatus(status: StatusFilter): "ALL" | EmailStatus {
+  if (status === "all") return "ALL";
+  return status.toUpperCase() as EmailStatus;
+}
+
 export default function EmailOutbox() {
   const { openPanel, closePanel } = useHeaderPanel();
   const toast = useToast();
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [bulkAction, setBulkAction] = useState<"retry" | "delete" | null>(null);
+
+  /* -----------------------------
+   * Filters
+   * ----------------------------- */
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [search, setSearch] = useState("");
+
+  /* -----------------------------
+   * Pagination
+   * ----------------------------- */
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+
+  /* -----------------------------
+   * Modals
+   * ----------------------------- */
   const [selectedEmail, setSelectedEmail] = useState<EmailOutboxItem | null>(null);
 
   const offset = (page - 1) * pageSize;
+  const apiStatus = toApiStatus(statusFilter);
 
+  /* -----------------------------
+   * Data
+   * ----------------------------- */
   const allEmailsQuery = useListEmailsQuery(
     {
       limit: pageSize,
       offset,
     },
     {
-      skip: statusFilter !== "ALL",
+      skip: apiStatus !== "ALL",
     },
   );
 
   const statusEmailsQuery = useListEmailsByStatusQuery(
     {
-      status: statusFilter,
+      status: apiStatus,
       limit: pageSize,
       offset,
     },
     {
-      skip: statusFilter === "ALL",
+      skip: apiStatus === "ALL",
     },
   );
 
-  const [retryEmail, retryState] = useRetryEmailMutation();
-  const [deleteEmail, deleteState] = useDeleteEmailMutation();
+  const [retryEmail] = useRetryEmailMutation();
+  const [deleteEmail] = useDeleteEmailMutation();
 
   const emails = useMemo(() => {
-    if (statusFilter === "ALL") {
+    if (apiStatus === "ALL") {
       return allEmailsQuery.data ?? [];
     }
 
     return statusEmailsQuery.data ?? [];
-  }, [allEmailsQuery.data, statusEmailsQuery.data, statusFilter]);
+  }, [apiStatus, allEmailsQuery.data, statusEmailsQuery.data]);
 
   const isLoading = allEmailsQuery.isLoading || statusEmailsQuery.isLoading;
   const isFetching = allEmailsQuery.isFetching || statusEmailsQuery.isFetching;
-  const isMutating = retryState.isLoading || deleteState.isLoading;
+  const isError = allEmailsQuery.isError || statusEmailsQuery.isError;
+  const error = allEmailsQuery.error || statusEmailsQuery.error;
 
+  /* -----------------------------
+   * Reset page on filter change
+   * ----------------------------- */
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, search]);
+
+  /* -----------------------------
+   * Client-side search within current page
+   * ----------------------------- */
+  const filteredEmails = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    if (!q) return emails;
+
+    return emails.filter((item) => {
+      const subject = getSubject(item).toLowerCase();
+      const recipients = getRecipients(item).toLowerCase();
+      const status = item.status?.toLowerCase() ?? "";
+
+      return (
+        subject.includes(q) ||
+        recipients.includes(q) ||
+        status.includes(q) ||
+        item.id.toLowerCase().includes(q)
+      );
+    });
+  }, [emails, search]);
+
+  /* -----------------------------
+   * Rows
+   * ----------------------------- */
   const rows = useMemo(() => {
-    return emails.map((item) => ({
+    return filteredEmails.map((item) => ({
       id: item.id,
       subject: getSubject(item),
       to: getRecipients(item),
       status: item.status,
       attempts: `${item.attempts ?? 0}/${item.max_attempts ?? "—"}`,
-      scheduled_at: formatDate(item.scheduled_at),
-      sent_at: formatDate(item.sent_at),
-      created_at: formatDate(item.created_at),
-      actions: item.id,
+      scheduledAt: formatDate(item.scheduled_at),
+      sentAt: formatDate(item.sent_at),
+      createdAt: formatDate(item.created_at),
+      actions: "",
+      raw: item,
     }));
-  }, [emails]);
-
-  const emailById = useMemo(() => {
-    return new Map(emails.map((item) => [item.id, item]));
-  }, [emails]);
+  }, [filteredEmails]);
 
   const refetchEmails = () => {
-    if (statusFilter === "ALL") {
+    if (apiStatus === "ALL") {
       allEmailsQuery.refetch();
       return;
     }
@@ -178,11 +241,6 @@ export default function EmailOutbox() {
     });
   };
 
-  const handleStatusChange = (value: StatusFilter) => {
-    setStatusFilter(value);
-    setPage(1);
-  };
-
   const handleRetry = async (item: EmailOutboxItem) => {
     try {
       await retryEmail(item.id).unwrap();
@@ -191,9 +249,7 @@ export default function EmailOutbox() {
         title: "Email re-queued",
         subtitle: getSubject(item),
       });
-    } catch (error) {
-      console.error(error);
-
+    } catch {
       toast.error({
         title: "Retry failed",
         subtitle: "Please check the email worker logs and try again.",
@@ -217,9 +273,7 @@ export default function EmailOutbox() {
       if (selectedEmail?.id === item.id) {
         setSelectedEmail(null);
       }
-    } catch (error) {
-      console.error(error);
-
+    } catch {
       toast.error({
         title: "Delete failed",
         subtitle: "Please try again.",
@@ -227,147 +281,266 @@ export default function EmailOutbox() {
     }
   };
 
+  /* -----------------------------
+   * Loading / Error
+   * ----------------------------- */
+  if (isLoading) {
+    return (
+      <div style={{ padding: "2rem" }}>
+        <InlineLoading description="Loading emails…" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="Failed to load emails"
+        description={(error as any)?.data?.message ?? "Failed to load emails"}
+        primaryAction={{
+          label: "Retry",
+          onClick: refetchEmails,
+        }}
+      />
+    );
+  }
+
   return (
-    <div className="email-outbox-page">
-      <Grid fullWidth className="email-outbox-page__grid">
-        <Column lg={16} md={8} sm={4}>
-          <Stack gap={5}>
-            <div className="email-outbox-page__header">
-              <div>
-                <h1 className="email-outbox-page__title">Email Outbox</h1>
-                <p className="email-outbox-page__subtitle">
-                  View, filter, retry, and delete queued email records.
-                </p>
-              </div>
+    <>
+      <div style={{ padding: 16, display: "grid", gap: 16 }}>
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 16,
+            alignItems: "flex-start",
+          }}
+        >
+          <div>
+            <h3 style={{ margin: 0 }}>Email Outbox</h3>
+            <p style={{ marginTop: 6, opacity: 0.8 }}>
+              View, filter, retry, and delete queued email records.
+            </p>
+          </div>
 
-              <div className="email-outbox-page__header-actions">
-                {isFetching && !isLoading && <InlineLoading description="Refreshing emails..." />}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {isFetching && !isLoading && <InlineLoading description="Refreshing emails…" />}
 
-                <Button
-                  kind="primary"
-                  size="md"
-                  renderIcon={Add}
-                  onClick={handleOpenSendEmailPanel}
-                >
-                  Send email
-                </Button>
-              </div>
-            </div>
+            <Button renderIcon={Add} onClick={handleOpenSendEmailPanel}>
+              Send email
+            </Button>
+          </div>
+        </div>
 
-            <Tile className="email-outbox-page__filters">
-              <Select
-                id="email-status-filter"
-                labelText="Filter by status"
-                value={statusFilter}
-                onChange={(event) => handleStatusChange(event.target.value as StatusFilter)}
-              >
-                {EMAIL_STATUS_OPTIONS.map((status) => (
-                  <SelectItem
-                    key={status}
-                    value={status}
-                    text={status === "ALL" ? "All emails" : status}
+        {/* Filters */}
+        <Tile>
+          <EmailOutboxFilters
+            search={search}
+            status={statusFilter}
+            statusOptions={STATUS_OPTIONS}
+            onSearchChange={setSearch}
+            onStatusChange={setStatusFilter}
+            onReset={() => {
+              setSearch("");
+              setStatusFilter("all");
+            }}
+          />
+        </Tile>
+
+        {/* Table */}
+        <Tile>
+          <DataTable rows={rows} headers={headers}>
+            {({ rows, headers, getHeaderProps, getRowProps, getSelectionProps, selectedRows }) => {
+              const selectedEmails = selectedRows.map(
+                (row) =>
+                  row.cells.find((cell) => cell.info.header === "raw")?.value as EmailOutboxItem,
+              );
+
+              return (
+                <>
+                  <EmailOutboxBulkActions
+                    emails={selectedEmails}
+                    loadingAction={bulkAction}
+                    onRetry={async () => {
+                      try {
+                        setBulkAction("retry");
+
+                        await Promise.all(
+                          selectedEmails.map((email) => retryEmail(email.id).unwrap()),
+                        );
+
+                        toast.success({
+                          title: "Emails re-queued",
+                          subtitle: `${selectedEmails.length} email(s) re-queued.`,
+                        });
+                      } catch {
+                        toast.error({
+                          title: "Retry failed",
+                          subtitle: "Some emails could not be re-queued.",
+                        });
+                      } finally {
+                        setBulkAction(null);
+                      }
+                    }}
+                    onDelete={async () => {
+                      const confirmed = window.confirm(
+                        `Delete ${selectedEmails.length} selected email record(s)?`,
+                      );
+
+                      if (!confirmed) return;
+
+                      try {
+                        setBulkAction("delete");
+
+                        await Promise.all(
+                          selectedEmails.map((email) => deleteEmail(email.id).unwrap()),
+                        );
+
+                        toast.success({
+                          title: "Emails deleted",
+                          subtitle: `${selectedEmails.length} email record(s) deleted.`,
+                        });
+
+                        if (
+                          selectedEmail &&
+                          selectedEmails.some((email) => email.id === selectedEmail.id)
+                        ) {
+                          setSelectedEmail(null);
+                        }
+                      } catch {
+                        toast.error({
+                          title: "Delete failed",
+                          subtitle: "Some emails could not be deleted.",
+                        });
+                      } finally {
+                        setBulkAction(null);
+                      }
+                    }}
                   />
-                ))}
-              </Select>
-            </Tile>
 
-            <Tile className="email-outbox-page__table-tile">
-              {isLoading ? (
-                <InlineLoading description="Loading emails..." />
-              ) : (
-                <DataTable rows={rows} headers={headers}>
-                  {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
-                    <Table {...getTableProps()} className="email-outbox-table">
-                      <TableHead>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableSelectAll {...getSelectionProps()} />
+
+                        {headers
+                          .filter((header) => header.key !== "raw")
+                          .map((header) => (
+                            <TableHeader {...getHeaderProps({ header })}>
+                              {header.header}
+                            </TableHeader>
+                          ))}
+                      </TableRow>
+                    </TableHead>
+
+                    <TableBody>
+                      {rows.length === 0 ? (
                         <TableRow>
-                          {headers.map((header) => {
-                            const { key, ...headerProps } = getHeaderProps({
-                              header,
-                            });
-
-                            return (
-                              <TableHeader key={key} {...headerProps}>
-                                {header.header}
-                              </TableHeader>
-                            );
-                          })}
+                          <TableCell colSpan={headers.length}>
+                            <div
+                              style={{
+                                padding: "2rem",
+                                textAlign: "center",
+                                opacity: 0.7,
+                              }}
+                            >
+                              No emails found.
+                            </div>
+                          </TableCell>
                         </TableRow>
-                      </TableHead>
+                      ) : (
+                        rows.map((row) => {
+                          const email = row.cells.find((cell) => cell.info.header === "raw")
+                            ?.value as EmailOutboxItem;
 
-                      <TableBody>
-                        {rows.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={headers.length}>
-                              <div className="email-outbox-page__empty">No emails found.</div>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          rows.map((row) => {
-                            const { key, ...rowProps } = getRowProps({ row });
-                            const original = emailById.get(row.id);
+                          return (
+                            <TableRow {...getRowProps({ row })}>
+                              <TableSelectRow {...getSelectionProps({ row })} />
 
-                            return (
-                              <TableRow key={key} {...rowProps}>
-                                {row.cells.map((cell) => {
-                                  if (cell.info.header === "status") {
-                                    return (
-                                      <TableCell key={cell.id}>
-                                        <Tag type={getStatusTagType(String(cell.value))}>
-                                          {String(cell.value)}
-                                        </Tag>
-                                      </TableCell>
-                                    );
-                                  }
+                              {row.cells.map((cell) => {
+                                if (cell.info.header === "raw") return null;
 
-                                  if (cell.info.header === "actions") {
-                                    return (
-                                      <TableCell key={cell.id}>
-                                        {original && (
-                                          <EmailOutboxActionsMenu
-                                            email={original}
-                                            isMutating={isMutating}
-                                            onView={() => setSelectedEmail(original)}
-                                            onRetry={() => handleRetry(original)}
-                                            onDelete={() => handleDelete(original)}
-                                          />
-                                        )}
-                                      </TableCell>
-                                    );
-                                  }
+                                if (cell.info.header === "subject") {
+                                  return (
+                                    <TableCell key={cell.id}>
+                                      <div style={{ display: "grid", gap: 4 }}>
+                                        <strong>{getSubject(email)}</strong>
 
-                                  return <TableCell key={cell.id}>{cell.value}</TableCell>;
-                                })}
-                              </TableRow>
-                            );
-                          })
-                        )}
-                      </TableBody>
-                    </Table>
-                  )}
-                </DataTable>
-              )}
+                                        <span
+                                          style={{
+                                            maxWidth: 360,
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                            opacity: 0.75,
+                                            fontSize: "0.8125rem",
+                                          }}
+                                        >
+                                          {getRecipients(email)}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                  );
+                                }
 
-              <Pagination
-                page={page}
-                pageSize={pageSize}
-                pageSizes={[10, 20, 50, 100]}
-                totalItems={
-                  emails.length < pageSize ? offset + emails.length : offset + pageSize + 1
-                }
-                onChange={({ page, pageSize }) => {
-                  setPage(page);
-                  setPageSize(pageSize);
-                }}
-              />
-            </Tile>
-          </Stack>
-        </Column>
-      </Grid>
+                                if (cell.info.header === "status") {
+                                  return (
+                                    <TableCell key={cell.id}>
+                                      <Tag type={getStatusTagType(String(cell.value))}>
+                                        {String(cell.value)}
+                                      </Tag>
+                                    </TableCell>
+                                  );
+                                }
+
+                                if (cell.info.header === "actions") {
+                                  return (
+                                    <TableCell key={cell.id}>
+                                      {row.isSelected && (
+                                        <EmailOutboxActionsMenu
+                                          email={email}
+                                          isMutating={Boolean(bulkAction)}
+                                          onView={() => setSelectedEmail(email)}
+                                          onRetry={() => handleRetry(email)}
+                                          onDelete={() => handleDelete(email)}
+                                        />
+                                      )}
+                                    </TableCell>
+                                  );
+                                }
+
+                                return <TableCell key={cell.id}>{cell.value || "—"}</TableCell>;
+                              })}
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </>
+              );
+            }}
+          </DataTable>
+
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            pageSizes={[10, 20, 50, 100]}
+            totalItems={emails.length < pageSize ? offset + emails.length : offset + pageSize + 1}
+            onChange={({ page, pageSize }) => {
+              setPage(page);
+              setPageSize(pageSize);
+            }}
+          />
+        </Tile>
+      </div>
+
       <EmailDetailsModal
         open={Boolean(selectedEmail)}
         email={selectedEmail}
         onClose={() => setSelectedEmail(null)}
       />
-    </div>
+    </>
   );
 }

@@ -1,27 +1,91 @@
 import { Tile, Stack } from "@carbon/react";
 
-import type { CreateAnnouncementRequest } from "@moh-sso/types";
-import { useCreateAnnouncementMutation } from "@moh-sso/api";
+import type {
+  Announcement,
+  CreateAnnouncementRequest,
+  UpdateAnnouncementRequest,
+} from "@moh-sso/types";
+
+import { useCreateAnnouncementMutation, useUpdateAnnouncementMutation } from "@moh-sso/api";
+
 import { AnnouncementForm } from "./announcements-form.component";
+import { useToast } from "@moh-sso/ui";
 
-export function ManageAnnouncementsPanel() {
-  const [createAnnouncement, { isLoading: isSubmitting }] = useCreateAnnouncementMutation();
+type ManageAnnouncementsPanelProps = {
+  mode: "create" | "edit";
+  announcement?: Announcement | null;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+};
 
-  const handleSubmit = async (payload: CreateAnnouncementRequest) => {
-    await createAnnouncement(payload).unwrap();
+export function ManageAnnouncementsPanel({
+  mode,
+  announcement,
+  onSuccess,
+  onCancel,
+}: ManageAnnouncementsPanelProps) {
+  const toast = useToast();
+
+  const [createAnnouncement, createState] = useCreateAnnouncementMutation();
+  const [updateAnnouncement, updateState] = useUpdateAnnouncementMutation();
+
+  const isSubmitting = createState.isLoading || updateState.isLoading;
+
+  const handleSubmit = async (payload: CreateAnnouncementRequest | UpdateAnnouncementRequest) => {
+    try {
+      if (mode === "create") {
+        await createAnnouncement(payload as CreateAnnouncementRequest).unwrap();
+
+        toast.success({
+          title: "Announcement created",
+          subtitle: "The announcement was created successfully.",
+        });
+      } else {
+        if (!announcement) return;
+
+        await updateAnnouncement({
+          id: announcement.id,
+          body: payload as UpdateAnnouncementRequest,
+        }).unwrap();
+
+        toast.success({
+          title: "Announcement updated",
+          subtitle: "The announcement was updated successfully.",
+        });
+      }
+
+      onSuccess?.();
+    } catch {
+      toast.error({
+        title: mode === "create" ? "Create failed" : "Update failed",
+        subtitle:
+          mode === "create" ? "Failed to create announcement." : "Failed to update announcement.",
+      });
+    }
   };
 
   return (
-    <Tile style={{ padding: "1.5rem", maxWidth: "880px" }}>
+    <Tile style={{ padding: "1.5rem" }}>
       <Stack gap={6}>
         <div>
-          <h3 style={{ margin: 0 }}>Create Announcement</h3>
+          <h3 style={{ margin: 0 }}>
+            {mode === "create" ? "Create Announcement" : "Edit Announcement"}
+          </h3>
+
           <p style={{ marginTop: "0.5rem", color: "#6f6f6f" }}>
-            Publish announcements, alerts, and important updates for dashboard users.
+            {mode === "create"
+              ? "Publish announcements, alerts, and important updates for dashboard users."
+              : "Update the announcement details, audience, status, schedule, and visibility."}
           </p>
         </div>
 
-        <AnnouncementForm mode="create" isSubmitting={isSubmitting} onSubmit={handleSubmit} />
+        <AnnouncementForm
+          mode={mode}
+          initialValues={announcement}
+          isSubmitting={isSubmitting}
+          onSubmit={handleSubmit}
+          onCancel={onCancel}
+        />
       </Stack>
     </Tile>
   );
