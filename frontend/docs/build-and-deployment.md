@@ -63,10 +63,14 @@ dist/assets/*
 dist/import-map.json
 dist/version-manifest.json
 dist/mf/<app>/single-spa.js
+dist/mf/<app>/root.component-*.js
+dist/mf/<app>/*.css
 dist/packages/<package>/index.js
 ```
 
 This layout supports single static deployment and prepares remote import-map deployment.
+
+`stage:mf` copies complete app/package build folders, not only `single-spa.js`, so relative chunks and CSS are available to remote imports.
 
 ## Docker Production
 
@@ -138,3 +142,9 @@ The static server must:
 - serve `/packages/*`
 - serve `/config.js`
 - serve `/import-map.json` when remote mode is enabled
+
+Before deploying remote/import-map mode, run:
+
+```bash
+npm run audit:import-map
+```

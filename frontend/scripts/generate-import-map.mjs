@@ -46,10 +46,14 @@ function packageUrl(pkg) {
 }
 
 const imports = {
+  "@carbon/react": "https://esm.sh/@carbon/react@1.95.0",
+  "@carbon/react/icons": "https://esm.sh/@carbon/react@1.95.0/icons",
+  "@reduxjs/toolkit": "https://esm.sh/@reduxjs/toolkit@2.11.2",
   react: "https://esm.sh/react@19.2.0",
   "react-dom": "https://esm.sh/react-dom@19.2.0",
   "react-dom/client": "https://esm.sh/react-dom@19.2.0/client",
   "react-redux": "https://esm.sh/react-redux@9.2.0",
+  "react-router-dom": "https://esm.sh/react-router-dom@7.9.6",
   "single-spa": "https://esm.sh/single-spa@6.0.3",
   "single-spa-react": "https://esm.sh/single-spa-react@6.0.2",
 };

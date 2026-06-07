@@ -6,6 +6,23 @@ The frontend is single-spa-ready. The default path is hybrid local mode, where t
 
 - Hybrid local mode: default. Shell uses local workspace app lifecycles.
 - Remote mode: enabled by runtime/env config. Shell can load app bundles through import maps.
+- Orchestrated mode: explicitly gated and experimental until shell routes fully stop mounting `SingleSpaApp` wrappers.
+
+Hybrid mode is the safe default. In hybrid mode, React Router renders `SingleSpaApp` wrappers and `startMicrofrontendOrchestration()` does not call `registerApplication`.
+
+Full orchestration requires:
+
+```text
+VITE_SINGLE_SPA_ORCHESTRATION=true
+VITE_MICROFRONTEND_MOUNT_MODE=orchestrated
+```
+
+or equivalent runtime config:
+
+```js
+window.__APP_CONFIG__.singleSpaOrchestration = true;
+window.__APP_CONFIG__.microfrontendMountMode = "orchestrated";
+```
 
 ## App Contract
 
@@ -35,6 +52,7 @@ Apps accept runtime props from `@moh-sso/microfrontend`:
 - `auth`
 - `apiBaseUrl`
 - `eventBus`
+- `domElement` during mount
 
 `basename` is important for nested routes inside each app.
 
@@ -88,12 +106,15 @@ Related files:
 - `registerApps.ts`: app route registry
 - `routes.ts`: route constants
 - `lifecycles.ts`: local lifecycle imports
+- `containers.ts`: shell-owned DOM containers for orchestrated mode
 
 ## Local Vs Remote
 
 Local mode uses workspace imports and local lifecycle modules.
 
 Remote mode uses import maps. The shell loads `@moh-sso/<app>` bundle URLs from the import map.
+
+For true `registerApplication` mode, the shell creates one DOM container per app under `#microfrontend-orchestrated-root`.
 
 ## Non-React Apps
 

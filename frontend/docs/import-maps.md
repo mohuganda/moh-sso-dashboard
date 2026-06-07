@@ -19,6 +19,10 @@ The production import map uses pinned ESM CDN URLs for shared platform dependenc
 - `react-dom`
 - `react-dom/client`
 - `react-redux`
+- `react-router-dom`
+- `@carbon/react`
+- `@carbon/react/icons`
+- `@reduxjs/toolkit`
 - `single-spa`
 - `single-spa-react`
 
@@ -32,11 +36,15 @@ App bundles:
 /mf/<app>/single-spa.js
 ```
 
+The staged app folder also contains related chunks, CSS, route files, and declarations. Remote hosts must serve the whole `/mf/<app>/` folder, not only `single-spa.js`.
+
 Shared packages:
 
 ```text
 /packages/<package>/index.js
 ```
+
+The staged package folder may contain CSS or related files. Remote hosts should serve the whole `/packages/<package>/` folder.
 
 ## Versioned Import Map Mode
 
@@ -91,6 +99,16 @@ The local map points apps to dev servers:
 
 `import-map-overrides` can replace one deployed app with a local dev bundle. This is useful when testing a single app against deployed shell/config.
 
+## Import Map Audit
+
+After staging remote bundles, run:
+
+```bash
+npm run audit:import-map
+```
+
+This checks that bare imports in `dist/mf` and `dist/packages` are present in `public/import-map.json`.
+
 ## Enabling Remote Mode
 
 The shell `index.html` keeps import maps passive by default. To enable remote mode in a deployment template:
@@ -108,6 +126,8 @@ The shell `index.html` keeps import maps passive by default. To enable remote mo
 ```html
 <script async src="https://unpkg.com/import-map-overrides@6.1.0/dist/import-map-overrides.js"></script>
 ```
+
+See [templates/index.remote.html](templates/index.remote.html) for a remote-mode HTML template.
 
 ## Rollback
 

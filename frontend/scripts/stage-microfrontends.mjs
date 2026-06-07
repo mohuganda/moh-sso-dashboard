@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,17 +30,48 @@ function copyRequired(from, to) {
   copyFileSync(from, to);
 }
 
+function assertRequired(path) {
+  if (!existsSync(path)) {
+    throw new Error(`Missing build artifact: ${path}`);
+  }
+}
+
+function copyDirectory(from, to) {
+  if (!existsSync(from)) {
+    throw new Error(`Missing build directory: ${from}`);
+  }
+
+  rmSync(to, { recursive: true, force: true });
+  mkdirSync(to, { recursive: true });
+
+  for (const entry of readdirSync(from, { withFileTypes: true })) {
+    const source = join(from, entry.name);
+    const target = join(to, entry.name);
+
+    if (entry.isDirectory()) {
+      if (entry.name !== "node_modules") {
+        copyDirectory(source, target);
+      }
+      continue;
+    }
+
+    copyFileSync(source, target);
+  }
+}
+
 for (const app of apps) {
-  copyRequired(
-    join(root, "apps", app, "dist", "single-spa.js"),
-    join(root, "dist", "mf", app, "single-spa.js"),
+  assertRequired(join(root, "apps", app, "dist", "single-spa.js"));
+  copyDirectory(
+    join(root, "apps", app, "dist"),
+    join(root, "dist", "mf", app),
   );
 }
 
 for (const pkg of packages) {
-  copyRequired(
-    join(root, "packages", pkg, "dist", "index.js"),
-    join(root, "dist", "packages", pkg, "index.js"),
+  assertRequired(join(root, "packages", pkg, "dist", "index.js"));
+  copyDirectory(
+    join(root, "packages", pkg, "dist"),
+    join(root, "dist", "packages", pkg),
   );
 }
 

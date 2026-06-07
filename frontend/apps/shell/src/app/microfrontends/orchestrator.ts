@@ -14,7 +14,16 @@ import {
   usersLifecycles,
   utilitiesLifecycles,
 } from "./lifecycles";
+import { getMicrofrontendContainer } from "./containers";
 import { registeredMicrofrontends } from "./registerApps";
+
+type MicrofrontendMountMode = "hybrid" | "orchestrated";
+
+type RuntimeMicrofrontendConfig = {
+  singleSpaOrchestration?: boolean;
+  microfrontendMode?: "local" | "remote";
+  microfrontendMountMode?: MicrofrontendMountMode;
+};
 
 type SingleSpaModule = {
   registerApplication: (config: {
@@ -44,19 +53,31 @@ const lifecycleLoaders: Record<string, () => Promise<MicrofrontendLifecycle>> = 
 function shouldUseSingleSpaOrchestration() {
   const runtimeConfig = (
     window as Window & {
-      __APP_CONFIG__?: { singleSpaOrchestration?: boolean; microfrontendMode?: "local" | "remote" };
+      __APP_CONFIG__?: RuntimeMicrofrontendConfig;
     }
   ).__APP_CONFIG__;
-  return import.meta.env.VITE_SINGLE_SPA_ORCHESTRATION === "true" || runtimeConfig?.singleSpaOrchestration === true;
+  const orchestrationEnabled =
+    import.meta.env.VITE_SINGLE_SPA_ORCHESTRATION === "true" || runtimeConfig?.singleSpaOrchestration === true;
+
+  return orchestrationEnabled && getMicrofrontendMountMode() === "orchestrated";
 }
 
 function getMicrofrontendMode() {
   const runtimeConfig = (
     window as Window & {
-      __APP_CONFIG__?: { microfrontendMode?: "local" | "remote" };
+      __APP_CONFIG__?: RuntimeMicrofrontendConfig;
     }
   ).__APP_CONFIG__;
   return runtimeConfig?.microfrontendMode ?? import.meta.env.VITE_MICROFRONTEND_MODE ?? "local";
+}
+
+function getMicrofrontendMountMode(): MicrofrontendMountMode {
+  const runtimeConfig = (
+    window as Window & {
+      __APP_CONFIG__?: RuntimeMicrofrontendConfig;
+    }
+  ).__APP_CONFIG__;
+  return runtimeConfig?.microfrontendMountMode ?? import.meta.env.VITE_MICROFRONTEND_MOUNT_MODE ?? "hybrid";
 }
 
 async function loadSingleSpa(): Promise<SingleSpaModule | null> {
@@ -84,6 +105,7 @@ function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
     activeWhen: route.paths ?? [route.path],
     customProps: {
       basename: route.path,
+      domElement: getMicrofrontendContainer(route.appName),
     },
   });
 }

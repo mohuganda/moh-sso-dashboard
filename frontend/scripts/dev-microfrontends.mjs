@@ -16,12 +16,19 @@ const appScripts = {
   utilities: "dev:mf:utilities",
 };
 
-const requestedApps = process.argv.slice(2);
+const previewScripts = Object.fromEntries(
+  Object.entries(appScripts).map(([app, script]) => [app, script.replace("dev:mf:", "preview:mf:")]),
+);
+
+const args = process.argv.slice(2);
+const previewMode = args.includes("--preview");
+const requestedApps = args.filter((arg) => arg !== "--preview");
+const scriptMap = previewMode ? previewScripts : appScripts;
 const selectedApps = requestedApps.includes("all") || requestedApps.length === 0
   ? Object.keys(appScripts)
   : requestedApps;
 
-const scripts = ["dev:shell", ...selectedApps.map((app) => appScripts[app]).filter(Boolean)];
+const scripts = ["dev:shell", ...selectedApps.map((app) => scriptMap[app]).filter(Boolean)];
 const unknownApps = selectedApps.filter((app) => !appScripts[app]);
 const children = [];
 
@@ -71,7 +78,7 @@ process.on("SIGTERM", () => {
   process.exit(143);
 });
 
-console.log(`Starting frontend dev processes: ${scripts.join(", ")}`);
+console.log(`Starting frontend ${previewMode ? "preview" : "dev"} processes: ${scripts.join(", ")}`);
 
 for (const script of scripts) {
   start(script);

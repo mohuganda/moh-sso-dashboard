@@ -8,9 +8,17 @@ Fix:
 
 ```bash
 node --version
+nvm install 20
+nvm use 20
 ```
 
 Switch to Node 20.19+ or 22.12+.
+
+If the `20` alias is unavailable in your local `nvm`, use an exact installed version such as:
+
+```bash
+nvm use v20.20.1
+```
 
 ## Failed To Resolve `single-spa-react`
 
@@ -64,9 +72,16 @@ Check:
 
 - import map URL
 - app `single-spa.js` is served
+- related chunks such as `root.component-*.js` are served
 - app `basename`
 - browser console
 - network tab for failed module requests
+
+Run:
+
+```bash
+npm run audit:import-map
+```
 
 ## Duplicate React Or Invalid Hook Call
 
@@ -100,3 +115,14 @@ FRONTEND_DEV_COMMAND="npm run dev:remote:all" docker compose -f docker-compose.d
 ## Import Map Points To Missing Vendor Files
 
 The current production import map uses pinned CDN ESM URLs. If using self-hosted vendor files, make sure those files exist and are served.
+
+## Local Import Map Cannot Load `/single-spa.js`
+
+Vite dev mode may not serve library build output at `/single-spa.js`.
+
+Use preview mode for local import-map testing:
+
+```bash
+npm run remote:preview:users
+npm run remote:preview:all
+```
