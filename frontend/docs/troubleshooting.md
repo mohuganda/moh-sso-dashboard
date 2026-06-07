@@ -83,6 +83,18 @@ Run:
 npm run audit:import-map
 ```
 
+## Local Dev Looks Like Production Mode
+
+Cause: `public/config.js` may still contain production or local-remote settings.
+
+Fix:
+
+```bash
+npm run config:dev
+```
+
+Then restart the dev server.
+
 ## Duplicate React Or Invalid Hook Call
 
 Likely cause: remote bundles are loading more than one React instance.

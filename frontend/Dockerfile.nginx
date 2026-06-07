@@ -10,7 +10,7 @@ ENV FRONTEND_BASE_PATH=/portal
 # Install ALL deps (including workspace dev deps)
 COPY . .
 RUN npm ci
-RUN cp public/config.production.js public/config.js
+RUN node scripts/use-runtime-config.mjs production
 
 # Build shell, packages, and standalone microfrontend bundles
 RUN npm run build:docker

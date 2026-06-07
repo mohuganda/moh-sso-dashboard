@@ -88,6 +88,31 @@ npm run remote:preview:all
 - `VITE_MICROFRONTEND_MOUNT_MODE`: `hybrid` by default; `orchestrated` enables true `registerApplication` mode.
 - `FRONTEND_DEV_COMMAND`: Docker dev command override.
 
+## Runtime Config
+
+`public/config.js` is the active runtime config file.
+
+Use these scripts to switch modes:
+
+```bash
+npm run config:dev
+npm run config:local-remote
+npm run config:prod
+```
+
+Normal development uses local/hybrid mode:
+
+```bash
+npm run config:dev
+npm run dev:shell
+```
+
+If the frontend behaves like production locally, reset it:
+
+```bash
+npm run config:dev
+```
+
 ## Docker Development
 
 Shell-only:

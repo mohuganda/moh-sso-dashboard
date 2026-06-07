@@ -9,7 +9,7 @@ ENV FRONTEND_BASE_PATH=/portal
 
 COPY . .
 RUN npm ci
-RUN cp public/config.production.js public/config.js
+RUN node scripts/use-runtime-config.mjs production
 RUN npm run build:docker
 
 # ======================

@@ -82,7 +82,7 @@ docker build -f frontend/Dockerfile frontend
 
 The default production image builds the frontend from monorepo source and serves the final static files on port `3000`.
 
-During Docker builds, `public/config.production.js` is copied to `public/config.js` before `build:docker` runs. That production config enables:
+During Docker builds, `node scripts/use-runtime-config.mjs production` activates `public/config.production.js` before `build:docker` runs. That production config enables:
 
 - `microfrontendMode: "remote"`
 - `singleSpaOrchestration: true`
