@@ -30,16 +30,24 @@ function readVersion(group, name) {
 }
 
 function appUrl(app) {
-  if (!versionedImports || !assetBaseUrl) {
+  if (!assetBaseUrl) {
     return `/mf/${app}/single-spa.js`;
+  }
+
+  if (!versionedImports) {
+    return `${assetBaseUrl}/mf/${app}/single-spa.js`;
   }
 
   return `${assetBaseUrl}/mf/${app}/${readVersion("apps", app)}/single-spa.js`;
 }
 
 function packageUrl(pkg) {
-  if (!versionedImports || !assetBaseUrl) {
+  if (!assetBaseUrl) {
     return `/packages/${pkg}/index.js`;
+  }
+
+  if (!versionedImports) {
+    return `${assetBaseUrl}/packages/${pkg}/index.js`;
   }
 
   return `${assetBaseUrl}/packages/${pkg}/${readVersion("packages", pkg)}/index.js`;

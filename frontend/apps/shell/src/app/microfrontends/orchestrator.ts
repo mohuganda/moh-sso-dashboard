@@ -50,7 +50,7 @@ const lifecycleLoaders: Record<string, () => Promise<MicrofrontendLifecycle>> = 
   "@moh-sso/utilities": () => Promise.resolve(utilitiesLifecycles),
 };
 
-function shouldUseSingleSpaOrchestration() {
+export function shouldUseSingleSpaOrchestration() {
   const runtimeConfig = (
     window as Window & {
       __APP_CONFIG__?: RuntimeMicrofrontendConfig;
@@ -101,11 +101,23 @@ function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
 
   singleSpa.registerApplication({
     name: route.appName,
-    app: loader,
+    app: async () => {
+      const lifecycle = await loader();
+      const propsWithContainer = (props: Record<string, unknown>) => ({
+        ...props,
+        basename: route.path,
+        domElement: getMicrofrontendContainer(route.appName),
+      });
+
+      return {
+        bootstrap: (props) => lifecycle.bootstrap(propsWithContainer(props)),
+        mount: (props) => lifecycle.mount(propsWithContainer(props)),
+        unmount: (props) => lifecycle.unmount(propsWithContainer(props)),
+      };
+    },
     activeWhen: route.paths ?? [route.path],
     customProps: {
       basename: route.path,
-      domElement: getMicrofrontendContainer(route.appName),
     },
   });
 }

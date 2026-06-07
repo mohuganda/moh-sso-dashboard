@@ -4,9 +4,12 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
+ENV FRONTEND_ASSET_BASE_URL=/portal
+ENV FRONTEND_BASE_PATH=/portal
 
 COPY . .
 RUN npm ci
+RUN cp public/config.production.js public/config.js
 RUN npm run build:docker
 
 # ======================

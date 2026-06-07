@@ -4,10 +4,13 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
+ENV FRONTEND_ASSET_BASE_URL=/portal
+ENV FRONTEND_BASE_PATH=/portal
 
 # Install ALL deps (including workspace dev deps)
 COPY . .
 RUN npm ci
+RUN cp public/config.production.js public/config.js
 
 # Build shell, packages, and standalone microfrontend bundles
 RUN npm run build:docker

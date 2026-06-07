@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 
 import type { MicrofrontendLifecycle, MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
+import { microfrontendContainerId } from "./containers";
+import { shouldUseSingleSpaOrchestration } from "./orchestrator";
 
 type SingleSpaAppProps = MicrofrontendRuntimeProps & {
   appName: string;
@@ -10,8 +12,13 @@ type SingleSpaAppProps = MicrofrontendRuntimeProps & {
 export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpaAppProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { apiBaseUrl, auth, basename, eventBus } = runtimeProps;
+  const orchestrated = shouldUseSingleSpaOrchestration();
 
   useEffect(() => {
+    if (orchestrated) {
+      return;
+    }
+
     const domElement = containerRef.current;
     if (!domElement) {
       return;
@@ -35,7 +42,13 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
       disposed = true;
       void Promise.resolve(lifecycles.unmount(props));
     };
-  }, [apiBaseUrl, appName, auth, basename, eventBus, lifecycles]);
+  }, [apiBaseUrl, appName, auth, basename, eventBus, lifecycles, orchestrated]);
 
-  return <div ref={containerRef} data-microfrontend={appName} />;
+  return (
+    <div
+      id={orchestrated ? microfrontendContainerId(appName) : undefined}
+      ref={containerRef}
+      data-microfrontend={appName}
+    />
+  );
 }

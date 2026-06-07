@@ -11,6 +11,15 @@ frontend/public/import-map.local.json
 
 `import-map.json` is the production-style map. `import-map.local.json` maps apps to local dev server ports.
 
+Production Docker builds set `FRONTEND_ASSET_BASE_URL=/portal`, so the generated production map points to:
+
+```text
+/portal/mf/<app>/single-spa.js
+/portal/packages/<package>/index.js
+```
+
+The staging step mirrors the final static artifact under `dist/portal/` so these URLs resolve with the shell's `/portal/` base path.
+
 ## Vendor Dependencies
 
 The production import map uses pinned ESM CDN URLs for shared platform dependencies:
@@ -30,11 +39,13 @@ This avoids missing `/vendor/*.js` files and keeps React shared in remote mode.
 
 ## App And Package Entries
 
-App bundles:
+App bundles in the default non-versioned map:
 
 ```text
 /mf/<app>/single-spa.js
 ```
+
+In production Docker builds, these become `/portal/mf/<app>/single-spa.js`.
 
 The staged app folder also contains related chunks, CSS, route files, and declarations. Remote hosts must serve the whole `/mf/<app>/` folder, not only `single-spa.js`.
 
@@ -43,6 +54,8 @@ Shared packages:
 ```text
 /packages/<package>/index.js
 ```
+
+In production Docker builds, these become `/portal/packages/<package>/index.js`.
 
 The staged package folder may contain CSS or related files. Remote hosts should serve the whole `/packages/<package>/` folder.
 
@@ -111,17 +124,20 @@ This checks that bare imports in `dist/mf` and `dist/packages` are present in `p
 
 ## Enabling Remote Mode
 
-The shell `index.html` keeps import maps passive by default. To enable remote mode in a deployment template:
+The shell `index.html` loads the import map before the shell module. To enable remote/orchestrated mode:
 
 1. Set `window.__APP_CONFIG__.singleSpaOrchestration = true`.
 2. Set `window.__APP_CONFIG__.microfrontendMode = "remote"`.
-3. Enable the import map script in the shell HTML or deployment template:
+3. Set `window.__APP_CONFIG__.microfrontendMountMode = "orchestrated"`.
+4. Make sure the import map script is present before the shell module:
 
 ```html
-<script type="importmap" src="/import-map.json"></script>
+<script type="importmap" src="/portal/import-map.json"></script>
 ```
 
-4. Optionally enable import-map-overrides:
+Production Docker uses `public/config.production.js`, which sets these runtime flags.
+
+5. Optionally enable import-map-overrides:
 
 ```html
 <script async src="https://unpkg.com/import-map-overrides@6.1.0/dist/import-map-overrides.js"></script>

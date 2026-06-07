@@ -1,4 +1,5 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+/* global process */
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +21,7 @@ const apps = [
 ];
 
 const packages = ["api", "auth", "config", "microfrontend", "state", "types", "ui", "utils"];
+const basePath = (process.env.FRONTEND_BASE_PATH ?? "/portal").replace(/^\/?/, "/").replace(/\/$/, "");
 
 function copyRequired(from, to) {
   if (!existsSync(from)) {
@@ -59,6 +61,12 @@ function copyDirectory(from, to) {
   }
 }
 
+assertRequired(join(root, "apps", "shell", "dist", "index.html"));
+copyDirectory(
+  join(root, "apps", "shell", "dist"),
+  join(root, "dist"),
+);
+
 for (const app of apps) {
   assertRequired(join(root, "apps", app, "dist", "single-spa.js"));
   copyDirectory(
@@ -79,3 +87,34 @@ copyRequired(
   join(root, "public", "version-manifest.json"),
   join(root, "dist", "version-manifest.json"),
 );
+
+if (basePath && basePath !== "/") {
+  const baseDir = join(root, "dist", basePath.slice(1));
+  rmSync(baseDir, { recursive: true, force: true });
+  mkdirSync(baseDir, { recursive: true });
+
+  for (const entry of [
+    "assets",
+    "mf",
+    "packages",
+    "config.js",
+    "config.production.js",
+    "import-map.json",
+    "import-map.local.json",
+    "index.html",
+    "logo.png",
+    "version-manifest.json",
+  ]) {
+    const source = join(root, "dist", entry);
+    if (existsSync(source)) {
+      const target = join(baseDir, entry);
+
+      if (statSync(source).isDirectory()) {
+        copyDirectory(source, target);
+      } else {
+        mkdirSync(dirname(target), { recursive: true });
+        copyFileSync(source, target);
+      }
+    }
+  }
+}

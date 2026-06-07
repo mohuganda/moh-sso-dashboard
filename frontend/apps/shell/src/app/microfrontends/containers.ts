@@ -1,4 +1,4 @@
-function containerId(appName: string) {
+export function microfrontendContainerId(appName: string) {
   return `single-spa-application-${appName.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
@@ -15,7 +15,7 @@ function getOrCreateRoot() {
 }
 
 export function getMicrofrontendContainer(appName: string) {
-  const id = containerId(appName);
+  const id = microfrontendContainerId(appName);
   const existingContainer = document.getElementById(id);
   if (existingContainer) {
     return existingContainer;

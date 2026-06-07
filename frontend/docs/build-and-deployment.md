@@ -82,6 +82,14 @@ docker build -f frontend/Dockerfile frontend
 
 The default production image builds the frontend from monorepo source and serves the final static files on port `3000`.
 
+During Docker builds, `public/config.production.js` is copied to `public/config.js` before `build:docker` runs. That production config enables:
+
+- `microfrontendMode: "remote"`
+- `singleSpaOrchestration: true`
+- `microfrontendMountMode: "orchestrated"`
+
+The shell HTML loads `/portal/import-map.json`, and the generated import map points app/package modules to `/portal/mf/*` and `/portal/packages/*`.
+
 The nginx image is still available:
 
 ```bash
@@ -173,11 +181,15 @@ Versioned deployment paths should look like:
 The static server must:
 
 - serve `dist`
+- serve `/portal/*` for the production shell base path
 - provide SPA fallback to `index.html`
 - serve `/mf/*`
 - serve `/packages/*`
+- serve `/portal/mf/*`
+- serve `/portal/packages/*`
 - serve `/config.js`
-- serve `/import-map.json` when remote mode is enabled
+- serve `/portal/config.js`
+- serve `/portal/import-map.json`
 
 Before deploying remote/import-map mode, run:
 

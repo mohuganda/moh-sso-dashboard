@@ -1,9 +1,10 @@
-/* global console */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+/* global console, process */
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const basePath = (process.env.FRONTEND_BASE_PATH ?? "/portal").replace(/^\/?/, "/").replace(/\/$/, "");
 
 const apps = [
   "announcements",
@@ -55,6 +56,9 @@ function copyDirectory(from, to) {
   }
 }
 
+assertRequired(join(root, "apps", "shell", "dist", "index.html"));
+copyDirectory(join(root, "apps", "shell", "dist"), join(root, "dist"));
+
 for (const app of apps) {
   const dist = packageDist(app);
   assertRequired(join(dist, "single-spa.js"));
@@ -65,6 +69,38 @@ for (const packageName of packages) {
   const dist = packageDist(packageName);
   assertRequired(join(dist, "index.js"));
   copyDirectory(dist, join(root, "dist", "packages", packageName));
+}
+
+if (basePath && basePath !== "/") {
+  const baseDir = join(root, "dist", basePath.slice(1));
+  rmSync(baseDir, { recursive: true, force: true });
+  mkdirSync(baseDir, { recursive: true });
+
+  for (const entry of [
+    "assets",
+    "mf",
+    "packages",
+    "config.js",
+    "config.production.js",
+    "import-map.json",
+    "import-map.local.json",
+    "index.html",
+    "logo.png",
+    "version-manifest.json",
+  ]) {
+    const source = join(root, "dist", entry);
+    if (!existsSync(source)) {
+      continue;
+    }
+
+    const target = join(baseDir, entry);
+    if (statSync(source).isDirectory()) {
+      copyDirectory(source, target);
+    } else {
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(source, target);
+    }
+  }
 }
 
 console.log("Staged microfrontend apps/packages from installed @moh-sso npm packages.");
