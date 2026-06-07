@@ -19,12 +19,13 @@
     "prepare": "husky",
     "audit:packages": "node scripts/audit-package-dependencies.mjs",
     "audit:import-map": "node scripts/audit-import-map.mjs",
+    "audit:publishability": "node scripts/audit-package-publishability.mjs",
     "changeset": "changeset",
     "version:packages": "changeset version",
     "release:packages": "changeset publish",
     "release:dry-run": "changeset publish --dry-run",
-    "preversion:check": "npm run audit:packages && npm run typecheck && npm run lint && npm run build:all",
-    "release:check": "npm run audit:packages && npm run typecheck && npm run lint && npm run build:all",
+    "preversion:check": "npm run audit:packages && npm run typecheck && npm run lint && npm run build:all && npm run audit:publishability",
+    "release:check": "npm run audit:packages && npm run typecheck && npm run lint && npm run build:all && npm run audit:publishability",
     "dev:shell": "npm run dev -w @moh-sso/shell",
     "dev:remote:users": "node scripts/dev-microfrontends.mjs users",
     "dev:remote:clients": "node scripts/dev-microfrontends.mjs clients",
@@ -72,7 +73,9 @@
     "remote:preview:surveillance": "npm run build:mf:surveillance && npm run preview:mf:surveillance",
     "remote:preview:all": "npm run build:apps && node scripts/dev-microfrontends.mjs --preview all",
     "stage:mf": "node scripts/stage-microfrontends.mjs",
-    "build:docker": "npm run build:all && npm run generate:versions && npm run stage:mf"
+    "stage:mf:npm": "node scripts/stage-from-npm-packages.mjs",
+    "build:docker": "npm run build:all && npm run generate:versions && npm run stage:mf",
+    "build:docker:npm-modules": "npm run build:shell && npm run generate:import-map && npm run generate:versions && npm run stage:mf:npm && npm run audit:import-map"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

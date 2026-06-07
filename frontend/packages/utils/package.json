@@ -8,7 +8,7 @@
   "module": "./dist/index.js",
   "files": [
     "dist",
-    "src",
+    "README.md",
     "package.json"
   ],
   "scripts": {
@@ -25,5 +25,6 @@
   },
   "dependencies": {
     "@moh-sso/types": "0.1.0"
-  }
+  },
+  "private": false
 }

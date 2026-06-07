@@ -8,7 +8,7 @@
   "module": "./dist/index.js",
   "files": [
     "dist",
-    "src",
+    "README.md",
     "package.json"
   ],
   "scripts": {
@@ -28,5 +28,6 @@
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.16"
-  }
+  },
+  "private": false
 }

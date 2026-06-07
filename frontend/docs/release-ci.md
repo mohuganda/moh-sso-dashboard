@@ -10,6 +10,7 @@ npm run audit:packages
 npm run typecheck
 npm run lint
 npm run build:all
+npm run audit:publishability
 ```
 
 ## Version Job
@@ -27,6 +28,29 @@ npm run release:packages
 ```
 
 This publishes npm packages according to Changesets.
+
+## Source Docker Deploy Job
+
+Build the default production image from source:
+
+```bash
+docker build -f frontend/Dockerfile frontend
+```
+
+This path remains the default production deployment.
+
+## Optional NPM Module Docker Job
+
+After packages are published, build the optional npm-module image with exact package versions:
+
+```bash
+docker build \
+  -f frontend/Dockerfile.npm-modules \
+  --build-arg MOH_SSO_NPM_MODULES="@moh-sso/users@0.4.1 @moh-sso/api@0.2.0" \
+  frontend
+```
+
+Use this only when package publishing and version pinning are stable.
 
 ## Deploy Job
 

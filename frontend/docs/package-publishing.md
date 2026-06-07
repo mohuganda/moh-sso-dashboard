@@ -15,6 +15,9 @@ Each app/package should have:
 - `publishConfig`
 - `dependencies`
 - `peerDependencies`
+- `files` containing `dist`
+
+Published packages should ship built `dist` artifacts, not source files.
 
 Current internal version convention:
 
@@ -40,6 +43,7 @@ Run the audit after import or manifest changes:
 
 ```bash
 npm run audit:packages
+npm run audit:publishability
 ```
 
 ## Build A Package
@@ -62,6 +66,7 @@ Run release checks before any publish attempt:
 
 ```bash
 npm run release:check
+npm run audit:publishability
 ```
 
 ```bash

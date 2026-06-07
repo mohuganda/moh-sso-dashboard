@@ -22,7 +22,7 @@
   "module": "./dist/index.js",
   "files": [
     "dist",
-    "src",
+    "README.md",
     "package.json"
   ],
   "scripts": {
@@ -45,6 +45,10 @@
     "papaparse": "^5.5.3",
     "react": "^19.2.0",
     "react-router-dom": "^7.9.6",
-    "xlsx": "^0.18.5"
-  }
+    "xlsx": "^0.18.5",
+    "react-dom": "^19.2.0",
+    "react-redux": "^9.2.0",
+    "single-spa": "^6.0.3"
+  },
+  "private": false
 }
