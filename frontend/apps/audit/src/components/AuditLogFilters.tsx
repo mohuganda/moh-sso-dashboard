@@ -11,9 +11,24 @@ import {
 
 type SuccessFilter = "true" | "false";
 
+type SuccessOption = {
+  id: SuccessFilter;
+  label: string;
+};
+
+const SUCCESS_OPTIONS: SuccessOption[] = [
+  { id: "true", label: "Success" },
+  { id: "false", label: "Failure" },
+];
+
 interface AuditLogFiltersProps {
+  action?: string;
+  clientId?: string;
+  success?: SuccessFilter;
+
   onFromChange: (v: string) => void;
   onToChange: (v: string) => void;
+  onActionChange: (v?: string) => void;
   onClientChange: (v?: string) => void;
   onSuccessChange: (v?: SuccessFilter) => void;
   onClear: () => void;
@@ -26,8 +41,12 @@ function toRFC3339(d: Date) {
 }
 
 export function AuditLogFilters({
+  action,
+  clientId,
+  success,
   onFromChange,
   onToChange,
+  onActionChange,
   onClientChange,
   onSuccessChange,
   onClear,
@@ -42,10 +61,9 @@ export function AuditLogFilters({
         width: "100%",
         justifyContent: "flex-end",
         alignItems: "flex-end",
-        flexWrap: "nowrap",
+        flexWrap: "wrap",
       }}
     >
-      {/* Date range */}
       <DatePicker
         datePickerType="range"
         onChange={(dates) => {
@@ -53,6 +71,7 @@ export function AuditLogFilters({
             if (dates[0] instanceof Date) {
               onFromChange(toRFC3339(dates[0]));
             }
+
             if (dates[1] instanceof Date) {
               onToChange(toRFC3339(dates[1]));
             }
@@ -60,43 +79,50 @@ export function AuditLogFilters({
         }}
       >
         <DatePickerInput id="audit-from" labelText="From date" hideLabel placeholder="From" />
+
         <DatePickerInput id="audit-to" labelText="To date" hideLabel placeholder="To" />
       </DatePicker>
 
-      {/* Client */}
+      <Search
+        id="audit-action"
+        labelText="Action"
+        placeholder="Action"
+        value={action ?? ""}
+        style={{ width: 180 }}
+        onChange={(event) => {
+          onActionChange(event.target.value || undefined);
+        }}
+      />
+
       <Search
         id="audit-client"
         labelText="Client"
         placeholder="Client ID"
+        value={clientId ?? ""}
         style={{ width: 180 }}
-        onChange={(e) => {
-          onClientChange(e.target.value || undefined);
+        onChange={(event) => {
+          onClientChange(event.target.value || undefined);
         }}
       />
 
-      {/* Result */}
       <ComboBox
         id="audit-result"
         titleText="Result"
         placeholder="Result"
         style={{ width: 160 }}
-        items={[
-          { id: "true", label: "Success" },
-          { id: "false", label: "Failure" },
-        ]}
+        items={SUCCESS_OPTIONS}
         itemToString={(item) => item?.label ?? ""}
+        selectedItem={SUCCESS_OPTIONS.find((item) => item.id === success) ?? null}
         onChange={({ selectedItem }) => {
-          onSuccessChange(selectedItem?.id as SuccessFilter | undefined);
+          onSuccessChange(selectedItem?.id);
         }}
       />
 
-      {/* Actions */}
       <Stack orientation="horizontal" gap={3}>
         <Button kind="secondary" size="md" onClick={onClear}>
           Clear
         </Button>
 
-        {/* Export menu */}
         <OverflowMenu ariaLabel="Export audit logs" flipped>
           <OverflowMenuItem itemText="Export CSV" onClick={onExportCsv} />
           <OverflowMenuItem itemText="Export JSON" onClick={onExportJson} />

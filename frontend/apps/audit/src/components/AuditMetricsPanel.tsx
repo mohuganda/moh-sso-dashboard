@@ -21,7 +21,7 @@ export const AuditMetricsPanel: React.FC<Props> = ({ from, to }) => {
   }
 
   if (isError && !data) {
-    return <div style={{ opacity: 0.7 }}>Failed to load audit metrics</div>;
+    return <div style={{ opacity: 0.7 }}>Failed to load audit metrics.</div>;
   }
 
   return (
@@ -32,25 +32,35 @@ export const AuditMetricsPanel: React.FC<Props> = ({ from, to }) => {
         gap: 12,
       }}
     >
-      <Tile>
-        <strong>Total Events</strong>
-        <div style={{ fontSize: 24 }}>{data?.total_events ?? "—"}</div>
-      </Tile>
-
-      <Tile>
-        <strong>Total Failures</strong>
-        <div style={{ fontSize: 24 }}>{data?.total_failures ?? "—"}</div>
-      </Tile>
-
-      <Tile>
-        <strong>Failed Logins</strong>
-        <div style={{ fontSize: 24 }}>{data?.failed_logins ?? "—"}</div>
-      </Tile>
-
-      <Tile>
-        <strong>Successful Logins</strong>
-        <div style={{ fontSize: 24 }}>{data?.successful_logins ?? "—"}</div>
-      </Tile>
+      <MetricCard label="Total Events" value={data?.total_events} />
+      <MetricCard label="Total Failures" value={data?.total_failures} />
+      <MetricCard label="Failed Logins" value={data?.failed_logins} />
+      <MetricCard label="Successful Logins" value={data?.successful_logins} />
     </div>
   );
 };
+
+function MetricCard({ label, value }: { label: string; value?: number | null }) {
+  return (
+    <Tile>
+      <div
+        style={{
+          fontSize: "0.8125rem",
+          color: "#6f6f6f",
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </div>
+
+      <div
+        style={{
+          fontSize: 24,
+          fontWeight: 600,
+        }}
+      >
+        {value ?? "—"}
+      </div>
+    </Tile>
+  );
+}
