@@ -1,6 +1,10 @@
 package announcements
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type createAnnouncementRequest struct {
 	Title         string   `json:"title" binding:"required"`
@@ -78,4 +82,11 @@ type setPinnedRequest struct {
 
 type setPriorityRequest struct {
 	Priority int32 `json:"priority"`
+}
+
+type AnnouncementEmailRecipient struct {
+	ID       uuid.UUID
+	Email    string
+	Username string
+	FullName string
 }

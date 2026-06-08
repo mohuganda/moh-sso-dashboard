@@ -417,6 +417,51 @@ func (r *userRepository) SendUserPasswordResetEmail(
 }
 
 // ----------------------------------------------------
+// REALM ROLES
+// ----------------------------------------------------
+
+func (r *userRepository) GetUsersByRealmRole(
+	ctx context.Context,
+	roleName string,
+) ([]models.User, error) {
+	roleName = strings.TrimSpace(roleName)
+	if roleName == "" {
+		return nil, fmt.Errorf("roleName is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return nil, fmt.Errorf("user repository is not configured")
+	}
+
+	users, err := r.ListUsers()
+	if err != nil {
+		return nil, fmt.Errorf("list users for realm role lookup: %w", err)
+	}
+
+	targetRole := strings.ToLower(roleName)
+	result := make([]models.User, 0)
+
+	for _, user := range users {
+		if !user.Enabled {
+			continue
+		}
+
+		if strings.TrimSpace(user.Email) == "" {
+			continue
+		}
+
+		for _, realmRole := range user.RealmRoles {
+			if strings.ToLower(strings.TrimSpace(realmRole)) == targetRole {
+				result = append(result, user)
+				break
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// ----------------------------------------------------
 // CLIENT ROLES
 // ----------------------------------------------------
 

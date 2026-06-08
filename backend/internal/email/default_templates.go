@@ -1,5 +1,18 @@
 package email
 
+const (
+	TemplateWelcome               = "welcome"
+	TemplatePasswordReset         = "password-reset"
+	TemplateVerifyEmail           = "verify-email"
+	TemplateNotification          = "notification"
+	TemplateAdminAlert            = "admin-alert"
+	TemplateWeeklySummary         = "weekly-summary"
+	TemplateAnnouncement          = "announcement"
+	TemplateAnnouncementPublished = "announcement-published"
+	TemplateAnnouncementArchived  = "announcement-archived"
+	TemplateAnnouncementDeleted   = "announcement-deleted"
+)
+
 func DefaultTemplates() map[string]string {
 	baseLayout := func(title, heading, headingColor, body, buttonLabel, buttonColor string) string {
 		if headingColor == "" {
@@ -62,7 +75,7 @@ func DefaultTemplates() map[string]string {
 	}
 
 	return map[string]string{
-		"welcome": `
+		TemplateWelcome: `
 <!DOCTYPE html>
 <html>
 <head>
@@ -104,7 +117,7 @@ func DefaultTemplates() map[string]string {
 </body>
 </html>`,
 
-		"password-reset": `
+		TemplatePasswordReset: `
 <!DOCTYPE html>
 <html>
 <head>
@@ -152,7 +165,7 @@ func DefaultTemplates() map[string]string {
 </body>
 </html>`,
 
-		"verify-email": `
+		TemplateVerifyEmail: `
 <!DOCTYPE html>
 <html>
 <head>
@@ -195,7 +208,7 @@ func DefaultTemplates() map[string]string {
 </body>
 </html>`,
 
-		"notification": baseLayout(
+		TemplateNotification: baseLayout(
 			"Notification",
 			"{{if .Heading}}{{.Heading}}{{else}}{{.Subject}}{{end}}",
 			"#161616",
@@ -209,21 +222,45 @@ func DefaultTemplates() map[string]string {
 			"#0f62fe",
 		),
 
-		"admin-alert": baseLayout(
+		TemplateAdminAlert: baseLayout(
 			"Admin Alert",
 			"Admin Alert",
 			"#da1e28",
 			`
               {{if .Message}}
               <p style="color:#525252; font-size:14px; line-height:1.6;">
-                A document named <strong>{{.DocumentName}}</strong> has been uploaded to <strong>{{.Platform}}</strong>.
+                {{.Message}}
+              </p>
+              {{end}}
+
+              {{if .Title}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Title: <strong>{{.Title}}</strong>
+              </p>
+              {{end}}
+
+              {{if .Status}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Status: <strong>{{.Status}}</strong>
+              </p>
+              {{end}}
+
+              {{if .AnnouncementID}}
+              <p style="color:#6f6f6f; font-size:12px; line-height:1.5;">
+                Announcement ID: {{.AnnouncementID}}
+              </p>
+              {{end}}
+
+              {{if .DocumentName}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Document: <strong>{{.DocumentName}}</strong>
               </p>
               {{end}}`,
 			"Review Alert",
 			"#da1e28",
 		),
 
-		"weekly-summary": baseLayout(
+		TemplateWeeklySummary: baseLayout(
 			"Weekly Summary",
 			"Weekly Summary",
 			"#161616",
@@ -527,7 +564,47 @@ func DefaultTemplates() map[string]string {
 		// Announcements
 		// ----------------------------------------------------
 
-		"announcement-published": baseLayout(
+		TemplateAnnouncement: baseLayout(
+			"Announcement",
+			"{{if .Title}}{{.Title}}{{else}}Announcement{{end}}",
+			"#0f62fe",
+			`
+              {{if .Summary}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                {{.Summary}}
+              </p>
+              {{end}}
+
+              {{if .Message}}
+              <div style="margin:16px 0; padding:16px; background:#f4f4f4; border-left:4px solid #0f62fe;">
+                <p style="margin:0; color:#161616; font-size:14px; line-height:1.7; white-space:pre-line;">
+                  {{.Message}}
+                </p>
+              </div>
+              {{end}}
+
+              {{if .Level}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Level: <strong>{{.Level}}</strong>
+              </p>
+              {{end}}
+
+              {{if .Status}}
+              <p style="color:#525252; font-size:14px; line-height:1.6;">
+                Status: <strong>{{.Status}}</strong>
+              </p>
+              {{end}}
+
+              {{if .AnnouncementID}}
+              <p style="color:#6f6f6f; font-size:12px; line-height:1.5;">
+                Reference: {{.AnnouncementID}}
+              </p>
+              {{end}}`,
+			"View Announcement",
+			"#0f62fe",
+		),
+
+		TemplateAnnouncementPublished: baseLayout(
 			"Announcement Published",
 			"Announcement published",
 			"#24a148",
@@ -535,6 +612,11 @@ func DefaultTemplates() map[string]string {
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Announcement <strong>{{.Title}}</strong> has been published.
               </p>
+              {{if .Message}}
+              <p style="color:#525252; font-size:14px; line-height:1.6; white-space:pre-line;">
+                {{.Message}}
+              </p>
+              {{end}}
               {{if .Status}}
               <p style="color:#525252; font-size:14px; line-height:1.6;">
                 Status: <strong>{{.Status}}</strong>
@@ -544,7 +626,7 @@ func DefaultTemplates() map[string]string {
 			"#24a148",
 		),
 
-		"announcement-archived": baseLayout(
+		TemplateAnnouncementArchived: baseLayout(
 			"Announcement Archived",
 			"Announcement archived",
 			"#f1c21b",
@@ -561,7 +643,7 @@ func DefaultTemplates() map[string]string {
 			"#8d6b00",
 		),
 
-		"announcement-deleted": baseLayout(
+		TemplateAnnouncementDeleted: baseLayout(
 			"Announcement Deleted",
 			"Announcement deleted",
 			"#da1e28",

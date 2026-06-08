@@ -379,7 +379,7 @@ func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 
 	item, err := h.announcementService.PublishAnnouncementNow(c.Request.Context(), announcementID, userID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to publish announcement")
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to publish announcement"+err.Error())
 		return
 	}
 

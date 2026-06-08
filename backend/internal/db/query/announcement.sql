@@ -365,8 +365,8 @@ WHERE a.deleted_at IS NULL
   AND (a.expires_at IS NULL OR a.expires_at > now())
   AND (
       a.audience_type = 'ALL_USERS'
-      OR (a.audience_type = 'ADMINS_ONLY' AND sqlc.arg(role_name)::text = 'admin')
-      OR (a.audience_type = 'SPECIFIC_ROLES' AND ar.role_name = sqlc.arg(role_name)::text)
+      OR (a.audience_type = 'ADMINS_ONLY' AND LOWER(sqlc.arg(role_name)::text) = 'admin')
+      OR (a.audience_type = 'SPECIFIC_ROLES' AND LOWER(ar.role_name) = LOWER(sqlc.arg(role_name)::text))
   )
 ORDER BY a.is_pinned DESC, a.priority DESC, a.publish_at DESC NULLS LAST, a.created_at DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
@@ -399,6 +399,116 @@ WHERE deleted_at IS NULL
   AND audience_type = 'ALL_USERS'
 ORDER BY is_pinned DESC, priority DESC, publish_at DESC NULLS LAST, created_at DESC
 LIMIT $1 OFFSET $2;
+
+
+-- =====================================================
+-- Announcement email recipient resolution
+-- =====================================================
+
+-- name: ListAnnouncementEmailRecipientsAllUsers :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM users u
+WHERE u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
+
+
+-- name: ListAnnouncementEmailRecipientsAdmins :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM users u
+JOIN user_roles ur
+    ON ur.user_id = u.id
+WHERE u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND LOWER(ur.role_name) = 'admin'
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
+
+
+-- name: ListAnnouncementEmailRecipientsByClients :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM announcement_clients ac
+JOIN user_clients uc
+    ON uc.client_id = ac.client_id
+JOIN users u
+    ON u.id = uc.user_id
+WHERE ac.announcement_id = $1
+  AND u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
+
+
+-- name: ListAnnouncementEmailRecipientsByRoles :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM announcement_roles ar
+JOIN user_roles ur
+    ON LOWER(ur.role_name) = LOWER(ar.role_name)
+JOIN users u
+    ON u.id = ur.user_id
+WHERE ar.announcement_id = $1
+  AND u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
+
+
+-- name: ListAnnouncementEmailRecipientsByUsers :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM announcement_users au
+JOIN users u
+    ON u.id = au.user_id
+WHERE au.announcement_id = $1
+  AND u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
 
 
 -- name: GetAnnouncementStats :one

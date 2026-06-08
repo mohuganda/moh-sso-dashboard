@@ -70,6 +70,15 @@ type UserRepository interface {
 	) error
 
 	// ----------------------------------------------------
+	// REALM ROLES
+	// ----------------------------------------------------
+
+	GetUsersByRealmRole(
+		ctx context.Context,
+		roleName string,
+	) ([]models.User, error)
+
+	// ----------------------------------------------------
 	// CLIENT ROLES
 	// ----------------------------------------------------
 

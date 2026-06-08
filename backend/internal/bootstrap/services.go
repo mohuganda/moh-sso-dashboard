@@ -136,6 +136,7 @@ func buildServices(deps serviceDependencies) services {
 
 	announcementService := announcementfeature.NewService(
 		deps.Repositories.Announcements,
+		deps.Repositories.Users,
 		notificationsService,
 		deps.Config,
 	)

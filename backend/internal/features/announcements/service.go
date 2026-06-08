@@ -11,6 +11,8 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	userRepository "github.com/moh-sso-dashboard/internal/features/users"
+	"github.com/moh-sso-dashboard/internal/keycloak"
 	models "github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
@@ -18,12 +20,14 @@ import (
 
 type Service struct {
 	repo          Repository
+	userRepo      userRepository.UserRepository
 	notifications sharedservice.NotificationsService
 	cfg           *config.Config
 }
 
 func NewService(
 	repo Repository,
+	userRepo userRepository.UserRepository,
 	notifications sharedservice.NotificationsService,
 	cfg ...*config.Config,
 ) *Service {
@@ -34,6 +38,7 @@ func NewService(
 
 	return &Service{
 		repo:          repo,
+		userRepo:      userRepo,
 		notifications: notifications,
 		cfg:           appConfig,
 	}
@@ -60,7 +65,6 @@ func (s *Service) CreateAnnouncement(
 		return db.Announcement{}, fmt.Errorf("create announcement: %w", err)
 	}
 
-	// In-app only.
 	nt := models.AnnouncementCreated
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -73,6 +77,7 @@ func (s *Service) CreateAnnouncement(
 			"title":           item.Title,
 			"status":          announcementStatusString(item.Status),
 			"created_by":      item.CreatedBy.String(),
+			"notify_by_email": item.NotifyByEmail,
 		}),
 	})
 
@@ -120,7 +125,6 @@ func (s *Service) UpdateAnnouncement(
 		return db.Announcement{}, fmt.Errorf("update announcement: %w", err)
 	}
 
-	// In-app only.
 	nt := models.AnnouncementUpdated
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -133,6 +137,7 @@ func (s *Service) UpdateAnnouncement(
 			"title":           item.Title,
 			"status":          announcementStatusString(item.Status),
 			"updated_by":      item.UpdatedBy,
+			"notify_by_email": item.NotifyByEmail,
 		}),
 	})
 
@@ -227,7 +232,6 @@ func (s *Service) RestoreAnnouncement(
 		return db.Announcement{}, fmt.Errorf("restore announcement: %w", err)
 	}
 
-	// In-app only.
 	nt := models.AnnouncementUpdated
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -661,14 +665,21 @@ func (s *Service) PublishAnnouncementNow(
 	}
 
 	if s.shouldSendAnnouncementEmail(item) {
-		s.attachAnnouncementEmailDelivery(&notification, item)
-
-		markedItem, err := s.repo.MarkEmailNotificationSent(ctx, item.ID)
+		recipients, err := s.resolveAnnouncementEmailRecipients(ctx, item)
 		if err != nil {
-			return item, fmt.Errorf("mark announcement email notification sent: %w", err)
+			return item, fmt.Errorf("resolve announcement email recipients: %w", err)
 		}
 
-		item = markedItem
+		if len(recipients) > 0 {
+			s.attachAnnouncementEmailDelivery(&notification, item, recipients)
+
+			markedItem, err := s.repo.MarkEmailNotificationSent(ctx, item.ID)
+			if err != nil {
+				return item, fmt.Errorf("mark announcement email notification sent: %w", err)
+			}
+
+			item = markedItem
+		}
 	}
 
 	s.notify(ctx, notification)
@@ -693,7 +704,6 @@ func (s *Service) MoveAnnouncementToDraft(
 		return db.Announcement{}, fmt.Errorf("drafted announcement: %w", err)
 	}
 
-	// In-app only.
 	nt := models.AnnouncementDrafted
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -728,7 +738,6 @@ func (s *Service) ScheduleAnnouncement(
 		return db.Announcement{}, fmt.Errorf("schedule announcement: %w", err)
 	}
 
-	// In-app only.
 	nt := models.AnnouncementScheduled
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -833,7 +842,6 @@ func (s *Service) UnarchiveAnnouncementToDraft(
 		return db.Announcement{}, fmt.Errorf("unarchive announcement to draft: %w", err)
 	}
 
-	// In-app only.
 	nt := models.AnnouncementUpdated
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -869,7 +877,6 @@ func (s *Service) UpdateAnnouncementStatus(
 		return db.Announcement{}, fmt.Errorf("update announcement status: %w", err)
 	}
 
-	// In-app only.
 	nt := models.AnnouncementUpdated
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -916,7 +923,6 @@ func (s *Service) SetAnnouncementPinned(
 		msg = fmt.Sprintf("Announcement %q pinned", item.Title)
 	}
 
-	// In-app only.
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
@@ -958,7 +964,6 @@ func (s *Service) SetAnnouncementPriority(
 		return db.Announcement{}, fmt.Errorf("set announcement priority: %w", err)
 	}
 
-	// In-app only.
 	nt := models.AnnouncementUpdated
 	s.notify(ctx, models.Notification{
 		Type:       string(nt),
@@ -1218,6 +1223,289 @@ func (s *Service) ListUserAudience(
 	return items, nil
 }
 
+// ---------------------------------
+// Announcement email recipient resolution
+// ---------------------------------
+
+func (s *Service) resolveAnnouncementEmailRecipients(
+	ctx context.Context,
+	item db.Announcement,
+) ([]AnnouncementEmailRecipient, error) {
+	if s == nil {
+		return nil, errors.New("announcement service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("announcement repository is nil")
+	}
+
+	if s.userRepo == nil {
+		return nil, errors.New("user repository is nil")
+	}
+
+	audienceType := announcementAudienceTypeString(item.AudienceType)
+
+	switch audienceType {
+	case "ALL_USERS":
+		return s.resolveAllUsersEmailRecipients(ctx)
+
+	case "ADMINS_ONLY":
+		return s.resolveUsersByRealmRoles(ctx, []string{"admin"})
+
+	case "SPECIFIC_ROLES":
+		roleNames, err := s.repo.ListRoleAudience(ctx, item.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list announcement role audience: %w", err)
+		}
+
+		return s.resolveUsersByRealmRoles(ctx, roleNames)
+
+	case "SPECIFIC_USERS":
+		userIDs, err := s.repo.ListUserAudience(ctx, item.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list announcement user audience: %w", err)
+		}
+
+		return s.resolveSpecificUsersEmailRecipients(ctx, userIDs)
+
+	case "SPECIFIC_CLIENTS":
+		clientIDs, err := s.repo.ListClientAudience(ctx, item.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list announcement client audience: %w", err)
+		}
+
+		return s.resolveUsersByClientAccess(ctx, clientIDs)
+
+	default:
+		return nil, fmt.Errorf("unsupported announcement audience type: %s", audienceType)
+	}
+}
+
+func (s *Service) resolveAllUsersEmailRecipients(
+	ctx context.Context,
+) ([]AnnouncementEmailRecipient, error) {
+	users, err := s.userRepo.ListUsers()
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+
+	return uniqueAnnouncementRecipientsFromUsers(users), nil
+}
+
+func (s *Service) resolveSpecificUsersEmailRecipients(
+	ctx context.Context,
+	userIDs []uuid.UUID,
+) ([]AnnouncementEmailRecipient, error) {
+	seen := make(map[string]AnnouncementEmailRecipient)
+
+	for _, userID := range userIDs {
+		if userID == uuid.Nil {
+			continue
+		}
+
+		user, err := s.userRepo.GetUserByID(userID)
+		if err != nil {
+			return nil, fmt.Errorf("get user by id %s: %w", userID.String(), err)
+		}
+
+		if user == nil {
+			continue
+		}
+
+		recipient, ok := announcementRecipientFromUser(*user)
+		if !ok {
+			continue
+		}
+
+		seen[strings.ToLower(recipient.Email)] = recipient
+	}
+
+	return announcementRecipientMapToSlice(seen), nil
+}
+
+func (s *Service) resolveUsersByRealmRoles(
+	ctx context.Context,
+	roleNames []string,
+) ([]AnnouncementEmailRecipient, error) {
+	seen := make(map[string]AnnouncementEmailRecipient)
+
+	for _, roleName := range roleNames {
+		roleName = strings.TrimSpace(roleName)
+		if roleName == "" {
+			continue
+		}
+
+		users, err := s.userRepo.GetUsersByRealmRole(ctx, roleName)
+		if err != nil {
+			return nil, fmt.Errorf("get users by realm role %q: %w", roleName, err)
+		}
+
+		for _, user := range users {
+			recipient, ok := announcementRecipientFromUser(user)
+			if !ok {
+				continue
+			}
+
+			seen[strings.ToLower(recipient.Email)] = recipient
+		}
+	}
+
+	return announcementRecipientMapToSlice(seen), nil
+}
+
+func (s *Service) resolveUsersByClientAccess(
+	ctx context.Context,
+	clientIDs []uuid.UUID,
+) ([]AnnouncementEmailRecipient, error) {
+	allUsers, err := s.userRepo.ListUsers()
+	if err != nil {
+		return nil, fmt.Errorf("list users for client access resolution: %w", err)
+	}
+
+	clientIDSet := make(map[string]struct{}, len(clientIDs))
+	for _, clientID := range clientIDs {
+		if clientID == uuid.Nil {
+			continue
+		}
+
+		clientIDSet[strings.ToLower(clientID.String())] = struct{}{}
+	}
+
+	if len(clientIDSet) == 0 {
+		return nil, nil
+	}
+
+	seen := make(map[string]AnnouncementEmailRecipient)
+
+	for _, user := range allUsers {
+		userID := strings.TrimSpace(user.ID)
+		if userID == "" {
+			continue
+		}
+
+		assignments, err := s.userRepo.GetUserClientRoles(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("get user client roles for user %s: %w", userID, err)
+		}
+
+		if !userHasAnyAnnouncementClientAccess(assignments, clientIDSet) {
+			continue
+		}
+
+		recipient, ok := announcementRecipientFromUser(user)
+		if !ok {
+			continue
+		}
+
+		seen[strings.ToLower(recipient.Email)] = recipient
+	}
+
+	return announcementRecipientMapToSlice(seen), nil
+}
+
+func announcementRecipientFromUser(user models.User) (AnnouncementEmailRecipient, bool) {
+	if !user.Enabled {
+		return AnnouncementEmailRecipient{}, false
+	}
+
+	email := strings.TrimSpace(user.Email)
+	if email == "" {
+		return AnnouncementEmailRecipient{}, false
+	}
+
+	fullName := strings.TrimSpace(user.FullName)
+	if fullName == "" {
+		fullName = repositorySafeFullName(user.FirstName, user.LastName)
+	}
+
+	if fullName == "" {
+		fullName = strings.TrimSpace(user.Username)
+	}
+
+	if fullName == "" {
+		fullName = email
+	}
+
+	userID, err := uuid.Parse(strings.TrimSpace(user.ID))
+	if err != nil {
+		userID = uuid.Nil
+	}
+
+	return AnnouncementEmailRecipient{
+		ID:       userID,
+		Email:    email,
+		Username: strings.TrimSpace(user.Username),
+		FullName: fullName,
+	}, true
+}
+
+func uniqueAnnouncementRecipientsFromUsers(
+	users []models.User,
+) []AnnouncementEmailRecipient {
+	seen := make(map[string]AnnouncementEmailRecipient)
+
+	for _, user := range users {
+		recipient, ok := announcementRecipientFromUser(user)
+		if !ok {
+			continue
+		}
+
+		seen[strings.ToLower(recipient.Email)] = recipient
+	}
+
+	return announcementRecipientMapToSlice(seen)
+}
+
+func announcementRecipientMapToSlice(
+	items map[string]AnnouncementEmailRecipient,
+) []AnnouncementEmailRecipient {
+	out := make([]AnnouncementEmailRecipient, 0, len(items))
+
+	for _, item := range items {
+		out = append(out, item)
+	}
+
+	return out
+}
+
+func userHasAnyAnnouncementClientAccess(
+	assignments []keycloak.UserClientRoleAssignment,
+	clientIDSet map[string]struct{},
+) bool {
+	for _, assignment := range assignments {
+		candidates := []string{
+			assignment.Id,
+			assignment.ClientID,
+		}
+
+		for _, candidate := range candidates {
+			candidate = strings.ToLower(strings.TrimSpace(candidate))
+			if candidate == "" {
+				continue
+			}
+
+			if _, ok := clientIDSet[candidate]; ok {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func repositorySafeFullName(firstName string, lastName string) string {
+	return strings.Join(
+		strings.Fields(
+			strings.TrimSpace(firstName)+" "+strings.TrimSpace(lastName),
+		),
+		" ",
+	)
+}
+
+// ---------------------------------
+// Notification helpers
+// ---------------------------------
+
 func (s *Service) notify(
 	ctx context.Context,
 	notification models.Notification,
@@ -1231,6 +1519,87 @@ func (s *Service) notify(
 	}
 
 	_, _ = s.notifications.Notify(ctx, notification)
+}
+
+func (s *Service) shouldSendAnnouncementEmail(item db.Announcement) bool {
+	return item.NotifyByEmail && !item.EmailNotificationSentAt.Valid
+}
+
+func (s *Service) attachAnnouncementEmailDelivery(
+	notification *models.Notification,
+	item db.Announcement,
+	recipients []AnnouncementEmailRecipient,
+) {
+	if notification == nil {
+		return
+	}
+
+	deliveries := []models.NotificationDeliveryRequest{
+		{
+			Channel: models.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+	}
+
+	for _, recipient := range recipients {
+		email := strings.TrimSpace(recipient.Email)
+		if email == "" {
+			continue
+		}
+
+		name := strings.TrimSpace(recipient.FullName)
+		if name == "" {
+			name = strings.TrimSpace(recipient.Username)
+		}
+
+		if name == "" {
+			name = email
+		}
+
+		deliveries = append(deliveries, models.NotificationDeliveryRequest{
+			Channel: models.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"user_id": recipient.ID,
+				"name":    name,
+				"email":   email,
+			},
+			TemplateName: "announcement",
+			TemplateData: map[string]any{
+				"Name":           name,
+				"Platform":       s.platformName(),
+				"Title":          item.Title,
+				"Summary":        nullStringValue(item.Summary),
+				"Message":        item.Message,
+				"Level":          announcementLevelString(item.Level),
+				"Status":         announcementStatusString(item.Status),
+				"AnnouncementID": item.ID.String(),
+				"ActionURL":      announcementLinkOrDefault(item, s.portalAnnouncementsURL()),
+				"Details": fmt.Sprintf(
+					"Title: %s\nLevel: %s\nStatus: %s\nMessage: %s",
+					item.Title,
+					announcementLevelString(item.Level),
+					announcementStatusString(item.Status),
+					item.Message,
+				),
+			},
+			Payload: map[string]any{
+				"subject":   fmt.Sprintf("[Announcement] %s", item.Title),
+				"text_body": item.Message,
+			},
+			MaxAttempts: 5,
+		})
+	}
+
+	notification.Deliveries = deliveries
 }
 
 func (s *Service) attachAdminEmailDelivery(
@@ -1296,6 +1665,10 @@ func (s *Service) attachAdminEmailDelivery(
 	}
 }
 
+// ---------------------------------
+// URL / config helpers
+// ---------------------------------
+
 func (s *Service) platformName() string {
 	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.Notification.PlatformName) != "" {
 		return strings.TrimSpace(s.cfg.Notification.PlatformName)
@@ -1338,10 +1711,34 @@ func (s *Service) adminAnnouncementsURL() string {
 	return base + "/announcements"
 }
 
+func (s *Service) portalAnnouncementsURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/apps/news"
+	}
+
+	return base + "/apps/news"
+}
+
+// ---------------------------------
+// Value helpers
+// ---------------------------------
+
+func nullStringValue(ns sql.NullString) string {
+	if !ns.Valid {
+		return ""
+	}
+
+	return strings.TrimSpace(ns.String)
+}
+
 func announcementStatusString(value any) string {
 	switch v := value.(type) {
 	case nil:
 		return ""
+	case []byte:
+		return strings.TrimSpace(string(v))
 	case string:
 		return strings.TrimSpace(v)
 	case fmt.Stringer:
@@ -1353,80 +1750,12 @@ func announcementStatusString(value any) string {
 	}
 }
 
-func (s *Service) shouldSendAnnouncementEmail(item db.Announcement) bool {
-	return item.NotifyByEmail && !item.EmailNotificationSentAt.Valid
-}
-
-func (s *Service) attachAnnouncementEmailDelivery(
-	notification *models.Notification,
-	item db.Announcement,
-) {
-	if notification == nil {
-		return
-	}
-
-	templateData := map[string]any{
-		"Name":           "User",
-		"Platform":       s.platformName(),
-		"Title":          item.Title,
-		"Summary":        nullStringValue(item.Summary),
-		"Message":        item.Message,
-		"Level":          announcementLevelString(item.Level),
-		"Status":         announcementStatusString(item.Status),
-		"AnnouncementID": item.ID.String(),
-		"ActionURL":      announcementLinkOrDefault(item, s.portalAnnouncementsURL()),
-		"Details": fmt.Sprintf(
-			"Title: %s\nLevel: %s\nStatus: %s\nMessage: %s",
-			item.Title,
-			announcementLevelString(item.Level),
-			announcementStatusString(item.Status),
-			item.Message,
-		),
-	}
-
-	notification.Deliveries = []models.NotificationDeliveryRequest{
-		{
-			Channel: models.NotificationChannelInApp,
-			Recipient: map[string]any{
-				"target_role": notification.TargetRole,
-			},
-			Payload: map[string]any{
-				"title":    notification.Title,
-				"message":  notification.Message,
-				"type":     notification.Type,
-				"severity": notification.Severity,
-			},
-			MaxAttempts: 1,
-		},
-		{
-			Channel: models.NotificationChannelEmail,
-			Recipient: map[string]any{
-				"announcement_id": item.ID.String(),
-				"audience_type":   announcementAudienceTypeString(item.AudienceType),
-			},
-			TemplateName: "announcement",
-			TemplateData: templateData,
-			Payload: map[string]any{
-				"subject":   fmt.Sprintf("[Announcement] %s", item.Title),
-				"text_body": item.Message,
-			},
-			MaxAttempts: 5,
-		},
-	}
-}
-
-func nullStringValue(ns sql.NullString) string {
-	if !ns.Valid {
-		return ""
-	}
-
-	return strings.TrimSpace(ns.String)
-}
-
 func announcementLevelString(value any) string {
 	switch v := value.(type) {
 	case nil:
 		return ""
+	case []byte:
+		return strings.TrimSpace(string(v))
 	case string:
 		return strings.TrimSpace(v)
 	case fmt.Stringer:
@@ -1442,6 +1771,8 @@ func announcementAudienceTypeString(value any) string {
 	switch v := value.(type) {
 	case nil:
 		return ""
+	case []byte:
+		return strings.TrimSpace(string(v))
 	case string:
 		return strings.TrimSpace(v)
 	case fmt.Stringer:
@@ -1459,14 +1790,4 @@ func announcementLinkOrDefault(item db.Announcement, fallback string) string {
 	}
 
 	return fallback
-}
-
-func (s *Service) portalAnnouncementsURL() string {
-	base := strings.TrimRight(s.adminDashboardURL(), "/")
-
-	if strings.HasSuffix(base, "/admin/home") {
-		return strings.TrimSuffix(base, "/admin/home") + "/apps/news"
-	}
-
-	return base + "/apps/news"
 }
