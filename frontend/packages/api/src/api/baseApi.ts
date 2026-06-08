@@ -7,7 +7,7 @@ import {
 } from "@reduxjs/toolkit/query/react";
 
 import { API } from "@moh-sso/config";
-import { loginSuccess, logout } from "@moh-sso/auth";
+import { loginSuccess, logout, type AuthUser } from "@moh-sso/auth";
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -15,7 +15,7 @@ type ApiEnvelope<T> = {
 };
 
 type MeResponse = ApiEnvelope<{
-  user: unknown;
+  user: AuthUser;
 }>;
 
 /**
@@ -152,7 +152,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
       api.dispatch(
         loginSuccess({
           accessToken: null,
-          user: user as any,
+          user,
         }),
       );
     }

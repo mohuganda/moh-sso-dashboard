@@ -36,6 +36,9 @@ export function defineMicrofrontendConfig({
     build: {
       outDir: pathFromApp("./dist"),
       emptyOutDir: true,
+      commonjsOptions: {
+        include: [/react-pivottable/, /node_modules/],
+      },
       lib: {
         entry: {
           index: pathFromApp("./src/index.ts"),
@@ -47,7 +50,17 @@ export function defineMicrofrontendConfig({
         fileName: (_format, entryName) => `${entryName}.js`,
       },
       rollupOptions: {
-        external: ["react", "react-dom", "react-redux", "single-spa", ...extraExternal],
+        external: [
+          "react",
+          "react-dom",
+          "react-redux",
+          "react-router-dom",
+          "@reduxjs/toolkit",
+          "@carbon/react",
+          "@carbon/react/icons",
+          "single-spa",
+          ...extraExternal,
+        ],
       },
     },
   });

@@ -52,6 +52,19 @@ export default defineConfig({
     commonjsOptions: {
       include: [/react-pivottable/, /node_modules/],
     },
+    rollupOptions: {
+      external: [
+        "react",
+        "react-dom",
+        "react-redux",
+        "react-router-dom",
+        "@reduxjs/toolkit",
+        "@carbon/react",
+        "@carbon/react/icons",
+        "single-spa",
+        "single-spa-react",
+      ],
+    },
   },
 });
 
