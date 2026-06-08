@@ -21,7 +21,7 @@ SET
     updated_by = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type ArchiveAnnouncementParams struct {
@@ -57,6 +57,8 @@ func (q *Queries) ArchiveAnnouncement(ctx context.Context, arg ArchiveAnnounceme
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -151,28 +153,30 @@ INSERT INTO announcements (
     publish_at,
     expires_at,
     audience_type,
+    notify_by_email,
     created_by,
     updated_by
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14
 )
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type CreateAnnouncementParams struct {
-	Title        string         `json:"title"`
-	Message      string         `json:"message"`
-	Summary      sql.NullString `json:"summary"`
-	Level        interface{}    `json:"level"`
-	Tag          sql.NullString `json:"tag"`
-	LinkUrl      sql.NullString `json:"link_url"`
-	Priority     int32          `json:"priority"`
-	IsPinned     bool           `json:"is_pinned"`
-	Status       interface{}    `json:"status"`
-	PublishAt    sql.NullTime   `json:"publish_at"`
-	ExpiresAt    sql.NullTime   `json:"expires_at"`
-	AudienceType interface{}    `json:"audience_type"`
-	CreatedBy    uuid.UUID      `json:"created_by"`
+	Title         string         `json:"title"`
+	Message       string         `json:"message"`
+	Summary       sql.NullString `json:"summary"`
+	Level         interface{}    `json:"level"`
+	Tag           sql.NullString `json:"tag"`
+	LinkUrl       sql.NullString `json:"link_url"`
+	Priority      int32          `json:"priority"`
+	IsPinned      bool           `json:"is_pinned"`
+	Status        interface{}    `json:"status"`
+	PublishAt     sql.NullTime   `json:"publish_at"`
+	ExpiresAt     sql.NullTime   `json:"expires_at"`
+	AudienceType  interface{}    `json:"audience_type"`
+	NotifyByEmail bool           `json:"notify_by_email"`
+	CreatedBy     uuid.UUID      `json:"created_by"`
 }
 
 func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (Announcement, error) {
@@ -189,6 +193,7 @@ func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncement
 		arg.PublishAt,
 		arg.ExpiresAt,
 		arg.AudienceType,
+		arg.NotifyByEmail,
 		arg.CreatedBy,
 	)
 	var i Announcement
@@ -217,6 +222,8 @@ func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncement
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -258,7 +265,7 @@ SET
     updated_by = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type DraftAnnouncementParams struct {
@@ -294,12 +301,14 @@ func (q *Queries) DraftAnnouncement(ctx context.Context, arg DraftAnnouncementPa
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
 
 const getAnnouncementByID = `-- name: GetAnnouncementByID :one
-SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 FROM announcements
 WHERE id = $1
   AND deleted_at IS NULL
@@ -334,12 +343,14 @@ func (q *Queries) GetAnnouncementByID(ctx context.Context, id uuid.UUID) (Announ
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
 
 const getAnnouncementByIDForUpdate = `-- name: GetAnnouncementByIDForUpdate :one
-SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 FROM announcements
 WHERE id = $1
   AND deleted_at IS NULL
@@ -374,6 +385,8 @@ func (q *Queries) GetAnnouncementByIDForUpdate(ctx context.Context, id uuid.UUID
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -472,7 +485,7 @@ func (q *Queries) InsertAnnouncementUser(ctx context.Context, arg InsertAnnounce
 }
 
 const listActivePublishedAnnouncements = `-- name: ListActivePublishedAnnouncements :many
-SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 FROM announcements
 WHERE deleted_at IS NULL
   AND status = 'PUBLISHED'
@@ -521,6 +534,8 @@ func (q *Queries) ListActivePublishedAnnouncements(ctx context.Context, arg List
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -626,7 +641,7 @@ func (q *Queries) ListAnnouncementUsers(ctx context.Context, announcementID uuid
 }
 
 const listAnnouncementsAdmin = `-- name: ListAnnouncementsAdmin :many
-SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 FROM announcements
 WHERE deleted_at IS NULL
 ORDER BY is_pinned DESC, priority DESC, created_at DESC
@@ -672,6 +687,8 @@ func (q *Queries) ListAnnouncementsAdmin(ctx context.Context, arg ListAnnounceme
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -687,7 +704,7 @@ func (q *Queries) ListAnnouncementsAdmin(ctx context.Context, arg ListAnnounceme
 }
 
 const listAnnouncementsByStatus = `-- name: ListAnnouncementsByStatus :many
-SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 FROM announcements
 WHERE deleted_at IS NULL
   AND status = $1
@@ -735,6 +752,8 @@ func (q *Queries) ListAnnouncementsByStatus(ctx context.Context, arg ListAnnounc
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -750,7 +769,7 @@ func (q *Queries) ListAnnouncementsByStatus(ctx context.Context, arg ListAnnounc
 }
 
 const listAnnouncementsCreatedByUser = `-- name: ListAnnouncementsCreatedByUser :many
-SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 FROM announcements
 WHERE deleted_at IS NULL
   AND created_by = $1
@@ -798,6 +817,8 @@ func (q *Queries) ListAnnouncementsCreatedByUser(ctx context.Context, arg ListAn
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -813,7 +834,7 @@ func (q *Queries) ListAnnouncementsCreatedByUser(ctx context.Context, arg ListAn
 }
 
 const listAnnouncementsForClient = `-- name: ListAnnouncementsForClient :many
-SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version
+SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version, a.notify_by_email, a.email_notification_sent_at
 FROM announcements a
 LEFT JOIN announcement_clients ac
     ON ac.announcement_id = a.id
@@ -869,6 +890,8 @@ func (q *Queries) ListAnnouncementsForClient(ctx context.Context, arg ListAnnoun
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -884,7 +907,7 @@ func (q *Queries) ListAnnouncementsForClient(ctx context.Context, arg ListAnnoun
 }
 
 const listAnnouncementsForRole = `-- name: ListAnnouncementsForRole :many
-SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version
+SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version, a.notify_by_email, a.email_notification_sent_at
 FROM announcements a
 LEFT JOIN announcement_roles ar
     ON ar.announcement_id = a.id
@@ -941,6 +964,8 @@ func (q *Queries) ListAnnouncementsForRole(ctx context.Context, arg ListAnnounce
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -956,7 +981,7 @@ func (q *Queries) ListAnnouncementsForRole(ctx context.Context, arg ListAnnounce
 }
 
 const listAnnouncementsForUser = `-- name: ListAnnouncementsForUser :many
-SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version
+SELECT DISTINCT a.id, a.title, a.message, a.summary, a.level, a.tag, a.link_url, a.priority, a.is_pinned, a.status, a.publish_at, a.expires_at, a.audience_type, a.created_by, a.updated_by, a.published_by, a.archived_by, a.created_at, a.updated_at, a.published_at, a.archived_at, a.deleted_at, a.deleted_by, a.version, a.notify_by_email, a.email_notification_sent_at
 FROM announcements a
 LEFT JOIN announcement_users au
     ON au.announcement_id = a.id
@@ -1012,6 +1037,69 @@ func (q *Queries) ListAnnouncementsForUser(ctx context.Context, arg ListAnnounce
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingAnnouncementEmailNotifications = `-- name: ListPendingAnnouncementEmailNotifications :many
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = 'PUBLISHED'
+  AND notify_by_email = TRUE
+  AND email_notification_sent_at IS NULL
+ORDER BY published_at ASC NULLS LAST, created_at ASC
+LIMIT $1
+`
+
+func (q *Queries) ListPendingAnnouncementEmailNotifications(ctx context.Context, limit int32) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingAnnouncementEmailNotifications, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Message,
+			&i.Summary,
+			&i.Level,
+			&i.Tag,
+			&i.LinkUrl,
+			&i.Priority,
+			&i.IsPinned,
+			&i.Status,
+			&i.PublishAt,
+			&i.ExpiresAt,
+			&i.AudienceType,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.PublishedBy,
+			&i.ArchivedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.ArchivedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1027,7 +1115,7 @@ func (q *Queries) ListAnnouncementsForUser(ctx context.Context, arg ListAnnounce
 }
 
 const listPublicAnnouncements = `-- name: ListPublicAnnouncements :many
-SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 FROM announcements
 WHERE deleted_at IS NULL
   AND status = 'PUBLISHED'
@@ -1077,6 +1165,8 @@ func (q *Queries) ListPublicAnnouncements(ctx context.Context, arg ListPublicAnn
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1091,6 +1181,48 @@ func (q *Queries) ListPublicAnnouncements(ctx context.Context, arg ListPublicAnn
 	return items, nil
 }
 
+const markAnnouncementEmailNotificationSent = `-- name: MarkAnnouncementEmailNotificationSent :one
+UPDATE announcements
+SET email_notification_sent_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
+`
+
+func (q *Queries) MarkAnnouncementEmailNotificationSent(ctx context.Context, id uuid.UUID) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, markAnnouncementEmailNotificationSent, id)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Message,
+		&i.Summary,
+		&i.Level,
+		&i.Tag,
+		&i.LinkUrl,
+		&i.Priority,
+		&i.IsPinned,
+		&i.Status,
+		&i.PublishAt,
+		&i.ExpiresAt,
+		&i.AudienceType,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.PublishedBy,
+		&i.ArchivedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+		&i.ArchivedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
+	)
+	return i, err
+}
+
 const publishAnnouncementNow = `-- name: PublishAnnouncementNow :one
 UPDATE announcements
 SET
@@ -1101,7 +1233,7 @@ SET
     updated_by = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type PublishAnnouncementNowParams struct {
@@ -1137,6 +1269,8 @@ func (q *Queries) PublishAnnouncementNow(ctx context.Context, arg PublishAnnounc
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -1148,7 +1282,7 @@ SET
     deleted_by = NULL,
     updated_by = $2
 WHERE id = $1
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type RestoreAnnouncementParams struct {
@@ -1184,6 +1318,8 @@ func (q *Queries) RestoreAnnouncement(ctx context.Context, arg RestoreAnnounceme
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -1196,7 +1332,7 @@ SET
     updated_by = $3
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type ScheduleAnnouncementParams struct {
@@ -1233,12 +1369,14 @@ func (q *Queries) ScheduleAnnouncement(ctx context.Context, arg ScheduleAnnounce
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
 
 const searchAnnouncementsAdmin = `-- name: SearchAnnouncementsAdmin :many
-SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+SELECT id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 FROM announcements
 WHERE deleted_at IS NULL
   AND (
@@ -1291,6 +1429,8 @@ func (q *Queries) SearchAnnouncementsAdmin(ctx context.Context, arg SearchAnnoun
 			&i.DeletedAt,
 			&i.DeletedBy,
 			&i.Version,
+			&i.NotifyByEmail,
+			&i.EmailNotificationSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1312,7 +1452,7 @@ SET
     updated_by = $3
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type SetAnnouncementPinnedParams struct {
@@ -1349,6 +1489,8 @@ func (q *Queries) SetAnnouncementPinned(ctx context.Context, arg SetAnnouncement
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -1360,7 +1502,7 @@ SET
     updated_by = $3
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type SetAnnouncementPriorityParams struct {
@@ -1397,6 +1539,8 @@ func (q *Queries) SetAnnouncementPriority(ctx context.Context, arg SetAnnounceme
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -1430,7 +1574,7 @@ SET
     updated_by = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type UnarchiveAnnouncementToDraftParams struct {
@@ -1466,6 +1610,8 @@ func (q *Queries) UnarchiveAnnouncementToDraft(ctx context.Context, arg Unarchiv
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -1484,26 +1630,28 @@ SET
     publish_at = $10,
     expires_at = $11,
     audience_type = $12,
-    updated_by = $13
+    notify_by_email = $13,
+    updated_by = $14
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type UpdateAnnouncementParams struct {
-	ID           uuid.UUID      `json:"id"`
-	Title        string         `json:"title"`
-	Message      string         `json:"message"`
-	Summary      sql.NullString `json:"summary"`
-	Level        interface{}    `json:"level"`
-	Tag          sql.NullString `json:"tag"`
-	LinkUrl      sql.NullString `json:"link_url"`
-	Priority     int32          `json:"priority"`
-	IsPinned     bool           `json:"is_pinned"`
-	PublishAt    sql.NullTime   `json:"publish_at"`
-	ExpiresAt    sql.NullTime   `json:"expires_at"`
-	AudienceType interface{}    `json:"audience_type"`
-	UpdatedBy    uuid.NullUUID  `json:"updated_by"`
+	ID            uuid.UUID      `json:"id"`
+	Title         string         `json:"title"`
+	Message       string         `json:"message"`
+	Summary       sql.NullString `json:"summary"`
+	Level         interface{}    `json:"level"`
+	Tag           sql.NullString `json:"tag"`
+	LinkUrl       sql.NullString `json:"link_url"`
+	Priority      int32          `json:"priority"`
+	IsPinned      bool           `json:"is_pinned"`
+	PublishAt     sql.NullTime   `json:"publish_at"`
+	ExpiresAt     sql.NullTime   `json:"expires_at"`
+	AudienceType  interface{}    `json:"audience_type"`
+	NotifyByEmail bool           `json:"notify_by_email"`
+	UpdatedBy     uuid.NullUUID  `json:"updated_by"`
 }
 
 func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (Announcement, error) {
@@ -1520,6 +1668,7 @@ func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncement
 		arg.PublishAt,
 		arg.ExpiresAt,
 		arg.AudienceType,
+		arg.NotifyByEmail,
 		arg.UpdatedBy,
 	)
 	var i Announcement
@@ -1548,6 +1697,8 @@ func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncement
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }
@@ -1559,7 +1710,7 @@ SET
     updated_by = $3
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version
+RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned, status, publish_at, expires_at, audience_type, created_by, updated_by, published_by, archived_by, created_at, updated_at, published_at, archived_at, deleted_at, deleted_by, version, notify_by_email, email_notification_sent_at
 `
 
 type UpdateAnnouncementStatusParams struct {
@@ -1596,6 +1747,8 @@ func (q *Queries) UpdateAnnouncementStatus(ctx context.Context, arg UpdateAnnoun
 		&i.DeletedAt,
 		&i.DeletedBy,
 		&i.Version,
+		&i.NotifyByEmail,
+		&i.EmailNotificationSentAt,
 	)
 	return i, err
 }

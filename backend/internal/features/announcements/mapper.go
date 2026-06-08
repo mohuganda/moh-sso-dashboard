@@ -27,30 +27,32 @@ func nullTimePtr(nt sql.NullTime) *time.Time {
 
 func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 	return AnnouncementResponse{
-		ID:           a.ID.String(),
-		Title:        a.Title,
-		Message:      a.Message,
-		Summary:      nullStringPtr(a.Summary),
-		Level:        normalizeLevel(model.AnnouncementLevel(interfaceToString(a.Level))),
-		Tag:          nullStringPtr(a.Tag),
-		LinkURL:      nullStringPtr(a.LinkUrl),
-		Priority:     a.Priority,
-		IsPinned:     a.IsPinned,
-		Status:       normalizeAnnouncementStatus(model.AnnouncementStatus(interfaceToString(a.Status))),
-		PublishAt:    nullTimePtr(a.PublishAt),
-		ExpiresAt:    nullTimePtr(a.ExpiresAt),
-		AudienceType: normalizeAudienceType(model.AnnouncementAudienceType(interfaceToString(a.AudienceType))),
-		CreatedBy:    a.CreatedBy.String(),
-		UpdatedBy:    nullUUIDString(a.UpdatedBy),
-		PublishedBy:  nullableUUID(a.PublishedBy),
-		ArchivedBy:   nullableUUID(a.ArchivedBy),
-		CreatedAt:    a.CreatedAt,
-		UpdatedAt:    a.UpdatedAt,
-		PublishedAt:  nullTimePtr(a.PublishedAt),
-		ArchivedAt:   nullTimePtr(a.ArchivedAt),
-		DeletedAt:    nullTimePtr(a.DeletedAt),
-		DeletedBy:    nullableUUID(a.DeletedBy),
-		Version:      a.Version,
+		ID:                      a.ID.String(),
+		Title:                   a.Title,
+		Message:                 a.Message,
+		Summary:                 nullStringPtr(a.Summary),
+		Level:                   normalizeLevel(model.AnnouncementLevel(interfaceToString(a.Level))),
+		Tag:                     nullStringPtr(a.Tag),
+		LinkURL:                 nullStringPtr(a.LinkUrl),
+		Priority:                a.Priority,
+		IsPinned:                a.IsPinned,
+		Status:                  normalizeAnnouncementStatus(model.AnnouncementStatus(interfaceToString(a.Status))),
+		PublishAt:               nullTimePtr(a.PublishAt),
+		ExpiresAt:               nullTimePtr(a.ExpiresAt),
+		AudienceType:            normalizeAudienceType(model.AnnouncementAudienceType(interfaceToString(a.AudienceType))),
+		NotifyByEmail:           a.NotifyByEmail,
+		EmailNotificationSentAt: nullTimePtr(a.EmailNotificationSentAt),
+		CreatedBy:               a.CreatedBy.String(),
+		UpdatedBy:               nullUUIDString(a.UpdatedBy),
+		PublishedBy:             nullableUUID(a.PublishedBy),
+		ArchivedBy:              nullableUUID(a.ArchivedBy),
+		CreatedAt:               a.CreatedAt,
+		UpdatedAt:               a.UpdatedAt,
+		PublishedAt:             nullTimePtr(a.PublishedAt),
+		ArchivedAt:              nullTimePtr(a.ArchivedAt),
+		DeletedAt:               nullTimePtr(a.DeletedAt),
+		DeletedBy:               nullableUUID(a.DeletedBy),
+		Version:                 a.Version,
 	}
 }
 
@@ -95,6 +97,7 @@ func nullableUUID(u uuid.NullUUID) *string {
 	if !u.Valid {
 		return nil
 	}
+
 	s := u.UUID.String()
 	return &s
 }
@@ -105,11 +108,18 @@ func parseUUIDList(values []string) ([]uuid.UUID, error) {
 	}
 
 	out := make([]uuid.UUID, 0, len(values))
+
 	for _, value := range values {
-		id, err := uuid.Parse(strings.TrimSpace(value))
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+
+		id, err := uuid.Parse(trimmed)
 		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, id)
 	}
 
@@ -120,6 +130,7 @@ func nullUUIDString(v uuid.NullUUID) string {
 	if !v.Valid {
 		return ""
 	}
+
 	return v.UUID.String()
 }
 

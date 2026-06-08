@@ -37,6 +37,11 @@ export interface AnnouncementFormValues {
   audience_type: AnnouncementAudienceType;
   publish_at: string;
   expires_at: string;
+
+  /**
+   * If true, email notifications will be queued when this announcement is published.
+   */
+  notify_by_email: boolean;
 }
 
 interface AnnouncementFormProps {
@@ -64,11 +69,14 @@ const initialForm: AnnouncementFormValues = {
   audience_type: "ALL_USERS",
   publish_at: "",
   expires_at: "",
+  notify_by_email: false,
 };
 
 function toIsoString(value?: string | null) {
   if (!value) return "";
+
   const date = new Date(value);
+
   return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
@@ -91,6 +99,7 @@ function normalizeInitialValues(
     audience_type: (values.audience_type as AnnouncementAudienceType) ?? "ALL_USERS",
     publish_at: toIsoString(values.publish_at),
     expires_at: toIsoString(values.expires_at),
+    notify_by_email: Boolean(values.notify_by_email),
   };
 }
 
@@ -103,17 +112,21 @@ export function AnnouncementForm({
   submitLabel,
 }: AnnouncementFormProps) {
   const toast = useToast();
+
   const [form, setForm] = useState<AnnouncementFormValues>(normalizeInitialValues(initialValues));
 
   const isValid = useMemo(() => {
     return form.title.trim().length > 0 && form.message.trim().length > 0;
-  }, [form]);
+  }, [form.title, form.message]);
 
   const updateForm = <K extends keyof AnnouncementFormValues>(
     key: K,
     value: AnnouncementFormValues[K],
   ) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const resetForm = () => {
@@ -129,6 +142,7 @@ export function AnnouncementForm({
       is_pinned: form.is_pinned,
       status: form.status,
       audience_type: form.audience_type,
+      notify_by_email: form.notify_by_email,
     };
 
     if (form.summary.trim()) {
@@ -260,7 +274,9 @@ export function AnnouncementForm({
           >
             <SelectItem value="ALL_USERS" text="ALL_USERS" />
             <SelectItem value="ADMINS_ONLY" text="ADMINS_ONLY" />
+            <SelectItem value="SPECIFIC_CLIENTS" text="SPECIFIC_CLIENTS" />
             <SelectItem value="SPECIFIC_ROLES" text="SPECIFIC_ROLES" />
+            <SelectItem value="SPECIFIC_USERS" text="SPECIFIC_USERS" />
           </Select>
 
           <TextInput
@@ -302,6 +318,7 @@ export function AnnouncementForm({
               value={form.publish_at ? [form.publish_at] : []}
               onChange={(dates) => {
                 const selectedDate = dates?.[0];
+
                 updateForm(
                   "publish_at",
                   selectedDate instanceof Date ? selectedDate.toISOString() : "",
@@ -322,6 +339,7 @@ export function AnnouncementForm({
               value={form.expires_at ? [form.expires_at] : []}
               onChange={(dates) => {
                 const selectedDate = dates?.[0];
+
                 updateForm(
                   "expires_at",
                   selectedDate instanceof Date ? selectedDate.toISOString() : "",
@@ -337,12 +355,39 @@ export function AnnouncementForm({
           </div>
         </div>
 
-        <Checkbox
-          id="announcement-pinned"
-          labelText="Pin this announcement"
-          checked={form.is_pinned}
-          onChange={(_, { checked }) => updateForm("is_pinned", Boolean(checked))}
-        />
+        <div
+          style={{
+            display: "grid",
+            gap: "0.75rem",
+          }}
+        >
+          <Checkbox
+            id="announcement-pinned"
+            labelText="Pin this announcement"
+            checked={form.is_pinned}
+            onChange={(_, { checked }) => updateForm("is_pinned", Boolean(checked))}
+          />
+
+          <Checkbox
+            id="announcement-notify-by-email"
+            labelText="Send email notification when this announcement is published"
+            checked={form.notify_by_email}
+            onChange={(_, { checked }) => updateForm("notify_by_email", Boolean(checked))}
+          />
+
+          <p
+            style={{
+              margin: 0,
+              color: "#6f6f6f",
+              fontSize: "0.8125rem",
+              lineHeight: 1.4,
+            }}
+          >
+            Email notifications are only queued when the announcement is published and this option
+            is enabled. Drafts and scheduled announcements will not send email until they are
+            published.
+          </p>
+        </div>
 
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           <Button

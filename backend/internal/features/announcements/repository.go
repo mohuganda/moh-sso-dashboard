@@ -13,20 +13,10 @@ type AnnouncementRepository interface {
 	// Core CRUD
 	// ---------------------------------
 
-	Create(
-		ctx context.Context,
-		params db.CreateAnnouncementParams,
-	) (db.Announcement, error)
-
-	GetByID(
-		ctx context.Context,
-		id uuid.UUID,
-	) (db.Announcement, error)
-
-	Update(
-		ctx context.Context,
-		params db.UpdateAnnouncementParams,
-	) (db.Announcement, error)
+	Create(ctx context.Context, params db.CreateAnnouncementParams) (db.Announcement, error)
+	GetByID(ctx context.Context, id uuid.UUID) (db.Announcement, error)
+	Update(ctx context.Context, params db.UpdateAnnouncementParams) (db.Announcement, error)
+	MarkEmailNotificationSent(ctx context.Context, id uuid.UUID) (db.Announcement, error)
 
 	SoftDelete(
 		ctx context.Context,
@@ -96,12 +86,7 @@ type AnnouncementRepository interface {
 	// Lifecycle actions
 	// ---------------------------------
 
-	PublishNow(
-		ctx context.Context,
-		id uuid.UUID,
-		publishedBy uuid.UUID,
-	) (db.Announcement, error)
-
+	PublishNow(ctx context.Context, id uuid.UUID, publishedBy uuid.UUID) (db.Announcement, error)
 	Draft(
 		ctx context.Context,
 		params db.DraftAnnouncementParams,

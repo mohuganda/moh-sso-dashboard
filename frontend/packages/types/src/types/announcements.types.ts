@@ -24,6 +24,8 @@ export interface Announcement {
   publish_at: string | null;
   expires_at: string | null;
   audience_type: AnnouncementAudienceType;
+  notify_by_email: boolean;
+  email_notification_sent_at: string | null;
   created_by: string | null;
   updated_by: string | null;
   published_by: string | null;
@@ -61,6 +63,7 @@ export interface CreateAnnouncementRequest {
   client_ids?: string[];
   role_names?: string[];
   user_ids?: string[];
+  notify_by_email?: boolean;
 }
 
 export interface UpdateAnnouncementRequest {
@@ -80,6 +83,12 @@ export interface UpdateAnnouncementRequest {
   client_ids?: string[];
   role_names?: string[];
   user_ids?: string[];
+
+  /**
+   * User-controlled email notification preference.
+   * Email is only sent/queued on publish if this is true.
+   */
+  notify_by_email?: boolean;
 }
 
 export interface ScheduleAnnouncementRequest {

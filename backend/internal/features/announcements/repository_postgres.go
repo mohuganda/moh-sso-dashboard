@@ -623,6 +623,13 @@ func (r *announcementsRepository) ListPublicAnnouncements(
 	})
 }
 
+func (r *announcementsRepository) MarkEmailNotificationSent(
+	ctx context.Context,
+	id uuid.UUID,
+) (db.Announcement, error) {
+	return r.db.MarkAnnouncementEmailNotificationSent(ctx, id)
+}
+
 // ---------------------------------
 // Reporting
 // ---------------------------------

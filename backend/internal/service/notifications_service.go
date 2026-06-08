@@ -566,11 +566,11 @@ func (s *notificationsService) createNotificationDelivery(
 				Time:  derefTime(delivery.ScheduledAt),
 				Valid: delivery.ScheduledAt != nil,
 			},
-			Status: sql.NullString{
+			DeliveryStatus: sql.NullString{
 				String: string(model.NotificationDeliveryPending),
 				Valid:  true,
 			},
-			MaxAttempts: sql.NullInt32{
+			DeliveryMaxAttempts: sql.NullInt32{
 				Int32: maxAttempts,
 				Valid: true,
 			},

@@ -2,6 +2,7 @@ package announcements
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -642,6 +643,7 @@ func (s *Service) PublishAnnouncementNow(
 	}
 
 	nt := models.AnnouncementPublished
+
 	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
@@ -649,35 +651,25 @@ func (s *Service) PublishAnnouncementNow(
 		Message:    fmt.Sprintf("Announcement %q published", item.Title),
 		TargetRole: "admin",
 		Metadata: utils.MustJSON(map[string]any{
-			"announcement_id": item.ID.String(),
-			"title":           item.Title,
-			"status":          announcementStatusString(item.Status),
-			"published_by":    publishedBy.String(),
+			"announcement_id":                    item.ID.String(),
+			"title":                              item.Title,
+			"status":                             announcementStatusString(item.Status),
+			"published_by":                       publishedBy.String(),
+			"notify_by_email":                    item.NotifyByEmail,
+			"email_notification_sent_at_present": item.EmailNotificationSentAt.Valid,
 		}),
 	}
 
-	s.attachAdminEmailDelivery(
-		&notification,
-		"notification",
-		"Announcement published",
-		fmt.Sprintf("Announcement %q was published.", item.Title),
-		map[string]any{
-			"Name":           s.systemAdminName(),
-			"Platform":       s.platformName(),
-			"Title":          item.Title,
-			"Message":        fmt.Sprintf("Announcement %q was published.", item.Title),
-			"AnnouncementID": item.ID.String(),
-			"Status":         announcementStatusString(item.Status),
-			"ActionURL":      s.adminAnnouncementsURL(),
-			"Details": fmt.Sprintf(
-				"Announcement ID: %s\nTitle: %s\nStatus: %s\nPublished By: %s",
-				item.ID.String(),
-				item.Title,
-				announcementStatusString(item.Status),
-				publishedBy.String(),
-			),
-		},
-	)
+	if s.shouldSendAnnouncementEmail(item) {
+		s.attachAnnouncementEmailDelivery(&notification, item)
+
+		markedItem, err := s.repo.MarkEmailNotificationSent(ctx, item.ID)
+		if err != nil {
+			return item, fmt.Errorf("mark announcement email notification sent: %w", err)
+		}
+
+		item = markedItem
+	}
 
 	s.notify(ctx, notification)
 
@@ -1359,4 +1351,122 @@ func announcementStatusString(value any) string {
 	default:
 		return strings.TrimSpace(fmt.Sprintf("%v", v))
 	}
+}
+
+func (s *Service) shouldSendAnnouncementEmail(item db.Announcement) bool {
+	return item.NotifyByEmail && !item.EmailNotificationSentAt.Valid
+}
+
+func (s *Service) attachAnnouncementEmailDelivery(
+	notification *models.Notification,
+	item db.Announcement,
+) {
+	if notification == nil {
+		return
+	}
+
+	templateData := map[string]any{
+		"Name":           "User",
+		"Platform":       s.platformName(),
+		"Title":          item.Title,
+		"Summary":        nullStringValue(item.Summary),
+		"Message":        item.Message,
+		"Level":          announcementLevelString(item.Level),
+		"Status":         announcementStatusString(item.Status),
+		"AnnouncementID": item.ID.String(),
+		"ActionURL":      announcementLinkOrDefault(item, s.portalAnnouncementsURL()),
+		"Details": fmt.Sprintf(
+			"Title: %s\nLevel: %s\nStatus: %s\nMessage: %s",
+			item.Title,
+			announcementLevelString(item.Level),
+			announcementStatusString(item.Status),
+			item.Message,
+		),
+	}
+
+	notification.Deliveries = []models.NotificationDeliveryRequest{
+		{
+			Channel: models.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		},
+		{
+			Channel: models.NotificationChannelEmail,
+			Recipient: map[string]any{
+				"announcement_id": item.ID.String(),
+				"audience_type":   announcementAudienceTypeString(item.AudienceType),
+			},
+			TemplateName: "announcement",
+			TemplateData: templateData,
+			Payload: map[string]any{
+				"subject":   fmt.Sprintf("[Announcement] %s", item.Title),
+				"text_body": item.Message,
+			},
+			MaxAttempts: 5,
+		},
+	}
+}
+
+func nullStringValue(ns sql.NullString) string {
+	if !ns.Valid {
+		return ""
+	}
+
+	return strings.TrimSpace(ns.String)
+}
+
+func announcementLevelString(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case fmt.Stringer:
+		return strings.TrimSpace(v.String())
+	case models.AnnouncementLevel:
+		return strings.TrimSpace(string(v))
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+}
+
+func announcementAudienceTypeString(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case fmt.Stringer:
+		return strings.TrimSpace(v.String())
+	case models.AnnouncementAudienceType:
+		return strings.TrimSpace(string(v))
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+}
+
+func announcementLinkOrDefault(item db.Announcement, fallback string) string {
+	if item.LinkUrl.Valid && strings.TrimSpace(item.LinkUrl.String) != "" {
+		return strings.TrimSpace(item.LinkUrl.String)
+	}
+
+	return fallback
+}
+
+func (s *Service) portalAnnouncementsURL() string {
+	base := strings.TrimRight(s.adminDashboardURL(), "/")
+
+	if strings.HasSuffix(base, "/admin/home") {
+		return strings.TrimSuffix(base, "/admin/home") + "/apps/news"
+	}
+
+	return base + "/apps/news"
 }

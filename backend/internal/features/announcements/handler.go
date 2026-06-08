@@ -34,11 +34,13 @@ func NewHandler(
 
 func getPageLimit(c *gin.Context, defaultValue int32) int32 {
 	limit := defaultValue
+
 	if raw := c.Query("limit"); raw != "" {
 		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
 			limit = int32(parsed)
 		}
 	}
+
 	return limit
 }
 
@@ -48,6 +50,7 @@ func getPageOffset(c *gin.Context) int32 {
 			return int32(parsed)
 		}
 	}
+
 	return 0
 }
 
@@ -121,13 +124,13 @@ func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 
 	limit, err := strconv.ParseInt(c.DefaultQuery("limit", "20"), 10, 32)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
 	}
 
 	offset, err := strconv.ParseInt(c.DefaultQuery("offset", "0"), 10, 32)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
 	}
 
@@ -137,9 +140,10 @@ func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 		int32(offset),
 	)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to load public announcements", "")
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to load public announcements")
 		return
 	}
+
 	res := make([]AnnouncementResponse, len(announcements))
 	for i, item := range announcements {
 		res[i] = toAnnouncementResponse(item)
@@ -173,19 +177,20 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 	}
 
 	params := db.CreateAnnouncementParams{
-		Title:        strings.TrimSpace(req.Title),
-		Message:      strings.TrimSpace(req.Message),
-		Summary:      nullableString(req.Summary),
-		Level:        model.AnnouncementLevel(req.Level),
-		Tag:          nullableString(req.Tag),
-		LinkUrl:      nullableString(req.LinkURL),
-		Priority:     req.Priority,
-		IsPinned:     req.IsPinned,
-		Status:       model.AnnouncementStatus(req.Status),
-		PublishAt:    publishAt,
-		ExpiresAt:    expiresAt,
-		AudienceType: model.AnnouncementAudienceType(req.AudienceType),
-		CreatedBy:    userID,
+		Title:         strings.TrimSpace(req.Title),
+		Message:       strings.TrimSpace(req.Message),
+		Summary:       nullableString(req.Summary),
+		Level:         model.AnnouncementLevel(req.Level),
+		Tag:           nullableString(req.Tag),
+		LinkUrl:       nullableString(req.LinkURL),
+		Priority:      req.Priority,
+		IsPinned:      req.IsPinned,
+		Status:        model.AnnouncementStatus(req.Status),
+		PublishAt:     publishAt,
+		ExpiresAt:     expiresAt,
+		AudienceType:  model.AnnouncementAudienceType(req.AudienceType),
+		NotifyByEmail: req.NotifyByEmail,
+		CreatedBy:     userID,
 	}
 
 	if strings.TrimSpace(req.Status) == "" {
@@ -247,11 +252,12 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 				"priority":        item.Priority,
 				"status":          item.Status,
 				"is_pinned":       item.IsPinned,
+				"notify_by_email": item.NotifyByEmail,
 			},
 		)
 	}
 
-	response.OK(c, http.StatusCreated, item)
+	response.OK(c, http.StatusCreated, toAnnouncementResponse(item))
 }
 
 func (h *Handler) UpdateAnnouncement(c *gin.Context) {
@@ -284,18 +290,19 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 	}
 
 	params := db.UpdateAnnouncementParams{
-		ID:           announcementID,
-		Title:        strings.TrimSpace(req.Title),
-		Message:      strings.TrimSpace(req.Message),
-		Summary:      nullableString(req.Summary),
-		Level:        model.AnnouncementLevel(req.Level),
-		Tag:          nullableString(req.Tag),
-		LinkUrl:      nullableString(req.LinkURL),
-		Priority:     req.Priority,
-		IsPinned:     req.IsPinned,
-		PublishAt:    publishAt,
-		ExpiresAt:    expiresAt,
-		AudienceType: model.AnnouncementAudienceType(req.AudienceType),
+		ID:            announcementID,
+		Title:         strings.TrimSpace(req.Title),
+		Message:       strings.TrimSpace(req.Message),
+		Summary:       nullableString(req.Summary),
+		Level:         model.AnnouncementLevel(req.Level),
+		Tag:           nullableString(req.Tag),
+		LinkUrl:       nullableString(req.LinkURL),
+		Priority:      req.Priority,
+		IsPinned:      req.IsPinned,
+		PublishAt:     publishAt,
+		ExpiresAt:     expiresAt,
+		AudienceType:  model.AnnouncementAudienceType(req.AudienceType),
+		NotifyByEmail: req.NotifyByEmail,
 		UpdatedBy: uuid.NullUUID{
 			UUID:  userID,
 			Valid: true,
@@ -351,11 +358,12 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 				"priority":        item.Priority,
 				"status":          item.Status,
 				"is_pinned":       item.IsPinned,
+				"notify_by_email": item.NotifyByEmail,
 			},
 		)
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
 
 func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
@@ -381,14 +389,17 @@ func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 			uuid.NullUUID{UUID: userID, Valid: true},
 			"ANNOUNCEMENT_PUBLISHED",
 			map[string]any{
-				"announcement_id": item.ID.String(),
-				"title":           item.Title,
+				"announcement_id":                    item.ID.String(),
+				"title":                              item.Title,
+				"notify_by_email":                    item.NotifyByEmail,
+				"email_notification_sent_at_present": item.EmailNotificationSentAt.Valid,
 			},
 		)
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
+
 func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
 	announcementID, ok := getAnnouncementID(c)
 	if !ok {
@@ -426,7 +437,7 @@ func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
 
 func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
@@ -484,7 +495,7 @@ func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
 
 func (h *Handler) ArchiveAnnouncement(c *gin.Context) {
@@ -516,7 +527,7 @@ func (h *Handler) ArchiveAnnouncement(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
 
 func (h *Handler) RestoreAnnouncement(c *gin.Context) {
@@ -548,7 +559,7 @@ func (h *Handler) RestoreAnnouncement(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
 
 func (h *Handler) DeleteAnnouncement(c *gin.Context) {
@@ -623,7 +634,7 @@ func (h *Handler) SetAnnouncementPinned(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
 
 func (h *Handler) SetAnnouncementPriority(c *gin.Context) {
@@ -666,7 +677,7 @@ func (h *Handler) SetAnnouncementPriority(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
 }
 
 func (h *Handler) GetAnnouncementStats(c *gin.Context) {
@@ -695,7 +706,12 @@ func (h *Handler) ListActivePublishedAnnouncements(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, items)
+	res := make([]AnnouncementResponse, len(items))
+	for i, item := range items {
+		res[i] = toAnnouncementResponse(item)
+	}
+
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) ListAnnouncementsForClient(c *gin.Context) {
@@ -727,7 +743,12 @@ func (h *Handler) ListAnnouncementsForClient(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, items)
+	res := make([]AnnouncementResponse, len(items))
+	for i, item := range items {
+		res[i] = toAnnouncementResponse(item)
+	}
+
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) ListAnnouncementsForRole(c *gin.Context) {
@@ -753,7 +774,12 @@ func (h *Handler) ListAnnouncementsForRole(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, items)
+	res := make([]AnnouncementResponse, len(items))
+	for i, item := range items {
+		res[i] = toAnnouncementResponse(item)
+	}
+
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) ListAnnouncementsForUser(c *gin.Context) {
@@ -778,7 +804,12 @@ func (h *Handler) ListAnnouncementsForUser(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, items)
+	res := make([]AnnouncementResponse, len(items))
+	for i, item := range items {
+		res[i] = toAnnouncementResponse(item)
+	}
+
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) ListMyAnnouncements(c *gin.Context) {
@@ -816,5 +847,10 @@ func (h *Handler) ListMyAnnouncements(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, items)
+	res := make([]AnnouncementResponse, len(items))
+	for i, item := range items {
+		res[i] = toAnnouncementResponse(item)
+	}
+
+	response.OK(c, http.StatusOK, res)
 }

@@ -255,6 +255,7 @@ type Querier interface {
 	ListNotificationDeliveriesByNotificationID(ctx context.Context, notificationID uuid.UUID) ([]NotificationDelivery, error)
 	ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error)
 	ListNotificationsByCursor(ctx context.Context, arg ListNotificationsByCursorParams) ([]Notification, error)
+	ListPendingAnnouncementEmailNotifications(ctx context.Context, limit int32) ([]Announcement, error)
 	ListProcesses(ctx context.Context, arg ListProcessesParams) ([]Process, error)
 	// -- name: InsertProcessEvent :one
 	// INSERT INTO process_events (
@@ -295,6 +296,7 @@ type Querier interface {
 	LoginTrend(ctx context.Context) ([]LoginTrendRow, error)
 	LoginTrendByDay(ctx context.Context, arg LoginTrendByDayParams) ([]LoginTrendByDayRow, error)
 	MarkAllNotificationsRead(ctx context.Context, targetRole string) error
+	MarkAnnouncementEmailNotificationSent(ctx context.Context, id uuid.UUID) (Announcement, error)
 	MarkDocumentCompleted(ctx context.Context, id uuid.UUID) (Document, error)
 	MarkDocumentFailed(ctx context.Context, id uuid.UUID) (Document, error)
 	MarkDocumentPending(ctx context.Context, id uuid.UUID) (Document, error)

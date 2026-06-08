@@ -166,15 +166,15 @@ RETURNING id, notification_id, channel, status, recipient, template_name, templa
 `
 
 type CreateNotificationDeliveryParams struct {
-	NotificationID uuid.UUID             `json:"notification_id"`
-	Channel        string                `json:"channel"`
-	Recipient      pqtype.NullRawMessage `json:"recipient"`
-	TemplateName   sql.NullString        `json:"template_name"`
-	TemplateData   pqtype.NullRawMessage `json:"template_data"`
-	Payload        pqtype.NullRawMessage `json:"payload"`
-	ScheduledAt    sql.NullTime          `json:"scheduled_at"`
-	Status         interface{}           `json:"status"`
-	MaxAttempts    interface{}           `json:"max_attempts"`
+	NotificationID      uuid.UUID             `json:"notification_id"`
+	Channel             string                `json:"channel"`
+	Recipient           pqtype.NullRawMessage `json:"recipient"`
+	TemplateName        sql.NullString        `json:"template_name"`
+	TemplateData        pqtype.NullRawMessage `json:"template_data"`
+	Payload             pqtype.NullRawMessage `json:"payload"`
+	ScheduledAt         sql.NullTime          `json:"scheduled_at"`
+	DeliveryStatus      interface{}           `json:"delivery_status"`
+	DeliveryMaxAttempts interface{}           `json:"delivery_max_attempts"`
 }
 
 // =====================================================
@@ -189,8 +189,8 @@ func (q *Queries) CreateNotificationDelivery(ctx context.Context, arg CreateNoti
 		arg.TemplateData,
 		arg.Payload,
 		arg.ScheduledAt,
-		arg.Status,
-		arg.MaxAttempts,
+		arg.DeliveryStatus,
+		arg.DeliveryMaxAttempts,
 	)
 	var i NotificationDelivery
 	err := row.Scan(

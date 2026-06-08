@@ -1,4 +1,3 @@
-
 -- name: CreateAnnouncement :one
 INSERT INTO announcements (
     title,
@@ -13,10 +12,11 @@ INSERT INTO announcements (
     publish_at,
     expires_at,
     audience_type,
+    notify_by_email,
     created_by,
     updated_by
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14
 )
 RETURNING *;
 
@@ -127,7 +127,8 @@ SET
     publish_at = $10,
     expires_at = $11,
     audience_type = $12,
-    updated_by = $13
+    notify_by_email = $13,
+    updated_by = $14
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
@@ -164,6 +165,7 @@ SET
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
+
 
 -- name: ScheduleAnnouncement :one
 UPDATE announcements
@@ -254,6 +256,25 @@ SELECT COUNT(*)::bigint
 FROM announcements
 WHERE deleted_at IS NULL
   AND created_by = $1;
+
+
+-- name: MarkAnnouncementEmailNotificationSent :one
+UPDATE announcements
+SET email_notification_sent_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING *;
+
+
+-- name: ListPendingAnnouncementEmailNotifications :many
+SELECT *
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = 'PUBLISHED'
+  AND notify_by_email = TRUE
+  AND email_notification_sent_at IS NULL
+ORDER BY published_at ASC NULLS LAST, created_at ASC
+LIMIT $1;
 
 
 -- name: InsertAnnouncementClient :exec
@@ -366,7 +387,6 @@ WHERE a.deleted_at IS NULL
   )
 ORDER BY a.is_pinned DESC, a.priority DESC, a.publish_at DESC NULLS LAST, a.created_at DESC
 LIMIT $2 OFFSET $3;
-
 
 
 -- name: ListPublicAnnouncements :many
