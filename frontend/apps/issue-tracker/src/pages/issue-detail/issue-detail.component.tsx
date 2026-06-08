@@ -2,15 +2,15 @@ import { Breadcrumb, BreadcrumbItem, Button, Modal, TextArea, Tile } from "@carb
 import { Link as RouterLink } from "react-router";
 import "./issue-detail.scss";
 import { useState } from "react";
-import {
-  useCreateTransactionMutation,
-  useGetIssuesQuery,
-  useGetTransactionsQuery,
-} from "../Modals/issue-modal.ts";
 import { useSelector } from "react-redux";
 import { selectUser } from "@moh-sso/auth";
-import type { Issue } from "../issue-tracker.tsx";
-import { IssueModal } from "../Modals/issue-modal.tsx";
+import { IssueModal } from "../../component/issue-modal.component.tsx";
+import type { Issue } from "@moh-sso/types";
+import {
+  useGetIssuesQuery,
+  useGetTransactionsQuery,
+  useCreateTransactionMutation,
+} from "@moh-sso/api";
 type ModalMode = "resolve" | "close" | "comment" | null;
 
 const IssueDetail = ({
@@ -33,6 +33,8 @@ const IssueDetail = ({
     selectedIssue?.issue_code,
     { skip: !selectedIssue?.issue_code },
   );
+  const transactionItems = transactions?.data ?? [];
+
   const [createTransaction, { isLoading: isResolving }] = useCreateTransactionMutation();
   const user = useSelector(selectUser);
 
@@ -118,23 +120,23 @@ const IssueDetail = ({
 
             <div className="issue-history-container">
               <div className="issue-label">Issue History / Transactions</div>
-
               {isLoadingTransactions ? (
                 <p>Loading history...</p>
               ) : (
                 <div className="transaction-list">
-                  {transactions?.data?.length > 0 ? (
-                    transactions?.data.map((trx, index) => (
+                  {transactionItems.length > 0 ? (
+                    transactionItems.map((trx, index) => (
                       <div
-                        key={index}
+                        key={trx.id ?? index}
                         className="transaction-item"
                         style={{ marginBottom: "1rem", fontSize: "0.875rem" }}
                       >
                         <div style={{ fontWeight: "bold" }}>
-                          {trx?.resolution_date} - {trx?.resolved_by}
+                          {trx.resolution_date ?? "—"} - {trx.resolved_by ?? "Unknown"}
                         </div>
+
                         <div style={{ color: "#525252" }}>
-                          {trx?.resolution_action || "No comment provided"}
+                          {trx.resolution_action ?? "No comment provided"}
                         </div>
                       </div>
                     ))

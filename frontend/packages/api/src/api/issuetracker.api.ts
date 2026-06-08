@@ -1,12 +1,21 @@
 import { baseApi } from "@moh-sso/api";
 import { API } from "@moh-sso/config";
+import type {
+  Issue,
+  IssuePayload,
+  IssueResponse,
+  IssueTransaction,
+  IssueTransactionPayload,
+  IssueTransactionsResponse,
+  SingleIssueResponse,
+} from "@moh-sso/types";
 
 export const issuesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     /* --------------------------------
      * GET /issues
      * -------------------------------- */
-    getIssues: builder.query<any, void>({
+    getIssues: builder.query<IssueResponse, void>({
       query: () => ({
         url: API.issue.list(),
         method: "GET",
@@ -14,26 +23,45 @@ export const issuesApi = baseApi.injectEndpoints({
       }),
       providesTags: ["Issues"],
     }),
-    createIssue: builder.mutation<any, void>({
+
+    /* --------------------------------
+     * POST /issues
+     * -------------------------------- */
+    createIssue: builder.mutation<Issue, IssuePayload>({
       query: (body) => ({
         url: API.issue.list(),
         method: "POST",
         body,
         credentials: "include",
       }),
-      transformResponse: (res: any) => res.data,
+      transformResponse: (res: SingleIssueResponse) => res.data,
       invalidatesTags: ["Issues"],
     }),
-    updateIssue: builder.mutation<any, { id: string | number; body: any }>({
+
+    /* --------------------------------
+     * PUT /issues/:id
+     * -------------------------------- */
+    updateIssue: builder.mutation<
+      Issue,
+      {
+        id: string | number;
+        body: Partial<IssuePayload>;
+      }
+    >({
       query: ({ id, body }) => ({
         url: `${API.issue.list()}/${id}`,
         method: "PUT",
         body,
         credentials: "include",
       }),
+      transformResponse: (res: SingleIssueResponse) => res.data,
       invalidatesTags: ["Issues"],
     }),
-    getTransactions: builder.query<any, string>({
+
+    /* --------------------------------
+     * GET /issues/:id/transactions
+     * -------------------------------- */
+    getTransactions: builder.query<IssueTransactionsResponse, string | number>({
       query: (id) => ({
         url: `${API.issue.list()}/${id}/transactions`,
         method: "GET",
@@ -41,14 +69,24 @@ export const issuesApi = baseApi.injectEndpoints({
       }),
       providesTags: ["Transactions", "Issues"],
     }),
-    createTransaction: builder.mutation<any, { id: string | number; body: any }>({
+
+    /* --------------------------------
+     * POST /issues/:id/resolveIssue
+     * -------------------------------- */
+    createTransaction: builder.mutation<
+      IssueTransaction,
+      {
+        id: string | number;
+        body: IssueTransactionPayload;
+      }
+    >({
       query: ({ id, body }) => ({
         url: `${API.issue.list()}/${id}/resolveIssue`,
         method: "POST",
         body,
         credentials: "include",
       }),
-      transformResponse: (res: any) => res.data,
+      transformResponse: (res: { data: IssueTransaction }) => res.data,
       invalidatesTags: ["Transactions", "Issues"],
     }),
   }),

@@ -22,10 +22,10 @@ import {
 } from "@carbon/react";
 import { Upload } from "@carbon/react/icons";
 
-import { EmptyState , useHeaderPanel } from "@moh-sso/ui";
-import { UploadDocumentModal } from "./UploadDocumentModal";
+import { EmptyState, useHeaderPanel } from "@moh-sso/ui";
+import { UploadDocumentModal } from "../../components/UploadDocumentModal";
 import { useListDocumentsQuery } from "@moh-sso/api";
-import { DocumentRow } from "./document-row.component";
+import { DocumentRow } from "../../components/document-row.component";
 import type { DocumentResponse } from "@moh-sso/types";
 
 const headers = [

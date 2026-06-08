@@ -94,7 +94,7 @@ export function DocumentRow({ document }: Props) {
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Failed to preview document", error);
-      navigate(`/apps/utilities/self-service/eservice/document-upload/${document.id}`);
+      navigate(`portal/apps/utilities/self-service/eservice/document-upload/${document.id}`);
     }
   };
 
@@ -141,7 +141,7 @@ export function DocumentRow({ document }: Props) {
           <OverflowMenuItem
             itemText="View Details"
             onClick={() =>
-              navigate(`/apps/utilities/self-service/eservice/document-upload/${document.id}`)
+              navigate(`portal/apps/utilities/self-service/eservice/document-upload/${document.id}`)
             }
           />
           <OverflowMenuItem itemText="Open / Preview" onClick={handleView} />

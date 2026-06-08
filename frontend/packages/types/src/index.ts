@@ -12,3 +12,4 @@ export * from "./types/storage.types";
 export * from "./types/surveillance.types";
 export * from "./types/user-role.types";
 export * from "./types/user.types";
+export * from "./types/issue_tracker.types";

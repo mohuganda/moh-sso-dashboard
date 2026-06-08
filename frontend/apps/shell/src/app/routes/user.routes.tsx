@@ -94,7 +94,6 @@ export const userRoutes = (
 
     {/* =========================
         E-SERVICES MICROFRONTEND
-        Internal routes are owned by @moh-sso/e-services
        ========================= */}
     <Route
       path="eservices/*"
@@ -123,8 +122,16 @@ export const userRoutes = (
        ========================= */}
     <Route path="case-registers">
       <Route index element={<Navigate to="external-referrals" replace />} />
-      <Route path="external-referrals" element={userPage(<ComingSoon title="External Referrals" />)} />
-      <Route path="disease-registers" element={userPage(<ComingSoon title="Disease Registers" />)} />
+
+      <Route
+        path="external-referrals"
+        element={userPage(<ComingSoon title="External Referrals" />)}
+      />
+
+      <Route
+        path="disease-registers"
+        element={userPage(<ComingSoon title="Disease Registers" />)}
+      />
     </Route>
 
     {/* =========================
@@ -132,8 +139,11 @@ export const userRoutes = (
        ========================= */}
     <Route path="outbreak-management">
       <Route index element={<Navigate to="signals-alerts" replace />} />
+
       <Route path="signals-alerts" element={userPage(<ComingSoon title="Signals & Alerts" />)} />
+
       <Route path="poe-management" element={userPage(<ComingSoon title="PoE Management" />)} />
+
       <Route path="case-management" element={userPage(<ComingSoon title="Case Management" />)} />
     </Route>
 
@@ -142,13 +152,21 @@ export const userRoutes = (
        ========================= */}
     <Route path="reference-registers">
       <Route index element={<Navigate to="facility-register" replace />} />
-      <Route path="facility-register" element={userPage(<ComingSoon title="Facility Register" />)} />
+
+      <Route
+        path="facility-register"
+        element={userPage(<ComingSoon title="Facility Register" />)}
+      />
 
       <Route path="terminology">
         <Route index element={<Navigate to="test-menu" replace />} />
+
         <Route path="test-menu" element={userPage(<ComingSoon title="Test Menu" />)} />
+
         <Route path="pharmaceuticals" element={userPage(<ComingSoon title="Pharmaceuticals" />)} />
+
         <Route path="procedures" element={userPage(<ComingSoon title="Procedures" />)} />
+
         <Route path="equipment" element={userPage(<ComingSoon title="Equipment" />)} />
       </Route>
     </Route>
@@ -227,19 +245,12 @@ export const userRoutes = (
             )}
           />
 
-          <Route
-            path="document-upload/:id/*"
-            element={userPage(
-              <SingleSpaApp
-                appName="@moh-sso/documents"
-                lifecycles={documentsLifecycles}
-                basename="/portal/apps/utilities/self-service/eservice/document-upload"
-              />,
-            )}
-          />
-
           <Route path="service-access" element={userPage(<ComingSoon title="Service Access" />)} />
-          <Route path="equipment-request" element={userPage(<ComingSoon title="Equipment Request" />)} />
+
+          <Route
+            path="equipment-request"
+            element={userPage(<ComingSoon title="Equipment Request" />)}
+          />
         </Route>
       </Route>
     </Route>

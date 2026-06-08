@@ -13,3 +13,4 @@ export * from "./api/notifications.api";
 export * from "./api/sessions.api";
 export * from "./api/surveillance.api";
 export * from "./api/users.api";
+export * from "./api/issuetracker.api";
