@@ -359,7 +359,7 @@ export default function SurveillanceDashboardPage() {
       }
 
       navigate({
-        pathname: `/apps/dwh/surveillance/${encodeURIComponent(diseaseSlug)}`,
+        pathname: encodeURIComponent(diseaseSlug),
         search: params.toString() ? `?${params.toString()}` : "",
       });
     },

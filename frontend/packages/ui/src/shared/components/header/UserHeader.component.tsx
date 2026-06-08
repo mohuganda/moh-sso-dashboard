@@ -12,10 +12,9 @@ import { useNavigate } from "react-router-dom";
 
 import { API } from "@moh-sso/config";
 import { selectUser } from "@moh-sso/auth";
+import { BRANDING } from "@moh-sso/config";
 import AppMenuAction from "../appmenu/AppMenu.component";
 import "./public-header.css";
-
-const imagePath = "/logo.png";
 
 const UserHeader: React.FC = () => {
   const navigate = useNavigate();
@@ -29,9 +28,9 @@ const UserHeader: React.FC = () => {
       <SkipToContent />
 
       {/* Brand / Home */}
-      <img src={imagePath} className={`moh-image-style`} />
-      <HeaderName prefix="MOH" onClick={() => navigate("/apps")} style={{ cursor: "pointer" }}>
-        Integrated Health Portal
+      <img src={BRANDING.logo} className={`moh-image-style`} />
+      <HeaderName prefix="MOH" onClick={() => navigate("/apps")} className="moh-header-name">
+        {BRANDING.title}
       </HeaderName>
 
       {/* Global Actions */}

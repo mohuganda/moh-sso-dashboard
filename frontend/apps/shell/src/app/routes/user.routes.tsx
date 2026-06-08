@@ -4,6 +4,7 @@ import { Navigate, Route } from "react-router-dom";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import { UserRoute } from "./guards/UserRoute";
 import UserLayout from "../layouts/user/UserLayout";
+import { ComingSoon } from "@moh-sso/ui";
 
 import NewsFeedPage from "@/app/newsfeed/pages/news_feed.component";
 import MyProfilePage from "@/app/settings/pages/Profile/profile.component";
@@ -48,14 +49,14 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/data-visualizer"
             lifecycles={dataVisualizerLifecycles}
-            basename="/apps/dwh/data-visualizer"
+            basename="/portal/apps/dwh/data-visualizer"
           />,
         )}
       />
 
-      <Route path="dashboards" element={userPage(<div>Dashboards</div>)} />
-      <Route path="reports" element={userPage(<div>Reports</div>)} />
-      <Route path="exports" element={userPage(<div>Data Exports</div>)} />
+      <Route path="dashboards" element={userPage(<ComingSoon title="Dashboards" />)} />
+      <Route path="reports" element={userPage(<ComingSoon title="Reports" />)} />
+      <Route path="exports" element={userPage(<ComingSoon title="Data Exports" />)} />
 
       <Route
         path="filesvr/*"
@@ -63,7 +64,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/documents"
             lifecycles={documentsLifecycles}
-            basename="/apps/dwh/filesvr"
+            basename="/portal/apps/dwh/filesvr"
           />,
         )}
       />
@@ -74,7 +75,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/surveillance"
             lifecycles={surveillanceLifecycles}
-            basename="/apps/dwh/surveillance"
+            basename="/portal/apps/dwh/surveillance"
           />,
         )}
       />
@@ -85,7 +86,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/issue-tracker"
             lifecycles={issueTrackerLifecycles}
-            basename="/apps/dwh/issue-tracker"
+            basename="/portal/apps/dwh/issue-tracker"
           />,
         )}
       />
@@ -101,7 +102,7 @@ export const userRoutes = (
         <SingleSpaApp
           appName="@moh-sso/e-services"
           lifecycles={eServicesLifecycles}
-          basename="/apps/eservices"
+          basename="/portal/apps/eservices"
         />,
       )}
     />
@@ -111,10 +112,10 @@ export const userRoutes = (
        ========================= */}
     <Route path="research-studies">
       <Route index element={<Navigate to="studies" replace />} />
-      <Route path="studies" element={userPage(<div>Studies</div>)} />
-      <Route path="datasets" element={userPage(<div>Datasets</div>)} />
-      <Route path="ethics" element={userPage(<div>Ethics & Approvals</div>)} />
-      <Route path="publications" element={userPage(<div>Publications</div>)} />
+      <Route path="studies" element={userPage(<ComingSoon title="Studies" />)} />
+      <Route path="datasets" element={userPage(<ComingSoon title="Datasets" />)} />
+      <Route path="ethics" element={userPage(<ComingSoon title="Ethics & Approvals" />)} />
+      <Route path="publications" element={userPage(<ComingSoon title="Publications" />)} />
     </Route>
 
     {/* =========================
@@ -122,8 +123,8 @@ export const userRoutes = (
        ========================= */}
     <Route path="case-registers">
       <Route index element={<Navigate to="external-referrals" replace />} />
-      <Route path="external-referrals" element={userPage(<div>External Referrals</div>)} />
-      <Route path="disease-registers" element={userPage(<div>Disease Registers</div>)} />
+      <Route path="external-referrals" element={userPage(<ComingSoon title="External Referrals" />)} />
+      <Route path="disease-registers" element={userPage(<ComingSoon title="Disease Registers" />)} />
     </Route>
 
     {/* =========================
@@ -131,9 +132,9 @@ export const userRoutes = (
        ========================= */}
     <Route path="outbreak-management">
       <Route index element={<Navigate to="signals-alerts" replace />} />
-      <Route path="signals-alerts" element={userPage(<div>Signals & Alerts</div>)} />
-      <Route path="poe-management" element={userPage(<div>PoE Management</div>)} />
-      <Route path="case-management" element={userPage(<div>Case Management</div>)} />
+      <Route path="signals-alerts" element={userPage(<ComingSoon title="Signals & Alerts" />)} />
+      <Route path="poe-management" element={userPage(<ComingSoon title="PoE Management" />)} />
+      <Route path="case-management" element={userPage(<ComingSoon title="Case Management" />)} />
     </Route>
 
     {/* =========================
@@ -141,14 +142,14 @@ export const userRoutes = (
        ========================= */}
     <Route path="reference-registers">
       <Route index element={<Navigate to="facility-register" replace />} />
-      <Route path="facility-register" element={userPage(<div>Facility Register</div>)} />
+      <Route path="facility-register" element={userPage(<ComingSoon title="Facility Register" />)} />
 
       <Route path="terminology">
         <Route index element={<Navigate to="test-menu" replace />} />
-        <Route path="test-menu" element={userPage(<div>Test Menu</div>)} />
-        <Route path="pharmaceuticals" element={userPage(<div>Pharmaceuticals</div>)} />
-        <Route path="procedures" element={userPage(<div>Procedures</div>)} />
-        <Route path="equipment" element={userPage(<div>Equipment</div>)} />
+        <Route path="test-menu" element={userPage(<ComingSoon title="Test Menu" />)} />
+        <Route path="pharmaceuticals" element={userPage(<ComingSoon title="Pharmaceuticals" />)} />
+        <Route path="procedures" element={userPage(<ComingSoon title="Procedures" />)} />
+        <Route path="equipment" element={userPage(<ComingSoon title="Equipment" />)} />
       </Route>
     </Route>
 
@@ -165,7 +166,7 @@ export const userRoutes = (
             <SingleSpaApp
               appName="@moh-sso/utilities"
               lifecycles={utilitiesLifecycles}
-              basename="/apps/utilities/self-service/timesheet"
+              basename="/portal/apps/utilities/self-service/timesheet"
             />,
           )}
         />
@@ -176,7 +177,7 @@ export const userRoutes = (
             <SingleSpaApp
               appName="@moh-sso/utilities"
               lifecycles={utilitiesLifecycles}
-              basename="/apps/utilities/self-service/elearning"
+              basename="/portal/apps/utilities/self-service/elearning"
             />,
           )}
         />
@@ -187,7 +188,7 @@ export const userRoutes = (
             <SingleSpaApp
               appName="@moh-sso/utilities"
               lifecycles={utilitiesLifecycles}
-              basename="/apps/utilities/self-service/leave-plan"
+              basename="/portal/apps/utilities/self-service/leave-plan"
             />,
           )}
         />
@@ -198,7 +199,7 @@ export const userRoutes = (
             <SingleSpaApp
               appName="@moh-sso/utilities"
               lifecycles={utilitiesLifecycles}
-              basename="/apps/utilities/self-service/absence-requests"
+              basename="/portal/apps/utilities/self-service/absence-requests"
             />,
           )}
         />
@@ -209,7 +210,7 @@ export const userRoutes = (
             <SingleSpaApp
               appName="@moh-sso/utilities"
               lifecycles={utilitiesLifecycles}
-              basename="/apps/utilities/self-service/absence-dashboard"
+              basename="/portal/apps/utilities/self-service/absence-dashboard"
             />,
           )}
         />
@@ -221,7 +222,7 @@ export const userRoutes = (
               <SingleSpaApp
                 appName="@moh-sso/documents"
                 lifecycles={documentsLifecycles}
-                basename="/apps/utilities/self-service/eservice/document-upload"
+                basename="/portal/apps/utilities/self-service/eservice/document-upload"
               />,
             )}
           />
@@ -232,13 +233,13 @@ export const userRoutes = (
               <SingleSpaApp
                 appName="@moh-sso/documents"
                 lifecycles={documentsLifecycles}
-                basename="/apps/utilities/self-service/eservice/document-upload"
+                basename="/portal/apps/utilities/self-service/eservice/document-upload"
               />,
             )}
           />
 
-          <Route path="service-access" element={userPage(<div>Service Access</div>)} />
-          <Route path="equipment-request" element={userPage(<div>Equipment Request</div>)} />
+          <Route path="service-access" element={userPage(<ComingSoon title="Service Access" />)} />
+          <Route path="equipment-request" element={userPage(<ComingSoon title="Equipment Request" />)} />
         </Route>
       </Route>
     </Route>

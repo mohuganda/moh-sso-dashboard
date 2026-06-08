@@ -46,13 +46,12 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "warn",
       "react/react-in-jsx-scope": "off",
 
-      // --- TypeScript Loosening (as requested) ---
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-non-null-assertion": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-var-requires": "off",
-      "@typescript-eslint/ban-ts-comment": "off",
-      "@typescript-eslint/ban-types": "off",
+      // --- TypeScript Strictness ---
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-non-null-assertion": "warn",
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-var-requires": "error",
+      "@typescript-eslint/ban-ts-comment": "warn",
 
       // --- Consistent Type Imports ---
       "@typescript-eslint/consistent-type-imports": [
@@ -64,7 +63,7 @@ export default tseslint.config(
 
       // --- Import Rules ---
       "import/no-duplicates": "error",
-      "import/no-unresolved": "off", // Loosening this to prevent resolver crashes
+      "import/no-unresolved": "error",
 
       // --- Restricted Imports ---
       "no-restricted-imports": [

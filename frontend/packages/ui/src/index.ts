@@ -3,6 +3,7 @@ export { default as AppGridContent } from "./shared/components/appmenu/AppGridCo
 export { default as AppMenu } from "./shared/components/appmenu/AppMenu.component";
 export { EmptyState } from "./shared/components/emptystate/EmptyState";
 export { ErrorState } from "./shared/components/errorstate/ErrorState";
+export { ComingSoon } from "./shared/components/comingsoon/ComingSoon";
 export { BuildMeta } from "./shared/components/footer/BuildMeta";
 export { PublicFooter } from "./shared/components/footer/PublicFooter";
 export { ReusableHeaderPanel } from "./shared/components/header-panel/ReusableHeaderPanel";
