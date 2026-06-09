@@ -18,6 +18,8 @@ import AppMenuAction from "../../../navigation/appmenu/AppMenu.component";
 import "./public-header.css";
 import { EnvironmentBadge } from "@/env/EnvironmentBadge";
 
+import imagePath from "../../../assets/logo.png";
+
 const UserHeader: React.FC = () => {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
@@ -29,7 +31,7 @@ const UserHeader: React.FC = () => {
     <Header aria-label="MOH Integrated Health Portal">
       <SkipToContent />
 
-      <img src={BRANDING.logo} className={`moh-image-style`} />
+      <img src={imagePath} className={`moh-image-style`} />
       <HeaderName prefix="MOH" onClick={() => navigate("/apps")} className="moh-header-name">
         {BRANDING.title}
       </HeaderName>
