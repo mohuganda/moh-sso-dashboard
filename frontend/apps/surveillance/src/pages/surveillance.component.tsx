@@ -20,7 +20,8 @@ import {
   useListSubcountiesByDistrictQuery,
   useListWeeklyStatusesDetailedQuery,
   useListWeeklyStatusesQuery,
- useGetGeoJsonQuery } from "@moh-sso/api";
+  useGetGeoJsonQuery,
+} from "@moh-sso/api";
 import { useHeaderPanel } from "@moh-sso/ui";
 import { UploadCSVModal } from "./surveillance-csv-upload.component";
 
@@ -100,7 +101,6 @@ function filterFeatureCollection(
 
 export default function SurveillanceDashboardPage() {
   const navigate = useNavigate();
-  const { openPanel, closePanel } = useHeaderPanel();
 
   const [selectedWeekId, setSelectedWeekId] = useState("");
   const [selectedRegionId, setSelectedRegionId] = useState("");
@@ -442,27 +442,9 @@ export default function SurveillanceDashboardPage() {
     }
   };
 
-  const handleOpenUpload = () => {
-    openPanel({
-      title: "Import Surveillance File",
-      content: <UploadCSVModal onClose={closePanel} />,
-      size: "lg",
-    });
-  };
-
   return (
     <div className="surveillance-dashboard-page">
       <div className="surveillance-dashboard-page__header">
-        <Breadcrumb className="surveillance-dashboard-page__breadcrumb" noTrailingSlash>
-          <BreadcrumbItem href="/portal/apps/dwh/data-visualizer">
-            Data &amp; Statistics
-          </BreadcrumbItem>
-
-          <BreadcrumbItem isCurrentPage>
-            <span>National Surveillance Dashboard</span>
-          </BreadcrumbItem>
-        </Breadcrumb>
-
         <div className="surveillance-dashboard-page__hero">
           <div className="surveillance-dashboard-page__hero-main">
             <div className="surveillance-dashboard-page__hero-copy">
@@ -480,11 +462,11 @@ export default function SurveillanceDashboardPage() {
               </p>
             </div>
 
-            <div className="surveillance-dashboard-page__hero-actions">
+            {/* <div className="surveillance-dashboard-page__hero-actions">
               <Button renderIcon={Upload} onClick={handleOpenUpload}>
                 Import File
               </Button>
-            </div>
+            </div> */}
           </div>
 
           {loading ? (

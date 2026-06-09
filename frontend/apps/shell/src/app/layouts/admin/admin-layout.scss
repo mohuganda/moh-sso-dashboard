@@ -1,65 +1,171 @@
+:root {
+  --moh-admin-header-height: 3rem;
+  --moh-admin-sidenav-width: 16rem;
+}
+
 /* =========================
- * Header tweaks
+ * Admin layout shell
  * ========================= */
 
-/* Ensure header stays above panels and content */
-.cds--header {
-  z-index: 6000;
+.admin-layout {
+  min-height: 100vh;
+  background: var(--cds-background, #ffffff);
+}
+
+/* =========================
+ * Header
+ * ========================= */
+
+.admin-layout__header {
+  z-index: 7000;
+}
+
+.admin-layout__brand {
+  height: var(--moh-admin-header-height);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.admin-layout__brand:focus-visible {
+  outline: 2px solid var(--cds-focus, #0f62fe);
+  outline-offset: -2px;
+}
+
+.admin-layout__brand-logo {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  margin-left: 0.75rem;
+}
+
+/* Carbon HeaderName inside a button */
+.admin-layout__brand .cds--header__name {
+  cursor: pointer;
 }
 
 /* =========================
  * Notification badge
  * ========================= */
-.notification-badge {
+
+.admin-notification-badge {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-
-  background-color: var(--cds-support-error);
-  color: black;
-
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 16px;
+  top: 0.375rem;
+  right: 0.375rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background-color: var(--cds-support-error, #da1e28);
+  color: var(--cds-text-on-color, #ffffff);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
   text-align: center;
   pointer-events: none;
 }
 
-/* Ensure HeaderPanel aligns to right edge cleanly */
+/* =========================
+ * SideNav
+ * ========================= */
+
+.admin-layout__sidenav,
+.admin-layout .cds--side-nav {
+  top: var(--moh-admin-header-height);
+  width: var(--moh-admin-sidenav-width);
+  height: calc(100vh - var(--moh-admin-header-height));
+  z-index: 6000;
+  border-right: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+}
+
+/* Improve selected item visual consistency */
+.admin-layout .cds--side-nav__link[aria-current="page"],
+.admin-layout .cds--side-nav__link--current {
+  font-weight: 700;
+}
+
+/* =========================
+ * Content area
+ * ========================= */
+
+.admin-layout__content-shell {
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--moh-admin-sidenav-width);
+  padding-top: var(--moh-admin-header-height);
+  background: var(--cds-background, #ffffff);
+}
+
+.admin-layout__content {
+  min-width: 0;
+  flex: 1;
+  padding: 1.5rem;
+  background: var(--cds-background, #ffffff);
+}
+
+.admin-layout__content.cds--content {
+  margin: 0;
+}
+
+/* Breadcrumb strip alignment */
+.admin-layout .moh-breadcrumb-bar {
+  flex: 0 0 auto;
+}
+
+/* =========================
+ * HeaderPanel alignment
+ * ========================= */
+
+.admin-layout .cds--header-panel.notifications-header-panel,
 .cds--header-panel.notifications-header-panel {
   right: 0;
   left: auto;
 }
 
 /* =========================
- * SideNav + content spacing
+ * Defensive polish
  * ========================= */
 
-/* Prevent content from sliding under header */
-.cds--content {
-  padding-top: 3rem;
-}
-
-/* SideNav stacking correctness */
-.cds--side-nav {
-  z-index: 5000;
-}
-
-/* =========================
- * Utility (defensive)
- * ========================= */
-
-/* Avoid horizontal scroll caused by HeaderPanel */
 body {
   overflow-x: hidden;
 }
 
-.moh-image-style {
-  height: 30px;
-  width: 30px;
-  margin-left: 10px;
+/* =========================
+ * Responsive
+ * ========================= */
+
+@media (max-width: 1056px) {
+  :root {
+    --moh-admin-sidenav-width: 0rem;
+  }
+
+  .admin-layout__content-shell {
+    margin-left: 0;
+  }
+
+  .admin-layout__sidenav,
+  .admin-layout .cds--side-nav {
+    transform: translateX(-100%);
+  }
+}
+
+@media (max-width: 672px) {
+  .admin-layout__content {
+    padding: 1rem;
+  }
+
+  .admin-layout__brand-logo {
+    margin-left: 0.5rem;
+  }
+
+  .admin-layout__brand .cds--header__name {
+    max-width: 12rem;
+  }
 }

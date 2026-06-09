@@ -14,7 +14,7 @@ import { API } from "@moh-sso/config";
 import { selectUser } from "@moh-sso/auth";
 import { BRANDING } from "@moh-sso/config";
 
-import AppMenuAction from "../appmenu/AppMenu.component";
+import AppMenuAction from "../../../navigation/appmenu/AppMenu.component";
 import "./public-header.css";
 import { EnvironmentBadge } from "@/env/EnvironmentBadge";
 

@@ -240,18 +240,6 @@ const FileUpload = () => {
 
   return (
     <>
-      <div style={{ marginBottom: "1rem" }}>
-        <Breadcrumb noTrailingSlash>
-          <BreadcrumbItem>
-            <RouterLink to="/">Home</RouterLink>
-          </BreadcrumbItem>
-          <BreadcrumbItem>
-            <RouterLink to="/documents">Documents</RouterLink>
-          </BreadcrumbItem>
-          <BreadcrumbItem isCurrentPage>Upload &amp; Preview</BreadcrumbItem>
-        </Breadcrumb>
-      </div>
-
       <FormItem className="uploader-form-item">
         <div style={{ marginBottom: "1rem" }}>
           <p className="cds--file--label">UPLOAD A FILE &amp; PREVIEW DATA</p>

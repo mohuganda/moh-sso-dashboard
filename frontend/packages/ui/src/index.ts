@@ -1,10 +1,10 @@
 export { default as CaseFormsGrid } from "./forms/CaseFormsGrid";
-export { default as AppGridContent } from "./shared/components/appmenu/AppGridContent";
-export { default as AppMenu } from "./shared/components/appmenu/AppMenu.component";
-export { EmptyState } from "./shared/components/emptystate/EmptyState";
-export { ErrorState } from "./shared/components/errorstate/ErrorState";
-export { MicrofrontendErrorBoundary } from "./shared/components/errorstate/MicrofrontendErrorBoundary";
-export { ComingSoon } from "./shared/components/comingsoon/ComingSoon";
+export { default as AppGridContent } from "./navigation/appmenu/AppGridContent";
+export { default as AppMenu } from "./navigation/appmenu/AppMenu.component";
+export { EmptyState } from "./feedback/emptystate/EmptyState";
+export { ErrorState } from "./feedback/errorstate/ErrorState";
+export { MicrofrontendErrorBoundary } from "./feedback/errorstate/MicrofrontendErrorBoundary";
+export { ComingSoon } from "./feedback/comingsoon/ComingSoon";
 export { BuildMeta } from "./shared/components/footer/BuildMeta";
 export { PublicFooter } from "./shared/components/footer/PublicFooter";
 export { ReusableHeaderPanel } from "./shared/components/header-panel/ReusableHeaderPanel";
@@ -20,7 +20,8 @@ export { FormInlineAlert } from "./shared/components/notifications/in-line-alert
 export { NotificationsPanel } from "./shared/components/notifications/notifications-panel.component";
 export { ToastProvider } from "./shared/components/notifications/toast/ToastProvider";
 export { useToast } from "./shared/components/notifications/toast/useToast";
-export { ClientSideNav } from "./shared/components/sidenav/ClientSideNav";
-export * from "./ui/severity";
-export * from "./ui/status";
+export { ClientSideNav } from "./navigation/sidenav/ClientSideNav";
+export * from "./utils/severity";
+export * from "./utils/status";
 export * from "./theme";
+export * from "./navigation";

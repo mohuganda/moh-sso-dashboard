@@ -1,0 +1,98 @@
+:root {
+  --moh-header-height: 3rem;
+  --moh-sidenav-width: 16rem;
+}
+
+.user-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--cds-background, #ffffff);
+}
+
+.user-layout__body {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  padding-top: var(--moh-header-height);
+}
+
+/*
+ * Because Carbon SideNav with isFixedNav is fixed-positioned,
+ * we must manually reserve horizontal space for it.
+ */
+.user-layout__content-shell {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--moh-sidenav-width);
+  width: calc(100% - var(--moh-sidenav-width));
+  background: var(--cds-background, #ffffff);
+}
+
+.user-layout__content {
+  min-width: 0;
+  flex: 1;
+  padding: 1.5rem;
+  background: var(--cds-background, #ffffff);
+}
+
+.user-layout__content.cds--content {
+  margin: 0;
+}
+
+/*
+ * Footer should also align with main content,
+ * not start under the fixed sidebar.
+ */
+.user-layout>footer,
+.user-layout .public-footer {
+  margin-left: var(--moh-sidenav-width);
+}
+
+/*
+ * Carbon SideNav positioning polish.
+ */
+.user-layout .cds--side-nav {
+  top: var(--moh-header-height);
+  height: calc(100vh - var(--moh-header-height));
+  border-right: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+}
+
+/*
+ * Breadcrumb bar should sit directly below header,
+ * aligned with content area.
+ */
+.user-layout .moh-breadcrumb-bar {
+  flex: 0 0 auto;
+  min-height: 3rem;
+  background: var(--cds-layer-01, #f4f4f4);
+  border-bottom: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+}
+
+/*
+ * Mobile: let content use full width.
+ * You can later switch SideNav to overlay/drawer mode.
+ */
+@media (max-width: 1056px) {
+  :root {
+    --moh-sidenav-width: 0rem;
+  }
+
+  .user-layout__content-shell {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .user-layout>footer,
+  .user-layout .public-footer {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 672px) {
+  .user-layout__content {
+    padding: 1rem;
+  }
+}

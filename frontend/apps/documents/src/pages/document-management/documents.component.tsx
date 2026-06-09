@@ -120,15 +120,6 @@ export default function DocumentPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: "1rem" }}>
-        <Breadcrumb noTrailingSlash>
-          <BreadcrumbItem>
-            <RouterLink to="/">Home</RouterLink>
-          </BreadcrumbItem>
-          <BreadcrumbItem isCurrentPage>Documents</BreadcrumbItem>
-        </Breadcrumb>
-      </div>
-
       <div
         style={{
           display: "flex",

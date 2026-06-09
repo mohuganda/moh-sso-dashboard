@@ -3,7 +3,7 @@ import { Navigate, Route } from "react-router-dom";
 
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import { UserRoute } from "./guards/UserRoute";
-import UserLayout from "../layouts/user/UserLayout";
+import UserLayout from "../layouts/user/user-layout.component";
 import { ComingSoon } from "@moh-sso/ui";
 
 import NewsFeedPage from "@/app/newsfeed/pages/news_feed.component";

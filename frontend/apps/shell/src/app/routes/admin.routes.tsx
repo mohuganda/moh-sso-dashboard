@@ -2,7 +2,7 @@ import { Navigate, Route } from "react-router-dom";
 
 import { AdminRoute } from "./guards/AdminRoute";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
-import AdminLayout from "../layouts/admin/AdminLayout";
+import AdminLayout from "../layouts/admin/admin-layout.component";
 import HomePage from "@/app/home/pages/home.component";
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
 import {

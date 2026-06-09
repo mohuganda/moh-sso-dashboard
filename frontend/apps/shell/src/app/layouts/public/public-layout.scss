@@ -1,0 +1,51 @@
+:root {
+  --moh-header-height: 3rem;
+}
+
+.public-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--cds-background, #ffffff);
+}
+
+.public-layout__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  padding-top: var(--moh-header-height);
+  background: var(--cds-background, #ffffff);
+}
+
+.public-layout__content {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem;
+  background: var(--cds-background, #ffffff);
+}
+
+.public-layout__content.cds--content {
+  margin: 0;
+}
+
+/*
+ * If PublicHeader uses Carbon Header and is fixed,
+ * this keeps it aligned and prevents content overlap.
+ */
+.public-layout .cds--header {
+  z-index: 8000;
+}
+
+/*
+ * Footer stays below content.
+ */
+.public-layout>footer,
+.public-layout .public-footer {
+  flex-shrink: 0;
+}
+
+@media (max-width: 672px) {
+  .public-layout__content {
+    padding: 1rem;
+  }
+}
