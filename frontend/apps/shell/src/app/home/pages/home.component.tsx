@@ -1,7 +1,7 @@
 import { Add, UserFollow, Security, Notification, Need } from "@carbon/react/icons";
 import { Tile, Button, Tag, Stack, InlineLoading } from "@carbon/react";
 import { useSelector } from "react-redux";
-import "./home.css";
+import "./home.scss";
 
 import { EmptyState, ErrorState, useHeaderPanel, getSeverityTagType } from "@moh-sso/ui";
 import { ApplicationTile } from "@/app/home/components/app/ApplicationTile";

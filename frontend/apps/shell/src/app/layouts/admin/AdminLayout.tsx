@@ -12,17 +12,16 @@ import {
 import { useSelector } from "react-redux";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 
-import "./admin-layout.css";
+import "./admin-layout.scss";
 import imagePath from "@/assets/logo.png";
 import {
   HeaderPanelProvider,
   useHeaderPanel,
- NotificationsPanel , ToastProvider } from "@moh-sso/ui";
+  NotificationsPanel,
+  ToastProvider,
+} from "@moh-sso/ui";
 import { API } from "@moh-sso/config";
-import {
-  useGetNotificationsQuery,
-  useGetUnreadNotificationsCountQuery,
-} from "@moh-sso/api";
+import { useGetNotificationsQuery, useGetUnreadNotificationsCountQuery } from "@moh-sso/api";
 import { selectUser } from "@moh-sso/auth";
 
 function HeaderActions() {
