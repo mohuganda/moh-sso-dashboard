@@ -11,7 +11,7 @@ import { useNavigate } from "react-router-dom";
 
 import { API } from "@moh-sso/config";
 import "./public-header.css";
-import imagePath from "@/assets/logo.png";
+import imagePath from "../../../assets/logo.png";
 
 const PublicHeader: React.FC = () => {
   const navigate = useNavigate();
