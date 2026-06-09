@@ -7,17 +7,16 @@ import {
   Time,
   WarningAlt,
   ChevronRight,
+  CheckmarkOutline,
+  ErrorOutline,
+  Warning,
 } from "@carbon/react/icons";
 import { Link, SkeletonText, Tag, Tile } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
 
-import { EmptyState , ErrorState } from "@moh-sso/ui";
+import { EmptyState, ErrorState } from "@moh-sso/ui";
 import { useListPublicAnnouncementsQuery } from "@moh-sso/api";
-import type {
-  Announcement,
-  AnnouncementLevel,
-  AnnouncementStatus,
-} from "@moh-sso/types";
+import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/types";
 import "./news-feed.css";
 
 const CASE_REPORTING = [
@@ -38,24 +37,24 @@ const CASE_REPORTING = [
     href: "http://localhost:3001/polio-cif",
   },
   {
-    label: "Other Alerts",
+    label: "View Other Alerts",
     href: "#",
   },
 ];
 
 const QUICK_LINKS = [
   {
-    label: "Support",
+    label: "Support System Portal",
     href: "/support",
     icon: Help,
   },
   {
-    label: "FAQ",
+    label: "Knowledgebase & FAQs",
     href: "/faq",
     icon: Help,
   },
   {
-    label: "Guidelines & Documents",
+    label: "Guidelines & Clinical Docs",
     href: "/documents",
     icon: Document,
   },
@@ -131,10 +130,12 @@ function mapCustomTag(tag?: string | null): TagConfig | null {
     case "event":
     case "new":
     case "update":
+    case "upgrade":
       return { label, type: "blue" };
 
     case "success":
     case "resolved":
+    case "completed":
       return { label, type: "green" };
 
     default:
@@ -273,62 +274,91 @@ function AnnouncementLink({ item }: { item: Announcement }) {
   );
 }
 
+function getLevelIcon(level: AnnouncementLevel) {
+  switch (level) {
+    case "CRITICAL":
+      return ErrorOutline;
+    case "WARNING":
+      return Warning;
+    case "SUCCESS":
+      return CheckmarkOutline;
+    case "INFO":
+    default:
+      return Information;
+  }
+}
+
 function AnnouncementCard({ item }: { item: Announcement }) {
+  const LevelIcon = getLevelIcon(item.level);
   const levelTag = mapLevelTag(item.level);
   const customTag = mapCustomTag(item.tag);
   const statusTag = mapStatusTag(item.status);
   const timestampSource = getAnnouncementDate(item);
 
   return (
-    <Tile className={`feed-item ${item.is_pinned ? "feed-item--pinned" : ""}`}>
+    <Tile
+      className={[
+        "feed-item",
+        `feed-item--${item.level.toLowerCase()}`,
+        item.is_pinned ? "feed-item--pinned" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div className="feed-item__top">
         <div className="feed-item__title-row">
           <span
-            className={`feed-item__level-icon feed-item__level-icon--${item.level.toLowerCase()}`}
+            className={[
+              "feed-item__icon-box",
+              `feed-item__icon-box--${item.level.toLowerCase()}`,
+            ].join(" ")}
+            aria-hidden="true"
           >
-            <Information size={16} />
+            <LevelIcon size={18} />
           </span>
 
-          <h4 className="feed-item__title">{item.title}</h4>
+          <div className="feed-item__title-content">
+            <div className="feed-item__title-line">
+              <h4 className="feed-item__title">{item.title}</h4>
+
+              {item.is_pinned && (
+                <Tag type="warm-gray" size="sm">
+                  <span className="feed-tag-with-icon">
+                    <Pin size={12} />
+                    Pinned
+                  </span>
+                </Tag>
+              )}
+
+              <Tag type={levelTag.type} size="sm">
+                {levelTag.label}
+              </Tag>
+
+              {customTag && (
+                <Tag type={customTag.type} size="sm">
+                  {customTag.label}
+                </Tag>
+              )}
+
+              {statusTag && (
+                <Tag type={statusTag.type} size="sm">
+                  {statusTag.label}
+                </Tag>
+              )}
+            </div>
+
+            {item.summary && <p className="feed-summary">{item.summary}</p>}
+
+            <p className="feed-message">{item.message}</p>
+
+            <AnnouncementLink item={item} />
+          </div>
         </div>
 
-        <div className="feed-item__tags">
-          {item.is_pinned && (
-            <Tag type="warm-gray" size="sm">
-              <span className="feed-tag-with-icon">
-                <Pin size={12} />
-                Pinned
-              </span>
-            </Tag>
-          )}
-
-          <Tag type={levelTag.type} size="sm">
-            {levelTag.label}
-          </Tag>
-
-          {customTag && (
-            <Tag type={customTag.type} size="sm">
-              {customTag.label}
-            </Tag>
-          )}
-
-          {statusTag && (
-            <Tag type={statusTag.type} size="sm">
-              {statusTag.label}
-            </Tag>
-          )}
+        <div className="feed-timestamp" title={formatTimestamp(timestampSource)}>
+          <Time size={14} />
+          <span>{formatRelativeTimestamp(timestampSource)}</span>
         </div>
-      </div>
-
-      {item.summary && <p className="feed-summary">{item.summary}</p>}
-
-      <p className="feed-message">{item.message}</p>
-
-      <AnnouncementLink item={item} />
-
-      <div className="feed-timestamp" title={formatTimestamp(timestampSource)}>
-        <Time size={14} />
-        <span>{formatRelativeTimestamp(timestampSource)}</span>
       </div>
     </Tile>
   );
@@ -362,14 +392,11 @@ function FeedSection({ title, subtitle, icon: Icon, count, children }: FeedSecti
       <div className="feed-section-header">
         <div>
           <div className="feed-section-title">
-            <Icon size={18} />
-            <h4>{title}</h4>
-
-            {typeof count === "number" && (
-              <Tag type="gray" size="sm">
-                {count}
-              </Tag>
-            )}
+            <Icon size={16} />
+            <h4>
+              {title}
+              {typeof count === "number" ? ` (${count})` : ""}
+            </h4>
           </div>
 
           {subtitle && <p className="feed-section-subtitle">{subtitle}</p>}
@@ -473,12 +500,7 @@ export default function NewsFeedPage() {
           )}
 
           {!hasError && !shouldShowInitialLoading && pinnedAnnouncements.length > 0 && (
-            <FeedSection
-              title="Pinned Announcements"
-              subtitle="Important notices highlighted for quick access."
-              icon={Pin}
-              count={pinnedAnnouncements.length}
-            >
+            <FeedSection title="Pinned Announcements" icon={Pin} count={pinnedAnnouncements.length}>
               {pinnedAnnouncements.map((item) => (
                 <AnnouncementCard key={item.id} item={item} />
               ))}
@@ -499,10 +521,15 @@ export default function NewsFeedPage() {
         </main>
 
         <aside className="news-sidebar">
-          <Tile className="news-sidebar__tile">
+          <Tile className="news-sidebar__tile news-sidebar__case-reporting">
             <div className="news-sidebar__heading">
               <WarningAlt size={18} />
-              <h4>Case Reporting</h4>
+              <div>
+                <h4>Case Reporting</h4>
+                <p className="news-sidebar__description">
+                  Submit active regional outbreak epidemiological updates.
+                </p>
+              </div>
             </div>
 
             <ul className="sidebar-link-list">
@@ -545,12 +572,12 @@ export default function NewsFeedPage() {
             </div>
 
             <p className="sidebar-help-text">
-              Reach out to support for account issues, access requests, or reporting assistance.
+              Reach out directly to technical support channels for account authorization updates,
+              credentials provisioning, or critical structural incident reports.
             </p>
 
-            <AppLink href="/support" className="feed-link">
-              Contact support
-              <ChevronRight size={16} />
+            <AppLink href="/support" className="feed-link news-sidebar__support-button">
+              Contact Support Operations
             </AppLink>
           </Tile>
         </aside>

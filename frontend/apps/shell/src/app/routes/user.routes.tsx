@@ -172,87 +172,45 @@ export const userRoutes = (
     </Route>
 
     {/* =========================
-        UTILITIES MICROFRONTEND
-       ========================= */}
+    UTILITIES MICROFRONTEND
+   ========================= */}
     <Route path="utilities">
-      <Route index element={<Navigate to="self-service/timesheet" replace />} />
+      <Route index element={<Navigate to="self-service" replace />} />
 
-      <Route path="self-service">
+      {/* E-Service routes should stay in the host because they mount other apps */}
+      <Route path="self-service/eservice">
+        <Route index element={<Navigate to="document-upload" replace />} />
+
         <Route
-          path="timesheet/*"
+          path="document-upload/*"
           element={userPage(
             <SingleSpaApp
-              appName="@moh-sso/utilities"
-              lifecycles={utilitiesLifecycles}
-              basename="/portal/apps/utilities/self-service/timesheet"
+              appName="@moh-sso/documents"
+              lifecycles={documentsLifecycles}
+              basename="/portal/apps/utilities/self-service/eservice/document-upload"
             />,
           )}
         />
 
-        <Route
-          path="elearning/*"
-          element={userPage(
-            <SingleSpaApp
-              appName="@moh-sso/utilities"
-              lifecycles={utilitiesLifecycles}
-              basename="/portal/apps/utilities/self-service/elearning"
-            />,
-          )}
-        />
+        <Route path="service-access" element={userPage(<ComingSoon title="Service Access" />)} />
 
         <Route
-          path="leave-plan/*"
-          element={userPage(
-            <SingleSpaApp
-              appName="@moh-sso/utilities"
-              lifecycles={utilitiesLifecycles}
-              basename="/portal/apps/utilities/self-service/leave-plan"
-            />,
-          )}
+          path="equipment-request"
+          element={userPage(<ComingSoon title="Equipment Request" />)}
         />
-
-        <Route
-          path="absence-requests/*"
-          element={userPage(
-            <SingleSpaApp
-              appName="@moh-sso/utilities"
-              lifecycles={utilitiesLifecycles}
-              basename="/portal/apps/utilities/self-service/absence-requests"
-            />,
-          )}
-        />
-
-        <Route
-          path="absence-dashboard/*"
-          element={userPage(
-            <SingleSpaApp
-              appName="@moh-sso/utilities"
-              lifecycles={utilitiesLifecycles}
-              basename="/portal/apps/utilities/self-service/absence-dashboard"
-            />,
-          )}
-        />
-
-        <Route path="eservice">
-          <Route
-            path="document-upload/*"
-            element={userPage(
-              <SingleSpaApp
-                appName="@moh-sso/documents"
-                lifecycles={documentsLifecycles}
-                basename="/portal/apps/utilities/self-service/eservice/document-upload"
-              />,
-            )}
-          />
-
-          <Route path="service-access" element={userPage(<ComingSoon title="Service Access" />)} />
-
-          <Route
-            path="equipment-request"
-            element={userPage(<ComingSoon title="Equipment Request" />)}
-          />
-        </Route>
       </Route>
+
+      {/* Mount utilities once here */}
+      <Route
+        path="self-service/*"
+        element={userPage(
+          <SingleSpaApp
+            appName="@moh-sso/utilities"
+            lifecycles={utilitiesLifecycles}
+            basename="/portal/apps/utilities/self-service"
+          />,
+        )}
+      />
     </Route>
 
     {/* =========================

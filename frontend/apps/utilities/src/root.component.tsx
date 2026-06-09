@@ -1,27 +1,35 @@
 import type { MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import AbsenceRequests from "./pages/absence-requests.component";
-import Elearning from "./pages/elearning.component";
-import LeavePlan from "./pages/leave-plan.component";
-import MyAbsenceDashboard from "./pages/my-absence-dashboard.component";
-import MyTimeSheet from "./pages/my-timesheet.component";
+import { ComingSoon } from "@moh-sso/ui";
+
+function normalizeBasename(basename?: string) {
+  if (!basename || basename === "/apps/utilities") {
+    return "/apps/utilities/self-service";
+  }
+
+  return basename.replace(/\/+$/, "");
+}
 
 export function UtilitiesRoot(props: MicrofrontendRuntimeProps) {
-  const basename =
-    props.basename === "/apps/utilities"
-      ? "/apps/utilities/self-service"
-      : props.basename || "/apps/utilities/self-service";
+  const basename = normalizeBasename(props.basename);
 
   return (
     <BrowserRouter basename={basename}>
       <Routes>
         <Route index element={<Navigate to="timesheet" replace />} />
-        <Route path="timesheet" element={<MyTimeSheet />} />
-        <Route path="elearning" element={<Elearning />} />
-        <Route path="leave-plan" element={<LeavePlan />} />
-        <Route path="absence-requests" element={<AbsenceRequests />} />
-        <Route path="absence-dashboard" element={<MyAbsenceDashboard />} />
+
+        <Route path="timesheet" element={<ComingSoon title="Timesheet" />} />
+
+        <Route path="elearning" element={<ComingSoon title="E-learning" />} />
+
+        <Route path="leave-plan" element={<ComingSoon title="Leave Plan" />} />
+
+        <Route path="absence-requests" element={<ComingSoon title="Absence Requests" />} />
+
+        <Route path="absence-dashboard" element={<ComingSoon title="Absence Dashboard" />} />
+
+        <Route path="*" element={<Navigate to="/timesheet" replace />} />
       </Routes>
     </BrowserRouter>
   );
