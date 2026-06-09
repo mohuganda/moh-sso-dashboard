@@ -2,13 +2,12 @@
  * ---------------------------------------------------
  * Domain Severity (Business Layer)
  * ---------------------------------------------------
- * This represents backend/domain severity.
  */
 export type Severity = "info" | "success" | "warning" | "critical" | "danger";
 
 /**
  * ---------------------------------------------------
- * Carbon Tag Type (Inferred from Carbon)
+ * Carbon Tag Type
  * ---------------------------------------------------
  */
 export type CarbonTagType =
@@ -24,6 +23,34 @@ export type CarbonTagType =
   | "warm-gray"
   | "high-contrast"
   | "outline";
+
+/**
+ * ---------------------------------------------------
+ * Severity guards / normalization
+ * ---------------------------------------------------
+ */
+const SEVERITIES: readonly Severity[] = [
+  "info",
+  "success",
+  "warning",
+  "critical",
+  "danger",
+] as const;
+
+export function isSeverity(value: unknown): value is Severity {
+  return typeof value === "string" && SEVERITIES.includes(value.toLowerCase() as Severity);
+}
+
+export function normalizeSeverity(value?: string | null): Severity {
+  const normalized = value?.trim().toLowerCase();
+
+  if (isSeverity(normalized)) {
+    return normalized;
+  }
+
+  return "info";
+}
+
 /**
  * ---------------------------------------------------
  * Severity → Carbon Tag Mapping
@@ -32,7 +59,7 @@ export type CarbonTagType =
 const severityTagMap: Record<Severity, CarbonTagType> = {
   info: "blue",
   success: "green",
-  warning: "magenta", // Carbon warning tone
+  warning: "magenta",
   critical: "red",
   danger: "red",
 };
@@ -56,17 +83,16 @@ const severityLabelMap: Record<Severity, string> = {
  * ---------------------------------------------------
  */
 
-/** Get Carbon Tag type */
-export const getSeverityTagType = (severity: Severity): CarbonTagType => severityTagMap[severity];
+export const getSeverityTagType = (severity?: string | null): CarbonTagType => {
+  return severityTagMap[normalizeSeverity(severity)];
+};
 
-/** Get formatted label */
-export const getSeverityLabel = (severity: Severity): string => severityLabelMap[severity];
+export const getSeverityLabel = (severity?: string | null): string => {
+  return severityLabelMap[normalizeSeverity(severity)];
+};
 
-/**
- * Optional: numeric ranking (useful for sorting)
- */
-export const getSeverityRank = (severity: Severity): number => {
-  switch (severity) {
+export const getSeverityRank = (severity?: string | null): number => {
+  switch (normalizeSeverity(severity)) {
     case "danger":
       return 5;
     case "critical":
@@ -76,6 +102,7 @@ export const getSeverityRank = (severity: Severity): number => {
     case "success":
       return 2;
     case "info":
+    default:
       return 1;
   }
 };

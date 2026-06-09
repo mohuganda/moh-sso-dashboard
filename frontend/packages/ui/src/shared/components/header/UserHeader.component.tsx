@@ -13,8 +13,10 @@ import { useNavigate } from "react-router-dom";
 import { API } from "@moh-sso/config";
 import { selectUser } from "@moh-sso/auth";
 import { BRANDING } from "@moh-sso/config";
+
 import AppMenuAction from "../appmenu/AppMenu.component";
 import "./public-header.css";
+import { EnvironmentBadge } from "@/env/EnvironmentBadge";
 
 const UserHeader: React.FC = () => {
   const navigate = useNavigate();
@@ -27,26 +29,20 @@ const UserHeader: React.FC = () => {
     <Header aria-label="MOH Integrated Health Portal">
       <SkipToContent />
 
-      {/* Brand / Home */}
       <img src={BRANDING.logo} className={`moh-image-style`} />
       <HeaderName prefix="MOH" onClick={() => navigate("/apps")} className="moh-header-name">
         {BRANDING.title}
       </HeaderName>
 
-      {/* Global Actions */}
       <HeaderGlobalBar>
-        {/* 🌱 Environment */}
-        {/*<EnvironmentBadge />*/}
-        {/* App Launcher */}
+        <EnvironmentBadge />
         <AppMenuAction />
-        {/* User indicator */}
         <HeaderGlobalAction
           aria-label={`Signed in as ${user?.username ?? "user"}`}
           tooltipAlignment="end"
         >
           <UserAvatarFilled size={20} />
         </HeaderGlobalAction>
-        {/* Logout */}
         <HeaderGlobalAction
           aria-label="Logout"
           tooltipAlignment="end"
