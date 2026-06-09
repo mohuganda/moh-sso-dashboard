@@ -15,7 +15,6 @@ import { selectUser } from "@moh-sso/auth";
 
 import AppMenuAction from "../../../navigation/appmenu/AppMenu.component";
 import "./public-header.css";
-import { EnvironmentBadge } from "@/env/EnvironmentBadge";
 
 import imagePath from "@/assets/logo.png";
 
@@ -36,7 +35,7 @@ const UserHeader: React.FC = () => {
       </HeaderName>
 
       <HeaderGlobalBar>
-        <EnvironmentBadge />
+        {/* <EnvironmentBadge /> */}
         <AppMenuAction />
         <HeaderGlobalAction
           aria-label={`Signed in as ${user?.username ?? "user"}`}
