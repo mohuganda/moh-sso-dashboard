@@ -3,14 +3,17 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import DiseaseDetailsPage from "./pages/surveillance-details/surveillance-details.component";
 import SurveillanceDashboardPage from "./pages/surveillance.component";
+import { MohThemeProvider } from "@moh-sso/ui";
 
 export function SurveillanceRoot(props: MicrofrontendRuntimeProps) {
   return (
-    <BrowserRouter basename={props.basename || "/apps/dwh/surveillance"}>
-      <Routes>
-        <Route index element={<SurveillanceDashboardPage />} />
-        <Route path=":diseaseName" element={<DiseaseDetailsPage />} />
-      </Routes>
-    </BrowserRouter>
+    <MohThemeProvider theme="white">
+      <BrowserRouter basename={props.basename || "/apps/dwh/surveillance"}>
+        <Routes>
+          <Route index element={<SurveillanceDashboardPage />} />
+          <Route path=":diseaseName" element={<DiseaseDetailsPage />} />
+        </Routes>
+      </BrowserRouter>
+    </MohThemeProvider>
   );
 }

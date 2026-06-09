@@ -5,7 +5,7 @@ import App from "./app/App";
 import { store } from "@moh-sso/state";
 import "leaflet/dist/leaflet.css";
 
-import "./index.css";
+import "./index.scss";
 import { AuthBootstrap } from "@moh-sso/auth";
 import { startMicrofrontendOrchestration } from "./app/microfrontends/orchestrator";
 

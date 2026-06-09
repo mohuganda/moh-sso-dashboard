@@ -1,38 +1,43 @@
-import { Switcher } from "@carbon/react/icons";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { HeaderGlobalAction } from "@carbon/react";
-import React, { useState, useRef, useEffect } from "react";
+import { Switcher } from "@carbon/react/icons";
 
 import AppGridContent from "./AppGridContent";
-import "./AppMenu.css";
+import "./AppMenu.scss";
 
 const AppMenuAction: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
 
-  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const panelId = useId();
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const closeMenu = () => {
     setExpanded(false);
   };
 
+  const toggleMenu = () => {
+    setExpanded((prev) => !prev);
+  };
+
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded) {
+      return;
+    }
 
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
 
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(target) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(target)
-      ) {
+      const clickedInsidePanel = panelRef.current?.contains(target);
+      const clickedTrigger = triggerRef.current?.contains(target);
+
+      if (!clickedInsidePanel && !clickedTrigger) {
         closeMenu();
       }
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
         closeMenu();
         triggerRef.current?.focus();
       }
@@ -48,39 +53,50 @@ const AppMenuAction: React.FC = () => {
   }, [expanded]);
 
   useEffect(() => {
-    if (expanded) {
-      panelRef.current?.focus();
+    if (!expanded) {
+      return;
     }
+
+    requestAnimationFrame(() => {
+      panelRef.current?.focus();
+    });
   }, [expanded]);
 
   return (
-    <>
-      <div ref={triggerRef}>
-        <HeaderGlobalAction
-          aria-label="Open application menu"
-          aria-haspopup="dialog"
-          aria-expanded={expanded}
-          isActive={expanded}
-          onClick={() => {
-            setExpanded((prev) => !prev);
-          }}
-        >
-          <Switcher size={20} />
-        </HeaderGlobalAction>
-      </div>
+    <div className="app-menu">
+      <HeaderGlobalAction
+        ref={triggerRef}
+        aria-label={expanded ? "Close application menu" : "Open application menu"}
+        aria-haspopup="dialog"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        isActive={expanded}
+        onClick={toggleMenu}
+      >
+        <Switcher size={20} />
+      </HeaderGlobalAction>
 
       {expanded && (
         <div
           ref={panelRef}
-          id="app_menu_container"
+          id={panelId}
+          className="app-menu-panel"
           role="dialog"
+          aria-modal="false"
           aria-label="Application menu"
           tabIndex={-1}
         >
-          <AppGridContent />
+          <div className="app-menu-panel__header">
+            <div>
+              <h4 className="app-menu-panel__title">Applications</h4>
+              <p className="app-menu-panel__subtitle">Select a service to continue.</p>
+            </div>
+          </div>
+
+          <AppGridContent onSelect={closeMenu} />
         </div>
       )}
-    </>
+    </div>
   );
 };
 

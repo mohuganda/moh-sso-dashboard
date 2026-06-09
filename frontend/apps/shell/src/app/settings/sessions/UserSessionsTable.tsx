@@ -1,17 +1,23 @@
+import { useMemo, useState } from "react";
 import {
+  Button,
   DataTable,
+  InlineLoading,
+  InlineNotification,
+  Tag,
   Table,
-  TableHead,
-  TableRow,
-  TableHeader,
   TableBody,
   TableCell,
   TableContainer,
-  Button,
-  Tag,
-  InlineLoading,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Tile,
 } from "@carbon/react";
+
 import { useGetSessionsQuery, useLogoutSessionMutation } from "@moh-sso/api";
+
+import "./user-sessions-table.scss";
 
 const headers = [
   { key: "ip", header: "IP Address" },
@@ -21,63 +27,160 @@ const headers = [
   { key: "action", header: "" },
 ];
 
+function formatDate(timestamp?: number): string {
+  if (!timestamp) {
+    return "—";
+  }
+
+  const value = timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
 export default function UserSessionsTable() {
-  const { data: sessions = [], isLoading } = useGetSessionsQuery();
-  const [logoutSession] = useLogoutSessionMutation();
+  const { data: sessions = [], isLoading, isFetching, isError, refetch } = useGetSessionsQuery();
 
-  const formatDate = (timestamp: number) => new Date(timestamp).toLocaleString();
+  const [logoutSession, { isLoading: isLoggingOut }] = useLogoutSessionMutation();
 
-  const rows = sessions.map((s) => ({
-    id: s.id,
-    ip: s.ipAddress,
-    started: formatDate(s.start),
-    lastAccess: formatDate(s.lastAccess),
-    clients: Object.keys(s.clients),
-  }));
+  const [activeLogoutId, setActiveLogoutId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  if (isLoading) return <InlineLoading description="Loading sessions..." />;
+  const rows = useMemo(() => {
+    return sessions.map((session) => ({
+      id: session.id,
+      ip: session.ipAddress || "—",
+      started: formatDate(session.start),
+      lastAccess: formatDate(session.lastAccess),
+      clients: Object.keys(session.clients ?? {}),
+    }));
+  }, [sessions]);
+
+  const handleLogoutSession = async (sessionId: string) => {
+    setErrorMessage("");
+    setActiveLogoutId(sessionId);
+
+    try {
+      await logoutSession(sessionId).unwrap();
+      await refetch();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Unable to end this session. Please try again.");
+    } finally {
+      setActiveLogoutId(null);
+    }
+  };
+
+  if (isLoading) {
+    return <InlineLoading description="Loading sessions..." />;
+  }
+
+  if (isError) {
+    return (
+      <Tile className="sessions-state">
+        <h4>Unable to load active sessions</h4>
+        <p>Please check your connection and try again.</p>
+
+        <Button size="sm" kind="ghost" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </Tile>
+    );
+  }
 
   return (
-    <TableContainer title="Active Sessions">
-      <DataTable rows={rows} headers={headers}>
-        {({ rows, headers, getHeaderProps, getRowProps }) => (
-          <Table size="sm">
-            <TableHead>
-              <TableRow>
-                {headers.map((header) => (
-                  <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
-                ))}
-              </TableRow>
-            </TableHead>
+    <div className="sessions-table">
+      {errorMessage && (
+        <InlineNotification
+          kind="error"
+          title="Session logout failed"
+          subtitle={errorMessage}
+          lowContrast
+          onClose={() => setErrorMessage("")}
+        />
+      )}
 
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow {...getRowProps({ row })}>
-                  <TableCell>{row.cells[0].value}</TableCell>
+      {isFetching && !isLoading && <InlineLoading description="Refreshing sessions..." />}
 
-                  <TableCell>{row.cells[1].value}</TableCell>
-
-                  <TableCell>{row.cells[2].value}</TableCell>
-
-                  <TableCell>
-                    {row.cells[3].value.map((c: string) => (
-                      <Tag key={c} type="cyan" size="sm">
-                        {c}
-                      </Tag>
-                    ))}
-                  </TableCell>
-
-                  <TableCell>
-                    <Button size="sm" kind="danger--ghost" onClick={() => logoutSession(row.id)}>
-                      Logout
-                    </Button>
-                  </TableCell>
+      <TableContainer
+        title="Active Sessions"
+        description="Review and end active login sessions connected to your account."
+      >
+        <DataTable rows={rows} headers={headers}>
+          {({ rows, headers, getHeaderProps, getRowProps }) => (
+            <Table size="sm">
+              <TableHead>
+                <TableRow>
+                  {headers.map((header) => (
+                    <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
+                  ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </DataTable>
-    </TableContainer>
+              </TableHead>
+
+              <TableBody>
+                {rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={headers.length}>No active sessions found.</TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((row) => {
+                    const clients = row.cells.find((cell) => cell.info.header === "clients")
+                      ?.value as string[];
+
+                    return (
+                      <TableRow {...getRowProps({ row })}>
+                        <TableCell>
+                          {row.cells.find((cell) => cell.info.header === "ip")?.value}
+                        </TableCell>
+
+                        <TableCell>
+                          {row.cells.find((cell) => cell.info.header === "started")?.value}
+                        </TableCell>
+
+                        <TableCell>
+                          {row.cells.find((cell) => cell.info.header === "lastAccess")?.value}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="sessions-client-tags">
+                            {clients.length > 0 ? (
+                              clients.map((client) => (
+                                <Tag key={client} type="cyan" size="sm">
+                                  {client}
+                                </Tag>
+                              ))
+                            ) : (
+                              <span className="sessions-muted">—</span>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            kind="danger--ghost"
+                            disabled={isLoggingOut}
+                            onClick={() => handleLogoutSession(row.id)}
+                          >
+                            {activeLogoutId === row.id ? "Ending..." : "End session"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </DataTable>
+      </TableContainer>
+    </div>
   );
 }

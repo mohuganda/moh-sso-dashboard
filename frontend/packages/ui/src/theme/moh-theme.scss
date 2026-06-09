@@ -1,0 +1,140 @@
+:root {
+  /* =========================
+   * MOH Brand Colors
+   * ========================= */
+
+  --moh-color-primary: #005eb8;
+  --moh-color-primary-hover: #004b93;
+  --moh-color-primary-active: #003d78;
+
+  --moh-color-secondary: #00843d;
+  --moh-color-secondary-hover: #006f33;
+
+  --moh-color-accent: #f9c642;
+  --moh-color-danger: #da1e28;
+  --moh-color-warning: #f1c21b;
+  --moh-color-success: #24a148;
+  --moh-color-info: #0f62fe;
+
+  /* =========================
+   * App surfaces
+   * ========================= */
+
+  --moh-app-background: #ffffff;
+  --moh-page-background: #ffffff;
+  --moh-card-background: #ffffff;
+  --moh-sidebar-background: #ffffff;
+  --moh-header-background: #161616;
+
+  /* =========================
+   * Text
+   * ========================= */
+
+  --moh-text-primary: #161616;
+  --moh-text-secondary: #525252;
+  --moh-text-muted: #6f6f6f;
+  --moh-text-inverse: #ffffff;
+
+  /* =========================
+   * Borders and shadows
+   * ========================= */
+
+  --moh-border-subtle: #e0e0e0;
+  --moh-border-strong: #8d8d8d;
+  --moh-radius-sm: 0.25rem;
+  --moh-radius-md: 0.5rem;
+  --moh-radius-lg: 0.75rem;
+
+  --moh-shadow-sm: 0 2px 8px rgb(0 0 0 / 8%);
+  --moh-shadow-md: 0 8px 24px rgb(0 0 0 / 12%);
+
+  /* =========================
+   * Layout
+   * ========================= */
+
+  --moh-page-padding: 2rem;
+  --moh-page-gap: 1.5rem;
+  --moh-header-height: 3rem;
+  --moh-sidebar-width: 16rem;
+
+  /* =========================
+   * Carbon token overrides
+   * ========================= */
+
+  --cds-interactive: var(--moh-color-primary);
+  --cds-link-primary: var(--moh-color-primary);
+  --cds-link-primary-hover: var(--moh-color-primary-hover);
+
+  --cds-focus: var(--moh-color-primary);
+  --cds-border-interactive: var(--moh-color-primary);
+
+  --cds-background: var(--moh-app-background);
+  --cds-layer: var(--moh-card-background);
+  --cds-layer-01: var(--moh-card-background);
+
+  --cds-text-primary: var(--moh-text-primary);
+  --cds-text-secondary: var(--moh-text-secondary);
+
+  --cds-border-subtle-01: var(--moh-border-subtle);
+  --cds-border-strong-01: var(--moh-border-strong);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--moh-app-background);
+  color: var(--moh-text-primary);
+  font-family:
+    "IBM Plex Sans",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: var(--moh-color-primary);
+}
+
+.moh-page {
+  padding: var(--moh-page-padding);
+  background: var(--moh-page-background);
+}
+
+.moh-page-title {
+  margin: 0;
+  color: var(--moh-text-primary);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.moh-page-subtitle {
+  margin: 0.375rem 0 0;
+  color: var(--moh-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.moh-card {
+  border: 1px solid var(--moh-border-subtle);
+  border-radius: var(--moh-radius-lg);
+  background: var(--moh-card-background);
+  box-shadow: var(--moh-shadow-sm);
+}
+
+@media (max-width: 672px) {
+  :root {
+    --moh-page-padding: 1rem;
+  }
+}

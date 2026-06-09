@@ -9,10 +9,8 @@ import {
 import type React from "react";
 import { useNavigate } from "react-router-dom";
 
-import { API } from "@moh-sso/config";
+import { API, BRANDING } from "@moh-sso/config";
 import "./public-header.css";
-
-const imagePath = "/logo.png";
 
 const PublicHeader: React.FC = () => {
   const navigate = useNavigate();
@@ -24,15 +22,12 @@ const PublicHeader: React.FC = () => {
     <Header aria-label="MOH Integrated Health Portal">
       <SkipToContent />
 
-      {/* Brand / Home */}
-      <img src={imagePath} className={`moh-image-style`} />
+      <img src={BRANDING.logo} className={`moh-image-style`} />
       <HeaderName prefix="MOH" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
-        Integrated Health Portal
+        {BRANDING.title}
       </HeaderName>
 
-      {/* Global Actions */}
       <HeaderGlobalBar>
-        {/* Logout */}
         <HeaderGlobalAction
           aria-label="login"
           tooltipAlignment="end"

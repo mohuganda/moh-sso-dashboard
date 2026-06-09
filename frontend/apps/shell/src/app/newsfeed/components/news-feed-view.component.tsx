@@ -12,7 +12,7 @@ import { Tile, Link, Tag, SkeletonText } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
 
 import { EmptyState, ErrorState } from "@moh-sso/ui";
-import "./news-feed.css";
+import "./news-feed.scss";
 import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/types";
 
 const CASE_REPORTING = [

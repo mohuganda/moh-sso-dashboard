@@ -1,89 +1,296 @@
 /* =========================
  * HeaderPanel override
  * ========================= */
+
 .notifications-header-panel {
-  width: 420px;
-  max-width: 420px;
+  width: 440px;
+  max-width: 440px;
   padding: 0;
 }
 
 /* =========================
  * Panel container
  * ========================= */
+
 .notifications-panel {
   width: 100%;
   box-sizing: border-box;
   padding: 1rem;
-  max-height: 60vh;
+  max-height: 65vh;
   overflow-y: auto;
 }
 
 /* =========================
  * Header
  * ========================= */
+
 .notifications-panel__header {
+  position: sticky;
+  top: -1rem;
+  z-index: 1;
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0 0.875rem;
+  margin-bottom: 0.75rem;
+  background: var(--cds-layer, #ffffff);
+  border-bottom: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+}
+
+.notifications-panel__title {
+  margin: 0;
+  color: var(--cds-text-primary, #161616);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.notifications-panel__subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--cds-text-secondary, #6f6f6f);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+/* =========================
+ * Empty state
+ * ========================= */
+
+.notifications-panel--empty {
+  min-height: 14rem;
+  display: flex;
   align-items: center;
-  margin-bottom: 1rem;
+  justify-content: center;
+  flex-direction: column;
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+.notifications-panel__empty-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.875rem;
+  color: var(--cds-support-success, #24a148);
+  background: var(--cds-support-success-inverse, #defbe6);
+}
+
+.notifications-panel__empty-title {
+  margin: 0;
+  color: var(--cds-text-primary, #161616);
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .notifications-panel__empty {
-  opacity: 0.7;
+  max-width: 18rem;
+  margin: 0.375rem 0 0;
+  color: var(--cds-text-secondary, #6f6f6f);
   font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 /* =========================
- * Notification rows
+ * Notification list
  * ========================= */
-.notification-row {
+
+.notifications-panel__list {
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  padding: 0.5rem 0;
-}
-
-.notification-row:hover,
-.notification-row:focus {
-  background-color: var(--cds-layer-hover);
-}
-
-.notification-row--unread {
-  background-color: var(--cds-layer-accent);
-  border-left: 3px solid var(--cds-support-info);
+  flex-direction: column;
+  gap: 0.625rem;
 }
 
 /* =========================
- * StructuredList cell fixes
+ * Notification card
  * ========================= */
-.notification-row > .cds--structured-list-td:first-child {
-  flex: 1;
-  min-width: 0;
-  /* REQUIRED for wrapping */
+
+.notification-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+  border-radius: 0.75rem;
+  background: var(--cds-layer, #ffffff);
+  cursor: default;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 
-.notification-actions {
-  flex-shrink: 0;
-  text-align: right;
+.notification-card[role="button"] {
+  cursor: pointer;
+}
+
+.notification-card:hover,
+.notification-card:focus {
+  border-color: var(--cds-border-strong-01, #8d8d8d);
+  background: var(--cds-layer-hover, #f4f4f4);
+  box-shadow: 0 6px 18px rgb(15 23 42 / 8%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.notification-card:focus-visible {
+  outline: 2px solid var(--cds-focus, #0f62fe);
+  outline-offset: 2px;
+}
+
+.notification-card--unread {
+  border-left: 4px solid var(--cds-support-info, #0f62fe);
+  background: var(--cds-layer-accent-01, #f4f4f4);
+}
+
+.notification-card--loading {
+  display: block;
+  min-height: 7rem;
+  cursor: default;
+}
+
+.notification-card--loading:hover {
+  transform: none;
+}
+
+/* =========================
+ * Notification icon
+ * ========================= */
+
+.notification-card__indicator {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cds-support-info, #0f62fe);
+  background: var(--cds-highlight, #edf5ff);
 }
 
 /* =========================
  * Notification content
  * ========================= */
+
+.notification-card__content {
+  min-width: 0;
+}
+
+.notification-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.notification-card__title-wrap {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 .notification-title {
-  font-weight: 600;
+  margin: 0;
+  color: var(--cds-text-primary, #161616);
   font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.notification-unread-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--cds-support-info, #0f62fe);
 }
 
 .notification-message {
-  font-size: 0.875rem;
-  opacity: 0.85;
+  margin: 0.5rem 0 0;
+  color: var(--cds-text-secondary, #525252);
+  font-size: 0.8125rem;
+  line-height: 1.5;
   word-break: break-word;
 }
 
 .notification-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+  color: var(--cds-text-secondary, #6f6f6f);
   font-size: 0.75rem;
-  opacity: 0.6;
+  line-height: 1.3;
+}
+
+/* =========================
+ * Actions
+ * ========================= */
+
+.notification-actions {
+  grid-column: 2;
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 0.625rem;
+}
+
+.notification-actions .cds--btn {
+  min-height: 2rem;
+  padding-inline: 0.5rem;
+}
+
+/* =========================
+ * Scrollbar polish
+ * ========================= */
+
+.notifications-panel {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cds-border-strong-01, #8d8d8d) transparent;
+}
+
+.notifications-panel::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.notifications-panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--cds-border-strong-01, #8d8d8d);
+}
+
+.notifications-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* =========================
+ * Responsive
+ * ========================= */
+
+@media (max-width: 672px) {
+  .notifications-header-panel {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .notifications-panel {
+    max-height: 70vh;
+    padding: 0.875rem;
+  }
+
+  .notification-card {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-card__indicator {
+    display: none;
+  }
+
+  .notification-actions {
+    grid-column: 1;
+  }
 }

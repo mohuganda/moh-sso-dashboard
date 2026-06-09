@@ -1,60 +1,101 @@
-import { Button, Tile, Stack, Section, Heading } from "@carbon/react";
-import { Launch, Security } from "@carbon/react/icons";
+import { Button, InlineNotification, Tag, Tile } from "@carbon/react";
+import { Launch, Locked, Security, UserAdmin } from "@carbon/react/icons";
+
+import "./security.scss";
+
+const DEFAULT_KEYCLOAK_ACCOUNT_URL = "http://localhost:8081/realms/moh-realm/account";
+
+function getKeycloakAccountUrl() {
+  return import.meta.env.VITE_KEYCLOAK_ACCOUNT_URL || DEFAULT_KEYCLOAK_ACCOUNT_URL;
+}
 
 export default function SecurityPage() {
-  // Tip: In production, pull this from your config or env variables
-  const KEYCLOAK_ACCOUNT_URL = "http://localhost:8081/realms/moh-realm/account";
+  const keycloakAccountUrl = getKeycloakAccountUrl();
 
   return (
-    <Tile className="security-tile">
-      <Stack gap={6}>
-        <Section>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <Security size={24} aria-label="Security icon" />
-            <Heading style={{ fontSize: "1.25rem", fontWeight: "400" }}>Security Settings</Heading>
+    <div className="security-page">
+      <Tile className="security-card security-hero-card">
+        <div className="security-hero">
+          <div className="security-hero__icon" aria-hidden="true">
+            <Security size={28} />
           </div>
 
-          <p style={{ color: "#525252", maxWidth: "32rem", lineHeight: "1.5" }}>
-            To ensure your data remains protected, sensitive actions like changing your password or
-            managing Two-Factor Authentication (2FA) are handled through our centralized identity
-            provider.
+          <div className="security-hero__content">
+            <div className="security-hero__title-row">
+              <h3 className="security-hero__title">Security Settings</h3>
+
+              <Tag size="sm" type="blue">
+                Identity managed
+              </Tag>
+            </div>
+
+            <p className="security-hero__description">
+              Sensitive account actions such as password changes, multi-factor authentication, and
+              account recovery are managed through the MOH centralized identity provider.
+            </p>
+          </div>
+        </div>
+      </Tile>
+
+      <div className="security-grid">
+        <Tile className="security-card">
+          <div className="security-card__heading">
+            <Locked size={20} />
+            <h4>Password & MFA</h4>
+          </div>
+
+          <p className="security-card__text">
+            Update your password, manage multi-factor authentication, and review account-level
+            security options in the secure account portal.
           </p>
-        </Section>
 
-        <hr style={{ border: "none", borderTop: "1px solid #e0e0e0", margin: "0" }} />
+          <div className="security-card__actions">
+            <Button
+              kind="primary"
+              href={keycloakAccountUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              renderIcon={Launch}
+            >
+              Manage Password & MFA
+            </Button>
+          </div>
+        </Tile>
 
-        <Section>
-          <Stack gap={4}>
-            <div>
-              <p style={{ fontWeight: "600", marginBottom: "0.25rem" }}>
-                Account Management Portal
-              </p>
-              <p style={{ fontSize: "0.875rem", color: "#525252" }}>
-                Redirects to the secure MOH Identity Management console.
-              </p>
-            </div>
+        <Tile className="security-card">
+          <div className="security-card__heading">
+            <UserAdmin size={20} />
+            <h4>Account Management Portal</h4>
+          </div>
 
-            <div style={{ marginTop: "0.5rem" }}>
-              <Button
-                kind="tertiary"
-                href={KEYCLOAK_ACCOUNT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                renderIcon={Launch}
-              >
-                Manage Password & MFA
-              </Button>
-            </div>
-          </Stack>
-        </Section>
-      </Stack>
-    </Tile>
+          <p className="security-card__text">
+            You will be redirected to the MOH Identity Management console. Some changes may require
+            you to sign in again.
+          </p>
+
+          <InlineNotification
+            kind="info"
+            lowContrast
+            hideCloseButton
+            title="Secure redirect"
+            subtitle="The account portal opens in a new tab to keep your current session active."
+          />
+        </Tile>
+      </div>
+
+      <Tile className="security-card security-note-card">
+        <div className="security-card__heading">
+          <Security size={20} />
+          <h4>Security Recommendations</h4>
+        </div>
+
+        <ul className="security-list">
+          <li>Use a strong password that is not shared with other systems.</li>
+          <li>Enable multi-factor authentication where available.</li>
+          <li>Review active sessions and end sessions you do not recognize.</li>
+          <li>Report suspicious account activity to system support.</li>
+        </ul>
+      </Tile>
+    </div>
   );
 }

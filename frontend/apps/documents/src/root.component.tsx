@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import DocumentDetailsPage from "./pages/document-management/document-details/document-details.component";
 import DocumentPage from "./pages/document-management/documents.component";
 import FileUpload from "./pages/file-upload/file-upload.component";
+import { MohThemeProvider } from "@moh-sso/ui";
 
 const DEFAULT_FILESVR_BASE = "/portal/apps/dwh/filesvr";
 const DEFAULT_DOCUMENT_UPLOAD_BASE = "/portal/apps/utilities/self-service/eservice/document-upload";
@@ -35,20 +36,22 @@ export function DocumentsRoot(props: MicrofrontendRuntimeProps) {
   const isDocumentUpload = basename.endsWith("/utilities/self-service/eservice/document-upload");
 
   return (
-    <BrowserRouter basename={basename}>
-      <Routes>
-        {!isDocumentUpload ? (
-          <>
-            <Route index element={<FileUpload />} />
-            <Route path=":id" element={<DocumentDetailsPage />} />
-          </>
-        ) : (
-          <>
-            <Route index element={<DocumentPage />} />
-            <Route path=":id" element={<DocumentDetailsPage />} />
-          </>
-        )}
-      </Routes>
-    </BrowserRouter>
+    <MohThemeProvider theme="white">
+      <BrowserRouter basename={basename}>
+        <Routes>
+          {!isDocumentUpload ? (
+            <>
+              <Route index element={<FileUpload />} />
+              <Route path=":id" element={<DocumentDetailsPage />} />
+            </>
+          ) : (
+            <>
+              <Route index element={<DocumentPage />} />
+              <Route path=":id" element={<DocumentDetailsPage />} />
+            </>
+          )}
+        </Routes>
+      </BrowserRouter>
+    </MohThemeProvider>
   );
 }

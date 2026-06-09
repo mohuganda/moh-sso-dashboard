@@ -55,7 +55,16 @@ export const userRoutes = (
       />
 
       <Route path="dashboards" element={userPage(<ComingSoon title="Dashboards" />)} />
-      <Route path="reports" element={userPage(<ComingSoon title="Reports" />)} />
+      <Route
+        path="reports/*"
+        element={userPage(
+          <SingleSpaApp
+            appName="@moh-sso/reports"
+            lifecycles={utilitiesLifecycles}
+            basename="/portal/apps/dwh/reports"
+          />,
+        )}
+      />
       <Route path="exports" element={userPage(<ComingSoon title="Data Exports" />)} />
 
       <Route

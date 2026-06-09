@@ -8,7 +8,10 @@ export { ComingSoon } from "./shared/components/comingsoon/ComingSoon";
 export { BuildMeta } from "./shared/components/footer/BuildMeta";
 export { PublicFooter } from "./shared/components/footer/PublicFooter";
 export { ReusableHeaderPanel } from "./shared/components/header-panel/ReusableHeaderPanel";
-export { HeaderPanelProvider, useHeaderPanel } from "./shared/components/header-panel/header-panel.context";
+export {
+  HeaderPanelProvider,
+  useHeaderPanel,
+} from "./shared/components/header-panel/header-panel.context";
 export { default as PublicHeader } from "./shared/components/header/PublicHeader.component";
 export { default as UserHeader } from "./shared/components/header/UserHeader.component";
 export { ReusableModal } from "./shared/components/modal/ReusableModal";
@@ -20,3 +23,4 @@ export { useToast } from "./shared/components/notifications/toast/useToast";
 export { ClientSideNav } from "./shared/components/sidenav/ClientSideNav";
 export * from "./ui/severity";
 export * from "./ui/status";
+export * from "./theme";

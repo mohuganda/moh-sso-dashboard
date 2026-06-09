@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type Handler struct {
@@ -37,7 +38,7 @@ func (h *Handler) GetUserSessions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, sessions)
+	response.OK(c, http.StatusOK, sessions)
 }
 
 func (h *Handler) LogoutSession(c *gin.Context) {

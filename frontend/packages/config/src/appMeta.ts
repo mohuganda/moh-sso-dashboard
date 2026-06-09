@@ -5,8 +5,9 @@ export const APP_VERSION = import.meta.env.VITE_APP_VERSION || "dev";
 
 export const BUILD_TIME = import.meta.env.VITE_BUILD_TIME || "";
 
+import imagePath from "@/assets/logo.png";
+
 export const BRANDING = {
-  logo: "/logo.png",
+  logo: imagePath,
   title: "Integrated Health Portal",
 };
-

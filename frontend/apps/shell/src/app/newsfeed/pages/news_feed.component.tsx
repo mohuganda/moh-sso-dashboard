@@ -17,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { EmptyState, ErrorState } from "@moh-sso/ui";
 import { useListPublicAnnouncementsQuery } from "@moh-sso/api";
 import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/types";
-import "./news-feed.css";
+import "./news-feed.scss";
 
 const CASE_REPORTING = [
   {

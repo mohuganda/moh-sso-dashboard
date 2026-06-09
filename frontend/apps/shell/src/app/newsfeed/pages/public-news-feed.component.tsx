@@ -1,5 +1,5 @@
 import { useListPublicAnnouncementsQuery } from "@moh-sso/api";
-import NewsFeedView from "./news-feed-view.component";
+import NewsFeedView from "../components/news-feed-view.component";
 
 export default function PublicNewsFeedPage() {
   const queryArgs = { limit: 20, offset: 0 };

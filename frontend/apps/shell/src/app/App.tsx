@@ -1,11 +1,13 @@
-import { ModalProvider } from "@moh-sso/ui";
+import { ModalProvider, MohThemeProvider } from "@moh-sso/ui";
 import AppRouter from "./routes/AppRouter";
 
 function App() {
   return (
-    <ModalProvider>
-      <AppRouter />
-    </ModalProvider>
+    <MohThemeProvider theme="white">
+      <ModalProvider>
+        <AppRouter />
+      </ModalProvider>
+    </MohThemeProvider>
   );
 }
 

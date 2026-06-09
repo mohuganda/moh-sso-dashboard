@@ -2,7 +2,7 @@ import { useMemo, useState, type SyntheticEvent } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
-import "./file-upload.css";
+import "./file-upload.scss";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -27,10 +27,7 @@ import {
   isAcceptedFile,
   validateProcessTypeAgainstFile,
 } from "@moh-sso/utils";
-import {
-  DOCUMENT_PROCESS_TYPE_OPTIONS,
-  type DocumentProcessType,
-} from "@moh-sso/types";
+import { DOCUMENT_PROCESS_TYPE_OPTIONS, type DocumentProcessType } from "@moh-sso/types";
 
 type Row = Record<string, unknown>;
 type FileItemStatus = NonNullable<FileUploaderItemProps["status"]>;
