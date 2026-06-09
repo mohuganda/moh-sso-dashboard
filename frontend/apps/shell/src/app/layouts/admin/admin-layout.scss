@@ -17,22 +17,33 @@
  * ========================= */
 
 .admin-layout__header {
-  z-index: 7000;
+  z-index: var(--moh-z-header, 7000);
 }
 
 .admin-layout__brand {
   height: var(--moh-admin-header-height);
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  min-width: 0;
+}
+
+.admin-layout__brand-logo-button {
+  width: 3rem;
+  height: var(--moh-admin-header-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   padding: 0;
   background: transparent;
-  color: inherit;
   cursor: pointer;
 }
 
-.admin-layout__brand:focus-visible {
+.admin-layout__brand-logo-button:hover {
+  background: var(--cds-background-hover, #353535);
+}
+
+.admin-layout__brand-logo-button:focus-visible {
   outline: 2px solid var(--cds-focus, #0f62fe);
   outline-offset: -2px;
 }
@@ -40,12 +51,13 @@
 .admin-layout__brand-logo {
   width: 2rem;
   height: 2rem;
+  max-width: 2rem;
+  max-height: 2rem;
   object-fit: contain;
-  margin-left: 0.75rem;
+  display: block;
 }
 
-/* Carbon HeaderName inside a button */
-.admin-layout__brand .cds--header__name {
+.admin-layout__brand-name {
   cursor: pointer;
 }
 
@@ -79,11 +91,10 @@
   top: var(--moh-admin-header-height);
   width: var(--moh-admin-sidenav-width);
   height: calc(100vh - var(--moh-admin-header-height));
-  z-index: 6000;
+  z-index: var(--moh-z-sidenav, 6000);
   border-right: 1px solid var(--cds-border-subtle-01, #e0e0e0);
 }
 
-/* Improve selected item visual consistency */
 .admin-layout .cds--side-nav__link[aria-current="page"],
 .admin-layout .cds--side-nav__link--current {
   font-weight: 700;
@@ -107,6 +118,7 @@
   min-width: 0;
   flex: 1;
   padding: 1.5rem;
+  overflow-x: hidden;
   background: var(--cds-background, #ffffff);
 }
 
@@ -127,6 +139,29 @@
 .cds--header-panel.notifications-header-panel {
   right: 0;
   left: auto;
+}
+
+/* =========================
+ * Defensive image constraints
+ * ========================= */
+
+/*
+ * This prevents large decorative images inside admin pages
+ * from overflowing their containers.
+ */
+.admin-layout__content img {
+  max-width: 100%;
+  height: auto;
+}
+
+/*
+ * Use this class on big hero/logo images inside admin pages.
+ */
+.admin-page-image {
+  display: block;
+  max-width: 16rem;
+  max-height: 10rem;
+  object-fit: contain;
 }
 
 /* =========================
@@ -161,11 +196,7 @@ body {
     padding: 1rem;
   }
 
-  .admin-layout__brand-logo {
-    margin-left: 0.5rem;
-  }
-
-  .admin-layout__brand .cds--header__name {
+  .admin-layout__brand-name {
     max-width: 12rem;
   }
 }

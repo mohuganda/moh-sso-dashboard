@@ -1,5 +1,7 @@
 import { useMemo } from "react";
+import type { ComponentType } from "react";
 import {
+  Content,
   Header,
   HeaderGlobalAction,
   HeaderGlobalBar,
@@ -7,18 +9,17 @@ import {
   SideNav,
   SideNavItems,
   SideNavLink,
-  Content,
 } from "@carbon/react";
 import {
-  Notification,
-  Logout,
-  UserAvatarFilled,
-  Dashboard,
-  UserMultiple,
+  Activity,
   Api,
   Bullhorn,
+  Dashboard,
   Email,
-  Activity,
+  Logout,
+  Notification,
+  UserAvatarFilled,
+  UserMultiple,
 } from "@carbon/react/icons";
 import { useSelector } from "react-redux";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -29,20 +30,26 @@ import {
   ToastProvider,
   useHeaderPanel,
 } from "@moh-sso/ui";
-import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
 
-import MohLogo from "@/assets/logo.png";
-import { API } from "@moh-sso/config";
+import { API, BRANDING } from "@moh-sso/config";
 import { useGetNotificationsQuery, useGetUnreadNotificationsCountQuery } from "@moh-sso/api";
 import { selectUser } from "@moh-sso/auth";
 
+import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
+
 import "./admin-layout.scss";
+
+type CarbonIconComponent = ComponentType<{
+  size?: number | string;
+  className?: string;
+  "aria-label"?: string;
+}>;
 
 type AdminNavItem = {
   id: string;
   label: string;
   path: string;
-  icon: React.ElementType;
+  icon: CarbonIconComponent;
   exact?: boolean;
 };
 
@@ -88,7 +95,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 
 function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
   if (item.exact) {
-    return pathname === item.path;
+    return pathname === item.path || pathname === "/admin/home";
   }
 
   return pathname === item.path || pathname.startsWith(`${item.path}/`);
@@ -119,15 +126,16 @@ function HeaderActions() {
   const handleOpenNotifications = () => {
     openPanel({
       title: "Notifications",
-      className: "notifications-header-panel",
       content: (
-        <NotificationsPanel
-          notifications={notifications}
-          isLoading={isLoadingNotifications}
-          onMarkRead={() => {
-            refetch();
-          }}
-        />
+        <div className="notifications-header-panel">
+          <NotificationsPanel
+            notifications={notifications}
+            isLoading={isLoadingNotifications}
+            onMarkRead={() => {
+              refetch();
+            }}
+          />
+        </div>
       ),
     });
   };
@@ -174,7 +182,6 @@ function AdminSideNav() {
     <SideNav isFixedNav expanded aria-label="Admin navigation" className="admin-layout__sidenav">
       <SideNavItems>
         {navItems.map((item) => {
-          const Icon = item.icon;
           const active = isActiveRoute(location.pathname, item);
 
           return (
@@ -182,7 +189,7 @@ function AdminSideNav() {
               key={item.id}
               isActive={active}
               aria-current={active ? "page" : undefined}
-              renderIcon={Icon}
+              renderIcon={item.icon}
               onClick={() => {
                 if (location.pathname !== item.path) {
                   navigate(item.path);
@@ -206,16 +213,29 @@ export default function AdminLayout() {
       <HeaderPanelProvider>
         <div className="admin-layout">
           <Header aria-label="MOH Integrated Health Portal" className="admin-layout__header">
-            <button
-              type="button"
-              className="admin-layout__brand"
-              onClick={() => navigate("/admin")}
-              aria-label="Go to admin home"
-            >
-              <img src={MohLogo} className="admin-layout__brand-logo" alt="" aria-hidden="true" />
+            <div className="admin-layout__brand">
+              <button
+                type="button"
+                className="admin-layout__brand-logo-button"
+                onClick={() => navigate("/admin")}
+                aria-label="Go to admin home"
+              >
+                <img
+                  src={BRANDING.logo}
+                  className="admin-layout__brand-logo"
+                  alt=""
+                  aria-hidden="true"
+                />
+              </button>
 
-              <HeaderName prefix="MOH">Integrated Health Portal</HeaderName>
-            </button>
+              <HeaderName
+                prefix="MOH"
+                onClick={() => navigate("/admin")}
+                className="admin-layout__brand-name"
+              >
+                Integrated Health Portal
+              </HeaderName>
+            </div>
 
             <HeaderActions />
           </Header>
