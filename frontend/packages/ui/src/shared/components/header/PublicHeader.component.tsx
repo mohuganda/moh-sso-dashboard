@@ -9,10 +9,9 @@ import {
 import type React from "react";
 import { useNavigate } from "react-router-dom";
 
-import { API, BRANDING } from "@moh-sso/config";
+import { API } from "@moh-sso/config";
 import "./public-header.css";
-
-import imagePath from "../../../assets/logo.png";
+import imagePath from "@/assets/logo.png";
 
 const PublicHeader: React.FC = () => {
   const navigate = useNavigate();
@@ -26,7 +25,7 @@ const PublicHeader: React.FC = () => {
 
       <img src={imagePath} className={`moh-image-style`} />
       <HeaderName prefix="MOH" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
-        {BRANDING.title}
+        Integrated Health Portal
       </HeaderName>
 
       <HeaderGlobalBar>

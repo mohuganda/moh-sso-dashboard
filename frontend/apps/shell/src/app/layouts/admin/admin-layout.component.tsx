@@ -31,7 +31,7 @@ import {
   useHeaderPanel,
 } from "@moh-sso/ui";
 
-import { API, BRANDING } from "@moh-sso/config";
+import { API } from "@moh-sso/config";
 import { useGetNotificationsQuery, useGetUnreadNotificationsCountQuery } from "@moh-sso/api";
 import { selectUser } from "@moh-sso/auth";
 

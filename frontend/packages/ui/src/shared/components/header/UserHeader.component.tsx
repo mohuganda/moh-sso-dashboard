@@ -12,13 +12,12 @@ import { useNavigate } from "react-router-dom";
 
 import { API } from "@moh-sso/config";
 import { selectUser } from "@moh-sso/auth";
-import { BRANDING } from "@moh-sso/config";
 
 import AppMenuAction from "../../../navigation/appmenu/AppMenu.component";
 import "./public-header.css";
 import { EnvironmentBadge } from "@/env/EnvironmentBadge";
 
-import imagePath from "../../../assets/logo.png";
+import imagePath from "@/assets/logo.png";
 
 const UserHeader: React.FC = () => {
   const navigate = useNavigate();
@@ -33,7 +32,7 @@ const UserHeader: React.FC = () => {
 
       <img src={imagePath} className={`moh-image-style`} />
       <HeaderName prefix="MOH" onClick={() => navigate("/apps")} className="moh-header-name">
-        {BRANDING.title}
+        Integrated Health Portal
       </HeaderName>
 
       <HeaderGlobalBar>
