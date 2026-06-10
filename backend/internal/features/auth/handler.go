@@ -39,7 +39,7 @@ func NewHandler(
 }
 
 // ----------------------------------------------------
-// LOGIN (redirect → Keycloak with PKCE + state)
+// LOGIN (redirect → Keycloak with PKCE)
 // ----------------------------------------------------
 func (h *Handler) HandleAuthLogin(c *gin.Context) {
 	_ = h.auditService.LoginInitiated(
@@ -53,45 +53,25 @@ func (h *Handler) HandleAuthLogin(c *gin.Context) {
 	codeVerifier := utils.GenerateCodeVerifier()
 	codeChallenge := utils.GenerateCodeChallenge(codeVerifier)
 
-	// 🔐 OAuth state protects against CSRF and helps validate callback.
-	state := uuid.NewString()
-
-	cookieSecure := h.isProduction()
-	cookieMaxAge := 300 // 5 minutes
-
 	// Store verifier securely for a short time only.
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "pkce_verifier",
 		Value:    codeVerifier,
 		Path:     "/",
-		MaxAge:   cookieMaxAge,
-		Expires:  time.Now().Add(time.Duration(cookieMaxAge) * time.Second),
+		MaxAge:   300, // 5 minutes
+		Expires:  time.Now().Add(5 * time.Minute),
 		HttpOnly: true,
-		Secure:   cookieSecure,
+		Secure:   h.isProduction(),
 		SameSite: http.SameSiteLaxMode,
 	})
-
-	// Store OAuth state securely for callback validation.
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "oauth_state",
-		Value:    state,
-		Path:     "/",
-		MaxAge:   cookieMaxAge,
-		Expires:  time.Now().Add(time.Duration(cookieMaxAge) * time.Second),
-		HttpOnly: true,
-		Secure:   cookieSecure,
-		SameSite: http.SameSiteLaxMode,
-	})
-
-	keycloakBaseURL := strings.TrimRight(h.config.KeycloakExternalURL, "/")
 
 	authURL, err := url.Parse(
-		keycloakBaseURL +
+		h.config.KeycloakExternalURL +
 			"/realms/" + h.config.KeycloakRealm +
 			"/protocol/openid-connect/auth",
 	)
 	if err != nil {
-		log.Println("[AUTH LOGIN] failed to parse Keycloak URL:", err)
+		log.Println("failed to parse Keycloak URL:", err)
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -99,11 +79,8 @@ func (h *Handler) HandleAuthLogin(c *gin.Context) {
 	q := authURL.Query()
 	q.Set("client_id", h.config.KeycloakWebClientID)
 	q.Set("response_type", "code")
-	q.Set("scope", "openid profile email")
+	q.Set("scope", "openid")
 	q.Set("redirect_uri", h.config.KeycloakRedirectURI)
-
-	// 🔐 OAuth state
-	q.Set("state", state)
 
 	// 🔐 PKCE params
 	q.Set("code_challenge", codeChallenge)
@@ -165,67 +142,19 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 }
 
 // ----------------------------------------------------
-// OIDC CALLBACK (PKCE + state verification)
+// OIDC CALLBACK (PKCE verification)
 // ----------------------------------------------------
 func (h *Handler) HandleAuthCallback(c *gin.Context) {
-	// Keycloak may redirect back with an error instead of code.
-	if kcErr := c.Query("error"); kcErr != "" {
-		h.auditLoginFailure(c)
-
-		log.Printf(
-			"[AUTH CALLBACK] keycloak error: error=%s description=%s ip=%s user_agent=%s",
-			kcErr,
-			c.Query("error_description"),
-			c.ClientIP(),
-			c.Request.UserAgent(),
-		)
-
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":             "keycloak authentication error",
-			"keycloak_error":    kcErr,
-			"error_description": c.Query("error_description"),
-		})
-		return
-	}
-
 	code := c.Query("code")
 	if code == "" {
 		h.auditLoginFailure(c)
-
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "missing authorization code",
 		})
 		return
 	}
 
-	// 🔐 Validate OAuth state.
-	returnedState := c.Query("state")
-	cookieState, err := c.Cookie("oauth_state")
-	if err != nil || cookieState == "" || returnedState == "" || returnedState != cookieState {
-		h.auditLoginFailure(c)
-
-		details := "oauth state mismatch"
-		if err != nil {
-			details = err.Error()
-		}
-
-		log.Printf(
-			"[AUTH CALLBACK] invalid oauth state: returned_state_present=%v cookie_state_present=%v ip=%s user_agent=%s err=%v",
-			returnedState != "",
-			cookieState != "",
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			err,
-		)
-
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid oauth state",
-			"details": details,
-		})
-		return
-	}
-
-	// 🔐 Read PKCE verifier.
+	// 🔐 Read PKCE verifier
 	codeVerifier, err := c.Cookie("pkce_verifier")
 	if err != nil || codeVerifier == "" {
 		h.auditLoginFailure(c)
@@ -234,13 +163,6 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		if err != nil {
 			details = err.Error()
 		}
-
-		log.Printf(
-			"[AUTH CALLBACK] missing pkce verifier: ip=%s user_agent=%s err=%v",
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			err,
-		)
 
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "missing pkce verifier",
@@ -261,19 +183,9 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 
 		h.auditLoginFailure(c)
 
-		log.Printf(
-			"[AUTH CALLBACK] token exchange failed: ip=%s user_agent=%s err=%v",
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			err,
-		)
-
 		c.AbortWithStatusJSON(
-			http.StatusUnauthorized,
-			gin.H{
-				"error":   "authentication failed",
-				"details": err.Error(),
-			},
+			http.StatusInternalServerError,
+			gin.H{"error": "authentication failed", "details": err.Error()},
 		)
 		return
 	}
@@ -281,25 +193,15 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	if tokens == nil || tokens.AccessToken == "" {
 		h.auditLoginFailure(c)
 
-		log.Printf(
-			"[AUTH CALLBACK] empty token response: ip=%s user_agent=%s",
-			c.ClientIP(),
-			c.Request.UserAgent(),
-		)
-
 		c.AbortWithStatusJSON(
-			http.StatusUnauthorized,
-			gin.H{
-				"error":   "authentication failed",
-				"details": "empty access token",
-			},
+			http.StatusInternalServerError,
+			gin.H{"error": "authentication failed", "details": "empty access token"},
 		)
 		return
 	}
 
-	// Clear one-time cookies after successful exchange.
+	// Clear PKCE verifier because it is one-time use.
 	h.clearCookie(c, "pkce_verifier", true)
-	h.clearCookie(c, "oauth_state", true)
 
 	userID := utils.ExtractUserIDFromJWT(tokens.AccessToken)
 
@@ -595,5 +497,4 @@ func (h *Handler) clearAuthCookies(c *gin.Context) {
 	h.clearCookie(c, "refresh_token", true)
 	h.clearCookie(c, "id_token", true)
 	h.clearCookie(c, "pkce_verifier", true)
-	h.clearCookie(c, "oauth_state", true)
 }
