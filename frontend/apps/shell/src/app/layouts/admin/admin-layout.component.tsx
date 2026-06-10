@@ -97,7 +97,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 
 function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
   if (item.exact) {
-    return pathname === item.path || pathname === "/admin/home";
+    return pathname === item.path || pathname === "portal/admin/home";
   }
 
   return pathname === item.path || pathname.startsWith(`${item.path}/`);

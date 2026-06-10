@@ -247,7 +247,7 @@ func setDefaults() {
 	viper.SetDefault("PLATFORM_NAME", "MOH Integrated Health Portal")
 	viper.SetDefault("SYSTEM_ADMIN_NAME", "System Administrator")
 	viper.SetDefault("SYSTEM_ADMIN_EMAIL", "admin@example.com")
-	viper.SetDefault("ADMIN_DASHBOARD_URL", "http://localhost:3000/admin/home")
+	viper.SetDefault("ADMIN_DASHBOARD_URL", "http://localhost:3000/portal/admin/home")
 }
 
 func envBindings() map[string]string {
@@ -453,9 +453,9 @@ func normalizeConfig(c *Config) {
 	}
 	if c.Notification.AdminDashboardURL == "" {
 		if c.FrontendBaseURL != "" {
-			c.Notification.AdminDashboardURL = strings.TrimRight(c.FrontendBaseURL, "/") + "/admin/home"
+			c.Notification.AdminDashboardURL = strings.TrimRight(c.FrontendBaseURL, "/") + "portal/admin/home"
 		} else {
-			c.Notification.AdminDashboardURL = "http://localhost:3000/admin/home"
+			c.Notification.AdminDashboardURL = "http://localhost:3000/portal/admin/home"
 		}
 	}
 }

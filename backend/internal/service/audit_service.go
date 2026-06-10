@@ -597,7 +597,7 @@ func (a *AuditService) adminDashboardURL() string {
 		return strings.TrimSpace(a.cfg.Notification.AdminDashboardURL)
 	}
 
-	return "http://localhost:3000/admin/home"
+	return "http://localhost:3000/portal/admin/home"
 }
 
 //

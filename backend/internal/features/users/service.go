@@ -1067,14 +1067,14 @@ func (s *Service) adminDashboardURL() string {
 		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
 	}
 
-	return "http://localhost:3000/admin/home"
+	return "http://localhost:3000/portal/admin/home"
 }
 
 func (s *Service) adminUsersURL() string {
 	base := strings.TrimRight(s.adminDashboardURL(), "/")
 
-	if strings.HasSuffix(base, "/admin/home") {
-		return strings.TrimSuffix(base, "/admin/home") + "/admin/users"
+	if strings.HasSuffix(base, "portal/admin/home") {
+		return strings.TrimSuffix(base, "portal/admin/home") + "/admin/users"
 	}
 
 	return base + "/users"
