@@ -88,7 +88,7 @@ During Docker builds, `node scripts/use-runtime-config.mjs production` activates
 - `singleSpaOrchestration: true`
 - `microfrontendMountMode: "orchestrated"`
 
-The shell HTML loads `/portal/import-map.json`, and the generated import map points app/package modules to `/portal/mf/*` and `/portal/packages/*`.
+The shell HTML loads `/import-map.json`, and the generated import map points app/package modules to `/mf/*` and `/packages/*`.
 
 The nginx image is still available:
 
@@ -181,15 +181,15 @@ Versioned deployment paths should look like:
 The static server must:
 
 - serve `dist`
-- serve `/portal/*` for the production shell base path
+- serve `/*` for the production shell base path
 - provide SPA fallback to `index.html`
 - serve `/mf/*`
 - serve `/packages/*`
-- serve `/portal/mf/*`
-- serve `/portal/packages/*`
+- serve `/mf/*`
+- serve `/packages/*`
 - serve `/config.js`
-- serve `/portal/config.js`
-- serve `/portal/import-map.json`
+- serve `/config.js`
+- serve `/import-map.json`
 
 Before deploying remote/import-map mode, run:
 

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const basePath = (process.env.FRONTEND_BASE_PATH ?? "/portal").replace(/^\/?/, "/").replace(/\/$/, "");
+const basePath = (process.env.FRONTEND_BASE_PATH ?? "/").replace(/^\/?/, "/").replace(/\/$/, "");
 
 const apps = [
   "announcements",

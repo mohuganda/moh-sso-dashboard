@@ -602,5 +602,5 @@ func (s *Service) adminDashboardURL() string {
 		return strings.TrimSpace(s.cfg.Notification.AdminDashboardURL)
 	}
 
-	return "http://localhost:3000/portal/admin/home"
+	return "http://localhost:3000/admin/home"
 }

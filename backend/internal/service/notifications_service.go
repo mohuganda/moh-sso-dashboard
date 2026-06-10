@@ -26,7 +26,7 @@ const (
 	defaultNotificationTargetRole = "admin"
 
 	fallbackPlatformName      = "MOH Integrated Health Portal"
-	fallbackAdminDashboardURL = "http://localhost:3000/portal/admin/home"
+	fallbackAdminDashboardURL = "http://localhost:3000/admin/home"
 	fallbackSystemAdminName   = "System Administrator"
 	fallbackSystemAdminEmail  = "admin@example.com"
 )

@@ -609,10 +609,10 @@ func (h *Handler) redirectAfterLogin(accessToken string) string {
 	isUser := utils.TokenHasRealmRole(accessToken, "user")
 
 	// IMPORTANT:
-	// FRONTEND_BASE_URL should already include /portal if your app is hosted there.
+	// FRONTEND_BASE_URL should already include / if your app is hosted there.
 	// Example:
-	// FRONTEND_BASE_URL=http://localhost:3000/portal
-	// FRONTEND_BASE_URL=https://dashboards.health.go.ug/portal
+	// FRONTEND_BASE_URL=http://localhost:3000/
+	// FRONTEND_BASE_URL=https://dashboards.health.go.ug/
 	if isAdmin {
 		return baseURL + "/admin/home"
 	}

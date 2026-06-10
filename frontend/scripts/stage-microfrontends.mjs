@@ -21,7 +21,7 @@ const apps = [
 ];
 
 const packages = ["api", "auth", "config", "microfrontend", "state", "types", "ui", "utils"];
-const basePath = (process.env.FRONTEND_BASE_PATH ?? "/portal").replace(/^\/?/, "/").replace(/\/$/, "");
+const basePath = (process.env.FRONTEND_BASE_PATH ?? "/").replace(/^\/?/, "/").replace(/\/$/, "");
 
 function copyRequired(from, to) {
   if (!existsSync(from)) {

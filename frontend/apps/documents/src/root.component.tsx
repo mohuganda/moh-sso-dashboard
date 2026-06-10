@@ -6,8 +6,8 @@ import DocumentPage from "./pages/document-management/documents.component";
 import FileUpload from "./pages/file-upload/file-upload.component";
 import { MohThemeProvider } from "@moh-sso/ui";
 
-const DEFAULT_FILESVR_BASE = "/portal/apps/dwh/filesvr";
-const DEFAULT_DOCUMENT_UPLOAD_BASE = "/portal/apps/utilities/self-service/eservice/document-upload";
+const DEFAULT_FILESVR_BASE = "/apps/dwh/filesvr";
+const DEFAULT_DOCUMENT_UPLOAD_BASE = "/apps/utilities/self-service/eservice/document-upload";
 
 function normalizePath(value?: string) {
   if (!value) return "";

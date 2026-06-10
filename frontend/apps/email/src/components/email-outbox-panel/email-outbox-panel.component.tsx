@@ -34,8 +34,8 @@ type EmailPanelComponentProps = {
 };
 
 const DEFAULT_PLATFORM = "MOH Integrated Health Portal";
-const DEFAULT_DASHBOARD_URL = "http://localhost:3000/portal/admin/home";
-const DEFAULT_LOGIN_URL = "http://localhost:3000/login";
+const DEFAULT_DASHBOARD_URL = "http://localhost:3000/admin/home";
+const DEFAULT_LOGIN_URL = "http://localhost:9000/api/v1/auth/login";
 
 const TEMPLATE_OPTIONS: Array<{ value: DefaultTemplate; label: string }> = [
   { value: "", label: "Choose a template" },

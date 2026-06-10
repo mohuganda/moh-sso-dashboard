@@ -49,7 +49,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/data-visualizer"
             lifecycles={dataVisualizerLifecycles}
-            basename="/portal/apps/dwh/data-visualizer"
+            basename="/apps/dwh/data-visualizer"
           />,
         )}
       />
@@ -61,7 +61,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/reports"
             lifecycles={utilitiesLifecycles}
-            basename="/portal/apps/dwh/reports"
+            basename="/apps/dwh/reports"
           />,
         )}
       />
@@ -73,7 +73,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/documents"
             lifecycles={documentsLifecycles}
-            basename="/portal/apps/dwh/filesvr"
+            basename="/apps/dwh/filesvr"
           />,
         )}
       />
@@ -84,7 +84,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/surveillance"
             lifecycles={surveillanceLifecycles}
-            basename="/portal/apps/dwh/surveillance"
+            basename="/apps/dwh/surveillance"
           />,
         )}
       />
@@ -95,7 +95,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/issue-tracker"
             lifecycles={issueTrackerLifecycles}
-            basename="/portal/apps/dwh/issue-tracker"
+            basename="/apps/dwh/issue-tracker"
           />,
         )}
       />
@@ -110,7 +110,7 @@ export const userRoutes = (
         <SingleSpaApp
           appName="@moh-sso/e-services"
           lifecycles={eServicesLifecycles}
-          basename="/portal/apps/eservices"
+          basename="/apps/eservices"
         />,
       )}
     />
@@ -196,7 +196,7 @@ export const userRoutes = (
             <SingleSpaApp
               appName="@moh-sso/documents"
               lifecycles={documentsLifecycles}
-              basename="/portal/apps/utilities/self-service/eservice/document-upload"
+              basename="/apps/utilities/self-service/eservice/document-upload"
             />,
           )}
         />
@@ -216,7 +216,7 @@ export const userRoutes = (
           <SingleSpaApp
             appName="@moh-sso/utilities"
             lifecycles={utilitiesLifecycles}
-            basename="/portal/apps/utilities/self-service"
+            basename="/apps/utilities/self-service"
           />,
         )}
       />

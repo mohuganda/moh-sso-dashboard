@@ -6,7 +6,7 @@ import { userRoutes } from "./user.routes";
 
 function AppRouter() {
   return (
-    <Router basename="/portal">
+    <Router basename="/">
       <Routes>
         {publicRoutes}
         {userRoutes}

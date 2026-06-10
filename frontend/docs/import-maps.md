@@ -11,14 +11,14 @@ frontend/public/import-map.local.json
 
 `import-map.json` is the production-style map. `import-map.local.json` maps apps to local dev server ports.
 
-Production Docker builds set `FRONTEND_ASSET_BASE_URL=/portal`, so the generated production map points to:
+Production Docker builds set `FRONTEND_ASSET_BASE_URL=/`, so the generated production map points to:
 
 ```text
-/portal/mf/<app>/single-spa.js
-/portal/packages/<package>/index.js
+/mf/<app>/single-spa.js
+/packages/<package>/index.js
 ```
 
-The staging step mirrors the final static artifact under `dist/portal/` so these URLs resolve with the shell's `/portal/` base path.
+The staging step mirrors the final static artifact under `dist/` so these URLs resolve with the shell's `/` base path.
 
 ## Vendor Dependencies
 
@@ -45,7 +45,7 @@ App bundles in the default non-versioned map:
 /mf/<app>/single-spa.js
 ```
 
-In production Docker builds, these become `/portal/mf/<app>/single-spa.js`.
+In production Docker builds, these become `/mf/<app>/single-spa.js`.
 
 The staged app folder also contains related chunks, CSS, route files, and declarations. Remote hosts must serve the whole `/mf/<app>/` folder, not only `single-spa.js`.
 
@@ -55,7 +55,7 @@ Shared packages:
 /packages/<package>/index.js
 ```
 
-In production Docker builds, these become `/portal/packages/<package>/index.js`.
+In production Docker builds, these become `/packages/<package>/index.js`.
 
 The staged package folder may contain CSS or related files. Remote hosts should serve the whole `/packages/<package>/` folder.
 
@@ -132,7 +132,7 @@ The shell `index.html` loads the import map before the shell module. To enable r
 4. Make sure the import map script is present before the shell module:
 
 ```html
-<script type="importmap" src="/portal/import-map.json"></script>
+<script type="importmap" src="/import-map.json"></script>
 ```
 
 Production Docker uses `public/config.production.js`, which sets these runtime flags.
