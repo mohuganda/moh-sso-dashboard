@@ -185,8 +185,6 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	returnedState := c.Query("state")
 	cookieState, err := c.Cookie(cookieOAuthState)
 	if err != nil || cookieState == "" || returnedState == "" || returnedState != cookieState {
-		h.auditLoginFailure(c)
-
 		details := "oauth state mismatch"
 		if err != nil {
 			details = err.Error()
@@ -200,6 +198,16 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			c.Request.UserAgent(),
 			err,
 		)
+
+		// If the user refreshed an already-successful callback URL,
+		// oauth_state may be gone because we cleared it after login.
+		// If auth cookies exist, redirect to the frontend instead of showing JSON.
+		if h.hasAnyAuthCookie(c) {
+			c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+			return
+		}
+
+		h.auditLoginFailure(c)
 
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "invalid oauth state",
@@ -665,6 +673,22 @@ func (h *Handler) isCodeAlreadyUsedError(err error) bool {
 	return strings.Contains(msg, "invalid_grant") ||
 		strings.Contains(msg, "code not valid") ||
 		strings.Contains(msg, "code already used")
+}
+
+func (h *Handler) hasAnyAuthCookie(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+
+	if token, err := c.Cookie(cookieAccessToken); err == nil && token != "" {
+		return true
+	}
+
+	if token, err := c.Cookie(cookieRefreshToken); err == nil && token != "" {
+		return true
+	}
+
+	return false
 }
 
 func (h *Handler) defaultFrontendRedirect() string {
