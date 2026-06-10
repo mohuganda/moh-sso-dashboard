@@ -21,10 +21,10 @@ export type Issue = {
     issue_type: string;
     updated_by: string;
     updated_date: string;
-    priority: string;
-    severity: string;
-    time_period: string;
-    time_Period: string;
+    priority?: string;
+    severity?: string;
+    time_period?: string;
+    time_Period?: string;
 }
 
 const IssueTracker = () => {
@@ -53,7 +53,7 @@ const IssueTracker = () => {
     }, [data, error, isLoading]);
 
     const handleIssueClick = (issue) => {
-        const selectedItem = issues.find(item => item?.issue_id.toString() === issue?.id);
+        const selectedItem = issues?.find(item => item?.issue_id.toString() === issue?.id);
         if (selectedItem) {
             setSelectedIssue(selectedItem);
             setIsViewIssueDetail(true);
@@ -81,7 +81,7 @@ const IssueTracker = () => {
                     </Button>
                 </div>
                 <div className="issue-container">
-                    <DataList columns={headers} data={issues} handleIssueClick={handleIssueClick}/>
+                    <DataList columns={headers} data={issues} handleIssueClick={handleIssueClick} closeView={() => setIsViewIssueDetail(false)}/>
                 </div>
                 {
                     showModal && <IssueModal onClose={close}/>

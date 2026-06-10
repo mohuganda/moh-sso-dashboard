@@ -292,7 +292,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                     id="period-element-combobox"
                     onChange={onChangeSelectedPeriod}
                     items={availablePeriods?.map(item => item?.label)}
-                    titleText="Available Periods"
+                    titleText="Reporting Periods"
                     selectedItem={selectedPeriod}
                 />
             </div>

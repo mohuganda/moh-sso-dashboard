@@ -12,7 +12,7 @@ type ModalMode = 'resolve' | 'close' | 'comment' | null;
 const IssueDetail = ({ selectedIssue:initialIssue, goToBack }: { selectedIssue: Issue, goToBack: () => void }) => {
     const { data: latestIssues } = useGetIssuesQuery();
     const selectedIssue = latestIssues?.data?.find(
-        (issueItem: Issue) => issueItem.issue_code === initialIssue.issue_code
+        (issueItem: Issue) => issueItem?.issue_code === initialIssue?.issue_code
     ) || initialIssue;
     const [comment, setComment] = useState("");
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -89,8 +89,9 @@ const IssueDetail = ({ selectedIssue:initialIssue, goToBack }: { selectedIssue: 
                             <p className="issue-p-top"><strong>Description:</strong></p>
                             <p> {selectedIssue?.issue}</p>
                         </div>
-
-                        <div className="issue-history-container">
+                    </Tile>
+                    <Tile className="issue-tile issue-history-container">
+                        <div>
                             <div className="issue-label">Issue History / Transactions</div>
 
 

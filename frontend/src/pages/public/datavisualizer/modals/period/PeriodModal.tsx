@@ -131,7 +131,7 @@ export default function PeriodModal({ onClose, selected, onSave }) {
       </div>
       <div className="row">
         <div className={`panel-container`}>
-          <Panel heading={`Available Periods`}>
+          <Panel heading={`Reporting Periods`}>
             <ul className={`list`}>
               {availablePeriods.map((period) => (
                   <li

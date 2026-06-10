@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   DataTable,
   Table,
@@ -6,16 +7,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableExpandHeader,
+  TableExpandRow,
+  TableExpandedRow,
 } from "@carbon/react";
+import IssueDetail from "../../../issuetracker/issuedetail/issue-detail.tsx";
 
 interface ListProps {
   columns: any;
   data: any;
+  selectedIssue?: any;
+  closeView: () => void;
   handleIssueClick: (row: any) => void;
 }
 
-const DataList:React.FC<ListProps> = ({ columns, data, handleIssueClick }) => {
-
+const DataList: React.FC<ListProps> = ({ columns, data, handleIssueClick, closeView }) => {
   return (
       <DataTable rows={data} headers={columns}>
         {({
@@ -24,11 +30,12 @@ const DataList:React.FC<ListProps> = ({ columns, data, handleIssueClick }) => {
             getTableProps,
             getHeaderProps,
             getRowProps,
-            getCellProps,
+            getExpandHeaderProps,
           }) => (
             <Table {...getTableProps()}>
               <TableHead>
                 <TableRow>
+                  <TableExpandHeader {...getExpandHeaderProps()} />
                   {headers.map((header) => (
                       <TableHeader {...getHeaderProps({ header })}>
                         {header.header}
@@ -37,26 +44,38 @@ const DataList:React.FC<ListProps> = ({ columns, data, handleIssueClick }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((row) => (
-                    <TableRow {...getRowProps({ row })}>
-                      {row.cells.map((cell) => {
-                        if (cell.info.header === 'issue') {
-                          return (
-                              <TableCell key={cell.id}>
-                                <button
-                                    type="button"
-                                    className="issue-clickable-cell"
-                                    onClick={() => handleIssueClick(row)}
-                                >
-                                  {cell.value}
-                                </button>
-                              </TableCell>
-                          );
-                        }
-                          return <TableCell {...getCellProps({ cell })}>{cell.value}</TableCell>
-                      })}
-                    </TableRow>
-                ))}
+                {rows.map((row) => {
+                  const issue = data.find((item: any) => item.id === row.id);
+                  return (
+                    <React.Fragment key={row.id}>
+                      <TableExpandRow {...getRowProps({ row })}>
+                        {row.cells.map((cell) => {
+                          if (cell.info.header === "issue") {
+                            return (
+                                <TableCell key={cell.id}>
+                                  <button
+                                      type="button"
+                                      className="issue-clickable-cell"
+                                      onClick={() => handleIssueClick(row)}
+                                  >
+                                    {cell.value}
+                                  </button>
+                                </TableCell>
+                            );
+                          }
+                          return <TableCell key={cell.id}>{cell.value}</TableCell>;
+                        })}
+                      </TableExpandRow>
+                      <TableExpandedRow colSpan={headers.length + 1}>
+                        {row.isExpanded && (
+                            <section>
+                              <IssueDetail selectedIssue={issue} goToBack={closeView}/>
+                            </section>
+                        )}
+                      </TableExpandedRow>
+                    </React.Fragment>
+                  )
+                })}
               </TableBody>
             </Table>
         )}
