@@ -57,6 +57,8 @@ func (h *Handler) HandleAuthLogin(c *gin.Context) {
 		h.config.KeycloakWebClientID,
 	)
 
+	// Reuse existing login-flow cookies if present.
+	// This prevents double login redirects from overwriting oauth_state/pkce_verifier.
 	codeVerifier, _ := c.Cookie(cookiePKCEVerifier)
 	state, _ := c.Cookie(cookieOAuthState)
 
@@ -163,11 +165,7 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			c.Request.UserAgent(),
 		)
 
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":             "keycloak authentication error",
-			"keycloak_error":    kcErr,
-			"error_description": c.Query("error_description"),
-		})
+		c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
 		return
 	}
 
@@ -175,9 +173,13 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	if code == "" {
 		h.auditLoginFailure(c)
 
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "missing authorization code",
-		})
+		log.Printf(
+			"[AUTH CALLBACK] missing authorization code: ip=%s user_agent=%s",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+		)
+
+		c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
 		return
 	}
 
@@ -191,52 +193,41 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		}
 
 		log.Printf(
-			"[AUTH CALLBACK] invalid oauth state: returned_state_present=%v cookie_state_present=%v ip=%s user_agent=%s err=%v",
+			"[AUTH CALLBACK] invalid oauth state: returned_state_present=%v cookie_state_present=%v ip=%s user_agent=%s err=%v details=%s",
 			returnedState != "",
 			cookieState != "",
 			c.ClientIP(),
 			c.Request.UserAgent(),
 			err,
+			details,
 		)
 
-		// If the user refreshed an already-successful callback URL,
-		// oauth_state may be gone because we cleared it after login.
-		// If auth cookies exist, redirect to the frontend instead of showing JSON.
-		if h.hasAnyAuthCookie(c) {
-			c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
-			return
-		}
-
-		h.auditLoginFailure(c)
-
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid oauth state",
-			"details": details,
-		})
+		// Stale callback, expired login attempt, refreshed callback URL,
+		// or OAuth cookies cleared by the browser.
+		// Do not notify admins for this normal browser/OAuth behavior.
+		c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
 		return
 	}
 
 	// 🔐 Read PKCE verifier.
 	codeVerifier, err := c.Cookie(cookiePKCEVerifier)
 	if err != nil || codeVerifier == "" {
-		h.auditLoginFailure(c)
-
 		details := "pkce verifier cookie not found"
 		if err != nil {
 			details = err.Error()
 		}
 
 		log.Printf(
-			"[AUTH CALLBACK] missing pkce verifier: ip=%s user_agent=%s err=%v",
+			"[AUTH CALLBACK] missing pkce verifier: ip=%s user_agent=%s err=%v details=%s",
 			c.ClientIP(),
 			c.Request.UserAgent(),
 			err,
+			details,
 		)
 
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   "missing pkce verifier",
-			"details": details,
-		})
+		// Same as state failure: usually stale/expired callback.
+		// Do not notify admins.
+		c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
 		return
 	}
 
@@ -250,18 +241,17 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		)
 
 		// Authorization codes are one-time use.
-		// If the user refreshes the callback URL, Keycloak returns invalid_grant / Code not valid.
-		// In that case, if the user already has a session cookie, redirect them to the frontend.
+		// If the user refreshes the callback URL after a successful exchange,
+		// Keycloak returns invalid_grant / Code not valid.
 		if h.isCodeAlreadyUsedError(err) {
-			if _, cookieErr := c.Cookie(cookieAccessToken); cookieErr == nil {
+			if h.hasAnyAuthCookie(c) {
 				c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
 				return
 			}
 
-			if _, cookieErr := c.Cookie(cookieRefreshToken); cookieErr == nil {
-				c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
-				return
-			}
+			// No session cookies means the user should restart login.
+			c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+			return
 		}
 
 		h.notificationService.NotifyLoginFailed(
@@ -303,9 +293,9 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		return
 	}
 
-	// Clear one-time cookies after successful exchange.
-	h.clearCookie(c, cookiePKCEVerifier, true)
-	h.clearCookie(c, cookieOAuthState, true)
+	// Clear only OAuth one-time cookies after successful exchange.
+	// Do not clear session cookies here.
+	h.clearOAuthCookies(c)
 
 	userID := utils.ExtractUserIDFromJWT(tokens.AccessToken)
 
@@ -331,19 +321,9 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	}
 
 	// ------------------------------------------------------------------
-	// Role-based redirect (authoritative)
+	// Role-based redirect
 	// ------------------------------------------------------------------
-	isAdmin := utils.TokenHasRealmRole(tokens.AccessToken, "admin")
-	isUser := utils.TokenHasRealmRole(tokens.AccessToken, "user")
-
-	baseURL := strings.TrimRight(h.config.FrontendBaseURL, "/")
-
-	redirectURL := baseURL + "/"
-	if isAdmin {
-		redirectURL = baseURL + "/admin/home"
-	} else if isUser {
-		redirectURL = baseURL + "/apps/news"
-	}
+	redirectURL := h.redirectAfterLogin(tokens.AccessToken)
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
@@ -362,6 +342,9 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 			c.Request.UserAgent(),
 		)
 
+		// Missing refresh_token is usually normal:
+		// user not logged in, initial app load, cookies cleared, or public page.
+		// Do not notify admins and do not clear OAuth login-flow cookies.
 		response.Fail(
 			c,
 			http.StatusUnauthorized,
@@ -380,12 +363,6 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 			err,
 		)
 
-		h.notificationService.NotifyTokenRefreshFailed(
-			c.Request.Context(),
-			c.ClientIP(),
-			c.Request.UserAgent(),
-		)
-
 		_ = h.auditService.TokenRefresh(
 			c.Request.Context(),
 			uuid.NullUUID{},
@@ -394,7 +371,10 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 			c.Request.UserAgent(),
 		)
 
-		h.clearAuthCookies(c)
+		// Important:
+		// Refresh failure should clear session cookies only.
+		// Do not clear oauth_state/pkce_verifier because a login flow may be in progress.
+		h.clearSessionCookies(c)
 
 		response.Fail(
 			c,
@@ -408,7 +388,8 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 	if tokens == nil || tokens.AccessToken == "" {
 		log.Printf("[AUTH REFRESH] invalid token response from Keycloak")
 
-		h.clearAuthCookies(c)
+		// Same rule: clear session cookies only.
+		h.clearSessionCookies(c)
 
 		response.Fail(
 			c,
@@ -431,7 +412,6 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 
 	h.setSecureAccessTokenCookie(c, tokens.AccessToken, tokens.ExpiresIn)
 
-	// Important:
 	// With refresh token rotation, Keycloak may return a new refresh token.
 	// Only overwrite the cookie if a new refresh token was actually returned.
 	if tokens.RefreshToken != "" && tokens.RefreshExpiresIn > 0 {
@@ -489,6 +469,7 @@ func (h *Handler) HandleAuthLogout(c *gin.Context) {
 		h.config.FrontendBaseURL,
 	)
 
+	// Logout clears everything.
 	h.clearAuthCookies(c)
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
@@ -543,8 +524,6 @@ func (h *Handler) cookieDomain() string {
 }
 
 func (h *Handler) cookieSameSite() http.SameSite {
-	// Config currently returns "Lax", but we keep this conversion here
-	// so future config changes do not require touching all cookie setters.
 	if h == nil || h.config == nil {
 		return http.SameSiteLaxMode
 	}
@@ -572,6 +551,39 @@ func (h *Handler) cookieSameSiteString() string {
 	default:
 		return "Default"
 	}
+}
+
+func (h *Handler) defaultFrontendRedirect() string {
+	if h == nil || h.config == nil {
+		return "/"
+	}
+
+	baseURL := strings.TrimRight(h.config.FrontendBaseURL, "/")
+	if baseURL == "" {
+		return "/"
+	}
+
+	return baseURL + "/"
+}
+
+func (h *Handler) redirectAfterLogin(accessToken string) string {
+	baseURL := strings.TrimRight(h.config.FrontendBaseURL, "/")
+	if baseURL == "" {
+		return "/"
+	}
+
+	isAdmin := utils.TokenHasRealmRole(accessToken, "admin")
+	isUser := utils.TokenHasRealmRole(accessToken, "user")
+
+	if isAdmin {
+		return baseURL + "/admin/home"
+	}
+
+	if isUser {
+		return baseURL + "/apps/news"
+	}
+
+	return baseURL + "/"
 }
 
 // ----------------------------------------------------
@@ -655,14 +667,25 @@ func (h *Handler) clearCookie(
 	})
 }
 
-func (h *Handler) clearAuthCookies(c *gin.Context) {
+func (h *Handler) clearSessionCookies(c *gin.Context) {
 	h.clearCookie(c, cookieAccessToken, true)
 	h.clearCookie(c, cookieRefreshToken, true)
 	h.clearCookie(c, cookieIDToken, true)
+}
+
+func (h *Handler) clearOAuthCookies(c *gin.Context) {
 	h.clearCookie(c, cookiePKCEVerifier, true)
 	h.clearCookie(c, cookieOAuthState, true)
 }
 
+func (h *Handler) clearAuthCookies(c *gin.Context) {
+	h.clearSessionCookies(c)
+	h.clearOAuthCookies(c)
+}
+
+// ----------------------------------------------------
+// AUTH FLOW HELPERS
+// ----------------------------------------------------
 func (h *Handler) isCodeAlreadyUsedError(err error) bool {
 	if err == nil {
 		return false
@@ -689,17 +712,4 @@ func (h *Handler) hasAnyAuthCookie(c *gin.Context) bool {
 	}
 
 	return false
-}
-
-func (h *Handler) defaultFrontendRedirect() string {
-	if h == nil || h.config == nil {
-		return "/"
-	}
-
-	baseURL := strings.TrimRight(h.config.FrontendBaseURL, "/")
-	if baseURL == "" {
-		return "/"
-	}
-
-	return baseURL + "/"
 }
