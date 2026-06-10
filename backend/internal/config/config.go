@@ -23,6 +23,7 @@ type Config struct {
 	FrontendBaseURL     string `mapstructure:"FRONTEND_BASE_URL"`
 	FrontendRedirectURI string `mapstructure:"FRONTEND_REDIRECT_URI"`
 	LoginURL            string `mapstructure:"LOGIN_URL"`
+	CookieDomain        string `mapstructure:"COOKIE_DOMAIN"`
 
 	// ==================================================
 	// Keycloak (Infrastructure)
@@ -194,6 +195,35 @@ func LoadConfig(path string) (*Config, error) {
 
 func setDefaults() {
 	// ==================================================
+	// Global defaults
+	// ==================================================
+	viper.SetDefault("ENVIRONMENT", "development")
+	viper.SetDefault("GIN_MODE", "debug")
+
+	// ==================================================
+	// Frontend defaults
+	// ==================================================
+	viper.SetDefault("FRONTEND_BASE_URL", "http://localhost:3000")
+	viper.SetDefault("FRONTEND_REDIRECT_URI", "http://localhost:3000")
+	viper.SetDefault("LOGIN_URL", "http://localhost:9000/api/v1/auth/login")
+	viper.SetDefault("COOKIE_DOMAIN", "")
+
+	// ==================================================
+	// Keycloak defaults
+	// ==================================================
+	viper.SetDefault("KEYCLOAK_EXTERNAL_URL", "http://localhost:8081")
+	viper.SetDefault("KEYCLOAK_BASE_URL", "http://keycloak:8080")
+	viper.SetDefault("KEYCLOAK_INTERNAL_URL", "")
+	viper.SetDefault("KEYCLOAK_REALM", "moh-realm")
+	viper.SetDefault("KEYCLOAK_REDIRECT_URI", "http://localhost:9000/api/v1/auth/callback")
+
+	// ==================================================
+	// Backend defaults
+	// ==================================================
+	viper.SetDefault("SERVER_PORT", "9000")
+	viper.SetDefault("APP_BASE_URL", "http://localhost:9000")
+
+	// ==================================================
 	// SMTP defaults for local MailHog
 	// ==================================================
 	viper.SetDefault("SMTP_HOST", "mailhog")
@@ -226,6 +256,7 @@ func envBindings() map[string]string {
 		"GIN_MODE":                     "GIN_MODE",
 		"FRONTEND_BASE_URL":            "FRONTEND_BASE_URL",
 		"FRONTEND_REDIRECT_URI":        "FRONTEND_REDIRECT_URI",
+		"COOKIE_DOMAIN":                "COOKIE_DOMAIN",
 		"LOGIN_URL":                    "LOGIN_URL",
 		"KEYCLOAK_VERSION":             "KEYCLOAK_VERSION",
 		"KEYCLOAK_DB":                  "KEYCLOAK_DB",
@@ -303,26 +334,107 @@ func envBindings() map[string]string {
 }
 
 func normalizeConfig(c *Config) {
-	c.Environment = strings.TrimSpace(c.Environment)
+	// ==================================================
+	// Global
+	// ==================================================
+	c.Environment = normalizeEnvironment(c.Environment)
 	c.GinMode = strings.TrimSpace(c.GinMode)
 
-	c.FrontendBaseURL = strings.TrimRight(strings.TrimSpace(c.FrontendBaseURL), "/")
+	if c.GinMode == "" {
+		if c.IsProduction() {
+			c.GinMode = "release"
+		} else {
+			c.GinMode = "debug"
+		}
+	}
+
+	// ==================================================
+	// Frontend / Auth URLs
+	// ==================================================
+	c.FrontendBaseURL = trimURL(c.FrontendBaseURL)
 	c.FrontendRedirectURI = strings.TrimSpace(c.FrontendRedirectURI)
 	c.LoginURL = strings.TrimSpace(c.LoginURL)
+	c.CookieDomain = normalizeCookieDomain(c.CookieDomain, c.Environment)
 
+	// ==================================================
+	// Keycloak
+	// ==================================================
+	c.KeycloakHostname = normalizeKeycloakHostname(c.KeycloakHostname)
+
+	c.KeycloakInternalURL = trimURL(c.KeycloakInternalURL)
+	c.KeycloakExternalURL = trimURL(c.KeycloakExternalURL)
+	c.KeycloakBaseURL = trimURL(c.KeycloakBaseURL)
+	c.KeycloakRealm = strings.TrimSpace(c.KeycloakRealm)
+
+	if c.KeycloakInternalURL == "" {
+		c.KeycloakInternalURL = c.KeycloakBaseURL
+	}
+
+	if c.KeycloakBaseURL == "" {
+		c.KeycloakBaseURL = c.KeycloakInternalURL
+	}
+
+	c.KeycloakAdminClientID = strings.TrimSpace(c.KeycloakAdminClientID)
+	c.KeycloakAdminClientSecret = strings.TrimSpace(c.KeycloakAdminClientSecret)
+	c.KeycloakWebClientID = strings.TrimSpace(c.KeycloakWebClientID)
+	c.KeycloakWebClientSecret = strings.TrimSpace(c.KeycloakWebClientSecret)
+	c.KeycloakRedirectURI = strings.TrimSpace(c.KeycloakRedirectURI)
+
+	// ==================================================
+	// Backend
+	// ==================================================
 	c.ServerPort = strings.TrimSpace(c.ServerPort)
-	c.AppBaseURL = strings.TrimRight(strings.TrimSpace(c.AppBaseURL), "/")
+	c.AppBaseURL = trimURL(c.AppBaseURL)
 
+	// ==================================================
+	// Database
+	// ==================================================
 	c.DBDriver = strings.TrimSpace(c.DBDriver)
 	c.DBHost = strings.TrimSpace(c.DBHost)
 	c.DBUser = strings.TrimSpace(c.DBUser)
 	c.DBName = strings.TrimSpace(c.DBName)
 	c.DBPort = strings.TrimSpace(c.DBPort)
 
+	// ==================================================
+	// Redis
+	// ==================================================
+	c.RedisHost = strings.TrimSpace(c.RedisHost)
+	c.RedisPort = strings.TrimSpace(c.RedisPort)
+
+	// ==================================================
+	// Storage
+	// ==================================================
 	c.StorageProvider = strings.ToLower(strings.TrimSpace(c.StorageProvider))
 	c.LocalBasePath = strings.TrimSpace(c.LocalBasePath)
 	c.NFSBasePath = strings.TrimSpace(c.NFSBasePath)
 
+	c.S3Bucket = strings.TrimSpace(c.S3Bucket)
+	c.S3Region = strings.TrimSpace(c.S3Region)
+	c.S3AccessKeyID = strings.TrimSpace(c.S3AccessKeyID)
+	c.S3SecretAccessKey = strings.TrimSpace(c.S3SecretAccessKey)
+
+	c.MinioEndpoint = trimURL(c.MinioEndpoint)
+	c.MinioRegion = strings.TrimSpace(c.MinioRegion)
+	c.MinioBucket = strings.TrimSpace(c.MinioBucket)
+	c.MinioAccessKeyID = strings.TrimSpace(c.MinioAccessKeyID)
+	c.MinioSecretAccessKey = strings.TrimSpace(c.MinioSecretAccessKey)
+
+	// ==================================================
+	// Remote DB / DWH
+	// ==================================================
+	c.RemoteDBHost = strings.TrimSpace(c.RemoteDBHost)
+	c.RemoteDBPort = strings.TrimSpace(c.RemoteDBPort)
+	c.RemoteDBUser = strings.TrimSpace(c.RemoteDBUser)
+	c.RemoteDBName = strings.TrimSpace(c.RemoteDBName)
+
+	c.DWHHost = strings.TrimSpace(c.DWHHost)
+	c.DWHPort = strings.TrimSpace(c.DWHPort)
+	c.DWHUsername = strings.TrimSpace(c.DWHUsername)
+	c.DWHDBName = strings.TrimSpace(c.DWHDBName)
+
+	// ==================================================
+	// SMTP / Notifications
+	// ==================================================
 	c.SMTP.Host = strings.TrimSpace(c.SMTP.Host)
 	c.SMTP.Username = strings.TrimSpace(c.SMTP.Username)
 	c.SMTP.FromEmail = strings.TrimSpace(c.SMTP.FromEmail)
@@ -340,13 +452,67 @@ func normalizeConfig(c *Config) {
 		c.Notification.SystemAdminName = "System Administrator"
 	}
 	if c.Notification.AdminDashboardURL == "" {
-		if c.AppBaseURL != "" {
-			c.Notification.AdminDashboardURL = strings.TrimRight(c.AppBaseURL, "/") + "/admin/home"
+		if c.FrontendBaseURL != "" {
+			c.Notification.AdminDashboardURL = strings.TrimRight(c.FrontendBaseURL, "/") + "/admin/home"
 		} else {
 			c.Notification.AdminDashboardURL = "http://localhost:3000/admin/home"
 		}
 	}
 }
+
+// ==================================================
+// Environment helpers
+// ==================================================
+
+func (c *Config) IsProduction() bool {
+	env := normalizeEnvironment(c.Environment)
+
+	return env == "production" || env == "prod"
+}
+
+func (c *Config) IsStaging() bool {
+	env := normalizeEnvironment(c.Environment)
+
+	return env == "staging" || env == "stage"
+}
+
+func (c *Config) IsDevelopment() bool {
+	env := normalizeEnvironment(c.Environment)
+
+	return env == "development" ||
+		env == "dev" ||
+		env == "local" ||
+		env == "test"
+}
+
+func (c *Config) CookieSecure() bool {
+	return c.IsProduction() || c.IsStaging()
+}
+
+func (c *Config) CookieDomainValue() string {
+	return normalizeCookieDomain(c.CookieDomain, c.Environment)
+}
+
+func (c *Config) CookieSameSiteMode() string {
+	// Your current flow uses same-site public domain:
+	// frontend: https://dashboards.health.go.ug
+	// backend:  https://dashboards.health.go.ug/ssobackend
+	//
+	// SameSite=Lax is correct for OAuth top-level navigation callbacks.
+	return "Lax"
+}
+
+func (c *Config) KeycloakTokenBaseURL() string {
+	if strings.TrimSpace(c.KeycloakInternalURL) != "" {
+		return strings.TrimRight(c.KeycloakInternalURL, "/")
+	}
+
+	return strings.TrimRight(c.KeycloakBaseURL, "/")
+}
+
+// ==================================================
+// DSNs
+// ==================================================
 
 func (c *Config) DbSource() string {
 	if c.DBUser == "" {
@@ -417,7 +583,140 @@ func (c *Config) DwhDbSource() string {
 	)
 }
 
+// ==================================================
+// Validation
+// ==================================================
+
 func validateConfig(c *Config) error {
+	if err := validateEnvironment(c); err != nil {
+		return err
+	}
+
+	if err := validateFrontendConfig(c); err != nil {
+		return err
+	}
+
+	if err := validateKeycloakConfig(c); err != nil {
+		return err
+	}
+
+	if err := validateDatabaseConfig(c); err != nil {
+		return err
+	}
+
+	if err := validateStorageConfig(c); err != nil {
+		return err
+	}
+
+	if err := validateSMTPConfig(c); err != nil {
+		return err
+	}
+
+	if err := validateRetryConfig(c); err != nil {
+		return err
+	}
+
+	if err := validateNotificationConfig(c); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateEnvironment(c *Config) error {
+	if strings.TrimSpace(c.Environment) == "" {
+		return errors.New("ENVIRONMENT is required")
+	}
+
+	switch normalizeEnvironment(c.Environment) {
+	case "development", "dev", "local", "test", "staging", "stage", "production", "prod":
+		return nil
+	default:
+		return fmt.Errorf("unsupported ENVIRONMENT: %s", c.Environment)
+	}
+}
+
+func validateFrontendConfig(c *Config) error {
+	if strings.TrimSpace(c.FrontendBaseURL) == "" {
+		return errors.New("FRONTEND_BASE_URL is required")
+	}
+
+	if err := validateHTTPURL("FRONTEND_BASE_URL", c.FrontendBaseURL); err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(c.LoginURL) != "" {
+		if err := validateHTTPURL("LOGIN_URL", c.LoginURL); err != nil {
+			return err
+		}
+	}
+
+	if strings.TrimSpace(c.FrontendRedirectURI) != "" {
+		if err := validateHTTPURL("FRONTEND_REDIRECT_URI", c.FrontendRedirectURI); err != nil {
+			return err
+		}
+	}
+
+	if c.IsProduction() {
+		if !strings.HasPrefix(c.FrontendBaseURL, "https://") {
+			return errors.New("FRONTEND_BASE_URL must use https:// in production")
+		}
+		if strings.TrimSpace(c.LoginURL) != "" && !strings.HasPrefix(c.LoginURL, "https://") {
+			return errors.New("LOGIN_URL must use https:// in production")
+		}
+	}
+
+	return nil
+}
+
+func validateKeycloakConfig(c *Config) error {
+	if strings.TrimSpace(c.KeycloakExternalURL) == "" {
+		return errors.New("KEYCLOAK_EXTERNAL_URL is required")
+	}
+	if err := validateHTTPURL("KEYCLOAK_EXTERNAL_URL", c.KeycloakExternalURL); err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(c.KeycloakTokenBaseURL()) == "" {
+		return errors.New("KEYCLOAK_BASE_URL or KEYCLOAK_INTERNAL_URL is required")
+	}
+	if err := validateHTTPURL("KEYCLOAK_BASE_URL/KEYCLOAK_INTERNAL_URL", c.KeycloakTokenBaseURL()); err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(c.KeycloakRealm) == "" {
+		return errors.New("KEYCLOAK_REALM is required")
+	}
+
+	if strings.TrimSpace(c.KeycloakAdminClientID) == "" {
+		return errors.New("KEYCLOAK_ADMIN_CLIENT_ID is required")
+	}
+
+	if strings.TrimSpace(c.KeycloakWebClientID) == "" {
+		return errors.New("KEYCLOAK_WEB_CLIENT_ID is required")
+	}
+
+	if strings.TrimSpace(c.KeycloakRedirectURI) == "" {
+		return errors.New("KEYCLOAK_REDIRECT_URI is required")
+	}
+
+	if err := validateHTTPURL("KEYCLOAK_REDIRECT_URI", c.KeycloakRedirectURI); err != nil {
+		return err
+	}
+
+	if c.IsProduction() {
+		if !strings.HasPrefix(c.KeycloakExternalURL, "https://") {
+			return errors.New("KEYCLOAK_EXTERNAL_URL must use https:// in production")
+		}
+		if !strings.HasPrefix(c.KeycloakRedirectURI, "https://") {
+			return errors.New("KEYCLOAK_REDIRECT_URI must use https:// in production")
+		}
+	}
+
+	return nil
+}
+
+func validateDatabaseConfig(c *Config) error {
 	if strings.TrimSpace(c.DBUser) == "" {
 		return errors.New("DB_USER is required")
 	}
@@ -427,54 +726,76 @@ func validateConfig(c *Config) error {
 	if strings.TrimSpace(c.DBHost) == "" {
 		return errors.New("DB_HOST is required")
 	}
-
-	if c.StorageProvider != "" {
-		switch c.StorageProvider {
-		case "local":
-			if strings.TrimSpace(c.LocalBasePath) == "" {
-				return errors.New("LOCAL_BASE_PATH is required when STORAGE_PROVIDER=local")
-			}
-			if strings.TrimSpace(c.AppBaseURL) == "" {
-				return errors.New("APP_BASE_URL is required when STORAGE_PROVIDER=local")
-			}
-		case "nfs":
-			if strings.TrimSpace(c.NFSBasePath) == "" {
-				return errors.New("NFS_BASE_PATH is required when STORAGE_PROVIDER=nfs")
-			}
-			if strings.TrimSpace(c.AppBaseURL) == "" {
-				return errors.New("APP_BASE_URL is required when STORAGE_PROVIDER=nfs")
-			}
-		case "s3":
-			if strings.TrimSpace(c.S3Bucket) == "" {
-				return errors.New("S3_BUCKET is required when STORAGE_PROVIDER=s3")
-			}
-			if strings.TrimSpace(c.S3Region) == "" {
-				return errors.New("S3_REGION is required when STORAGE_PROVIDER=s3")
-			}
-		case "minio":
-			if strings.TrimSpace(c.MinioEndpoint) == "" {
-				return errors.New("MINIO_ENDPOINT is required when STORAGE_PROVIDER=minio")
-			}
-			if strings.TrimSpace(c.MinioBucket) == "" {
-				return errors.New("MINIO_BUCKET is required when STORAGE_PROVIDER=minio")
-			}
-		default:
-			return fmt.Errorf("unsupported STORAGE_PROVIDER: %s", c.StorageProvider)
-		}
+	if strings.TrimSpace(c.DBName) == "" {
+		return errors.New("DB_NAME is required")
+	}
+	if strings.TrimSpace(c.DBPort) == "" {
+		return errors.New("DB_PORT is required")
 	}
 
-	if c.SMTP.Host != "" {
-		if c.SMTP.Port <= 0 {
-			return errors.New("SMTP_PORT must be greater than 0")
-		}
-		if strings.TrimSpace(c.SMTP.FromEmail) == "" {
-			return errors.New("SMTP_FROM_EMAIL is required when SMTP is enabled")
-		}
-		if strings.TrimSpace(c.SMTP.FromName) == "" {
-			return errors.New("SMTP_FROM_NAME is required when SMTP is enabled")
-		}
+	return nil
+}
+
+func validateStorageConfig(c *Config) error {
+	if c.StorageProvider == "" {
+		return nil
 	}
 
+	switch c.StorageProvider {
+	case "local":
+		if strings.TrimSpace(c.LocalBasePath) == "" {
+			return errors.New("LOCAL_BASE_PATH is required when STORAGE_PROVIDER=local")
+		}
+		if strings.TrimSpace(c.AppBaseURL) == "" {
+			return errors.New("APP_BASE_URL is required when STORAGE_PROVIDER=local")
+		}
+	case "nfs":
+		if strings.TrimSpace(c.NFSBasePath) == "" {
+			return errors.New("NFS_BASE_PATH is required when STORAGE_PROVIDER=nfs")
+		}
+		if strings.TrimSpace(c.AppBaseURL) == "" {
+			return errors.New("APP_BASE_URL is required when STORAGE_PROVIDER=nfs")
+		}
+	case "s3":
+		if strings.TrimSpace(c.S3Bucket) == "" {
+			return errors.New("S3_BUCKET is required when STORAGE_PROVIDER=s3")
+		}
+		if strings.TrimSpace(c.S3Region) == "" {
+			return errors.New("S3_REGION is required when STORAGE_PROVIDER=s3")
+		}
+	case "minio":
+		if strings.TrimSpace(c.MinioEndpoint) == "" {
+			return errors.New("MINIO_ENDPOINT is required when STORAGE_PROVIDER=minio")
+		}
+		if strings.TrimSpace(c.MinioBucket) == "" {
+			return errors.New("MINIO_BUCKET is required when STORAGE_PROVIDER=minio")
+		}
+	default:
+		return fmt.Errorf("unsupported STORAGE_PROVIDER: %s", c.StorageProvider)
+	}
+
+	return nil
+}
+
+func validateSMTPConfig(c *Config) error {
+	if c.SMTP.Host == "" {
+		return nil
+	}
+
+	if c.SMTP.Port <= 0 {
+		return errors.New("SMTP_PORT must be greater than 0")
+	}
+	if strings.TrimSpace(c.SMTP.FromEmail) == "" {
+		return errors.New("SMTP_FROM_EMAIL is required when SMTP is enabled")
+	}
+	if strings.TrimSpace(c.SMTP.FromName) == "" {
+		return errors.New("SMTP_FROM_NAME is required when SMTP is enabled")
+	}
+
+	return nil
+}
+
+func validateRetryConfig(c *Config) error {
 	if c.Retry.MaxAttempts < 0 {
 		return errors.New("RETRY_MAX_ATTEMPTS cannot be negative")
 	}
@@ -482,6 +803,10 @@ func validateConfig(c *Config) error {
 		return errors.New("RETRY_BASE_DELAY cannot be negative")
 	}
 
+	return nil
+}
+
+func validateNotificationConfig(c *Config) error {
 	if strings.TrimSpace(c.Notification.PlatformName) == "" {
 		return errors.New("PLATFORM_NAME is required")
 	}
@@ -493,6 +818,88 @@ func validateConfig(c *Config) error {
 	}
 	if strings.TrimSpace(c.Notification.AdminDashboardURL) == "" {
 		return errors.New("ADMIN_DASHBOARD_URL is required")
+	}
+
+	return nil
+}
+
+// ==================================================
+// Normalization helpers
+// ==================================================
+
+func normalizeEnvironment(env string) string {
+	env = strings.ToLower(strings.TrimSpace(env))
+
+	if env == "" {
+		return "development"
+	}
+
+	return env
+}
+
+func trimURL(value string) string {
+	return strings.TrimRight(strings.TrimSpace(value), "/")
+}
+
+func normalizeCookieDomain(domain string, environment string) string {
+	domain = strings.TrimSpace(domain)
+
+	if domain == "" {
+		return ""
+	}
+
+	domain = strings.TrimPrefix(domain, "https://")
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimRight(domain, "/")
+
+	env := normalizeEnvironment(environment)
+
+	// Never set Domain=localhost.
+	// Host-only cookies work better for localhost.
+	if env == "development" || env == "dev" || env == "local" || env == "test" {
+		if domain == "localhost" ||
+			strings.HasPrefix(domain, "localhost:") ||
+			domain == "127.0.0.1" ||
+			strings.HasPrefix(domain, "127.0.0.1:") ||
+			domain == "::1" {
+			return ""
+		}
+	}
+
+	return domain
+}
+
+func normalizeKeycloakHostname(hostname string) string {
+	hostname = strings.TrimSpace(hostname)
+
+	if hostname == "" {
+		return ""
+	}
+
+	hostname = strings.TrimPrefix(hostname, "https://")
+	hostname = strings.TrimPrefix(hostname, "http://")
+	hostname = strings.TrimRight(hostname, "/")
+
+	return hostname
+}
+
+func validateHTTPURL(name string, raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fmt.Errorf("%s is required", name)
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("%s is invalid: %w", name, err)
+	}
+
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("%s must start with http:// or https://", name)
+	}
+
+	if parsed.Host == "" {
+		return fmt.Errorf("%s must include a host", name)
 	}
 
 	return nil
