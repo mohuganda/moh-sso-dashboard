@@ -1,5 +1,5 @@
-import {Breadcrumb, BreadcrumbItem, Button, Modal, TextArea, Tile} from "@carbon/react";
-import {Link as RouterLink} from "react-router";
+import {Button, Modal, TextArea, Tile} from "@carbon/react";
+import {ArrowLeft} from "@carbon/react/icons";
 import "./issue-detail.scss";
 import {useState} from "react";
 import {useCreateTransactionMutation, useGetIssuesQuery, useGetTransactionsQuery} from "../Modals/issue-modal.ts";
@@ -9,7 +9,7 @@ import type {Issue} from "../issue-tracker.tsx";
 import {IssueModal} from "../Modals/issue-modal.tsx";
 type ModalMode = 'resolve' | 'close' | 'comment' | null;
 
-const IssueDetail = ({ selectedIssue:initialIssue, goToBack }: { selectedIssue: Issue, goToBack: () => void }) => {
+const IssueDetail = ({ selectedIssue:initialIssue, goToBack, showBack = true }: { selectedIssue: Issue, goToBack: () => void, showBack?: boolean }) => {
     const { data: latestIssues } = useGetIssuesQuery();
     const selectedIssue = latestIssues?.data?.find(
         (issueItem: Issue) => issueItem?.issue_code === initialIssue?.issue_code
@@ -56,17 +56,18 @@ const IssueDetail = ({ selectedIssue:initialIssue, goToBack }: { selectedIssue: 
     };
     return (
         <>
-            <div style={{ marginBottom: "1rem" }}>
-                <Breadcrumb noTrailingSlash>
-                    <BreadcrumbItem>
-                        <RouterLink to="/">Home</RouterLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbItem>
-                        <Button size="md" onClick={goToBack} kind="ghost"> Issues </Button>
-                    </BreadcrumbItem>
-                    <BreadcrumbItem isCurrentPage>Details</BreadcrumbItem>
-                </Breadcrumb>
-            </div>
+            {showBack && (
+                <div style={{ marginBottom: "1rem" }}>
+                    <Button
+                        kind="tertiary"
+                        size="lg"
+                        renderIcon={ArrowLeft}
+                        onClick={goToBack}
+                    >
+                        Back to Issues
+                    </Button>
+                </div>
+            )}
             <div className="issue-detail-container">
                 <div style={{ width: '65%' }}>
                     <Tile className="issue-tile">

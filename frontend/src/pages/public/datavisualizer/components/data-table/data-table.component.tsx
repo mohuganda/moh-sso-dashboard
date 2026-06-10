@@ -69,7 +69,7 @@ const DataList: React.FC<ListProps> = ({ columns, data, handleIssueClick, closeV
                       <TableExpandedRow colSpan={headers.length + 1}>
                         {row.isExpanded && (
                             <section>
-                              <IssueDetail selectedIssue={issue} goToBack={closeView}/>
+                              <IssueDetail selectedIssue={issue} goToBack={closeView} showBack={false}/>
                             </section>
                         )}
                       </TableExpandedRow>
