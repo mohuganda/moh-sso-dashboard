@@ -57,16 +57,18 @@ func (h *Handler) HandleAuthLogin(c *gin.Context) {
 		h.config.KeycloakWebClientID,
 	)
 
-	// 🔐 PKCE
-	codeVerifier := utils.GenerateCodeVerifier()
+	codeVerifier, _ := c.Cookie(cookiePKCEVerifier)
+	state, _ := c.Cookie(cookieOAuthState)
+
+	if codeVerifier == "" || state == "" {
+		codeVerifier = utils.GenerateCodeVerifier()
+		state = uuid.NewString()
+
+		h.setCookie(c, cookiePKCEVerifier, codeVerifier, 300, true)
+		h.setCookie(c, cookieOAuthState, state, 300, true)
+	}
+
 	codeChallenge := utils.GenerateCodeChallenge(codeVerifier)
-
-	// 🔐 OAuth state protects callback from CSRF.
-	state := uuid.NewString()
-
-	// Store verifier and state securely for a short time only.
-	h.setCookie(c, cookiePKCEVerifier, codeVerifier, 300, true)
-	h.setCookie(c, cookieOAuthState, state, 300, true)
 
 	keycloakBaseURL := strings.TrimRight(h.config.KeycloakExternalURL, "/")
 
@@ -86,11 +88,7 @@ func (h *Handler) HandleAuthLogin(c *gin.Context) {
 	q.Set("response_type", "code")
 	q.Set("scope", "openid profile email")
 	q.Set("redirect_uri", h.config.KeycloakRedirectURI)
-
-	// 🔐 OAuth state
 	q.Set("state", state)
-
-	// 🔐 PKCE params
 	q.Set("code_challenge", codeChallenge)
 	q.Set("code_challenge_method", "S256")
 
