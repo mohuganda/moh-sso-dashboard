@@ -236,6 +236,28 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 
 	tokens, err := h.authService.ProcessAuthCode(code, codeVerifier)
 	if err != nil {
+		log.Printf(
+			"[AUTH CALLBACK] token exchange failed: ip=%s user_agent=%s err=%v",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			err,
+		)
+
+		// Authorization codes are one-time use.
+		// If the user refreshes the callback URL, Keycloak returns invalid_grant / Code not valid.
+		// In that case, if the user already has a session cookie, redirect them to the frontend.
+		if h.isCodeAlreadyUsedError(err) {
+			if _, cookieErr := c.Cookie(cookieAccessToken); cookieErr == nil {
+				c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+				return
+			}
+
+			if _, cookieErr := c.Cookie(cookieRefreshToken); cookieErr == nil {
+				c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+				return
+			}
+		}
+
 		h.notificationService.NotifyLoginFailed(
 			c.Request.Context(),
 			h.config.KeycloakWebClientID,
@@ -245,13 +267,6 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		)
 
 		h.auditLoginFailure(c)
-
-		log.Printf(
-			"[AUTH CALLBACK] token exchange failed: ip=%s user_agent=%s err=%v",
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			err,
-		)
 
 		c.AbortWithStatusJSON(
 			http.StatusUnauthorized,
@@ -640,4 +655,29 @@ func (h *Handler) clearAuthCookies(c *gin.Context) {
 	h.clearCookie(c, cookieIDToken, true)
 	h.clearCookie(c, cookiePKCEVerifier, true)
 	h.clearCookie(c, cookieOAuthState, true)
+}
+
+func (h *Handler) isCodeAlreadyUsedError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+
+	return strings.Contains(msg, "invalid_grant") ||
+		strings.Contains(msg, "code not valid") ||
+		strings.Contains(msg, "code already used")
+}
+
+func (h *Handler) defaultFrontendRedirect() string {
+	if h == nil || h.config == nil {
+		return "/"
+	}
+
+	baseURL := strings.TrimRight(h.config.FrontendBaseURL, "/")
+	if baseURL == "" {
+		return "/"
+	}
+
+	return baseURL + "/"
 }

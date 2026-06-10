@@ -1,6 +1,7 @@
 package router
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/api/handler"
 	"github.com/moh-sso-dashboard/internal/api/routes"
+	"github.com/moh-sso-dashboard/internal/config"
 	adminunitsfeature "github.com/moh-sso-dashboard/internal/features/admin_units"
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
 	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
@@ -32,6 +34,7 @@ import (
 )
 
 type RouterDependencies struct {
+	Config         *config.Config
 	KeycloakClient *keycloak.Client
 	Limiter        *ratelimit.Limiter
 	AuditService   *service.AuditService
@@ -76,7 +79,7 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-	r.Use(cors.New(corsConfig()))
+	r.Use(cors.New(corsConfig(deps.Config)))
 
 	routeDeps := routes.Dependencies{
 		Limiter:                       deps.Limiter,
@@ -115,7 +118,12 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 	protected.Use(middleware.ExtractAuthContext(deps.KeycloakClient))
 	protected.Use(middleware.RequireAuth())
 	protected.Use(middleware.AuditMiddleware(deps.AuditService))
-	protected.Use(ratelimit.Middleware(deps.Limiter, ratelimit.ByUser, routeDeps.AuthenticatedRateLimitPerMin, time.Minute))
+	protected.Use(ratelimit.Middleware(
+		deps.Limiter,
+		ratelimit.ByUser,
+		routeDeps.AuthenticatedRateLimitPerMin,
+		time.Minute,
+	))
 
 	routes.RegisterProtectedRoutes(protected, routeDeps)
 	routes.RegisterAdminRoutes(protected, routeDeps)
@@ -152,18 +160,18 @@ func (limits RateLimits) withDefaults() RateLimits {
 	return limits
 }
 
-func corsConfig() cors.Config {
+func corsConfig(cfg *config.Config) cors.Config {
+	origins := buildAllowedOrigins(cfg)
+
 	return cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:3000",
-		},
+		AllowOrigins: origins,
 		AllowMethods: []string{
-			"GET",
-			"POST",
-			"PUT",
-			"PATCH",
-			"DELETE",
-			"OPTIONS",
+			httpMethodGet,
+			httpMethodPost,
+			httpMethodPut,
+			httpMethodPatch,
+			httpMethodDelete,
+			httpMethodOptions,
 		},
 		AllowHeaders: []string{
 			"Origin",
@@ -171,11 +179,61 @@ func corsConfig() cors.Config {
 			"Accept",
 			"Authorization",
 			"X-Requested-With",
+			"X-CSRF-Token",
+			"Cache-Control",
+			"Pragma",
 		},
 		ExposeHeaders: []string{
 			"Content-Length",
+			"Content-Type",
 		},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}
 }
+
+func buildAllowedOrigins(cfg *config.Config) []string {
+	seen := map[string]bool{}
+	origins := make([]string, 0)
+
+	add := func(origin string) {
+		origin = strings.TrimRight(strings.TrimSpace(origin), "/")
+		if origin == "" {
+			return
+		}
+
+		if seen[origin] {
+			return
+		}
+
+		seen[origin] = true
+		origins = append(origins, origin)
+	}
+
+	// Safe local development origins.
+	add("http://localhost:3000")
+	add("http://localhost:5173")
+	add("http://127.0.0.1:3000")
+	add("http://127.0.0.1:5173")
+
+	if cfg != nil {
+		add(cfg.FrontendBaseURL)
+		add(cfg.FrontendRedirectURI)
+
+		// Your production frontend.
+		if cfg.IsProduction() || cfg.IsStaging() {
+			add("https://dashboards.health.go.ug")
+		}
+	}
+
+	return origins
+}
+
+const (
+	httpMethodGet     = "GET"
+	httpMethodPost    = "POST"
+	httpMethodPut     = "PUT"
+	httpMethodPatch   = "PATCH"
+	httpMethodDelete  = "DELETE"
+	httpMethodOptions = "OPTIONS"
+)
