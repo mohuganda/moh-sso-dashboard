@@ -22,8 +22,12 @@ func runHTTPServer(
 	notifications service.NotificationsService,
 	handler *gin.Engine,
 ) {
+	addr := "0.0.0.0:" + cfg.ServerPort
+
 	server := &http.Server{
-		Addr:              ":" + cfg.ServerPort,
+		// 0.0.0.0 makes the server listen on all network interfaces.
+		// This is required inside Docker so Nginx/host/other containers can reach it.
+		Addr:              addr,
 		Handler:           handler,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
@@ -33,7 +37,7 @@ func runHTTPServer(
 	}
 
 	go func() {
-		appLogger.Info("Server listening on :" + cfg.ServerPort)
+		appLogger.Info("Server listening on " + addr)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			appLogger.Fatal("Server failed: ", err)
