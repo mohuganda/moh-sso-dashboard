@@ -93,7 +93,7 @@ The shell HTML loads `/import-map.json`, and the generated import map points app
 The nginx image is still available:
 
 ```bash
-docker build -f frontend/Dockerfile-nginx frontend
+docker build -f frontend/Dockerfile.nginx frontend
 ```
 
 It serves on port `80`, so compose or Kubernetes service ports must match that image.

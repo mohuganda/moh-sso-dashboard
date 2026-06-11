@@ -113,7 +113,7 @@ More detail: [docs/versioning.md](docs/versioning.md).
 From the repository root:
 
 ```bash
-docker build -f frontend/Dockerfile-nginx frontend
+docker build -f frontend/Dockerfile.nginx frontend
 docker build -f frontend/Dockerfile.dev frontend
 ```
 

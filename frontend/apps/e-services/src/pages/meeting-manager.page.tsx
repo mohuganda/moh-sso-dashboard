@@ -7,17 +7,13 @@ export default function MeetingManagerPage() {
       title="Meeting Manager"
       description="Plan meetings, manage agendas, track attendance, and document meeting resolutions."
       actionLabel="Create meeting"
-      onActionClick={() => {
-        console.log("Create meeting");
-      }}
+      onActionClick={() => undefined}
     >
       <EserviceEmptyState
         title="No meetings available"
         description="Create and manage meetings for departments, programs, partners, and internal coordination."
         actionLabel="Create first meeting"
-        onActionClick={() => {
-          console.log("Create first meeting");
-        }}
+        onActionClick={() => undefined}
       />
     </EservicePageShell>
   );

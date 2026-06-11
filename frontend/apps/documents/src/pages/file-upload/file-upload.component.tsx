@@ -1,11 +1,8 @@
 import { useMemo, useState, type SyntheticEvent } from "react";
-import { Link as RouterLink } from "react-router-dom";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import "./file-upload.scss";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
   Button,
   FileUploaderDropContainer,
   FileUploaderItem,

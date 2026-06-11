@@ -7,17 +7,13 @@ export default function BudgetTrackerPage() {
       title="Budget Tracker"
       description="Track budgets, allocations, expenditure, balances, and financial performance by activity or program."
       actionLabel="Add budget item"
-      onActionClick={() => {
-        console.log("Add budget item");
-      }}
+      onActionClick={() => undefined}
     >
       <EserviceEmptyState
         title="No budget records found"
         description="Budget allocations, expenditure summaries, and financial tracking records will appear here."
         actionLabel="Add budget item"
-        onActionClick={() => {
-          console.log("Add budget item");
-        }}
+        onActionClick={() => undefined}
       />
     </EservicePageShell>
   );

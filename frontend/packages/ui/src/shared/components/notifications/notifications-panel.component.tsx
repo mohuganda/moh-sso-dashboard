@@ -1,4 +1,4 @@
-import { Button, SkeletonText, Stack, Tag } from "@carbon/react";
+import { Button, SkeletonText, Tag } from "@carbon/react";
 import { Checkmark, Information, Time } from "@carbon/react/icons";
 
 import type { Notification } from "@moh-sso/types";

@@ -115,7 +115,7 @@ function ProfileLoadingState() {
 export default function MyProfilePage() {
   const sessionsRef = useRef<HTMLDivElement | null>(null);
 
-  const { data: user, isLoading, isFetching, isError, refetch } = useMeQuery();
+  const { data: user, isLoading, isFetching, isError } = useMeQuery();
 
   const [updateProfile, { isLoading: isSaving }] = useUpdateProfileMutation();
 

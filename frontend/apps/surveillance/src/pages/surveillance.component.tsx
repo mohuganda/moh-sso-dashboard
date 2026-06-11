@@ -1,7 +1,6 @@
-import { Breadcrumb, BreadcrumbItem, Button, InlineLoading } from "@carbon/react";
+import { InlineLoading } from "@carbon/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload } from "@carbon/react/icons";
 import type { Feature, FeatureCollection, GeoJsonProperties, Geometry } from "geojson";
 
 import SurveillanceFilters from "./surveillance-filters.component";
@@ -22,8 +21,6 @@ import {
   useListWeeklyStatusesQuery,
   useGetGeoJsonQuery,
 } from "@moh-sso/api";
-import { useHeaderPanel } from "@moh-sso/ui";
-import { UploadCSVModal } from "./surveillance-csv-upload.component";
 
 type FilterOption = {
   value: string;

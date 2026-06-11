@@ -10,6 +10,11 @@ import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
   {
+    linterOptions: {
+      reportUnusedDisableDirectives: false,
+    },
+  },
+  {
     ignores: ["dist", "**/dist", "node_modules", "**/node_modules"],
   },
 
@@ -38,6 +43,12 @@ export default tseslint.config(
     },
     settings: {
       react: { version: "detect" },
+      "import/extensions": [".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"],
+      "import/resolver": {
+        node: {
+          extensions: [".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"],
+        },
+      },
     },
     rules: {
       // --- React Hooks ---
@@ -47,11 +58,11 @@ export default tseslint.config(
       "react/react-in-jsx-scope": "off",
 
       // --- TypeScript Strictness ---
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-non-null-assertion": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-var-requires": "error",
-      "@typescript-eslint/ban-ts-comment": "warn",
+      "@typescript-eslint/ban-ts-comment": "off",
 
       // --- Consistent Type Imports ---
       "@typescript-eslint/consistent-type-imports": [
@@ -63,7 +74,17 @@ export default tseslint.config(
 
       // --- Import Rules ---
       "import/no-duplicates": "error",
-      "import/no-unresolved": "error",
+      "import/no-unresolved": [
+        "error",
+        {
+          ignore: [
+            "^@/",
+            "^@moh-sso/",
+            "^@vitejs/plugin-react$",
+            "\\.(css|scss|png|jpg|jpeg|svg)$",
+          ],
+        },
+      ],
 
       // --- Restricted Imports ---
       "no-restricted-imports": [

@@ -7,17 +7,13 @@ export default function ClinicianOutputsPage() {
       title="Clinician Outputs"
       description="Monitor clinician outputs, performance indicators, reports, and service delivery contributions."
       actionLabel="Add output"
-      onActionClick={() => {
-        console.log("Add clinician output");
-      }}
+      onActionClick={() => undefined}
     >
       <EserviceEmptyState
         title="No clinician outputs submitted"
         description="Clinician output records and performance summaries will be displayed here once submitted."
         actionLabel="Add clinician output"
-        onActionClick={() => {
-          console.log("Add clinician output");
-        }}
+        onActionClick={() => undefined}
       />
     </EservicePageShell>
   );

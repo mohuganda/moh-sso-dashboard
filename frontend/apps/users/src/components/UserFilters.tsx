@@ -1,7 +1,5 @@
 import { Dropdown, Button, Stack } from "@carbon/react";
 
-import { useHeaderPanel } from "@moh-sso/ui";
-
 interface UserFiltersProps {
   status: string;
   roles: string[];
