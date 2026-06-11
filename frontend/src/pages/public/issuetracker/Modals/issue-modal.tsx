@@ -214,8 +214,6 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                     <div style={{
                         border: '1px solid #e0e0e0',
                         background: 'white',
-                        maxHeight: '250px',
-                        overflowY: 'auto',
                         marginTop: '2px',
                         padding: '8px'
                     }}>
@@ -228,9 +226,11 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                             onChange={(e) => setOrgSearchTerm(e.target.value)}
                             style={{ marginBottom: '8px' }}
                         />
-                        <TreeView label="Org Units" hideLabel>
-                            {renderRecursive(orgUnits)}
-                        </TreeView>
+                        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                            <TreeView label="Org Units" hideLabel>
+                                {renderRecursive(orgUnits)}
+                            </TreeView>
+                        </div>
                     </div>
                 )}
             </div>

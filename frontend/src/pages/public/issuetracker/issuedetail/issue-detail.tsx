@@ -127,23 +127,30 @@ const IssueDetail = ({ selectedIssue:initialIssue, goToBack, showBack = true }: 
                     </Tile>
 
                     <Tile className="issue-tile issue-actions-container">
-                        <Button className="btn-issue" size="md" kind="primary" onClick={() => setIsEditModalOpen(true)}
-                        > Edit Issue </Button>
+                        {selectedIssue?.status !== 'CLOSED' && selectedIssue?.status !== 'RESOLVED' && (
+                            <Button className="btn-issue" size="md" kind="primary" onClick={() => setIsEditModalOpen(true)}>
+                                Edit Issue
+                            </Button>
+                        )}
                         <Button className="btn-issue btn-full-width" kind="secondary"
                                 onClick={() => { setModalMode('comment'); setIsViewModalResolution(true); }}
                         >
                             Add Comment
                         </Button>
-                        <Button className="btn-issue custom-btn-success btn-full-width"
-                                onClick={() => { setModalMode('resolve'); setIsViewModalResolution(true); }}
-                        >
-                            Resolve Issue
-                        </Button>
-                        <Button className="btn-issue btn-full-width" kind="danger--tertiary"
-                                onClick={() => { setModalMode('close'); setIsViewModalResolution(true); }}
-                        >
-                            Close Issue
-                        </Button>
+                        {selectedIssue?.status !== 'CLOSED' && selectedIssue?.status !== 'RESOLVED' && (
+                            <Button className="btn-issue custom-btn-success btn-full-width"
+                                    onClick={() => { setModalMode('resolve'); setIsViewModalResolution(true); }}
+                            >
+                                Resolve Issue
+                            </Button>
+                        )}
+                        {selectedIssue?.status !== 'CLOSED' && (
+                            <Button className="btn-issue btn-full-width" kind="danger--tertiary"
+                                    onClick={() => { setModalMode('close'); setIsViewModalResolution(true); }}
+                            >
+                                Close Issue
+                            </Button>
+                        )}
                     </Tile>
                 </div>
             </div>
