@@ -232,3 +232,61 @@ type GHSCPSMCommodity struct {
 
 	RawPayload map[string]any
 }
+
+// ── UNFPA Pipeline ────────────────────────────────────────────────────────────
+
+type UNFPAPipelineRow struct {
+	DocumentID uuid.UUID
+	RowNumber  int
+	RowHash    string
+	ReportDate *time.Time
+
+	RequisitionNo     string
+	Dept              string
+	ProductID         string
+	QuantumItemNumber string
+	UOM               string
+	MOHUnits          *float64
+	DKTUnits          *float64
+	MSIUnits          *float64
+	PSIUnits          *float64
+	IPPFUnits         *float64
+	TotalUnits        *float64
+	TotalCost         *float64
+	UnitPrice         *float64
+	Vendor            string
+	ReqLineNo         string
+	PONumber          string
+	PODueDate         string
+	OrderLifeCycle    string
+	FundStatus        string
+	Status            string
+	ETA               string
+	Tranche           string
+	FundingYear       *int
+	Period            string
+
+	RawPayload map[string]any
+}
+
+type UNFPANMSPipelineRow struct {
+	DocumentID uuid.UUID
+	RowNumber  int
+	RowHash    string
+	ReportDate *time.Time
+
+	Item              string
+	ItemID            string
+	ItemName          string
+	MOT               string
+	ETA               string
+	Quantity          *float64
+	Value             *float64
+	Supplier          string
+	PONumber          string
+	InProductionUntil string
+	ETAAsPerOffer     string
+	Status            string
+
+	RawPayload map[string]any
+}

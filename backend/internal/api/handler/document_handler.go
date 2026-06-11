@@ -906,6 +906,28 @@ var previewSheetDefs = map[string][]struct {
 			},
 		},
 	},
+	"UNFPA": {
+		{
+			name:  "UNFPA Pipeline",
+			table: "import.unfpa_pipeline",
+			columns: []string{
+				"report_date", "requisition_no", "dept", "product_id", "quantum_item_number",
+				"uom", "moh_units", "dkt_units", "msi_units", "psi_units", "ippf_units",
+				"total_units", "total_cost", "unit_price", "vendor", "req_line_no",
+				"po_number", "po_due_date", "order_life_cycle", "fund_status", "status",
+				"eta", "tranche", "funding_year", "period",
+			},
+		},
+		{
+			name:  "UNFPA NMS Pipeline",
+			table: "import.unfpa_nms_pipeline",
+			columns: []string{
+				"report_date", "item", "item_id", "item_name", "mot", "eta",
+				"quantity", "value", "supplier", "po_number",
+				"in_production_until", "eta_as_per_offer", "status",
+			},
+		},
+	},
 }
 
 func (h *DocumentHandler) DataPreview(c *gin.Context) {

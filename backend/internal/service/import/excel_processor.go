@@ -171,6 +171,10 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 			sdErr = c.stockImportRepository.SoftDeleteGHSCPSMPharma(ctx, sdTx, hashes)
 		case "GHSC_PSM/malaria":
 			sdErr = c.stockImportRepository.SoftDeleteGHSCPSMMalaria(ctx, sdTx, hashes)
+		case "UNFPA/unfpa_pipeline", "UNFPA/unfpa":
+			sdErr = c.stockImportRepository.SoftDeleteUNFPAPipeline(ctx, sdTx, hashes)
+		case "UNFPA/nms_pipeline":
+			sdErr = c.stockImportRepository.SoftDeleteUNFPANMSPipeline(ctx, sdTx, hashes)
 		}
 		if sdErr != nil {
 			return fmt.Errorf("soft-delete %s: %w", sheetCode, sdErr)
@@ -207,6 +211,9 @@ func isSupportedStockSheet(templateCode string, sheetCode string) bool {
 		return sheetCode == "lab" ||
 			sheetCode == "pharma" ||
 			sheetCode == "malaria"
+
+	case "UNFPA":
+		return sheetCode == "unfpa_pipeline" || sheetCode == "unfpa" || sheetCode == "nms_pipeline"
 
 	default:
 		return false
@@ -389,6 +396,46 @@ func (c *ExcelProcessor) insertSheetRows(
 			for _, batch := range chunkSlice(items, batchSize) {
 				if err := c.stockImportRepository.UpsertGHSCPSMMalariaBatch(ctx, tx, batch); err != nil {
 					return nil, fmt.Errorf("upsert GHSC-PSM malaria batch: %w", err)
+				}
+			}
+			hashes := make([]string, len(items))
+			for i, it := range items {
+				hashes[i] = it.RowHash
+			}
+			return hashes, nil
+
+		default:
+			return nil, nil
+		}
+
+	case "UNFPA":
+		switch sheetCode {
+		case "unfpa", "unfpa_pipeline":
+			items := make([]model.UNFPAPipelineRow, 0, len(rows))
+			for _, row := range rows {
+				items = append(items, mapUNFPAPipelineRow(documentID, reportDate, row))
+			}
+			items = deduplicateByHash(items, func(it model.UNFPAPipelineRow) string { return it.RowHash })
+			for _, batch := range chunkSlice(items, batchSize) {
+				if err := c.stockImportRepository.UpsertUNFPAPipelineBatch(ctx, tx, batch); err != nil {
+					return nil, fmt.Errorf("upsert UNFPA pipeline batch: %w", err)
+				}
+			}
+			hashes := make([]string, len(items))
+			for i, it := range items {
+				hashes[i] = it.RowHash
+			}
+			return hashes, nil
+
+		case "nms_pipeline":
+			items := make([]model.UNFPANMSPipelineRow, 0, len(rows))
+			for _, row := range rows {
+				items = append(items, mapUNFPANMSPipelineRow(documentID, reportDate, row))
+			}
+			items = deduplicateByHash(items, func(it model.UNFPANMSPipelineRow) string { return it.RowHash })
+			for _, batch := range chunkSlice(items, batchSize) {
+				if err := c.stockImportRepository.UpsertUNFPANMSPipelineBatch(ctx, tx, batch); err != nil {
+					return nil, fmt.Errorf("upsert UNFPA NMS pipeline batch: %w", err)
 				}
 			}
 			hashes := make([]string, len(items))
@@ -1060,6 +1107,62 @@ func mapGHSCPSMCommodity(documentID uuid.UUID, reportDate *time.Time, row extrac
 	}
 }
 
+func mapUNFPAPipelineRow(documentID uuid.UUID, reportDate *time.Time, row extractedExcelRow) model.UNFPAPipelineRow {
+	return model.UNFPAPipelineRow{
+		DocumentID:        documentID,
+		RowNumber:         row.RowNumber,
+		ReportDate:        reportDate,
+		RequisitionNo:     getString(row.Data, "requisition_no"),
+		Dept:              getString(row.Data, "dept"),
+		ProductID:         coalesceString(row.Data, "product_id", "productid"),
+		QuantumItemNumber: coalesceString(row.Data, "quantum_item_number", "quantum_item_no"),
+		UOM:               coalesceString(row.Data, "uom", "uo_m"),
+		MOHUnits:          getFloatPtr(row.Data, "moh_units"),
+		DKTUnits:          getFloatPtr(row.Data, "dkt_units"),
+		MSIUnits:          getFloatPtr(row.Data, "msi_units"),
+		PSIUnits:          getFloatPtr(row.Data, "psi_units"),
+		IPPFUnits:         getFloatPtr(row.Data, "ippf_units"),
+		TotalUnits:        coalesceFloat(row.Data, "total_units", "total_unit"),
+		TotalCost:         coalesceFloat(row.Data, "total_cost", "total_cost_usd"),
+		UnitPrice:         getFloatPtr(row.Data, "unit_price"),
+		Vendor:            getString(row.Data, "vendor"),
+		ReqLineNo:         coalesceString(row.Data, "req_line_no", "req_line_no_", "req_line_number"),
+		PONumber:          coalesceString(row.Data, "po_number", "po_no"),
+		PODueDate:         getString(row.Data, "po_due_date"),
+		OrderLifeCycle:    coalesceString(row.Data, "order_life_cycle", "order_lifecycle"),
+		FundStatus:        getString(row.Data, "fund_status"),
+		Status:            getString(row.Data, "status"),
+		ETA:               getString(row.Data, "eta"),
+		Tranche:           coalesceString(row.Data, "tranche", "tranche_"),
+		FundingYear:       getIntPtr(row.Data, "funding_year"),
+		Period:            getString(row.Data, "period"),
+		RawPayload:        row.RawData,
+		RowHash:           hashRawData(row.RawData),
+	}
+}
+
+func mapUNFPANMSPipelineRow(documentID uuid.UUID, reportDate *time.Time, row extractedExcelRow) model.UNFPANMSPipelineRow {
+	return model.UNFPANMSPipelineRow{
+		DocumentID:        documentID,
+		RowNumber:         row.RowNumber,
+		ReportDate:        reportDate,
+		Item:              getString(row.Data, "item"),
+		ItemID:            getString(row.Data, "item_id"),
+		ItemName:          getString(row.Data, "item_name"),
+		MOT:               getString(row.Data, "mot"),
+		ETA:               getString(row.Data, "eta"),
+		Quantity:          getFloatPtr(row.Data, "quantity"),
+		Value:             getFloatPtr(row.Data, "value"),
+		Supplier:          getString(row.Data, "supplier"),
+		PONumber:          coalesceString(row.Data, "po_number", "po_no"),
+		InProductionUntil: getString(row.Data, "in_production_until_m_dd_yyyy"),
+		ETAAsPerOffer:     getString(row.Data, "eta_as_per_offer_m_dd_yyyy"),
+		Status:            getString(row.Data, "status"),
+		RawPayload:        row.RawData,
+		RowHash:           hashRawData(row.RawData),
+	}
+}
+
 func normalizeGHSCRows(rows []extractedExcelRow) []extractedExcelRow {
 	carry := make(map[string]any)
 	fillKeys := []string{
@@ -1476,6 +1579,11 @@ func (c *ExcelProcessor) invalidatePreviousDocument(
 			return err
 		}
 		return c.stockImportRepository.InvalidateGHSCPSMMalariaByDocument(ctx, tx, replaceDocumentID)
+	case "UNFPA":
+		if err := c.stockImportRepository.InvalidateUNFPAPipelineByDocument(ctx, tx, replaceDocumentID); err != nil {
+			return err
+		}
+		return c.stockImportRepository.InvalidateUNFPANMSPipelineByDocument(ctx, tx, replaceDocumentID)
 	}
 	return nil
 }

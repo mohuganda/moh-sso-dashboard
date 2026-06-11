@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
   Breadcrumb,
@@ -7,6 +8,7 @@ import {
   InlineLoading,
   InlineNotification,
   Modal,
+  FilterableMultiSelect,
   Select,
   SelectItem,
   Tab,
@@ -28,6 +30,8 @@ import {
   useLazyDownloadDocumentQuery,
   useReprocessDocumentMutation,
 } from "../../../../store/api/document.api";
+import { useGetUserQuery } from "../../../../store/api/users.api";
+import { selectUser } from "../../../../store/auth/auth.selectors";
 import type { DataPreviewSheet, DocumentProcess, DocumentResponse } from "../../../../store/types/documents.types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -132,42 +136,61 @@ function exportCSV(columns: string[], rows: Record<string, unknown>[], filename:
 
 const ROWS_PER_PAGE = 100;
 
-function SheetView({ sheet, reportDate }: { sheet: DataPreviewSheet; reportDate?: string }) {
+function SheetView({ sheet, reportDate: docReportDate }: { sheet: DataPreviewSheet; reportDate?: string }) {
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [reportDate, setReportDate] = useState("");
+  const [selectedDescriptions, setSelectedDescriptions] = useState<string[]>([]);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
   const [page, setPage] = useState(0);
 
-  const filterableCols = useMemo(
-    () => sheet.columns.filter((c) =>
-      ["location_code", "location_name", "district", "item_status", "uom",
-        "unit_of_measure_code", "ownership", "customer_name", "report_date",
-        "funding_source", "item_inventory_status", "bin_code"].includes(c)
-    ),
-    [sheet.columns],
-  );
+  const hasReportDate = sheet.columns.includes("report_date");
 
-  const uniqueValues = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
-    for (const col of filterableCols) {
-      map[col] = new Set(sheet.rows.map((r) => formatCell(r[col])).filter(Boolean));
-    }
-    return map;
-  }, [sheet.rows, filterableCols]);
+  const filterCol: string | null = [
+    "item_description",   // NMS/JMS stock issues & on hand, GHSC-PSM
+    "item_name",          // UNFPA NMS Pipeline
+    "product_id",         // UNFPA Pipeline
+    "part_description",   // JMS Stock Issues
+    "item_name_tgf",      // GF Pipeline
+    "inn_code",           // GDF TB Orders
+    "description",        // JMS Stock On Hand
+  ].find((col) => sheet.columns.includes(col)) ?? null;
+  const hasItemFilter = filterCol !== null;
+  const itemFilterLabel = filterCol
+    ? filterCol.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "";
+
+  const uniqueReportDates = useMemo(() => {
+    if (!hasReportDate) return [];
+    return [...new Set(sheet.rows.map((r) => formatCell(r.report_date)).filter(Boolean))].sort();
+  }, [sheet.rows, hasReportDate]);
+
+  const descriptionItems = useMemo(() => {
+    if (!filterCol) return [];
+    return [...new Set(sheet.rows.map((r) => formatCell(r[filterCol])).filter(Boolean))]
+      .sort()
+      .map((d) => ({ id: d, label: d }));
+  }, [sheet.rows, filterCol]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = sheet.rows;
-    for (const [col, val] of Object.entries(filters)) {
-      if (!val) continue;
-      rows = rows.filter((r) => formatCell(r[col]) === val);
+
+    if (reportDate) {
+      rows = rows.filter((r) => formatCell(r.report_date) === reportDate);
     }
+
+    if (selectedDescriptions.length > 0 && filterCol) {
+      const set = new Set(selectedDescriptions);
+      rows = rows.filter((r) => set.has(formatCell(r[filterCol])));
+    }
+
     if (q) {
       rows = rows.filter((r) =>
         sheet.columns.some((col) => formatCell(r[col]).toLowerCase().includes(q)),
       );
     }
+
     if (sortCol && sortDir) {
       rows = [...rows].sort((a, b) => {
         const av = formatCell(a[sortCol]); const bv = formatCell(b[sortCol]);
@@ -176,8 +199,9 @@ function SheetView({ sheet, reportDate }: { sheet: DataPreviewSheet; reportDate?
         return sortDir === "asc" ? cmp : -cmp;
       });
     }
+
     return rows;
-  }, [sheet.rows, search, filters, sortCol, sortDir]);
+  }, [sheet.rows, search, reportDate, selectedDescriptions, sortCol, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
   const safePageIdx = Math.min(page, totalPages - 1);
@@ -191,19 +215,20 @@ function SheetView({ sheet, reportDate }: { sheet: DataPreviewSheet; reportDate?
   }
 
   function clearFilters() {
-    setFilters({}); setSearch(""); setSortCol(null); setSortDir(null); setPage(0);
+    setSearch(""); setReportDate(""); setSelectedDescriptions([]);
+    setSortCol(null); setSortDir(null); setPage(0);
   }
 
-  const hasActiveFilters = !!(search || Object.values(filters).some(Boolean) || sortCol);
+  const hasActiveFilters = !!(search || reportDate || selectedDescriptions.length > 0 || sortCol);
 
-  const csvFilename = `${sheet.name.replace(/\s+/g, "_")}${reportDate ? `_${reportDate}` : ""}${hasActiveFilters ? "_filtered" : ""}.csv`;
+  const csvFilename = `${sheet.name.replace(/\s+/g, "_")}${docReportDate ? `_${docReportDate}` : ""}${hasActiveFilters ? "_filtered" : ""}.csv`;
 
   return (
     <div style={{ minWidth: 0, width: "100%" }}>
       {/* Toolbar */}
       <div style={{
-        display: "flex", alignItems: "center", gap: "0.5rem",
-        flexWrap: "wrap", padding: "0.5rem 0.75rem",
+        display: "flex", alignItems: "flex-end", gap: "0.75rem",
+        flexWrap: "wrap", padding: "0.75rem",
         background: "#f4f4f4", borderRadius: "4px 4px 0 0",
         borderBottom: "1px solid #e0e0e0",
       }}>
@@ -218,28 +243,44 @@ function SheetView({ sheet, reportDate }: { sheet: DataPreviewSheet; reportDate?
           />
         </div>
 
-        {/* Dropdown filters — compact, no label, inline */}
-        {filterableCols.map((col) => (
-          <select
-            key={col}
-            value={filters[col] ?? ""}
-            onChange={(e) => { setFilters((p) => ({ ...p, [col]: e.target.value })); setPage(0); }}
-            title={col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-            style={{
-              fontSize: "0.8rem", padding: "0.35rem 0.5rem",
-              border: filters[col] ? "1px solid #0f62fe" : "1px solid #c6c6c6",
-              borderRadius: 3, background: filters[col] ? "#edf5ff" : "#fff",
-              color: "#161616", cursor: "pointer", maxWidth: 140,
-            }}
-          >
-            <option value="">
-              {col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-            </option>
-            {[...uniqueValues[col]].sort().map((v) => (
-              <option key={v} value={v}>{v}</option>
-            ))}
-          </select>
-        ))}
+        {/* Report date */}
+        {hasReportDate && uniqueReportDates.length > 0 && (
+          <div style={{ flex: "0 0 auto" }}>
+            <Select
+              id={`filter-report-date-${sheet.name}`}
+              labelText="Report date"
+              size="sm"
+              value={reportDate}
+              onChange={(e) => { setReportDate(e.target.value); setPage(0); }}
+              style={{ minWidth: 160 }}
+            >
+              <SelectItem value="" text="All dates" />
+              {uniqueReportDates.map((d) => (
+                <SelectItem key={d} value={d} text={d} />
+              ))}
+            </Select>
+          </div>
+        )}
+
+        {/* Item filter multi-select */}
+        {hasItemFilter && descriptionItems.length > 0 && (
+          <div style={{ flex: "0 1 280px", minWidth: 200 }}>
+            <FilterableMultiSelect
+              id={`filter-item-desc-${sheet.name}`}
+              titleText={itemFilterLabel}
+              placeholder="Type to search…"
+              label={selectedDescriptions.length > 0 ? `${selectedDescriptions.length} selected` : "All items"}
+              items={descriptionItems}
+              itemToString={(item) => item?.label ?? ""}
+              selectedItems={descriptionItems.filter((d) => selectedDescriptions.includes(d.id))}
+              onChange={({ selectedItems }) => {
+                setSelectedDescriptions((selectedItems ?? []).map((i) => i.id));
+                setPage(0);
+              }}
+              size="sm"
+            />
+          </div>
+        )}
 
         {hasActiveFilters && (
           <button
@@ -248,7 +289,7 @@ function SheetView({ sheet, reportDate }: { sheet: DataPreviewSheet; reportDate?
               fontSize: "0.8rem", padding: "0.35rem 0.6rem",
               border: "1px solid #c6c6c6", borderRadius: 3,
               background: "#fff", cursor: "pointer", color: "#525252",
-              whiteSpace: "nowrap",
+              whiteSpace: "nowrap", alignSelf: "flex-end",
             }}
           >
             Clear
@@ -378,6 +419,22 @@ export default function DocumentDetailsPage() {
   const { data: preview, isLoading: previewLoading, isError: previewError } =
     useGetDocumentDataPreviewQuery(id!, { skip: !id || !templateCode });
 
+  const currentUser = useSelector(selectUser);
+  const isOwnUpload = !!document && currentUser?.id === document.uploaded_by;
+
+  const { data: uploaderUser, isLoading: isLoadingUploader } = useGetUserQuery(
+    document?.uploaded_by ?? "",
+    { skip: !document?.uploaded_by || isOwnUpload },
+  );
+
+  const uploaderName = isOwnUpload && currentUser
+    ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") || currentUser.username
+    : isLoadingUploader
+      ? "Loading…"
+      : uploaderUser
+        ? [uploaderUser.firstName, uploaderUser.lastName].filter(Boolean).join(" ") || uploaderUser.username
+        : "—";
+
   const [deleteDocument, { isLoading: deleting }] = useDeleteDocumentMutation();
   const [triggerDownload] = useLazyDownloadDocumentQuery();
   const [reprocessDocument, { isLoading: reprocessing }] = useReprocessDocumentMutation();
@@ -489,7 +546,12 @@ export default function DocumentDetailsPage() {
                   { label: "File Type",       value: formatFileType(document.content_type, document.original_filename) },
                   { label: "File Size",       value: formatFileSize(document.size_bytes) },
                   { label: "Uploaded",        value: formatDateTime(document.created_at) },
+                  { label: "Uploaded by",     value: uploaderName },
                   { label: "Processing Time", value: formatDuration(latest?.started_at, latest?.finished_at) },
+                  ...(status === "FAILED" && (latest?.error || latest?.message) ? [{
+                    label: "Failure reason",
+                    value: <span style={{ color: "#da1e28" }}>{latest?.error ?? latest?.message}</span>,
+                  }] : []),
                 ].map(({ label, value }, idx, arr) => (
                   <div key={label} style={{
                     display: "flex",

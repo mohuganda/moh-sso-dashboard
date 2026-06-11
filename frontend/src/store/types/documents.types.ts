@@ -56,6 +56,7 @@ export interface DocumentProcess {
   status: ProcessStatus;
   progress: number;
   message?: string;
+  error?: string | null;
   created_at: string;
   started_at: string;
   finished_at: string;

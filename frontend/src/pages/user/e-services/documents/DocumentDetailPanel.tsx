@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
@@ -21,6 +22,8 @@ import {
   useDeleteDocumentMutation,
   useReprocessDocumentMutation,
 } from "../../../../store/api/document.api";
+import { useGetUserQuery } from "../../../../store/api/users.api";
+import { selectUser } from "../../../../store/auth/auth.selectors";
 import type { DocumentProcess, DocumentResponse } from "../../../../store/types/documents.types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -159,6 +162,22 @@ export function DocumentDetailPanel({ document, onClose }: Props) {
   const processable = requiresProcessing(document);
   const templateCode = document.metadata?.template_code ?? "";
   const reportDate = document.metadata?.report_date ?? "—";
+
+  const currentUser = useSelector(selectUser);
+  const isOwnUpload = currentUser?.id === document.uploaded_by;
+
+  const { data: uploaderUser, isLoading: isLoadingUploader } = useGetUserQuery(
+    document.uploaded_by,
+    { skip: !document.uploaded_by || isOwnUpload },
+  );
+
+  const uploaderName = isOwnUpload
+    ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") || currentUser.username
+    : isLoadingUploader
+      ? "Loading…"
+      : uploaderUser
+        ? [uploaderUser.firstName, uploaderUser.lastName].filter(Boolean).join(" ") || uploaderUser.username
+        : "—";
 
   const { data: processes = [], isLoading: isLoadingProcesses } = useGetDocumentProcessesQuery(
     document.id,
@@ -304,9 +323,16 @@ export function DocumentDetailPanel({ document, onClose }: Props) {
                 <InfoRow label="Content type" value={document.content_type || "—"} />
                 <InfoRow label="File size" value={formatFileSize(document.size_bytes)} />
                 <InfoRow label="Uploaded" value={formatDateTime(document.created_at)} />
+                <InfoRow label="Uploaded by" value={uploaderName} />
                 <InfoRow label="Last updated" value={formatDateTime(document.updated_at)} />
                 <InfoRow label="Report date" value={reportDate} />
                 {templateCode && <InfoRow label="Template" value={<code>{templateCode}</code>} />}
+                {status === "FAILED" && (latest?.error || latest?.message) && (
+                  <InfoRow
+                    label="Failure reason"
+                    value={<span style={{ color: "#da1e28" }}>{latest.error ?? latest.message}</span>}
+                  />
+                )}
                 <InfoRow label="Storage location" value={document.storage_location} />
                 <InfoRow label="Object key" value={<code style={{ fontSize: "0.8rem" }}>{document.object_key}</code>} />
                 {document.checksum_sha256 && (
@@ -344,7 +370,7 @@ export function DocumentDetailPanel({ document, onClose }: Props) {
                           <td style={{ padding: "0.45rem 0.75rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}>{formatDateTime(p.started_at)}</td>
                           <td style={{ padding: "0.45rem 0.75rem", fontSize: "0.8rem" }}>{formatDuration(p.started_at, p.finished_at)}</td>
                           <td style={{ padding: "0.45rem 0.75rem", fontSize: "0.8rem", color: p.status === "FAILED" ? "#da1e28" : "#525252" }}>
-                            {p.message || "—"}
+                            {(p.status === "FAILED" ? (p.error ?? p.message) : p.message) || "—"}
                           </td>
                         </tr>
                       ))}

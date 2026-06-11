@@ -51,4 +51,14 @@ type StockImportRepository interface {
 	UpsertGHSCPSMMalariaBatch(ctx context.Context, tx *sql.Tx, rows []model.GHSCPSMCommodity) error
 	SoftDeleteGHSCPSMMalaria(ctx context.Context, tx *sql.Tx, keepHashes []string) error
 	InvalidateGHSCPSMMalariaByDocument(ctx context.Context, tx *sql.Tx, documentID uuid.UUID) error
+
+	// ── UNFPA Pipeline ────────────────────────────────────────────────────────────
+	UpsertUNFPAPipelineBatch(ctx context.Context, tx *sql.Tx, rows []model.UNFPAPipelineRow) error
+	SoftDeleteUNFPAPipeline(ctx context.Context, tx *sql.Tx, keepHashes []string) error
+	InvalidateUNFPAPipelineByDocument(ctx context.Context, tx *sql.Tx, documentID uuid.UUID) error
+
+	// ── UNFPA NMS Pipeline ────────────────────────────────────────────────────────
+	UpsertUNFPANMSPipelineBatch(ctx context.Context, tx *sql.Tx, rows []model.UNFPANMSPipelineRow) error
+	SoftDeleteUNFPANMSPipeline(ctx context.Context, tx *sql.Tx, keepHashes []string) error
+	InvalidateUNFPANMSPipelineByDocument(ctx context.Context, tx *sql.Tx, documentID uuid.UUID) error
 }

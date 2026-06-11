@@ -6,6 +6,7 @@ import {
   Button,
   InlineLoading,
   InlineNotification,
+  MultiSelect,
   Select,
   SelectItem,
   Tab,
@@ -49,50 +50,46 @@ type SortDir = "asc" | "desc" | null;
 
 function SheetView({ sheet }: { sheet: DataPreviewSheet }) {
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [reportDate, setReportDate] = useState("");
+  const [selectedDescriptions, setSelectedDescriptions] = useState<string[]>([]);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [page, setPage] = useState(0);
 
-  // Filterable columns: date columns + a few categorical ones
-  const filterableCols = useMemo(
-    () => sheet.columns.filter((c) =>
-      ["location_code", "location_name", "district", "item_status", "uom",
-       "unit_of_measure_code", "ownership", "customer_name", "report_date",
-       "funding_source", "item_inventory_status"].includes(c)
-    ),
-    [sheet.columns],
-  );
+  const hasReportDate = sheet.columns.includes("report_date");
+  const hasItemDescription = sheet.columns.includes("item_description");
 
-  const uniqueValues = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
-    for (const col of filterableCols) {
-      map[col] = new Set(
-        sheet.rows.map((r) => formatCell(r[col])).filter(Boolean),
-      );
-    }
-    return map;
-  }, [sheet.rows, filterableCols]);
+  const uniqueReportDates = useMemo(() => {
+    if (!hasReportDate) return [];
+    return [...new Set(sheet.rows.map((r) => formatCell(r.report_date)).filter(Boolean))].sort();
+  }, [sheet.rows, hasReportDate]);
+
+  const descriptionItems = useMemo(() => {
+    if (!hasItemDescription) return [];
+    return [...new Set(sheet.rows.map((r) => formatCell(r.item_description)).filter(Boolean))]
+      .sort()
+      .map((d) => ({ id: d, label: d }));
+  }, [sheet.rows, hasItemDescription]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-
     let rows = sheet.rows;
 
-    // Column filters
-    for (const [col, val] of Object.entries(filters)) {
-      if (!val) continue;
-      rows = rows.filter((r) => formatCell(r[col]) === val);
+    if (reportDate) {
+      rows = rows.filter((r) => formatCell(r.report_date) === reportDate);
     }
 
-    // Global search
+    if (selectedDescriptions.length > 0) {
+      const set = new Set(selectedDescriptions);
+      rows = rows.filter((r) => set.has(formatCell(r.item_description)));
+    }
+
     if (q) {
       rows = rows.filter((r) =>
         sheet.columns.some((col) => formatCell(r[col]).toLowerCase().includes(q)),
       );
     }
 
-    // Sort
     if (sortCol && sortDir) {
       rows = [...rows].sort((a, b) => {
         const av = formatCell(a[sortCol]);
@@ -106,7 +103,7 @@ function SheetView({ sheet }: { sheet: DataPreviewSheet }) {
     }
 
     return rows;
-  }, [sheet.rows, search, filters, sortCol, sortDir]);
+  }, [sheet.rows, search, reportDate, selectedDescriptions, sortCol, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
   const pageRows = filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
@@ -118,20 +115,16 @@ function SheetView({ sheet }: { sheet: DataPreviewSheet }) {
     setPage(0);
   }
 
-  function handleFilter(col: string, val: string) {
-    setFilters((prev) => ({ ...prev, [col]: val }));
-    setPage(0);
-  }
-
   function clearFilters() {
-    setFilters({});
     setSearch("");
+    setReportDate("");
+    setSelectedDescriptions([]);
     setSortCol(null);
     setSortDir(null);
     setPage(0);
   }
 
-  const hasActiveFilters = search || Object.values(filters).some(Boolean) || sortCol;
+  const hasActiveFilters = !!(search || reportDate || selectedDescriptions.length > 0 || sortCol);
 
   return (
     <div>
@@ -151,23 +144,41 @@ function SheetView({ sheet }: { sheet: DataPreviewSheet }) {
           />
         </div>
 
-        {filterableCols.map((col) => (
-          <div key={col} style={{ flex: "0 0 auto" }}>
+        {hasReportDate && uniqueReportDates.length > 0 && (
+          <div style={{ flex: "0 0 auto" }}>
             <Select
-              id={`filter-${col}`}
-              labelText={col.replace(/_/g, " ")}
+              id="filter-report-date"
+              labelText="Report date"
               size="sm"
-              value={filters[col] ?? ""}
-              onChange={(e) => handleFilter(col, e.target.value)}
+              value={reportDate}
+              onChange={(e) => { setReportDate(e.target.value); setPage(0); }}
               style={{ minWidth: 160 }}
             >
-              <SelectItem value="" text="All" />
-              {[...uniqueValues[col]].sort().map((v) => (
-                <SelectItem key={v} value={v} text={v} />
+              <SelectItem value="" text="All dates" />
+              {uniqueReportDates.map((d) => (
+                <SelectItem key={d} value={d} text={d} />
               ))}
             </Select>
           </div>
-        ))}
+        )}
+
+        {hasItemDescription && descriptionItems.length > 0 && (
+          <div style={{ flex: "0 1 280px", minWidth: 200 }}>
+            <MultiSelect
+              id="filter-item-description"
+              titleText="Item description"
+              label={selectedDescriptions.length > 0 ? `${selectedDescriptions.length} selected` : "All items"}
+              items={descriptionItems}
+              itemToString={(item) => item?.label ?? ""}
+              selectedItems={descriptionItems.filter((d) => selectedDescriptions.includes(d.id))}
+              onChange={({ selectedItems }) => {
+                setSelectedDescriptions((selectedItems ?? []).map((i) => i.id));
+                setPage(0);
+              }}
+              size="sm"
+            />
+          </div>
+        )}
 
         {hasActiveFilters && (
           <Button kind="ghost" size="sm" onClick={clearFilters}>

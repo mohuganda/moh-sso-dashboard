@@ -698,6 +698,168 @@ func (r *stockImportRepository) InvalidateGHSCPSMMalariaByDocument(ctx context.C
 	return invalidateByDocument(ctx, tx, "import.ghsc_psm_malaria", documentID)
 }
 
+// ── UNFPA Pipeline ────────────────────────────────────────────────────────────
+
+func (r *stockImportRepository) UpsertUNFPAPipelineBatch(
+	ctx context.Context,
+	tx *sql.Tx,
+	rows []model.UNFPAPipelineRow,
+) error {
+	if len(rows) == 0 {
+		return nil
+	}
+
+	const colsPerRow = 29
+
+	args := make([]any, 0, len(rows)*colsPerRow)
+	valueStrings := make([]string, 0, len(rows))
+
+	for i, row := range rows {
+		raw, err := toJSONB(row.RawPayload)
+		if err != nil {
+			return err
+		}
+		valueStrings = append(valueStrings, placeholders(i, colsPerRow))
+		args = append(args,
+			row.DocumentID, row.RowNumber, row.ReportDate,
+			row.RequisitionNo, row.Dept, row.ProductID, row.QuantumItemNumber,
+			row.UOM, row.MOHUnits, row.DKTUnits, row.MSIUnits, row.PSIUnits, row.IPPFUnits,
+			row.TotalUnits, row.TotalCost, row.UnitPrice,
+			row.Vendor, row.ReqLineNo, row.PONumber, row.PODueDate,
+			row.OrderLifeCycle, row.FundStatus, row.Status, row.ETA,
+			row.Tranche, row.FundingYear, row.Period,
+			raw, row.RowHash,
+		)
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO import.unfpa_pipeline (
+			document_id, row_number, report_date,
+			requisition_no, dept, product_id, quantum_item_number,
+			uom, moh_units, dkt_units, msi_units, psi_units, ippf_units,
+			total_units, total_cost, unit_price,
+			vendor, req_line_no, po_number, po_due_date,
+			order_life_cycle, fund_status, status, eta,
+			tranche, funding_year, period,
+			raw_payload, row_hash
+		) VALUES %s
+		ON CONFLICT (row_hash) DO UPDATE SET
+			document_id      = EXCLUDED.document_id,
+			row_number       = EXCLUDED.row_number,
+			report_date      = EXCLUDED.report_date,
+			requisition_no   = EXCLUDED.requisition_no,
+			dept             = EXCLUDED.dept,
+			product_id       = EXCLUDED.product_id,
+			quantum_item_number = EXCLUDED.quantum_item_number,
+			uom              = EXCLUDED.uom,
+			moh_units        = EXCLUDED.moh_units,
+			dkt_units        = EXCLUDED.dkt_units,
+			msi_units        = EXCLUDED.msi_units,
+			psi_units        = EXCLUDED.psi_units,
+			ippf_units       = EXCLUDED.ippf_units,
+			total_units      = EXCLUDED.total_units,
+			total_cost       = EXCLUDED.total_cost,
+			unit_price       = EXCLUDED.unit_price,
+			vendor           = EXCLUDED.vendor,
+			req_line_no      = EXCLUDED.req_line_no,
+			po_number        = EXCLUDED.po_number,
+			po_due_date      = EXCLUDED.po_due_date,
+			order_life_cycle = EXCLUDED.order_life_cycle,
+			fund_status      = EXCLUDED.fund_status,
+			status           = EXCLUDED.status,
+			eta              = EXCLUDED.eta,
+			tranche          = EXCLUDED.tranche,
+			funding_year     = EXCLUDED.funding_year,
+			period           = EXCLUDED.period,
+			raw_payload      = EXCLUDED.raw_payload,
+			last_updated     = NOW(),
+			is_valid         = TRUE
+	`, strings.Join(valueStrings, ","))
+
+	_, err := tx.ExecContext(ctx, query, args...)
+	return err
+}
+
+func (r *stockImportRepository) SoftDeleteUNFPAPipeline(ctx context.Context, tx *sql.Tx, keepHashes []string) error {
+	return softDelete(ctx, tx, "import.unfpa_pipeline", keepHashes)
+}
+
+func (r *stockImportRepository) InvalidateUNFPAPipelineByDocument(ctx context.Context, tx *sql.Tx, documentID uuid.UUID) error {
+	return invalidateByDocument(ctx, tx, "import.unfpa_pipeline", documentID)
+}
+
+// ── UNFPA NMS Pipeline ────────────────────────────────────────────────────────
+
+func (r *stockImportRepository) UpsertUNFPANMSPipelineBatch(
+	ctx context.Context,
+	tx *sql.Tx,
+	rows []model.UNFPANMSPipelineRow,
+) error {
+	if len(rows) == 0 {
+		return nil
+	}
+
+	const colsPerRow = 17
+
+	args := make([]any, 0, len(rows)*colsPerRow)
+	valueStrings := make([]string, 0, len(rows))
+
+	for i, row := range rows {
+		raw, err := toJSONB(row.RawPayload)
+		if err != nil {
+			return err
+		}
+		valueStrings = append(valueStrings, placeholders(i, colsPerRow))
+		args = append(args,
+			row.DocumentID, row.RowNumber, row.ReportDate,
+			row.Item, row.ItemID, row.ItemName, row.MOT, row.ETA,
+			row.Quantity, row.Value, row.Supplier, row.PONumber,
+			row.InProductionUntil, row.ETAAsPerOffer, row.Status,
+			raw, row.RowHash,
+		)
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO import.unfpa_nms_pipeline (
+			document_id, row_number, report_date,
+			item, item_id, item_name, mot, eta,
+			quantity, value, supplier, po_number,
+			in_production_until, eta_as_per_offer, status,
+			raw_payload, row_hash
+		) VALUES %s
+		ON CONFLICT (row_hash) DO UPDATE SET
+			document_id          = EXCLUDED.document_id,
+			row_number           = EXCLUDED.row_number,
+			report_date          = EXCLUDED.report_date,
+			item                 = EXCLUDED.item,
+			item_id              = EXCLUDED.item_id,
+			item_name            = EXCLUDED.item_name,
+			mot                  = EXCLUDED.mot,
+			eta                  = EXCLUDED.eta,
+			quantity             = EXCLUDED.quantity,
+			value                = EXCLUDED.value,
+			supplier             = EXCLUDED.supplier,
+			po_number            = EXCLUDED.po_number,
+			in_production_until  = EXCLUDED.in_production_until,
+			eta_as_per_offer     = EXCLUDED.eta_as_per_offer,
+			status               = EXCLUDED.status,
+			raw_payload          = EXCLUDED.raw_payload,
+			last_updated         = NOW(),
+			is_valid             = TRUE
+	`, strings.Join(valueStrings, ","))
+
+	_, err := tx.ExecContext(ctx, query, args...)
+	return err
+}
+
+func (r *stockImportRepository) SoftDeleteUNFPANMSPipeline(ctx context.Context, tx *sql.Tx, keepHashes []string) error {
+	return softDelete(ctx, tx, "import.unfpa_nms_pipeline", keepHashes)
+}
+
+func (r *stockImportRepository) InvalidateUNFPANMSPipelineByDocument(ctx context.Context, tx *sql.Tx, documentID uuid.UUID) error {
+	return invalidateByDocument(ctx, tx, "import.unfpa_nms_pipeline", documentID)
+}
+
 func upsertGHSCPSMCommodityBatch(ctx context.Context, tx *sql.Tx, rows []model.GHSCPSMCommodity, table string) error {
 	if len(rows) == 0 {
 		return nil

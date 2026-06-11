@@ -66,6 +66,7 @@ const IMPLEMENTED_TEMPLATES = [
   { code: "GF_PIPELINE", name: "GF Pipeline" },
   { code: "GDF_TB_ORDERS", name: "GDF TB Orders" },
   { code: "GHSC_PSM", name: "GHSC-PSM" },
+  { code: "UNFPA", name: "UNFPA Pipeline" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -165,7 +166,7 @@ async function readSheetsFromFile(file: File): Promise<SheetDraft[]> {
         const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(ws, {
           header: 1,
           defval: "",
-          blankrows: false,
+          blankrows: true,
         });
 
         // Find the first row with at least 2 non-empty cells — that is the header row.
@@ -179,13 +180,29 @@ async function readSheetsFromFile(file: File): Promise<SheetDraft[]> {
         }
 
         const headerRow = Array.isArray(rows[headerRowIdx]) ? rows[headerRowIdx] : [];
-        const headers = headerRow.map((h) => String(h ?? "").trim()).filter(Boolean);
+        const rawHeaders = headerRow.map((h) => String(h ?? "").trim()).filter(Boolean);
+
+        // Deduplicate column names and keys so the DB unique constraints aren't violated.
+        // When a header appears more than once, suffix duplicates with _2, _3, …
+        const nameCounts: Record<string, number> = {};
+        const keyCounts: Record<string, number> = {};
+        const headers = rawHeaders.map((name) => {
+          const baseKey = normalizeKey(name) || `col`;
+          nameCounts[name] = (nameCounts[name] ?? 0) + 1;
+          keyCounts[baseKey] = (keyCounts[baseKey] ?? 0) + 1;
+          const nc = nameCounts[name];
+          const kc = keyCounts[baseKey];
+          return {
+            name: nc > 1 ? `${name}_${nc}` : name,
+            key: kc > 1 ? `${baseKey}_${kc}` : baseKey,
+          };
+        });
 
         return {
           name: sheetName,
           headerRow: headerRowIdx + 1,
-          columns: headers.map((name, i) => ({
-            column_key: normalizeKey(name) || `col_${i + 1}`,
+          columns: headers.map(({ name, key }, i) => ({
+            column_key: key,
             column_name: name,
             data_type: "STRING",
             required: false,
