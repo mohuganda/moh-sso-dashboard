@@ -8,16 +8,20 @@ import {
   TableCell,
   TableSelectRow,
   TableSelectAll,
-  InlineLoading,
-  Tile,
-  Tag,
-  Pagination,
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
 import { ClientFilters } from "../components/ClientFilters";
 import { useEnableClientModal } from "../components/useEnableClientModal";
-import { ErrorState , useHeaderPanel , useToast } from "@moh-sso/ui";
+import {
+  DataTablePagination,
+  DataTableShell,
+  ErrorState,
+  RowActionsCell,
+  TableStatusTag,
+  useHeaderPanel,
+  useToast,
+} from "@moh-sso/ui";
 import { ClientFormPanel } from "../components/client-form-panel";
 import { useListClientsQuery, useToggleClientMutation } from "@moh-sso/api";
 import type { Client } from "@moh-sso/types";
@@ -122,17 +126,6 @@ export default function ClientsPage() {
     raw: c,
   }));
 
-  /* -----------------------------
-   * Loading / Error
-   * ----------------------------- */
-  if (isLoading) {
-    return (
-      <div style={{ padding: "2rem" }}>
-        <InlineLoading description="Loading clients…" />
-      </div>
-    );
-  }
-
   if (isError) {
     return (
       <ErrorState
@@ -144,17 +137,17 @@ export default function ClientsPage() {
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 16 }}>
-      {/* Header */}
-      <div>
-        <h3 style={{ margin: 0 }}>Clients</h3>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Registered applications and services integrated with the platform.
-        </p>
-      </div>
-
-      {/* Filters */}
-      <Tile>
+    <DataTableShell
+      title="Clients"
+      description="Registered applications and services integrated with the platform."
+      rows={rows}
+      headers={headers}
+      getRowId={(row) => row.id}
+      isLoading={isLoading}
+      loadingDescription="Loading clients…"
+      emptyTitle="No clients found"
+      emptyDescription="No clients match the selected filters."
+      filters={
         <ClientFilters
           status={statusFilter}
           type={typeFilter}
@@ -163,10 +156,10 @@ export default function ClientsPage() {
           onStatusChange={setStatusFilter}
           onTypeChange={setTypeFilter}
         />
-      </Tile>
-
-      {/* Table */}
-      <Tile>
+      }
+    >
+      {({ rows, headers }) => (
+        <>
         <DataTable rows={rows} headers={headers}>
           {({ rows, headers, getHeaderProps, getRowProps, getSelectionProps, selectedRows }) => {
             const selectedClients = selectedRows.map(
@@ -259,14 +252,17 @@ export default function ClientsPage() {
                             if (cell.info.header === "status") {
                               return (
                                 <TableCell key={cell.id}>
-                                  <Tag type={client.enabled ? "green" : "red"}>{cell.value}</Tag>
+                                  <TableStatusTag
+                                    status={String(cell.value)}
+                                    kind={client.enabled ? "green" : "red"}
+                                  />
                                 </TableCell>
                               );
                             }
 
                             if (cell.info.header === "actions") {
                               return (
-                                <TableCell key={cell.id}>
+                                <RowActionsCell key={cell.id}>
                                   {row.isSelected && (
                                     <ClientActionsMenu
                                       client={client}
@@ -309,7 +305,7 @@ export default function ClientsPage() {
                                       }}
                                     />
                                   )}
-                                </TableCell>
+                                </RowActionsCell>
                               );
                             }
 
@@ -326,17 +322,17 @@ export default function ClientsPage() {
         </DataTable>
 
         {/* ================= PAGINATION ================= */}
-        <Pagination
+        <DataTablePagination
           page={page}
           pageSize={pageSize}
-          pageSizes={[10, 20, 30, 50]}
           totalItems={filteredClients.length}
           onChange={({ page, pageSize }) => {
             setPage(page);
             setPageSize(pageSize);
           }}
         />
-      </Tile>
-    </div>
+        </>
+      )}
+    </DataTableShell>
   );
 }

@@ -1,0 +1,13 @@
+.moh-row-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.moh-row-actions-cell--start {
+  justify-content: flex-start;
+}
+
+.moh-row-actions-cell--end {
+  justify-content: flex-end;
+}

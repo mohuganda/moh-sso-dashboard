@@ -8,14 +8,18 @@ import {
   TableCell,
   TableSelectRow,
   TableSelectAll,
-  InlineLoading,
-  Tile,
-  Tag,
-  Pagination,
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { ErrorState , useHeaderPanel , useToast } from "@moh-sso/ui";
+import {
+  DataTablePagination,
+  DataTableShell,
+  ErrorState,
+  RowActionsCell,
+  TableStatusTag,
+  useHeaderPanel,
+  useToast,
+} from "@moh-sso/ui";
 import { UserClientRolesPanel } from "@moh-sso/clients";
 import { UserFormPanel } from "../components/create-user-panel";
 import { useEnableUserModal } from "../components/useEnableUserModal";
@@ -120,14 +124,6 @@ export default function UsersPage() {
     raw: u,
   }));
 
-  if (isLoading) {
-    return (
-      <div style={{ padding: "2rem" }}>
-        <InlineLoading description="Loading users…" />
-      </div>
-    );
-  }
-
   if (isError) {
     return (
       <ErrorState
@@ -139,15 +135,17 @@ export default function UsersPage() {
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 16 }}>
-      <div>
-        <h3 style={{ margin: 0 }}>Users</h3>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Manage users, roles, and access to applications.
-        </p>
-      </div>
-
-      <Tile>
+    <DataTableShell
+      title="Users"
+      description="Manage users, roles, and access to applications."
+      rows={rows}
+      headers={headers}
+      getRowId={(row) => row.id}
+      isLoading={isLoading}
+      loadingDescription="Loading users…"
+      emptyTitle="No users found"
+      emptyDescription="No users match the selected filters."
+      filters={
         <UserFilters
           status={statusFilter}
           roles={roles}
@@ -159,9 +157,9 @@ export default function UsersPage() {
             setNeverLoggedIn((v) => !v);
           }}
         />
-      </Tile>
-
-      <Tile>
+      }
+    >
+      {({ rows, headers }) => (
         <DataTable rows={rows} headers={headers}>
           {({ rows, headers, getHeaderProps, getRowProps, getSelectionProps, selectedRows }) => {
             const selectedUsers = selectedRows.map(
@@ -258,14 +256,17 @@ export default function UsersPage() {
                             if (cell.info.header === "status") {
                               return (
                                 <TableCell key={cell.id}>
-                                  <Tag type={!user.isAdmin ? "green" : "red"}>{cell.value}</Tag>
+                                  <TableStatusTag
+                                    status={String(cell.value)}
+                                    kind={!user.isAdmin ? "green" : "red"}
+                                  />
                                 </TableCell>
                               );
                             }
 
                             if (cell.info.header === "actions") {
                               return (
-                                <TableCell key={cell.id}>
+                                <RowActionsCell key={cell.id}>
                                   {row.isSelected && (
                                     <UserActionsMenu
                                       user={user}
@@ -329,7 +330,7 @@ export default function UsersPage() {
                                       }}
                                     />
                                   )}
-                                </TableCell>
+                                </RowActionsCell>
                               );
                             }
 
@@ -341,10 +342,9 @@ export default function UsersPage() {
                   </TableBody>
                 </Table>
 
-                <Pagination
+                <DataTablePagination
                   page={page}
                   pageSize={pageSize}
-                  pageSizes={[10, 20, 30, 50]}
                   totalItems={filteredUsers.length}
                   onChange={({ page, pageSize }) => {
                     setPage(page);
@@ -355,7 +355,7 @@ export default function UsersPage() {
             );
           }}
         </DataTable>
-      </Tile>
-    </div>
+      )}
+    </DataTableShell>
   );
 }

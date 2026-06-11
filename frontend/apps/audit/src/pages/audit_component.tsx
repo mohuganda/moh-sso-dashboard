@@ -1,8 +1,5 @@
 import {
   DataTable,
-  InlineLoading,
-  Tag,
-  Tile,
   Button,
   Table,
   TableBody,
@@ -19,7 +16,14 @@ import { AuditLogPanel } from "../components/AuditLogDrawer";
 import { AuditLogFilters } from "../components/AuditLogFilters";
 import { AuditMetricsPanel } from "../components/AuditMetricsPanel";
 
-import { EmptyState, ErrorState, useHeaderPanel, useToast } from "@moh-sso/ui";
+import {
+  DataTableShell,
+  ErrorState,
+  RowActionsCell,
+  TableStatusTag,
+  useHeaderPanel,
+  useToast,
+} from "@moh-sso/ui";
 
 import { useListAuditLogsQuery } from "@moh-sso/api";
 import type { AuditFilters, AuditLog, Cursor } from "@moh-sso/types";
@@ -256,20 +260,35 @@ export default function AuditLogs() {
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 16 }}>
-      {/* Header */}
-      <div>
-        <h3 style={{ margin: 0 }}>Audit Logs</h3>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Security and administrative activity across the platform.
-        </p>
-      </div>
-
-      {/* Metrics */}
-      <AuditMetricsPanel from={from} to={to} />
-
-      {/* Filters */}
-      <Tile>
+    <DataTableShell
+      title="Audit Logs"
+      description="Security and administrative activity across the platform."
+      rows={rows}
+      headers={headers}
+      getRowId={(row) => row.id}
+      isLoading={isLoading}
+      loadingDescription="Loading audit logs…"
+      emptyTitle="No audit logs found"
+      emptyDescription="No audit events match the selected filters."
+      emptyActions={
+        <Button kind="tertiary" onClick={clearFilters}>
+          Clear filters
+        </Button>
+      }
+      tableState={
+        isError ? (
+          <ErrorState
+            title="Failed to load audit logs"
+            description={(error as any)?.data?.message ?? "Failed to load audit logs"}
+            primaryAction={{
+              label: "Retry",
+              onClick: refetch,
+            }}
+          />
+        ) : undefined
+      }
+      topContent={<AuditMetricsPanel from={from} to={to} />}
+      filters={
         <AuditLogFilters
           action={action}
           clientId={clientId}
@@ -283,36 +302,10 @@ export default function AuditLogs() {
           onExportCsv={() => handleExportCsv(items)}
           onExportJson={() => handleExportJson(items)}
         />
-      </Tile>
-
-      {/* Table */}
-      <Tile>
-        {isLoading && <InlineLoading description="Loading audit logs…" />}
-
-        {isError && (
-          <ErrorState
-            title="Failed to load audit logs"
-            description={(error as any)?.data?.message ?? "Failed to load audit logs"}
-            primaryAction={{
-              label: "Retry",
-              onClick: refetch,
-            }}
-          />
-        )}
-
-        {!isLoading && !isError && rows.length === 0 && (
-          <EmptyState
-            title="No audit logs found"
-            description="No audit events match the selected filters."
-            secondaryAction={{
-              label: "Clear filters",
-              onClick: clearFilters,
-            }}
-          />
-        )}
-
-        {!isLoading && !isError && rows.length > 0 && (
-          <>
+      }
+    >
+      {({ rows, headers }) => (
+        <>
             <DataTable rows={rows} headers={headers}>
               {({
                 rows,
@@ -364,31 +357,30 @@ export default function AuditLogs() {
                                 if (cell.info.header === "result") {
                                   return (
                                     <TableCell key={cell.id}>
-                                      <Tag
-                                        type={
+                                      <TableStatusTag
+                                        status={String(cell.value)}
+                                        kind={
                                           cell.value === "success"
                                             ? "green"
                                             : cell.value === "failure"
                                               ? "red"
                                               : "gray"
                                         }
-                                      >
-                                        {cell.value}
-                                      </Tag>
+                                      />
                                     </TableCell>
                                   );
                                 }
 
                                 if (cell.info.header === "actions") {
                                   return (
-                                    <TableCell key={cell.id}>
+                                    <RowActionsCell key={cell.id}>
                                       {row.isSelected && (
                                         <AuditLogActionsMenu
                                           log={raw}
                                           onView={() => handleView(raw)}
                                         />
                                       )}
-                                    </TableCell>
+                                    </RowActionsCell>
                                   );
                                 }
 
@@ -412,8 +404,7 @@ export default function AuditLogs() {
               </div>
             )}
           </>
-        )}
-      </Tile>
-    </div>
+      )}
+    </DataTableShell>
   );
 }

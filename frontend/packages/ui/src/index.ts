@@ -1,6 +1,7 @@
 export * from "./forms";
 export * from "./feedback";
 export * from "./layout";
+export * from "./data-display";
 export * from "./branding";
 export * from "./shell";
 export * from "./overlays";

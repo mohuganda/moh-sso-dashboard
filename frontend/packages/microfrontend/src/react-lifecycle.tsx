@@ -4,7 +4,7 @@ import ReactDOMClient, { type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 
 import { store } from "@moh-sso/state";
-import { HeaderPanelProvider, ModalProvider, ToastProvider } from "@moh-sso/ui";
+import { HeaderPanelProvider, ModalProvider, MohThemeProvider, ToastProvider } from "@moh-sso/ui";
 
 import type { MicrofrontendLifecycle } from "./lifecycle";
 import type { MicrofrontendMountProps, MicrofrontendRuntimeProps } from "./props";
@@ -49,7 +49,7 @@ function withProviders(children: ReactNode, options: Required<ReactLifecycleOpti
     tree = <Provider store={store}>{tree}</Provider>;
   }
 
-  return tree;
+  return <MohThemeProvider theme="white">{tree}</MohThemeProvider>;
 }
 
 function renderRoot(
