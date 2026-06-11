@@ -1,6 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { ErrorState } from "./ErrorState";
 
+import "./MicrofrontendErrorBoundary.scss";
+
 interface Props {
   children?: ReactNode;
   appName: string;
@@ -28,7 +30,7 @@ export class MicrofrontendErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: "2rem", height: "100%", width: "100%" }}>
+        <div className="moh-microfrontend-error-boundary">
           <ErrorState 
             title={`App Failed: ${this.props.appName}`}
             description={this.state.error?.message || "An unexpected error occurred while loading this module."}

@@ -1,0 +1,32 @@
+.moh-coming-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  height: 100%;
+  padding: 2rem;
+  text-align: center;
+  background-color: var(--cds-background);
+}
+
+.moh-coming-soon__icon {
+  margin-bottom: 1.5rem;
+  color: var(--cds-interactive-01);
+}
+
+.moh-coming-soon__title {
+  margin-bottom: 1rem;
+}
+
+.moh-coming-soon__description {
+  max-width: 400px;
+  margin-bottom: 2rem;
+  color: var(--cds-text-secondary);
+}
+
+.moh-coming-soon__link {
+  font-weight: 600;
+  color: var(--cds-link-01);
+  text-decoration: none;
+}

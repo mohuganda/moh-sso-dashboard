@@ -1,10 +1,6 @@
 import React from "react";
-import { useDispatch } from "react-redux";
 import { ClickableTile } from "@carbon/react";
 import { Launch } from "@carbon/react/icons";
-import { useNavigate } from "react-router-dom";
-
-import { setActiveClient } from "@moh-sso/state";
 
 import "./AppMenu.scss";
 
@@ -14,6 +10,7 @@ interface AppTileProps {
   href: string;
   clientId?: string;
   onSelect?: () => void;
+  onOpen?: (href: string, clientId?: string) => void;
 }
 
 function isExternalUrl(url: string): boolean {
@@ -32,10 +29,7 @@ function getTileId(name: string) {
     .replace(/(^-|-$)/g, "")}`;
 }
 
-const AppTile: React.FC<AppTileProps> = ({ icon: Icon, name, href, clientId, onSelect }) => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-
+const AppTile: React.FC<AppTileProps> = ({ icon: Icon, name, href, clientId, onSelect, onOpen }) => {
   const disabled = !isValidHref(href);
   const external = isValidHref(href) && isExternalUrl(href);
 
@@ -44,18 +38,9 @@ const AppTile: React.FC<AppTileProps> = ({ icon: Icon, name, href, clientId, onS
       return;
     }
 
-    if (clientId) {
-      dispatch(setActiveClient(clientId));
-    }
-
     onSelect?.();
 
-    if (external) {
-      window.open(href, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    navigate(href);
+    onOpen?.(href, clientId);
   };
 
   return (

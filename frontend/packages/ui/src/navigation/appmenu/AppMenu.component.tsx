@@ -1,11 +1,14 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { HeaderGlobalAction } from "@carbon/react";
 import { Switcher } from "@carbon/react/icons";
 
-import AppGridContent from "./AppGridContent";
 import "./AppMenu.scss";
 
-const AppMenuAction: React.FC = () => {
+type AppMenuActionProps = {
+  children?: ReactNode | ((closeMenu: () => void) => ReactNode);
+};
+
+const AppMenuAction: React.FC<AppMenuActionProps> = ({ children }) => {
   const [expanded, setExpanded] = useState(false);
 
   const panelId = useId();
@@ -93,7 +96,7 @@ const AppMenuAction: React.FC = () => {
             </div>
           </div>
 
-          <AppGridContent onSelect={closeMenu} />
+          {typeof children === "function" ? children(closeMenu) : children}
         </div>
       )}
     </div>

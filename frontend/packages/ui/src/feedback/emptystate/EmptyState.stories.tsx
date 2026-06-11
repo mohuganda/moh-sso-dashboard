@@ -1,4 +1,4 @@
-import { EmptyState } from "../../feedback/emptystate/EmptyState";
+import { EmptyState } from "./EmptyState";
 
 export default {
   title: "Feedback/EmptyState",

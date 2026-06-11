@@ -1,5 +1,5 @@
 import { Button, Tag, Tile } from "@carbon/react";
-import MohLogo from "../assets/images/moh-logo.png";
+import MohLogo from "../assets/logo.png";
 
 export default {
   title: "Theme/MOH Theme",

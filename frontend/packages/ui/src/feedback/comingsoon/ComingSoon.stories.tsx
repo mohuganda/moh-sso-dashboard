@@ -1,4 +1,4 @@
-import { ComingSoon } from "../../feedback/comingsoon/ComingSoon";
+import { ComingSoon } from "./ComingSoon";
 
 export default {
   title: "Feedback/ComingSoon",

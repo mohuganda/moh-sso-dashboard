@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 import { SideNav, SideNavItems, SideNavLink, SideNavMenu } from "@carbon/react";
-import { useSelector } from "react-redux";
-import { useLocation, useNavigate } from "react-router-dom";
 
-import { selectActiveClient, selectClients } from "@moh-sso/state";
 import type { Client } from "@moh-sso/types";
 
 type SideNavItem = {
@@ -180,16 +177,20 @@ function RenderSideNavItem({ item, currentPath, onNavigate }: RenderSideNavItemP
  * -------------------------------- */
 
 type ClientSideNavProps = {
+  clients?: Client[];
+  activeClient?: Client | null;
+  currentPath: string;
+  onNavigate: (path: string) => void;
   hasPermission?: (permission: string) => boolean;
 };
 
-export function ClientSideNav({ hasPermission }: ClientSideNavProps) {
-  const clients = useSelector(selectClients);
-  const activeClient = useSelector(selectActiveClient);
-
-  const navigate = useNavigate();
-  const location = useLocation();
-
+export function ClientSideNav({
+  clients = [],
+  activeClient,
+  currentPath,
+  onNavigate,
+  hasPermission,
+}: ClientSideNavProps) {
   const navClients = useMemo(() => {
     return clients
       .map((client) => {
@@ -204,11 +205,11 @@ export function ClientSideNav({ hasPermission }: ClientSideNavProps) {
   }, [clients, hasPermission]);
 
   const handleNavigate = (path: string) => {
-    if (location.pathname === path) {
+    if (currentPath === path) {
       return;
     }
 
-    navigate(path);
+    onNavigate(path);
   };
 
   return (
@@ -217,7 +218,7 @@ export function ClientSideNav({ hasPermission }: ClientSideNavProps) {
         {navClients.map(({ client, items }) => {
           const clientActive =
             client.clientId === activeClient?.clientId ||
-            items.some((item) => hasActiveChild(item, location.pathname));
+            items.some((item) => hasActiveChild(item, currentPath));
 
           return (
             <SideNavMenu
@@ -230,7 +231,7 @@ export function ClientSideNav({ hasPermission }: ClientSideNavProps) {
                 <RenderSideNavItem
                   key={item.id}
                   item={item}
-                  currentPath={location.pathname}
+                  currentPath={currentPath}
                   onNavigate={handleNavigate}
                 />
               ))}

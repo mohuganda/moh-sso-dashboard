@@ -1,15 +1,10 @@
 import { Content } from "@carbon/react";
 import { Outlet } from "react-router-dom";
 
-import {
-  ClientSideNav,
-  HeaderPanelProvider,
-  PublicFooter,
-  ToastProvider,
-  UserHeader,
-} from "@moh-sso/ui";
+import { HeaderPanelProvider, PublicFooter, ToastProvider } from "@moh-sso/ui";
 
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
+import { ConnectedClientSideNav, ConnectedUserHeader } from "@/app/ui-containers";
 
 import "./user-layout.scss";
 
@@ -18,10 +13,10 @@ export default function UserLayout() {
     <ToastProvider>
       <HeaderPanelProvider>
         <div className="user-layout">
-          <UserHeader />
+          <ConnectedUserHeader />
 
           <div className="user-layout__body">
-            <ClientSideNav />
+            <ConnectedClientSideNav />
 
             <div className="user-layout__content-shell">
               <RouteBreadcrumbBar />

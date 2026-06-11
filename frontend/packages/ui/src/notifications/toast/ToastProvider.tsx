@@ -2,6 +2,8 @@ import { ToastNotification } from "@carbon/react";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { ToastAction } from "./useToast";
 
+import "./ToastProvider.scss";
+
 export type ToastKind = "success" | "error" | "info" | "warning";
 
 export type Toast = {
@@ -41,17 +43,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ push }}>
       {children}
 
-      <div
-        style={{
-          position: "fixed",
-          top: 16,
-          right: 16,
-          zIndex: 9999,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
+      <div className="moh-toast-stack">
         {toasts.map((t) => (
           <ToastNotification
             key={t.id}

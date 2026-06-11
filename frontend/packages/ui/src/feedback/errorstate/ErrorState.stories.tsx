@@ -1,4 +1,4 @@
-import { ErrorState } from "../../feedback/errorstate/ErrorState";
+import { ErrorState } from "./ErrorState";
 
 export default {
   title: "Feedback/ErrorState",

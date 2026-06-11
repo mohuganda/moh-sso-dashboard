@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import React, { useMemo } from "react";
 import { InlineLoading, Tile } from "@carbon/react";
 import {
   App,
@@ -16,8 +15,6 @@ import {
   WatsonHealthTextAnnotationToggle,
 } from "@carbon/react/icons";
 
-import { useListClientsQuery } from "@moh-sso/api";
-import { setClients } from "@moh-sso/state";
 import type { Client } from "@moh-sso/types";
 
 import AppTile from "./AppMenuItem.component";
@@ -48,7 +45,12 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 type AppGridContentProps = {
+  clients?: Client[];
+  isLoading?: boolean;
+  isError?: boolean;
   onSelect?: () => void;
+  onRetry?: () => void;
+  onOpenClient?: (href: string, clientId?: string) => void;
 };
 
 function getClientHref(client: Client): string {
@@ -76,15 +78,14 @@ function getClientOrder(client: Client): number {
   return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
 }
 
-const AppGridContent: React.FC<AppGridContentProps> = ({ onSelect }) => {
-  const dispatch = useDispatch();
-
-  const { data: clients = [], isLoading, isError, refetch } = useListClientsQuery();
-
-  useEffect(() => {
-    dispatch(setClients(clients));
-  }, [clients, dispatch]);
-
+const AppGridContent: React.FC<AppGridContentProps> = ({
+  clients = [],
+  isLoading = false,
+  isError = false,
+  onSelect,
+  onRetry,
+  onOpenClient,
+}) => {
   const sortedClients = useMemo(() => {
     return [...clients].sort((a, b) => {
       const orderDiff = getClientOrder(a) - getClientOrder(b);
@@ -112,7 +113,7 @@ const AppGridContent: React.FC<AppGridContentProps> = ({ onSelect }) => {
           <h5 className="app-grid-state__title">Failed to load applications</h5>
           <p className="app-grid-state__description">Please check your connection and try again.</p>
 
-          <button type="button" className="app-grid-retry" onClick={() => refetch()}>
+          <button type="button" className="app-grid-retry" onClick={onRetry}>
             Retry
           </button>
         </Tile>
@@ -146,6 +147,7 @@ const AppGridContent: React.FC<AppGridContentProps> = ({ onSelect }) => {
               href={getClientHref(client)}
               clientId={client.clientId}
               onSelect={onSelect}
+              onOpen={onOpenClient}
             />
           </div>
         );

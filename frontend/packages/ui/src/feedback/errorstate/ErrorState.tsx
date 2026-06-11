@@ -1,6 +1,8 @@
 import { Warning } from "@carbon/react/icons";
 import { Button, Tile } from "@carbon/react";
 
+import "./ErrorState.scss";
+
 interface ErrorStateProps {
   title?: string;
   description: string;
@@ -21,21 +23,14 @@ export function ErrorState({
   secondaryAction,
 }: ErrorStateProps) {
   return (
-    <Tile
-      style={{
-        padding: "3rem",
-        textAlign: "center",
-        maxWidth: 520,
-        margin: "2rem auto",
-      }}
-    >
-      <Warning size={32} style={{ marginBottom: "1rem", color: "#da1e28" }} />
+    <Tile className="moh-error-state">
+      <Warning size={32} className="moh-error-state__icon" />
 
-      <h4 style={{ marginBottom: "0.5rem" }}>{title}</h4>
+      <h4 className="moh-error-state__title">{title}</h4>
 
-      <p style={{ opacity: 0.8, marginBottom: "1.5rem" }}>{description}</p>
+      <p className="moh-error-state__description">{description}</p>
 
-      <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+      <div className="moh-error-state__actions">
         {primaryAction && (
           <Button kind="primary" onClick={primaryAction.onClick}>
             {primaryAction.label}

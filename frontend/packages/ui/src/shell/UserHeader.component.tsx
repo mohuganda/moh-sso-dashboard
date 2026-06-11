@@ -7,38 +7,34 @@ import {
   SkipToContent,
 } from "@carbon/react";
 import type React from "react";
-import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import type { ReactNode } from "react";
 
-import { API } from "@moh-sso/config";
-import { selectUser } from "@moh-sso/auth";
-
-import AppMenuAction from "../../../navigation/appmenu/AppMenu.component";
+import AppMenuAction from "../navigation/appmenu/AppMenu.component";
 import "./public-header.css";
 
-import imagePath from "../../../assets/logo.png";
+import imagePath from "../assets/logo.png";
 
-const UserHeader: React.FC = () => {
-  const navigate = useNavigate();
-  const user = useSelector(selectUser);
+type UserHeaderProps = {
+  username?: string | null;
+  appMenu?: ReactNode;
+  onNavigateHome?: () => void;
+  onLogout?: () => void;
+};
 
-  const handleLogout = () => {
-    window.location.replace(API.auth.logout());
-  };
+const UserHeader: React.FC<UserHeaderProps> = ({ username, appMenu, onNavigateHome, onLogout }) => {
   return (
     <Header aria-label="MOH Integrated Health Portal">
       <SkipToContent />
 
       <img src={imagePath} className={`moh-image-style`} />
-      <HeaderName prefix="MOH" onClick={() => navigate("/apps")} className="moh-header-name">
+      <HeaderName prefix="MOH" onClick={onNavigateHome} className="moh-header-name">
         Integrated Health Portal
       </HeaderName>
 
       <HeaderGlobalBar>
-        {/* <EnvironmentBadge /> */}
-        <AppMenuAction />
+        {appMenu ?? <AppMenuAction />}
         <HeaderGlobalAction
-          aria-label={`Signed in as ${user?.username ?? "user"}`}
+          aria-label={`Signed in as ${username ?? "user"}`}
           tooltipAlignment="end"
         >
           <UserAvatarFilled size={20} />
@@ -46,9 +42,7 @@ const UserHeader: React.FC = () => {
         <HeaderGlobalAction
           aria-label="Logout"
           tooltipAlignment="end"
-          onClick={() => {
-            handleLogout();
-          }}
+          onClick={onLogout}
         >
           <Logout size={20} />
         </HeaderGlobalAction>
