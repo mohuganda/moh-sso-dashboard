@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
-import type { MicrofrontendLifecycle, MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
+import {
+  resolveRuntimeBasename,
+  type MicrofrontendLifecycle,
+  type MicrofrontendRuntimeProps,
+} from "@moh-sso/microfrontend";
 import { MicrofrontendErrorBoundary } from "@moh-sso/ui";
 import { microfrontendContainerId } from "./containers";
 import { shouldUseSingleSpaOrchestration } from "./orchestrator";
@@ -17,7 +21,10 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
   const { apiBaseUrl, auth, eventBus } = runtimeProps;
   const orchestrated = shouldUseSingleSpaOrchestration();
 
-  const basename = runtimeProps.basename || location.pathname.replace(/\/$/, "");
+  const basename = resolveRuntimeBasename(
+    runtimeProps.basename || location.pathname.replace(/\/$/, ""),
+    import.meta.env.BASE_URL,
+  );
 
   useEffect(() => {
     if (orchestrated) {
@@ -31,11 +38,13 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
 
     let disposed = false;
     const props = { apiBaseUrl, auth, basename, eventBus, domElement };
+    let mountedLifecycles: MicrofrontendLifecycle | null = null;
 
     const loadAndMount = async () => {
       try {
         const resolvedLifecycles =
           typeof lifecycles === "function" ? await lifecycles() : lifecycles;
+        mountedLifecycles = resolvedLifecycles;
 
         if (disposed) return;
 
@@ -56,13 +65,8 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
 
     return () => {
       disposed = true;
-      // Note: We can't easily wait for unmount here since it's async and we're in a cleanup,
-      // but the 'disposed' flag prevents late mount actions.
-      if (typeof lifecycles !== "function") {
-        void Promise.resolve(lifecycles.unmount(props));
-      } else {
-        // If it was a function, we'd need to re-resolve it to unmount, 
-        // which might be overkill if the page is already gone.
+      if (mountedLifecycles) {
+        void Promise.resolve(mountedLifecycles.unmount(props));
       }
     };
   }, [apiBaseUrl, appName, auth, basename, eventBus, lifecycles, orchestrated]);

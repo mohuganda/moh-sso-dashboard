@@ -1,4 +1,4 @@
-import type { MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
+import { resolveRuntimeBasename, type MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { ComingSoon, MohThemeProvider } from "@moh-sso/ui";
@@ -12,7 +12,7 @@ function normalizeBasename(basename?: string) {
 }
 
 export function UtilitiesRoot(props: MicrofrontendRuntimeProps) {
-  const basename = normalizeBasename(props.basename);
+  const basename = resolveRuntimeBasename(normalizeBasename(props.basename));
 
   return (
     <MohThemeProvider theme="white">

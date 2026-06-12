@@ -1,10 +1,10 @@
-import type { MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
+import { resolveRuntimeBasename, type MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import DocumentDetailsPage from "./pages/document-management/document-details/document-details.component";
-import DocumentPage from "./pages/document-management/documents.component";
 import FileUpload from "./pages/file-upload/file-upload.component";
 import { MohThemeProvider } from "@moh-sso/ui";
+import DocumentPage from "./pages/document-management/documents.component";
 
 const DEFAULT_FILESVR_BASE = "/apps/dwh/filesvr";
 const DEFAULT_DOCUMENT_UPLOAD_BASE = "/apps/utilities/self-service/eservice/document-upload";
@@ -20,14 +20,14 @@ function resolveDocumentsBasename(props: MicrofrontendRuntimeProps) {
   const pathname = window.location.pathname;
 
   if (propBasename) {
-    return propBasename;
+    return resolveRuntimeBasename(propBasename);
   }
 
-  if (pathname.startsWith(DEFAULT_DOCUMENT_UPLOAD_BASE)) {
-    return DEFAULT_DOCUMENT_UPLOAD_BASE;
+  if (pathname.includes(DEFAULT_DOCUMENT_UPLOAD_BASE)) {
+    return resolveRuntimeBasename(DEFAULT_DOCUMENT_UPLOAD_BASE);
   }
 
-  return DEFAULT_FILESVR_BASE;
+  return resolveRuntimeBasename(DEFAULT_FILESVR_BASE);
 }
 
 export function DocumentsRoot(props: MicrofrontendRuntimeProps) {
@@ -39,15 +39,15 @@ export function DocumentsRoot(props: MicrofrontendRuntimeProps) {
     <MohThemeProvider theme="white">
       <BrowserRouter basename={basename}>
         <Routes>
-          {!isDocumentUpload ? (
+          {isDocumentUpload ? (
             <>
-              <Route index element={<FileUpload />} />
+              <Route index element={<DocumentPage />} />
               <Route path=":id" element={<DocumentDetailsPage />} />
             </>
           ) : (
             <>
-              <Route index element={<DocumentPage />} />
-              <Route path=":id" element={<DocumentDetailsPage />} />
+              <Route index element={<FileUpload />} />
+              <Route path="*" element={<FileUpload />} />
             </>
           )}
         </Routes>

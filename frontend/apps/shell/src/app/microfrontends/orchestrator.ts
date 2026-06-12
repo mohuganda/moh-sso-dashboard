@@ -1,4 +1,8 @@
-import type { MicrofrontendLifecycle, MicrofrontendRoute } from "@moh-sso/microfrontend";
+import {
+  resolveRuntimeBasename,
+  type MicrofrontendLifecycle,
+  type MicrofrontendRoute,
+} from "@moh-sso/microfrontend";
 
 import {
   announcementsLifecycles,
@@ -90,6 +94,10 @@ async function loadSingleSpa(): Promise<SingleSpaModule | null> {
 
 function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
   const mode = getMicrofrontendMode();
+  const routeBasename = resolveRuntimeBasename(route.path, import.meta.env.BASE_URL);
+  const activeWhen = (route.paths ?? [route.path]).map((path) =>
+    resolveRuntimeBasename(path, import.meta.env.BASE_URL),
+  );
   const loader =
     mode === "remote"
       ? () => runtimeImport<MicrofrontendLifecycle>(route.appName)
@@ -105,7 +113,7 @@ function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
       const lifecycle = await loader();
       const propsWithContainer = (props: Record<string, unknown>) => ({
         ...props,
-        basename: route.path,
+        basename: routeBasename,
         domElement: getMicrofrontendContainer(route.appName),
       });
 
@@ -115,9 +123,9 @@ function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
         unmount: (props) => lifecycle.unmount(propsWithContainer(props)),
       };
     },
-    activeWhen: route.paths ?? [route.path],
+    activeWhen,
     customProps: {
-      basename: route.path,
+      basename: routeBasename,
     },
   });
 }
