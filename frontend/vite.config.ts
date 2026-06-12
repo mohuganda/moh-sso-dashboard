@@ -41,7 +41,7 @@ const dynamicAliases = [
 ];
 
 export default defineConfig({
-  base: "/",
+  base: "/portal/",
   root: pathFromRoot("./apps/shell"),
   publicDir: pathFromRoot("./public"),
 
