@@ -153,19 +153,51 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 // OIDC CALLBACK (PKCE + state verification)
 // ----------------------------------------------------
 func (h *Handler) HandleAuthCallback(c *gin.Context) {
+	requestID := c.GetHeader("X-Request-ID")
+	if requestID == "" {
+		requestID = c.GetHeader("Cf-Ray")
+	}
+	if requestID == "" {
+		requestID = "-"
+	}
+
+	log.Printf(
+		"[AUTH CALLBACK] started: request_id=%s method=%s path=%s raw_query_present=%v ip=%s user_agent=%s",
+		requestID,
+		c.Request.Method,
+		c.Request.URL.Path,
+		c.Request.URL.RawQuery != "",
+		c.ClientIP(),
+		c.Request.UserAgent(),
+	)
+
+	log.Printf(
+		"[AUTH CALLBACK] query summary: request_id=%s state_present=%v code_present=%v session_state_present=%v issuer_present=%v error_present=%v",
+		requestID,
+		c.Query("state") != "",
+		c.Query("code") != "",
+		c.Query("session_state") != "",
+		c.Query("iss") != "",
+		c.Query("error") != "",
+	)
+
 	// Keycloak may redirect back with an error instead of a code.
 	if kcErr := c.Query("error"); kcErr != "" {
 		h.auditLoginFailure(c)
 
+		redirectURL := h.defaultFrontendRedirect()
+
 		log.Printf(
-			"[AUTH CALLBACK] keycloak error: error=%s description=%s ip=%s user_agent=%s",
+			"[AUTH CALLBACK] keycloak error: request_id=%s error=%s description=%s redirect=%s ip=%s user_agent=%s",
+			requestID,
 			kcErr,
 			c.Query("error_description"),
+			redirectURL,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 		)
 
-		c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+		c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		return
 	}
 
@@ -173,18 +205,35 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	if code == "" {
 		h.auditLoginFailure(c)
 
+		redirectURL := h.defaultFrontendRedirect()
+
 		log.Printf(
-			"[AUTH CALLBACK] missing authorization code: ip=%s user_agent=%s",
+			"[AUTH CALLBACK] missing authorization code: request_id=%s redirect=%s ip=%s user_agent=%s",
+			requestID,
+			redirectURL,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 		)
 
-		c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+		c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		return
 	}
 
+	log.Printf(
+		"[AUTH CALLBACK] authorization code received: request_id=%s code_present=%v",
+		requestID,
+		code != "",
+	)
+
 	// 🔐 Validate OAuth state.
 	returnedState := c.Query("state")
+
+	log.Printf(
+		"[AUTH CALLBACK] reading oauth state cookie: request_id=%s returned_state_present=%v",
+		requestID,
+		returnedState != "",
+	)
+
 	cookieState, err := c.Cookie(cookieOAuthState)
 	if err != nil || cookieState == "" || returnedState == "" || returnedState != cookieState {
 		details := "oauth state mismatch"
@@ -192,10 +241,15 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			details = err.Error()
 		}
 
+		redirectURL := h.defaultFrontendRedirect()
+
 		log.Printf(
-			"[AUTH CALLBACK] invalid oauth state: returned_state_present=%v cookie_state_present=%v ip=%s user_agent=%s err=%v details=%s",
+			"[AUTH CALLBACK] invalid oauth state: request_id=%s returned_state_present=%v cookie_state_present=%v states_match=%v redirect=%s ip=%s user_agent=%s err=%v details=%s",
+			requestID,
 			returnedState != "",
 			cookieState != "",
+			returnedState != "" && cookieState != "" && returnedState == cookieState,
+			redirectURL,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 			err,
@@ -205,11 +259,21 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		// Stale callback, expired login attempt, refreshed callback URL,
 		// or OAuth cookies cleared by the browser.
 		// Do not notify admins for this normal browser/OAuth behavior.
-		c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+		c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		return
 	}
 
+	log.Printf(
+		"[AUTH CALLBACK] oauth state validated: request_id=%s",
+		requestID,
+	)
+
 	// 🔐 Read PKCE verifier.
+	log.Printf(
+		"[AUTH CALLBACK] reading pkce verifier cookie: request_id=%s",
+		requestID,
+	)
+
 	codeVerifier, err := c.Cookie(cookiePKCEVerifier)
 	if err != nil || codeVerifier == "" {
 		details := "pkce verifier cookie not found"
@@ -217,8 +281,13 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			details = err.Error()
 		}
 
+		redirectURL := h.defaultFrontendRedirect()
+
 		log.Printf(
-			"[AUTH CALLBACK] missing pkce verifier: ip=%s user_agent=%s err=%v details=%s",
+			"[AUTH CALLBACK] missing pkce verifier: request_id=%s verifier_present=%v redirect=%s ip=%s user_agent=%s err=%v details=%s",
+			requestID,
+			codeVerifier != "",
+			redirectURL,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 			err,
@@ -227,14 +296,29 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 
 		// Same as state failure: usually stale/expired callback.
 		// Do not notify admins.
-		c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+		c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		return
 	}
+
+	log.Printf(
+		"[AUTH CALLBACK] pkce verifier found: request_id=%s verifier_present=%v",
+		requestID,
+		codeVerifier != "",
+	)
+
+	log.Printf(
+		"[AUTH CALLBACK] starting token exchange: request_id=%s client_id=%s ip=%s user_agent=%s",
+		requestID,
+		h.config.KeycloakWebClientID,
+		c.ClientIP(),
+		c.Request.UserAgent(),
+	)
 
 	tokens, err := h.authService.ProcessAuthCode(code, codeVerifier)
 	if err != nil {
 		log.Printf(
-			"[AUTH CALLBACK] token exchange failed: ip=%s user_agent=%s err=%v",
+			"[AUTH CALLBACK] token exchange failed: request_id=%s ip=%s user_agent=%s err=%v",
+			requestID,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 			err,
@@ -244,15 +328,27 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		// If the user refreshes the callback URL after a successful exchange,
 		// Keycloak returns invalid_grant / Code not valid.
 		if h.isCodeAlreadyUsedError(err) {
-			if h.hasAnyAuthCookie(c) {
-				c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
-				return
-			}
+			redirectURL := h.defaultFrontendRedirect()
+			hasAuthCookie := h.hasAnyAuthCookie(c)
 
-			// No session cookies means the user should restart login.
-			c.Redirect(http.StatusTemporaryRedirect, h.defaultFrontendRedirect())
+			log.Printf(
+				"[AUTH CALLBACK] authorization code already used: request_id=%s has_auth_cookie=%v redirect=%s ip=%s user_agent=%s",
+				requestID,
+				hasAuthCookie,
+				redirectURL,
+				c.ClientIP(),
+				c.Request.UserAgent(),
+			)
+
+			c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 			return
 		}
+
+		log.Printf(
+			"[AUTH CALLBACK] notifying login failure: request_id=%s client_id=%s",
+			requestID,
+			h.config.KeycloakWebClientID,
+		)
 
 		h.notificationService.NotifyLoginFailed(
 			c.Request.Context(),
@@ -262,7 +358,17 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			err,
 		)
 
+		log.Printf(
+			"[AUTH CALLBACK] writing login failure audit: request_id=%s",
+			requestID,
+		)
+
 		h.auditLoginFailure(c)
+
+		log.Printf(
+			"[AUTH CALLBACK] returning unauthorized: request_id=%s reason=token_exchange_failed",
+			requestID,
+		)
 
 		c.AbortWithStatusJSON(
 			http.StatusUnauthorized,
@@ -274,11 +380,34 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		return
 	}
 
+	log.Printf(
+		"[AUTH CALLBACK] token exchange completed: request_id=%s tokens_nil=%v access_token_present=%v refresh_token_present=%v id_token_present=%v expires_in=%d refresh_expires_in=%d",
+		requestID,
+		tokens == nil,
+		tokens != nil && tokens.AccessToken != "",
+		tokens != nil && tokens.RefreshToken != "",
+		tokens != nil && tokens.IDToken != "",
+		func() int {
+			if tokens == nil {
+				return 0
+			}
+			return int(tokens.ExpiresIn)
+		}(),
+		func() int {
+			if tokens == nil {
+				return 0
+			}
+			return int(tokens.RefreshExpiresIn)
+		}(),
+	)
+
 	if tokens == nil || tokens.AccessToken == "" {
 		h.auditLoginFailure(c)
 
 		log.Printf(
-			"[AUTH CALLBACK] empty token response: ip=%s user_agent=%s",
+			"[AUTH CALLBACK] empty token response: request_id=%s tokens_nil=%v ip=%s user_agent=%s",
+			requestID,
+			tokens == nil,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 		)
@@ -295,11 +424,29 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 
 	// Clear only OAuth one-time cookies after successful exchange.
 	// Do not clear session cookies here.
+	log.Printf(
+		"[AUTH CALLBACK] clearing oauth one-time cookies: request_id=%s",
+		requestID,
+	)
+
 	h.clearOAuthCookies(c)
 
 	userID := utils.ExtractUserIDFromJWT(tokens.AccessToken)
 
-	_ = h.auditService.LoginResult(
+	log.Printf(
+		"[AUTH CALLBACK] extracted user from access token: request_id=%s user_id_present=%v",
+		requestID,
+		userID != "",
+	)
+
+	log.Printf(
+		"[AUTH CALLBACK] writing successful login audit: request_id=%s client_id=%s user_id_present=%v",
+		requestID,
+		h.config.KeycloakWebClientID,
+		userID != "",
+	)
+
+	if err := h.auditService.LoginResult(
 		c.Request.Context(),
 		utils.ToNullUUID(userID),
 		true,
@@ -308,22 +455,70 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		c.Request.UserAgent(),
 		"",
 		"",
+	); err != nil {
+		log.Printf(
+			"[AUTH CALLBACK] successful login audit failed: request_id=%s user_id_present=%v err=%v",
+			requestID,
+			userID != "",
+			err,
+		)
+	}
+
+	log.Printf(
+		"[AUTH CALLBACK] setting access token cookie: request_id=%s expires_in=%d",
+		requestID,
+		tokens.ExpiresIn,
 	)
 
 	h.setSecureAccessTokenCookie(c, tokens.AccessToken, tokens.ExpiresIn)
 
 	if tokens.RefreshToken != "" && tokens.RefreshExpiresIn > 0 {
+		log.Printf(
+			"[AUTH CALLBACK] setting refresh token cookie: request_id=%s refresh_expires_in=%d",
+			requestID,
+			tokens.RefreshExpiresIn,
+		)
+
 		h.setSecureRefreshTokenCookie(c, tokens.RefreshToken, tokens.RefreshExpiresIn)
+	} else {
+		log.Printf(
+			"[AUTH CALLBACK] refresh token cookie skipped: request_id=%s refresh_token_present=%v refresh_expires_in=%d",
+			requestID,
+			tokens.RefreshToken != "",
+			tokens.RefreshExpiresIn,
+		)
 	}
 
 	if tokens.IDToken != "" {
+		log.Printf(
+			"[AUTH CALLBACK] setting id token cookie: request_id=%s expires_in=%d",
+			requestID,
+			tokens.ExpiresIn,
+		)
+
 		h.setSecureIDTokenCookie(c, tokens.IDToken, int(tokens.ExpiresIn))
+	} else {
+		log.Printf(
+			"[AUTH CALLBACK] id token cookie skipped: request_id=%s id_token_present=false",
+			requestID,
+		)
 	}
 
 	// ------------------------------------------------------------------
 	// Role-based redirect
 	// ------------------------------------------------------------------
+	log.Printf(
+		"[AUTH CALLBACK] resolving role-based redirect: request_id=%s",
+		requestID,
+	)
+
 	redirectURL := h.redirectAfterLogin(tokens.AccessToken)
+
+	log.Printf(
+		"[AUTH CALLBACK] redirecting after login: request_id=%s redirect_url=%s",
+		requestID,
+		redirectURL,
+	)
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
@@ -568,22 +763,58 @@ func (h *Handler) defaultFrontendRedirect() string {
 
 func (h *Handler) redirectAfterLogin(accessToken string) string {
 	baseURL := strings.TrimRight(h.config.FrontendBaseURL, "/")
+
+	log.Printf(
+		"[AUTH REDIRECT] resolving post-login redirect: frontend_base_url=%q normalized_base_url=%q token_present=%v",
+		h.config.FrontendBaseURL,
+		baseURL,
+		accessToken != "",
+	)
+
 	if baseURL == "" {
+		log.Printf("[AUTH REDIRECT] empty frontend base url, redirecting to root")
 		return "/"
 	}
 
 	isAdmin := utils.TokenHasRealmRole(accessToken, "admin")
 	isUser := utils.TokenHasRealmRole(accessToken, "user")
 
+	log.Printf(
+		"[AUTH REDIRECT] token role checks: is_admin=%v is_user=%v",
+		isAdmin,
+		isUser,
+	)
+
 	if isAdmin {
-		return baseURL + "/admin/home"
+		redirectURL := baseURL + "/admin/home"
+
+		log.Printf(
+			"[AUTH REDIRECT] admin role matched, redirecting to %q",
+			redirectURL,
+		)
+
+		return redirectURL
 	}
 
 	if isUser {
-		return baseURL + "/apps/news"
+		redirectURL := baseURL + "/apps/news"
+
+		log.Printf(
+			"[AUTH REDIRECT] user role matched, redirecting to %q",
+			redirectURL,
+		)
+
+		return redirectURL
 	}
 
-	return baseURL + "/"
+	redirectURL := baseURL + "/"
+
+	log.Printf(
+		"[AUTH REDIRECT] no supported role matched, redirecting to default %q",
+		redirectURL,
+	)
+
+	return redirectURL
 }
 
 // ----------------------------------------------------
