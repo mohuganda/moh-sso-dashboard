@@ -3,7 +3,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import DocumentDetailsPage from "./pages/document-management/document-details/document-details.component";
 import FileUpload from "./pages/file-upload/file-upload.component";
 import { MohThemeProvider } from "@moh-sso/ui";
-import DocumentPage from "./pages/document-management/documents.component";
 
 const DEFAULT_FILESVR_BASE = "/apps/dwh/filesvr";
 const DEFAULT_DOCUMENT_UPLOAD_BASE = "/apps/utilities/self-service/eservice/document-upload";
@@ -31,12 +30,14 @@ export function DocumentsRoot(props: MicrofrontendRuntimeProps) {
         <Routes>
           {isDocumentUpload ? (
             <>
-              <Route index element={<DocumentPage />} />
+              <Route index element={<FileUpload />} />
               <Route path=":id" element={<DocumentDetailsPage />} />
+              <Route path="*" element={<FileUpload />} />
             </>
           ) : (
             <>
               <Route index element={<FileUpload />} />
+              <Route path=":id" element={<DocumentDetailsPage />} />
               <Route path="*" element={<FileUpload />} />
             </>
           )}
