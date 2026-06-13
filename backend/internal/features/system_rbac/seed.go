@@ -17,15 +17,22 @@ type SeedFile struct {
 }
 
 type SeedSystem struct {
-	ClientID    string     `json:"clientId" yaml:"clientId"`
-	DisplayName string     `json:"displayName" yaml:"displayName"`
-	Description string     `json:"description,omitempty" yaml:"description,omitempty"`
-	Icon        string     `json:"icon,omitempty" yaml:"icon,omitempty"`
-	LaunchURL   string     `json:"launchUrl,omitempty" yaml:"launchUrl,omitempty"`
-	Category    string     `json:"category,omitempty" yaml:"category,omitempty"`
-	Enabled     *bool      `json:"enabled,omitempty" yaml:"enabled,omitempty"`
-	AccessRoles []string   `json:"accessRoles,omitempty" yaml:"accessRoles,omitempty"`
-	Roles       []SeedRole `json:"roles,omitempty" yaml:"roles,omitempty"`
+	ClientID         string     `json:"clientId" yaml:"clientId"`
+	DisplayName      string     `json:"displayName" yaml:"displayName"`
+	Description      string     `json:"description,omitempty" yaml:"description,omitempty"`
+	Icon             string     `json:"icon,omitempty" yaml:"icon,omitempty"`
+	LaunchURL        string     `json:"launchUrl,omitempty" yaml:"launchUrl,omitempty"`
+	Category         string     `json:"category,omitempty" yaml:"category,omitempty"`
+	OwnerTeam        string     `json:"ownerTeam,omitempty" yaml:"ownerTeam,omitempty"`
+	OwnerName        string     `json:"ownerName,omitempty" yaml:"ownerName,omitempty"`
+	OwnerEmail       string     `json:"ownerEmail,omitempty" yaml:"ownerEmail,omitempty"`
+	SupportURL       string     `json:"supportUrl,omitempty" yaml:"supportUrl,omitempty"`
+	DocumentationURL string     `json:"documentationUrl,omitempty" yaml:"documentationUrl,omitempty"`
+	Environment      string     `json:"environment,omitempty" yaml:"environment,omitempty"`
+	Criticality      string     `json:"criticality,omitempty" yaml:"criticality,omitempty"`
+	Enabled          *bool      `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	AccessRoles      []string   `json:"accessRoles,omitempty" yaml:"accessRoles,omitempty"`
+	Roles            []SeedRole `json:"roles,omitempty" yaml:"roles,omitempty"`
 }
 
 type SeedRole struct {

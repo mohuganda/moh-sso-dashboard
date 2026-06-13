@@ -20,6 +20,7 @@ import {
   useListRbacPermissionsQuery,
   useListRbacSystemsQuery,
   useListRealmRolePermissionsQuery,
+  usePreviewRbacChangeMutation,
   useRemoveRealmRolePermissionMutation,
   useRemoveSystemAccessRoleMutation,
   useRemoveSystemRolePermissionMutation,
@@ -28,6 +29,9 @@ import {
 import { PERMISSIONS, PermissionGuard, useAuthorization } from "@moh-sso/auth";
 import type { RbacPermission, RbacSystem, RbacSystemRole } from "@moh-sso/types";
 
+import { EffectiveAccessPanel } from "../components/EffectiveAccessPanel";
+import { GovernanceToolsPanel } from "../components/GovernanceToolsPanel";
+import { SyncDriftPanel } from "../components/SyncDriftPanel";
 import "./rbac-management.page.scss";
 
 type SystemDraft = {
@@ -36,6 +40,13 @@ type SystemDraft = {
   icon: string;
   launchUrl: string;
   category: string;
+  ownerTeam: string;
+  ownerName: string;
+  ownerEmail: string;
+  supportUrl: string;
+  documentationUrl: string;
+  environment: string;
+  criticality: string;
   enabled: boolean;
   sortOrder: number;
 };
@@ -55,6 +66,13 @@ function toDraft(system?: RbacSystem): SystemDraft {
     icon: system?.icon ?? "",
     launchUrl: system?.launchUrl ?? "",
     category: system?.category ?? "",
+    ownerTeam: system?.ownerTeam ?? "",
+    ownerName: system?.ownerName ?? "",
+    ownerEmail: system?.ownerEmail ?? "",
+    supportUrl: system?.supportUrl ?? "",
+    documentationUrl: system?.documentationUrl ?? "",
+    environment: system?.environment ?? "",
+    criticality: system?.criticality ?? "",
     enabled: system?.enabled ?? true,
     sortOrder: system?.sortOrder ?? 0,
   };
@@ -90,6 +108,7 @@ export default function RbacManagementPage() {
   const [removeRealmPermission] = useRemoveRealmRolePermissionMutation();
   const [addAccessRole] = useAddSystemAccessRoleMutation();
   const [removeAccessRole] = useRemoveSystemAccessRoleMutation();
+  const [previewChange] = usePreviewRbacChangeMutation();
 
   const canWriteSystems = can(PERMISSIONS.rbacWrite);
   const canWriteRoles = can(PERMISSIONS.rbacRolesWrite);
@@ -155,7 +174,15 @@ export default function RbacManagementPage() {
   };
 
   const handleDeleteRole = async (role: RbacSystemRole) => {
-    if (!confirm(`Delete role "${role.name}"?`)) return;
+    const preview = await previewChange({
+      action: "delete-role",
+      resourceType: "system-role",
+      resourceId: role.id,
+      systemClientId: role.clientId,
+      roleName: role.name,
+    }).unwrap();
+    const warning = preview.warnings.length ? `\n\n${preview.warnings.join("\n")}` : "";
+    if (!confirm(`Delete role "${role.name}"? Risk: ${preview.riskLevel}.${warning}`)) return;
     try {
       setError(null);
       await deleteRole({ roleId: role.id, clientId: role.clientId }).unwrap();
@@ -245,6 +272,10 @@ export default function RbacManagementPage() {
           onClose={() => setError(null)}
         />
       )}
+
+      <SyncDriftPanel />
+      <EffectiveAccessPanel />
+      <GovernanceToolsPanel activeClientId={activeClientId} />
 
       <section className="rbac-page__layout">
         <aside className="rbac-page__systems">
@@ -336,6 +367,55 @@ export default function RbacManagementPage() {
                 value={draft.description}
                 disabled={!canWriteSystems}
                 onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+              />
+              <TextInput
+                id="rbac-owner-team"
+                labelText="Owner team"
+                value={draft.ownerTeam}
+                disabled={!canWriteSystems}
+                onChange={(event) => setDraft({ ...draft, ownerTeam: event.target.value })}
+              />
+              <TextInput
+                id="rbac-owner-name"
+                labelText="Owner name"
+                value={draft.ownerName}
+                disabled={!canWriteSystems}
+                onChange={(event) => setDraft({ ...draft, ownerName: event.target.value })}
+              />
+              <TextInput
+                id="rbac-owner-email"
+                labelText="Owner email"
+                value={draft.ownerEmail}
+                disabled={!canWriteSystems}
+                onChange={(event) => setDraft({ ...draft, ownerEmail: event.target.value })}
+              />
+              <TextInput
+                id="rbac-support-url"
+                labelText="Support URL"
+                value={draft.supportUrl}
+                disabled={!canWriteSystems}
+                onChange={(event) => setDraft({ ...draft, supportUrl: event.target.value })}
+              />
+              <TextInput
+                id="rbac-documentation-url"
+                labelText="Documentation URL"
+                value={draft.documentationUrl}
+                disabled={!canWriteSystems}
+                onChange={(event) => setDraft({ ...draft, documentationUrl: event.target.value })}
+              />
+              <TextInput
+                id="rbac-environment"
+                labelText="Environment"
+                value={draft.environment}
+                disabled={!canWriteSystems}
+                onChange={(event) => setDraft({ ...draft, environment: event.target.value })}
+              />
+              <TextInput
+                id="rbac-criticality"
+                labelText="Criticality"
+                value={draft.criticality}
+                disabled={!canWriteSystems}
+                onChange={(event) => setDraft({ ...draft, criticality: event.target.value })}
               />
               <Toggle
                 id="rbac-enabled"

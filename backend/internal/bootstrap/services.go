@@ -228,7 +228,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.Databases.Remote,
 	)
 
-	rbacService := rbacfeature.NewService(deps.Repositories.RBAC)
+	rbacService := rbacfeature.NewService(deps.Repositories.RBAC, userService)
 
 	return services{
 		Email:                   emailService,

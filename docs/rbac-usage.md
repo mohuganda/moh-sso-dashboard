@@ -14,6 +14,8 @@ The frontend reads access from `/auth/me`:
 
 Realm roles and client roles are inputs. Permission checks are the preferred authorization model.
 
+Keycloak clients are the source candidates for portal systems. Use `system-rbac sync-keycloak` against live Keycloak, or use `--realm-export keycloak/realm-export.json`, to draft/apply portal systems from Keycloak clients and client roles. Portal RBAC then maps those discovered roles to application permissions.
+
 ## Backend Rules
 
 Backend routes must enforce permissions with middleware from `backend/internal/middleware`.
@@ -64,6 +66,14 @@ Required permissions:
 - `rbac:permissions:write` maps permissions to system roles and realm roles.
 
 Use this UI for routine role and permission mapping after a Keycloak client has been onboarded. Use the CLI seed/sync flow for bulk initialization, repeatable environments, and drift checks.
+
+The RBAC page also includes an Effective Access section. Use it to search by user ID, username, or email and explain:
+
+- realm roles from Keycloak
+- client roles from Keycloak
+- resolved portal permissions
+- accessible systems
+- the role or system role that granted each permission
 
 ## Microfrontend Metadata
 

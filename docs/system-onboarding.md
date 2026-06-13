@@ -16,7 +16,15 @@ Examples:
 
 ## 2. Draft Portal RBAC Mapping
 
-From `backend/`:
+From `backend/`, draft from a checked-in or exported Keycloak realm file:
+
+```sh
+go run ./cmd/cli system-rbac sync-keycloak \
+  --realm-export ../keycloak/realm-export.json \
+  --draft-file /tmp/system-rbac.seed.yaml
+```
+
+Or draft from a running Keycloak instance:
 
 ```sh
 go run ./cmd/cli system-rbac sync-keycloak \
@@ -27,7 +35,9 @@ go run ./cmd/cli system-rbac sync-keycloak \
   --draft-file /tmp/system-rbac.seed.yaml
 ```
 
-Review the draft and assign permissions to each system role. A generated role without permissions is intentionally inert until mapped.
+The sync treats non-Keycloak-internal clients as candidate systems and imports their client roles as portal system roles/access roles. Service-account-only admin clients with no client roles are ignored.
+
+Review the draft and assign permissions to each system role. A generated role without permissions is intentionally inert until mapped. This is deliberate: Keycloak says which role a user has, while portal RBAC says what that role can do inside the Integrated Health Portal.
 
 ## 3. Validate the Seed
 
@@ -60,6 +70,16 @@ go run ./cmd/cli system-rbac explain \
 ```
 
 ## 7. Check for Drift
+
+Against a realm export:
+
+```sh
+go run ./cmd/cli system-rbac unmapped \
+  --realm-export ../keycloak/realm-export.json \
+  --file config/system-rbac.seed.yaml
+```
+
+Against live Keycloak:
 
 ```sh
 go run ./cmd/cli system-rbac unmapped \

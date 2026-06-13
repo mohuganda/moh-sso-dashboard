@@ -154,19 +154,31 @@ func upsertSystem(ctx context.Context, tx *sql.Tx, system SeedSystem) (string, e
 	var id string
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO ihp_systems (
-			client_id, display_name, description, icon, launch_url, category, enabled, metadata
-		) VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7, $8)
+			client_id, display_name, description, icon, launch_url, category, owner_team, owner_name,
+			owner_email, support_url, documentation_url, environment, criticality, enabled, metadata
+		) VALUES (
+			$1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''),
+			NULLIF($8, ''), NULLIF($9, ''), NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''),
+			NULLIF($13, ''), $14, $15
+		)
 		ON CONFLICT (client_id) DO UPDATE SET
 			display_name = EXCLUDED.display_name,
 			description = EXCLUDED.description,
 			icon = EXCLUDED.icon,
 			launch_url = EXCLUDED.launch_url,
 			category = EXCLUDED.category,
+			owner_team = EXCLUDED.owner_team,
+			owner_name = EXCLUDED.owner_name,
+			owner_email = EXCLUDED.owner_email,
+			support_url = EXCLUDED.support_url,
+			documentation_url = EXCLUDED.documentation_url,
+			environment = EXCLUDED.environment,
+			criticality = EXCLUDED.criticality,
 			enabled = EXCLUDED.enabled,
 			metadata = EXCLUDED.metadata,
 			updated_at = now()
 		RETURNING id::text
-	`, system.ClientID, system.DisplayName, system.Description, system.Icon, system.LaunchURL, system.Category, enabled, metadata).Scan(&id)
+	`, system.ClientID, system.DisplayName, system.Description, system.Icon, system.LaunchURL, system.Category, system.OwnerTeam, system.OwnerName, system.OwnerEmail, system.SupportURL, system.DocumentationURL, system.Environment, system.Criticality, enabled, metadata).Scan(&id)
 
 	return id, err
 }

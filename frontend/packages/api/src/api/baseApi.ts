@@ -194,6 +194,9 @@ export const baseApi = createApi({
     "RbacSystem",
     "RbacPermission",
     "RbacRealmRole",
+    "RbacAccessRequest",
+    "RbacChangeRequest",
+    "RbacAudit",
   ],
 
   endpoints: () => ({}),
