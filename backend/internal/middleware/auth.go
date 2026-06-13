@@ -38,6 +38,7 @@ func ExtractAuthContext(kc *keycloak.Client, sessions *authsession.Store) gin.Ha
 		c.Set("client_roles", authContext.ClientRoles)
 		c.Set("realm_roles", authContext.RealmRoles)
 		c.Set("permissions", authContext.Permissions)
+		c.Set("systems", authContext.AccessibleSystems)
 		c.Set("is_admin", authContext.IsAdmin)
 		c.Set("is_user", authContext.IsUser)
 

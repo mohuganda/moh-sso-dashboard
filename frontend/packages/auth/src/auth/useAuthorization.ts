@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useSelector } from "react-redux";
 
 import { selectUser } from "./auth.selectors";
-import type { Permission } from "./auth.types";
+import type { Permission, System } from "./auth.types";
 
 export function useAuthorization() {
   const user = useSelector(selectUser);
@@ -11,6 +11,7 @@ export function useAuthorization() {
     const permissions = new Set(user?.permissions ?? []);
     const realmRoles = new Set((user?.realmRoles ?? []).map((role) => role.toLowerCase()));
     const clientRoles = user?.clientRoles ?? {};
+    const systems = new Set(user?.systems ?? []);
 
     return {
       can: (permission: Permission) => permissions.has(permission),
@@ -21,8 +22,13 @@ export function useAuthorization() {
         (clientRoles[clientId] ?? []).some(
           (currentRole) => currentRole.trim().toLowerCase() === role.trim().toLowerCase(),
         ),
+      hasSystem: (system: System) => systems.has(system),
+      hasSystemRole: (system: System, role: string) =>
+        (clientRoles[system] ?? []).some(
+          (currentRole) => currentRole.trim().toLowerCase() === role.trim().toLowerCase(),
+        ),
       permissions: [...permissions],
+      systems: [...systems],
     };
   }, [user]);
 }
-

@@ -10,6 +10,7 @@ export interface AuthUser {
   realmRoles: string[];
   clientRoles: Record<string, string[]>;
   permissions: Permission[];
+  systems: System[];
   enabled: boolean;
   emailVerified: boolean;
   requirePwdChange: boolean;
@@ -20,7 +21,12 @@ export interface AuthUser {
 
 export type Role = "admin" | "user" | "manager";
 
+export type System = "dashboard-web" | "integrated-outbreak-system" | "report-browser";
+
 export type Permission =
+  | "portal:access"
+  | "systems:read"
+  | "systems:launch"
   | "users:read"
   | "users:write"
   | "users:roles:write"
@@ -48,6 +54,9 @@ export type Permission =
   | "data_quality:read"
   | "data_quality:write"
   | "data_quality:resolve"
+  | "report_browser:read"
+  | "outbreak:access"
+  | "outbreak:manage"
   | "metrics:read"
   | "audit:read"
   | "notifications:read"

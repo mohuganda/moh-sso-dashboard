@@ -3,6 +3,10 @@ package authz
 type Permission string
 
 const (
+	PermissionPortalAccess  Permission = "portal:access"
+	PermissionSystemsRead   Permission = "systems:read"
+	PermissionSystemsLaunch Permission = "systems:launch"
+
 	PermissionUsersRead       Permission = "users:read"
 	PermissionUsersWrite      Permission = "users:write"
 	PermissionUsersRolesWrite Permission = "users:roles:write"
@@ -39,6 +43,10 @@ const (
 	PermissionDataQualityWrite   Permission = "data_quality:write"
 	PermissionDataQualityResolve Permission = "data_quality:resolve"
 
+	PermissionReportBrowserRead Permission = "report_browser:read"
+	PermissionOutbreakAccess    Permission = "outbreak:access"
+	PermissionOutbreakManage    Permission = "outbreak:manage"
+
 	PermissionMetricsRead        Permission = "metrics:read"
 	PermissionAuditRead          Permission = "audit:read"
 	PermissionNotificationsRead  Permission = "notifications:read"
@@ -46,6 +54,9 @@ const (
 )
 
 var AllPermissions = []Permission{
+	PermissionPortalAccess,
+	PermissionSystemsRead,
+	PermissionSystemsLaunch,
 	PermissionUsersRead,
 	PermissionUsersWrite,
 	PermissionUsersRolesWrite,
@@ -73,6 +84,9 @@ var AllPermissions = []Permission{
 	PermissionDataQualityRead,
 	PermissionDataQualityWrite,
 	PermissionDataQualityResolve,
+	PermissionReportBrowserRead,
+	PermissionOutbreakAccess,
+	PermissionOutbreakManage,
 	PermissionMetricsRead,
 	PermissionAuditRead,
 	PermissionNotificationsRead,

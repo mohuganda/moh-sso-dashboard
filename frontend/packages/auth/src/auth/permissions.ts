@@ -1,6 +1,9 @@
 import type { Permission } from "./auth.types";
 
 export const PERMISSIONS = {
+  portalAccess: "portal:access",
+  systemsRead: "systems:read",
+  systemsLaunch: "systems:launch",
   usersRead: "users:read",
   usersWrite: "users:write",
   usersRolesWrite: "users:roles:write",
@@ -28,9 +31,11 @@ export const PERMISSIONS = {
   dataQualityRead: "data_quality:read",
   dataQualityWrite: "data_quality:write",
   dataQualityResolve: "data_quality:resolve",
+  reportBrowserRead: "report_browser:read",
+  outbreakAccess: "outbreak:access",
+  outbreakManage: "outbreak:manage",
   metricsRead: "metrics:read",
   auditRead: "audit:read",
   notificationsRead: "notifications:read",
   notificationsWrite: "notifications:write",
 } as const satisfies Record<string, Permission>;
-

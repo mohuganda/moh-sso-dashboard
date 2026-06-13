@@ -22,8 +22,8 @@ func TestNewContextNormalizesRolesAndAssignsAdminPermissions(t *testing.T) {
 func TestUserRoleGetsReadOnlyPortalPermissions(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, nil)
 
-	if !ctx.HasPermission(PermissionDocumentsRead) {
-		t.Fatal("expected user to have documents:read permission")
+	if !ctx.HasPermission(PermissionPortalAccess) {
+		t.Fatal("expected user to have portal access")
 	}
 	if ctx.HasPermission(PermissionDocumentsWrite) {
 		t.Fatal("did not expect user to have documents:write permission")
@@ -38,5 +38,77 @@ func TestSpecializedRolesGetScopedPermissions(t *testing.T) {
 	}
 	if ctx.HasPermission(PermissionSurveillanceManageLocations) {
 		t.Fatal("did not expect surveillance importer to manage locations")
+	}
+}
+
+func TestDashboardWebAccessGetsPortalPermissions(t *testing.T) {
+	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
+		SystemDashboardWeb: {DashboardWebAccess},
+	})
+
+	if !ctx.HasPermission(PermissionPortalAccess) {
+		t.Fatal("expected dashboard web access to grant portal access")
+	}
+	if !ctx.HasSystem(SystemDashboardWeb) {
+		t.Fatal("expected dashboard web to be accessible")
+	}
+}
+
+func TestIntegratedOutbreakViewerGetsReadOnlyPermissions(t *testing.T) {
+	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
+		SystemIntegratedOutbreak: {IntegratedOutbreakViewer},
+	})
+
+	if !ctx.HasPermission(PermissionSurveillanceRead) {
+		t.Fatal("expected IOS viewer to have surveillance read")
+	}
+	if ctx.HasPermission(PermissionSurveillanceImport) {
+		t.Fatal("did not expect IOS viewer to have surveillance import")
+	}
+	if !ctx.HasSystem(SystemIntegratedOutbreak) {
+		t.Fatal("expected integrated outbreak system to be accessible")
+	}
+}
+
+func TestIntegratedOutbreakSuperAdminGetsElevatedPermissions(t *testing.T) {
+	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
+		SystemIntegratedOutbreak: {IntegratedOutbreakSuperAdmin},
+	})
+
+	for _, permission := range []Permission{
+		PermissionSurveillanceImport,
+		PermissionSurveillanceManageLocations,
+		PermissionDataQualityResolve,
+		PermissionDocumentsProcess,
+	} {
+		if !ctx.HasPermission(permission) {
+			t.Fatalf("expected IOS super admin to have %s", permission)
+		}
+	}
+}
+
+func TestReportBrowserAccessGetsReportBrowserPermission(t *testing.T) {
+	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
+		SystemReportBrowser: {ReportBrowserAccess},
+	})
+
+	if !ctx.HasPermission(PermissionReportBrowserRead) {
+		t.Fatal("expected report browser access to grant report browser read")
+	}
+	if !ctx.HasSystem(SystemReportBrowser) {
+		t.Fatal("expected report browser to be accessible")
+	}
+}
+
+func TestDashboardOutbreakAccessExposesIntegratedOutbreakSystem(t *testing.T) {
+	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
+		SystemDashboardWeb: {DashboardWebIntegratedOutbreakAccess},
+	})
+
+	if !ctx.HasPermission(PermissionOutbreakAccess) {
+		t.Fatal("expected dashboard IOS access role to grant outbreak access")
+	}
+	if !ctx.HasSystem(SystemIntegratedOutbreak) {
+		t.Fatal("expected dashboard IOS access role to expose integrated outbreak system")
 	}
 }

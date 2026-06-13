@@ -15,7 +15,9 @@ func TestRequirePermissionAllowsAuthorizedContext(t *testing.T) {
 
 	router := gin.New()
 	router.GET("/documents", func(c *gin.Context) {
-		c.Set(authz.ContextKey, authz.NewContext("user-1", []string{authz.RoleUser}, nil))
+		c.Set(authz.ContextKey, authz.NewContext("user-1", []string{authz.RoleUser}, map[string][]string{
+			authz.SystemIntegratedOutbreak: {authz.IntegratedOutbreakViewer},
+		}))
 	}, RequirePermission(authz.PermissionDocumentsRead), func(c *gin.Context) {
 		c.Status(http.StatusNoContent)
 	})

@@ -57,6 +57,7 @@ type AuthUser struct {
 	RealmRoles    []string            `json:"realmRoles"`
 	ClientRoles   map[string][]string `json:"clientRoles"`
 	Permissions   []string            `json:"permissions"`
+	Systems       []string            `json:"systems"`
 	Enabled       bool                `json:"enabled"`
 	EmailVerified bool                `json:"emailVerified"`
 	LastLoginAt   *time.Time          `json:"lastLoginAt"`
@@ -305,6 +306,7 @@ func (c *Client) Me(accessToken string) (*AuthUser, error) {
 		RealmRoles:    authContext.RealmRoles,
 		ClientRoles:   authContext.ClientRoles,
 		Permissions:   authContext.PermissionStrings(),
+		Systems:       authContext.SystemStrings(),
 		Enabled:       true,
 		EmailVerified: ui.EmailVerified,
 	}
