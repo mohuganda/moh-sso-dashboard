@@ -5,6 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/moh-sso-dashboard/internal/authz"
+	"github.com/moh-sso-dashboard/internal/middleware"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
 )
 
@@ -16,6 +18,7 @@ func RegisterAdminRoutes(
 ) {
 	audit := admin.Group("/audit-logs")
 	audit.Use(ratelimit.Middleware(limiter, ratelimit.ByUser, auditLogRateLimitPerMin, time.Minute))
+	audit.Use(middleware.RequirePermission(authz.PermissionAuditRead))
 	{
 		audit.GET("", handler.ListAuditLogs)
 		audit.GET("/actions", handler.ListAuditActions)

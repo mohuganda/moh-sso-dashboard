@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 
+	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
 	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
 	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
@@ -14,6 +15,7 @@ import (
 
 func RegisterProtectedRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	registerEmailRoutes(protected, deps)
+	registerAnnouncementRoutes(protected, deps)
 	registerGeoJSONRoutes(protected, deps)
 	registerClientRoutes(protected, deps)
 	registerUserRoutes(protected, deps)
@@ -23,6 +25,10 @@ func RegisterProtectedRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	registerDataQualityRoutes(protected, deps)
 	registerVisualiserRoutes(protected, deps)
 	registerSurveillanceRoutes(protected, deps)
+}
+
+func registerAnnouncementRoutes(protected *gin.RouterGroup, deps Dependencies) {
+	announcementfeature.RegisterProtectedRoutes(protected, deps.Announcements)
 }
 
 func registerEmailRoutes(protected *gin.RouterGroup, deps Dependencies) {

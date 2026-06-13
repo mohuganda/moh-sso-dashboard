@@ -1,17 +1,22 @@
 package notifications
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/moh-sso-dashboard/internal/authz"
+	"github.com/moh-sso-dashboard/internal/middleware"
+)
 
 func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler) {
 	notifications := admin.Group("/notifications")
 	{
-		notifications.POST("", handler.Notify)
-		notifications.GET("", handler.ListNotifications)
-		notifications.GET("/:id", handler.GetNotificationByID)
-		notifications.PATCH("/:id/read", handler.MarkNotificationAsRead)
-		notifications.DELETE("/:id", handler.DeleteNotification)
-		notifications.GET("/count", handler.CountNotifications)
-		notifications.GET("/count/unread", handler.CountUnreadNotificationsCount)
-		notifications.DELETE("/cleanup", handler.DeleteOldNotifications)
+		notifications.POST("", middleware.RequirePermission(authz.PermissionNotificationsWrite), handler.Notify)
+		notifications.GET("", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.ListNotifications)
+		notifications.GET("/:id", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.GetNotificationByID)
+		notifications.PATCH("/:id/read", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.MarkNotificationAsRead)
+		notifications.DELETE("/:id", middleware.RequirePermission(authz.PermissionNotificationsWrite), handler.DeleteNotification)
+		notifications.GET("/count", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.CountNotifications)
+		notifications.GET("/count/unread", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.CountUnreadNotificationsCount)
+		notifications.DELETE("/cleanup", middleware.RequirePermission(authz.PermissionNotificationsWrite), handler.DeleteOldNotifications)
 	}
 }

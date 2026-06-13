@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/features/authsession"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 )
@@ -28,13 +29,17 @@ func ExtractAuthContext(kc *keycloak.Client, sessions *authsession.Store) gin.Ha
 			return
 		}
 
+		authContext := authz.NewContext(user.ID, user.RealmRoles, user.ClientRoles)
+
 		c.Set("access_token", accessToken)
+		c.Set(authz.ContextKey, authContext)
 		c.Set("user", user)
 		c.Set("user_id", user.ID)
-		c.Set("client_roles", user.ClientRoles)
-		c.Set("realm_roles", user.RealmRoles)
-		c.Set("is_admin", user.IsAdmin)
-		c.Set("is_user", user.IsUser)
+		c.Set("client_roles", authContext.ClientRoles)
+		c.Set("realm_roles", authContext.RealmRoles)
+		c.Set("permissions", authContext.Permissions)
+		c.Set("is_admin", authContext.IsAdmin)
+		c.Set("is_user", authContext.IsUser)
 
 		c.Next()
 	}
@@ -56,6 +61,11 @@ func RequireAuth() gin.HandlerFunc {
 
 func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if authContext, ok := authz.FromGin(c); ok && authContext.IsAdmin {
+			c.Next()
+			return
+		}
+
 		isAdmin, exists := c.Get("is_admin")
 		if !exists {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
@@ -68,6 +78,72 @@ func RequireAdmin() gin.HandlerFunc {
 		if !ok || !admin {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error": "admin access required",
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func RequirePermission(permission authz.Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authContext, ok := authz.FromGin(c)
+		if !ok || !authContext.HasPermission(permission) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":               "permission required",
+				"required_permission": string(permission),
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func RequireAnyPermission(permissions ...authz.Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authContext, ok := authz.FromGin(c)
+		if !ok || !authContext.HasAnyPermission(permissions...) {
+			required := make([]string, 0, len(permissions))
+			for _, permission := range permissions {
+				required = append(required, string(permission))
+			}
+
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":                "permission required",
+				"required_permissions": required,
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func RequireRealmRole(role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authContext, ok := authz.FromGin(c)
+		if !ok || !authContext.HasRealmRole(role) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":         "role required",
+				"required_role": role,
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func RequireClientRole(clientIDParam string, role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authContext, ok := authz.FromGin(c)
+		clientID := strings.TrimSpace(c.Param(clientIDParam))
+		if !ok || !authContext.HasClientRole(clientID, role) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":                "client role required",
+				"required_client_role": role,
 			})
 			return
 		}

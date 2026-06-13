@@ -1,7 +1,6 @@
 package keycloak
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
 )
@@ -56,6 +56,7 @@ type AuthUser struct {
 	IsUser        bool                `json:"isUser"`
 	RealmRoles    []string            `json:"realmRoles"`
 	ClientRoles   map[string][]string `json:"clientRoles"`
+	Permissions   []string            `json:"permissions"`
 	Enabled       bool                `json:"enabled"`
 	EmailVerified bool                `json:"emailVerified"`
 	LastLoginAt   *time.Time          `json:"lastLoginAt"`
@@ -235,9 +236,6 @@ func (c *Client) GetLogoutURL(idTokenHint, postLogoutRedirectURI string) string 
 // TOKEN → FULL USER PROFILE (ADMIN API)
 // ----------------------------------------------------
 func (c *Client) Me(accessToken string) (*AuthUser, error) {
-
-	ctx := context.Background()
-
 	ui, err := c.getUserInfo(accessToken)
 	if err != nil {
 		return nil, err
@@ -245,13 +243,6 @@ func (c *Client) Me(accessToken string) (*AuthUser, error) {
 
 	if ui.UserID == "" {
 		return nil, errors.New("userinfo missing user_id")
-	}
-
-	cacheKey := "auth:user:" + ui.UserID
-
-	var cached AuthUser
-	if ok, err := c.cache.Get(ctx, cacheKey, &cached); err == nil && ok {
-		return &cached, nil
 	}
 
 	// ----------------------------------------------------
@@ -265,8 +256,6 @@ func (c *Client) Me(accessToken string) (*AuthUser, error) {
 
 	realmRoles := []string{}
 	clientRoles := map[string][]string{}
-	isAdmin := false
-	isUser := false
 
 	// Realm roles
 	if realmAccess, ok := claims["realm_access"].(map[string]any); ok {
@@ -274,13 +263,6 @@ func (c *Client) Me(accessToken string) (*AuthUser, error) {
 			for _, r := range roles {
 				role := fmt.Sprint(r)
 				realmRoles = append(realmRoles, role)
-
-				if role == "admin" {
-					isAdmin = true
-				}
-				if role == "user" {
-					isUser = true
-				}
 			}
 		}
 	}
@@ -301,6 +283,8 @@ func (c *Client) Me(accessToken string) (*AuthUser, error) {
 		}
 	}
 
+	authContext := authz.NewContext(ui.UserID, realmRoles, clientRoles)
+
 	firstName := ui.GivenName
 	lastName := ui.FamilyName
 
@@ -316,15 +300,14 @@ func (c *Client) Me(accessToken string) (*AuthUser, error) {
 		FirstName:     firstName,
 		LastName:      lastName,
 		FullName:      fullName,
-		IsAdmin:       isAdmin,
-		IsUser:        isUser,
-		RealmRoles:    realmRoles,
-		ClientRoles:   clientRoles,
+		IsAdmin:       authContext.IsAdmin,
+		IsUser:        authContext.IsUser,
+		RealmRoles:    authContext.RealmRoles,
+		ClientRoles:   authContext.ClientRoles,
+		Permissions:   authContext.PermissionStrings(),
 		Enabled:       true,
 		EmailVerified: ui.EmailVerified,
 	}
-
-	_ = c.cache.Set(ctx, cacheKey, user, 10*time.Minute)
 
 	return user, nil
 }

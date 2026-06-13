@@ -2,9 +2,11 @@ import type { ReactElement } from "react";
 import { Navigate, Route } from "react-router-dom";
 
 import { ProtectedRoute } from "./guards/ProtectedRoute";
+import { PermissionRoute } from "./guards/PermissionRoute";
 import { UserRoute } from "./guards/UserRoute";
 import UserLayout from "../layouts/user/user-layout.component";
 import { ComingSoon } from "@moh-sso/ui";
+import { PERMISSIONS, type Permission } from "@moh-sso/auth";
 
 import NewsFeedPage from "@/app/newsfeed/pages/news_feed.component";
 import MyProfilePage from "@/app/settings/pages/Profile/profile.component";
@@ -22,7 +24,15 @@ import {
   eServicesLifecycles,
 } from "@/app/microfrontends/lifecycles";
 
-const userPage = (element: ReactElement) => <UserRoute>{element}</UserRoute>;
+const userPage = (element: ReactElement, permission?: Permission) => {
+  const guarded = permission ? (
+    <PermissionRoute permission={permission}>{element}</PermissionRoute>
+  ) : (
+    element
+  );
+
+  return <UserRoute>{guarded}</UserRoute>;
+};
 
 export const userRoutes = (
   <Route
@@ -51,6 +61,7 @@ export const userRoutes = (
             lifecycles={dataVisualizerLifecycles}
             basename="/apps/dwh/data-visualizer"
           />,
+          PERMISSIONS.documentsRead,
         )}
       />
 
@@ -75,6 +86,7 @@ export const userRoutes = (
             lifecycles={documentsLifecycles}
             basename="/apps/dwh/filesvr"
           />,
+          PERMISSIONS.documentsRead,
         )}
       />
 
@@ -86,6 +98,7 @@ export const userRoutes = (
             lifecycles={surveillanceLifecycles}
             basename="/apps/dwh/surveillance"
           />,
+          PERMISSIONS.surveillanceRead,
         )}
       />
 
@@ -97,6 +110,7 @@ export const userRoutes = (
             lifecycles={issueTrackerLifecycles}
             basename="/apps/dwh/issue-tracker"
           />,
+          PERMISSIONS.dataQualityRead,
         )}
       />
     </Route>
@@ -112,6 +126,7 @@ export const userRoutes = (
           lifecycles={eServicesLifecycles}
           basename="/apps/eservices"
         />,
+        PERMISSIONS.documentsRead,
       )}
     />
 
@@ -198,6 +213,7 @@ export const userRoutes = (
               lifecycles={documentsLifecycles}
               basename="/apps/utilities/self-service/eservice/document-upload"
             />,
+            PERMISSIONS.documentsWrite,
           )}
         />
 
