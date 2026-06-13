@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/moh-sso-dashboard/internal/config"
+	"github.com/moh-sso-dashboard/internal/features/authsession"
 	"github.com/moh-sso-dashboard/internal/http/apierror"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/service"
@@ -20,15 +21,26 @@ import (
 const (
 	cookiePKCEVerifier = "pkce_verifier"
 	cookieOAuthState   = "oauth_state"
+	// cookieSession holds the opaque server-side session ID. Tokens live in
+	// Redis — never in cookies — so response headers stay small enough for
+	// default proxy buffers on intermediate hops.
+	cookieSession = authsession.CookieName
+
+	// Legacy JWT cookies from the pre-session scheme. Still read as a
+	// fallback so logged-in browsers survive the transition, and cleared
+	// on every login/logout/refresh.
 	cookieAccessToken  = "access_token"
 	cookieRefreshToken = "refresh_token"
 	cookieIDToken      = "id_token"
+
+	defaultSessionTTL = 30 * time.Minute
 )
 
 type Handler struct {
 	authService         service.AuthService
 	auditService        *service.AuditService
 	notificationService service.NotificationsService
+	sessions            *authsession.Store
 	config              *config.Config
 }
 
@@ -36,12 +48,14 @@ func NewHandler(
 	authService service.AuthService,
 	auditService *service.AuditService,
 	notificationService service.NotificationsService,
+	sessions *authsession.Store,
 	config *config.Config,
 ) *Handler {
 	return &Handler{
 		authService:         authService,
 		auditService:        auditService,
 		notificationService: notificationService,
+		sessions:            sessions,
 		config:              config,
 	}
 }
@@ -103,8 +117,8 @@ func (h *Handler) HandleAuthLogin(c *gin.Context) {
 // GET CURRENT USER (API)
 // ----------------------------------------------------
 func (h *Handler) HandleAuthGetMe(c *gin.Context) {
-	accessToken, err := c.Cookie(cookieAccessToken)
-	if err != nil || accessToken == "" {
+	accessToken := h.accessTokenFromRequest(c)
+	if accessToken == "" {
 		response.Fail(
 			c,
 			http.StatusUnauthorized,
@@ -132,7 +146,12 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 		return
 	}
 
-	userID := utils.ExtractUserIDFromJWT(accessToken)
+	// Userinfo is the authoritative source of the user ID; the access
+	// token may omit "sub" (Keycloak lightweight access tokens).
+	userID := user.ID
+	if userID == "" {
+		userID = utils.ExtractUserIDFromJWT(accessToken)
+	}
 
 	_ = h.auditService.Log(
 		c.Request.Context(),
@@ -431,13 +450,24 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 
 	h.clearOAuthCookies(c)
 
-	userID := utils.ExtractUserIDFromJWT(tokens.AccessToken)
+	// Keycloak access tokens may omit "sub" (lightweight access tokens);
+	// the ID token is guaranteed by OIDC to carry it.
+	userID := utils.ExtractUserIDFromTokens(tokens.AccessToken, tokens.IDToken)
 
 	log.Printf(
-		"[AUTH CALLBACK] extracted user from access token: request_id=%s user_id_present=%v",
+		"[AUTH CALLBACK] extracted user from tokens: request_id=%s user_id_present=%v",
 		requestID,
 		userID != "",
 	)
+
+	if userID == "" {
+		log.Printf(
+			"[AUTH CALLBACK] no sub claim found: request_id=%s access_token_claims=%v id_token_claims=%v",
+			requestID,
+			utils.JWTClaimNames(tokens.AccessToken),
+			utils.JWTClaimNames(tokens.IDToken),
+		)
+	}
 
 	log.Printf(
 		"[AUTH CALLBACK] writing successful login audit: request_id=%s client_id=%s user_id_present=%v",
@@ -464,45 +494,40 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		)
 	}
 
+	// Store the token bundle server-side; the browser only gets a small
+	// opaque session cookie. Three JWT Set-Cookie headers (~8KB+) overflow
+	// default proxy buffers on upstream nginx hops and cause 502s.
+	ttl := h.sessionTTL(tokens.RefreshExpiresIn, tokens.ExpiresIn)
+
+	sessionID, err := h.sessions.Create(c.Request.Context(), authsession.Data{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		IDToken:      tokens.IDToken,
+	}, ttl)
+	if err != nil {
+		log.Printf(
+			"[AUTH CALLBACK] failed to create server-side session: request_id=%s err=%v",
+			requestID,
+			err,
+		)
+
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			gin.H{"error": "failed to create session"},
+		)
+		return
+	}
+
 	log.Printf(
-		"[AUTH CALLBACK] setting access token cookie: request_id=%s expires_in=%d",
+		"[AUTH CALLBACK] session created: request_id=%s ttl_seconds=%d",
 		requestID,
-		tokens.ExpiresIn,
+		int(ttl.Seconds()),
 	)
 
-	h.setSecureAccessTokenCookie(c, tokens.AccessToken, tokens.ExpiresIn)
-
-	if tokens.RefreshToken != "" && tokens.RefreshExpiresIn > 0 {
-		log.Printf(
-			"[AUTH CALLBACK] setting refresh token cookie: request_id=%s refresh_expires_in=%d",
-			requestID,
-			tokens.RefreshExpiresIn,
-		)
-
-		h.setSecureRefreshTokenCookie(c, tokens.RefreshToken, tokens.RefreshExpiresIn)
-	} else {
-		log.Printf(
-			"[AUTH CALLBACK] refresh token cookie skipped: request_id=%s refresh_token_present=%v refresh_expires_in=%d",
-			requestID,
-			tokens.RefreshToken != "",
-			tokens.RefreshExpiresIn,
-		)
-	}
-
-	if tokens.IDToken != "" {
-		log.Printf(
-			"[AUTH CALLBACK] setting id token cookie: request_id=%s expires_in=%d",
-			requestID,
-			tokens.ExpiresIn,
-		)
-
-		h.setSecureIDTokenCookie(c, tokens.IDToken, int(tokens.ExpiresIn))
-	} else {
-		log.Printf(
-			"[AUTH CALLBACK] id token cookie skipped: request_id=%s id_token_present=false",
-			requestID,
-		)
-	}
+	// Purge any legacy JWT cookies from previous deployments, then set the
+	// single session cookie.
+	h.clearLegacyTokenCookies(c)
+	h.setCookie(c, cookieSession, sessionID, int(ttl.Seconds()), true)
 
 	// ------------------------------------------------------------------
 	// Role-based redirect
@@ -527,8 +552,23 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 // REFRESH TOKEN (API)
 // ----------------------------------------------------
 func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
-	refreshToken, err := c.Cookie(cookieRefreshToken)
-	if err != nil || refreshToken == "" {
+	// Prefer the server-side session; fall back to the legacy refresh
+	// cookie so browsers logged in before the session scheme keep working.
+	sessionID, _ := c.Cookie(cookieSession)
+
+	var refreshToken string
+	if sessionID != "" {
+		if sess, err := h.sessions.Get(c.Request.Context(), sessionID); err == nil {
+			refreshToken = sess.RefreshToken
+		} else {
+			sessionID = ""
+		}
+	}
+	if refreshToken == "" {
+		refreshToken, _ = c.Cookie(cookieRefreshToken)
+	}
+
+	if refreshToken == "" {
 		_ = h.auditService.TokenRefresh(
 			c.Request.Context(),
 			uuid.NullUUID{},
@@ -537,7 +577,7 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 			c.Request.UserAgent(),
 		)
 
-		// Missing refresh_token is usually normal:
+		// Missing session/refresh token is usually normal:
 		// user not logged in, initial app load, cookies cleared, or public page.
 		// Do not notify admins and do not clear OAuth login-flow cookies.
 		response.Fail(
@@ -567,9 +607,9 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 		)
 
 		// Important:
-		// Refresh failure should clear session cookies only.
+		// Refresh failure should destroy the session only.
 		// Do not clear oauth_state/pkce_verifier because a login flow may be in progress.
-		h.clearSessionCookies(c)
+		h.destroySession(c)
 
 		response.Fail(
 			c,
@@ -583,8 +623,8 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 	if tokens == nil || tokens.AccessToken == "" {
 		log.Printf("[AUTH REFRESH] invalid token response from Keycloak")
 
-		// Same rule: clear session cookies only.
-		h.clearSessionCookies(c)
+		// Same rule: destroy the session only.
+		h.destroySession(c)
 
 		response.Fail(
 			c,
@@ -595,7 +635,7 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 		return
 	}
 
-	userID := utils.ExtractUserIDFromJWT(tokens.AccessToken)
+	userID := utils.ExtractUserIDFromTokens(tokens.AccessToken, tokens.IDToken)
 
 	_ = h.auditService.TokenRefresh(
 		c.Request.Context(),
@@ -605,16 +645,46 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 		c.Request.UserAgent(),
 	)
 
-	h.setSecureAccessTokenCookie(c, tokens.AccessToken, tokens.ExpiresIn)
-
 	// With refresh token rotation, Keycloak may return a new refresh token.
-	// Only overwrite the cookie if a new refresh token was actually returned.
-	if tokens.RefreshToken != "" && tokens.RefreshExpiresIn > 0 {
-		h.setSecureRefreshTokenCookie(c, tokens.RefreshToken, tokens.RefreshExpiresIn)
+	// Keep the previous one when it doesn't.
+	newData := authsession.Data{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		IDToken:      tokens.IDToken,
+	}
+	if newData.RefreshToken == "" {
+		newData.RefreshToken = refreshToken
 	}
 
-	if tokens.IDToken != "" {
-		h.setSecureIDTokenCookie(c, tokens.IDToken, int(tokens.ExpiresIn))
+	ttl := h.sessionTTL(tokens.RefreshExpiresIn, tokens.ExpiresIn)
+
+	if sessionID != "" {
+		if err := h.sessions.Update(c.Request.Context(), sessionID, newData, ttl); err != nil {
+			log.Printf("[AUTH REFRESH] failed to update session: %v", err)
+		}
+		// Re-issue the cookie so its lifetime follows the refreshed session.
+		h.setCookie(c, cookieSession, sessionID, int(ttl.Seconds()), true)
+	} else {
+		// Legacy cookie-based browser: migrate it to a server-side session.
+		newSessionID, err := h.sessions.Create(c.Request.Context(), newData, ttl)
+		if err != nil {
+			log.Printf("[AUTH REFRESH] failed to migrate legacy session: %v", err)
+
+			h.destroySession(c)
+
+			response.Fail(
+				c,
+				http.StatusUnauthorized,
+				apierror.ErrTokenInvalid.Code,
+				"Session expired",
+			)
+			return
+		}
+
+		log.Printf("[AUTH REFRESH] migrated legacy cookie session to server-side session")
+
+		h.clearLegacyTokenCookies(c)
+		h.setCookie(c, cookieSession, newSessionID, int(ttl.Seconds()), true)
 	}
 
 	response.OK(c, http.StatusOK, gin.H{
@@ -650,8 +720,22 @@ func (h *Handler) HandleAuthLogout(c *gin.Context) {
 		c.Request.UserAgent(),
 	)
 
-	refreshToken, _ := c.Cookie(cookieRefreshToken)
-	idTokenHint, _ := c.Cookie(cookieIDToken)
+	// Resolve tokens from the server-side session, falling back to legacy
+	// cookies for browsers logged in before the session scheme.
+	var refreshToken, idTokenHint string
+
+	if sessionID, _ := c.Cookie(cookieSession); sessionID != "" {
+		if sess, err := h.sessions.Get(ctx, sessionID); err == nil {
+			refreshToken = sess.RefreshToken
+			idTokenHint = sess.IDToken
+		}
+	}
+	if refreshToken == "" {
+		refreshToken, _ = c.Cookie(cookieRefreshToken)
+	}
+	if idTokenHint == "" {
+		idTokenHint, _ = c.Cookie(cookieIDToken)
+	}
 
 	if refreshToken != "" {
 		if err := h.authService.LogOut(refreshToken); err != nil {
@@ -664,8 +748,10 @@ func (h *Handler) HandleAuthLogout(c *gin.Context) {
 		h.config.FrontendBaseURL,
 	)
 
-	// Logout clears everything.
-	h.clearAuthCookies(c)
+	// Logout clears everything: server-side session, session cookie,
+	// legacy token cookies, and OAuth flow cookies.
+	h.destroySession(c)
+	h.clearOAuthCookies(c)
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
@@ -844,40 +930,45 @@ func (h *Handler) setCookie(
 	})
 }
 
-func (h *Handler) setSecureAccessTokenCookie(
-	c *gin.Context,
-	token string,
-	maxAge int64,
-) {
-	if token == "" || maxAge <= 0 {
-		return
+// sessionTTL derives the server-side session lifetime from the token
+// response: the refresh token expiry bounds how long the session is usable.
+func (h *Handler) sessionTTL(refreshExpiresIn, expiresIn int64) time.Duration {
+	if refreshExpiresIn > 0 {
+		return time.Duration(refreshExpiresIn) * time.Second
 	}
-
-	h.setCookie(c, cookieAccessToken, token, int(maxAge), true)
+	if expiresIn > 0 {
+		return time.Duration(expiresIn) * time.Second
+	}
+	return defaultSessionTTL
 }
 
-func (h *Handler) setSecureRefreshTokenCookie(
-	c *gin.Context,
-	token string,
-	maxAge int64,
-) {
-	if token == "" || maxAge <= 0 {
-		return
+// accessTokenFromRequest resolves the caller's access token: server-side
+// session first, then the legacy access_token cookie.
+func (h *Handler) accessTokenFromRequest(c *gin.Context) string {
+	if sessionID, _ := c.Cookie(cookieSession); sessionID != "" {
+		if sess, err := h.sessions.Get(c.Request.Context(), sessionID); err == nil {
+			return sess.AccessToken
+		}
 	}
 
-	h.setCookie(c, cookieRefreshToken, token, int(maxAge), true)
+	if token, err := c.Cookie(cookieAccessToken); err == nil {
+		return strings.TrimSpace(token)
+	}
+
+	return ""
 }
 
-func (h *Handler) setSecureIDTokenCookie(
-	c *gin.Context,
-	token string,
-	expiresIn int,
-) {
-	if token == "" || expiresIn <= 0 {
-		return
+// destroySession deletes the server-side session (best-effort) and clears
+// the session cookie plus any legacy token cookies.
+func (h *Handler) destroySession(c *gin.Context) {
+	if sessionID, _ := c.Cookie(cookieSession); sessionID != "" {
+		if err := h.sessions.Delete(c.Request.Context(), sessionID); err != nil {
+			log.Printf("[AUTH SESSION] failed to delete session: %v", err)
+		}
 	}
 
-	h.setCookie(c, cookieIDToken, token, expiresIn, true)
+	h.clearCookie(c, cookieSession, true)
+	h.clearLegacyTokenCookies(c)
 }
 
 func (h *Handler) clearCookie(
@@ -898,7 +989,7 @@ func (h *Handler) clearCookie(
 	})
 }
 
-func (h *Handler) clearSessionCookies(c *gin.Context) {
+func (h *Handler) clearLegacyTokenCookies(c *gin.Context) {
 	h.clearCookie(c, cookieAccessToken, true)
 	h.clearCookie(c, cookieRefreshToken, true)
 	h.clearCookie(c, cookieIDToken, true)
@@ -907,11 +998,6 @@ func (h *Handler) clearSessionCookies(c *gin.Context) {
 func (h *Handler) clearOAuthCookies(c *gin.Context) {
 	h.clearCookie(c, cookiePKCEVerifier, true)
 	h.clearCookie(c, cookieOAuthState, true)
-}
-
-func (h *Handler) clearAuthCookies(c *gin.Context) {
-	h.clearSessionCookies(c)
-	h.clearOAuthCookies(c)
 }
 
 // ----------------------------------------------------
@@ -932,6 +1018,10 @@ func (h *Handler) isCodeAlreadyUsedError(err error) bool {
 func (h *Handler) hasAnyAuthCookie(c *gin.Context) bool {
 	if c == nil {
 		return false
+	}
+
+	if sessionID, err := c.Cookie(cookieSession); err == nil && sessionID != "" {
+		return true
 	}
 
 	if token, err := c.Cookie(cookieAccessToken); err == nil && token != "" {

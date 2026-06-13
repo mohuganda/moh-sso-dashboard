@@ -6,6 +6,7 @@ import (
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
+	"github.com/moh-sso-dashboard/internal/features/authsession"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/storage"
 
@@ -64,6 +65,10 @@ func Run() {
 	cacheAdapter := cacheRuntime.Cache
 	rateLimiter := cacheRuntime.RateLimiter
 
+	// Server-side auth sessions: tokens live in Redis, browsers carry a
+	// single opaque cookie.
+	authSessions := authsession.NewStore(rdb)
+
 	// ==================================================
 	// KEYCLOAK
 	// ==================================================
@@ -118,6 +123,7 @@ func Run() {
 		Databases:      dbs,
 		Repositories:   repos,
 		Services:       services,
+		AuthSessions:   authSessions,
 		FileStorage:    fileStorage,
 		StorageFactory: storageFactory,
 		AdminKeycloak:  adminKC,
@@ -145,6 +151,7 @@ func Run() {
 		Limiter:        rateLimiter,
 		AuditService:   services.Audit,
 		Handlers:       handlers.Router,
+		AuthSessions:   authSessions,
 	})
 
 	router.RegisterHealthRoutes(r, handlers.Health)

@@ -6,12 +6,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/moh-sso-dashboard/internal/features/authsession"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 )
 
-func ExtractAuthContext(kc *keycloak.Client) gin.HandlerFunc {
+func ExtractAuthContext(kc *keycloak.Client, sessions *authsession.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		accessToken := extractAccessToken(c)
+		accessToken := extractAccessToken(c, sessions)
 		if accessToken == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "missing token",
@@ -75,18 +76,41 @@ func RequireAdmin() gin.HandlerFunc {
 	}
 }
 
-func extractAccessToken(c *gin.Context) string {
+func extractAccessToken(c *gin.Context, sessions *authsession.Store) string {
 	// 1. Prefer Authorization header for API/mobile/backward compatibility.
 	if token := extractBearerToken(c); token != "" {
 		return token
 	}
 
-	// 2. Fallback to HttpOnly cookie for browser session auth.
+	// 2. Server-side session referenced by the opaque session cookie.
+	if token := extractSessionToken(c, sessions); token != "" {
+		return token
+	}
+
+	// 3. Legacy HttpOnly access_token cookie (pre-session deployments).
 	if token := extractAccessTokenCookie(c); token != "" {
 		return token
 	}
 
 	return ""
+}
+
+func extractSessionToken(c *gin.Context, sessions *authsession.Store) string {
+	if sessions == nil {
+		return ""
+	}
+
+	sessionID, err := c.Cookie(authsession.CookieName)
+	if err != nil || sessionID == "" {
+		return ""
+	}
+
+	sess, err := sessions.Get(c.Request.Context(), sessionID)
+	if err != nil {
+		return ""
+	}
+
+	return sess.AccessToken
 }
 
 func extractBearerToken(c *gin.Context) string {

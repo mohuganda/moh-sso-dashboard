@@ -12,6 +12,7 @@ import (
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
 	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
 	authfeature "github.com/moh-sso-dashboard/internal/features/auth"
+	"github.com/moh-sso-dashboard/internal/features/authsession"
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
 	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
 	documenttemplatesfeature "github.com/moh-sso-dashboard/internal/features/document_templates"
@@ -47,6 +48,7 @@ type handlerDependencies struct {
 	StorageFactory *storage.StorageFactory
 	AdminKeycloak  *keycloak.KeyAdminClient
 	Redis          *redis.Client
+	AuthSessions   *authsession.Store
 }
 
 func buildHandlers(deps handlerDependencies) handlers {
@@ -54,6 +56,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.Auth,
 		deps.Services.Audit,
 		deps.Services.Notifications,
+		deps.AuthSessions,
 		deps.Config,
 	)
 	clientHandler := clientfeature.NewHandler(deps.Services.Clients, deps.Services.Audit, deps.Cache)

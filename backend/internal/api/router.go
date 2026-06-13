@@ -14,6 +14,7 @@ import (
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
 	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
 	authfeature "github.com/moh-sso-dashboard/internal/features/auth"
+	"github.com/moh-sso-dashboard/internal/features/authsession"
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
 	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
 	documenttemplatesfeature "github.com/moh-sso-dashboard/internal/features/document_templates"
@@ -38,8 +39,9 @@ type RouterDependencies struct {
 	KeycloakClient *keycloak.Client
 	Limiter        *ratelimit.Limiter
 	AuditService   *service.AuditService
-	Handlers       HandlerSet
-	RateLimits     RateLimits
+	AuthSessions   *authsession.Store
+	Handlers   HandlerSet
+	RateLimits RateLimits
 }
 
 type HandlerSet struct {
@@ -115,7 +117,7 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 	routes.RegisterPublicAnnouncementRoutes(api, routeDeps)
 
 	protected := api.Group("")
-	protected.Use(middleware.ExtractAuthContext(deps.KeycloakClient))
+	protected.Use(middleware.ExtractAuthContext(deps.KeycloakClient, deps.AuthSessions))
 	protected.Use(middleware.RequireAuth())
 	protected.Use(middleware.AuditMiddleware(deps.AuditService))
 	protected.Use(ratelimit.Middleware(
