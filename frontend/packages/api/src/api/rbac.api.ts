@@ -2,6 +2,7 @@ import type {
   RbacAccessRolePayload,
   RbacAccessRequest,
   RbacAccessRequestPayload,
+  RbacAuditFilter,
   RbacAuditEvent,
   RbacBulkPermissionPayload,
   RbacChangePreview,
@@ -276,8 +277,20 @@ export const rbacApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiEnvelope<RbacImportApplyResult>) => res.data,
       invalidatesTags: [{ type: "RbacSystem", id: "LIST" }],
     }),
-    listRbacAuditEvents: builder.query<RbacAuditEvent[], void>({
-      query: () => `${base}/audit`,
+    listRbacAuditEvents: builder.query<RbacAuditEvent[], RbacAuditFilter | void>({
+      query: (filter) => {
+        const params = new URLSearchParams();
+        if (filter?.actor) params.set("actor", filter.actor);
+        if (filter?.systemClientId) params.set("systemClientId", filter.systemClientId);
+        if (filter?.roleName) params.set("roleName", filter.roleName);
+        if (filter?.permissionKey) params.set("permissionKey", filter.permissionKey);
+        if (filter?.action) params.set("action", filter.action);
+        if (filter?.from) params.set("from", filter.from);
+        if (filter?.to) params.set("to", filter.to);
+        if (filter?.limit) params.set("limit", String(filter.limit));
+        const query = params.toString();
+        return `${base}/audit${query ? `?${query}` : ""}`;
+      },
       transformResponse: (res: ApiEnvelope<RbacAuditEvent[]>) => res.data,
       providesTags: [{ type: "RbacAudit", id: "LIST" }],
     }),

@@ -350,6 +350,42 @@
   grid-column: 1 / -1;
 }
 
+.rbac-permission-catalog,
+.rbac-permission-catalog__group,
+.rbac-bulk-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.rbac-permission-catalog__group h4 {
+  margin: 0;
+  text-transform: capitalize;
+  color: var(--cds-text-secondary);
+  font-size: 0.875rem;
+}
+
+.rbac-permission-catalog__row {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--cds-border-subtle);
+  color: var(--cds-text-primary);
+  text-align: left;
+  background: var(--cds-layer);
+  cursor: pointer;
+}
+
+.rbac-permission-catalog__row.is-active {
+  border-color: var(--cds-border-interactive);
+  box-shadow: inset 0.25rem 0 var(--cds-border-interactive);
+}
+
+.rbac-audit-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
 @media (max-width: 900px) {
   .rbac-page__layout,
   .rbac-role-grid,

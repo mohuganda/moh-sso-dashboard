@@ -27,7 +27,7 @@ type Repository interface {
 	CountSystemAccessRoles(ctx context.Context, clientID string) (int, error)
 	PermissionExists(ctx context.Context, permissionKey string) (bool, error)
 	GetSystemRole(ctx context.Context, roleID string) (SystemRole, error)
-	ListAuditEvents(ctx context.Context, limit int) ([]AuditEvent, error)
+	ListAuditEvents(ctx context.Context, filter AuditFilter) ([]AuditEvent, error)
 	RecordAuditEvent(ctx context.Context, event AuditEvent) error
 	CreateAccessRequest(ctx context.Context, input AccessRequestInput) (AccessRequest, error)
 	ListAccessRequests(ctx context.Context) ([]AccessRequest, error)

@@ -183,8 +183,16 @@
           "description": "Access MOH Dashboard"
         },
         {
-          "name": "integrated-outbreak-system_access",
-          "description": "Can open IOS from the dashboard"
+          "name": "portal_admin",
+          "description": "Portal administrator access"
+        },
+        {
+          "name": "portal_manager",
+          "description": "Portal manager access"
+        },
+        {
+          "name": "portal_user",
+          "description": "Standard portal user access"
         }
       ],
       "integrated-outbreak-system": [
@@ -225,6 +233,22 @@
         {
           "name": "report-browser_access",
           "description": "Access MOH Report browser"
+        },
+        {
+          "name": "report_admin",
+          "description": "Report Browser administrator access"
+        },
+        {
+          "name": "report_manager",
+          "description": "Report Browser manager access"
+        },
+        {
+          "name": "report_analyst",
+          "description": "Report Browser analyst access"
+        },
+        {
+          "name": "report_viewer",
+          "description": "Report Browser read-only access"
         }
       ]
     }
@@ -386,12 +410,17 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access",
-          "report-browser_access"
+          "portal_admin"
         ],
         "integrated-outbreak-system": [
           "integrated-outbreak-system_access",
-          "super_admin"
+          "super_admin",
+          "admin"
+        ],
+        "report-browser": [
+          "report-browser_access",
+          "report_admin",
+          "report_manager"
         ]
       }
     },
@@ -415,15 +444,15 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access",
-          "report-browser_access"
+          "portal_user"
         ],
         "integrated-outbreak-system": [
           "integrated-outbreak-system_access",
           "viewer"
         ],
         "report-browser": [
-          "report-browser_access"
+          "report-browser_access",
+          "report_viewer"
         ]
       }
     },
@@ -442,17 +471,22 @@
         }
       ],
       "realmRoles": [
-        "user"
+        "manager"
       ],
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "portal_manager"
         ],
         "integrated-outbreak-system": [
           "integrated-outbreak-system_access",
-          "super_admin",
-          "admin"
+          "manager",
+          "surveillance_officer"
+        ],
+        "report-browser": [
+          "report-browser_access",
+          "report_manager",
+          "report_analyst"
         ]
       }
     },
@@ -476,12 +510,16 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "portal_user"
         ],
         "integrated-outbreak-system": [
           "integrated-outbreak-system_access",
-          "super_admin",
-          "admin"
+          "data_entry",
+          "surveillance_officer"
+        ],
+        "report-browser": [
+          "report-browser_access",
+          "report_analyst"
         ]
       }
     },
@@ -505,10 +543,15 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "portal_user"
         ],
         "integrated-outbreak-system": [
+          "integrated-outbreak-system_access",
           "viewer"
+        ],
+        "report-browser": [
+          "report-browser_access",
+          "report_viewer"
         ]
       }
     },

@@ -28,12 +28,14 @@ type SystemDetail struct {
 }
 
 type Permission struct {
-	ID          string `json:"id"`
-	Key         string `json:"key"`
-	DisplayName string `json:"displayName,omitempty"`
-	Description string `json:"description,omitempty"`
-	Category    string `json:"category,omitempty"`
-	Status      string `json:"status,omitempty"`
+	ID                   string `json:"id"`
+	Key                  string `json:"key"`
+	DisplayName          string `json:"displayName,omitempty"`
+	Description          string `json:"description,omitempty"`
+	Category             string `json:"category,omitempty"`
+	Status               string `json:"status,omitempty"`
+	SystemRoleUsageCount int    `json:"systemRoleUsageCount"`
+	RealmRoleUsageCount  int    `json:"realmRoleUsageCount"`
 }
 
 type SystemRole struct {
@@ -298,6 +300,17 @@ type AuditEvent struct {
 	CreatedAt      string          `json:"createdAt"`
 }
 
+type AuditFilter struct {
+	ActorUserID    string
+	SystemClientID string
+	RoleName       string
+	PermissionKey  string
+	Action         string
+	From           string
+	To             string
+	Limit          int
+}
+
 type AccessRequestInput struct {
 	UserID         string `json:"userId"`
 	Username       string `json:"username"`
@@ -355,12 +368,25 @@ type ChangeRequest struct {
 }
 
 type SimulationRequest struct {
-	RealmRoles  []string            `json:"realmRoles"`
-	ClientRoles map[string][]string `json:"clientRoles"`
+	UserID            string              `json:"userId"`
+	Username          string              `json:"username"`
+	Email             string              `json:"email"`
+	RealmRoles        []string            `json:"realmRoles"`
+	ClientRoles       map[string][]string `json:"clientRoles"`
+	AddRealmRoles     []string            `json:"addRealmRoles"`
+	RemoveRealmRoles  []string            `json:"removeRealmRoles"`
+	AddClientRoles    map[string][]string `json:"addClientRoles"`
+	RemoveClientRoles map[string][]string `json:"removeClientRoles"`
+	AddPermissions    []string            `json:"addPermissions"`
+	RemovePermissions []string            `json:"removePermissions"`
 }
 
 type SimulationResponse struct {
-	Permissions       []Permission            `json:"permissions"`
-	AccessibleSystems []SystemAccessSummary   `json:"accessibleSystems"`
-	GrantSources      []PermissionGrantSource `json:"grantSources"`
+	BaselinePermissions []Permission            `json:"baselinePermissions"`
+	Permissions         []Permission            `json:"permissions"`
+	AddedPermissions    []string                `json:"addedPermissions"`
+	RemovedPermissions  []string                `json:"removedPermissions"`
+	AccessibleSystems   []SystemAccessSummary   `json:"accessibleSystems"`
+	GrantSources        []PermissionGrantSource `json:"grantSources"`
+	Warnings            []string                `json:"warnings"`
 }

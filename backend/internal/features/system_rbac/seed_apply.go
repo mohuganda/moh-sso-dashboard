@@ -57,6 +57,11 @@ func ApplySeed(ctx context.Context, db *sql.DB, seed SeedFile) error {
 
 			for _, permission := range role.Permissions {
 				if permission == "*" {
+					for _, permissionID := range permissionIDs {
+						if err := assignSystemRolePermission(ctx, tx, roleID, permissionID); err != nil {
+							return err
+						}
+					}
 					continue
 				}
 				if err := assignSystemRolePermission(ctx, tx, roleID, permissionIDs[permission]); err != nil {

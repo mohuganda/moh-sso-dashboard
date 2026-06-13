@@ -7,8 +7,10 @@ const (
 )
 
 const (
-	DashboardWebAccess                   = "dashboard-web_access"
-	DashboardWebIntegratedOutbreakAccess = "integrated-outbreak-system_access"
+	DashboardWebAccess  = "dashboard-web_access"
+	DashboardWebAdmin   = "portal_admin"
+	DashboardWebManager = "portal_manager"
+	DashboardWebUser    = "portal_user"
 
 	IntegratedOutbreakAccess              = "integrated-outbreak-system_access"
 	IntegratedOutbreakSuperAdmin          = "super_admin"
@@ -19,5 +21,9 @@ const (
 	IntegratedOutbreakLabTechnician       = "lab_technician"
 	IntegratedOutbreakSurveillanceOfficer = "surveillance_officer"
 
-	ReportBrowserAccess = "report-browser_access"
+	ReportBrowserAccess  = "report-browser_access"
+	ReportBrowserAdmin   = "report_admin"
+	ReportBrowserManager = "report_manager"
+	ReportBrowserAnalyst = "report_analyst"
+	ReportBrowserViewer  = "report_viewer"
 )

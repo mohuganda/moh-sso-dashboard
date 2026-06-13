@@ -170,11 +170,36 @@ func DefaultSeed() SeedFile {
 						},
 					},
 					{
-						Name:        authz.DashboardWebIntegratedOutbreakAccess,
-						DisplayName: "Outbreak System Access",
+						Name:        authz.DashboardWebAdmin,
+						DisplayName: "Portal Admin",
 						Permissions: []string{
-							string(authz.PermissionOutbreakAccess),
+							"*",
+						},
+					},
+					{
+						Name:        authz.DashboardWebManager,
+						DisplayName: "Portal Manager",
+						Permissions: []string{
+							string(authz.PermissionPortalAccess),
+							string(authz.PermissionSystemsRead),
+							string(authz.PermissionSystemsLaunch),
+							string(authz.PermissionUsersRead),
+							string(authz.PermissionClientsRead),
+							string(authz.PermissionAnnouncementsRead),
+							string(authz.PermissionDocumentsRead),
+							string(authz.PermissionDocumentTemplatesRead),
 							string(authz.PermissionSurveillanceRead),
+							string(authz.PermissionReportBrowserRead),
+							string(authz.PermissionNotificationsRead),
+						},
+					},
+					{
+						Name:        authz.DashboardWebUser,
+						DisplayName: "Portal User",
+						Permissions: []string{
+							string(authz.PermissionPortalAccess),
+							string(authz.PermissionSystemsRead),
+							string(authz.PermissionSystemsLaunch),
 						},
 					},
 				},
@@ -215,12 +240,64 @@ func DefaultSeed() SeedFile {
 						},
 					},
 					{
+						Name: authz.IntegratedOutbreakAdmin,
+						Permissions: []string{
+							string(authz.PermissionOutbreakAccess),
+							string(authz.PermissionOutbreakManage),
+							string(authz.PermissionSurveillanceRead),
+							string(authz.PermissionSurveillanceImport),
+							string(authz.PermissionSurveillanceManageLocations),
+							string(authz.PermissionSurveillanceManageAlerts),
+							string(authz.PermissionDataQualityRead),
+							string(authz.PermissionDataQualityWrite),
+							string(authz.PermissionDataQualityResolve),
+						},
+					},
+					{
+						Name: authz.IntegratedOutbreakManager,
+						Permissions: []string{
+							string(authz.PermissionOutbreakAccess),
+							string(authz.PermissionSurveillanceRead),
+							string(authz.PermissionDataQualityRead),
+							string(authz.PermissionDataQualityWrite),
+							string(authz.PermissionDocumentsRead),
+						},
+					},
+					{
 						Name: authz.IntegratedOutbreakViewer,
 						Permissions: []string{
 							string(authz.PermissionOutbreakAccess),
 							string(authz.PermissionSurveillanceRead),
 							string(authz.PermissionDataQualityRead),
 							string(authz.PermissionDocumentsRead),
+						},
+					},
+					{
+						Name: authz.IntegratedOutbreakDataEntry,
+						Permissions: []string{
+							string(authz.PermissionOutbreakAccess),
+							string(authz.PermissionSurveillanceRead),
+							string(authz.PermissionSurveillanceImport),
+							string(authz.PermissionDataQualityRead),
+							string(authz.PermissionDataQualityWrite),
+						},
+					},
+					{
+						Name: authz.IntegratedOutbreakLabTechnician,
+						Permissions: []string{
+							string(authz.PermissionOutbreakAccess),
+							string(authz.PermissionSurveillanceRead),
+							string(authz.PermissionDataQualityRead),
+							string(authz.PermissionDataQualityWrite),
+						},
+					},
+					{
+						Name: authz.IntegratedOutbreakSurveillanceOfficer,
+						Permissions: []string{
+							string(authz.PermissionOutbreakAccess),
+							string(authz.PermissionSurveillanceRead),
+							string(authz.PermissionSurveillanceImport),
+							string(authz.PermissionSurveillanceManageAlerts),
 						},
 					},
 				},
@@ -232,11 +309,49 @@ func DefaultSeed() SeedFile {
 				LaunchURL:   "/portal/apps/dwh/reports",
 				Category:    "reports",
 				Enabled:     &enabled,
-				AccessRoles: []string{authz.ReportBrowserAccess},
+				AccessRoles: []string{
+					authz.ReportBrowserAccess,
+					authz.ReportBrowserViewer,
+					authz.ReportBrowserAnalyst,
+					authz.ReportBrowserManager,
+					authz.ReportBrowserAdmin,
+				},
 				Roles: []SeedRole{
 					{
 						Name:        authz.ReportBrowserAccess,
 						DisplayName: "Report Browser Access",
+						Permissions: []string{
+							string(authz.PermissionReportBrowserRead),
+						},
+					},
+					{
+						Name:        authz.ReportBrowserAdmin,
+						DisplayName: "Report Admin",
+						Permissions: []string{
+							string(authz.PermissionReportBrowserRead),
+							string(authz.PermissionMetricsRead),
+							string(authz.PermissionAuditRead),
+						},
+					},
+					{
+						Name:        authz.ReportBrowserManager,
+						DisplayName: "Report Manager",
+						Permissions: []string{
+							string(authz.PermissionReportBrowserRead),
+							string(authz.PermissionMetricsRead),
+						},
+					},
+					{
+						Name:        authz.ReportBrowserAnalyst,
+						DisplayName: "Report Analyst",
+						Permissions: []string{
+							string(authz.PermissionReportBrowserRead),
+							string(authz.PermissionDataQualityRead),
+						},
+					},
+					{
+						Name:        authz.ReportBrowserViewer,
+						DisplayName: "Report Viewer",
 						Permissions: []string{
 							string(authz.PermissionReportBrowserRead),
 						},
@@ -252,6 +367,22 @@ func DefaultSeed() SeedFile {
 					string(authz.PermissionPortalAccess),
 					string(authz.PermissionSystemsRead),
 					string(authz.PermissionSystemsLaunch),
+				},
+			},
+			{
+				Name: authz.RoleManager,
+				Permissions: []string{
+					string(authz.PermissionPortalAccess),
+					string(authz.PermissionSystemsRead),
+					string(authz.PermissionSystemsLaunch),
+					string(authz.PermissionUsersRead),
+					string(authz.PermissionClientsRead),
+					string(authz.PermissionAnnouncementsRead),
+					string(authz.PermissionDocumentsRead),
+					string(authz.PermissionSurveillanceRead),
+					string(authz.PermissionDataQualityRead),
+					string(authz.PermissionDataQualityWrite),
+					string(authz.PermissionNotificationsRead),
 				},
 			},
 		},

@@ -1,7 +1,13 @@
 import { Button, Tag, TextInput } from "@carbon/react";
 import { useState } from "react";
 
-import { useCreateRoleFromTemplateMutation } from "@moh-sso/api";
+import {
+  useBulkAssignPermissionMutation,
+  useBulkRemovePermissionMutation,
+  useCopyRolePermissionsMutation,
+  useCreateRoleFromTemplateMutation,
+  useListSystemRolesQuery,
+} from "@moh-sso/api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import type { RbacRoleTemplate } from "@moh-sso/types";
 
@@ -14,7 +20,15 @@ type RoleTemplatesPanelProps = {
 export function RoleTemplatesPanel({ templates, activeClientId, onMessage }: RoleTemplatesPanelProps) {
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [roleName, setRoleName] = useState("");
+  const [sourceRoleId, setSourceRoleId] = useState("");
+  const [targetRoleId, setTargetRoleId] = useState("");
+  const [bulkRoleIds, setBulkRoleIds] = useState("");
+  const [bulkPermissionKey, setBulkPermissionKey] = useState("");
+  const { data: roles = [] } = useListSystemRolesQuery(activeClientId, { skip: !activeClientId });
   const [createRoleFromTemplate] = useCreateRoleFromTemplateMutation();
+  const [copyPermissions] = useCopyRolePermissionsMutation();
+  const [bulkAssignPermission] = useBulkAssignPermissionMutation();
+  const [bulkRemovePermission] = useBulkRemovePermissionMutation();
 
   const handleCreateRole = async () => {
     if (!activeClientId || !selectedTemplate) return;
@@ -24,6 +38,34 @@ export function RoleTemplatesPanel({ templates, activeClientId, onMessage }: Rol
     }).unwrap();
     onMessage("Role created from template.");
     setRoleName("");
+  };
+
+  const parsedRoleIds = () =>
+    bulkRoleIds
+      .split(",")
+      .map((role) => role.trim())
+      .filter(Boolean);
+
+  const handleCopyPermissions = async () => {
+    if (!targetRoleId || !sourceRoleId) return;
+    const targetRole = roles.find((role) => role.id === targetRoleId);
+    await copyPermissions({
+      roleId: targetRoleId,
+      clientId: targetRole?.clientId || activeClientId,
+      data: { sourceRoleId },
+    }).unwrap();
+    onMessage("Permissions copied.");
+  };
+
+  const handleBulkAssign = async () => {
+    await bulkAssignPermission({ roleIds: parsedRoleIds(), permissionKey: bulkPermissionKey }).unwrap();
+    onMessage("Permission assigned to selected roles.");
+  };
+
+  const handleBulkRemove = async () => {
+    if (!confirm(`Remove ${bulkPermissionKey} from ${parsedRoleIds().length} roles?`)) return;
+    await bulkRemovePermission({ roleIds: parsedRoleIds(), permissionKey: bulkPermissionKey }).unwrap();
+    onMessage("Permission removed from selected roles.");
   };
 
   return (
@@ -52,6 +94,55 @@ export function RoleTemplatesPanel({ templates, activeClientId, onMessage }: Rol
           Create role from template
         </Button>
       </PermissionGuard>
+      <div className="rbac-bulk-grid">
+        <TextInput
+          id="rbac-copy-source-role"
+          labelText="Copy from role ID"
+          value={sourceRoleId}
+          onChange={(event) => setSourceRoleId(event.target.value)}
+        />
+        <TextInput
+          id="rbac-copy-target-role"
+          labelText="Copy to role ID"
+          value={targetRoleId}
+          onChange={(event) => setTargetRoleId(event.target.value)}
+        />
+        <PermissionGuard permission={PERMISSIONS.rbacPermissionsWrite}>
+          <Button size="sm" disabled={!sourceRoleId || !targetRoleId} onClick={handleCopyPermissions}>
+            Copy permissions
+          </Button>
+        </PermissionGuard>
+      </div>
+      <div className="rbac-bulk-grid">
+        <TextInput
+          id="rbac-bulk-role-ids"
+          labelText="Role IDs, comma separated"
+          value={bulkRoleIds}
+          onChange={(event) => setBulkRoleIds(event.target.value)}
+        />
+        <TextInput
+          id="rbac-bulk-permission"
+          labelText="Permission key"
+          value={bulkPermissionKey}
+          onChange={(event) => setBulkPermissionKey(event.target.value)}
+        />
+        <PermissionGuard permission={PERMISSIONS.rbacPermissionsWrite}>
+          <div className="rbac-sync-actions">
+            <Button size="sm" disabled={parsedRoleIds().length === 0 || !bulkPermissionKey} onClick={handleBulkAssign}>
+              Bulk assign
+            </Button>
+            <Button
+              size="sm"
+              kind="danger--tertiary"
+              disabled={parsedRoleIds().length === 0 || !bulkPermissionKey}
+              onClick={handleBulkRemove}
+            >
+              Bulk remove
+            </Button>
+          </div>
+        </PermissionGuard>
+      </div>
+      <small>{roles.length} roles available for {activeClientId || "selected system"}.</small>
       <small>
         {activeClientId
           ? `Templates apply to ${activeClientId}.`

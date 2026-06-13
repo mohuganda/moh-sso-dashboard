@@ -65,6 +65,23 @@ Preview or apply imports from `/admin/rbac`.
 
 Imports support YAML or JSON. Destructive pruning is intentionally disabled unless explicitly implemented and enabled later.
 
+The RBAC console can also:
+- download the exported seed as `system-rbac.seed.json`
+- upload a JSON/YAML seed for preview
+- apply a previewed import after review
+
+Use the CLI for source-controlled promotion and the UI for operational review or emergency inspection.
+
+## Permission Catalog
+
+The permission catalog in `/admin/rbac` is searchable by key, label, description, category, and status.
+
+Each permission shows usage counts for:
+- mapped system roles
+- mapped realm roles
+
+Use these counts before renaming, disabling, or removing a permission. A permission with active role mappings can affect existing users even when the permission itself is not directly visible in Keycloak.
+
 ## Promotion Flow
 
 Recommended flow:
@@ -115,6 +132,15 @@ RBAC write operations emit audit events for:
 
 The audit trail is available from `/admin/rbac`.
 
+The audit view supports filtering by:
+- actor user ID
+- system/client ID
+- role name
+- permission key
+- action
+
+Use these filters when reviewing sensitive changes, access request decisions, and environment sync/import operations.
+
 ## Troubleshooting Access
 
 Use Effective Access in `/admin/rbac` to explain access for a user.
@@ -127,3 +153,23 @@ Check:
 - grant sources for each permission
 
 If a user has a Keycloak role but no portal access, confirm that the role is mapped to portal permissions and that the system is enabled.
+
+## Policy Simulation
+
+The policy simulator can evaluate both a raw role set and a real user's current access.
+
+It supports hypothetical changes for:
+- adding/removing realm roles
+- adding/removing client roles
+- adding/removing direct permission overrides
+
+The result includes:
+- baseline permissions when a user is supplied
+- simulated permissions
+- added permissions
+- removed permissions
+- accessible systems
+- grant sources
+- warnings for incomplete inputs or unknown mappings
+
+Use this before approving broad role changes or permission remaps.

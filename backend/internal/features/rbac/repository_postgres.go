@@ -163,9 +163,15 @@ func (r *postgresRepository) UpsertSystem(ctx context.Context, input UpsertSyste
 
 func (r *postgresRepository) ListPermissions(ctx context.Context) ([]Permission, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id::text, permission_key, COALESCE(display_name, ''), COALESCE(description, ''), COALESCE(category, ''), COALESCE(status, 'active')
-		FROM ihp_permissions
-		ORDER BY category NULLS LAST, permission_key
+		SELECT p.id::text, p.permission_key, COALESCE(p.display_name, ''), COALESCE(p.description, ''),
+		       COALESCE(p.category, ''), COALESCE(p.status, 'active'),
+		       COUNT(DISTINCT srp.system_role_id)::int,
+		       COUNT(DISTINCT rrp.realm_role)::int
+		FROM ihp_permissions p
+		LEFT JOIN ihp_system_role_permissions srp ON srp.permission_id = p.id
+		LEFT JOIN ihp_realm_role_permissions rrp ON rrp.permission_id = p.id
+		GROUP BY p.id, p.permission_key, p.display_name, p.description, p.category, p.status
+		ORDER BY p.category NULLS LAST, p.permission_key
 	`)
 	if err != nil {
 		return nil, err
@@ -461,18 +467,25 @@ func (r *postgresRepository) PermissionExists(ctx context.Context, permissionKey
 	return exists, err
 }
 
-func (r *postgresRepository) ListAuditEvents(ctx context.Context, limit int) ([]AuditEvent, error) {
-	if limit <= 0 || limit > 200 {
-		limit = 100
+func (r *postgresRepository) ListAuditEvents(ctx context.Context, filter AuditFilter) ([]AuditEvent, error) {
+	if filter.Limit <= 0 || filter.Limit > 200 {
+		filter.Limit = 100
 	}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id::text, COALESCE(actor_user_id, ''), action, resource_type, COALESCE(resource_id, ''),
 		       COALESCE(system_client_id, ''), COALESCE(role_name, ''), COALESCE(permission_key, ''),
 		       details::text, created_at::text
 		FROM ihp_rbac_audit_events
+		WHERE (NULLIF($2, '') IS NULL OR actor_user_id = $2)
+		  AND (NULLIF($3, '') IS NULL OR system_client_id = $3)
+		  AND (NULLIF($4, '') IS NULL OR role_name = $4)
+		  AND (NULLIF($5, '') IS NULL OR permission_key = $5)
+		  AND (NULLIF($6, '') IS NULL OR action ILIKE '%' || $6 || '%')
+		  AND (NULLIF($7, '')::timestamptz IS NULL OR created_at >= NULLIF($7, '')::timestamptz)
+		  AND (NULLIF($8, '')::timestamptz IS NULL OR created_at <= NULLIF($8, '')::timestamptz)
 		ORDER BY created_at DESC
 		LIMIT $1
-	`, limit)
+	`, filter.Limit, filter.ActorUserID, filter.SystemClientID, filter.RoleName, filter.PermissionKey, filter.Action, filter.From, filter.To)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +706,9 @@ func (r *postgresRepository) UpdatePermissionMetadata(ctx context.Context, permi
 		    status = COALESCE(NULLIF($5, ''), 'active'),
 		    updated_at = now()
 		WHERE permission_key = $1
-		RETURNING id::text, permission_key, COALESCE(display_name, ''), COALESCE(description, ''), COALESCE(category, ''), COALESCE(status, 'active')
+		RETURNING id::text, permission_key, COALESCE(display_name, ''), COALESCE(description, ''), COALESCE(category, ''), COALESCE(status, 'active'),
+		          (SELECT COUNT(DISTINCT system_role_id)::int FROM ihp_system_role_permissions WHERE permission_id = ihp_permissions.id),
+		          (SELECT COUNT(DISTINCT realm_role)::int FROM ihp_realm_role_permissions WHERE permission_id = ihp_permissions.id)
 	`, permissionKey, input.DisplayName, input.Description, input.Category, input.Status).Scan(
 		&permission.ID,
 		&permission.Key,
@@ -701,6 +716,8 @@ func (r *postgresRepository) UpdatePermissionMetadata(ctx context.Context, permi
 		&permission.Description,
 		&permission.Category,
 		&permission.Status,
+		&permission.SystemRoleUsageCount,
+		&permission.RealmRoleUsageCount,
 	)
 	return permission, err
 }
@@ -731,10 +748,15 @@ func (r *postgresRepository) listSystemAccessRoles(ctx context.Context, clientID
 
 func (r *postgresRepository) listPermissionsForSystemRole(ctx context.Context, roleID string) ([]Permission, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id::text, p.permission_key, COALESCE(p.display_name, ''), COALESCE(p.description, ''), COALESCE(p.category, ''), COALESCE(p.status, 'active')
+		SELECT p.id::text, p.permission_key, COALESCE(p.display_name, ''), COALESCE(p.description, ''), COALESCE(p.category, ''), COALESCE(p.status, 'active'),
+		       COUNT(DISTINCT srp_all.system_role_id)::int,
+		       COUNT(DISTINCT rrp.realm_role)::int
 		FROM ihp_system_role_permissions srp
 		JOIN ihp_permissions p ON p.id = srp.permission_id
+		LEFT JOIN ihp_system_role_permissions srp_all ON srp_all.permission_id = p.id
+		LEFT JOIN ihp_realm_role_permissions rrp ON rrp.permission_id = p.id
 		WHERE srp.system_role_id = $1::uuid
+		GROUP BY p.id, p.permission_key, p.display_name, p.description, p.category, p.status
 		ORDER BY p.permission_key
 	`, roleID)
 	if err != nil {
@@ -746,10 +768,15 @@ func (r *postgresRepository) listPermissionsForSystemRole(ctx context.Context, r
 
 func (r *postgresRepository) listPermissionsForRealmRole(ctx context.Context, realmRole string) ([]Permission, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id::text, p.permission_key, COALESCE(p.display_name, ''), COALESCE(p.description, ''), COALESCE(p.category, ''), COALESCE(p.status, 'active')
+		SELECT p.id::text, p.permission_key, COALESCE(p.display_name, ''), COALESCE(p.description, ''), COALESCE(p.category, ''), COALESCE(p.status, 'active'),
+		       COUNT(DISTINCT srp.system_role_id)::int,
+		       COUNT(DISTINCT rrp_all.realm_role)::int
 		FROM ihp_realm_role_permissions rrp
 		JOIN ihp_permissions p ON p.id = rrp.permission_id
+		LEFT JOIN ihp_system_role_permissions srp ON srp.permission_id = p.id
+		LEFT JOIN ihp_realm_role_permissions rrp_all ON rrp_all.permission_id = p.id
 		WHERE rrp.realm_role = $1
+		GROUP BY p.id, p.permission_key, p.display_name, p.description, p.category, p.status
 		ORDER BY p.permission_key
 	`, realmRole)
 	if err != nil {

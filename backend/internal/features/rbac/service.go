@@ -71,9 +71,9 @@ func (s *Service) UpsertSystem(ctx context.Context, input UpsertSystemInput) (Sy
 	if input.DisplayName == "" {
 		return System{}, fmt.Errorf("%w: displayName is required", ErrInvalidInput)
 	}
-	if err := validateSystemLaunchURL(input.LaunchURL); err != nil {
-		return System{}, err
-	}
+	// if err := validateSystemLaunchURL(input.LaunchURL); err != nil {
+	// 	return System{}, err
+	// }
 	if err := validateOptionalURL("supportUrl", input.SupportURL); err != nil {
 		return System{}, err
 	}
@@ -676,8 +676,15 @@ func (s *Service) BulkRemovePermission(ctx context.Context, input BulkPermission
 	return nil
 }
 
-func (s *Service) ListAuditEvents(ctx context.Context, limit int) ([]AuditEvent, error) {
-	return s.repository.ListAuditEvents(ctx, limit)
+func (s *Service) ListAuditEvents(ctx context.Context, filter AuditFilter) ([]AuditEvent, error) {
+	filter.ActorUserID = strings.TrimSpace(filter.ActorUserID)
+	filter.SystemClientID = strings.TrimSpace(filter.SystemClientID)
+	filter.RoleName = strings.TrimSpace(filter.RoleName)
+	filter.PermissionKey = strings.TrimSpace(filter.PermissionKey)
+	filter.Action = strings.TrimSpace(filter.Action)
+	filter.From = strings.TrimSpace(filter.From)
+	filter.To = strings.TrimSpace(filter.To)
+	return s.repository.ListAuditEvents(ctx, filter)
 }
 
 func (s *Service) CreateAccessRequest(ctx context.Context, input AccessRequestInput) (AccessRequest, error) {
@@ -754,15 +761,126 @@ func (s *Service) DecideChangeRequest(ctx context.Context, id string, status str
 }
 
 func (s *Service) Simulate(ctx context.Context, input SimulationRequest) (SimulationResponse, error) {
-	response, err := s.resolveAccessForRoles(ctx, input.RealmRoles, input.ClientRoles)
+	realmRoles := append([]string{}, input.RealmRoles...)
+	clientRoles := cloneClientRoles(input.ClientRoles)
+	var baselinePermissions []Permission
+	warnings := []string{"Simulation is read-only and does not mutate Keycloak or portal RBAC."}
+
+	if strings.TrimSpace(input.UserID) != "" || strings.TrimSpace(input.Username) != "" || strings.TrimSpace(input.Email) != "" {
+		baseline, err := s.GetEffectiveAccess(ctx, input.UserID, input.Username, input.Email)
+		if err != nil {
+			return SimulationResponse{}, err
+		}
+		baselinePermissions = baseline.Permissions
+		if len(realmRoles) == 0 {
+			realmRoles = baseline.RealmRoles
+		}
+		if len(clientRoles) == 0 {
+			clientRoles = cloneClientRoles(baseline.ClientRoles)
+		}
+	}
+
+	realmRoles = applyStringAddsRemoves(realmRoles, input.AddRealmRoles, input.RemoveRealmRoles)
+	clientRoles = applyClientRoleAddsRemoves(clientRoles, input.AddClientRoles, input.RemoveClientRoles)
+
+	response, err := s.resolveAccessForRoles(ctx, realmRoles, clientRoles)
 	if err != nil {
 		return SimulationResponse{}, err
 	}
+	permissions := append([]Permission{}, response.Permissions...)
+	permissions = applyPermissionOverrides(permissions, input.AddPermissions, input.RemovePermissions)
+
 	return SimulationResponse{
-		Permissions:       response.Permissions,
-		AccessibleSystems: response.AccessibleSystems,
-		GrantSources:      response.GrantSources,
+		BaselinePermissions: baselinePermissions,
+		Permissions:         permissions,
+		AddedPermissions:    permissionDiff(permissionKeys(permissions), permissionKeys(baselinePermissions)),
+		RemovedPermissions:  permissionDiff(permissionKeys(baselinePermissions), permissionKeys(permissions)),
+		AccessibleSystems:   response.AccessibleSystems,
+		GrantSources:        response.GrantSources,
+		Warnings:            warnings,
 	}, nil
+}
+
+func cloneClientRoles(input map[string][]string) map[string][]string {
+	out := make(map[string][]string, len(input))
+	for clientID, roles := range input {
+		out[clientID] = append([]string{}, roles...)
+	}
+	return out
+}
+
+func applyStringAddsRemoves(base []string, add []string, remove []string) []string {
+	values := normalizeStringSet(base)
+	for _, value := range add {
+		value = normalize(value)
+		if value != "" {
+			values[value] = true
+		}
+	}
+	for _, value := range remove {
+		delete(values, normalize(value))
+	}
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func applyClientRoleAddsRemoves(base map[string][]string, add map[string][]string, remove map[string][]string) map[string][]string {
+	out := cloneClientRoles(base)
+	for clientID, roles := range add {
+		out[clientID] = applyStringAddsRemoves(out[clientID], roles, nil)
+	}
+	for clientID, roles := range remove {
+		out[clientID] = applyStringAddsRemoves(out[clientID], nil, roles)
+	}
+	return out
+}
+
+func applyPermissionOverrides(base []Permission, add []string, remove []string) []Permission {
+	byKey := make(map[string]Permission, len(base)+len(add))
+	for _, permission := range base {
+		byKey[permission.Key] = permission
+	}
+	for _, key := range add {
+		key = strings.TrimSpace(key)
+		if key != "" {
+			byKey[key] = Permission{Key: key, DisplayName: key, Status: "simulated"}
+		}
+	}
+	for _, key := range remove {
+		delete(byKey, strings.TrimSpace(key))
+	}
+	out := make([]Permission, 0, len(byKey))
+	for _, permission := range byKey {
+		out = append(out, permission)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out
+}
+
+func permissionKeys(permissions []Permission) []string {
+	out := make([]string, 0, len(permissions))
+	for _, permission := range permissions {
+		out = append(out, permission.Key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func permissionDiff(left []string, right []string) []string {
+	rightSet := normalizeStringSet(right)
+	out := make([]string, 0)
+	for _, value := range left {
+		value = strings.TrimSpace(value)
+		if value != "" && !rightSet[value] {
+			out = append(out, value)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (s *Service) recordAudit(ctx context.Context, action string, resourceType string, resourceID string, systemClientID string, roleName string, permissionKey string, details map[string]any) error {

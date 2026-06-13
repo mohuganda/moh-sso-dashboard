@@ -77,9 +77,24 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionSystemsRead,
 			PermissionSystemsLaunch,
 		},
-		DashboardWebIntegratedOutbreakAccess: {
-			PermissionOutbreakAccess,
+		DashboardWebAdmin: AllPermissions,
+		DashboardWebManager: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
+			PermissionUsersRead,
+			PermissionClientsRead,
+			PermissionAnnouncementsRead,
+			PermissionDocumentsRead,
+			PermissionDocumentTemplatesRead,
 			PermissionSurveillanceRead,
+			PermissionReportBrowserRead,
+			PermissionNotificationsRead,
+		},
+		DashboardWebUser: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
 		},
 	},
 	SystemIntegratedOutbreak: {
@@ -147,6 +162,22 @@ var systemRolePermissions = map[string]map[string][]Permission{
 	},
 	SystemReportBrowser: {
 		ReportBrowserAccess: {
+			PermissionReportBrowserRead,
+		},
+		ReportBrowserAdmin: {
+			PermissionReportBrowserRead,
+			PermissionMetricsRead,
+			PermissionAuditRead,
+		},
+		ReportBrowserManager: {
+			PermissionReportBrowserRead,
+			PermissionMetricsRead,
+		},
+		ReportBrowserAnalyst: {
+			PermissionReportBrowserRead,
+			PermissionDataQualityRead,
+		},
+		ReportBrowserViewer: {
 			PermissionReportBrowserRead,
 		},
 	},
@@ -218,9 +249,6 @@ func AccessibleSystemDetailsForContext(clientRoles map[string][]string) []System
 		switch system {
 		case SystemDashboardWeb:
 			add(systemAccess(system, roles))
-			if hasRole(roles, DashboardWebIntegratedOutbreakAccess) {
-				add(systemAccess(SystemIntegratedOutbreak, []string{DashboardWebIntegratedOutbreakAccess}))
-			}
 		case SystemIntegratedOutbreak, SystemReportBrowser:
 			add(systemAccess(system, roles))
 		}

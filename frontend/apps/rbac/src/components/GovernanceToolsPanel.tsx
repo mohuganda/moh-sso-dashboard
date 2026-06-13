@@ -7,7 +7,6 @@ import {
   useExportRbacSeedQuery,
   useListAccessRequestsQuery,
   useListChangeRequestsQuery,
-  useListRbacAuditEventsQuery,
   useListRbacPermissionsQuery,
   useListRbacRoleTemplatesQuery,
   usePreviewRbacChangeMutation,
@@ -41,7 +40,6 @@ type GovernanceToolsPanelProps = {
 export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelProps) {
   const { data: permissions = [] } = useListRbacPermissionsQuery();
   const { data: templates = [] } = useListRbacRoleTemplatesQuery();
-  const { data: auditEvents = [] } = useListRbacAuditEventsQuery();
   const { data: accessRequests = [] } = useListAccessRequestsQuery();
   const { data: changeRequests = [] } = useListChangeRequestsQuery();
   const { data: exportedSeed } = useExportRbacSeedQuery();
@@ -49,8 +47,15 @@ export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelPro
   const [selectedPermission, setSelectedPermission] = useState("");
   const [permissionDescription, setPermissionDescription] = useState("");
   const [seedText, setSeedText] = useState("");
+  const [simulationUser, setSimulationUser] = useState("");
   const [simulationRoles, setSimulationRoles] = useState("admin");
   const [simulationClientRoles, setSimulationClientRoles] = useState("integrated-outbreak-system:viewer");
+  const [addRealmRoles, setAddRealmRoles] = useState("");
+  const [removeRealmRoles, setRemoveRealmRoles] = useState("");
+  const [addClientRoles, setAddClientRoles] = useState("");
+  const [removeClientRoles, setRemoveClientRoles] = useState("");
+  const [addPermissions, setAddPermissions] = useState("");
+  const [removePermissions, setRemovePermissions] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [simulation, setSimulation] = useState<RbacSimulationResult | null>(null);
   const [activeSection, setActiveSection] = useState<GovernanceSection>("permissions");
@@ -121,22 +126,43 @@ export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelPro
   };
 
   const handleSimulate = async () => {
-    const realmRoles = simulationRoles
+    const toList = (value: string) =>
+      value
       .split(",")
       .map((role) => role.trim())
       .filter(Boolean);
-    const clientRoles = simulationClientRoles
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .reduce<Record<string, string[]>>((acc, entry) => {
+
+    const toClientRoles = (value: string) =>
+      toList(value).reduce<Record<string, string[]>>((acc, entry) => {
         const [clientId, role] = entry.split(":");
         if (clientId && role) {
           acc[clientId] = [...(acc[clientId] ?? []), role];
         }
         return acc;
       }, {});
-    setSimulation(await simulateAccess({ realmRoles, clientRoles }).unwrap());
+
+    const userValue = simulationUser.trim();
+    const userIdentity = userValue.includes("@")
+      ? { email: userValue }
+      : userValue.length > 30
+        ? { userId: userValue }
+        : userValue
+          ? { username: userValue }
+          : {};
+
+    setSimulation(
+      await simulateAccess({
+        ...userIdentity,
+        realmRoles: toList(simulationRoles),
+        clientRoles: toClientRoles(simulationClientRoles),
+        addRealmRoles: toList(addRealmRoles),
+        removeRealmRoles: toList(removeRealmRoles),
+        addClientRoles: toClientRoles(addClientRoles),
+        removeClientRoles: toClientRoles(removeClientRoles),
+        addPermissions: toList(addPermissions),
+        removePermissions: toList(removePermissions),
+      }).unwrap(),
+    );
   };
 
   return (
@@ -190,7 +216,7 @@ export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelPro
           <ImportExportPanel
             seedText={seedText}
             importPreview={importPreview}
-            hasExportedSeed={Boolean(exportedSeed)}
+            exportedSeed={exportedSeed}
             onSeedTextChange={setSeedText}
             onPreview={handlePreviewImport}
             onApply={handleApplyImport}
@@ -212,14 +238,28 @@ export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelPro
           />
         )}
         {activeSection === "access" && <AccessRequestsPanel accessRequests={accessRequests} />}
-        {activeSection === "audit" && <AuditTrailPanel auditEvents={auditEvents} />}
+        {activeSection === "audit" && <AuditTrailPanel />}
         {activeSection === "simulator" && (
           <PolicySimulatorPanel
             simulationRoles={simulationRoles}
             simulationClientRoles={simulationClientRoles}
+            simulationUser={simulationUser}
+            addRealmRoles={addRealmRoles}
+            removeRealmRoles={removeRealmRoles}
+            addClientRoles={addClientRoles}
+            removeClientRoles={removeClientRoles}
+            addPermissions={addPermissions}
+            removePermissions={removePermissions}
             simulation={simulation}
             onSimulationRolesChange={setSimulationRoles}
             onSimulationClientRolesChange={setSimulationClientRoles}
+            onSimulationUserChange={setSimulationUser}
+            onAddRealmRolesChange={setAddRealmRoles}
+            onRemoveRealmRolesChange={setRemoveRealmRoles}
+            onAddClientRolesChange={setAddClientRoles}
+            onRemoveClientRolesChange={setRemoveClientRoles}
+            onAddPermissionsChange={setAddPermissions}
+            onRemovePermissionsChange={setRemovePermissions}
             onSimulate={handleSimulate}
           />
         )}

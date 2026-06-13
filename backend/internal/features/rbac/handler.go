@@ -327,7 +327,16 @@ func (h *Handler) ApplyImport(c *gin.Context) {
 
 func (h *Handler) ListAuditEvents(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
-	events, err := h.service.ListAuditEvents(c.Request.Context(), limit)
+	events, err := h.service.ListAuditEvents(c.Request.Context(), AuditFilter{
+		ActorUserID:    c.Query("actor"),
+		SystemClientID: c.Query("systemClientId"),
+		RoleName:       c.Query("roleName"),
+		PermissionKey:  c.Query("permissionKey"),
+		Action:         c.Query("action"),
+		From:           c.Query("from"),
+		To:             c.Query("to"),
+		Limit:          limit,
+	})
 	if err != nil {
 		writeError(c, err, "LIST_RBAC_AUDIT_FAILED")
 		return

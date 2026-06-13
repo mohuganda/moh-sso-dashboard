@@ -100,15 +100,38 @@ func TestReportBrowserAccessGetsReportBrowserPermission(t *testing.T) {
 	}
 }
 
-func TestDashboardOutbreakAccessExposesIntegratedOutbreakSystem(t *testing.T) {
+func TestDashboardRoleDoesNotExposeOtherSystems(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
-		SystemDashboardWeb: {DashboardWebIntegratedOutbreakAccess},
+		SystemDashboardWeb: {DashboardWebUser},
 	})
 
-	if !ctx.HasPermission(PermissionOutbreakAccess) {
-		t.Fatal("expected dashboard IOS access role to grant outbreak access")
+	if !ctx.HasSystem(SystemDashboardWeb) {
+		t.Fatal("expected dashboard web to be accessible")
 	}
-	if !ctx.HasSystem(SystemIntegratedOutbreak) {
-		t.Fatal("expected dashboard IOS access role to expose integrated outbreak system")
+	if ctx.HasSystem(SystemIntegratedOutbreak) {
+		t.Fatal("did not expect dashboard web role to expose integrated outbreak system")
+	}
+}
+
+func TestSystemClientRolesExposeEachSystemDifferently(t *testing.T) {
+	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
+		SystemDashboardWeb:       {DashboardWebManager},
+		SystemIntegratedOutbreak: {IntegratedOutbreakSurveillanceOfficer},
+		SystemReportBrowser:      {ReportBrowserAnalyst},
+	})
+
+	for _, system := range []string{SystemDashboardWeb, SystemIntegratedOutbreak, SystemReportBrowser} {
+		if !ctx.HasSystem(system) {
+			t.Fatalf("expected %s to be accessible", system)
+		}
+	}
+	if !ctx.HasPermission(PermissionSurveillanceImport) {
+		t.Fatal("expected surveillance officer to have surveillance import")
+	}
+	if !ctx.HasPermission(PermissionReportBrowserRead) {
+		t.Fatal("expected report analyst to have report browser read")
+	}
+	if ctx.HasPermission(PermissionRBACWrite) {
+		t.Fatal("did not expect manager/analyst/scoped system roles to grant RBAC write")
 	}
 }

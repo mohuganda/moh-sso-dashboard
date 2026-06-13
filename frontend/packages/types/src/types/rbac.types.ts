@@ -5,6 +5,8 @@ export type RbacPermission = {
   description?: string;
   category?: string;
   status?: string;
+  systemRoleUsageCount?: number;
+  realmRoleUsageCount?: number;
 };
 
 export type RbacSystem = {
@@ -265,6 +267,17 @@ export type RbacAuditEvent = {
   createdAt: string;
 };
 
+export type RbacAuditFilter = {
+  actor?: string;
+  systemClientId?: string;
+  roleName?: string;
+  permissionKey?: string;
+  action?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+};
+
 export type RbacAccessRequest = {
   id: string;
   userId?: string;
@@ -322,12 +335,25 @@ export type RbacChangeRequestPayload = {
 };
 
 export type RbacSimulationPayload = {
+  userId?: string;
+  username?: string;
+  email?: string;
   realmRoles: string[];
   clientRoles: Record<string, string[]>;
+  addRealmRoles?: string[];
+  removeRealmRoles?: string[];
+  addClientRoles?: Record<string, string[]>;
+  removeClientRoles?: Record<string, string[]>;
+  addPermissions?: string[];
+  removePermissions?: string[];
 };
 
 export type RbacSimulationResult = {
+  baselinePermissions: RbacPermission[];
   permissions: RbacPermission[];
+  addedPermissions: string[];
+  removedPermissions: string[];
   accessibleSystems: RbacSystemAccessSummary[];
   grantSources: RbacPermissionGrantSource[];
+  warnings: string[];
 };

@@ -9,7 +9,9 @@ export const SYSTEMS = {
 export const SYSTEM_ROLES = {
   dashboardWeb: {
     access: "dashboard-web_access",
-    integratedOutbreakAccess: "integrated-outbreak-system_access",
+    admin: "portal_admin",
+    manager: "portal_manager",
+    user: "portal_user",
   },
   integratedOutbreak: {
     access: "integrated-outbreak-system_access",
@@ -23,6 +25,9 @@ export const SYSTEM_ROLES = {
   },
   reportBrowser: {
     access: "report-browser_access",
+    admin: "report_admin",
+    manager: "report_manager",
+    analyst: "report_analyst",
+    viewer: "report_viewer",
   },
 } as const;
-
