@@ -101,7 +101,14 @@ func RequireAdmin() gin.HandlerFunc {
 func RequirePermission(permission authz.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authContext, ok := authz.FromGin(c)
-		if !ok || !authContext.HasPermission(permission) {
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
+			return
+		}
+
+		if !authContext.HasPermission(permission) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error":               "permission required",
 				"required_permission": string(permission),
@@ -116,7 +123,14 @@ func RequirePermission(permission authz.Permission) gin.HandlerFunc {
 func RequireAnyPermission(permissions ...authz.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authContext, ok := authz.FromGin(c)
-		if !ok || !authContext.HasAnyPermission(permissions...) {
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
+			return
+		}
+
+		if !authContext.HasAnyPermission(permissions...) {
 			required := make([]string, 0, len(permissions))
 			for _, permission := range permissions {
 				required = append(required, string(permission))
@@ -125,6 +139,79 @@ func RequireAnyPermission(permissions ...authz.Permission) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error":                "permission required",
 				"required_permissions": required,
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func RequireAllPermissions(permissions ...authz.Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authContext, ok := authz.FromGin(c)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
+			return
+		}
+
+		missing := make([]string, 0)
+		for _, permission := range permissions {
+			if !authContext.HasPermission(permission) {
+				missing = append(missing, string(permission))
+			}
+		}
+		if len(missing) > 0 {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":               "permission required",
+				"missing_permissions": missing,
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func RequireSystem(systemClientID string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authContext, ok := authz.FromGin(c)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
+			return
+		}
+
+		if !authContext.HasSystem(systemClientID) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":           "system access required",
+				"required_system": systemClientID,
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func RequireSystemRole(systemClientID string, role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authContext, ok := authz.FromGin(c)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
+			return
+		}
+
+		if !authContext.HasSystemRole(systemClientID, role) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":                "system role required",
+				"required_system":      systemClientID,
+				"required_system_role": role,
 			})
 			return
 		}

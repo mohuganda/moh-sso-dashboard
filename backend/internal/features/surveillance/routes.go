@@ -9,6 +9,7 @@ import (
 
 func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
 	surveillance := protected.Group("/surveillance")
+	surveillance.Use(middleware.RequireSystem(authz.SystemIntegratedOutbreak))
 	{
 		read := middleware.RequirePermission(authz.PermissionSurveillanceRead)
 		importData := middleware.RequirePermission(authz.PermissionSurveillanceImport)

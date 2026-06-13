@@ -11,13 +11,11 @@ import (
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
 	userfeature "github.com/moh-sso-dashboard/internal/features/users"
-	"github.com/moh-sso-dashboard/internal/middleware"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
 )
 
 func RegisterAdminRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	admin := protected.Group("/admin")
-	admin.Use(middleware.RequireAdmin())
 	admin.Use(ratelimit.Middleware(deps.Limiter, ratelimit.ByUser, deps.AdminRateLimitPerMin, time.Minute))
 
 	registerAdminUserRoutes(admin, deps)
