@@ -29,6 +29,7 @@ export function useAuthorization() {
         ),
       permissions: [...permissions],
       systems: [...systems],
+      accessibleSystems: user?.accessibleSystems ?? [],
     };
   }, [user]);
 }

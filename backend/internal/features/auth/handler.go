@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/features/authsession"
 	"github.com/moh-sso-dashboard/internal/http/apierror"
@@ -42,6 +43,7 @@ type Handler struct {
 	notificationService service.NotificationsService
 	sessions            *authsession.Store
 	config              *config.Config
+	authzResolver       authz.PermissionResolver
 }
 
 func NewHandler(
@@ -50,13 +52,20 @@ func NewHandler(
 	notificationService service.NotificationsService,
 	sessions *authsession.Store,
 	config *config.Config,
+	authzResolver ...authz.PermissionResolver,
 ) *Handler {
+	var resolver authz.PermissionResolver
+	if len(authzResolver) > 0 {
+		resolver = authzResolver[0]
+	}
+
 	return &Handler{
 		authService:         authService,
 		auditService:        auditService,
 		notificationService: notificationService,
 		sessions:            sessions,
 		config:              config,
+		authzResolver:       resolver,
 	}
 }
 
@@ -146,6 +155,8 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 		return
 	}
 
+	h.applyResolvedAccess(c, user)
+
 	// Userinfo is the authoritative source of the user ID; the access
 	// token may omit "sub" (Keycloak lightweight access tokens).
 	userID := user.ID
@@ -166,6 +177,35 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{
 		"user": user,
 	})
+}
+
+func (h *Handler) applyResolvedAccess(c *gin.Context, user interface {
+	GetAuthorizationFields() (string, []string, map[string][]string)
+}) {
+	userID, realmRoles, clientRoles := user.GetAuthorizationFields()
+	_ = userID
+
+	access := authz.ResolveAccess(c.Request.Context(), h.authzResolver, realmRoles, clientRoles)
+
+	type authorizationSetter interface {
+		SetAuthorizationAccess([]string, []string, []authz.SystemAccess)
+	}
+
+	if setter, ok := user.(authorizationSetter); ok {
+		permissions := make([]string, 0, len(access.Permissions))
+		for _, permission := range access.Permissions {
+			permissions = append(permissions, string(permission))
+		}
+
+		systems := make([]string, 0, len(access.Systems))
+		for _, system := range access.Systems {
+			if system.ClientID != "" {
+				systems = append(systems, system.ClientID)
+			}
+		}
+
+		setter.SetAuthorizationAccess(permissions, systems, access.Systems)
+	}
 }
 
 // ----------------------------------------------------

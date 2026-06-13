@@ -9,6 +9,7 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/api/handler"
 	"github.com/moh-sso-dashboard/internal/api/routes"
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/config"
 	adminunitsfeature "github.com/moh-sso-dashboard/internal/features/admin_units"
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
@@ -40,8 +41,9 @@ type RouterDependencies struct {
 	Limiter        *ratelimit.Limiter
 	AuditService   *service.AuditService
 	AuthSessions   *authsession.Store
-	Handlers   HandlerSet
-	RateLimits RateLimits
+	AuthzResolver  authz.PermissionResolver
+	Handlers       HandlerSet
+	RateLimits     RateLimits
 }
 
 type HandlerSet struct {
@@ -117,7 +119,11 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 	routes.RegisterPublicAnnouncementRoutes(api, routeDeps)
 
 	protected := api.Group("")
-	protected.Use(middleware.ExtractAuthContext(deps.KeycloakClient, deps.AuthSessions))
+	protected.Use(middleware.ExtractAuthContext(
+		deps.KeycloakClient,
+		deps.AuthSessions,
+		deps.AuthzResolver,
+	))
 	protected.Use(middleware.RequireAuth())
 	protected.Use(middleware.AuditMiddleware(deps.AuditService))
 	protected.Use(ratelimit.Middleware(

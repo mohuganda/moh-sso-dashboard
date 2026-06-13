@@ -46,21 +46,44 @@ type Session struct {
 }
 
 type AuthUser struct {
-	ID            string              `json:"id"`
-	Username      string              `json:"username"`
-	Email         string              `json:"email"`
-	FirstName     string              `json:"firstName"`
-	LastName      string              `json:"lastName"`
-	FullName      string              `json:"fullName"`
-	IsAdmin       bool                `json:"isAdmin"`
-	IsUser        bool                `json:"isUser"`
-	RealmRoles    []string            `json:"realmRoles"`
-	ClientRoles   map[string][]string `json:"clientRoles"`
-	Permissions   []string            `json:"permissions"`
-	Systems       []string            `json:"systems"`
-	Enabled       bool                `json:"enabled"`
-	EmailVerified bool                `json:"emailVerified"`
-	LastLoginAt   *time.Time          `json:"lastLoginAt"`
+	ID                string               `json:"id"`
+	Username          string               `json:"username"`
+	Email             string               `json:"email"`
+	FirstName         string               `json:"firstName"`
+	LastName          string               `json:"lastName"`
+	FullName          string               `json:"fullName"`
+	IsAdmin           bool                 `json:"isAdmin"`
+	IsUser            bool                 `json:"isUser"`
+	RealmRoles        []string             `json:"realmRoles"`
+	ClientRoles       map[string][]string  `json:"clientRoles"`
+	Permissions       []string             `json:"permissions"`
+	Systems           []string             `json:"systems"`
+	AccessibleSystems []authz.SystemAccess `json:"accessibleSystems"`
+	Enabled           bool                 `json:"enabled"`
+	EmailVerified     bool                 `json:"emailVerified"`
+	LastLoginAt       *time.Time           `json:"lastLoginAt"`
+}
+
+func (u *AuthUser) GetAuthorizationFields() (string, []string, map[string][]string) {
+	if u == nil {
+		return "", nil, nil
+	}
+
+	return u.ID, u.RealmRoles, u.ClientRoles
+}
+
+func (u *AuthUser) SetAuthorizationAccess(
+	permissions []string,
+	systems []string,
+	accessibleSystems []authz.SystemAccess,
+) {
+	if u == nil {
+		return
+	}
+
+	u.Permissions = permissions
+	u.Systems = systems
+	u.AccessibleSystems = accessibleSystems
 }
 
 // ----------------------------------------------------
@@ -295,20 +318,21 @@ func (c *Client) Me(accessToken string) (*AuthUser, error) {
 	}
 
 	user := &AuthUser{
-		ID:            ui.UserID,
-		Username:      ui.PreferredUsername,
-		Email:         ui.Email,
-		FirstName:     firstName,
-		LastName:      lastName,
-		FullName:      fullName,
-		IsAdmin:       authContext.IsAdmin,
-		IsUser:        authContext.IsUser,
-		RealmRoles:    authContext.RealmRoles,
-		ClientRoles:   authContext.ClientRoles,
-		Permissions:   authContext.PermissionStrings(),
-		Systems:       authContext.SystemStrings(),
-		Enabled:       true,
-		EmailVerified: ui.EmailVerified,
+		ID:                ui.UserID,
+		Username:          ui.PreferredUsername,
+		Email:             ui.Email,
+		FirstName:         firstName,
+		LastName:          lastName,
+		FullName:          fullName,
+		IsAdmin:           authContext.IsAdmin,
+		IsUser:            authContext.IsUser,
+		RealmRoles:        authContext.RealmRoles,
+		ClientRoles:       authContext.ClientRoles,
+		Permissions:       authContext.PermissionStrings(),
+		Systems:           authContext.SystemStrings(),
+		AccessibleSystems: authContext.SystemAccess(),
+		Enabled:           true,
+		EmailVerified:     ui.EmailVerified,
 	}
 
 	return user, nil

@@ -11,12 +11,22 @@ export interface AuthUser {
   clientRoles: Record<string, string[]>;
   permissions: Permission[];
   systems: System[];
+  accessibleSystems: SystemAccess[];
   enabled: boolean;
   emailVerified: boolean;
   requirePwdChange: boolean;
   lastLoginAt?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface SystemAccess {
+  clientId: string;
+  displayName: string;
+  launchUrl?: string;
+  icon?: string;
+  category?: string;
+  roles: string[];
 }
 
 export type Role = "admin" | "user" | "manager";

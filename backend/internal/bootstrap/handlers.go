@@ -5,6 +5,7 @@ import (
 
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/api/handler"
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
@@ -49,6 +50,7 @@ type handlerDependencies struct {
 	AdminKeycloak  *keycloak.KeyAdminClient
 	Redis          *redis.Client
 	AuthSessions   *authsession.Store
+	AuthzResolver  authz.PermissionResolver
 }
 
 func buildHandlers(deps handlerDependencies) handlers {
@@ -58,6 +60,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.Notifications,
 		deps.AuthSessions,
 		deps.Config,
+		deps.AuthzResolver,
 	)
 	clientHandler := clientfeature.NewHandler(deps.Services.Clients, deps.Services.Audit, deps.Cache)
 	userHandler := userfeature.NewHandler(deps.Services.Users, deps.Services.Audit, deps.Cache)

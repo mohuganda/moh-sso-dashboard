@@ -181,16 +181,33 @@ func PermissionsForContext(realmRoles []string, clientRoles map[string][]string)
 }
 
 func AccessibleSystemsForContext(clientRoles map[string][]string) []string {
-	seen := map[string]bool{}
-	systems := make([]string, 0)
+	return systemIDs(AccessibleSystemDetailsForContext(clientRoles))
+}
 
-	add := func(system string) {
-		system = strings.TrimSpace(system)
-		if system == "" || seen[system] {
+func AccessibleSystemDetailsForContext(clientRoles map[string][]string) []SystemAccess {
+	seen := map[string]bool{}
+	systems := make([]SystemAccess, 0)
+
+	add := func(system SystemAccess) {
+		clientID := strings.TrimSpace(system.ClientID)
+		if clientID == "" || seen[clientID] {
 			return
 		}
-		seen[system] = true
+		seen[clientID] = true
 		systems = append(systems, system)
+	}
+
+	systemAccess := func(system string, roles []string) SystemAccess {
+		system = strings.TrimSpace(system)
+		metadata := staticSystemMetadata[system]
+		return SystemAccess{
+			ClientID:    system,
+			DisplayName: metadata.DisplayName,
+			LaunchURL:   metadata.LaunchURL,
+			Icon:        metadata.Icon,
+			Category:    metadata.Category,
+			Roles:       roles,
+		}
 	}
 
 	for system, roles := range normalizeClientRoles(clientRoles) {
@@ -200,16 +217,44 @@ func AccessibleSystemsForContext(clientRoles map[string][]string) []string {
 
 		switch system {
 		case SystemDashboardWeb:
-			add(system)
+			add(systemAccess(system, roles))
 			if hasRole(roles, DashboardWebIntegratedOutbreakAccess) {
-				add(SystemIntegratedOutbreak)
+				add(systemAccess(SystemIntegratedOutbreak, []string{DashboardWebIntegratedOutbreakAccess}))
 			}
 		case SystemIntegratedOutbreak, SystemReportBrowser:
-			add(system)
+			add(systemAccess(system, roles))
 		}
 	}
 
 	return systems
+}
+
+type systemMetadata struct {
+	DisplayName string
+	LaunchURL   string
+	Icon        string
+	Category    string
+}
+
+var staticSystemMetadata = map[string]systemMetadata{
+	SystemDashboardWeb: {
+		DisplayName: "Integrated Health Portal",
+		LaunchURL:   "/portal",
+		Icon:        "dashboard",
+		Category:    "platform",
+	},
+	SystemIntegratedOutbreak: {
+		DisplayName: "Integrated Outbreak System",
+		LaunchURL:   "/portal/apps/dwh/surveillance",
+		Icon:        "outbreak",
+		Category:    "surveillance",
+	},
+	SystemReportBrowser: {
+		DisplayName: "Report Browser",
+		LaunchURL:   "/portal/apps/dwh/reports",
+		Icon:        "reporting",
+		Category:    "reports",
+	},
 }
 
 func PermissionsForRoles(roles []string) []Permission {

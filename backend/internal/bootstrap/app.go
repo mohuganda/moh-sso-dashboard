@@ -4,6 +4,7 @@ import (
 	"context"
 
 	router "github.com/moh-sso-dashboard/internal/api"
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/features/authsession"
@@ -113,6 +114,11 @@ func Run() {
 		Logger:       appLogger,
 	})
 
+	authzResolver := authz.NewCompositeResolver(
+		authz.NewDBResolver(dbs.Primary),
+		authz.NewStaticResolver(),
+	)
+
 	// ==================================================
 	// HANDLERS
 	// ==================================================
@@ -128,6 +134,7 @@ func Run() {
 		StorageFactory: storageFactory,
 		AdminKeycloak:  adminKC,
 		Redis:          rdb,
+		AuthzResolver:  authzResolver,
 	})
 
 	startBackgroundWorkers(ctx, workerDependencies{
@@ -150,6 +157,7 @@ func Run() {
 		KeycloakClient: webKC,
 		Limiter:        rateLimiter,
 		AuditService:   services.Audit,
+		AuthzResolver:  authzResolver,
 		Handlers:       handlers.Router,
 		AuthSessions:   authSessions,
 	})

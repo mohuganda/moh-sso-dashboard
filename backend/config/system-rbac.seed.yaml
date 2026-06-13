@@ -1,0 +1,81 @@
+systems:
+    - clientId: dashboard-web
+      displayName: Integrated Health Portal
+      description: Central portal shell
+      icon: dashboard
+      launchUrl: /portal
+      category: platform
+      enabled: true
+      accessRoles:
+        - dashboard-web_access
+      roles:
+        - name: dashboard-web_access
+          displayName: Dashboard Access
+          permissions:
+            - portal:access
+            - systems:read
+            - systems:launch
+        - name: integrated-outbreak-system_access
+          displayName: Outbreak System Access
+          permissions:
+            - outbreak:access
+            - surveillance:read
+    - clientId: integrated-outbreak-system
+      displayName: Integrated Outbreak System
+      description: Outbreak surveillance and response
+      icon: outbreak
+      launchUrl: /portal/apps/dwh/surveillance
+      category: surveillance
+      enabled: true
+      accessRoles:
+        - integrated-outbreak-system_access
+        - viewer
+        - data_entry
+        - surveillance_officer
+        - manager
+        - admin
+        - super_admin
+      roles:
+        - name: super_admin
+          permissions:
+            - outbreak:access
+            - outbreak:manage
+            - surveillance:read
+            - surveillance:import
+            - surveillance:manage_locations
+            - surveillance:manage_alerts
+            - data_quality:read
+            - data_quality:write
+            - data_quality:resolve
+            - documents:read
+            - documents:write
+            - documents:process
+        - name: viewer
+          permissions:
+            - outbreak:access
+            - surveillance:read
+            - data_quality:read
+            - documents:read
+    - clientId: report-browser
+      displayName: Report Browser
+      icon: reporting
+      launchUrl: /portal/apps/dwh/reports
+      category: reports
+      enabled: true
+      accessRoles:
+        - report-browser_access
+      roles:
+        - name: report-browser_access
+          displayName: Report Browser Access
+          permissions:
+            - report_browser:read
+realmRoles:
+    - name: admin
+      permissions:
+        - '*'
+    - name: user
+      permissions:
+        - portal:access
+        - systems:read
+        - systems:launch
+

@@ -1,15 +1,19 @@
 package authz
 
-import "strings"
+import (
+	"context"
+	"strings"
+)
 
 type Context struct {
-	UserID            string              `json:"userId"`
-	RealmRoles        []string            `json:"realmRoles"`
-	ClientRoles       map[string][]string `json:"clientRoles"`
-	Permissions       []Permission        `json:"permissions"`
-	AccessibleSystems []string            `json:"systems"`
-	IsAdmin           bool                `json:"isAdmin"`
-	IsUser            bool                `json:"isUser"`
+	UserID                  string              `json:"userId"`
+	RealmRoles              []string            `json:"realmRoles"`
+	ClientRoles             map[string][]string `json:"clientRoles"`
+	Permissions             []Permission        `json:"permissions"`
+	AccessibleSystems       []string            `json:"systems"`
+	AccessibleSystemDetails []SystemAccess      `json:"accessibleSystems"`
+	IsAdmin                 bool                `json:"isAdmin"`
+	IsUser                  bool                `json:"isUser"`
 }
 
 func NewContext(
@@ -19,18 +23,43 @@ func NewContext(
 ) Context {
 	normalizedRealmRoles := NormalizeRoles(realmRoles)
 	normalizedClientRoles := normalizeClientRoles(clientRoles)
+	access := ResolveAccess(context.Background(), nil, normalizedRealmRoles, normalizedClientRoles)
 
 	ctx := Context{
-		UserID:            strings.TrimSpace(userID),
-		RealmRoles:        normalizedRealmRoles,
-		ClientRoles:       normalizedClientRoles,
-		AccessibleSystems: AccessibleSystemsForContext(normalizedClientRoles),
-		IsAdmin:           hasRole(normalizedRealmRoles, RoleAdmin),
-		IsUser:            hasRole(normalizedRealmRoles, RoleUser),
+		UserID:                  strings.TrimSpace(userID),
+		RealmRoles:              normalizedRealmRoles,
+		ClientRoles:             normalizedClientRoles,
+		Permissions:             dedupePermissions(access.Permissions),
+		AccessibleSystems:       systemIDs(access.Systems),
+		AccessibleSystemDetails: access.Systems,
+		IsAdmin:                 hasRole(normalizedRealmRoles, RoleAdmin),
+		IsUser:                  hasRole(normalizedRealmRoles, RoleUser),
 	}
-	ctx.Permissions = PermissionsForContext(ctx.RealmRoles, ctx.ClientRoles)
 
 	return ctx
+}
+
+func NewContextWithResolver(
+	ctx context.Context,
+	resolver PermissionResolver,
+	userID string,
+	realmRoles []string,
+	clientRoles map[string][]string,
+) Context {
+	normalizedRealmRoles := NormalizeRoles(realmRoles)
+	normalizedClientRoles := normalizeClientRoles(clientRoles)
+	access := ResolveAccess(ctx, resolver, normalizedRealmRoles, normalizedClientRoles)
+
+	return Context{
+		UserID:                  strings.TrimSpace(userID),
+		RealmRoles:              normalizedRealmRoles,
+		ClientRoles:             normalizedClientRoles,
+		Permissions:             dedupePermissions(access.Permissions),
+		AccessibleSystems:       systemIDs(access.Systems),
+		AccessibleSystemDetails: access.Systems,
+		IsAdmin:                 hasRole(normalizedRealmRoles, RoleAdmin),
+		IsUser:                  hasRole(normalizedRealmRoles, RoleUser),
+	}
 }
 
 func (c Context) HasPermission(permission Permission) bool {
@@ -100,6 +129,12 @@ func (c Context) SystemStrings() []string {
 	return values
 }
 
+func (c Context) SystemAccess() []SystemAccess {
+	values := make([]SystemAccess, 0, len(c.AccessibleSystemDetails))
+	values = append(values, c.AccessibleSystemDetails...)
+	return values
+}
+
 func normalizeClientRoles(clientRoles map[string][]string) map[string][]string {
 	normalized := make(map[string][]string, len(clientRoles))
 	for clientID, roles := range clientRoles {
@@ -111,4 +146,31 @@ func normalizeClientRoles(clientRoles map[string][]string) map[string][]string {
 	}
 
 	return normalized
+}
+
+func dedupePermissions(permissions []Permission) []Permission {
+	seen := map[Permission]bool{}
+	values := make([]Permission, 0, len(permissions))
+	for _, permission := range permissions {
+		if permission == "" || seen[permission] {
+			continue
+		}
+		seen[permission] = true
+		values = append(values, permission)
+	}
+	return values
+}
+
+func systemIDs(systems []SystemAccess) []string {
+	seen := map[string]bool{}
+	values := make([]string, 0, len(systems))
+	for _, system := range systems {
+		clientID := strings.TrimSpace(system.ClientID)
+		if clientID == "" || seen[clientID] {
+			continue
+		}
+		seen[clientID] = true
+		values = append(values, clientID)
+	}
+	return values
 }

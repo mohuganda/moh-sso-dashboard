@@ -11,7 +11,11 @@ import (
 	"github.com/moh-sso-dashboard/internal/keycloak"
 )
 
-func ExtractAuthContext(kc *keycloak.Client, sessions *authsession.Store) gin.HandlerFunc {
+func ExtractAuthContext(
+	kc *keycloak.Client,
+	sessions *authsession.Store,
+	resolver authz.PermissionResolver,
+) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		accessToken := extractAccessToken(c, sessions)
 		if accessToken == "" {
@@ -29,7 +33,13 @@ func ExtractAuthContext(kc *keycloak.Client, sessions *authsession.Store) gin.Ha
 			return
 		}
 
-		authContext := authz.NewContext(user.ID, user.RealmRoles, user.ClientRoles)
+		authContext := authz.NewContextWithResolver(
+			c.Request.Context(),
+			resolver,
+			user.ID,
+			user.RealmRoles,
+			user.ClientRoles,
+		)
 
 		c.Set("access_token", accessToken)
 		c.Set(authz.ContextKey, authContext)
@@ -39,6 +49,7 @@ func ExtractAuthContext(kc *keycloak.Client, sessions *authsession.Store) gin.Ha
 		c.Set("realm_roles", authContext.RealmRoles)
 		c.Set("permissions", authContext.Permissions)
 		c.Set("systems", authContext.AccessibleSystems)
+		c.Set("accessible_systems", authContext.AccessibleSystemDetails)
 		c.Set("is_admin", authContext.IsAdmin)
 		c.Set("is_user", authContext.IsUser)
 
