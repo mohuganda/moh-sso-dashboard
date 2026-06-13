@@ -38,4 +38,8 @@ export const PERMISSIONS = {
   auditRead: "audit:read",
   notificationsRead: "notifications:read",
   notificationsWrite: "notifications:write",
+  rbacRead: "rbac:read",
+  rbacWrite: "rbac:write",
+  rbacRolesWrite: "rbac:roles:write",
+  rbacPermissionsWrite: "rbac:permissions:write",
 } as const satisfies Record<string, Permission>;

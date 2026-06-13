@@ -19,6 +19,7 @@
     "@moh-sso/email": "/mf/email/single-spa.js",
     "@moh-sso/issue-tracker": "/mf/issue-tracker/single-spa.js",
     "@moh-sso/report-browser": "/mf/report-browser/single-spa.js",
+    "@moh-sso/rbac": "/mf/rbac/single-spa.js",
     "@moh-sso/surveillance": "/mf/surveillance/single-spa.js",
     "@moh-sso/users": "/mf/users/single-spa.js",
     "@moh-sso/utilities": "/mf/utilities/single-spa.js",

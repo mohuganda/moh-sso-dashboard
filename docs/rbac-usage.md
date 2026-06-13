@@ -42,6 +42,29 @@ Use helpers from `@moh-sso/auth`:
 
 Use `PermissionRoute` for shell route boundaries. Use `PermissionGuard` for page actions and buttons.
 
+## Admin Management UI
+
+Portal RBAC can be managed from:
+
+```text
+/admin/rbac
+```
+
+The page is exposed by the `@moh-sso/rbac` frontend app and calls the backend admin API under:
+
+```text
+/api/v1/admin/rbac
+```
+
+Required permissions:
+
+- `rbac:read` opens the page and read APIs.
+- `rbac:write` updates system metadata.
+- `rbac:roles:write` creates/removes system roles and access roles.
+- `rbac:permissions:write` maps permissions to system roles and realm roles.
+
+Use this UI for routine role and permission mapping after a Keycloak client has been onboarded. Use the CLI seed/sync flow for bulk initialization, repeatable environments, and drift checks.
+
 ## Microfrontend Metadata
 
 Every standalone app route should declare access metadata in `frontend/apps/<app>/src/routes.tsx`.

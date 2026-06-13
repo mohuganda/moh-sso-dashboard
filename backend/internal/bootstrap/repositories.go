@@ -7,6 +7,7 @@ import (
 	clientRepo "github.com/moh-sso-dashboard/internal/features/clients"
 	documentTemplateRepo "github.com/moh-sso-dashboard/internal/features/document_templates"
 	documentRepo "github.com/moh-sso-dashboard/internal/features/documents"
+	rbacRepo "github.com/moh-sso-dashboard/internal/features/rbac"
 	sessionRepo "github.com/moh-sso-dashboard/internal/features/sessions"
 	storageLocationRepo "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillanceRepo "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -40,6 +41,7 @@ type repositories struct {
 	Announcements           announcementRepo.AnnouncementRepository
 	Email                   emailRepo.EmailRepository
 	Surveillance            *surveillanceRepo.Repositories
+	RBAC                    rbacRepo.Repository
 }
 
 func buildRepositories(
@@ -68,5 +70,6 @@ func buildRepositories(
 		Announcements:           announcementRepo.NewAnnouncementRepository(store, *appLogger),
 		Email:                   emailRepo.NewEmailRepository(cfg, store, *appLogger),
 		Surveillance:            surveillanceRepo.NewRepositories(store),
+		RBAC:                    rbacRepo.NewRepository(store.(*storepkg.SQLStore).DB()),
 	}
 }

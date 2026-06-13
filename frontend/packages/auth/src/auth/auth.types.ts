@@ -70,4 +70,8 @@ export type Permission =
   | "metrics:read"
   | "audit:read"
   | "notifications:read"
-  | "notifications:write";
+  | "notifications:write"
+  | "rbac:read"
+  | "rbac:write"
+  | "rbac:roles:write"
+  | "rbac:permissions:write";

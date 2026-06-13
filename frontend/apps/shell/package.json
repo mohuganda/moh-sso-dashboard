@@ -23,6 +23,7 @@
     "@moh-sso/email": "0.1.0",
     "@moh-sso/issue-tracker": "0.1.0",
     "@moh-sso/microfrontend": "0.1.0",
+    "@moh-sso/rbac": "0.1.0",
     "@moh-sso/report-browser": "0.1.0",
     "@moh-sso/state": "0.1.0",
     "@moh-sso/surveillance": "0.1.0",

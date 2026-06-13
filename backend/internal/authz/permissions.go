@@ -51,6 +51,11 @@ const (
 	PermissionAuditRead          Permission = "audit:read"
 	PermissionNotificationsRead  Permission = "notifications:read"
 	PermissionNotificationsWrite Permission = "notifications:write"
+
+	PermissionRBACRead             Permission = "rbac:read"
+	PermissionRBACWrite            Permission = "rbac:write"
+	PermissionRBACRolesWrite       Permission = "rbac:roles:write"
+	PermissionRBACPermissionsWrite Permission = "rbac:permissions:write"
 )
 
 var AllPermissions = []Permission{
@@ -91,4 +96,8 @@ var AllPermissions = []Permission{
 	PermissionAuditRead,
 	PermissionNotificationsRead,
 	PermissionNotificationsWrite,
+	PermissionRBACRead,
+	PermissionRBACWrite,
+	PermissionRBACRolesWrite,
+	PermissionRBACPermissionsWrite,
 }

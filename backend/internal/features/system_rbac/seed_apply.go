@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/moh-sso-dashboard/internal/authz"
 )
 
 func ApplySeed(ctx context.Context, db *sql.DB, seed SeedFile) error {
@@ -96,16 +98,29 @@ func collectPermissions(seed SeedFile) []string {
 		seen[permission] = true
 		values = append(values, permission)
 	}
+	addAll := func() {
+		for _, permission := range authz.AllPermissions {
+			add(string(permission))
+		}
+	}
 
 	for _, system := range seed.Systems {
 		for _, role := range system.Roles {
 			for _, permission := range role.Permissions {
+				if permission == "*" {
+					addAll()
+					continue
+				}
 				add(permission)
 			}
 		}
 	}
 	for _, role := range seed.RealmRoles {
 		for _, permission := range role.Permissions {
+			if permission == "*" {
+				addAll()
+				continue
+			}
 			add(permission)
 		}
 	}

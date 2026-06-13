@@ -41,7 +41,17 @@ go run ./cmd/cli system-rbac validate --file /tmp/system-rbac.seed.yaml
 go run ./cmd/cli system-rbac seed --file /tmp/system-rbac.seed.yaml
 ```
 
-## 5. Explain a User's Expected Access
+## 5. Manage or Adjust in the Admin UI
+
+After the first seed, portal administrators can manage system metadata, access roles, system roles, and permission mappings at:
+
+```text
+/admin/rbac
+```
+
+The signed-in administrator needs `rbac:read` to open the page. Write actions require `rbac:write`, `rbac:roles:write`, or `rbac:permissions:write` depending on the operation.
+
+## 6. Explain a User's Expected Access
 
 ```sh
 go run ./cmd/cli system-rbac explain \
@@ -49,7 +59,7 @@ go run ./cmd/cli system-rbac explain \
   --client-role integrated-outbreak-system:viewer
 ```
 
-## 6. Check for Drift
+## 7. Check for Drift
 
 ```sh
 go run ./cmd/cli system-rbac unmapped \

@@ -16,6 +16,7 @@ const apps = [
   "email",
   "issue-tracker",
   "report-browser",
+  "rbac",
   "surveillance",
   "users",
   "utilities",

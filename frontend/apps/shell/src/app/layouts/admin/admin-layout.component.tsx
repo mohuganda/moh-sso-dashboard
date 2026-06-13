@@ -20,6 +20,7 @@ import {
   Notification,
   UserAvatarFilled,
   UserMultiple,
+  UserRole,
 } from "@carbon/react/icons";
 import { useSelector } from "react-redux";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -33,7 +34,8 @@ import {
 
 import { API } from "@moh-sso/config";
 import { useGetNotificationsQuery, useGetUnreadNotificationsCountQuery } from "@moh-sso/api";
-import { selectUser } from "@moh-sso/auth";
+import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
+import type { Permission } from "@moh-sso/auth";
 
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
 
@@ -53,6 +55,7 @@ type AdminNavItem = {
   path: string;
   icon: CarbonIconComponent;
   exact?: boolean;
+  requiredPermission?: Permission;
 };
 
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
@@ -92,6 +95,13 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Audits",
     path: "/admin/audit-logs",
     icon: Activity,
+  },
+  {
+    id: "rbac",
+    label: "RBAC",
+    path: "/admin/rbac",
+    icon: UserRole,
+    requiredPermission: PERMISSIONS.rbacRead,
   },
 ];
 
@@ -177,8 +187,13 @@ function HeaderActions() {
 function AdminSideNav() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { can } = useAuthorization();
 
-  const navItems = useMemo(() => ADMIN_NAV_ITEMS, []);
+  const navItems = useMemo(
+    () =>
+      ADMIN_NAV_ITEMS.filter((item) => !item.requiredPermission || can(item.requiredPermission)),
+    [can],
+  );
 
   return (
     <SideNav isFixedNav expanded aria-label="Admin navigation" className="admin-layout__sidenav">

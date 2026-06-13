@@ -13,6 +13,7 @@ import { clientsRoute } from "@moh-sso/clients";
 import { emailRoute } from "@moh-sso/email";
 import { PERMISSIONS, type Permission, type System } from "@moh-sso/auth";
 import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
+import { rbacRoute } from "@moh-sso/rbac";
 import { usersRoute } from "@moh-sso/users";
 
 import {
@@ -20,6 +21,7 @@ import {
   auditLifecycles,
   clientsLifecycles,
   emailLifecycles,
+  rbacLifecycles,
   usersLifecycles,
 } from "@/app/microfrontends/lifecycles";
 
@@ -117,6 +119,13 @@ export const adminRoutes = (
           lifecycles={emailLifecycles}
           basename="/admin/emails"
         />,
+      )}
+    />
+    <Route
+      path="rbac"
+      element={adminPage(
+        rbacRoute,
+        <SingleSpaApp appName="@moh-sso/rbac" lifecycles={rbacLifecycles} basename="/admin/rbac" />,
       )}
     />
   </Route>

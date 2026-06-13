@@ -10,6 +10,7 @@ export * from "./api/email.api";
 export * from "./api/geojson.api";
 export * from "./api/metrics.api";
 export * from "./api/notifications.api";
+export * from "./api/rbac.api";
 export * from "./api/sessions.api";
 export * from "./api/surveillance.api";
 export * from "./api/users.api";

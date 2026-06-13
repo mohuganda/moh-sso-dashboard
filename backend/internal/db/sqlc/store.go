@@ -23,6 +23,10 @@ func NewStore(db *sql.DB) *SQLStore {
 	}
 }
 
+func (s *SQLStore) DB() *sql.DB {
+	return s.db
+}
+
 func (s *SQLStore) ExecTx(ctx context.Context, fn func(q Querier) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
