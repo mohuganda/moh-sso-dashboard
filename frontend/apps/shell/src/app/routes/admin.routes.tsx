@@ -7,10 +7,13 @@ import { ProtectedRoute } from "./guards/ProtectedRoute";
 import AdminLayout from "../layouts/admin/admin-layout.component";
 import HomePage from "@/app/home/pages/home.component";
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
-import {
-  PERMISSIONS,
-  type Permission,
-} from "@moh-sso/auth";
+import { announcementsRoute } from "@moh-sso/announcements";
+import { auditRoute } from "@moh-sso/audit";
+import { clientsRoute } from "@moh-sso/clients";
+import { emailRoute } from "@moh-sso/email";
+import { PERMISSIONS, type Permission, type System } from "@moh-sso/auth";
+import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
+import { usersRoute } from "@moh-sso/users";
 
 import {
   announcementsLifecycles,
@@ -20,9 +23,24 @@ import {
   usersLifecycles,
 } from "@/app/microfrontends/lifecycles";
 
-const adminPage = (permission: Permission, element: ReactElement) => (
+const routePermissions = (route: MicrofrontendRoute) =>
+  route.requiredPermissions as Permission[] | undefined;
+
+const routeAnyPermissions = (route: MicrofrontendRoute) =>
+  route.requiredAnyPermissions as Permission[] | undefined;
+
+const routeSystems = (route: MicrofrontendRoute) => route.requiredSystems as System[] | undefined;
+
+const adminPage = (route: MicrofrontendRoute, element: ReactElement) => (
   <AdminRoute>
-    <PermissionRoute permission={permission}>{element}</PermissionRoute>
+    <PermissionRoute
+      allOf={routePermissions(route)}
+      anyOf={routeAnyPermissions(route)}
+      systems={routeSystems(route)}
+      systemRoles={route.requiredSystemRoles}
+    >
+      {element}
+    </PermissionRoute>
   </AdminRoute>
 );
 
@@ -40,14 +58,16 @@ export const adminRoutes = (
       path="home"
       element={
         <AdminRoute>
-          <HomePage />
+          <PermissionRoute permission={PERMISSIONS.portalAccess}>
+            <HomePage />
+          </PermissionRoute>
         </AdminRoute>
       }
     />
     <Route
       path="users"
       element={adminPage(
-        PERMISSIONS.usersRead,
+        usersRoute,
         <SingleSpaApp
           appName="@moh-sso/users"
           lifecycles={usersLifecycles}
@@ -58,7 +78,7 @@ export const adminRoutes = (
     <Route
       path="clients"
       element={adminPage(
-        PERMISSIONS.clientsRead,
+        clientsRoute,
         <SingleSpaApp
           appName="@moh-sso/clients"
           lifecycles={clientsLifecycles}
@@ -69,7 +89,7 @@ export const adminRoutes = (
     <Route
       path="audit-logs"
       element={adminPage(
-        PERMISSIONS.auditRead,
+        auditRoute,
         <SingleSpaApp
           appName="@moh-sso/audit"
           lifecycles={auditLifecycles}
@@ -80,7 +100,7 @@ export const adminRoutes = (
     <Route
       path="announcements"
       element={adminPage(
-        PERMISSIONS.announcementsRead,
+        announcementsRoute,
         <SingleSpaApp
           appName="@moh-sso/announcements"
           lifecycles={announcementsLifecycles}
@@ -91,7 +111,7 @@ export const adminRoutes = (
     <Route
       path="emails"
       element={adminPage(
-        PERMISSIONS.emailRead,
+        emailRoute,
         <SingleSpaApp
           appName="@moh-sso/email"
           lifecycles={emailLifecycles}

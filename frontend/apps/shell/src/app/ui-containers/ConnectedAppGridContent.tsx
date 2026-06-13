@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
 import { useListClientsQuery } from "@moh-sso/api";
+import { useAuthorization } from "@moh-sso/auth";
 import { AppGridContent } from "@moh-sso/ui";
 import { setActiveClient, setClients } from "@moh-sso/state";
 
@@ -18,10 +19,21 @@ export function ConnectedAppGridContent({ onSelect }: ConnectedAppGridContentPro
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { data: clients = [], isLoading, isError, refetch } = useListClientsQuery();
+  const { canLaunchSystem } = useAuthorization();
+  const visibleClients = useMemo(
+    () =>
+      clients.filter((client) => {
+        if (!client.clientId) {
+          return false;
+        }
+        return canLaunchSystem(client.clientId);
+      }),
+    [canLaunchSystem, clients],
+  );
 
   useEffect(() => {
-    dispatch(setClients(clients));
-  }, [clients, dispatch]);
+    dispatch(setClients(visibleClients));
+  }, [dispatch, visibleClients]);
 
   const handleOpenClient = (href: string, clientId?: string) => {
     if (clientId) {
@@ -38,7 +50,7 @@ export function ConnectedAppGridContent({ onSelect }: ConnectedAppGridContentPro
 
   return (
     <AppGridContent
-      clients={clients}
+      clients={visibleClients}
       isLoading={isLoading}
       isError={isError}
       onRetry={refetch}

@@ -7,4 +7,5 @@ export const documentsRoute: MicrofrontendRoute = {
     "/apps/dwh/filesvr",
     "/apps/utilities/self-service/eservice/document-upload",
   ],
+  requiredAnyPermissions: ["documents:read", "documents:write"],
 };
