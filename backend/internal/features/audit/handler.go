@@ -177,7 +177,7 @@ func (h *Handler) ListAuditLogs(c *gin.Context) {
 	}
 
 	resp := gin.H{
-		"items": rows,
+		"items": toAuditLogResponses(rows),
 		"next_cursor": gin.H{
 			"cursor_created_at": nextCreatedAt,
 			"cursor_id":         nextID,
@@ -214,7 +214,7 @@ func (h *Handler) GetAuditLog(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, row)
+	response.OK(c, http.StatusOK, toAuditLogResponseFromGet(row))
 }
 
 /* =========================================================
@@ -364,26 +364,27 @@ func (h *Handler) ExportAuditLogs(c *gin.Context) {
 		return
 	}
 
-	manifest := buildAuditManifest(from, to, rows, c)
+	items := toExportAuditLogResponses(rows)
+	manifest := buildAuditManifest(from, to, items, len(items), c)
 
 	if format == "json" {
 		c.Header("Content-Type", "application/json")
 		c.Header("Content-Disposition", "attachment; filename=audit_logs_export.json")
 		c.JSON(http.StatusOK, gin.H{
 			"manifest": manifest,
-			"items":    rows,
+			"items":    items,
 		})
 		return
 	}
 
-	writeAuditCSV(c, rows, manifest)
+	writeAuditCSV(c, items, manifest)
 }
 
 /* =========================================================
  * Helpers (export + sql nulls)
  * ========================================================= */
 
-func buildAuditManifest(from, to time.Time, rows any, c *gin.Context) map[string]any {
+func buildAuditManifest(from, to time.Time, rows any, recordCount int, c *gin.Context) map[string]any {
 	payload, _ := json.Marshal(rows)
 	sum := sha256.Sum256(payload)
 
@@ -393,13 +394,13 @@ func buildAuditManifest(from, to time.Time, rows any, c *gin.Context) map[string
 			"from": from.UTC().Format(time.RFC3339),
 			"to":   to.UTC().Format(time.RFC3339),
 		},
-		"record_count":   len(payload),
+		"record_count":   recordCount,
 		"hash_algo":      "sha256",
 		"payload_sha256": hex.EncodeToString(sum[:]),
 	}
 }
 
-func writeAuditCSV(c *gin.Context, rows []db.ExportAuditLogsRow, manifest map[string]any) {
+func writeAuditCSV(c *gin.Context, rows []AuditLogResponse, manifest map[string]any) {
 	c.Header("Content-Type", "text/csv")
 	c.Header("Content-Disposition", "attachment; filename=audit_logs_export.csv")
 
@@ -412,27 +413,20 @@ func writeAuditCSV(c *gin.Context, rows []db.ExportAuditLogsRow, manifest map[st
 	})
 
 	for _, r := range rows {
-		meta := extractAuditMetadata(r.Metadata)
-		metaJSON, _ := json.Marshal(meta)
-
-		userID := ""
-		if r.UserID.Valid {
-			userID = r.UserID.UUID.String()
-		}
-
-		createdAt := ""
-		if r.CreatedAt.Valid {
-			createdAt = r.CreatedAt.Time.UTC().Format(time.RFC3339)
+		metaJSON, _ := json.Marshal(r.Metadata)
+		success := ""
+		if r.Success != nil {
+			success = strconv.FormatBool(*r.Success)
 		}
 
 		_ = w.Write([]string{
-			createdAt,
-			userID,
+			r.CreatedAt,
+			r.UserID,
 			r.Username,
 			r.Action,
-			stringify(meta["ip"]),
-			stringify(meta["client_id"]),
-			stringify(meta["success"]),
+			r.IP,
+			r.ClientID,
+			success,
 			string(metaJSON),
 		})
 	}
@@ -462,21 +456,6 @@ func toNullTime(t *time.Time) sql.NullTime {
 		return sql.NullTime{}
 	}
 	return sql.NullTime{Time: *t, Valid: true}
-}
-
-func stringify(v any) string {
-	switch x := v.(type) {
-	case bool:
-		if x {
-			return "true"
-		}
-		return "false"
-	case string:
-		return x
-	default:
-		b, _ := json.Marshal(x)
-		return string(b)
-	}
 }
 
 func extractAuditMetadata(r pqtype.NullRawMessage) map[string]any {

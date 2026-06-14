@@ -25,7 +25,7 @@ import {
   useToast,
 } from "@moh-sso/ui";
 
-import { useListAuditLogsQuery } from "@moh-sso/api";
+import { buildAuditExportUrl, useListAuditLogsQuery } from "@moh-sso/api";
 import type { AuditFilters, AuditLog, Cursor } from "@moh-sso/types";
 import { AuditLogBulkActions } from "../components/audit-log-bulk-actions.component";
 import { AuditLogActionsMenu } from "../components/audit-log-actions-menu.component";
@@ -49,16 +49,16 @@ function toRFC3339(d: Date) {
 }
 
 function getAuditLogTime(log: AuditLog) {
-  if (!log.created_at?.Valid) return "—";
+  if (!log.createdAt) return "—";
 
-  const date = new Date(log.created_at.Time);
+  const date = new Date(log.createdAt);
   if (Number.isNaN(date.getTime())) return "—";
 
   return date.toLocaleString();
 }
 
 function getAuditSuccess(log: AuditLog): boolean | null {
-  const value = log.metadata?.RawMessage?.success;
+  const value = log.success ?? log.metadata?.success;
 
   if (typeof value === "boolean") return value;
 
@@ -75,11 +75,11 @@ function getAuditResult(log: AuditLog) {
 }
 
 function getAuditClient(log: AuditLog) {
-  return log.metadata?.RawMessage?.client_id ?? "—";
+  return log.clientId || (typeof log.metadata?.client_id === "string" ? log.metadata.client_id : "—");
 }
 
 function getAuditIp(log: AuditLog) {
-  return log.metadata?.RawMessage?.ip ?? "—";
+  return log.ip || (typeof log.metadata?.ip === "string" ? log.metadata.ip : "—");
 }
 
 function downloadFile(filename: string, content: string, type: string) {
@@ -106,7 +106,7 @@ function exportAuditLogsCsv(logs: AuditLog[]) {
     log.id,
     getAuditLogTime(log),
     log.username ?? "System",
-    log.user_id ?? "",
+    log.userId ?? "",
     log.action,
     getAuditClient(log),
     getAuditIp(log),
@@ -137,11 +137,14 @@ export default function AuditLogs() {
   const [action, setAction] = useState<string>();
   const [clientId, setClientId] = useState<string>();
   const [success, setSuccess] = useState<SuccessFilter>();
+  const [userId, setUserId] = useState<string>();
+  const [ip, setIp] = useState<string>();
 
   /* -----------------------------
    * Cursor pagination
    * ----------------------------- */
-  const [cursor, setCursor] = useState<Cursor | null>(null);
+  const [activeCursor, setActiveCursor] = useState<Cursor | null>(null);
+  const [nextCursor, setNextCursor] = useState<Cursor | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [items, setItems] = useState<AuditLog[]>([]);
 
@@ -154,19 +157,19 @@ export default function AuditLogs() {
       to,
       action,
       client_id: clientId,
+      user_id: userId,
+      ip,
       success,
       limit: 50,
     };
 
-    if (cursor) {
-      q.cursor = {
-        cursor_id: cursor.cursor_id,
-        cursor_created_at: cursor.cursor_created_at,
-      };
+    if (activeCursor) {
+      q.cursor_id = activeCursor.cursor_id;
+      q.cursor_created_at = activeCursor.cursor_created_at;
     }
 
     return q;
-  }, [from, to, action, clientId, success, cursor]);
+  }, [from, to, action, clientId, userId, ip, success, activeCursor]);
 
   const { data, isLoading, isFetching, isError, error, refetch } = useListAuditLogsQuery(
     queryArgs,
@@ -182,7 +185,7 @@ export default function AuditLogs() {
     if (!data) return;
 
     setItems((prev) => {
-      if (!cursor) return data.items;
+      if (!activeCursor) return data.items;
 
       const existing = new Set(prev.map((item) => item.id));
       const next = data.items.filter((item) => !existing.has(item.id));
@@ -191,21 +194,19 @@ export default function AuditLogs() {
     });
 
     setHasMore(data.has_more);
-
-    if (data.next_cursor) {
-      setCursor(data.next_cursor);
-    }
-  }, [data, cursor]);
+    setNextCursor(data.next_cursor ?? null);
+  }, [data, activeCursor]);
 
   /* -----------------------------
    * Reset list on filter change
    * ----------------------------- */
   useEffect(() => {
-    setCursor(null);
+    setActiveCursor(null);
+    setNextCursor(null);
     setHasMore(true);
     setItems([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to, action, clientId, success]);
+  }, [from, to, action, clientId, userId, ip, success]);
 
   /* -----------------------------
    * Rows
@@ -230,6 +231,8 @@ export default function AuditLogs() {
   function clearFilters() {
     setAction(undefined);
     setClientId(undefined);
+    setUserId(undefined);
+    setIp(undefined);
     setSuccess(undefined);
   }
 
@@ -259,10 +262,22 @@ export default function AuditLogs() {
     });
   }
 
+  function handleExportFiltered(format: "csv" | "json") {
+    const link = document.createElement("a");
+    link.href = buildAuditExportUrl(queryArgs, format);
+    link.download = format === "csv" ? "audit-logs.csv" : "audit-logs.json";
+    link.click();
+
+    toast.success({
+      title: "Audit export started",
+      subtitle: `Filtered audit logs are being exported as ${format.toUpperCase()}.`,
+    });
+  }
+
   return (
     <DataTableShell
       title="Audit Logs"
-      description="Security and administrative activity across the platform."
+      description="Security and administrative activity across the platform. RBAC governance events remain in the RBAC audit tab."
       rows={rows}
       headers={headers}
       getRowId={(row) => row.id}
@@ -292,15 +307,21 @@ export default function AuditLogs() {
         <AuditLogFilters
           action={action}
           clientId={clientId}
+          userId={userId}
+          ip={ip}
           success={success}
           onFromChange={setFrom}
           onToChange={setTo}
           onActionChange={setAction}
           onClientChange={setClientId}
+          onUserChange={setUserId}
+          onIpChange={setIp}
           onSuccessChange={setSuccess}
           onClear={clearFilters}
-          onExportCsv={() => handleExportCsv(items)}
-          onExportJson={() => handleExportJson(items)}
+          onExportLoadedCsv={() => handleExportCsv(items)}
+          onExportLoadedJson={() => handleExportJson(items)}
+          onExportFilteredCsv={() => handleExportFiltered("csv")}
+          onExportFilteredJson={() => handleExportFiltered("json")}
         />
       }
     >
@@ -398,7 +419,11 @@ export default function AuditLogs() {
 
             {hasMore && (
               <div style={{ textAlign: "center", padding: 16 }}>
-                <Button kind="secondary" disabled={isFetching} onClick={() => refetch()}>
+                <Button
+                  kind="secondary"
+                  disabled={isFetching || !nextCursor?.cursor_id || !nextCursor?.cursor_created_at}
+                  onClick={() => setActiveCursor(nextCursor)}
+                >
                   {isFetching ? "Loading…" : "Load more"}
                 </Button>
               </div>

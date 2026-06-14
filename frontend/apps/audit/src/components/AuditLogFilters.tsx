@@ -24,16 +24,22 @@ const SUCCESS_OPTIONS: SuccessOption[] = [
 interface AuditLogFiltersProps {
   action?: string;
   clientId?: string;
+  userId?: string;
+  ip?: string;
   success?: SuccessFilter;
 
   onFromChange: (v: string) => void;
   onToChange: (v: string) => void;
   onActionChange: (v?: string) => void;
   onClientChange: (v?: string) => void;
+  onUserChange: (v?: string) => void;
+  onIpChange: (v?: string) => void;
   onSuccessChange: (v?: SuccessFilter) => void;
   onClear: () => void;
-  onExportCsv: () => void;
-  onExportJson: () => void;
+  onExportLoadedCsv: () => void;
+  onExportLoadedJson: () => void;
+  onExportFilteredCsv: () => void;
+  onExportFilteredJson: () => void;
 }
 
 function toRFC3339(d: Date) {
@@ -43,15 +49,21 @@ function toRFC3339(d: Date) {
 export function AuditLogFilters({
   action,
   clientId,
+  userId,
+  ip,
   success,
   onFromChange,
   onToChange,
   onActionChange,
   onClientChange,
+  onUserChange,
+  onIpChange,
   onSuccessChange,
   onClear,
-  onExportCsv,
-  onExportJson,
+  onExportLoadedCsv,
+  onExportLoadedJson,
+  onExportFilteredCsv,
+  onExportFilteredJson,
 }: AuditLogFiltersProps) {
   return (
     <Stack
@@ -105,6 +117,28 @@ export function AuditLogFilters({
         }}
       />
 
+      <Search
+        id="audit-user"
+        labelText="User ID"
+        placeholder="User ID"
+        value={userId ?? ""}
+        style={{ width: 180 }}
+        onChange={(event) => {
+          onUserChange(event.target.value || undefined);
+        }}
+      />
+
+      <Search
+        id="audit-ip"
+        labelText="IP address"
+        placeholder="IP address"
+        value={ip ?? ""}
+        style={{ width: 160 }}
+        onChange={(event) => {
+          onIpChange(event.target.value || undefined);
+        }}
+      />
+
       <ComboBox
         id="audit-result"
         titleText="Result"
@@ -124,8 +158,10 @@ export function AuditLogFilters({
         </Button>
 
         <OverflowMenu ariaLabel="Export audit logs" flipped>
-          <OverflowMenuItem itemText="Export CSV" onClick={onExportCsv} />
-          <OverflowMenuItem itemText="Export JSON" onClick={onExportJson} />
+          <OverflowMenuItem itemText="Export filtered CSV" onClick={onExportFilteredCsv} />
+          <OverflowMenuItem itemText="Export filtered JSON" onClick={onExportFilteredJson} />
+          <OverflowMenuItem itemText="Export loaded CSV" onClick={onExportLoadedCsv} />
+          <OverflowMenuItem itemText="Export loaded JSON" onClick={onExportLoadedJson} />
         </OverflowMenu>
       </Stack>
     </Stack>

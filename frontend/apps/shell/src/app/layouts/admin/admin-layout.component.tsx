@@ -28,6 +28,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   HeaderPanelProvider,
   NotificationsPanel,
+  PublicFooter,
   ToastProvider,
   useHeaderPanel,
 } from "@moh-sso/ui";
@@ -101,7 +102,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "RBAC",
     path: "/admin/rbac",
     icon: UserRole,
-    requiredPermission: PERMISSIONS.rbacRead,
+    requiredPermission: PERMISSIONS.rbacRolesWrite,
   },
 ];
 
@@ -266,6 +267,7 @@ export default function AdminLayout() {
               <Outlet />
             </Content>
           </div>
+          <PublicFooter />
         </div>
       </HeaderPanelProvider>
     </ToastProvider>

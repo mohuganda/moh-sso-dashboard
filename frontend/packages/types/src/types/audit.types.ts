@@ -18,37 +18,29 @@ export interface AuditFilters {
   ip?: string;
   success?: "true" | "false";
   limit?: number;
-  cursor?: Cursor;
+  cursor_id?: string | null;
+  cursor_created_at?: string | null;
 }
 
 export interface AuditLog {
   id: string;
-
+  createdAt: string;
   action: string;
-
   username?: string | null;
-  user_id?: string | null;
-
-  /* sql.NullTime */
-  created_at: {
-    Time: string;
-    Valid: boolean;
+  userId?: string;
+  metadata: {
+    ip?: string;
+    method?: string;
+    status?: number;
+    latency_ms?: number;
+    user_agent?: string;
+    client_id?: string;
+    success?: boolean;
+    country?: string;
+    city?: string;
+    [key: string]: unknown;
   };
-
-  /* json.RawMessage wrapped in sql.Null */
-  metadata?: {
-    RawMessage: {
-      ip?: string;
-      method?: string;
-      status?: number;
-      latency_ms?: number;
-      user_agent?: string;
-      client_id?: string;
-      success?: boolean;
-      country?: string;
-      city?: string;
-      [key: string]: any;
-    };
-    Valid: boolean;
-  };
+  ip?: string;
+  clientId?: string;
+  success?: boolean;
 }
