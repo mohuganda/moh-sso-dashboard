@@ -130,7 +130,7 @@ export default function ClientsPage() {
     return (
       <ErrorState
         title="Failed to load clients"
-        description={(error as any)?.data?.message ?? "Failed to load clients"}
+        description={getApiErrorMessage(error, "Failed to load clients")}
         primaryAction={{ label: "Retry", onClick: refetch }}
       />
     );
@@ -178,7 +178,7 @@ export default function ClientsPage() {
                       await Promise.all(
                         selectedClients.map((c) =>
                           toggleClient({
-                            id: c.clientId,
+                            id: c.id,
                             enabled: true,
                           }).unwrap(),
                         ),
@@ -204,7 +204,7 @@ export default function ClientsPage() {
                       await Promise.all(
                         selectedClients.map((c) =>
                           toggleClient({
-                            id: c.clientId,
+                            id: c.id,
                             enabled: false,
                           }).unwrap(),
                         ),
@@ -263,48 +263,46 @@ export default function ClientsPage() {
                             if (cell.info.header === "actions") {
                               return (
                                 <RowActionsCell key={cell.id}>
-                                  {row.isSelected && (
-                                    <ClientActionsMenu
-                                      client={client}
-                                      onEdit={() => {
-                                        openPanel({
-                                          title: "Edit client",
-                                          content: (
-                                            <ClientFormPanel
-                                              mode="edit"
-                                              initialClient={client}
-                                              onSuccess={closePanel}
-                                            />
-                                          ),
-                                          size: "md",
-                                        });
-                                      }}
-                                      onToggleStatus={() => {
-                                        openEnableClientModal({
-                                          clientName: client.name,
-                                          enabled: client.enabled,
-                                          onConfirm: async () => {
-                                            try {
-                                              await toggleClient({
-                                                id: client.clientId,
-                                                enabled: !client.enabled,
-                                              }).unwrap();
+                                  <ClientActionsMenu
+                                    client={client}
+                                    onEdit={() => {
+                                      openPanel({
+                                        title: "Edit client",
+                                        content: (
+                                          <ClientFormPanel
+                                            mode="edit"
+                                            initialClient={client}
+                                            onSuccess={closePanel}
+                                          />
+                                        ),
+                                        size: "md",
+                                      });
+                                    }}
+                                    onToggleStatus={() => {
+                                      openEnableClientModal({
+                                        clientName: client.name,
+                                        enabled: client.enabled,
+                                        onConfirm: async () => {
+                                          try {
+                                            await toggleClient({
+                                              id: client.id,
+                                              enabled: !client.enabled,
+                                            }).unwrap();
 
-                                              toast.success({
-                                                title: "Client updated",
-                                                subtitle: `${client.name} updated successfully.`,
-                                              });
-                                            } catch {
-                                              toast.error({
-                                                title: "Update failed",
-                                                subtitle: `Failed to update ${client.name}.`,
-                                              });
-                                            }
-                                          },
-                                        });
-                                      }}
-                                    />
-                                  )}
+                                            toast.success({
+                                              title: "Client updated",
+                                              subtitle: `${client.name} updated successfully.`,
+                                            });
+                                          } catch {
+                                            toast.error({
+                                              title: "Update failed",
+                                              subtitle: `Failed to update ${client.name}.`,
+                                            });
+                                          }
+                                        },
+                                      });
+                                    }}
+                                  />
                                 </RowActionsCell>
                               );
                             }
@@ -335,4 +333,24 @@ export default function ClientsPage() {
       )}
     </DataTableShell>
   );
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error !== "object" || error === null) {
+    return fallback;
+  }
+
+  const data = "data" in error ? error.data : undefined;
+  if (typeof data === "object" && data !== null && "message" in data) {
+    const message = data.message;
+    if (typeof message === "string" && message.trim() !== "") {
+      return message;
+    }
+  }
+
+  if ("message" in error && typeof error.message === "string" && error.message.trim() !== "") {
+    return error.message;
+  }
+
+  return fallback;
 }

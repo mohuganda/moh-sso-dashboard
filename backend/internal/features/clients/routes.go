@@ -13,6 +13,7 @@ func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
 		clients.GET("", middleware.RequireAnyPermission(authz.PermissionSystemsRead, authz.PermissionClientsRead), handler.ListClients)
 		clients.GET("/:id", middleware.RequirePermission(authz.PermissionClientsRead), handler.GetClient)
 		clients.POST("", middleware.RequirePermission(authz.PermissionClientsWrite), handler.CreateClient)
+		clients.PUT("/:id", middleware.RequirePermission(authz.PermissionClientsWrite), handler.UpdateClient)
 		clients.PATCH("/:id/toggle", middleware.RequirePermission(authz.PermissionClientsWrite), handler.ToggleClientEnabled)
 		clients.DELETE("/:id", middleware.RequirePermission(authz.PermissionClientsWrite), handler.DeleteClient)
 		clients.GET("/:id/roles", middleware.RequirePermission(authz.PermissionClientsRead), handler.ListClientRoles)

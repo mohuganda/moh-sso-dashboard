@@ -98,9 +98,11 @@ func (s *Service) CreateClient(
 		Attributes:   req.Attributes,
 	}
 
-	if _, err := s.repo.CreateClient(client); err != nil {
+	createdID, err := s.repo.CreateClient(client)
+	if err != nil {
 		return nil, fmt.Errorf("create client: %w", err)
 	}
+	client.ID = createdID
 
 	// In-app only.
 	nt := models.ClientCreated
@@ -119,6 +121,107 @@ func (s *Service) CreateClient(
 	})
 
 	return client, nil
+}
+
+func (s *Service) UpdateClient(
+	ctx context.Context,
+	id uuid.UUID,
+	req UpdateClientRequest,
+	adminID uuid.UUID,
+) (*models.Client, error) {
+	if s == nil {
+		return nil, errors.New("client service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("client repository is nil")
+	}
+
+	if id == uuid.Nil {
+		return nil, errors.New("client id is required")
+	}
+
+	if strings.TrimSpace(req.Name) == "" {
+		return nil, errors.New("client name is required")
+	}
+
+	client, err := s.repo.GetClientByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("get client before update: %w", err)
+	}
+
+	client.Name = strings.TrimSpace(req.Name)
+	client.Description = strings.TrimSpace(req.Description)
+	client.BaseURL = strings.TrimSpace(req.BaseURL)
+	client.RootURL = strings.TrimSpace(req.RootURL)
+	client.AdminURL = strings.TrimSpace(req.AdminURL)
+	client.RedirectUris = req.RedirectURIs
+	client.WebOrigins = req.WebOrigins
+	client.PublicClient = req.PublicClient
+	client.Enabled = req.Enabled
+
+	if req.Attributes != nil {
+		client.Attributes = req.Attributes
+	}
+	if client.Attributes == nil {
+		client.Attributes = map[string]string{}
+	}
+	if strings.TrimSpace(req.Icon) != "" {
+		client.Attributes["ui.icon"] = strings.TrimSpace(req.Icon)
+	}
+
+	if err := s.repo.UpdateClient(client); err != nil {
+		return nil, fmt.Errorf("update client: %w", err)
+	}
+
+	nt := models.ClientUpdated
+	s.notify(ctx, models.Notification{
+		Type:       string(nt),
+		Title:      nt.Title(),
+		Severity:   nt.Severity(),
+		Message:    "Client application updated",
+		TargetRole: "admin",
+		ClientID:   client.ClientID,
+		Metadata: utils.MustJSON(map[string]any{
+			"client_id": client.ClientID,
+			"name":      client.Name,
+			"admin_id":  adminID.String(),
+		}),
+	})
+
+	return client, nil
+}
+
+func (s *Service) UpdateClientByClientID(
+	ctx context.Context,
+	clientID string,
+	req UpdateClientRequest,
+	adminID uuid.UUID,
+) (*models.Client, error) {
+	if s == nil {
+		return nil, errors.New("client service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("client repository is nil")
+	}
+
+	clientID = strings.TrimSpace(clientID)
+	if clientID == "" {
+		return nil, errors.New("client id is required")
+	}
+
+	client, err := s.repo.GetClientByClientID(clientID)
+	if err != nil {
+		return nil, fmt.Errorf("get client before update: %w", err)
+	}
+
+	parsedID, err := uuid.Parse(client.ID)
+	if err != nil || parsedID == uuid.Nil {
+		return nil, fmt.Errorf("invalid client UUID for %q", clientID)
+	}
+
+	return s.UpdateClient(ctx, parsedID, req, adminID)
 }
 
 func (s *Service) GetClient(id uuid.UUID) (*models.Client, error) {

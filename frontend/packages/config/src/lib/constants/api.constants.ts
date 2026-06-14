@@ -40,7 +40,7 @@ export const API = {
       // WRITE (admin)
       create: (clientId: string) => `${API_BASE}/admin/clients/${clientId}/roles`,
       delete: (clientId: string, role: string) =>
-        `${API_BASE}/admin/clients/${clientId}/roles/${role}`,
+        `${API_BASE}/admin/clients/${clientId}/roles/${encodeURIComponent(role)}`,
     },
   },
 

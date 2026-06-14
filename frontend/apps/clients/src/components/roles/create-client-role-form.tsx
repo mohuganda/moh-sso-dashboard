@@ -5,11 +5,11 @@ import { useCreateClientRoleMutation } from "@moh-sso/api";
 import { useToast } from "@moh-sso/ui";
 
 type Props = {
-  clientId: string;
+  clientUuid: string;
   onSuccess?: () => void;
 };
 
-export function CreateClientRoleForm({ clientId, onSuccess }: Props) {
+export function CreateClientRoleForm({ clientUuid, onSuccess }: Props) {
   const toast = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -23,7 +23,7 @@ export function CreateClientRoleForm({ clientId, onSuccess }: Props) {
 
     try {
       await createRole({
-        clientId,
+        clientUuid,
         payload: {
           role: name.trim(),
           description: description.trim() || undefined,

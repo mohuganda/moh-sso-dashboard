@@ -208,20 +208,45 @@ func (r *sqlcClientRepository) UpdateClient(client *models.Client) error {
 		return err
 	}
 
-	attrsJSON, _ := json.Marshal(client.Attributes)
+	id, err := uuid.Parse(client.ID)
+	if err != nil {
+		return fmt.Errorf("invalid client UUID after keycloak update: %w", err)
+	}
+
+	var icon sql.NullString
+	if client.Attributes["ui.icon"] != "" {
+		icon = sql.NullString{String: client.Attributes["ui.icon"], Valid: true}
+	}
+
+	attrsJSON, err := json.Marshal(client.Attributes)
+	if err != nil {
+		return fmt.Errorf("marshal client attributes failed: %w", err)
+	}
 
 	if err := r.db.UpsertClient(ctx, db.UpsertClientParams{
+		ID:       id,
 		ClientID: client.ClientID,
 		Name:     client.Name,
 		Description: sql.NullString{
 			String: client.Description,
 			Valid:  client.Description != "",
 		},
+		Icon: icon,
 		BaseUrl: sql.NullString{
 			String: client.BaseURL,
 			Valid:  client.BaseURL != "",
 		},
+		RootUrl: sql.NullString{
+			String: client.RootURL,
+			Valid:  client.RootURL != "",
+		},
+		AdminUrl: sql.NullString{
+			String: client.AdminURL,
+			Valid:  client.AdminURL != "",
+		},
 		PublicClient: client.PublicClient,
+		RedirectUris: client.RedirectUris,
+		WebOrigins:   client.WebOrigins,
 		Enabled:      client.Enabled,
 		Attributes:   attrsJSON,
 	}); err != nil {
