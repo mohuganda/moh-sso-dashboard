@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"time"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/moh-sso-dashboard/internal/ratelimit"
@@ -20,22 +18,24 @@ func RegisterRoutes(
 	{
 		auth.GET(
 			"/login",
-			ratelimit.Middleware(limiter, ratelimit.ByIP, loginRateLimitPerMin, time.Minute),
+			ratelimit.MiddlewareForPolicy(limiter, ratelimit.LoginPolicy(loginRateLimitPerMin)),
 			handler.HandleAuthLogin,
 		)
 		auth.GET(
 			"/callback",
-			ratelimit.Middleware(limiter, ratelimit.ByIP, callbackRateLimitPerMin, time.Minute),
+			ratelimit.MiddlewareForPolicy(
+				limiter,
+				ratelimit.PerIPPolicy(ratelimit.PolicyAuthCallback, callbackRateLimitPerMin),
+			),
 			handler.HandleAuthCallback,
 		)
-		auth.GET(
-			"/me",
-			ratelimit.Middleware(limiter, ratelimit.ByIP, sessionRateLimitPerMin, time.Minute),
-			handler.HandleAuthGetMe,
-		)
+		auth.GET("/me", handler.HandleAuthGetMe)
 		auth.POST(
 			"/refresh",
-			ratelimit.Middleware(limiter, ratelimit.ByIP, sessionRateLimitPerMin, time.Minute),
+			ratelimit.MiddlewareForPolicy(
+				limiter,
+				ratelimit.PerIPPolicy(ratelimit.PolicyAuthRefresh, sessionRateLimitPerMin),
+			),
 			handler.HandleAuthRefreshToken,
 		)
 		auth.GET("/logout", handler.HandleAuthLogout)

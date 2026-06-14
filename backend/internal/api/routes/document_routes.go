@@ -8,6 +8,6 @@ import (
 )
 
 func registerDocumentRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	documentsfeature.RegisterProtectedRoutes(protected, deps.Documents)
+	documentsfeature.RegisterProtectedRoutes(protected, deps.Documents, deps.Limiter)
 	documenttemplatesfeature.RegisterProtectedRoutes(protected, deps.DocumentTemplates)
 }

@@ -72,8 +72,6 @@ type HandlerSet struct {
 
 type RateLimits struct {
 	AuthenticatedPerMinute int
-	AdminPerMinute         int
-	AuditLogPerMinute      int
 	AuthLoginPerMinute     int
 	AuthCallbackPerMinute  int
 	AuthSessionPerMinute   int
@@ -110,8 +108,6 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 		Email:                         deps.Handlers.Email,
 		RBAC:                          deps.Handlers.RBAC,
 		AuthenticatedRateLimitPerMin:  rateLimits.AuthenticatedPerMinute,
-		AdminRateLimitPerMin:          rateLimits.AdminPerMinute,
-		AuditLogRateLimitPerMin:       rateLimits.AuditLogPerMinute,
 		AuthLoginRateLimitPerMin:      rateLimits.AuthLoginPerMinute,
 		AuthCallbackRateLimitPerMin:   rateLimits.AuthCallbackPerMinute,
 		AuthSessionRateLimitPerMinute: rateLimits.AuthSessionPerMinute,
@@ -129,11 +125,9 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 	))
 	protected.Use(middleware.RequireAuth())
 	protected.Use(middleware.AuditMiddleware(deps.AuditService))
-	protected.Use(ratelimit.Middleware(
+	protected.Use(ratelimit.MiddlewareForPolicy(
 		deps.Limiter,
-		ratelimit.ByUser,
-		routeDeps.AuthenticatedRateLimitPerMin,
-		time.Minute,
+		ratelimit.AuthenticatedDefaultPolicy(routeDeps.AuthenticatedRateLimitPerMin),
 	))
 
 	routes.RegisterProtectedRoutes(protected, routeDeps)
@@ -150,13 +144,7 @@ func RegisterHealthRoutes(r *gin.Engine, healthHandler *handler.HealthHandler) {
 
 func (limits RateLimits) withDefaults() RateLimits {
 	if limits.AuthenticatedPerMinute == 0 {
-		limits.AuthenticatedPerMinute = 120
-	}
-	if limits.AdminPerMinute == 0 {
-		limits.AdminPerMinute = 60
-	}
-	if limits.AuditLogPerMinute == 0 {
-		limits.AuditLogPerMinute = 30
+		limits.AuthenticatedPerMinute = 300
 	}
 	if limits.AuthLoginPerMinute == 0 {
 		limits.AuthLoginPerMinute = 20

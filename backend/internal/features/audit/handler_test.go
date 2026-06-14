@@ -16,7 +16,7 @@ import (
 func TestAuditRoutesRegisterStaticRoutesBeforeIDRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	RegisterAdminRoutes(router.Group("/admin"), &Handler{}, ratelimit.New(nil), 100)
+	RegisterAdminRoutes(router.Group("/admin"), &Handler{}, ratelimit.New(nil))
 
 	order := map[string]int{}
 	for index, route := range router.Routes() {

@@ -5,18 +5,20 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/middleware"
+	"github.com/moh-sso-dashboard/internal/ratelimit"
 )
 
-func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler) {
+func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler, limiter *ratelimit.Limiter) {
 	notifications := admin.Group("/notifications")
+	writeLimit := ratelimit.MiddlewareForPolicy(limiter, ratelimit.NotificationsWritePolicy())
 	{
-		notifications.POST("", middleware.RequirePermission(authz.PermissionNotificationsWrite), handler.Notify)
+		notifications.POST("", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.Notify)
 		notifications.GET("", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.ListNotifications)
-		notifications.GET("/:id", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.GetNotificationByID)
-		notifications.PATCH("/:id/read", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.MarkNotificationAsRead)
-		notifications.DELETE("/:id", middleware.RequirePermission(authz.PermissionNotificationsWrite), handler.DeleteNotification)
 		notifications.GET("/count", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.CountNotifications)
 		notifications.GET("/count/unread", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.CountUnreadNotificationsCount)
-		notifications.DELETE("/cleanup", middleware.RequirePermission(authz.PermissionNotificationsWrite), handler.DeleteOldNotifications)
+		notifications.DELETE("/cleanup", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.DeleteOldNotifications)
+		notifications.GET("/:id", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.GetNotificationByID)
+		notifications.PATCH("/:id/read", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.MarkNotificationAsRead)
+		notifications.DELETE("/:id", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.DeleteNotification)
 	}
 }

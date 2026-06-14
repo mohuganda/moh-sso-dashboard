@@ -5,6 +5,7 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/middleware"
+	"github.com/moh-sso-dashboard/internal/ratelimit"
 )
 
 func RegisterPublicRoutes(api *gin.RouterGroup, handler *Handler) {
@@ -26,21 +27,23 @@ func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
 	}
 }
 
-func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler) {
+func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler, limiter *ratelimit.Limiter) {
 	announcements := admin.Group("/announcements")
+	writeLimit := ratelimit.MiddlewareForPolicy(limiter, ratelimit.AnnouncementsWritePolicy())
+	publishLimit := ratelimit.MiddlewareForPolicy(limiter, ratelimit.AnnouncementsPublishPolicy())
 	{
 		announcements.GET("", middleware.RequirePermission(authz.PermissionAnnouncementsRead), handler.ListAnnouncementsAdmin)
 		announcements.GET("/stats", middleware.RequirePermission(authz.PermissionAnnouncementsRead), handler.GetAnnouncementStats)
 		announcements.GET("/:id", middleware.RequirePermission(authz.PermissionAnnouncementsRead), handler.GetAnnouncementByID)
-		announcements.POST("", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), handler.CreateAnnouncement)
-		announcements.PUT("/:id", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), handler.UpdateAnnouncement)
-		announcements.DELETE("/:id", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), handler.DeleteAnnouncement)
-		announcements.POST("/:id/restore", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), handler.RestoreAnnouncement)
-		announcements.POST("/:id/publish", middleware.RequirePermission(authz.PermissionAnnouncementsPublish), handler.PublishAnnouncementNow)
-		announcements.POST("/:id/draft", middleware.RequirePermission(authz.PermissionAnnouncementsPublish), handler.MoveAnnouncementToDraft)
-		announcements.POST("/:id/schedule", middleware.RequirePermission(authz.PermissionAnnouncementsPublish), handler.ScheduleAnnouncement)
-		announcements.POST("/:id/archive", middleware.RequirePermission(authz.PermissionAnnouncementsPublish), handler.ArchiveAnnouncement)
-		announcements.PATCH("/:id/pin", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), handler.SetAnnouncementPinned)
-		announcements.PATCH("/:id/priority", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), handler.SetAnnouncementPriority)
+		announcements.POST("", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.CreateAnnouncement)
+		announcements.PUT("/:id", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.UpdateAnnouncement)
+		announcements.DELETE("/:id", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.DeleteAnnouncement)
+		announcements.POST("/:id/restore", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.RestoreAnnouncement)
+		announcements.POST("/:id/publish", middleware.RequirePermission(authz.PermissionAnnouncementsPublish), publishLimit, handler.PublishAnnouncementNow)
+		announcements.POST("/:id/draft", middleware.RequirePermission(authz.PermissionAnnouncementsPublish), publishLimit, handler.MoveAnnouncementToDraft)
+		announcements.POST("/:id/schedule", middleware.RequirePermission(authz.PermissionAnnouncementsPublish), publishLimit, handler.ScheduleAnnouncement)
+		announcements.POST("/:id/archive", middleware.RequirePermission(authz.PermissionAnnouncementsPublish), publishLimit, handler.ArchiveAnnouncement)
+		announcements.PATCH("/:id/pin", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.SetAnnouncementPinned)
+		announcements.PATCH("/:id/priority", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.SetAnnouncementPriority)
 	}
 }

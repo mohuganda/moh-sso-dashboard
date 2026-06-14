@@ -47,8 +47,6 @@ type Dependencies struct {
 	RBAC                    *rbacfeature.Handler
 
 	AuthenticatedRateLimitPerMin  int
-	AdminRateLimitPerMin          int
-	AuditLogRateLimitPerMin       int
 	AuthLoginRateLimitPerMin      int
 	AuthCallbackRateLimitPerMin   int
 	AuthSessionRateLimitPerMinute int

@@ -34,7 +34,7 @@ func registerAnnouncementRoutes(protected *gin.RouterGroup, deps Dependencies) {
 }
 
 func registerEmailRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	emailfeature.RegisterProtectedRoutes(protected, deps.Email)
+	emailfeature.RegisterProtectedRoutes(protected, deps.Email, deps.Limiter)
 }
 
 func registerGeoJSONRoutes(protected *gin.RouterGroup, deps Dependencies) {
