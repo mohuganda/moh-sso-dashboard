@@ -165,90 +165,257 @@
     "realm": [
       {
         "name": "admin",
-        "description": "Administrator role with full access"
+        "description": "Administrator role with full access",
+        "attributes": {
+          "portal.permissions": [
+            "*"
+          ]
+        }
       },
       {
         "name": "manager",
-        "description": "Can manage some applications"
+        "description": "Can manage some applications",
+        "attributes": {
+          "portal.permissions": [
+            "portal:access",
+            "systems:read",
+            "systems:launch",
+            "users:read",
+            "clients:read",
+            "announcements:read",
+            "documents:read",
+            "surveillance:read",
+            "data_quality:read",
+            "data_quality:write",
+            "notifications:read"
+          ]
+        }
       },
       {
         "name": "user",
-        "description": "Standard user role"
+        "description": "Standard user role",
+        "attributes": {
+          "portal.permissions": [
+            "portal:access",
+            "systems:read",
+            "systems:launch"
+          ]
+        }
       }
     ],
     "client": {
       "dashboard-web": [
         {
           "name": "dashboard-web_access",
-          "description": "Access MOH Dashboard"
+          "description": "Access MOH Dashboard",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
         },
         {
           "name": "portal_admin",
-          "description": "Portal administrator access"
+          "description": "Portal administrator access",
+          "attributes": {
+            "portal.permissions": [
+              "*"
+            ]
+          }
         },
         {
           "name": "portal_manager",
-          "description": "Portal manager access"
+          "description": "Portal manager access",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "users:read",
+              "clients:read",
+              "announcements:read",
+              "documents:read",
+              "document_templates:read",
+              "surveillance:read",
+              "report_browser:read",
+              "notifications:read"
+            ]
+          }
         },
         {
           "name": "portal_user",
-          "description": "Standard portal user access"
+          "description": "Standard portal user access",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
         }
       ],
       "integrated-outbreak-system": [
         {
           "name": "integrated-outbreak-system_access",
-          "description": "Base access to Integrated Outbreak System"
+          "description": "Base access to Integrated Outbreak System",
+          "attributes": {
+            "portal.permissions": [
+              "outbreak:access",
+              "surveillance:read"
+            ]
+          }
         },
         {
           "name": "super_admin",
-          "description": "Super Administrator with full system access"
+          "description": "Super Administrator with full system access",
+          "attributes": {
+            "portal.permissions": [
+              "outbreak:access",
+              "outbreak:manage",
+              "surveillance:read",
+              "surveillance:import",
+              "surveillance:manage_locations",
+              "surveillance:manage_alerts",
+              "data_quality:read",
+              "data_quality:write",
+              "data_quality:resolve",
+              "documents:read",
+              "documents:write",
+              "documents:process"
+            ]
+          }
         },
         {
           "name": "admin",
-          "description": "Administrator with management access"
+          "description": "Administrator with management access",
+          "attributes": {
+            "portal.permissions": [
+              "outbreak:access",
+              "outbreak:manage",
+              "surveillance:read",
+              "surveillance:import",
+              "surveillance:manage_locations",
+              "surveillance:manage_alerts",
+              "data_quality:read",
+              "data_quality:write",
+              "data_quality:resolve"
+            ]
+          }
         },
         {
           "name": "manager",
-          "description": "Department manager with oversight access"
+          "description": "Department manager with oversight access",
+          "attributes": {
+            "portal.permissions": [
+              "outbreak:access",
+              "surveillance:read",
+              "data_quality:read",
+              "data_quality:write",
+              "documents:read"
+            ]
+          }
         },
         {
           "name": "viewer",
-          "description": "Read-only access to reports and data"
+          "description": "Read-only access to reports and data",
+          "attributes": {
+            "portal.permissions": [
+              "outbreak:access",
+              "surveillance:read",
+              "data_quality:read",
+              "documents:read"
+            ]
+          }
         },
         {
           "name": "data_entry",
-          "description": "Data entry personnel"
+          "description": "Data entry personnel",
+          "attributes": {
+            "portal.permissions": [
+              "outbreak:access",
+              "surveillance:read",
+              "surveillance:import",
+              "data_quality:read",
+              "data_quality:write"
+            ]
+          }
         },
         {
           "name": "lab_technician",
-          "description": "Laboratory technician with lab-specific access"
+          "description": "Laboratory technician with lab-specific access",
+          "attributes": {
+            "portal.permissions": [
+              "outbreak:access",
+              "surveillance:read",
+              "data_quality:read",
+              "data_quality:write"
+            ]
+          }
         },
         {
           "name": "surveillance_officer",
-          "description": "Surveillance officer with monitoring access"
+          "description": "Surveillance officer with monitoring access",
+          "attributes": {
+            "portal.permissions": [
+              "outbreak:access",
+              "surveillance:read",
+              "surveillance:import",
+              "surveillance:manage_alerts"
+            ]
+          }
         }
       ],
       "report-browser": [
         {
           "name": "report-browser_access",
-          "description": "Access MOH Report browser"
+          "description": "Access MOH Report browser",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read"
+            ]
+          }
         },
         {
           "name": "report_admin",
-          "description": "Report Browser administrator access"
+          "description": "Report Browser administrator access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read",
+              "audit:read"
+            ]
+          }
         },
         {
           "name": "report_manager",
-          "description": "Report Browser manager access"
+          "description": "Report Browser manager access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read"
+            ]
+          }
         },
         {
           "name": "report_analyst",
-          "description": "Report Browser analyst access"
+          "description": "Report Browser analyst access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "data_quality:read"
+            ]
+          }
         },
         {
           "name": "report_viewer",
-          "description": "Report Browser read-only access"
+          "description": "Report Browser read-only access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read"
+            ]
+          }
         }
       ]
     }
@@ -397,6 +564,19 @@
       "firstName": "System",
       "lastName": "Admin",
       "email": "admin@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "platform-admin"
+        ],
+        "primary_system": [
+          "dashboard-web"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "integrated-outbreak-system",
+          "report-browser"
+        ]
+      },
       "credentials": [
         {
           "type": "password",
@@ -431,6 +611,19 @@
       "firstName": "Test",
       "lastName": "User",
       "email": "user@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "standard-viewer"
+        ],
+        "primary_system": [
+          "dashboard-web"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "integrated-outbreak-system",
+          "report-browser"
+        ]
+      },
       "credentials": [
         {
           "type": "password",
@@ -463,6 +656,19 @@
       "firstName": "System",
       "lastName": "Admin",
       "email": "admin@system.local",
+      "attributes": {
+        "access_profile": [
+          "operations-manager"
+        ],
+        "primary_system": [
+          "integrated-outbreak-system"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "integrated-outbreak-system",
+          "report-browser"
+        ]
+      },
       "credentials": [
         {
           "type": "password",
@@ -497,6 +703,19 @@
       "firstName": "Mbaka",
       "lastName": "Paul",
       "email": "paul.mbaka@gmail.com",
+      "attributes": {
+        "access_profile": [
+          "surveillance-data-entry"
+        ],
+        "primary_system": [
+          "integrated-outbreak-system"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "integrated-outbreak-system",
+          "report-browser"
+        ]
+      },
       "credentials": [
         {
           "type": "password",
@@ -530,6 +749,19 @@
       "firstName": "Outbreak",
       "lastName": "Viewer",
       "email": "outbreak_viewer@example.com",
+      "attributes": {
+        "access_profile": [
+          "outbreak-viewer"
+        ],
+        "primary_system": [
+          "integrated-outbreak-system"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "integrated-outbreak-system",
+          "report-browser"
+        ]
+      },
       "credentials": [
         {
           "type": "password",

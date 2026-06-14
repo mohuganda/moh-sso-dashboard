@@ -10,7 +10,7 @@ import (
 func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
 	clients := protected.Group("/clients")
 	{
-		clients.GET("", middleware.RequirePermission(authz.PermissionClientsRead), handler.ListClients)
+		clients.GET("", middleware.RequireAnyPermission(authz.PermissionSystemsRead, authz.PermissionClientsRead), handler.ListClients)
 		clients.GET("/:id", middleware.RequirePermission(authz.PermissionClientsRead), handler.GetClient)
 		clients.POST("", middleware.RequirePermission(authz.PermissionClientsWrite), handler.CreateClient)
 		clients.PATCH("/:id/toggle", middleware.RequirePermission(authz.PermissionClientsWrite), handler.ToggleClientEnabled)
