@@ -279,9 +279,18 @@ func (r *sqlcClientRepository) DeleteClient(id uuid.UUID) error {
 }
 
 func (r *sqlcClientRepository) CreateClientRole(ctx context.Context, clientID uuid.UUID, payload *models.CreateClientRoleRequest) error {
+	dbClient, err := r.db.GetClientByID(ctx, clientID)
+	clientIdentifier := clientID.String()
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if err == nil && dbClient.ClientID != "" {
+		clientIdentifier = dbClient.ClientID
+	}
+
 	return r.keycloakClient.CreateClientRole(
-		context.Background(),
-		clientID.String(),
+		ctx,
+		clientIdentifier,
 		payload,
 	)
 }
@@ -290,10 +299,18 @@ func (r *sqlcClientRepository) ListClientRoles(
 	ctx context.Context,
 	clientID uuid.UUID,
 ) ([]keycloak.ClientRoleRep, error) {
+	dbClient, err := r.db.GetClientByID(ctx, clientID)
+	clientIdentifier := clientID.String()
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err == nil && dbClient.ClientID != "" {
+		clientIdentifier = dbClient.ClientID
+	}
 
 	roles, err := r.keycloakClient.ListClientRoles(
-		context.Background(),
-		clientID.String(),
+		ctx,
+		clientIdentifier,
 	)
 	if err != nil {
 		return nil, err
@@ -303,9 +320,18 @@ func (r *sqlcClientRepository) ListClientRoles(
 }
 
 func (r *sqlcClientRepository) DeleteClientRole(ctx context.Context, clientID uuid.UUID, role string) error {
+	dbClient, err := r.db.GetClientByID(ctx, clientID)
+	clientIdentifier := clientID.String()
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if err == nil && dbClient.ClientID != "" {
+		clientIdentifier = dbClient.ClientID
+	}
+
 	return r.keycloakClient.DeleteClientRole(
-		context.Background(),
-		clientID.String(),
+		ctx,
+		clientIdentifier,
 		role,
 	)
 }

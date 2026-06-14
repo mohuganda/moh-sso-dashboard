@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -1685,6 +1687,10 @@ func (c *KeyAdminClient) resolveClientUUID(
 	clientID = strings.TrimSpace(clientID)
 	if clientID == "" {
 		return "", fmt.Errorf("resolveClientUUID: clientID is required")
+	}
+
+	if _, err := uuid.Parse(clientID); err == nil {
+		return clientID, nil
 	}
 
 	path := "clients?clientId=" + url.QueryEscape(clientID)
