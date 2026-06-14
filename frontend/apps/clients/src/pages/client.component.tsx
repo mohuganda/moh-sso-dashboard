@@ -270,6 +270,7 @@ export default function ClientsPage() {
                                         title: "Edit client",
                                         content: (
                                           <ClientFormPanel
+                                            key={`edit-client-${client.id}`}
                                             mode="edit"
                                             initialClient={client}
                                             onSuccess={closePanel}

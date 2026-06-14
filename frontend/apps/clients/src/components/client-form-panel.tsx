@@ -9,7 +9,7 @@ import {
   FormGroup,
   TextArea,
 } from "@carbon/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useCreateClientMutation, useUpdateClientMutation } from "@moh-sso/api";
 import { ClientRolesPanel } from "./roles/client-roles-panel";
@@ -38,6 +38,20 @@ type Props = {
   onSuccess?: () => void;
 };
 
+const createFormState = (initialClient?: Client): ClientFormState => ({
+  id: initialClient?.id ?? "",
+  clientId: initialClient?.clientId ?? "",
+  name: initialClient?.name ?? "",
+  description: initialClient?.description ?? "",
+  publicClient: initialClient?.publicClient ?? false,
+  enabled: initialClient?.enabled ?? true,
+  rootUrl: initialClient?.rootUrl ?? "",
+  baseUrl: initialClient?.baseUrl ?? "",
+  redirectUrisText: (initialClient?.redirectUris ?? []).join("\n"),
+  webOriginsText: (initialClient?.webOrigins ?? []).join("\n"),
+  icon: initialClient?.icon ?? "",
+});
+
 export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
   const toast = useToast();
 
@@ -46,19 +60,7 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
   const effectiveClientUuid = mode === "edit" ? initialClient?.id : createdClient?.id;
   const effectiveClientId = mode === "edit" ? initialClient?.clientId : createdClient?.clientId;
 
-  const [form, setForm] = useState<ClientFormState>({
-    id: initialClient?.id ?? "",
-    clientId: initialClient?.clientId ?? "",
-    name: initialClient?.name ?? "",
-    description: initialClient?.description ?? "",
-    publicClient: initialClient?.publicClient ?? false,
-    enabled: initialClient?.enabled ?? true,
-    rootUrl: initialClient?.rootUrl ?? "",
-    baseUrl: initialClient?.baseUrl ?? "",
-    redirectUrisText: (initialClient?.redirectUris ?? []).join("\n"),
-    webOriginsText: (initialClient?.webOrigins ?? []).join("\n"),
-    icon: initialClient?.icon ?? "",
-  });
+  const [form, setForm] = useState<ClientFormState>(() => createFormState(initialClient));
 
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +68,12 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
   const [updateClient, { isLoading: updating }] = useUpdateClientMutation();
 
   const submitting = creating || updating;
+
+  useEffect(() => {
+    setForm(createFormState(initialClient));
+    setCreatedClient(null);
+    setError(null);
+  }, [initialClient, mode]);
 
   /* -----------------------------
    * Helpers

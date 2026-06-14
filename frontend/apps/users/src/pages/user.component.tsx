@@ -267,6 +267,7 @@ export default function UsersPage() {
                                         title: "Edit user",
                                         content: (
                                           <UserFormPanel
+                                            key={`edit-user-${user.id}`}
                                             mode="edit"
                                             initialUser={user}
                                             onSuccess={closePanel}
@@ -279,7 +280,12 @@ export default function UsersPage() {
                                       openPanel({
                                         title: `Roles: ${user.username}`,
                                         size: "lg",
-                                        content: <UserClientRolesPanel userId={user.id} />,
+                                        content: (
+                                          <UserClientRolesPanel
+                                            key={`user-roles-${user.id}`}
+                                            userId={user.id}
+                                          />
+                                        ),
                                       });
                                     }}
                                     onToggleStatus={() => {

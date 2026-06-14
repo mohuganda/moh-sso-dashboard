@@ -9,7 +9,7 @@ import {
   Form,
   FormGroup,
 } from "@carbon/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useCreateUserMutation, useUpdateUserMutation } from "@moh-sso/api";
 import type { User } from "@moh-sso/types";
@@ -40,6 +40,16 @@ const REALM_ROLES = [
   { id: "user", text: "User" },
 ];
 
+const createFormState = (initialUser?: User): UserFormState => ({
+  username: initialUser?.username ?? "",
+  email: initialUser?.email ?? "",
+  firstName: initialUser?.firstName ?? "",
+  lastName: initialUser?.lastName ?? "",
+  realmRoles: initialUser?.realmRoles ?? [],
+  enabled: initialUser?.enabled ?? initialUser?.isActive ?? true,
+  emailVerified: initialUser?.emailVerified ?? true,
+});
+
 type Props = {
   mode: UserFormMode;
   initialUser?: User;
@@ -49,15 +59,7 @@ type Props = {
 export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
   const toast = useToast();
 
-  const [form, setForm] = useState<UserFormState>({
-    username: initialUser?.username ?? "",
-    email: initialUser?.email ?? "",
-    firstName: initialUser?.firstName ?? "",
-    lastName: initialUser?.lastName ?? "",
-    realmRoles: initialUser?.realmRoles ?? [],
-    enabled: initialUser?.enabled ?? true,
-    emailVerified: initialUser?.emailVerified ?? true,
-  });
+  const [form, setForm] = useState<UserFormState>(() => createFormState(initialUser));
 
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +67,11 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
   const [updateUser, { isLoading: updating }] = useUpdateUserMutation();
 
   const submitting = creating || updating;
+
+  useEffect(() => {
+    setForm(createFormState(initialUser));
+    setError(null);
+  }, [initialUser, mode]);
 
   /* -----------------------------
    * Helpers
