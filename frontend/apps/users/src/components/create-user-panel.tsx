@@ -121,9 +121,9 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
       }
 
       onSuccess?.();
-    } catch (err: any) {
+    } catch (err) {
       const message =
-        err?.data?.message ??
+        getApiErrorMessage(err) ??
         (mode === "create" ? "Failed to create user" : "Failed to update user");
 
       setError(message);
@@ -247,4 +247,34 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
       </Stack>
     </Form>
   );
+}
+
+function getApiErrorMessage(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+
+  const maybeError = error as {
+    data?: {
+      message?: unknown;
+      error?: {
+        message?: unknown;
+      };
+    };
+    error?: unknown;
+  };
+
+  if (typeof maybeError.data?.message === "string") {
+    return maybeError.data.message;
+  }
+
+  if (typeof maybeError.data?.error?.message === "string") {
+    return maybeError.data.error.message;
+  }
+
+  if (typeof maybeError.error === "string") {
+    return maybeError.error;
+  }
+
+  return undefined;
 }

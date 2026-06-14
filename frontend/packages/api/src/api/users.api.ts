@@ -1,5 +1,10 @@
 import { API } from "@moh-sso/config";
-import type { ClientRole , UserClientRoleAssignment , CreateUserPayload, User } from "@moh-sso/types";
+import type {
+  ClientRole,
+  UserClientRoleAssignment,
+  CreateUserPayload,
+  User,
+} from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 
@@ -13,6 +18,54 @@ type UpdateUserPayload = {
   data: Partial<CreateUserPayload>;
 };
 
+type CreateUserRequest = {
+  username: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  enabled?: boolean;
+  email_verified?: boolean;
+  realm_roles?: string[];
+  client_roles?: Record<string, string[]>;
+};
+
+type UpdateUserRequest = Partial<Omit<CreateUserRequest, "username">> & {
+  username?: string;
+};
+
+const normalizeUser = (user: User): User => {
+  const enabled = user.enabled ?? user.isActive ?? false;
+
+  return {
+    ...user,
+    enabled,
+    isActive: user.isActive ?? enabled,
+    realmRoles: user.realmRoles ?? [],
+    clientRoles: user.clientRoles ?? {},
+  };
+};
+
+const toCreateUserRequest = (payload: CreateUserPayload): CreateUserRequest => ({
+  username: payload.username,
+  email: payload.email,
+  first_name: payload.firstName,
+  last_name: payload.lastName,
+  enabled: payload.enabled,
+  email_verified: payload.emailVerified,
+  realm_roles: payload.realmRoles,
+  client_roles: payload.clientRoles,
+});
+
+const toUpdateUserRequest = (payload: Partial<CreateUserPayload>): UpdateUserRequest => ({
+  email: payload.email,
+  first_name: payload.firstName,
+  last_name: payload.lastName,
+  enabled: payload.enabled,
+  email_verified: payload.emailVerified,
+  realm_roles: payload.realmRoles,
+  client_roles: payload.clientRoles,
+});
+
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     /* --------------------------------
@@ -20,10 +73,10 @@ export const usersApi = baseApi.injectEndpoints({
      * -------------------------------- */
     listUsers: builder.query<User[], void>({
       query: () => ({
-        url: API.users.list(),
+        url: API.admin.users.list(),
         credentials: "include",
       }),
-      transformResponse: (res: ApiEnvelope<User[]>) => res.data,
+      transformResponse: (res: ApiEnvelope<User[]>) => res.data.map(normalizeUser),
       providesTags: (result) =>
         result
           ? [
@@ -38,10 +91,10 @@ export const usersApi = baseApi.injectEndpoints({
      * -------------------------------- */
     getUser: builder.query<User, string>({
       query: (id) => ({
-        url: API.users.byId(id),
+        url: API.admin.users.byId(id),
         credentials: "include",
       }),
-      transformResponse: (res: ApiEnvelope<User>) => res.data,
+      transformResponse: (res: ApiEnvelope<User>) => normalizeUser(res.data),
       providesTags: (_r, _e, id) => [{ type: "User", id }],
     }),
 
@@ -50,12 +103,12 @@ export const usersApi = baseApi.injectEndpoints({
      * -------------------------------- */
     createUser: builder.mutation<User, CreateUserPayload>({
       query: (body) => ({
-        url: API.users.create(),
+        url: API.admin.users.create(),
         method: "POST",
-        body,
+        body: toCreateUserRequest(body),
         credentials: "include",
       }),
-      transformResponse: (res: ApiEnvelope<User>) => res.data,
+      transformResponse: (res: ApiEnvelope<User>) => normalizeUser(res.data),
       invalidatesTags: [{ type: "User", id: "LIST" }],
     }),
 
@@ -64,12 +117,12 @@ export const usersApi = baseApi.injectEndpoints({
      * -------------------------------- */
     updateUser: builder.mutation<User, UpdateUserPayload>({
       query: ({ id, data }) => ({
-        url: API.users.update(id),
-        method: "PATCH",
-        body: data,
+        url: API.admin.users.update(id),
+        method: "PUT",
+        body: toUpdateUserRequest(data),
         credentials: "include",
       }),
-      transformResponse: (res: ApiEnvelope<User>) => res.data,
+      transformResponse: (res: ApiEnvelope<User>) => normalizeUser(res.data),
       invalidatesTags: (_r, _e, { id }) => [
         { type: "User", id },
         { type: "User", id: "LIST" },
@@ -81,7 +134,7 @@ export const usersApi = baseApi.injectEndpoints({
      * -------------------------------- */
     resetUserPassword: builder.mutation<void, string>({
       query: (id) => ({
-        url: API.users.resetPassword(id),
+        url: API.admin.users.passwordResetEmail(id),
         method: "POST",
         credentials: "include",
       }),
@@ -94,7 +147,7 @@ export const usersApi = baseApi.injectEndpoints({
      * -------------------------------- */
     deleteUser: builder.mutation<void, string>({
       query: (id) => ({
-        url: API.users.delete(id),
+        url: API.admin.users.delete(id),
         method: "DELETE",
         credentials: "include",
       }),
@@ -110,8 +163,9 @@ export const usersApi = baseApi.injectEndpoints({
      * -------------------------------- */
     toggleUser: builder.mutation<void, { id: string; enabled: boolean }>({
       query: ({ id, enabled }) => ({
-        url: `${API.users.byId(id)}/toggle`,
-        method: enabled ? "POST" : "DELETE",
+        url: API.admin.users.toggle(id),
+        method: "PATCH",
+        body: { enabled },
         credentials: "include",
       }),
       transformResponse: () => undefined,
@@ -182,6 +236,9 @@ export const usersApi = baseApi.injectEndpoints({
           type: "UserClientRole",
           id: `${userId}-${clientUuid}`,
         },
+        { type: "UserClientRole", id: `LIST-${userId}` },
+        { type: "User", id: userId },
+        { type: "User", id: "LIST" },
       ],
     }),
   }),

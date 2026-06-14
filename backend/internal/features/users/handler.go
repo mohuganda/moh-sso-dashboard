@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -80,6 +81,8 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		"username": user.Username,
 		"email":    user.Email,
 	})
+
+	h.invalidateUsersCache(c.Request.Context())
 
 	response.OK(c, http.StatusCreated, toUserResponse(user))
 }
@@ -220,6 +223,8 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		"user_id": id,
 	})
 
+	h.invalidateUsersCache(c.Request.Context())
+
 	c.Status(http.StatusNoContent)
 }
 
@@ -268,6 +273,8 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	h.audit(c, "user.update_success", map[string]interface{}{
 		"user_id": userID.String(),
 	})
+
+	h.invalidateUsersCache(c.Request.Context())
 
 	response.OK(c, http.StatusOK, toUserResponse(user))
 }
@@ -323,45 +330,42 @@ func (h *Handler) GetUserClientRolesForClient(c *gin.Context) {
 		return
 	}
 
-	// -----------------------------
-	// Request body
-	// -----------------------------
-	var body userClientRolesForClientRequest
+	clientID := strings.TrimSpace(c.Param("clientID"))
+	clientUUID := strings.TrimSpace(c.Query("clientUuid"))
 
-	if err := c.ShouldBindJSON(&body); err != nil ||
-		body.ClientID == "" ||
-		body.ClientUUID == "" {
-
+	if clientID == "" {
 		response.Fail(
 			c,
 			http.StatusBadRequest,
 			"VALIDATION_FAILED",
-			"clientId and clientUuid are required",
+			"clientID is required",
 		)
 		return
 	}
 
-	// -----------------------------
-	// Parse internal UUID
-	// -----------------------------
-	clientUUID, err := uuid.Parse(body.ClientUUID)
-	if err != nil {
-		response.Fail(
-			c,
-			http.StatusBadRequest,
-			"INVALID_UUID",
-			"Invalid client UUID",
-		)
-		return
+	if clientUUID != "" {
+		if _, err := uuid.Parse(clientUUID); err != nil {
+			response.Fail(
+				c,
+				http.StatusBadRequest,
+				"INVALID_UUID",
+				"Invalid client UUID",
+			)
+			return
+		}
 	}
 
-	clientID, err := uuid.Parse(body.ClientID)
-	if err != nil {
+	body := userClientRolesForClientRequest{
+		ClientID:   clientID,
+		ClientUUID: clientUUID,
+	}
+
+	if strings.TrimSpace(body.ClientID) == "" {
 		response.Fail(
 			c,
 			http.StatusBadRequest,
-			"INVALID_UUID",
-			"Invalid client ID",
+			"VALIDATION_FAILED",
+			"clientID is required",
 		)
 		return
 	}
@@ -372,8 +376,8 @@ func (h *Handler) GetUserClientRolesForClient(c *gin.Context) {
 	roles, err := h.service.GetUserClientRolesForClient(
 		c.Request.Context(),
 		userID,
-		clientID.String(),
-		clientUUID.String(),
+		body.ClientID,
+		body.ClientUUID,
 	)
 	if err != nil {
 		h.audit(
@@ -442,16 +446,7 @@ func (h *Handler) UpdateUserClientRoles(c *gin.Context) {
 		return
 	}
 
-	clientID, err := uuid.Parse(body.ClientID)
-	if err != nil {
-		response.Fail(
-			c,
-			http.StatusBadRequest,
-			"INVALID_UUID",
-			"Invalid client ID",
-		)
-		return
-	}
+	body.ClientID = strings.TrimSpace(body.ClientID)
 
 	clientUUID, err := uuid.Parse(body.ClientUUID)
 	if err != nil {
@@ -469,7 +464,7 @@ func (h *Handler) UpdateUserClientRoles(c *gin.Context) {
 	if err := h.service.UpdateUserClientRoles(
 		c.Request.Context(),
 		userID,
-		clientID.String(),
+		body.ClientID,
 		clientUUID.String(),
 		body.Roles,
 		adminID,
@@ -477,7 +472,7 @@ func (h *Handler) UpdateUserClientRoles(c *gin.Context) {
 
 		h.audit(c, "user.client_roles_update_failed", map[string]interface{}{
 			"user_id":     userID.String(),
-			"client_id":   clientID.String(),
+			"client_id":   body.ClientID,
 			"client_uuid": clientUUID.String(),
 			"roles":       body.Roles,
 			"reason":      err.Error(),
@@ -494,10 +489,12 @@ func (h *Handler) UpdateUserClientRoles(c *gin.Context) {
 
 	h.audit(c, "user.client_roles_updated", map[string]interface{}{
 		"user_id":     userID.String(),
-		"client_id":   clientID.String(),
+		"client_id":   body.ClientID,
 		"client_uuid": clientUUID.String(),
 		"roles":       body.Roles,
 	})
+
+	h.invalidateUsersCache(c.Request.Context())
 
 	c.Status(http.StatusNoContent)
 }
@@ -520,11 +517,7 @@ func (h *Handler) AddUserClientRoles(c *gin.Context) {
 		return
 	}
 
-	clientID, err := uuid.Parse(body.ClientID)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
-		return
-	}
+	body.ClientID = strings.TrimSpace(body.ClientID)
 
 	clientUUID, err := uuid.Parse(body.ClientUUID)
 	if err != nil {
@@ -537,14 +530,14 @@ func (h *Handler) AddUserClientRoles(c *gin.Context) {
 	if err := h.service.AddUserClientRoles(
 		c.Request.Context(),
 		userID,
-		clientID.String(),
+		body.ClientID,
 		clientUUID.String(),
 		body.Roles,
 		adminID,
 	); err != nil {
 		h.audit(c, "user.client_roles_add_failed", map[string]interface{}{
 			"user_id":     userID.String(),
-			"client_id":   clientID.String(),
+			"client_id":   body.ClientID,
 			"client_uuid": clientUUID.String(),
 			"roles":       body.Roles,
 			"reason":      err.Error(),
@@ -553,6 +546,8 @@ func (h *Handler) AddUserClientRoles(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to add user client roles")
 		return
 	}
+
+	h.invalidateUsersCache(c.Request.Context())
 
 	c.Status(http.StatusNoContent)
 }
@@ -575,11 +570,7 @@ func (h *Handler) RemoveUserClientRoles(c *gin.Context) {
 		return
 	}
 
-	clientID, err := uuid.Parse(body.ClientID)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
-		return
-	}
+	body.ClientID = strings.TrimSpace(body.ClientID)
 
 	clientUUID, err := uuid.Parse(body.ClientUUID)
 	if err != nil {
@@ -592,14 +583,14 @@ func (h *Handler) RemoveUserClientRoles(c *gin.Context) {
 	if err := h.service.RemoveUserClientRoles(
 		c.Request.Context(),
 		userID,
-		clientID.String(),
+		body.ClientID,
 		clientUUID.String(),
 		body.Roles,
 		adminID,
 	); err != nil {
 		h.audit(c, "user.client_roles_remove_failed", map[string]interface{}{
 			"user_id":     userID.String(),
-			"client_id":   clientID.String(),
+			"client_id":   body.ClientID,
 			"client_uuid": clientUUID.String(),
 			"roles":       body.Roles,
 			"reason":      err.Error(),
@@ -608,6 +599,8 @@ func (h *Handler) RemoveUserClientRoles(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to remove user client roles")
 		return
 	}
+
+	h.invalidateUsersCache(c.Request.Context())
 
 	c.Status(http.StatusNoContent)
 }
@@ -746,6 +739,8 @@ func (h *Handler) SetUserEnabled(c *gin.Context) {
 		"enabled": body.Enabled,
 	})
 
+	h.invalidateUsersCache(c.Request.Context())
+
 	c.Status(http.StatusNoContent)
 }
 
@@ -758,6 +753,10 @@ func (h *Handler) audit(
 	action string,
 	meta map[string]interface{},
 ) {
+	if h == nil || h.auditService == nil {
+		return
+	}
+
 	if meta == nil {
 		meta = map[string]interface{}{}
 	}
@@ -775,4 +774,12 @@ func (h *Handler) audit(
 
 func listUsersCacheKey() string {
 	return "users:all"
+}
+
+func (h *Handler) invalidateUsersCache(ctx context.Context) {
+	if h == nil || h.cache == nil {
+		return
+	}
+
+	_ = h.cache.Del(ctx, listUsersCacheKey())
 }

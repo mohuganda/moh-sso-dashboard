@@ -228,12 +228,13 @@ func (r *userRepository) UpdateUser(user *models.User) error {
 	}
 
 	if err := r.keycloakClient.UpdateUser(&models.User{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Enabled:   user.Enabled,
+		ID:            user.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		FirstName:     user.FirstName,
+		LastName:      user.LastName,
+		Enabled:       user.Enabled,
+		EmailVerified: user.EmailVerified,
 	}); err != nil {
 		return fmt.Errorf("keycloak update failed: %w", err)
 	}

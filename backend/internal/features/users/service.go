@@ -22,6 +22,7 @@ type CreateUserRequest struct {
 	LastName         string              `json:"last_name,omitempty"`
 	FullName         string              `json:"full_name,omitempty"`
 	Enabled          *bool               `json:"enabled,omitempty"`
+	EmailVerified    *bool               `json:"email_verified,omitempty"`
 	RequirePwdChange *bool               `json:"require_pwd_change,omitempty"`
 	Password         string              `json:"password,omitempty"`
 	SendInvite       bool                `json:"send_invite,omitempty"`
@@ -30,12 +31,13 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	ID        string `json:"id"`
-	Username  string `json:"username,omitempty"`
-	Email     string `json:"email,omitempty"`
-	FirstName string `json:"first_name,omitempty"`
-	LastName  string `json:"last_name,omitempty"`
-	Enabled   *bool  `json:"enabled,omitempty"`
+	ID            string `json:"id"`
+	Username      string `json:"username,omitempty"`
+	Email         string `json:"email,omitempty"`
+	FirstName     string `json:"first_name,omitempty"`
+	LastName      string `json:"last_name,omitempty"`
+	Enabled       *bool  `json:"enabled,omitempty"`
+	EmailVerified *bool  `json:"email_verified,omitempty"`
 }
 
 type Service struct {
@@ -97,6 +99,11 @@ func (s *Service) CreateUser(
 		enabled = *req.Enabled
 	}
 
+	emailVerified := false
+	if req.EmailVerified != nil {
+		emailVerified = *req.EmailVerified
+	}
+
 	if req.FirstName == "" && req.LastName == "" && req.FullName != "" {
 		firstName, lastName := splitFullName(req.FullName)
 		req.FirstName = firstName
@@ -110,7 +117,7 @@ func (s *Service) CreateUser(
 		LastName:      req.LastName,
 		FullName:      fullName(req.FirstName, req.LastName),
 		Enabled:       enabled,
-		EmailVerified: false,
+		EmailVerified: emailVerified,
 	}
 
 	kcID, err := s.repo.CreateUser(user)
@@ -135,6 +142,7 @@ func (s *Service) CreateUser(
 			"first_name":         user.FirstName,
 			"last_name":          user.LastName,
 			"enabled":            user.Enabled,
+			"email_verified":     user.EmailVerified,
 			"send_invite":        req.SendInvite,
 			"require_pwd_change": req.RequirePwdChange != nil && *req.RequirePwdChange,
 			"realm_roles":        req.RealmRoles,
@@ -184,13 +192,19 @@ func (s *Service) UpdateUser(
 		enabled = *req.Enabled
 	}
 
+	emailVerified := current.EmailVerified
+	if req.EmailVerified != nil {
+		emailVerified = *req.EmailVerified
+	}
+
 	updated := &models.User{
-		ID:        req.ID,
-		Username:  firstNonEmpty(req.Username, current.Username),
-		Email:     firstNonEmpty(req.Email, current.Email),
-		FirstName: firstNonEmpty(req.FirstName, current.FirstName),
-		LastName:  firstNonEmpty(req.LastName, current.LastName),
-		Enabled:   enabled,
+		ID:            req.ID,
+		Username:      firstNonEmpty(req.Username, current.Username),
+		Email:         firstNonEmpty(req.Email, current.Email),
+		FirstName:     firstNonEmpty(req.FirstName, current.FirstName),
+		LastName:      firstNonEmpty(req.LastName, current.LastName),
+		Enabled:       enabled,
+		EmailVerified: emailVerified,
 	}
 
 	updated.FullName = fullName(updated.FirstName, updated.LastName)
@@ -213,6 +227,7 @@ func (s *Service) UpdateUser(
 			"email":            updated.Email,
 			"previous_enabled": current.Enabled,
 			"enabled":          updated.Enabled,
+			"email_verified":   updated.EmailVerified,
 			"admin_id":         adminID.String(),
 		}),
 	})

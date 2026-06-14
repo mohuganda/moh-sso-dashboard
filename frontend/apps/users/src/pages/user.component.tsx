@@ -25,7 +25,11 @@ import { UserFormPanel } from "../components/create-user-panel";
 import { useEnableUserModal } from "../components/useEnableUserModal";
 import { useResetPasswordModal } from "../components/useResetPasswordModal";
 import { UserFilters } from "../components/UserFilters";
-import { useListUsersQuery, useToggleUserMutation } from "@moh-sso/api";
+import {
+  useListUsersQuery,
+  useResetUserPasswordMutation,
+  useToggleUserMutation,
+} from "@moh-sso/api";
 import type { User } from "@moh-sso/types";
 
 import { UserActionsMenu } from "./user-actions-menu.component";
@@ -44,7 +48,7 @@ const headers = [
   { key: "raw", header: "" },
 ];
 
-type BulkAction = "enable" | "disable" | "roles" | null;
+type BulkAction = "enable" | "disable" | null;
 
 export default function UsersPage() {
   const { openPanel, closePanel } = useHeaderPanel();
@@ -73,6 +77,7 @@ export default function UsersPage() {
   const { data: users = [], isLoading, isError, error, refetch } = useListUsersQuery();
 
   const [toggleUser] = useToggleUserMutation();
+  const [resetUserPassword] = useResetUserPasswordMutation();
 
   useEffect(() => {
     setPage(1);
@@ -94,8 +99,9 @@ export default function UsersPage() {
    * ----------------------------- */
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
-      if (statusFilter === "active" && !u.isActive) return false;
-      if (statusFilter === "disabled" && u.isActive) return false;
+      const isEnabled = u.enabled ?? u.isActive ?? false;
+      if (statusFilter === "active" && !isEnabled) return false;
+      if (statusFilter === "disabled" && isEnabled) return false;
       if (neverLoggedIn && u.lastLoginAt) return false;
       if (roleFilter !== "all" && !u.realmRoles?.includes(roleFilter)) return false;
       return true;
@@ -117,7 +123,7 @@ export default function UsersPage() {
     id: u.id,
     username: u.username,
     email: u.email ?? "—",
-    status: u.isActive ? "Active" : "Disabled",
+    status: (u.enabled ?? u.isActive) ? "Active" : "Disabled",
     verified: u.emailVerified ? "Verified" : "Not verified",
     lastLogin: u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never",
     actions: "",
@@ -128,7 +134,7 @@ export default function UsersPage() {
     return (
       <ErrorState
         title="Failed to load users"
-        description={(error as any)?.data?.message ?? "Failed to load users"}
+        description={getApiErrorMessage(error, "Failed to load users")}
         primaryAction={{ label: "Retry", onClick: refetch }}
       />
     );
@@ -214,19 +220,6 @@ export default function UsersPage() {
                       setBulkAction(null);
                     }
                   }}
-                  onAssignRoles={async () => {
-                    setBulkAction("roles");
-
-                    openPanel({
-                      title: `Assign roles (${selectedUsers.length})`,
-                      size: "lg",
-                      content: (
-                        <UserClientRolesPanel userId={selectedUsers.map((u) => u.id).join(",")} />
-                      ),
-                    });
-
-                    setBulkAction(null);
-                  }}
                 />
 
                 {/* ================= TABLE ================= */}
@@ -267,69 +260,86 @@ export default function UsersPage() {
                             if (cell.info.header === "actions") {
                               return (
                                 <RowActionsCell key={cell.id}>
-                                  {row.isSelected && (
-                                    <UserActionsMenu
-                                      user={user}
-                                      onEdit={() => {
-                                        openPanel({
-                                          title: "Edit user",
-                                          content: (
-                                            <UserFormPanel
-                                              mode="edit"
-                                              initialUser={user}
-                                              onSuccess={closePanel}
-                                            />
-                                          ),
-                                          size: "md",
-                                        });
-                                      }}
-                                      onManageRoles={() => {
-                                        openPanel({
-                                          title: `Roles: ${user.username}`,
-                                          size: "lg",
-                                          content: <UserClientRolesPanel userId={user.id} />,
-                                        });
-                                      }}
-                                      onToggleStatus={() => {
-                                        openEnableUserModal({
-                                          username: user.username,
-                                          enabled: user.isActive ?? false,
-                                          onConfirm: async () => {
-                                            try {
-                                              await toggleUser({
-                                                id: user.id,
-                                                enabled: !user.isActive,
-                                              }).unwrap();
+                                  <UserActionsMenu
+                                    user={user}
+                                    onEdit={() => {
+                                      openPanel({
+                                        title: "Edit user",
+                                        content: (
+                                          <UserFormPanel
+                                            mode="edit"
+                                            initialUser={user}
+                                            onSuccess={closePanel}
+                                          />
+                                        ),
+                                        size: "md",
+                                      });
+                                    }}
+                                    onManageRoles={() => {
+                                      openPanel({
+                                        title: `Roles: ${user.username}`,
+                                        size: "lg",
+                                        content: <UserClientRolesPanel userId={user.id} />,
+                                      });
+                                    }}
+                                    onToggleStatus={() => {
+                                      const isEnabled = user.enabled ?? user.isActive ?? false;
 
-                                              toast.success({
-                                                title: "User updated",
-                                                subtitle: `${user.username} ${
-                                                  user.isActive ? "disabled" : "enabled"
-                                                }.`,
-                                              });
-                                            } catch {
-                                              toast.error({
-                                                title: "Update failed",
-                                                subtitle: `Failed to update ${user.username}.`,
-                                              });
-                                            }
-                                          },
-                                        });
-                                      }}
-                                      onResetPassword={() => {
-                                        openResetPasswordModal({
-                                          username: user.username,
-                                          email: user.email,
-                                          onConfirm: () => {
-                                            toast.info({
-                                              title: "Password reset",
-                                              subtitle: `Reset email sent to ${user.email}`,
+                                      openEnableUserModal({
+                                        username: user.username,
+                                        enabled: isEnabled,
+                                        onConfirm: async () => {
+                                          try {
+                                            await toggleUser({
+                                              id: user.id,
+                                              enabled: !isEnabled,
+                                            }).unwrap();
+
+                                            toast.success({
+                                              title: "User updated",
+                                              subtitle: `${user.username} ${
+                                                isEnabled ? "disabled" : "enabled"
+                                              }.`,
                                             });
-                                          },
-                                        });
-                                      }}
-                                    />
-                                  )}
+                                          } catch (err) {
+                                            toast.error({
+                                              title: "Update failed",
+                                              subtitle: getApiErrorMessage(
+                                                err,
+                                                `Failed to update ${user.username}.`,
+                                              ),
+                                            });
+                                          }
+                                        },
+                                      });
+                                    }}
+                                    onResetPassword={() => {
+                                      openResetPasswordModal({
+                                        username: user.username,
+                                        email: user.email,
+                                        onConfirm: async () => {
+                                          try {
+                                            await resetUserPassword(user.id).unwrap();
+
+                                            toast.success({
+                                              title: "Password reset sent",
+                                              subtitle: user.email
+                                                ? `Reset email sent to ${user.email}.`
+                                                : `Password reset started for ${user.username}.`,
+                                            });
+                                          } catch (err) {
+                                            toast.error({
+                                              title: "Password reset failed",
+                                              subtitle: getApiErrorMessage(
+                                                err,
+                                                `Failed to reset password for ${user.username}.`,
+                                              ),
+                                            });
+                                          }
+                                        },
+                                      });
+                                    }}
+                                  />
                                 </RowActionsCell>
                               );
                             }
@@ -358,4 +368,34 @@ export default function UsersPage() {
       )}
     </DataTableShell>
   );
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== "object") {
+    return fallback;
+  }
+
+  const maybeError = error as {
+    data?: {
+      message?: unknown;
+      error?: {
+        message?: unknown;
+      };
+    };
+    error?: unknown;
+  };
+
+  if (typeof maybeError.data?.message === "string") {
+    return maybeError.data.message;
+  }
+
+  if (typeof maybeError.data?.error?.message === "string") {
+    return maybeError.data.error.message;
+  }
+
+  if (typeof maybeError.error === "string") {
+    return maybeError.error;
+  }
+
+  return fallback;
 }
