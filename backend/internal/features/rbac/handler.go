@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
@@ -237,6 +238,40 @@ func (h *Handler) GetEffectiveAccess(c *gin.Context) {
 	)
 	if err != nil {
 		writeError(c, err, "EFFECTIVE_ACCESS_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, result)
+}
+
+func (h *Handler) ListAssignableUserAccess(c *gin.Context) {
+	result, err := h.service.ListAssignableUserAccess(c.Request.Context())
+	if err != nil {
+		writeError(c, err, "ASSIGNABLE_USER_ACCESS_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, result)
+}
+
+func (h *Handler) GetUserAccessProfile(c *gin.Context) {
+	result, err := h.service.GetUserAccessProfile(c.Request.Context(), c.Param("userId"))
+	if err != nil {
+		writeError(c, err, "USER_ACCESS_PROFILE_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, result)
+}
+
+func (h *Handler) UpdateUserAccess(c *gin.Context) {
+	var input UpdateUserAccessRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		return
+	}
+
+	actorID, _ := uuid.Parse(c.GetString("user_id"))
+	result, err := h.service.UpdateUserAccess(c.Request.Context(), c.Param("userId"), input, actorID)
+	if err != nil {
+		writeError(c, err, "UPDATE_USER_ACCESS_FAILED")
 		return
 	}
 	response.OK(c, http.StatusOK, result)

@@ -20,7 +20,7 @@ import {
   useHeaderPanel,
   useToast,
 } from "@moh-sso/ui";
-import { UserClientRolesPanel } from "@moh-sso/clients";
+import { UserAccessPanel } from "../components/access-control/UserAccessPanel";
 import { UserFormPanel } from "../components/create-user-panel";
 import { useEnableUserModal } from "../components/useEnableUserModal";
 import { useResetPasswordModal } from "../components/useResetPasswordModal";
@@ -281,10 +281,7 @@ export default function UsersPage() {
                                         title: `Roles: ${user.username}`,
                                         size: "lg",
                                         content: (
-                                          <UserClientRolesPanel
-                                            key={`user-roles-${user.id}`}
-                                            userId={user.id}
-                                          />
+                                          <UserAccessPanel key={`user-access-${user.id}`} userId={user.id} />
                                         ),
                                       });
                                     }}

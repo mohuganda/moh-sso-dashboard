@@ -628,6 +628,94 @@ func (s *Service) GetUserClientRoles(
 	return s.repo.GetUserClientRoles(ctx, userID.String())
 }
 
+func (s *Service) UpdateUserRealmRoles(
+	ctx context.Context,
+	userID uuid.UUID,
+	roles []string,
+	adminID uuid.UUID,
+) error {
+	if s == nil {
+		return errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("user repository is nil")
+	}
+
+	if userID == uuid.Nil {
+		return errors.New("user id is required")
+	}
+
+	roles = normalizeRoleNames(roles)
+
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("get user before realm role update: %w", err)
+	}
+
+	currentSet := make(map[string]bool)
+	for _, role := range normalizeRoleNames(user.RealmRoles) {
+		currentSet[role] = true
+	}
+
+	desiredSet := make(map[string]bool)
+	for _, role := range roles {
+		desiredSet[role] = true
+	}
+
+	var toAdd []string
+	var toRemove []string
+
+	for role := range desiredSet {
+		if !currentSet[role] {
+			toAdd = append(toAdd, role)
+		}
+	}
+
+	for role := range currentSet {
+		if !desiredSet[role] {
+			toRemove = append(toRemove, role)
+		}
+	}
+
+	if len(toAdd) > 0 {
+		if err := s.repo.AddUserRealmRoles(ctx, userID.String(), toAdd); err != nil {
+			return fmt.Errorf("add user realm roles: %w", err)
+		}
+	}
+
+	if len(toRemove) > 0 {
+		if err := s.repo.RemoveUserRealmRoles(ctx, userID.String(), toRemove); err != nil {
+			return fmt.Errorf("remove user realm roles: %w", err)
+		}
+	}
+
+	if len(toAdd) == 0 && len(toRemove) == 0 {
+		return nil
+	}
+
+	nt := models.UserUpdated
+	s.notify(ctx, models.Notification{
+		Type:       string(nt),
+		Title:      nt.Title(),
+		Severity:   nt.Severity(),
+		Message:    "User realm roles updated",
+		TargetRole: "admin",
+		UserID:     userID.String(),
+		Metadata: utils.MustJSON(map[string]any{
+			"user_id":  userID.String(),
+			"username": user.Username,
+			"email":    user.Email,
+			"added":    toAdd,
+			"removed":  toRemove,
+			"roles":    roles,
+			"admin_id": adminID.String(),
+		}),
+	})
+
+	return nil
+}
+
 func (s *Service) GetUserClientRolesForClient(
 	ctx context.Context,
 	userID uuid.UUID,

@@ -34,6 +34,9 @@ import type {
   RbacSystemDetail,
   RbacSystemRole,
   UpsertRbacSystemPayload,
+  RbacAssignableUserAccess,
+  RbacUpdateUserAccessPayload,
+  RbacUserAccessProfile,
 } from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
@@ -260,6 +263,37 @@ export const rbacApi = baseApi.injectEndpoints({
       },
       transformResponse: (res: ApiEnvelope<RbacEffectiveAccess>) => res.data,
     }),
+    getAssignableUserAccess: builder.query<RbacAssignableUserAccess, void>({
+      query: () => `${base}/user-access/assignable`,
+      transformResponse: (res: ApiEnvelope<RbacAssignableUserAccess>) => res.data,
+      providesTags: [{ type: "RbacSystem", id: "USER_ACCESS_ASSIGNABLE" }],
+    }),
+    getUserAccessProfile: builder.query<RbacUserAccessProfile, string>({
+      query: (userId) => `${base}/user-access/users/${encodeURIComponent(userId)}`,
+      transformResponse: (res: ApiEnvelope<RbacUserAccessProfile>) => res.data,
+      providesTags: (_result, _error, userId) => [
+        { type: "RbacSystem", id: "USER_ACCESS_ASSIGNABLE" },
+        { type: "User", id: userId },
+        { type: "UserClientRole", id: `LIST-${userId}` },
+      ],
+    }),
+    updateUserAccess: builder.mutation<
+      RbacUserAccessProfile,
+      { userId: string; data: RbacUpdateUserAccessPayload }
+    >({
+      query: ({ userId, data }) => ({
+        url: `${base}/user-access/users/${encodeURIComponent(userId)}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (res: ApiEnvelope<RbacUserAccessProfile>) => res.data,
+      invalidatesTags: (_result, _error, { userId }) => [
+        { type: "User", id: userId },
+        { type: "User", id: "LIST" },
+        { type: "UserClientRole", id: `LIST-${userId}` },
+        { type: "RbacAudit", id: "LIST" },
+      ],
+    }),
     previewRbacChange: builder.mutation<RbacChangePreview, RbacChangePreviewPayload>({
       query: (data) => ({ url: `${base}/changes/preview`, method: "POST", body: data }),
       transformResponse: (res: ApiEnvelope<RbacChangePreview>) => res.data,
@@ -394,6 +428,8 @@ export const {
   useExportRbacSeedQuery,
   useGetRbacDriftQuery,
   useGetRbacEffectiveAccessQuery,
+  useGetAssignableUserAccessQuery,
+  useGetUserAccessProfileQuery,
   useGetRealmRoleUsageQuery,
   useGetRoleUsageQuery,
   useListAccessRequestsQuery,
@@ -413,6 +449,7 @@ export const {
   useRemoveSystemAccessRoleMutation,
   useRemoveSystemRolePermissionMutation,
   useSimulateRbacAccessMutation,
+  useUpdateUserAccessMutation,
   useUpdateRbacPermissionMetadataMutation,
   useUpdateRbacSystemMutation,
   useUpdateSystemRoleMutation,

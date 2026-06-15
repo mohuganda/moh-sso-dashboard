@@ -462,6 +462,74 @@ func (r *userRepository) GetUsersByRealmRole(
 	return result, nil
 }
 
+func (r *userRepository) AddUserRealmRoles(
+	ctx context.Context,
+	userID string,
+	roles []string,
+) error {
+	userID = strings.TrimSpace(userID)
+	roles = normalizeRepositoryRoleNames(roles)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if len(roles) == 0 {
+		return nil
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	for _, roleName := range roles {
+		role, err := r.keycloakClient.GetRealmRoleByName(ctx, roleName)
+		if err != nil {
+			return fmt.Errorf("resolve realm role %q: %w", roleName, err)
+		}
+
+		if err := r.keycloakClient.AddRealmRoleToUser(ctx, userID, *role); err != nil {
+			return fmt.Errorf("add realm role %q: %w", roleName, err)
+		}
+	}
+
+	return nil
+}
+
+func (r *userRepository) RemoveUserRealmRoles(
+	ctx context.Context,
+	userID string,
+	roles []string,
+) error {
+	userID = strings.TrimSpace(userID)
+	roles = normalizeRepositoryRoleNames(roles)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if len(roles) == 0 {
+		return nil
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	for _, roleName := range roles {
+		role, err := r.keycloakClient.GetRealmRoleByName(ctx, roleName)
+		if err != nil {
+			return fmt.Errorf("resolve realm role %q: %w", roleName, err)
+		}
+
+		if err := r.keycloakClient.RemoveRealmRoleFromUser(ctx, userID, *role); err != nil {
+			return fmt.Errorf("remove realm role %q: %w", roleName, err)
+		}
+	}
+
+	return nil
+}
+
 // ----------------------------------------------------
 // CLIENT ROLES
 // ----------------------------------------------------

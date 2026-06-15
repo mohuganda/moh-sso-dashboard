@@ -195,6 +195,47 @@ type EffectiveAccessResponse struct {
 	GrantSources      []PermissionGrantSource `json:"grantSources"`
 }
 
+type AssignableRealmRole struct {
+	Name        string       `json:"name"`
+	DisplayName string       `json:"displayName,omitempty"`
+	Permissions []Permission `json:"permissions"`
+}
+
+type AssignableSystemRole struct {
+	Name        string       `json:"name"`
+	DisplayName string       `json:"displayName,omitempty"`
+	Description string       `json:"description,omitempty"`
+	Enabled     bool         `json:"enabled"`
+	Permissions []Permission `json:"permissions"`
+}
+
+type AssignableSystemAccess struct {
+	ClientID    string                 `json:"clientId"`
+	DisplayName string                 `json:"displayName"`
+	LaunchURL   string                 `json:"launchUrl,omitempty"`
+	Icon        string                 `json:"icon,omitempty"`
+	Category    string                 `json:"category,omitempty"`
+	Roles       []AssignableSystemRole `json:"roles"`
+	AccessRoles []string               `json:"accessRoles"`
+}
+
+type AssignableUserAccessResponse struct {
+	RealmRoles  []AssignableRealmRole    `json:"realmRoles"`
+	Systems     []AssignableSystemAccess `json:"systems"`
+	Permissions []Permission             `json:"permissions"`
+}
+
+type UserAccessProfileResponse struct {
+	EffectiveAccess EffectiveAccessResponse      `json:"effectiveAccess"`
+	Assignable      AssignableUserAccessResponse `json:"assignable"`
+}
+
+type UpdateUserAccessRequest struct {
+	RealmRoles  []string            `json:"realmRoles"`
+	ClientRoles map[string][]string `json:"clientRoles"`
+	Permissions []string            `json:"permissions,omitempty"`
+}
+
 type SystemAccessSummary struct {
 	ClientID    string   `json:"clientId"`
 	DisplayName string   `json:"displayName"`

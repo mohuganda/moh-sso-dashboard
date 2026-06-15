@@ -171,6 +171,47 @@ export type RbacEffectiveAccess = {
   grantSources: RbacPermissionGrantSource[];
 };
 
+export type RbacAssignableRealmRole = {
+  name: string;
+  displayName?: string;
+  permissions: RbacPermission[];
+};
+
+export type RbacAssignableSystemRole = {
+  name: string;
+  displayName?: string;
+  description?: string;
+  enabled: boolean;
+  permissions: RbacPermission[];
+};
+
+export type RbacAssignableSystemAccess = {
+  clientId: string;
+  displayName: string;
+  launchUrl?: string;
+  icon?: string;
+  category?: string;
+  roles: RbacAssignableSystemRole[];
+  accessRoles: string[];
+};
+
+export type RbacAssignableUserAccess = {
+  realmRoles: RbacAssignableRealmRole[];
+  systems: RbacAssignableSystemAccess[];
+  permissions: RbacPermission[];
+};
+
+export type RbacUserAccessProfile = {
+  effectiveAccess: RbacEffectiveAccess;
+  assignable: RbacAssignableUserAccess;
+};
+
+export type RbacUpdateUserAccessPayload = {
+  realmRoles: string[];
+  clientRoles: Record<string, string[]>;
+  permissions?: string[];
+};
+
 export type RbacPermissionMetadataPayload = {
   displayName?: string;
   description?: string;

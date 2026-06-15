@@ -11,9 +11,13 @@ import {
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { useCreateUserMutation, useUpdateUserMutation } from "@moh-sso/api";
+import {
+  useCreateUserMutation,
+  useGetAssignableUserAccessQuery,
+  useUpdateUserMutation,
+} from "@moh-sso/api";
 import type { User } from "@moh-sso/types";
-import { FormInlineAlert , useToast } from "@moh-sso/ui";
+import { FormInlineAlert, useToast } from "@moh-sso/ui";
 
 export type UserFormMode = "create" | "edit";
 
@@ -29,16 +33,6 @@ type UserFormState = {
   enabled: boolean;
   emailVerified: boolean;
 };
-
-/**
- * Temporary realm roles
- * (replace with API-driven roles later)
- */
-const REALM_ROLES = [
-  { id: "admin", text: "Admin" },
-  { id: "manager", text: "Manager" },
-  { id: "user", text: "User" },
-];
 
 const createFormState = (initialUser?: User): UserFormState => ({
   username: initialUser?.username ?? "",
@@ -65,8 +59,19 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
 
   const [createUser, { isLoading: creating }] = useCreateUserMutation();
   const [updateUser, { isLoading: updating }] = useUpdateUserMutation();
+  const { data: assignableAccess, isLoading: loadingAssignableAccess } =
+    useGetAssignableUserAccessQuery();
 
   const submitting = creating || updating;
+
+  const realmRoleItems = useMemo(
+    () =>
+      (assignableAccess?.realmRoles ?? []).map((role) => ({
+        id: role.name,
+        text: role.displayName || role.name,
+      })),
+    [assignableAccess?.realmRoles],
+  );
 
   useEffect(() => {
     setForm(createFormState(initialUser));
@@ -203,10 +208,11 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
             <MultiSelect
               id="realmRoles"
               titleText="Realm roles"
-              label="Realm roles"
-              items={REALM_ROLES}
+              label={loadingAssignableAccess ? "Loading realm roles..." : "Realm roles"}
+              items={realmRoleItems}
               itemToString={(item) => item?.text ?? ""}
-              selectedItems={REALM_ROLES.filter((r) => form.realmRoles.includes(r.id))}
+              selectedItems={realmRoleItems.filter((r) => form.realmRoles.includes(r.id))}
+              disabled={loadingAssignableAccess}
               onChange={({ selectedItems }) => {
                 handleChange(
                   "realmRoles",

@@ -29,6 +29,8 @@ type Service struct {
 type UserLookup interface {
 	GetUser(id uuid.UUID) (*model.User, error)
 	ListUsers() ([]model.User, error)
+	UpdateUserRealmRoles(ctx context.Context, userID uuid.UUID, roles []string, adminID uuid.UUID) error
+	UpdateUserClientRoles(ctx context.Context, userID uuid.UUID, clientID string, clientUUID string, roles []string, adminID uuid.UUID) error
 }
 
 func NewService(repository Repository, users ...UserLookup) *Service {
@@ -92,6 +94,172 @@ func (s *Service) UpsertSystem(ctx context.Context, input UpsertSystemInput) (Sy
 
 func (s *Service) ListPermissions(ctx context.Context) ([]Permission, error) {
 	return s.repository.ListPermissions(ctx)
+}
+
+func (s *Service) ListAssignableUserAccess(ctx context.Context) (AssignableUserAccessResponse, error) {
+	permissions, err := s.repository.ListPermissions(ctx)
+	if err != nil {
+		return AssignableUserAccessResponse{}, err
+	}
+
+	realmGroups, err := s.repository.ListRealmRolePermissions(ctx)
+	if err != nil {
+		return AssignableUserAccessResponse{}, err
+	}
+
+	systems, err := s.repository.ListSystems(ctx)
+	if err != nil {
+		return AssignableUserAccessResponse{}, err
+	}
+
+	realmRoles := make([]AssignableRealmRole, 0, len(realmGroups))
+	for _, group := range realmGroups {
+		roleName := normalize(group.RealmRole)
+		if roleName == "" {
+			continue
+		}
+		realmRoles = append(realmRoles, AssignableRealmRole{
+			Name:        roleName,
+			DisplayName: roleName,
+			Permissions: group.Permissions,
+		})
+	}
+
+	assignableSystems := make([]AssignableSystemAccess, 0, len(systems))
+	for _, system := range systems {
+		if !system.Enabled || strings.TrimSpace(system.ClientID) == "" {
+			continue
+		}
+
+		detail, err := s.repository.GetSystem(ctx, system.ClientID)
+		if err != nil {
+			continue
+		}
+
+		roles := make([]AssignableSystemRole, 0, len(detail.Roles))
+		for _, role := range detail.Roles {
+			if !role.Enabled {
+				continue
+			}
+			roles = append(roles, AssignableSystemRole{
+				Name:        normalize(role.Name),
+				DisplayName: role.DisplayName,
+				Description: role.Description,
+				Enabled:     role.Enabled,
+				Permissions: role.Permissions,
+			})
+		}
+
+		sort.Slice(roles, func(i, j int) bool { return roles[i].Name < roles[j].Name })
+
+		assignableSystems = append(assignableSystems, AssignableSystemAccess{
+			ClientID:    detail.ClientID,
+			DisplayName: detail.DisplayName,
+			LaunchURL:   detail.LaunchURL,
+			Icon:        detail.Icon,
+			Category:    detail.Category,
+			Roles:       roles,
+			AccessRoles: sortedStrings(detail.AccessRoles),
+		})
+	}
+
+	sort.Slice(realmRoles, func(i, j int) bool { return realmRoles[i].Name < realmRoles[j].Name })
+	sort.Slice(assignableSystems, func(i, j int) bool { return assignableSystems[i].DisplayName < assignableSystems[j].DisplayName })
+
+	return AssignableUserAccessResponse{
+		RealmRoles:  realmRoles,
+		Systems:     assignableSystems,
+		Permissions: permissions,
+	}, nil
+}
+
+func (s *Service) GetUserAccessProfile(ctx context.Context, userID string) (UserAccessProfileResponse, error) {
+	effective, err := s.GetEffectiveAccess(ctx, userID, "", "")
+	if err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
+	assignable, err := s.ListAssignableUserAccess(ctx)
+	if err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
+	return UserAccessProfileResponse{
+		EffectiveAccess: effective,
+		Assignable:      assignable,
+	}, nil
+}
+
+func (s *Service) UpdateUserAccess(
+	ctx context.Context,
+	userID string,
+	input UpdateUserAccessRequest,
+	actorID uuid.UUID,
+) (UserAccessProfileResponse, error) {
+	if s == nil || s.users == nil {
+		return UserAccessProfileResponse{}, errors.New("user access manager is not configured")
+	}
+
+	userUUID, err := uuid.Parse(strings.TrimSpace(userID))
+	if err != nil {
+		return UserAccessProfileResponse{}, fmt.Errorf("%w: invalid user id", ErrInvalidInput)
+	}
+
+	assignable, err := s.ListAssignableUserAccess(ctx)
+	if err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
+	realmRoles := sortedStrings(input.RealmRoles)
+	clientRoles := sortedClientRoles(input.ClientRoles)
+
+	if err := validateAssignableUserAccess(assignable, realmRoles, clientRoles, input.Permissions); err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
+	before, err := s.GetEffectiveAccess(ctx, userID, "", "")
+	if err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
+	if err := s.users.UpdateUserRealmRoles(ctx, userUUID, realmRoles, actorID); err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
+	for _, system := range assignable.Systems {
+		roles := clientRoles[system.ClientID]
+		if err := s.users.UpdateUserClientRoles(ctx, userUUID, system.ClientID, "", roles, actorID); err != nil {
+			return UserAccessProfileResponse{}, err
+		}
+	}
+
+	after, err := s.GetEffectiveAccess(ctx, userID, "", "")
+	if err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
+	addedRealm := permissionDiff(after.RealmRoles, before.RealmRoles)
+	removedRealm := permissionDiff(before.RealmRoles, after.RealmRoles)
+	addedClient, removedClient := diffClientRoles(before.ClientRoles, after.ClientRoles)
+	addedPermissions := permissionDiff(permissionKeys(after.Permissions), permissionKeys(before.Permissions))
+	removedPermissions := permissionDiff(permissionKeys(before.Permissions), permissionKeys(after.Permissions))
+
+	if err := s.recordAudit(ctx, "user_access.updated", "user", userID, "", "", "", map[string]any{
+		"actor_id":             actorID.String(),
+		"realm_roles_added":    addedRealm,
+		"realm_roles_removed":  removedRealm,
+		"client_roles_added":   addedClient,
+		"client_roles_removed": removedClient,
+		"permissions_added":    addedPermissions,
+		"permissions_removed":  removedPermissions,
+	}); err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
+	return UserAccessProfileResponse{
+		EffectiveAccess: after,
+		Assignable:      assignable,
+	}, nil
 }
 
 func (s *Service) ListSystemRoles(ctx context.Context, clientID string) ([]SystemRole, error) {
@@ -1148,4 +1316,76 @@ func sortedClientRoles(values map[string][]string) map[string][]string {
 		out[clientID] = sortedStrings(roles)
 	}
 	return out
+}
+
+func validateAssignableUserAccess(
+	assignable AssignableUserAccessResponse,
+	realmRoles []string,
+	clientRoles map[string][]string,
+	directPermissions []string,
+) error {
+	if len(directPermissions) > 0 {
+		return fmt.Errorf("%w: direct user permissions are not supported; assign permissions through realm or system roles", ErrInvalidInput)
+	}
+
+	realmSet := map[string]bool{}
+	for _, role := range assignable.RealmRoles {
+		realmSet[normalize(role.Name)] = true
+	}
+
+	for _, role := range realmRoles {
+		if !realmSet[normalize(role)] {
+			return fmt.Errorf("%w: realm role %q is not assignable", ErrInvalidInput, role)
+		}
+	}
+
+	systemRoles := map[string]map[string]bool{}
+	for _, system := range assignable.Systems {
+		roleSet := map[string]bool{}
+		for _, role := range system.Roles {
+			roleSet[normalize(role.Name)] = true
+		}
+		systemRoles[system.ClientID] = roleSet
+	}
+
+	for clientID, roles := range clientRoles {
+		roleSet, ok := systemRoles[clientID]
+		if !ok {
+			return fmt.Errorf("%w: system %q is not assignable", ErrInvalidInput, clientID)
+		}
+
+		for _, role := range roles {
+			if !roleSet[normalize(role)] {
+				return fmt.Errorf("%w: role %q is not assignable for system %q", ErrInvalidInput, role, clientID)
+			}
+		}
+	}
+
+	return nil
+}
+
+func diffClientRoles(before map[string][]string, after map[string][]string) (map[string][]string, map[string][]string) {
+	added := map[string][]string{}
+	removed := map[string][]string{}
+
+	seen := map[string]bool{}
+	for clientID := range before {
+		seen[clientID] = true
+	}
+	for clientID := range after {
+		seen[clientID] = true
+	}
+
+	for clientID := range seen {
+		addedRoles := permissionDiff(after[clientID], before[clientID])
+		removedRoles := permissionDiff(before[clientID], after[clientID])
+		if len(addedRoles) > 0 {
+			added[clientID] = addedRoles
+		}
+		if len(removedRoles) > 0 {
+			removed[clientID] = removedRoles
+		}
+	}
+
+	return added, removed
 }
