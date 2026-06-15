@@ -14,7 +14,6 @@ import (
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
-	"github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -207,25 +206,17 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		Title:         strings.TrimSpace(req.Title),
 		Message:       strings.TrimSpace(req.Message),
 		Summary:       nullableString(req.Summary),
-		Level:         model.AnnouncementLevel(req.Level),
+		Level:         dbAnnouncementLevel(req.Level),
 		Tag:           nullableString(req.Tag),
 		LinkUrl:       nullableString(req.LinkURL),
 		Priority:      req.Priority,
 		IsPinned:      req.IsPinned,
-		Status:        model.AnnouncementStatus(req.Status),
+		Status:        dbAnnouncementStatus(req.Status),
 		PublishAt:     publishAt,
 		ExpiresAt:     expiresAt,
-		AudienceType:  model.AnnouncementAudienceType(req.AudienceType),
+		AudienceType:  dbAnnouncementAudienceType(req.AudienceType),
 		NotifyByEmail: req.NotifyByEmail,
 		CreatedBy:     userID,
-	}
-
-	if strings.TrimSpace(req.Status) == "" {
-		params.Status = model.AnnouncementStatusDRAFT
-	}
-
-	if strings.TrimSpace(req.AudienceType) == "" {
-		params.AudienceType = model.AnnouncementAudienceTypeALLUSERS
 	}
 
 	item, err := h.announcementService.CreateAnnouncement(c.Request.Context(), params)
@@ -321,23 +312,19 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		Title:         strings.TrimSpace(req.Title),
 		Message:       strings.TrimSpace(req.Message),
 		Summary:       nullableString(req.Summary),
-		Level:         model.AnnouncementLevel(req.Level),
+		Level:         dbAnnouncementLevel(req.Level),
 		Tag:           nullableString(req.Tag),
 		LinkUrl:       nullableString(req.LinkURL),
 		Priority:      req.Priority,
 		IsPinned:      req.IsPinned,
 		PublishAt:     publishAt,
 		ExpiresAt:     expiresAt,
-		AudienceType:  model.AnnouncementAudienceType(req.AudienceType),
+		AudienceType:  dbAnnouncementAudienceType(req.AudienceType),
 		NotifyByEmail: req.NotifyByEmail,
 		UpdatedBy: uuid.NullUUID{
 			UUID:  userID,
 			Valid: true,
 		},
-	}
-
-	if strings.TrimSpace(req.AudienceType) == "" {
-		params.AudienceType = model.AnnouncementAudienceTypeALLUSERS
 	}
 
 	item, err := h.announcementService.UpdateAnnouncement(c.Request.Context(), params)

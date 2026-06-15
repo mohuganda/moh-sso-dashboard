@@ -308,6 +308,7 @@ func (s *Service) withPersistedAnnouncementEmailAttachments(
 			FileName:    attachment.OriginalFileName,
 			ContentType: attachment.ContentType.String,
 			Data:        data,
+			DataBase64:  base64.StdEncoding.EncodeToString(data),
 			ContentID:   attachment.ContentID.String,
 			Inline:      attachment.Inline,
 		})

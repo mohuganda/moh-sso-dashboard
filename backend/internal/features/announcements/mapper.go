@@ -218,15 +218,39 @@ func nullUUIDString(v uuid.NullUUID) string {
 }
 
 func normalizeLevel(v model.AnnouncementLevel) string {
-	return strings.ToLower(string(v))
+	return strings.ToUpper(strings.TrimSpace(string(v)))
 }
 
 func normalizeAnnouncementStatus(v model.AnnouncementStatus) string {
-	return strings.ToLower(string(v))
+	return strings.ToUpper(strings.TrimSpace(string(v)))
 }
 
 func normalizeAudienceType(v model.AnnouncementAudienceType) string {
-	return strings.ToLower(string(v))
+	return strings.ToUpper(strings.TrimSpace(string(v)))
+}
+
+func dbAnnouncementLevel(value string) model.AnnouncementLevel {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return model.AnnouncementLevelINFO
+	}
+	return model.AnnouncementLevel(value)
+}
+
+func dbAnnouncementStatus(value string) model.AnnouncementStatus {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return model.AnnouncementStatusDRAFT
+	}
+	return model.AnnouncementStatus(value)
+}
+
+func dbAnnouncementAudienceType(value string) model.AnnouncementAudienceType {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return model.AnnouncementAudienceTypeALLUSERS
+	}
+	return model.AnnouncementAudienceType(value)
 }
 
 func interfaceToString(v interface{}) string {
