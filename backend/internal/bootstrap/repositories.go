@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"database/sql"
+
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
 	announcementRepo "github.com/moh-sso-dashboard/internal/features/announcements"
@@ -51,6 +53,11 @@ func buildRepositories(
 	webKC *kcClientPkg.Client,
 	appLogger *logger.Logger,
 ) repositories {
+	var primaryDB *sql.DB
+	if sqlStore, ok := store.(*storepkg.SQLStore); ok && sqlStore != nil {
+		primaryDB = sqlStore.DB()
+	}
+
 	return repositories{
 		Auth:                    authRepo.NewAuthRepository(webKC, adminKC, cfg),
 		Clients:                 clientRepo.NewClientRepository(adminKC, cfg, store, *appLogger),
@@ -70,6 +77,6 @@ func buildRepositories(
 		Announcements:           announcementRepo.NewAnnouncementRepository(store, *appLogger),
 		Email:                   emailRepo.NewEmailRepository(cfg, store, *appLogger),
 		Surveillance:            surveillanceRepo.NewRepositories(store),
-		RBAC:                    rbacRepo.NewRepository(store.(*storepkg.SQLStore).DB()),
+		RBAC:                    rbacRepo.NewRepository(primaryDB),
 	}
 }

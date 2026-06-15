@@ -31,6 +31,10 @@ func runStartupRBACSync(
 		return nil
 	}
 
+	if db == nil {
+		return errors.New("primary database is nil; cannot run RBAC startup sync")
+	}
+
 	if appLogger != nil {
 		appLogger.Info(
 			"starting RBAC startup sync",

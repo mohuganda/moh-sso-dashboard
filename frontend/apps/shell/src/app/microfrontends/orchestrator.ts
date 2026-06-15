@@ -40,6 +40,12 @@ type SingleSpaModule = {
   start: () => void;
 };
 
+export const MICROFRONTEND_ORCHESTRATION_EVENT = "moh-sso:microfrontend-orchestration";
+
+let orchestrationStarted = false;
+let orchestrationUnavailable = false;
+let orchestrationStartPromise: Promise<boolean> | null = null;
+
 const lifecycleLoaders: Record<string, () => Promise<MicrofrontendLifecycle>> = {
   "@moh-sso/announcements": announcementsLifecycles,
   "@moh-sso/audit": auditLifecycles,
@@ -56,6 +62,17 @@ const lifecycleLoaders: Record<string, () => Promise<MicrofrontendLifecycle>> = 
   "@moh-sso/utilities": utilitiesLifecycles,
 };
 
+function notifyOrchestrationState() {
+  window.dispatchEvent(
+    new CustomEvent(MICROFRONTEND_ORCHESTRATION_EVENT, {
+      detail: {
+        started: orchestrationStarted,
+        unavailable: orchestrationUnavailable,
+      },
+    }),
+  );
+}
+
 export function shouldUseSingleSpaOrchestration() {
   const runtimeConfig = (
     window as Window & {
@@ -65,7 +82,19 @@ export function shouldUseSingleSpaOrchestration() {
   const orchestrationEnabled =
     import.meta.env.VITE_SINGLE_SPA_ORCHESTRATION === "true" || runtimeConfig?.singleSpaOrchestration === true;
 
-  return orchestrationEnabled && getMicrofrontendMountMode() === "orchestrated";
+  return (
+    orchestrationEnabled &&
+    getMicrofrontendMode() === "remote" &&
+    getMicrofrontendMountMode() === "orchestrated"
+  );
+}
+
+export function isSingleSpaOrchestrationStarted() {
+  return orchestrationStarted;
+}
+
+export function isSingleSpaOrchestrationUnavailable() {
+  return orchestrationUnavailable;
 }
 
 function getMicrofrontendMode() {
@@ -139,18 +168,45 @@ function runtimeImport<T>(specifier: string): Promise<T> {
   return load(specifier);
 }
 
-export async function startMicrofrontendOrchestration() {
+async function startMicrofrontendOrchestrationOnce() {
   if (!shouldUseSingleSpaOrchestration()) {
+    orchestrationStarted = false;
+    orchestrationUnavailable = false;
+    notifyOrchestrationState();
     return false;
   }
 
   const singleSpa = await loadSingleSpa();
 
   if (!singleSpa) {
+    orchestrationStarted = false;
+    orchestrationUnavailable = true;
+    notifyOrchestrationState();
     return false;
   }
 
   registeredMicrofrontends.forEach((route) => registerRoute(singleSpa, route));
   singleSpa.start();
+  orchestrationStarted = true;
+  orchestrationUnavailable = false;
+  notifyOrchestrationState();
   return true;
+}
+
+export function startMicrofrontendOrchestration() {
+  if (orchestrationStarted) {
+    return Promise.resolve(true);
+  }
+
+  if (orchestrationStartPromise) {
+    return orchestrationStartPromise;
+  }
+
+  orchestrationStartPromise = startMicrofrontendOrchestrationOnce().finally(() => {
+    if (!orchestrationStarted) {
+      orchestrationStartPromise = null;
+    }
+  });
+
+  return orchestrationStartPromise;
 }

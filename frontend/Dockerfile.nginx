@@ -4,8 +4,8 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
-ENV FRONTEND_ASSET_BASE_URL=/
-ENV FRONTEND_BASE_PATH=/
+ENV FRONTEND_ASSET_BASE_URL=/portal
+ENV FRONTEND_BASE_PATH=/portal
 
 # Install ALL deps (including workspace dev deps)
 COPY . .

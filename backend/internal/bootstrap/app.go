@@ -56,6 +56,9 @@ func Run() {
 	if err != nil {
 		appLogger.Fatal("Failed to initialize databases: ", err)
 	}
+	if dbs.Primary == nil {
+		appLogger.Fatal("Failed to initialize databases: primary database connection is nil")
+	}
 	defer dbs.Close()
 
 	// ==================================================
