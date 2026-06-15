@@ -1,137 +1,95 @@
-import { useMemo, useState } from "react";
-import { Button, InlineLoading, InlineNotification, Tile } from "@carbon/react";
-import { Add } from "@carbon/react/icons";
-import { DataList } from "@moh-sso/data-visualizer";
-
+import DataList from "../../../data-visualizer/src/pages/components/data-table/data-table.component.tsx";
+import {Button} from "@carbon/react";
+import {Add} from "@carbon/react/icons";
 import "./issue-tracker.scss";
+import {useEffect, useState} from "react";
+import {IssueModal} from "../component/issue-modal.component.tsx";
+import { useGetIssuesQuery} from "../component/issuetracker.api.ts";
+import { headers } from "../lib/constants.ts";
+import IssueDetail from "./issue-detail/issue-detail.component.tsx";
 
-import { headers } from "../lib/constants";
-import IssueDetail from "./issue-detail/issue-detail.component";
-import type { Issue } from "@moh-sso/types";
-import { IssueModal } from "../component/issue-modal.component";
-import { useGetIssuesQuery } from "@moh-sso/api";
-
-type IssueRow = Issue & {
-  id: string;
-};
-
-type DataListRow = {
+export type Issue = {
   id?: string;
-  [key: string]: unknown;
-};
+  issue_id: number;
+  issue_code: string;
+  dataset: string;
+  data_element: string;
+  org_unit: string;
+  issue: string;
+  date_reported: string;
+  reported_by: string;
+  status: string;
+  issue_type: string;
+  updated_by: string;
+  updated_date: string;
+  priority?: string;
+  severity?: string;
+  time_period?: string;
+  time_Period?: string;
+}
 
 const IssueTracker = () => {
   const [showModal, setShowModal] = useState(false);
-  const [selectedIssue, setSelectedIssue] = useState<IssueRow | null>(null);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const { data, isLoading, error } = useGetIssuesQuery();
+  const [selectedIssue, setSelectedIssue] = useState<Issue>();
+  const [isViewIssueDetail, setIsViewIssueDetail] = useState(false);
 
-  const { data, isLoading, isFetching, isError, error, refetch } = useGetIssuesQuery();
-
-  const issues = useMemo<IssueRow[]>(() => {
-    return (data?.data ?? []).map((item: Issue) => ({
-      ...item,
-      id: String(item.issue_id),
-    }));
-  }, [data]);
-
-  const handleOpenModal = () => {
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
+  const close = () => {
     setShowModal(false);
   };
 
-  const handleBackToList = () => {
-    setSelectedIssue(null);
+
+  useEffect(() => {
+    if (!isLoading) {
+      const rows = data?.data?.map(item => ({
+        id: item.issue_id.toString(),
+        ...item
+      }));
+      setIssues(rows || []);
+    }
+    if (error) {
+      console.error("Error Encountered while fetching issues:: " + error)
+    }
+  }, [data, error, isLoading]);
+
+  const handleIssueClick = (issue) => {
+    const selectedItem = issues?.find(item => item?.issue_id.toString() === issue?.id);
+    if (selectedItem) {
+      setSelectedIssue(selectedItem);
+      setIsViewIssueDetail(true);
+    }
   };
-
-  const handleIssueClick = (row: DataListRow) => {
-    if (!row?.id) return;
-
-    const issue = issues.find((item) => item.id === String(row.id));
-
-    if (!issue) return;
-
-    setSelectedIssue(issue);
-  };
-
-  if (selectedIssue) {
-    return <IssueDetail selectedIssue={selectedIssue} goToBack={handleBackToList} />;
-  }
 
   return (
-    <>
-      <div className="issue-tracker-page">
-        <div className="dv-toolbar issue-label-container">
-          <div>
-            <h3 className="issue-label">Registered Issues</h3>
-            <p className="issue-subtitle">
-              Track reported data quality issues, priorities, severity, and resolution status.
-            </p>
-          </div>
-
-          <div className="issue-toolbar-actions">
-            {isFetching && !isLoading && <InlineLoading description="Refreshing issues…" />}
-
-            <Button
-              size="md"
-              kind="primary"
-              renderIcon={Add}
-              className="dwh-btn-width"
-              onClick={handleOpenModal}
-            >
-              New Issue
-            </Button>
-          </div>
-        </div>
-
-        {isLoading && (
-          <Tile className="issue-container">
-            <InlineLoading description="Loading issues…" />
-          </Tile>
-        )}
-
-        {isError && (
-          <Tile className="issue-container">
-            <InlineNotification
-              kind="error"
-              lowContrast
-              title="Failed to load issues"
-              subtitle={
-                (error as any)?.data?.message ||
-                (error as any)?.error ||
-                "An unexpected error occurred while fetching issues."
+      <>
+        { isViewIssueDetail && selectedIssue ? (
+            <IssueDetail selectedIssue={selectedIssue} goToBack={() => setIsViewIssueDetail(false)}/>
+        ) : (
+            <>
+              <div className="dv-toolbar issue-label-container">
+                <div>
+                  <span className="issue-label"> Registered Issues </span>
+                </div>
+                <Button
+                    size="md"
+                    kind="primary"
+                    renderIcon={Add}
+                    className={`dwh-btn-width`}
+                    onClick={()=> setShowModal(true)}
+                >
+                  New Issue
+                </Button>
+              </div>
+              <div className="issue-container">
+                <DataList columns={headers} data={issues} handleIssueClick={handleIssueClick} closeView={() => setIsViewIssueDetail(false)}/>
+              </div>
+              {
+                  showModal && <IssueModal onClose={close}/>
               }
-            />
-
-            <div style={{ marginTop: "1rem" }}>
-              <Button kind="secondary" onClick={() => refetch()}>
-                Retry
-              </Button>
-            </div>
-          </Tile>
+            </>
         )}
-
-        {!isLoading && !isError && issues.length === 0 && (
-          <Tile className="issue-container issue-empty-state">
-            <h4>No issues found</h4>
-            <p>There are currently no registered issues. Create a new issue to start tracking.</p>
-
-            <Button kind="secondary" renderIcon={Add} onClick={handleOpenModal}>
-              Create first issue
-            </Button>
-          </Tile>
-        )}
-
-        {!isLoading && !isError && issues.length > 0 && (
-          <div className="issue-container">
-            <DataList columns={headers} data={issues} handleIssueClick={handleIssueClick} />
-          </div>
-        )}
-      </div>
-
-      {showModal && <IssueModal onClose={handleCloseModal} />}
-    </>
+      </>
   );
 };
 
