@@ -2,6 +2,8 @@ package announcements
 
 import (
 	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -70,6 +72,22 @@ func getAnnouncementID(c *gin.Context) (uuid.UUID, bool) {
 	return announcementID, true
 }
 
+func getAnnouncementAttachmentID(c *gin.Context) (uuid.UUID, bool) {
+	idParam := c.Param("attachmentId")
+	if idParam == "" {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "attachment id is required")
+		return uuid.Nil, false
+	}
+
+	attachmentID, err := uuid.Parse(idParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "invalid attachment id")
+		return uuid.Nil, false
+	}
+
+	return attachmentID, true
+}
+
 func getCurrentUserID(c *gin.Context) (uuid.UUID, bool) {
 	userID := utils.ToNullUUID(c.GetString("user_id"))
 	if !userID.Valid {
@@ -99,6 +117,10 @@ func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
 	res := make([]AnnouncementResponse, len(items))
 	for i, item := range items {
 		res[i] = toAnnouncementResponse(item)
+		attachments, err := h.announcementService.ListAttachments(c.Request.Context(), item.ID)
+		if err == nil {
+			res[i].AttachmentCount = len(attachments)
+		}
 	}
 
 	response.OK(c, http.StatusOK, res)
@@ -116,7 +138,8 @@ func (h *Handler) GetAnnouncementByID(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
+	attachments, _ := h.announcementService.ListAttachments(c.Request.Context(), item.ID)
+	response.OK(c, http.StatusOK, toAnnouncementResponseWithAttachments(item, attachments))
 }
 
 func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
@@ -147,6 +170,10 @@ func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 	res := make([]AnnouncementResponse, len(announcements))
 	for i, item := range announcements {
 		res[i] = toAnnouncementResponse(item)
+		attachments, err := h.announcementService.ListAttachments(c.Request.Context(), item.ID)
+		if err == nil {
+			res[i].AttachmentCount = len(attachments)
+		}
 	}
 
 	response.OK(c, http.StatusOK, res)
@@ -606,6 +633,223 @@ func (h *Handler) DeleteAnnouncement(c *gin.Context) {
 	response.OK(c, http.StatusOK, gin.H{
 		"message": "announcement deleted successfully",
 	})
+}
+
+func (h *Handler) UploadAnnouncementAttachment(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+
+	userID, ok := getCurrentUserID(c)
+	if !ok {
+		return
+	}
+
+	var input UploadAnnouncementAttachmentInput
+	includeInEmail := true
+
+	contentType := c.GetHeader("Content-Type")
+	if strings.HasPrefix(strings.ToLower(contentType), "multipart/form-data") {
+		file, err := c.FormFile("file")
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "file is required")
+			return
+		}
+
+		reader, err := file.Open()
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "failed to open uploaded file")
+			return
+		}
+		defer reader.Close()
+
+		if raw := strings.TrimSpace(c.PostForm("include_in_email")); raw != "" {
+			if parsed, err := strconv.ParseBool(raw); err == nil {
+				includeInEmail = parsed
+			}
+		}
+
+		sortOrder := int32(0)
+		if raw := strings.TrimSpace(c.PostForm("sort_order")); raw != "" {
+			if parsed, err := strconv.Atoi(raw); err == nil {
+				sortOrder = int32(parsed)
+			}
+		}
+
+		input = UploadAnnouncementAttachmentInput{
+			FileName:       file.Filename,
+			ContentType:    file.Header.Get("Content-Type"),
+			Reader:         reader,
+			Size:           file.Size,
+			IncludeInEmail: includeInEmail,
+			Inline:         strings.EqualFold(c.PostForm("inline"), "true"),
+			ContentID:      c.PostForm("content_id"),
+			SortOrder:      sortOrder,
+			UploadedBy:     userID,
+		}
+	} else {
+		var req createAnnouncementAttachmentRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+			return
+		}
+		if req.IncludeInEmail != nil {
+			includeInEmail = *req.IncludeInEmail
+		}
+		input = UploadAnnouncementAttachmentInput{
+			FileName:       req.FileName,
+			ContentType:    req.ContentType,
+			DataBase64:     req.DataBase64,
+			IncludeInEmail: includeInEmail,
+			Inline:         req.Inline,
+			ContentID:      req.ContentID,
+			SortOrder:      req.SortOrder,
+			UploadedBy:     userID,
+		}
+	}
+
+	attachment, err := h.announcementService.UploadAttachment(c.Request.Context(), announcementID, input)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+		return
+	}
+
+	if h.auditService != nil {
+		_ = h.auditService.Log(
+			c.Request.Context(),
+			uuid.NullUUID{UUID: userID, Valid: true},
+			"ANNOUNCEMENT_ATTACHMENT_UPLOADED",
+			map[string]any{
+				"announcement_id": announcementID.String(),
+				"attachment_id":   attachment.ID.String(),
+				"file_name":       attachment.OriginalFileName,
+			},
+		)
+	}
+
+	response.OK(c, http.StatusCreated, toAnnouncementAttachmentResponse(announcementID, attachment))
+}
+
+func (h *Handler) ListAnnouncementAttachments(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+
+	attachments, err := h.announcementService.ListAttachments(c.Request.Context(), announcementID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to list announcement attachments")
+		return
+	}
+
+	response.OK(c, http.StatusOK, toAnnouncementAttachmentResponses(announcementID, attachments))
+}
+
+func (h *Handler) DownloadAnnouncementAttachment(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+
+	attachmentID, ok := getAnnouncementAttachmentID(c)
+	if !ok {
+		return
+	}
+
+	download, err := h.announcementService.OpenAttachmentDownload(c.Request.Context(), announcementID, attachmentID)
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "announcement attachment not found")
+		return
+	}
+	defer download.Reader.Close()
+
+	contentType := nullStringValue(download.Attachment.ContentType)
+	if strings.TrimSpace(contentType) == "" {
+		contentType = "application/octet-stream"
+	}
+
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, download.Attachment.OriginalFileName))
+	c.Header("Content-Type", contentType)
+	_, _ = io.Copy(c.Writer, download.Reader)
+}
+
+func (h *Handler) UpdateAnnouncementAttachment(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+	attachmentID, ok := getAnnouncementAttachmentID(c)
+	if !ok {
+		return
+	}
+
+	var req updateAnnouncementAttachmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		return
+	}
+
+	userID, ok := getCurrentUserID(c)
+	if !ok {
+		return
+	}
+
+	attachment, err := h.announcementService.UpdateAttachment(
+		c.Request.Context(),
+		announcementID,
+		attachmentID,
+		UpdateAnnouncementAttachmentInput{
+			IncludeInEmail: req.IncludeInEmail,
+			Inline:         req.Inline,
+			ContentID:      req.ContentID,
+			SortOrder:      req.SortOrder,
+			UpdatedBy:      userID,
+		},
+	)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, toAnnouncementAttachmentResponse(announcementID, attachment))
+}
+
+func (h *Handler) DeleteAnnouncementAttachment(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+	attachmentID, ok := getAnnouncementAttachmentID(c)
+	if !ok {
+		return
+	}
+
+	userID, ok := getCurrentUserID(c)
+	if !ok {
+		return
+	}
+
+	attachment, err := h.announcementService.DeleteAttachment(c.Request.Context(), announcementID, attachmentID, userID)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+		return
+	}
+
+	if h.auditService != nil {
+		_ = h.auditService.Log(
+			c.Request.Context(),
+			uuid.NullUUID{UUID: userID, Valid: true},
+			"ANNOUNCEMENT_ATTACHMENT_DELETED",
+			map[string]any{
+				"announcement_id": announcementID.String(),
+				"attachment_id":   attachment.ID.String(),
+				"file_name":       attachment.OriginalFileName,
+			},
+		)
+	}
+
+	response.OK(c, http.StatusOK, gin.H{"message": "announcement attachment deleted successfully"})
 }
 
 func (h *Handler) SetAnnouncementPinned(c *gin.Context) {

@@ -295,6 +295,26 @@ type Announcement struct {
 	EmailNotificationSentAt sql.NullTime   `json:"email_notification_sent_at"`
 }
 
+type AnnouncementAttachment struct {
+	ID               uuid.UUID      `json:"id"`
+	AnnouncementID   uuid.UUID      `json:"announcement_id"`
+	FileName         string         `json:"file_name"`
+	OriginalFileName string         `json:"original_file_name"`
+	ContentType      sql.NullString `json:"content_type"`
+	FileSize         int64          `json:"file_size"`
+	StorageProvider  string         `json:"storage_provider"`
+	StorageKey       string         `json:"storage_key"`
+	Checksum         sql.NullString `json:"checksum"`
+	UploadedBy       uuid.NullUUID  `json:"uploaded_by"`
+	IncludeInEmail   bool           `json:"include_in_email"`
+	Inline           bool           `json:"inline"`
+	ContentID        sql.NullString `json:"content_id"`
+	SortOrder        int32          `json:"sort_order"`
+	CreatedAt        time.Time      `json:"created_at"`
+	DeletedAt        sql.NullTime   `json:"deleted_at"`
+	DeletedBy        uuid.NullUUID  `json:"deleted_by"`
+}
+
 type AnnouncementClient struct {
 	AnnouncementID uuid.UUID `json:"announcement_id"`
 	ClientID       uuid.UUID `json:"client_id"`

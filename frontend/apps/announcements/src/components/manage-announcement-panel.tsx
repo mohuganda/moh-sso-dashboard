@@ -9,6 +9,7 @@ import type {
 import { useCreateAnnouncementMutation, useUpdateAnnouncementMutation } from "@moh-sso/api";
 
 import { AnnouncementForm } from "./announcements-form.component";
+import { AnnouncementAttachments } from "./announcement-attachments.component";
 import { useToast } from "@moh-sso/ui";
 
 type ManageAnnouncementsPanelProps = {
@@ -86,6 +87,10 @@ export function ManageAnnouncementsPanel({
           onSubmit={handleSubmit}
           onCancel={onCancel}
         />
+
+        {mode === "edit" && announcement?.id ? (
+          <AnnouncementAttachments announcementId={announcement.id} />
+        ) : null}
       </Stack>
     </Tile>
   );

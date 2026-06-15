@@ -145,6 +145,7 @@ type Config struct {
 	// ==================================================
 	SMTP         SMTPConfig         `mapstructure:",squash"`
 	Email        EmailConfig        `mapstructure:",squash"`
+	Announcement AnnouncementConfig `mapstructure:",squash"`
 	Retry        RetryConfig        `mapstructure:",squash"`
 	Notification NotificationConfig `mapstructure:",squash"`
 }
@@ -164,6 +165,12 @@ type EmailConfig struct {
 	MaxAttachments         int    `mapstructure:"EMAIL_MAX_ATTACHMENTS"`
 	MaxAttachmentBytes     int64  `mapstructure:"EMAIL_MAX_ATTACHMENT_BYTES"`
 	AllowedAttachmentTypes string `mapstructure:"EMAIL_ALLOWED_ATTACHMENT_TYPES"`
+}
+
+type AnnouncementConfig struct {
+	MaxAttachments         int    `mapstructure:"ANNOUNCEMENT_MAX_ATTACHMENTS"`
+	MaxAttachmentBytes     int64  `mapstructure:"ANNOUNCEMENT_MAX_ATTACHMENT_BYTES"`
+	AllowedAttachmentTypes string `mapstructure:"ANNOUNCEMENT_ALLOWED_ATTACHMENT_TYPES"`
 }
 
 type RetryConfig struct {
@@ -266,6 +273,9 @@ func setDefaults() {
 	viper.SetDefault("EMAIL_MAX_ATTACHMENTS", 5)
 	viper.SetDefault("EMAIL_MAX_ATTACHMENT_BYTES", 10485760)
 	viper.SetDefault("EMAIL_ALLOWED_ATTACHMENT_TYPES", "pdf,doc,docx,xls,xlsx,csv,png,jpg,jpeg")
+	viper.SetDefault("ANNOUNCEMENT_MAX_ATTACHMENTS", 10)
+	viper.SetDefault("ANNOUNCEMENT_MAX_ATTACHMENT_BYTES", 10485760)
+	viper.SetDefault("ANNOUNCEMENT_ALLOWED_ATTACHMENT_TYPES", "pdf,doc,docx,xls,xlsx,csv,png,jpg,jpeg")
 
 	// ==================================================
 	// Retry defaults
@@ -284,96 +294,99 @@ func setDefaults() {
 
 func envBindings() map[string]string {
 	return map[string]string{
-		"ENVIRONMENT":                         "ENVIRONMENT",
-		"GIN_MODE":                            "GIN_MODE",
-		"FRONTEND_BASE_URL":                   "FRONTEND_BASE_URL",
-		"FRONTEND_REDIRECT_URI":               "FRONTEND_REDIRECT_URI",
-		"COOKIE_DOMAIN":                       "COOKIE_DOMAIN",
-		"LOGIN_URL":                           "LOGIN_URL",
-		"KEYCLOAK_VERSION":                    "KEYCLOAK_VERSION",
-		"KEYCLOAK_DB":                         "KEYCLOAK_DB",
-		"KEYCLOAK_DB_NAME":                    "KEYCLOAK_DB_NAME",
-		"KEYCLOAK_DB_USER":                    "KEYCLOAK_DB_USER",
-		"KEYCLOAK_DB_PASSWORD":                "KEYCLOAK_DB_PASSWORD",
-		"KEYCLOAK_ADMIN":                      "KEYCLOAK_ADMIN",
-		"KEYCLOAK_ADMIN_PASSWORD":             "KEYCLOAK_ADMIN_PASSWORD",
-		"KEYCLOAK_HOSTNAME":                   "KEYCLOAK_HOSTNAME",
-		"KEYCLOAK_INTERNAL_URL":               "KEYCLOAK_INTERNAL_URL",
-		"KEYCLOAK_EXTERNAL_URL":               "KEYCLOAK_EXTERNAL_URL",
-		"KEYCLOAK_BASE_URL":                   "KEYCLOAK_BASE_URL",
-		"KEYCLOAK_REALM":                      "KEYCLOAK_REALM",
-		"KEYCLOAK_ADMIN_CLIENT_ID":            "KEYCLOAK_ADMIN_CLIENT_ID",
-		"KEYCLOAK_ADMIN_CLIENT_SECRET":        "KEYCLOAK_ADMIN_CLIENT_SECRET",
-		"KEYCLOAK_WEB_CLIENT_ID":              "KEYCLOAK_WEB_CLIENT_ID",
-		"KEYCLOAK_WEB_CLIENT_SECRET":          "KEYCLOAK_WEB_CLIENT_SECRET",
-		"KEYCLOAK_REDIRECT_URI":               "KEYCLOAK_REDIRECT_URI",
-		"SERVER_PORT":                         "SERVER_PORT",
-		"APP_BASE_URL":                        "APP_BASE_URL",
-		"RBAC_STARTUP_SYNC_ENABLED":           "RBAC_STARTUP_SYNC_ENABLED",
-		"RBAC_STARTUP_SEED_ENABLED":           "RBAC_STARTUP_SEED_ENABLED",
-		"RBAC_STARTUP_SEED_PATH":              "RBAC_STARTUP_SEED_PATH",
-		"RBAC_STARTUP_SYNC_REALM_EXPORT":      "RBAC_STARTUP_SYNC_REALM_EXPORT",
-		"RBAC_STARTUP_SYNC_REALM_EXPORT_PATH": "RBAC_STARTUP_SYNC_REALM_EXPORT_PATH",
-		"RBAC_STARTUP_SYNC_LIVE_KEYCLOAK":     "RBAC_STARTUP_SYNC_LIVE_KEYCLOAK",
-		"RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK":  "RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK",
-		"RBAC_STARTUP_SYNC_USERS":             "RBAC_STARTUP_SYNC_USERS",
-		"RBAC_STARTUP_SYNC_FAIL_ON_ERROR":     "RBAC_STARTUP_SYNC_FAIL_ON_ERROR",
-		"ENABLE_TLS":                          "ENABLE_TLS",
-		"TLS_CERT":                            "TLS_CERT",
-		"TLS_KEY":                             "TLS_KEY",
-		"TLS_KEYCLOAK_CA_CERT_PATH":           "TLS_KEYCLOAK_CA_CERT_PATH",
-		"DB_DRIVER":                           "DB_DRIVER",
-		"DB_HOST":                             "DB_HOST",
-		"DB_PORT":                             "DB_PORT",
-		"DB_NAME":                             "DB_NAME",
-		"DB_USER":                             "DB_USER",
-		"DB_PASSWORD":                         "DB_PASSWORD",
-		"DB_ENABLE_SSL":                       "DB_ENABLE_SSL",
-		"REDIS_HOST":                          "REDIS_HOST",
-		"REDIS_PORT":                          "REDIS_PORT",
-		"REDIS_PASSWORD":                      "REDIS_PASSWORD",
-		"TOKEN_SYMMETRIC_KEY":                 "TOKEN_SYMMETRIC_KEY",
-		"ACCESS_TOKEN_DURATION":               "ACCESS_TOKEN_DURATION",
-		"REFRESH_TOKEN_DURATION":              "REFRESH_TOKEN_DURATION",
-		"STORAGE_PROVIDER":                    "STORAGE_PROVIDER",
-		"LOCAL_BASE_PATH":                     "LOCAL_BASE_PATH",
-		"NFS_BASE_PATH":                       "NFS_BASE_PATH",
-		"S3_BUCKET":                           "S3_BUCKET",
-		"S3_REGION":                           "S3_REGION",
-		"S3_ACCESS_KEY_ID":                    "S3_ACCESS_KEY_ID",
-		"S3_SECRET_ACCESS_KEY":                "S3_SECRET_ACCESS_KEY",
-		"MINIO_ENDPOINT":                      "MINIO_ENDPOINT",
-		"MINIO_REGION":                        "MINIO_REGION",
-		"MINIO_BUCKET":                        "MINIO_BUCKET",
-		"MINIO_ACCESS_KEY_ID":                 "MINIO_ACCESS_KEY_ID",
-		"MINIO_SECRET_ACCESS_KEY":             "MINIO_SECRET_ACCESS_KEY",
-		"REMOTE_DB_HOST":                      "REMOTE_DB_HOST",
-		"REMOTE_DB_PORT":                      "REMOTE_DB_PORT",
-		"REMOTE_DB_USER":                      "REMOTE_DB_USER",
-		"REMOTE_DB_PASSWORD":                  "REMOTE_DB_PASSWORD",
-		"REMOTE_DB_NAME":                      "REMOTE_DB_NAME",
-		"DWH_HOST":                            "DWH_HOST",
-		"DWH_PORT":                            "DWH_PORT",
-		"DWH_USERNAME":                        "DWH_USERNAME",
-		"DWH_PASSWORD":                        "DWH_PASSWORD",
-		"DWH_DB":                              "DWH_DB",
-		"SMTP_HOST":                           "SMTP_HOST",
-		"SMTP_PORT":                           "SMTP_PORT",
-		"SMTP_USERNAME":                       "SMTP_USERNAME",
-		"SMTP_PASSWORD":                       "SMTP_PASSWORD",
-		"SMTP_FROM_EMAIL":                     "SMTP_FROM_EMAIL",
-		"SMTP_FROM_NAME":                      "SMTP_FROM_NAME",
-		"SMTP_CONNECT_TIMEOUT":                "SMTP_CONNECT_TIMEOUT",
-		"SMTP_SEND_TIMEOUT":                   "SMTP_SEND_TIMEOUT",
-		"EMAIL_MAX_ATTACHMENTS":               "EMAIL_MAX_ATTACHMENTS",
-		"EMAIL_MAX_ATTACHMENT_BYTES":          "EMAIL_MAX_ATTACHMENT_BYTES",
-		"EMAIL_ALLOWED_ATTACHMENT_TYPES":      "EMAIL_ALLOWED_ATTACHMENT_TYPES",
-		"RETRY_MAX_ATTEMPTS":                  "RETRY_MAX_ATTEMPTS",
-		"RETRY_BASE_DELAY":                    "RETRY_BASE_DELAY",
-		"PLATFORM_NAME":                       "PLATFORM_NAME",
-		"SYSTEM_ADMIN_NAME":                   "SYSTEM_ADMIN_NAME",
-		"SYSTEM_ADMIN_EMAIL":                  "SYSTEM_ADMIN_EMAIL",
-		"ADMIN_DASHBOARD_URL":                 "ADMIN_DASHBOARD_URL",
+		"ENVIRONMENT":                           "ENVIRONMENT",
+		"GIN_MODE":                              "GIN_MODE",
+		"FRONTEND_BASE_URL":                     "FRONTEND_BASE_URL",
+		"FRONTEND_REDIRECT_URI":                 "FRONTEND_REDIRECT_URI",
+		"COOKIE_DOMAIN":                         "COOKIE_DOMAIN",
+		"LOGIN_URL":                             "LOGIN_URL",
+		"KEYCLOAK_VERSION":                      "KEYCLOAK_VERSION",
+		"KEYCLOAK_DB":                           "KEYCLOAK_DB",
+		"KEYCLOAK_DB_NAME":                      "KEYCLOAK_DB_NAME",
+		"KEYCLOAK_DB_USER":                      "KEYCLOAK_DB_USER",
+		"KEYCLOAK_DB_PASSWORD":                  "KEYCLOAK_DB_PASSWORD",
+		"KEYCLOAK_ADMIN":                        "KEYCLOAK_ADMIN",
+		"KEYCLOAK_ADMIN_PASSWORD":               "KEYCLOAK_ADMIN_PASSWORD",
+		"KEYCLOAK_HOSTNAME":                     "KEYCLOAK_HOSTNAME",
+		"KEYCLOAK_INTERNAL_URL":                 "KEYCLOAK_INTERNAL_URL",
+		"KEYCLOAK_EXTERNAL_URL":                 "KEYCLOAK_EXTERNAL_URL",
+		"KEYCLOAK_BASE_URL":                     "KEYCLOAK_BASE_URL",
+		"KEYCLOAK_REALM":                        "KEYCLOAK_REALM",
+		"KEYCLOAK_ADMIN_CLIENT_ID":              "KEYCLOAK_ADMIN_CLIENT_ID",
+		"KEYCLOAK_ADMIN_CLIENT_SECRET":          "KEYCLOAK_ADMIN_CLIENT_SECRET",
+		"KEYCLOAK_WEB_CLIENT_ID":                "KEYCLOAK_WEB_CLIENT_ID",
+		"KEYCLOAK_WEB_CLIENT_SECRET":            "KEYCLOAK_WEB_CLIENT_SECRET",
+		"KEYCLOAK_REDIRECT_URI":                 "KEYCLOAK_REDIRECT_URI",
+		"SERVER_PORT":                           "SERVER_PORT",
+		"APP_BASE_URL":                          "APP_BASE_URL",
+		"RBAC_STARTUP_SYNC_ENABLED":             "RBAC_STARTUP_SYNC_ENABLED",
+		"RBAC_STARTUP_SEED_ENABLED":             "RBAC_STARTUP_SEED_ENABLED",
+		"RBAC_STARTUP_SEED_PATH":                "RBAC_STARTUP_SEED_PATH",
+		"RBAC_STARTUP_SYNC_REALM_EXPORT":        "RBAC_STARTUP_SYNC_REALM_EXPORT",
+		"RBAC_STARTUP_SYNC_REALM_EXPORT_PATH":   "RBAC_STARTUP_SYNC_REALM_EXPORT_PATH",
+		"RBAC_STARTUP_SYNC_LIVE_KEYCLOAK":       "RBAC_STARTUP_SYNC_LIVE_KEYCLOAK",
+		"RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK":    "RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK",
+		"RBAC_STARTUP_SYNC_USERS":               "RBAC_STARTUP_SYNC_USERS",
+		"RBAC_STARTUP_SYNC_FAIL_ON_ERROR":       "RBAC_STARTUP_SYNC_FAIL_ON_ERROR",
+		"ENABLE_TLS":                            "ENABLE_TLS",
+		"TLS_CERT":                              "TLS_CERT",
+		"TLS_KEY":                               "TLS_KEY",
+		"TLS_KEYCLOAK_CA_CERT_PATH":             "TLS_KEYCLOAK_CA_CERT_PATH",
+		"DB_DRIVER":                             "DB_DRIVER",
+		"DB_HOST":                               "DB_HOST",
+		"DB_PORT":                               "DB_PORT",
+		"DB_NAME":                               "DB_NAME",
+		"DB_USER":                               "DB_USER",
+		"DB_PASSWORD":                           "DB_PASSWORD",
+		"DB_ENABLE_SSL":                         "DB_ENABLE_SSL",
+		"REDIS_HOST":                            "REDIS_HOST",
+		"REDIS_PORT":                            "REDIS_PORT",
+		"REDIS_PASSWORD":                        "REDIS_PASSWORD",
+		"TOKEN_SYMMETRIC_KEY":                   "TOKEN_SYMMETRIC_KEY",
+		"ACCESS_TOKEN_DURATION":                 "ACCESS_TOKEN_DURATION",
+		"REFRESH_TOKEN_DURATION":                "REFRESH_TOKEN_DURATION",
+		"STORAGE_PROVIDER":                      "STORAGE_PROVIDER",
+		"LOCAL_BASE_PATH":                       "LOCAL_BASE_PATH",
+		"NFS_BASE_PATH":                         "NFS_BASE_PATH",
+		"S3_BUCKET":                             "S3_BUCKET",
+		"S3_REGION":                             "S3_REGION",
+		"S3_ACCESS_KEY_ID":                      "S3_ACCESS_KEY_ID",
+		"S3_SECRET_ACCESS_KEY":                  "S3_SECRET_ACCESS_KEY",
+		"MINIO_ENDPOINT":                        "MINIO_ENDPOINT",
+		"MINIO_REGION":                          "MINIO_REGION",
+		"MINIO_BUCKET":                          "MINIO_BUCKET",
+		"MINIO_ACCESS_KEY_ID":                   "MINIO_ACCESS_KEY_ID",
+		"MINIO_SECRET_ACCESS_KEY":               "MINIO_SECRET_ACCESS_KEY",
+		"REMOTE_DB_HOST":                        "REMOTE_DB_HOST",
+		"REMOTE_DB_PORT":                        "REMOTE_DB_PORT",
+		"REMOTE_DB_USER":                        "REMOTE_DB_USER",
+		"REMOTE_DB_PASSWORD":                    "REMOTE_DB_PASSWORD",
+		"REMOTE_DB_NAME":                        "REMOTE_DB_NAME",
+		"DWH_HOST":                              "DWH_HOST",
+		"DWH_PORT":                              "DWH_PORT",
+		"DWH_USERNAME":                          "DWH_USERNAME",
+		"DWH_PASSWORD":                          "DWH_PASSWORD",
+		"DWH_DB":                                "DWH_DB",
+		"SMTP_HOST":                             "SMTP_HOST",
+		"SMTP_PORT":                             "SMTP_PORT",
+		"SMTP_USERNAME":                         "SMTP_USERNAME",
+		"SMTP_PASSWORD":                         "SMTP_PASSWORD",
+		"SMTP_FROM_EMAIL":                       "SMTP_FROM_EMAIL",
+		"SMTP_FROM_NAME":                        "SMTP_FROM_NAME",
+		"SMTP_CONNECT_TIMEOUT":                  "SMTP_CONNECT_TIMEOUT",
+		"SMTP_SEND_TIMEOUT":                     "SMTP_SEND_TIMEOUT",
+		"EMAIL_MAX_ATTACHMENTS":                 "EMAIL_MAX_ATTACHMENTS",
+		"EMAIL_MAX_ATTACHMENT_BYTES":            "EMAIL_MAX_ATTACHMENT_BYTES",
+		"EMAIL_ALLOWED_ATTACHMENT_TYPES":        "EMAIL_ALLOWED_ATTACHMENT_TYPES",
+		"ANNOUNCEMENT_MAX_ATTACHMENTS":          "ANNOUNCEMENT_MAX_ATTACHMENTS",
+		"ANNOUNCEMENT_MAX_ATTACHMENT_BYTES":     "ANNOUNCEMENT_MAX_ATTACHMENT_BYTES",
+		"ANNOUNCEMENT_ALLOWED_ATTACHMENT_TYPES": "ANNOUNCEMENT_ALLOWED_ATTACHMENT_TYPES",
+		"RETRY_MAX_ATTEMPTS":                    "RETRY_MAX_ATTEMPTS",
+		"RETRY_BASE_DELAY":                      "RETRY_BASE_DELAY",
+		"PLATFORM_NAME":                         "PLATFORM_NAME",
+		"SYSTEM_ADMIN_NAME":                     "SYSTEM_ADMIN_NAME",
+		"SYSTEM_ADMIN_EMAIL":                    "SYSTEM_ADMIN_EMAIL",
+		"ADMIN_DASHBOARD_URL":                   "ADMIN_DASHBOARD_URL",
 	}
 }
 
@@ -491,6 +504,13 @@ func normalizeConfig(c *Config) {
 	}
 	if c.Email.MaxAttachmentBytes <= 0 {
 		c.Email.MaxAttachmentBytes = 10 * 1024 * 1024
+	}
+	c.Announcement.AllowedAttachmentTypes = strings.TrimSpace(c.Announcement.AllowedAttachmentTypes)
+	if c.Announcement.MaxAttachments <= 0 {
+		c.Announcement.MaxAttachments = 10
+	}
+	if c.Announcement.MaxAttachmentBytes <= 0 {
+		c.Announcement.MaxAttachmentBytes = 10 * 1024 * 1024
 	}
 
 	c.Notification.PlatformName = strings.TrimSpace(c.Notification.PlatformName)

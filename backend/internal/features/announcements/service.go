@@ -17,6 +17,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	models "github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
+	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
@@ -24,6 +25,7 @@ type Service struct {
 	repo          Repository
 	userRepo      userRepository.UserRepository
 	notifications sharedservice.NotificationsService
+	storage       storage.Storage
 	cfg           *config.Config
 }
 
@@ -37,6 +39,7 @@ func NewService(
 	repo Repository,
 	userRepo userRepository.UserRepository,
 	notifications sharedservice.NotificationsService,
+	fileStorage storage.Storage,
 	cfg ...*config.Config,
 ) *Service {
 	var appConfig *config.Config
@@ -48,6 +51,7 @@ func NewService(
 		repo:          repo,
 		userRepo:      userRepo,
 		notifications: notifications,
+		storage:       fileStorage,
 		cfg:           appConfig,
 	}
 }
@@ -684,6 +688,10 @@ func (s *Service) PublishAnnouncementNow(
 			if err != nil {
 				return item, err
 			}
+			emailOptions, err = s.withPersistedAnnouncementEmailAttachments(ctx, item.ID, emailOptions)
+			if err != nil {
+				return item, err
+			}
 			s.attachAnnouncementEmailDelivery(&notification, item, recipients, emailOptions)
 
 			markedItem, err := s.repo.MarkEmailNotificationSent(ctx, item.ID)
@@ -774,6 +782,10 @@ func (s *Service) ScheduleAnnouncement(
 
 		if len(recipients) > 0 {
 			emailOptions, err := s.normalizeAnnouncementEmailOptions(options...)
+			if err != nil {
+				return item, err
+			}
+			emailOptions, err = s.withPersistedAnnouncementEmailAttachments(ctx, item.ID, emailOptions)
 			if err != nil {
 				return item, err
 			}

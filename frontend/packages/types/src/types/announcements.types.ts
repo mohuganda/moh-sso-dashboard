@@ -37,6 +37,8 @@ export interface Announcement {
   deleted_at: string | null;
   deleted_by: string | null;
   version: number;
+  attachments?: AnnouncementAttachment[];
+  attachment_count?: number;
 }
 
 export interface ListAnnouncementsParams {
@@ -73,6 +75,44 @@ export interface AnnouncementEmailAttachment {
   data_base64?: string;
   content_id?: string;
   inline?: boolean;
+}
+
+export interface AnnouncementAttachment {
+  id: string;
+  announcement_id: string;
+  file_name: string;
+  original_file_name: string;
+  content_type?: string | null;
+  file_size: number;
+  storage_provider: string;
+  checksum?: string | null;
+  uploaded_by?: string | null;
+  include_in_email: boolean;
+  inline: boolean;
+  content_id?: string | null;
+  sort_order: number;
+  created_at: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
+  download_url?: string;
+}
+
+export interface UploadAnnouncementAttachmentRequest {
+  announcementId: string;
+  file: File;
+  include_in_email?: boolean;
+  inline?: boolean;
+  content_id?: string;
+  sort_order?: number;
+}
+
+export interface UpdateAnnouncementAttachmentRequest {
+  announcementId: string;
+  attachmentId: string;
+  include_in_email?: boolean;
+  inline?: boolean;
+  content_id?: string | null;
+  sort_order?: number;
 }
 
 export interface PublishAnnouncementRequest {

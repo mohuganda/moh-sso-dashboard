@@ -140,6 +140,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.Repositories.Announcements,
 		deps.Repositories.Users,
 		notificationsService,
+		deps.FileStorage,
 		deps.Config,
 	)
 

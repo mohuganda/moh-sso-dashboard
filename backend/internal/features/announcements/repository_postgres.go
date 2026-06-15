@@ -84,6 +84,97 @@ func (r *announcementsRepository) Update(
 	return item, nil
 }
 
+func (r *announcementsRepository) CreateAttachment(
+	ctx context.Context,
+	params db.CreateAnnouncementAttachmentParams,
+) (db.AnnouncementAttachment, error) {
+	item, err := r.db.CreateAnnouncementAttachment(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to create announcement attachment", err)
+		return db.AnnouncementAttachment{}, fmt.Errorf("create announcement attachment: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) ListAttachmentsByAnnouncementID(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]db.AnnouncementAttachment, error) {
+	items, err := r.db.ListAnnouncementAttachmentsByAnnouncementID(ctx, announcementID)
+	if err != nil {
+		r.logger.Error("failed to list announcement attachments", err)
+		return nil, fmt.Errorf("list announcement attachments: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) ListEmailAttachments(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]db.AnnouncementAttachment, error) {
+	items, err := r.db.ListAnnouncementEmailAttachments(ctx, announcementID)
+	if err != nil {
+		r.logger.Error("failed to list announcement email attachments", err)
+		return nil, fmt.Errorf("list announcement email attachments: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) CountAttachments(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) (int64, error) {
+	count, err := r.db.CountAnnouncementAttachments(ctx, announcementID)
+	if err != nil {
+		r.logger.Error("failed to count announcement attachments", err)
+		return 0, fmt.Errorf("count announcement attachments: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *announcementsRepository) GetAttachmentByID(
+	ctx context.Context,
+	params db.GetAnnouncementAttachmentByIDParams,
+) (db.AnnouncementAttachment, error) {
+	item, err := r.db.GetAnnouncementAttachmentByID(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to get announcement attachment", err)
+		return db.AnnouncementAttachment{}, fmt.Errorf("get announcement attachment: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) UpdateAttachment(
+	ctx context.Context,
+	params db.UpdateAnnouncementAttachmentParams,
+) (db.AnnouncementAttachment, error) {
+	item, err := r.db.UpdateAnnouncementAttachment(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to update announcement attachment", err)
+		return db.AnnouncementAttachment{}, fmt.Errorf("update announcement attachment: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) SoftDeleteAttachment(
+	ctx context.Context,
+	params db.SoftDeleteAnnouncementAttachmentParams,
+) (db.AnnouncementAttachment, error) {
+	item, err := r.db.SoftDeleteAnnouncementAttachment(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to delete announcement attachment", err)
+		return db.AnnouncementAttachment{}, fmt.Errorf("delete announcement attachment: %w", err)
+	}
+
+	return item, nil
+}
+
 func (r *announcementsRepository) SoftDelete(
 	ctx context.Context,
 	id uuid.UUID,

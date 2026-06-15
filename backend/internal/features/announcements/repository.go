@@ -17,6 +17,13 @@ type AnnouncementRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (db.Announcement, error)
 	Update(ctx context.Context, params db.UpdateAnnouncementParams) (db.Announcement, error)
 	MarkEmailNotificationSent(ctx context.Context, id uuid.UUID) (db.Announcement, error)
+	CreateAttachment(ctx context.Context, params db.CreateAnnouncementAttachmentParams) (db.AnnouncementAttachment, error)
+	ListAttachmentsByAnnouncementID(ctx context.Context, announcementID uuid.UUID) ([]db.AnnouncementAttachment, error)
+	ListEmailAttachments(ctx context.Context, announcementID uuid.UUID) ([]db.AnnouncementAttachment, error)
+	CountAttachments(ctx context.Context, announcementID uuid.UUID) (int64, error)
+	GetAttachmentByID(ctx context.Context, params db.GetAnnouncementAttachmentByIDParams) (db.AnnouncementAttachment, error)
+	UpdateAttachment(ctx context.Context, params db.UpdateAnnouncementAttachmentParams) (db.AnnouncementAttachment, error)
+	SoftDeleteAttachment(ctx context.Context, params db.SoftDeleteAnnouncementAttachmentParams) (db.AnnouncementAttachment, error)
 
 	SoftDelete(
 		ctx context.Context,

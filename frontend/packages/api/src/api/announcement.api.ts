@@ -1,14 +1,18 @@
 import type {
   Announcement,
+  AnnouncementAttachment,
   AnnouncementStats,
   CreateAnnouncementRequest,
   ListAnnouncementsParams,
   PublishAnnouncementRequest,
   UpdateAnnouncementRequest,
+  UpdateAnnouncementAttachmentRequest,
+  UploadAnnouncementAttachmentRequest,
   ScheduleAnnouncementRequest,
   SetAnnouncementPinnedRequest,
   SetAnnouncementPriorityRequest,
 } from "@moh-sso/types";
+import { API } from "@moh-sso/config";
 import { baseApi } from "./baseApi";
 
 type ApiEnvelope<T> = {
@@ -218,6 +222,75 @@ export const announcementApi = baseApi.injectEndpoints({
       ],
     }),
 
+    listAnnouncementAttachments: builder.query<AnnouncementAttachment[], string>({
+      query: (announcementId) => ({
+        url: `/admin/announcements/${announcementId}/attachments`,
+      }),
+      transformResponse: (response: ApiEnvelope<AnnouncementAttachment[]>) => response.data,
+      providesTags: (_result, _error, announcementId) => [
+        { type: "Announcements" as const, id: announcementId },
+      ],
+    }),
+
+    uploadAnnouncementAttachment: builder.mutation<
+      AnnouncementAttachment,
+      UploadAnnouncementAttachmentRequest
+    >({
+      query: ({ announcementId, file, include_in_email = true, inline = false, content_id, sort_order }) => {
+        const body = new FormData();
+        body.append("file", file);
+        body.append("include_in_email", String(include_in_email));
+        body.append("inline", String(inline));
+        if (content_id) {
+          body.append("content_id", content_id);
+        }
+        if (typeof sort_order === "number") {
+          body.append("sort_order", String(sort_order));
+        }
+
+        return {
+          url: `/admin/announcements/${announcementId}/attachments`,
+          method: "POST",
+          body,
+        };
+      },
+      transformResponse: (response: ApiEnvelope<AnnouncementAttachment>) => response.data,
+      invalidatesTags: (_result, _error, { announcementId }) => [
+        { type: "Announcements", id: announcementId },
+        { type: "Announcements", id: "LIST" },
+      ],
+    }),
+
+    updateAnnouncementAttachment: builder.mutation<
+      AnnouncementAttachment,
+      UpdateAnnouncementAttachmentRequest
+    >({
+      query: ({ announcementId, attachmentId, ...body }) => ({
+        url: `/admin/announcements/${announcementId}/attachments/${attachmentId}`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (response: ApiEnvelope<AnnouncementAttachment>) => response.data,
+      invalidatesTags: (_result, _error, { announcementId }) => [
+        { type: "Announcements", id: announcementId },
+      ],
+    }),
+
+    deleteAnnouncementAttachment: builder.mutation<
+      { message: string },
+      { announcementId: string; attachmentId: string }
+    >({
+      query: ({ announcementId, attachmentId }) => ({
+        url: `/admin/announcements/${announcementId}/attachments/${attachmentId}`,
+        method: "DELETE",
+      }),
+      transformResponse: (response: ApiEnvelope<{ message: string }>) => response.data,
+      invalidatesTags: (_result, _error, { announcementId }) => [
+        { type: "Announcements", id: announcementId },
+        { type: "Announcements", id: "LIST" },
+      ],
+    }),
+
     listMyAnnouncements: builder.query<Announcement[], ListAnnouncementsParams | void>({
       query: (params) => ({
         url: "/announcements/me",
@@ -262,6 +335,13 @@ export const announcementApi = baseApi.injectEndpoints({
   overrideExisting: false,
 });
 
+export function buildAnnouncementAttachmentDownloadUrl(
+  announcementId: string,
+  attachmentId: string,
+) {
+  return `${API.base}/admin/announcements/${announcementId}/attachments/${attachmentId}/download`;
+}
+
 export const {
   useListAnnouncementsAdminQuery,
   useGetAnnouncementByIdQuery,
@@ -276,6 +356,10 @@ export const {
   useArchiveAnnouncementMutation,
   useSetAnnouncementPinnedMutation,
   useSetAnnouncementPriorityMutation,
+  useListAnnouncementAttachmentsQuery,
+  useUploadAnnouncementAttachmentMutation,
+  useUpdateAnnouncementAttachmentMutation,
+  useDeleteAnnouncementAttachmentMutation,
   useListMyAnnouncementsQuery,
   useListPublicAnnouncementsQuery,
 } = announcementApi;

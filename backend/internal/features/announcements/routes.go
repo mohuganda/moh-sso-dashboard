@@ -34,6 +34,11 @@ func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler, limiter *rate
 	{
 		announcements.GET("", middleware.RequirePermission(authz.PermissionAnnouncementsRead), handler.ListAnnouncementsAdmin)
 		announcements.GET("/stats", middleware.RequirePermission(authz.PermissionAnnouncementsRead), handler.GetAnnouncementStats)
+		announcements.GET("/:id/attachments", middleware.RequirePermission(authz.PermissionAnnouncementsRead), handler.ListAnnouncementAttachments)
+		announcements.GET("/:id/attachments/:attachmentId/download", middleware.RequirePermission(authz.PermissionAnnouncementsRead), handler.DownloadAnnouncementAttachment)
+		announcements.POST("/:id/attachments", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.UploadAnnouncementAttachment)
+		announcements.PATCH("/:id/attachments/:attachmentId", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.UpdateAnnouncementAttachment)
+		announcements.DELETE("/:id/attachments/:attachmentId", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.DeleteAnnouncementAttachment)
 		announcements.GET("/:id", middleware.RequirePermission(authz.PermissionAnnouncementsRead), handler.GetAnnouncementByID)
 		announcements.POST("", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.CreateAnnouncement)
 		announcements.PUT("/:id", middleware.RequirePermission(authz.PermissionAnnouncementsWrite), writeLimit, handler.UpdateAnnouncement)

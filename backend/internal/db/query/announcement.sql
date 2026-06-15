@@ -51,6 +51,85 @@ FROM announcements
 WHERE deleted_at IS NULL;
 
 
+-- name: CreateAnnouncementAttachment :one
+INSERT INTO announcement_attachments (
+    id,
+    announcement_id,
+    file_name,
+    original_file_name,
+    content_type,
+    file_size,
+    storage_provider,
+    storage_key,
+    checksum,
+    uploaded_by,
+    include_in_email,
+    inline,
+    content_id,
+    sort_order
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+)
+RETURNING *;
+
+
+-- name: ListAnnouncementAttachmentsByAnnouncementID :many
+SELECT *
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+ORDER BY sort_order ASC, created_at ASC;
+
+
+-- name: ListAnnouncementEmailAttachments :many
+SELECT *
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+  AND include_in_email = TRUE
+ORDER BY sort_order ASC, created_at ASC;
+
+
+-- name: CountAnnouncementAttachments :one
+SELECT COUNT(*)::bigint
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL;
+
+
+-- name: GetAnnouncementAttachmentByID :one
+SELECT *
+FROM announcement_attachments
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+LIMIT 1;
+
+
+-- name: UpdateAnnouncementAttachment :one
+UPDATE announcement_attachments
+SET
+    include_in_email = $3,
+    inline = $4,
+    content_id = $5,
+    sort_order = $6
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+RETURNING *;
+
+
+-- name: SoftDeleteAnnouncementAttachment :one
+UPDATE announcement_attachments
+SET
+    deleted_at = now(),
+    deleted_by = $3
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+RETURNING *;
+
+
 -- name: ListAnnouncementsByStatus :many
 SELECT *
 FROM announcements

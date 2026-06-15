@@ -56,6 +56,52 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 	}
 }
 
+func toAnnouncementResponseWithAttachments(
+	a db.Announcement,
+	attachments []db.AnnouncementAttachment,
+) AnnouncementResponse {
+	res := toAnnouncementResponse(a)
+	res.Attachments = toAnnouncementAttachmentResponses(a.ID, attachments)
+	res.AttachmentCount = len(res.Attachments)
+	return res
+}
+
+func toAnnouncementAttachmentResponse(
+	announcementID uuid.UUID,
+	attachment db.AnnouncementAttachment,
+) AnnouncementAttachmentResponse {
+	return AnnouncementAttachmentResponse{
+		ID:               attachment.ID.String(),
+		AnnouncementID:   attachment.AnnouncementID.String(),
+		FileName:         attachment.FileName,
+		OriginalFileName: attachment.OriginalFileName,
+		ContentType:      nullStringPtr(attachment.ContentType),
+		FileSize:         attachment.FileSize,
+		StorageProvider:  attachment.StorageProvider,
+		Checksum:         nullStringPtr(attachment.Checksum),
+		UploadedBy:       nullableUUID(attachment.UploadedBy),
+		IncludeInEmail:   attachment.IncludeInEmail,
+		Inline:           attachment.Inline,
+		ContentID:        nullStringPtr(attachment.ContentID),
+		SortOrder:        attachment.SortOrder,
+		CreatedAt:        attachment.CreatedAt,
+		DeletedAt:        nullTimePtr(attachment.DeletedAt),
+		DeletedBy:        nullableUUID(attachment.DeletedBy),
+		DownloadURL:      "/api/v1/admin/announcements/" + announcementID.String() + "/attachments/" + attachment.ID.String() + "/download",
+	}
+}
+
+func toAnnouncementAttachmentResponses(
+	announcementID uuid.UUID,
+	attachments []db.AnnouncementAttachment,
+) []AnnouncementAttachmentResponse {
+	out := make([]AnnouncementAttachmentResponse, 0, len(attachments))
+	for _, attachment := range attachments {
+		out = append(out, toAnnouncementAttachmentResponse(announcementID, attachment))
+	}
+	return out
+}
+
 func mapAnnouncementAttachments(in []announcementAttachmentRequest) []model.Attachment {
 	out := make([]model.Attachment, 0, len(in))
 	for _, attachment := range in {
@@ -90,7 +136,7 @@ func includeAnnouncementAttachments(value *bool, hasAttachments bool) bool {
 	if value != nil {
 		return *value
 	}
-	return hasAttachments
+	return true
 }
 
 func nullableString(s *string) sql.NullString {

@@ -1752,3 +1752,330 @@ func (q *Queries) UpdateAnnouncementStatus(ctx context.Context, arg UpdateAnnoun
 	)
 	return i, err
 }
+
+const createAnnouncementAttachment = `-- name: CreateAnnouncementAttachment :one
+INSERT INTO announcement_attachments (
+    id,
+    announcement_id,
+    file_name,
+    original_file_name,
+    content_type,
+    file_size,
+    storage_provider,
+    storage_key,
+    checksum,
+    uploaded_by,
+    include_in_email,
+    inline,
+    content_id,
+    sort_order
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+)
+RETURNING id, announcement_id, file_name, original_file_name, content_type, file_size, storage_provider, storage_key, checksum, uploaded_by, include_in_email, inline, content_id, sort_order, created_at, deleted_at, deleted_by
+`
+
+type CreateAnnouncementAttachmentParams struct {
+	ID               uuid.UUID      `json:"id"`
+	AnnouncementID   uuid.UUID      `json:"announcement_id"`
+	FileName         string         `json:"file_name"`
+	OriginalFileName string         `json:"original_file_name"`
+	ContentType      sql.NullString `json:"content_type"`
+	FileSize         int64          `json:"file_size"`
+	StorageProvider  string         `json:"storage_provider"`
+	StorageKey       string         `json:"storage_key"`
+	Checksum         sql.NullString `json:"checksum"`
+	UploadedBy       uuid.NullUUID  `json:"uploaded_by"`
+	IncludeInEmail   bool           `json:"include_in_email"`
+	Inline           bool           `json:"inline"`
+	ContentID        sql.NullString `json:"content_id"`
+	SortOrder        int32          `json:"sort_order"`
+}
+
+func (q *Queries) CreateAnnouncementAttachment(ctx context.Context, arg CreateAnnouncementAttachmentParams) (AnnouncementAttachment, error) {
+	row := q.db.QueryRowContext(ctx, createAnnouncementAttachment,
+		arg.ID,
+		arg.AnnouncementID,
+		arg.FileName,
+		arg.OriginalFileName,
+		arg.ContentType,
+		arg.FileSize,
+		arg.StorageProvider,
+		arg.StorageKey,
+		arg.Checksum,
+		arg.UploadedBy,
+		arg.IncludeInEmail,
+		arg.Inline,
+		arg.ContentID,
+		arg.SortOrder,
+	)
+	var i AnnouncementAttachment
+	err := row.Scan(
+		&i.ID,
+		&i.AnnouncementID,
+		&i.FileName,
+		&i.OriginalFileName,
+		&i.ContentType,
+		&i.FileSize,
+		&i.StorageProvider,
+		&i.StorageKey,
+		&i.Checksum,
+		&i.UploadedBy,
+		&i.IncludeInEmail,
+		&i.Inline,
+		&i.ContentID,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+	)
+	return i, err
+}
+
+const listAnnouncementAttachmentsByAnnouncementID = `-- name: ListAnnouncementAttachmentsByAnnouncementID :many
+SELECT id, announcement_id, file_name, original_file_name, content_type, file_size, storage_provider, storage_key, checksum, uploaded_by, include_in_email, inline, content_id, sort_order, created_at, deleted_at, deleted_by
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+ORDER BY sort_order ASC, created_at ASC
+`
+
+func (q *Queries) ListAnnouncementAttachmentsByAnnouncementID(ctx context.Context, announcementID uuid.UUID) ([]AnnouncementAttachment, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementAttachmentsByAnnouncementID, announcementID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AnnouncementAttachment{}
+	for rows.Next() {
+		var i AnnouncementAttachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.AnnouncementID,
+			&i.FileName,
+			&i.OriginalFileName,
+			&i.ContentType,
+			&i.FileSize,
+			&i.StorageProvider,
+			&i.StorageKey,
+			&i.Checksum,
+			&i.UploadedBy,
+			&i.IncludeInEmail,
+			&i.Inline,
+			&i.ContentID,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnnouncementEmailAttachments = `-- name: ListAnnouncementEmailAttachments :many
+SELECT id, announcement_id, file_name, original_file_name, content_type, file_size, storage_provider, storage_key, checksum, uploaded_by, include_in_email, inline, content_id, sort_order, created_at, deleted_at, deleted_by
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+  AND include_in_email = TRUE
+ORDER BY sort_order ASC, created_at ASC
+`
+
+func (q *Queries) ListAnnouncementEmailAttachments(ctx context.Context, announcementID uuid.UUID) ([]AnnouncementAttachment, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementEmailAttachments, announcementID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AnnouncementAttachment{}
+	for rows.Next() {
+		var i AnnouncementAttachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.AnnouncementID,
+			&i.FileName,
+			&i.OriginalFileName,
+			&i.ContentType,
+			&i.FileSize,
+			&i.StorageProvider,
+			&i.StorageKey,
+			&i.Checksum,
+			&i.UploadedBy,
+			&i.IncludeInEmail,
+			&i.Inline,
+			&i.ContentID,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countAnnouncementAttachments = `-- name: CountAnnouncementAttachments :one
+SELECT COUNT(*)::bigint
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+`
+
+func (q *Queries) CountAnnouncementAttachments(ctx context.Context, announcementID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAnnouncementAttachments, announcementID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const getAnnouncementAttachmentByID = `-- name: GetAnnouncementAttachmentByID :one
+SELECT id, announcement_id, file_name, original_file_name, content_type, file_size, storage_provider, storage_key, checksum, uploaded_by, include_in_email, inline, content_id, sort_order, created_at, deleted_at, deleted_by
+FROM announcement_attachments
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+type GetAnnouncementAttachmentByIDParams struct {
+	ID             uuid.UUID `json:"id"`
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+}
+
+func (q *Queries) GetAnnouncementAttachmentByID(ctx context.Context, arg GetAnnouncementAttachmentByIDParams) (AnnouncementAttachment, error) {
+	row := q.db.QueryRowContext(ctx, getAnnouncementAttachmentByID, arg.ID, arg.AnnouncementID)
+	var i AnnouncementAttachment
+	err := row.Scan(
+		&i.ID,
+		&i.AnnouncementID,
+		&i.FileName,
+		&i.OriginalFileName,
+		&i.ContentType,
+		&i.FileSize,
+		&i.StorageProvider,
+		&i.StorageKey,
+		&i.Checksum,
+		&i.UploadedBy,
+		&i.IncludeInEmail,
+		&i.Inline,
+		&i.ContentID,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+	)
+	return i, err
+}
+
+const updateAnnouncementAttachment = `-- name: UpdateAnnouncementAttachment :one
+UPDATE announcement_attachments
+SET
+    include_in_email = $3,
+    inline = $4,
+    content_id = $5,
+    sort_order = $6
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+RETURNING id, announcement_id, file_name, original_file_name, content_type, file_size, storage_provider, storage_key, checksum, uploaded_by, include_in_email, inline, content_id, sort_order, created_at, deleted_at, deleted_by
+`
+
+type UpdateAnnouncementAttachmentParams struct {
+	ID             uuid.UUID      `json:"id"`
+	AnnouncementID uuid.UUID      `json:"announcement_id"`
+	IncludeInEmail bool           `json:"include_in_email"`
+	Inline         bool           `json:"inline"`
+	ContentID      sql.NullString `json:"content_id"`
+	SortOrder      int32          `json:"sort_order"`
+}
+
+func (q *Queries) UpdateAnnouncementAttachment(ctx context.Context, arg UpdateAnnouncementAttachmentParams) (AnnouncementAttachment, error) {
+	row := q.db.QueryRowContext(ctx, updateAnnouncementAttachment,
+		arg.ID,
+		arg.AnnouncementID,
+		arg.IncludeInEmail,
+		arg.Inline,
+		arg.ContentID,
+		arg.SortOrder,
+	)
+	var i AnnouncementAttachment
+	err := row.Scan(
+		&i.ID,
+		&i.AnnouncementID,
+		&i.FileName,
+		&i.OriginalFileName,
+		&i.ContentType,
+		&i.FileSize,
+		&i.StorageProvider,
+		&i.StorageKey,
+		&i.Checksum,
+		&i.UploadedBy,
+		&i.IncludeInEmail,
+		&i.Inline,
+		&i.ContentID,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+	)
+	return i, err
+}
+
+const softDeleteAnnouncementAttachment = `-- name: SoftDeleteAnnouncementAttachment :one
+UPDATE announcement_attachments
+SET
+    deleted_at = now(),
+    deleted_by = $3
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+RETURNING id, announcement_id, file_name, original_file_name, content_type, file_size, storage_provider, storage_key, checksum, uploaded_by, include_in_email, inline, content_id, sort_order, created_at, deleted_at, deleted_by
+`
+
+type SoftDeleteAnnouncementAttachmentParams struct {
+	ID             uuid.UUID     `json:"id"`
+	AnnouncementID uuid.UUID     `json:"announcement_id"`
+	DeletedBy      uuid.NullUUID `json:"deleted_by"`
+}
+
+func (q *Queries) SoftDeleteAnnouncementAttachment(ctx context.Context, arg SoftDeleteAnnouncementAttachmentParams) (AnnouncementAttachment, error) {
+	row := q.db.QueryRowContext(ctx, softDeleteAnnouncementAttachment, arg.ID, arg.AnnouncementID, arg.DeletedBy)
+	var i AnnouncementAttachment
+	err := row.Scan(
+		&i.ID,
+		&i.AnnouncementID,
+		&i.FileName,
+		&i.OriginalFileName,
+		&i.ContentType,
+		&i.FileSize,
+		&i.StorageProvider,
+		&i.StorageKey,
+		&i.Checksum,
+		&i.UploadedBy,
+		&i.IncludeInEmail,
+		&i.Inline,
+		&i.ContentID,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
+	)
+	return i, err
+}
