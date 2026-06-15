@@ -60,8 +60,23 @@ func toAnnouncementResponseWithAttachments(
 	a db.Announcement,
 	attachments []db.AnnouncementAttachment,
 ) AnnouncementResponse {
+	return toAnnouncementResponseWithAttachmentBase(a, attachments, "/api/v1/admin/announcements")
+}
+
+func toUserAnnouncementResponseWithAttachments(
+	a db.Announcement,
+	attachments []db.AnnouncementAttachment,
+) AnnouncementResponse {
+	return toAnnouncementResponseWithAttachmentBase(a, attachments, "/api/v1/announcements")
+}
+
+func toAnnouncementResponseWithAttachmentBase(
+	a db.Announcement,
+	attachments []db.AnnouncementAttachment,
+	downloadBasePath string,
+) AnnouncementResponse {
 	res := toAnnouncementResponse(a)
-	res.Attachments = toAnnouncementAttachmentResponses(a.ID, attachments)
+	res.Attachments = toAnnouncementAttachmentResponses(a.ID, attachments, downloadBasePath)
 	res.AttachmentCount = len(res.Attachments)
 	return res
 }
@@ -70,6 +85,26 @@ func toAnnouncementAttachmentResponse(
 	announcementID uuid.UUID,
 	attachment db.AnnouncementAttachment,
 ) AnnouncementAttachmentResponse {
+	return toAnnouncementAttachmentResponseWithDownloadBase(announcementID, attachment, "/api/v1/admin/announcements")
+}
+
+func toUserAnnouncementAttachmentResponse(
+	announcementID uuid.UUID,
+	attachment db.AnnouncementAttachment,
+) AnnouncementAttachmentResponse {
+	return toAnnouncementAttachmentResponseWithDownloadBase(announcementID, attachment, "/api/v1/announcements")
+}
+
+func toAnnouncementAttachmentResponseWithDownloadBase(
+	announcementID uuid.UUID,
+	attachment db.AnnouncementAttachment,
+	downloadBasePath string,
+) AnnouncementAttachmentResponse {
+	downloadBasePath = strings.TrimRight(strings.TrimSpace(downloadBasePath), "/")
+	if downloadBasePath == "" {
+		downloadBasePath = "/api/v1/admin/announcements"
+	}
+
 	return AnnouncementAttachmentResponse{
 		ID:               attachment.ID.String(),
 		AnnouncementID:   attachment.AnnouncementID.String(),
@@ -87,17 +122,23 @@ func toAnnouncementAttachmentResponse(
 		CreatedAt:        attachment.CreatedAt,
 		DeletedAt:        nullTimePtr(attachment.DeletedAt),
 		DeletedBy:        nullableUUID(attachment.DeletedBy),
-		DownloadURL:      "/api/v1/admin/announcements/" + announcementID.String() + "/attachments/" + attachment.ID.String() + "/download",
+		DownloadURL:      downloadBasePath + "/" + announcementID.String() + "/attachments/" + attachment.ID.String() + "/download",
 	}
 }
 
 func toAnnouncementAttachmentResponses(
 	announcementID uuid.UUID,
 	attachments []db.AnnouncementAttachment,
+	downloadBasePath ...string,
 ) []AnnouncementAttachmentResponse {
+	basePath := "/api/v1/admin/announcements"
+	if len(downloadBasePath) > 0 && strings.TrimSpace(downloadBasePath[0]) != "" {
+		basePath = downloadBasePath[0]
+	}
+
 	out := make([]AnnouncementAttachmentResponse, 0, len(attachments))
 	for _, attachment := range attachments {
-		out = append(out, toAnnouncementAttachmentResponse(announcementID, attachment))
+		out = append(out, toAnnouncementAttachmentResponseWithDownloadBase(announcementID, attachment, basePath))
 	}
 	return out
 }

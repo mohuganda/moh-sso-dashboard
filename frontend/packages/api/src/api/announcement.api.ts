@@ -342,6 +342,13 @@ export function buildAnnouncementAttachmentDownloadUrl(
   return `${API.base}/admin/announcements/${announcementId}/attachments/${attachmentId}/download`;
 }
 
+export function buildUserAnnouncementAttachmentDownloadUrl(
+  announcementId: string,
+  attachmentId: string,
+) {
+  return `${API.base}/announcements/${announcementId}/attachments/${attachmentId}/download`;
+}
+
 export const {
   useListAnnouncementsAdminQuery,
   useGetAnnouncementByIdQuery,

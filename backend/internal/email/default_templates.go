@@ -731,6 +731,23 @@ func DefaultTemplates() map[string]string {
               </p>
               {{end}}
 
+              {{if .HasAttachments}}
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#edf5ff; border:1px solid #d0e2ff; border-radius:4px; margin:16px 0;">
+                <tr>
+                  <td style="padding:12px 14px;">
+                    <p style="color:#0f62fe; font-size:13px; line-height:1.6; margin:0;">
+                      This announcement includes {{.AttachmentCount}} attachment(s).
+                    </p>
+                    {{if .AttachmentNames}}
+                    <p style="color:#393939; font-size:12px; line-height:1.6; margin:6px 0 0 0;">
+                      {{range $index, $name := .AttachmentNames}}{{if $index}}, {{end}}{{$name}}{{end}}
+                    </p>
+                    {{end}}
+                  </td>
+                </tr>
+              </table>
+              {{end}}
+
               {{if .AnnouncementID}}
               <p style="color:#6f6f6f; font-size:12px; line-height:1.5; margin:0;">
                 Reference: {{.AnnouncementID}}

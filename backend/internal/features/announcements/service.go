@@ -1624,6 +1624,7 @@ func (s *Service) attachAnnouncementEmailDelivery(
 		if options.IncludeAttachmentsInEmail {
 			attachments = options.Attachments
 		}
+		attachmentNames := announcementEmailAttachmentNames(attachments)
 
 		deliveries = append(deliveries, models.NotificationDeliveryRequest{
 			Channel: models.NotificationChannelEmail,
@@ -1634,15 +1635,18 @@ func (s *Service) attachAnnouncementEmailDelivery(
 			},
 			TemplateName: "announcement",
 			TemplateData: map[string]any{
-				"Name":           name,
-				"Platform":       s.platformName(),
-				"Title":          item.Title,
-				"Summary":        nullStringValue(item.Summary),
-				"Message":        item.Message,
-				"Level":          announcementLevelString(item.Level),
-				"Status":         announcementStatusString(item.Status),
-				"AnnouncementID": item.ID.String(),
-				"ActionURL":      announcementLinkOrDefault(item, s.portalAnnouncementsURL()),
+				"Name":            name,
+				"Platform":        s.platformName(),
+				"Title":           item.Title,
+				"Summary":         nullStringValue(item.Summary),
+				"Message":         item.Message,
+				"Level":           announcementLevelString(item.Level),
+				"Status":          announcementStatusString(item.Status),
+				"AnnouncementID":  item.ID.String(),
+				"HasAttachments":  len(attachments) > 0,
+				"AttachmentCount": len(attachments),
+				"AttachmentNames": attachmentNames,
+				"ActionURL":       announcementLinkOrDefault(item, s.portalAnnouncementsURL()),
 				"Details": fmt.Sprintf(
 					"Title: %s\nLevel: %s\nStatus: %s\nMessage: %s",
 					item.Title,
@@ -1662,6 +1666,17 @@ func (s *Service) attachAnnouncementEmailDelivery(
 	}
 
 	notification.Deliveries = deliveries
+}
+
+func announcementEmailAttachmentNames(attachments []models.Attachment) []string {
+	names := make([]string, 0, len(attachments))
+	for _, attachment := range attachments {
+		name := strings.TrimSpace(attachment.FileName)
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 func (s *Service) normalizeAnnouncementEmailOptions(options ...AnnouncementEmailOptions) (AnnouncementEmailOptions, error) {

@@ -20,6 +20,7 @@ func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
 	announcements := protected.Group("/announcements")
 	announcements.Use(middleware.RequirePermission(authz.PermissionAnnouncementsRead))
 	{
+		announcements.GET("/:id/attachments/:attachmentId/download", handler.DownloadAnnouncementAttachment)
 		announcements.GET("/me", handler.ListMyAnnouncements)
 		announcements.GET("/user", handler.ListAnnouncementsForUser)
 		announcements.GET("/role/:role_name", handler.ListAnnouncementsForRole)

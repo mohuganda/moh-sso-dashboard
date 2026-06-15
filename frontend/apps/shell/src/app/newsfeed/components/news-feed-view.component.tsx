@@ -11,6 +11,7 @@ import {
 import { Tile, Link, Tag, SkeletonText } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
 
+import { buildUserAnnouncementAttachmentDownloadUrl } from "@moh-sso/api";
 import { EmptyState, ErrorState } from "@moh-sso/ui";
 import "./news-feed.scss";
 import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/types";
@@ -197,6 +198,22 @@ function formatRelativeTimestamp(dateString?: string | null): string {
   return formatTimestamp(dateString);
 }
 
+function formatFileSize(bytes?: number): string {
+  if (!Number.isFinite(bytes) || !bytes || bytes <= 0) {
+    return "";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function isExternalHref(href: string): boolean {
   return /^https?:\/\//i.test(href);
 }
@@ -262,6 +279,7 @@ function AnnouncementCard({ item, showStatusTags = false }: AnnouncementCardProp
   const customTag = mapCustomTag(item.tag);
   const statusTag = showStatusTags ? mapStatusTag(item.status) : null;
   const timestampSource = item.publish_at || item.created_at;
+  const attachmentCount = item.attachment_count ?? item.attachments?.length ?? 0;
 
   return (
     <Tile className={`feed-item ${item.is_pinned ? "feed-item--pinned" : ""}`}>
@@ -301,6 +319,15 @@ function AnnouncementCard({ item, showStatusTags = false }: AnnouncementCardProp
               {statusTag.label}
             </Tag>
           )}
+
+          {attachmentCount > 0 && (
+            <Tag type="cyan" size="sm">
+              <span className="feed-tag-with-icon">
+                <Document size={12} />
+                {attachmentCount === 1 ? "1 file" : `${attachmentCount} files`}
+              </span>
+            </Tag>
+          )}
         </div>
       </div>
 
@@ -309,6 +336,38 @@ function AnnouncementCard({ item, showStatusTags = false }: AnnouncementCardProp
       <p className="feed-message">{item.message}</p>
 
       <AnnouncementLink item={item} />
+
+      {item.attachments && item.attachments.length > 0 && (
+        <div className="feed-attachments">
+          <div className="feed-attachments__title">
+            <Document size={14} />
+            <span>Attachments</span>
+          </div>
+
+          <div className="feed-attachments__list">
+            {item.attachments.map((attachment) => {
+              const href =
+                attachment.download_url ||
+                buildUserAnnouncementAttachmentDownloadUrl(item.id, attachment.id);
+              const sizeLabel = formatFileSize(attachment.file_size);
+
+              return (
+                <Link
+                  key={attachment.id}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="feed-attachment-link"
+                >
+                  <Document size={14} />
+                  <span>{attachment.original_file_name || attachment.file_name}</span>
+                  {sizeLabel && <small>{sizeLabel}</small>}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="feed-timestamp" title={formatTimestamp(timestampSource)}>
         <Time size={14} />

@@ -97,6 +97,27 @@ func getCurrentUserID(c *gin.Context) (uuid.UUID, bool) {
 	return userID.UUID, true
 }
 
+func (h *Handler) announcementResponsesWithAttachments(
+	ctx *gin.Context,
+	items []db.Announcement,
+	adminLinks bool,
+) []AnnouncementResponse {
+	res := make([]AnnouncementResponse, len(items))
+	for i, item := range items {
+		attachments, err := h.announcementService.ListAttachments(ctx.Request.Context(), item.ID)
+		if err != nil {
+			res[i] = toAnnouncementResponse(item)
+			continue
+		}
+		if adminLinks {
+			res[i] = toAnnouncementResponseWithAttachments(item, attachments)
+		} else {
+			res[i] = toUserAnnouncementResponseWithAttachments(item, attachments)
+		}
+	}
+	return res
+}
+
 func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
@@ -113,16 +134,7 @@ func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-		attachments, err := h.announcementService.ListAttachments(c.Request.Context(), item.ID)
-		if err == nil {
-			res[i].AttachmentCount = len(attachments)
-		}
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, true))
 }
 
 func (h *Handler) GetAnnouncementByID(c *gin.Context) {
@@ -166,16 +178,7 @@ func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(announcements))
-	for i, item := range announcements {
-		res[i] = toAnnouncementResponse(item)
-		attachments, err := h.announcementService.ListAttachments(c.Request.Context(), item.ID)
-		if err == nil {
-			res[i].AttachmentCount = len(attachments)
-		}
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, announcements, false))
 }
 
 func (h *Handler) CreateAnnouncement(c *gin.Context) {
@@ -951,12 +954,7 @@ func (h *Handler) ListActivePublishedAnnouncements(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
 
 func (h *Handler) ListAnnouncementsForClient(c *gin.Context) {
@@ -988,12 +986,7 @@ func (h *Handler) ListAnnouncementsForClient(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
 
 func (h *Handler) ListAnnouncementsForRole(c *gin.Context) {
@@ -1019,12 +1012,7 @@ func (h *Handler) ListAnnouncementsForRole(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
 
 func (h *Handler) ListAnnouncementsForUser(c *gin.Context) {
@@ -1049,12 +1037,7 @@ func (h *Handler) ListAnnouncementsForUser(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
 
 func (h *Handler) ListMyAnnouncements(c *gin.Context) {
@@ -1092,10 +1075,5 @@ func (h *Handler) ListMyAnnouncements(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
