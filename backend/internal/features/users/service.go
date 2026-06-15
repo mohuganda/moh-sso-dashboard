@@ -438,6 +438,18 @@ func (s *Service) ListUsers() ([]models.User, error) {
 	return users, nil
 }
 
+func (s *Service) SyncUsersFromKeycloak(ctx context.Context) (int, error) {
+	if s == nil {
+		return 0, errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return 0, errors.New("user repository is nil")
+	}
+
+	return s.repo.SyncUsersFromKeycloak(ctx)
+}
+
 // ----------------------------------------------------
 // USER EMAIL ACTIONS
 // ----------------------------------------------------

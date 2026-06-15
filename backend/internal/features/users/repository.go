@@ -23,6 +23,10 @@ type UserRepository interface {
 
 	ListUsers() ([]models.User, error)
 
+	SyncUsersFromKeycloak(
+		ctx context.Context,
+	) (int, error)
+
 	UpdateUser(
 		user *models.User,
 	) error

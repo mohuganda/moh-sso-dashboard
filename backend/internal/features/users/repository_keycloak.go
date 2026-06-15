@@ -207,6 +207,53 @@ func (r *userRepository) ListUsers() ([]models.User, error) {
 	return result, nil
 }
 
+func (r *userRepository) SyncUsersFromKeycloak(ctx context.Context) (int, error) {
+	if r == nil || r.keycloakClient == nil {
+		return 0, fmt.Errorf("user repository is not configured")
+	}
+
+	kcUsers, err := r.keycloakClient.ListUsers()
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch keycloak users: %w", err)
+	}
+
+	synced := 0
+	for _, kcUser := range kcUsers {
+		userID, err := uuid.Parse(strings.TrimSpace(kcUser.ID))
+		if err != nil {
+			r.logger.Warn(
+				"skipping keycloak user with invalid id during startup sync",
+				"userId", kcUser.ID,
+				"username", kcUser.Username,
+				"error", err,
+			)
+			continue
+		}
+
+		user := &models.User{
+			ID:            kcUser.ID,
+			Username:      kcUser.Username,
+			Email:         kcUser.Email,
+			FirstName:     kcUser.FirstName,
+			LastName:      kcUser.LastName,
+			Enabled:       kcUser.Enabled,
+			EmailVerified: kcUser.EmailVerified,
+		}
+		if err := r.upsertLocalUser(ctx, userID, user); err != nil {
+			r.logger.Warn(
+				"failed to sync keycloak user into local db",
+				"userId", kcUser.ID,
+				"username", kcUser.Username,
+				"error", err,
+			)
+			continue
+		}
+		synced++
+	}
+
+	return synced, nil
+}
+
 func (r *userRepository) UpdateUser(user *models.User) error {
 	ctx := context.Background()
 

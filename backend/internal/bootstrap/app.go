@@ -114,6 +114,13 @@ func Run() {
 		Logger:       appLogger,
 	})
 
+	if err := runStartupRBACSync(ctx, cfg, dbs.Primary, services, adminKC, appLogger); err != nil {
+		if cfg.RBACStartupSyncFailOnError {
+			appLogger.Fatal("RBAC startup sync failed: ", err)
+		}
+		appLogger.Warn("RBAC startup sync failed", "error", err)
+	}
+
 	authzResolver := authz.NewCompositeResolver(
 		authz.NewDBResolver(dbs.Primary),
 		authz.NewStaticResolver(),

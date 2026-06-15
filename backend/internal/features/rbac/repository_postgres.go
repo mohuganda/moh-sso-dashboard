@@ -807,6 +807,8 @@ func scanPermission(row permissionScanner) (Permission, error) {
 		&permission.Description,
 		&permission.Category,
 		&permission.Status,
+		&permission.SystemRoleUsageCount,
+		&permission.RealmRoleUsageCount,
 	)
 	return permission, err
 }
