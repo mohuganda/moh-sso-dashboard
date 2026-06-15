@@ -2,6 +2,8 @@
 
 The MOH SSO Dashboard uses Keycloak as the identity manager and keeps portal RBAC as the application authorization layer.
 
+For the practical Keycloak sync and system onboarding runbook, see [RBAC And Keycloak Sync](./rbac-keycloak-sync.md).
+
 Keycloak owns:
 - users
 - realm roles

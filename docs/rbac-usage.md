@@ -16,6 +16,8 @@ Realm roles and client roles are inputs. Permission checks are the preferred aut
 
 Keycloak clients are the source candidates for portal systems. Use `system-rbac sync-keycloak` against live Keycloak, or use `--realm-export keycloak/realm-export.json`, to draft/apply portal systems from Keycloak clients and client roles. Portal RBAC then maps those discovered roles to application permissions.
 
+For the full operator workflow, including startup sync, new client onboarding, permission mapping, and troubleshooting, see [RBAC And Keycloak Sync](./rbac-keycloak-sync.md).
+
 ## Backend Rules
 
 Backend routes must enforce permissions with middleware from `backend/internal/middleware`.

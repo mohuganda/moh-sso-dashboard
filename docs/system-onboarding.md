@@ -2,6 +2,8 @@
 
 Use this flow when a new Keycloak client/system is added to the Integrated Health Portal.
 
+For the full RBAC and Keycloak sync operating model, see [RBAC And Keycloak Sync](./rbac-keycloak-sync.md).
+
 ## 1. Create or Confirm Keycloak Client
 
 Create the client in Keycloak using the admin UI or CLI. Add the client roles that represent the system's access model.
