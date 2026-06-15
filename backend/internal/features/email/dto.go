@@ -9,6 +9,7 @@ type EmailAttachmentRequest struct {
 	FileName    string `json:"file_name"`
 	ContentType string `json:"content_type,omitempty"`
 	Path        string `json:"path,omitempty"`
+	DataBase64  string `json:"data_base64,omitempty"`
 	ContentID   string `json:"content_id,omitempty"`
 	Inline      bool   `json:"inline,omitempty"`
 }

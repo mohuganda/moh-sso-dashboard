@@ -66,6 +66,20 @@ export interface CreateAnnouncementRequest {
   notify_by_email?: boolean;
 }
 
+export interface AnnouncementEmailAttachment {
+  file_name: string;
+  content_type?: string;
+  path?: string;
+  data_base64?: string;
+  content_id?: string;
+  inline?: boolean;
+}
+
+export interface PublishAnnouncementRequest {
+  attachments?: AnnouncementEmailAttachment[];
+  include_attachments_in_email?: boolean;
+}
+
 export interface UpdateAnnouncementRequest {
   title: string;
   message: string;
@@ -93,6 +107,8 @@ export interface UpdateAnnouncementRequest {
 
 export interface ScheduleAnnouncementRequest {
   publish_at: string;
+  attachments?: AnnouncementEmailAttachment[];
+  include_attachments_in_email?: boolean;
 }
 
 export interface SetAnnouncementPinnedRequest {

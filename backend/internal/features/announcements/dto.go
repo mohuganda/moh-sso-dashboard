@@ -73,7 +73,23 @@ type AnnouncementResponse struct {
 }
 
 type scheduleAnnouncementRequest struct {
-	PublishAt string `json:"publish_at" binding:"required"`
+	PublishAt                 string                          `json:"publish_at" binding:"required"`
+	Attachments               []announcementAttachmentRequest `json:"attachments,omitempty"`
+	IncludeAttachmentsInEmail *bool                           `json:"include_attachments_in_email,omitempty"`
+}
+
+type publishAnnouncementRequest struct {
+	Attachments               []announcementAttachmentRequest `json:"attachments,omitempty"`
+	IncludeAttachmentsInEmail *bool                           `json:"include_attachments_in_email,omitempty"`
+}
+
+type announcementAttachmentRequest struct {
+	FileName    string `json:"file_name"`
+	ContentType string `json:"content_type,omitempty"`
+	Path        string `json:"path,omitempty"`
+	DataBase64  string `json:"data_base64,omitempty"`
+	ContentID   string `json:"content_id,omitempty"`
+	Inline      bool   `json:"inline,omitempty"`
 }
 
 type setPinnedRequest struct {

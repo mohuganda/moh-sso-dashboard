@@ -372,12 +372,25 @@ func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 		return
 	}
 
+	var req publishAnnouncementRequest
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+			return
+		}
+	}
+
 	userID, ok := getCurrentUserID(c)
 	if !ok {
 		return
 	}
 
-	item, err := h.announcementService.PublishAnnouncementNow(c.Request.Context(), announcementID, userID)
+	item, err := h.announcementService.PublishAnnouncementNow(
+		c.Request.Context(),
+		announcementID,
+		userID,
+		announcementEmailOptionsFromPublishRequest(req),
+	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to publish announcement"+err.Error())
 		return
@@ -476,6 +489,7 @@ func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 				Valid: true,
 			},
 		},
+		announcementEmailOptionsFromScheduleRequest(req, publishAt),
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to schedule announcement")

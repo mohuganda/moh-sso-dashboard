@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/moh-sso-dashboard/internal/config"
+	emailutil "github.com/moh-sso-dashboard/internal/email"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
@@ -74,6 +75,18 @@ func (s *SMTPService) Send(ctx context.Context, msg model.Message) error {
 
 		return fmt.Errorf("validate email message: %w", err)
 	}
+
+	attachments, err := emailutil.NormalizeAttachments(s.cfg, msg.Attachments)
+	if err != nil {
+		s.logger.Error(
+			"email attachment validation failed",
+			"error", err,
+			"subject", msg.Subject,
+		)
+
+		return fmt.Errorf("validate email attachments: %w", err)
+	}
+	msg.Attachments = attachments
 
 	if strings.TrimSpace(msg.TemplateName) != "" {
 		if s.templates == nil {

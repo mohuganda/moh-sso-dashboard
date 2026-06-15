@@ -67,6 +67,7 @@ func mapAttachments(in []EmailAttachmentRequest) []model.Attachment {
 			FileName:    strings.TrimSpace(a.FileName),
 			ContentType: strings.TrimSpace(a.ContentType),
 			Path:        strings.TrimSpace(a.Path),
+			DataBase64:  strings.TrimSpace(a.DataBase64),
 			ContentID:   strings.TrimSpace(a.ContentID),
 			Inline:      a.Inline,
 		})

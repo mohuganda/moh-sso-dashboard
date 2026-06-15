@@ -625,6 +625,9 @@ type Attachment struct {
 	Path string `json:"path,omitempty"`
 	Data []byte `json:"-"`
 
+	// DataBase64 is persisted through queues/outbox and decoded before send.
+	DataBase64 string `json:"data_base64,omitempty"`
+
 	// Optional inline image support
 	Inline    bool   `json:"inline,omitempty"`
 	ContentID string `json:"content_id,omitempty"`

@@ -39,6 +39,7 @@ type NotificationDeliveryRequest struct {
 	TemplateName string              `json:"template_name,omitempty"`
 	TemplateData map[string]any      `json:"template_data,omitempty"`
 	Payload      map[string]any      `json:"payload,omitempty"`
+	Attachments  []Attachment        `json:"attachments,omitempty"`
 	ScheduledAt  *time.Time          `json:"scheduled_at,omitempty"`
 	MaxAttempts  int32               `json:"max_attempts,omitempty"`
 }

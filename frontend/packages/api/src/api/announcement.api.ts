@@ -3,6 +3,7 @@ import type {
   AnnouncementStats,
   CreateAnnouncementRequest,
   ListAnnouncementsParams,
+  PublishAnnouncementRequest,
   UpdateAnnouncementRequest,
   ScheduleAnnouncementRequest,
   SetAnnouncementPinnedRequest,
@@ -113,18 +114,30 @@ export const announcementApi = baseApi.injectEndpoints({
       ],
     }),
 
-    publishAnnouncement: builder.mutation<Announcement, string>({
-      query: (id) => ({
-        url: `/admin/announcements/${id}/publish`,
-        method: "POST",
-      }),
+    publishAnnouncement: builder.mutation<
+      Announcement,
+      string | { id: string; body?: PublishAnnouncementRequest }
+    >({
+      query: (arg) => {
+        const id = typeof arg === "string" ? arg : arg.id;
+        const body = typeof arg === "string" ? undefined : arg.body;
+
+        return {
+          url: `/admin/announcements/${id}/publish`,
+          method: "POST",
+          ...(body ? { body } : {}),
+        };
+      },
       transformResponse: (response: ApiEnvelope<Announcement>) => response.data,
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Announcements", id },
-        { type: "Announcements", id: "LIST" },
-        { type: "Announcements", id: "STATS" },
-        { type: "Announcements", id: "MY_LIST" },
-      ],
+      invalidatesTags: (_result, _error, arg) => {
+        const id = typeof arg === "string" ? arg : arg.id;
+        return [
+          { type: "Announcements", id },
+          { type: "Announcements", id: "LIST" },
+          { type: "Announcements", id: "STATS" },
+          { type: "Announcements", id: "MY_LIST" },
+        ];
+      },
     }),
 
     draftAnnouncement: builder.mutation<Announcement, string>({

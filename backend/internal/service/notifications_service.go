@@ -540,7 +540,15 @@ func (s *notificationsService) createNotificationDelivery(
 		return fmt.Errorf("marshal delivery template data: %w", err)
 	}
 
-	payload, err := marshalMapToNullRawMessage(delivery.Payload)
+	payloadMap := delivery.Payload
+	if len(delivery.Attachments) > 0 {
+		if payloadMap == nil {
+			payloadMap = map[string]any{}
+		}
+		payloadMap["attachments"] = delivery.Attachments
+	}
+
+	payload, err := marshalMapToNullRawMessage(payloadMap)
 	if err != nil {
 		return fmt.Errorf("marshal delivery payload: %w", err)
 	}

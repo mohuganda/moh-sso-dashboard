@@ -84,7 +84,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.Logger.Fatal("Failed to initialize email queue service: ", err)
 	}
 
-	emailService, err := service.NewEmailService(smtpService, queueService, templateManager)
+	emailService, err := service.NewEmailService(smtpService, queueService, templateManager, deps.Config)
 	if err != nil {
 		deps.Logger.Fatal("Failed to initialize email application service: ", err)
 	}

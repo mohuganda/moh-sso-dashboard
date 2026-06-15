@@ -144,6 +144,7 @@ type Config struct {
 	// SMTP / Retry / Notifications
 	// ==================================================
 	SMTP         SMTPConfig         `mapstructure:",squash"`
+	Email        EmailConfig        `mapstructure:",squash"`
 	Retry        RetryConfig        `mapstructure:",squash"`
 	Notification NotificationConfig `mapstructure:",squash"`
 }
@@ -157,6 +158,12 @@ type SMTPConfig struct {
 	FromName       string        `mapstructure:"SMTP_FROM_NAME"`
 	ConnectTimeout time.Duration `mapstructure:"SMTP_CONNECT_TIMEOUT"`
 	SendTimeout    time.Duration `mapstructure:"SMTP_SEND_TIMEOUT"`
+}
+
+type EmailConfig struct {
+	MaxAttachments         int    `mapstructure:"EMAIL_MAX_ATTACHMENTS"`
+	MaxAttachmentBytes     int64  `mapstructure:"EMAIL_MAX_ATTACHMENT_BYTES"`
+	AllowedAttachmentTypes string `mapstructure:"EMAIL_ALLOWED_ATTACHMENT_TYPES"`
 }
 
 type RetryConfig struct {
@@ -256,6 +263,9 @@ func setDefaults() {
 	viper.SetDefault("SMTP_FROM_NAME", "MOH Integrated Health Portal")
 	viper.SetDefault("SMTP_CONNECT_TIMEOUT", "10s")
 	viper.SetDefault("SMTP_SEND_TIMEOUT", "15s")
+	viper.SetDefault("EMAIL_MAX_ATTACHMENTS", 5)
+	viper.SetDefault("EMAIL_MAX_ATTACHMENT_BYTES", 10485760)
+	viper.SetDefault("EMAIL_ALLOWED_ATTACHMENT_TYPES", "pdf,doc,docx,xls,xlsx,csv,png,jpg,jpeg")
 
 	// ==================================================
 	// Retry defaults
@@ -355,6 +365,9 @@ func envBindings() map[string]string {
 		"SMTP_FROM_NAME":                      "SMTP_FROM_NAME",
 		"SMTP_CONNECT_TIMEOUT":                "SMTP_CONNECT_TIMEOUT",
 		"SMTP_SEND_TIMEOUT":                   "SMTP_SEND_TIMEOUT",
+		"EMAIL_MAX_ATTACHMENTS":               "EMAIL_MAX_ATTACHMENTS",
+		"EMAIL_MAX_ATTACHMENT_BYTES":          "EMAIL_MAX_ATTACHMENT_BYTES",
+		"EMAIL_ALLOWED_ATTACHMENT_TYPES":      "EMAIL_ALLOWED_ATTACHMENT_TYPES",
 		"RETRY_MAX_ATTEMPTS":                  "RETRY_MAX_ATTEMPTS",
 		"RETRY_BASE_DELAY":                    "RETRY_BASE_DELAY",
 		"PLATFORM_NAME":                       "PLATFORM_NAME",
@@ -472,6 +485,13 @@ func normalizeConfig(c *Config) {
 	c.SMTP.Username = strings.TrimSpace(c.SMTP.Username)
 	c.SMTP.FromEmail = strings.TrimSpace(c.SMTP.FromEmail)
 	c.SMTP.FromName = strings.TrimSpace(c.SMTP.FromName)
+	c.Email.AllowedAttachmentTypes = strings.TrimSpace(c.Email.AllowedAttachmentTypes)
+	if c.Email.MaxAttachments <= 0 {
+		c.Email.MaxAttachments = 5
+	}
+	if c.Email.MaxAttachmentBytes <= 0 {
+		c.Email.MaxAttachmentBytes = 10 * 1024 * 1024
+	}
 
 	c.Notification.PlatformName = strings.TrimSpace(c.Notification.PlatformName)
 	c.Notification.SystemAdminName = strings.TrimSpace(c.Notification.SystemAdminName)
