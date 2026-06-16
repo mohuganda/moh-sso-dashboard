@@ -12,6 +12,9 @@ export const clientsLifecycles = () =>
 export const dataVisualizerLifecycles = () =>
   import("@moh-sso/data-visualizer/single-spa") as Promise<MicrofrontendLifecycle>;
 
+export const dataValidationLifecycles = () =>
+  import("@moh-sso/data-validation/single-spa") as Promise<MicrofrontendLifecycle>;
+
 export const documentsLifecycles = () =>
   import("@moh-sso/documents/single-spa") as Promise<MicrofrontendLifecycle>;
 

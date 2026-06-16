@@ -7,6 +7,7 @@ import { UserRoute } from "./guards/UserRoute";
 import UserLayout from "../layouts/user/user-layout.component";
 import { ComingSoon } from "@moh-sso/ui";
 import { PERMISSIONS, type Permission, type System } from "@moh-sso/auth";
+import { dataValidationRoute } from "@moh-sso/data-validation";
 import { dataVisualizerRoute } from "@moh-sso/data-visualizer";
 import { documentsRoute } from "@moh-sso/documents";
 import { eServicesRoute } from "@moh-sso/e-services";
@@ -25,6 +26,7 @@ import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
 
 import {
   dataVisualizerLifecycles,
+  dataValidationLifecycles,
   documentsLifecycles,
   issueTrackerLifecycles,
   reportBrowserLifecycles,
@@ -97,6 +99,18 @@ export const userRoutes = (
             basename="/apps/dwh/data-visualizer"
           />,
           accessFromRoute(dataVisualizerRoute),
+        )}
+      />
+
+      <Route
+        path="data-validation/*"
+        element={userPage(
+          <SingleSpaApp
+            appName="@moh-sso/data-validation"
+            lifecycles={dataValidationLifecycles}
+            basename="/apps/dwh/data-validation"
+          />,
+          accessFromRoute(dataValidationRoute),
         )}
       />
 

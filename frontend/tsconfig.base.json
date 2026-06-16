@@ -23,6 +23,7 @@
       "@moh-sso/announcements/single-spa": ["apps/announcements/src/single-spa.tsx"],
       "@moh-sso/audit/single-spa": ["apps/audit/src/single-spa.tsx"],
       "@moh-sso/clients/single-spa": ["apps/clients/src/single-spa.tsx"],
+      "@moh-sso/data-validation/single-spa": ["apps/data-validation/src/single-spa.tsx"],
       "@moh-sso/data-visualizer/single-spa": ["apps/data-visualizer/src/single-spa.tsx"],
       "@moh-sso/documents/single-spa": ["apps/documents/src/single-spa.tsx"],
       "@moh-sso/e-services/single-spa": ["apps/e-services/src/single-spa.tsx"],

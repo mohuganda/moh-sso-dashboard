@@ -30,6 +30,12 @@ export const defaultClient: Client = {
         permission: "data_quality:read",
       },
       {
+        id: "data-validation",
+        label: "Data Validation",
+        path: "/apps/dwh/data-validation",
+        permission: "data_quality:read",
+      },
+      {
         id: "dashboards",
         label: "Dashboards",
         path: "/apps/dwh/dashboards",

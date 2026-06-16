@@ -9,6 +9,7 @@ const apps = [
   "announcements",
   "audit",
   "clients",
+  "data-validation",
   "data-visualizer",
   "documents",
   "e-services",

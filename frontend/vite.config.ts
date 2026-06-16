@@ -52,6 +52,14 @@ export default defineConfig({
     alias: [
       { find: "@/config", replacement: pathFromRoot("./packages/config/src") },
       { find: "@/types", replacement: pathFromRoot("./packages/types/src/global") },
+      {
+        find: "@moh-sso/data-validation/single-spa",
+        replacement: pathFromRoot("./apps/data-validation/src/single-spa.tsx"),
+      },
+      {
+        find: "@moh-sso/data-validation",
+        replacement: pathFromRoot("./apps/data-validation/src/index.ts"),
+      },
 
       ...dynamicAliases,
 

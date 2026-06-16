@@ -5,6 +5,7 @@ const appScripts = {
   announcements: "dev:mf:announcements",
   audit: "dev:mf:audit",
   clients: "dev:mf:clients",
+  "data-validation": "dev:mf:data-validation",
   "data-visualizer": "dev:mf:data-visualizer",
   documents: "dev:mf:documents",
   "e-services": "dev:mf:e-services",

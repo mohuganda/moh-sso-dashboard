@@ -2,6 +2,7 @@ export const microfrontendRoutes = {
   announcements: "/admin/announcements",
   audit: "/admin/audit-logs",
   clients: "/admin/clients",
+  dataValidation: "/apps/dwh/data-validation",
   dataVisualizer: "/apps/dwh/data-visualizer",
   documents: "/apps/dwh/filesvr",
   eServices: "/apps/eservices",

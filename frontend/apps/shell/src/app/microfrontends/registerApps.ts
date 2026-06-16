@@ -2,6 +2,7 @@ import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
 import { announcementsRoute } from "@moh-sso/announcements";
 import { auditRoute } from "@moh-sso/audit";
 import { clientsRoute } from "@moh-sso/clients";
+import { dataValidationRoute } from "@moh-sso/data-validation";
 import { dataVisualizerRoute } from "@moh-sso/data-visualizer";
 import { documentsRoute } from "@moh-sso/documents";
 import { eServicesRoute } from "@moh-sso/e-services";
@@ -17,6 +18,7 @@ export const registeredMicrofrontends: MicrofrontendRoute[] = [
   announcementsRoute,
   auditRoute,
   clientsRoute,
+  dataValidationRoute,
   dataVisualizerRoute,
   documentsRoute,
   eServicesRoute,

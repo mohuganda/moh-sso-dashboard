@@ -13,6 +13,7 @@
     "@moh-sso/announcements": "/portal/mf/announcements/single-spa.js",
     "@moh-sso/audit": "/portal/mf/audit/single-spa.js",
     "@moh-sso/clients": "/portal/mf/clients/single-spa.js",
+    "@moh-sso/data-validation": "/portal/mf/data-validation/single-spa.js",
     "@moh-sso/data-visualizer": "/portal/mf/data-visualizer/single-spa.js",
     "@moh-sso/documents": "/portal/mf/documents/single-spa.js",
     "@moh-sso/e-services": "/portal/mf/e-services/single-spa.js",
