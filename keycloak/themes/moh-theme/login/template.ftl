@@ -19,12 +19,7 @@
     <link rel="stylesheet" href="${url.resourcesCommonPath}/node_modules/patternfly/dist/css/patternfly.min.css" />
     <link rel="stylesheet" href="${url.resourcesCommonPath}/node_modules/@patternfly/patternfly/patternfly.min.css" />
     <link rel="stylesheet" href="${url.resourcesPath}/css/styles.css" />
-
-    <#if scripts?has_content>
-        <#list scripts?split(' ') as script>
-            <script src="${url.resourcesPath}/${script}" defer></script>
-        </#list>
-    </#if>
+    <script src="${url.resourcesPath}/js/login.js" defer></script>
 </head>
 
 <body class="moh-login-body ${bodyClass}">
