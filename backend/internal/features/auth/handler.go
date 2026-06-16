@@ -174,9 +174,7 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 		},
 	)
 
-	response.OK(c, http.StatusOK, struct {
-		User interface{} `json:"user"`
-	}{User: user})
+	response.OK(c, http.StatusOK, AuthMeResponse{User: user})
 }
 
 func (h *Handler) applyResolvedAccess(c *gin.Context, user interface {
@@ -706,36 +704,9 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 		h.setCookie(c, cookieSession, newSessionID, int(ttl.Seconds()), true)
 	}
 
-	response.OK(c, http.StatusOK, struct {
-		ExpiresIn   int64 `json:"expires_in"`
-		CookieDebug struct {
-			Environment      string `json:"environment"`
-			Secure           bool   `json:"secure"`
-			SameSite         string `json:"same_site"`
-			Domain           string `json:"domain"`
-			HasAccessToken   bool   `json:"has_access_token"`
-			HasRefreshToken  bool   `json:"has_refresh_token"`
-			RefreshExpiresIn int64  `json:"refresh_expires_in"`
-			FrontendBaseURL  string `json:"frontend_base_url"`
-			KeycloakRedirect string `json:"keycloak_redirect"`
-			KeycloakExternal string `json:"keycloak_external"`
-			KeycloakInternal string `json:"keycloak_internal"`
-		} `json:"cookie_debug"`
-	}{
+	response.OK(c, http.StatusOK, AuthRefreshResponse{
 		ExpiresIn: tokens.ExpiresIn,
-		CookieDebug: struct {
-			Environment      string `json:"environment"`
-			Secure           bool   `json:"secure"`
-			SameSite         string `json:"same_site"`
-			Domain           string `json:"domain"`
-			HasAccessToken   bool   `json:"has_access_token"`
-			HasRefreshToken  bool   `json:"has_refresh_token"`
-			RefreshExpiresIn int64  `json:"refresh_expires_in"`
-			FrontendBaseURL  string `json:"frontend_base_url"`
-			KeycloakRedirect string `json:"keycloak_redirect"`
-			KeycloakExternal string `json:"keycloak_external"`
-			KeycloakInternal string `json:"keycloak_internal"`
-		}{
+		CookieDebug: AuthRefreshCookieDebug{
 			Environment:      h.environment(),
 			Secure:           h.cookieSecure(),
 			SameSite:         h.cookieSameSiteString(),

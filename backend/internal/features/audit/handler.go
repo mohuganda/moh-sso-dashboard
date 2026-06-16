@@ -365,7 +365,7 @@ func (h *Handler) ExportAuditLogs(c *gin.Context) {
 	if format == "json" {
 		c.Header("Content-Type", "application/json")
 		c.Header("Content-Disposition", "attachment; filename=audit_logs_export.json")
-		c.JSON(http.StatusOK, toAuditExportResponse(manifest, items))
+		response.OK(c, http.StatusOK, toAuditExportResponse(manifest, items))
 		return
 	}
 
