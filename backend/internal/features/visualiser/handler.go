@@ -41,7 +41,7 @@ func (h *Handler) GetDatasets(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 	defer rows.Close()
@@ -86,7 +86,7 @@ func (h *Handler) GetDataElements(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query, dataSetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 	defer rows.Close()
@@ -121,7 +121,7 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "invalid JSON",
-			"details": err.Error(),
+			"details": "request failed",
 		})
 		return
 	}
@@ -402,7 +402,7 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query, values...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database query failed: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 	defer rows.Close()
@@ -424,14 +424,14 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 			&row.Dataelement,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Row scan failed: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 			return
 		}
 		rowsList = append(rowsList, row)
 	}
 
 	if err = rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Row iteration error: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 
@@ -533,7 +533,7 @@ func (h *Handler) GetThemes(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 	defer rows.Close()
@@ -580,7 +580,7 @@ func (h *Handler) GetDataElementsByTheme(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query, req.ThemeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 	defer rows.Close()
@@ -624,7 +624,7 @@ func (h *Handler) GetHIVSummary(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 	defer rows.Close()
@@ -657,7 +657,7 @@ func (h *Handler) GetHIVTested(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 	defer rows.Close()
@@ -697,7 +697,7 @@ func (h *Handler) GetHIVRegimen(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
 		return
 	}
 	defer rows.Close()

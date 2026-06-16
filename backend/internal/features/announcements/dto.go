@@ -94,6 +94,10 @@ type AnnouncementAttachmentResponse struct {
 	DownloadURL      string     `json:"download_url,omitempty"`
 }
 
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
 type createAnnouncementAttachmentRequest struct {
 	FileName       string `json:"file_name" binding:"required"`
 	ContentType    string `json:"content_type,omitempty"`

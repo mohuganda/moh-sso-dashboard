@@ -158,13 +158,13 @@ func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 
 	limit, err := strconv.ParseInt(c.DefaultQuery("limit", "20"), 10, 32)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
 	offset, err := strconv.ParseInt(c.DefaultQuery("offset", "0"), 10, 32)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -184,7 +184,7 @@ func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 func (h *Handler) CreateAnnouncement(c *gin.Context) {
 	var req createAnnouncementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -289,7 +289,7 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 
 	var req updateAnnouncementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -392,7 +392,7 @@ func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 	var req publishAnnouncementRequest
 	if c.Request.ContentLength > 0 {
 		if err := c.ShouldBindJSON(&req); err != nil {
-			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 			return
 		}
 	}
@@ -409,7 +409,7 @@ func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 		announcementEmailOptionsFromPublishRequest(req),
 	)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to publish announcement"+err.Error())
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to publish announcement"+"request failed")
 		return
 	}
 
@@ -478,7 +478,7 @@ func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 
 	var req scheduleAnnouncementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -620,9 +620,7 @@ func (h *Handler) DeleteAnnouncement(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"message": "announcement deleted successfully",
-	})
+	response.OK(c, http.StatusOK, MessageResponse{Message: "announcement deleted successfully"})
 }
 
 func (h *Handler) UploadAnnouncementAttachment(c *gin.Context) {
@@ -681,7 +679,7 @@ func (h *Handler) UploadAnnouncementAttachment(c *gin.Context) {
 	} else {
 		var req createAnnouncementAttachmentRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 			return
 		}
 		if req.IncludeInEmail != nil {
@@ -701,7 +699,7 @@ func (h *Handler) UploadAnnouncementAttachment(c *gin.Context) {
 
 	attachment, err := h.announcementService.UploadAttachment(c.Request.Context(), announcementID, input)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "request failed")
 		return
 	}
 
@@ -776,7 +774,7 @@ func (h *Handler) UpdateAnnouncementAttachment(c *gin.Context) {
 
 	var req updateAnnouncementAttachmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -798,7 +796,7 @@ func (h *Handler) UpdateAnnouncementAttachment(c *gin.Context) {
 		},
 	)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "request failed")
 		return
 	}
 
@@ -822,7 +820,7 @@ func (h *Handler) DeleteAnnouncementAttachment(c *gin.Context) {
 
 	attachment, err := h.announcementService.DeleteAttachment(c.Request.Context(), announcementID, attachmentID, userID)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "request failed")
 		return
 	}
 
@@ -839,7 +837,7 @@ func (h *Handler) DeleteAnnouncementAttachment(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"message": "announcement attachment deleted successfully"})
+	response.OK(c, http.StatusOK, MessageResponse{Message: "announcement attachment deleted successfully"})
 }
 
 func (h *Handler) SetAnnouncementPinned(c *gin.Context) {
@@ -850,7 +848,7 @@ func (h *Handler) SetAnnouncementPinned(c *gin.Context) {
 
 	var req setPinnedRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -893,7 +891,7 @@ func (h *Handler) SetAnnouncementPriority(c *gin.Context) {
 
 	var req setPriorityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 

@@ -23,7 +23,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) ListSystems(c *gin.Context) {
 	systems, err := h.service.ListSystems(c.Request.Context())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "LIST_SYSTEMS_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "LIST_SYSTEMS_FAILED", "failed to list systems")
 		return
 	}
 	response.OK(c, http.StatusOK, systems)
@@ -41,7 +41,7 @@ func (h *Handler) GetSystem(c *gin.Context) {
 func (h *Handler) UpdateSystem(c *gin.Context) {
 	var input UpsertSystemInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	input.ClientID = c.Param("clientId")
@@ -57,7 +57,7 @@ func (h *Handler) UpdateSystem(c *gin.Context) {
 func (h *Handler) ListPermissions(c *gin.Context) {
 	permissions, err := h.service.ListPermissions(c.Request.Context())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "LIST_PERMISSIONS_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "LIST_PERMISSIONS_FAILED", "failed to list permissions")
 		return
 	}
 	response.OK(c, http.StatusOK, permissions)
@@ -75,7 +75,7 @@ func (h *Handler) ListSystemRoles(c *gin.Context) {
 func (h *Handler) CreateSystemRole(c *gin.Context) {
 	var input RoleInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	role, err := h.service.CreateSystemRole(c.Request.Context(), c.Param("clientId"), input)
@@ -89,7 +89,7 @@ func (h *Handler) CreateSystemRole(c *gin.Context) {
 func (h *Handler) UpdateSystemRole(c *gin.Context) {
 	var input RoleInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	role, err := h.service.UpdateSystemRole(c.Request.Context(), c.Param("roleId"), input)
@@ -105,20 +105,20 @@ func (h *Handler) DeleteSystemRole(c *gin.Context) {
 		writeError(c, err, "DELETE_SYSTEM_ROLE_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"deleted": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Deleted: true})
 }
 
 func (h *Handler) AssignSystemRolePermission(c *gin.Context) {
 	var input PermissionInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	if err := h.service.AssignSystemRolePermission(c.Request.Context(), c.Param("roleId"), input.PermissionKey); err != nil {
 		writeError(c, err, "ASSIGN_PERMISSION_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"assigned": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Assigned: true})
 }
 
 func (h *Handler) RemoveSystemRolePermission(c *gin.Context) {
@@ -126,13 +126,13 @@ func (h *Handler) RemoveSystemRolePermission(c *gin.Context) {
 		writeError(c, err, "REMOVE_PERMISSION_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"removed": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Removed: true})
 }
 
 func (h *Handler) ListRealmRolePermissions(c *gin.Context) {
 	groups, err := h.service.ListRealmRolePermissions(c.Request.Context())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "LIST_REALM_ROLES_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "LIST_REALM_ROLES_FAILED", "failed to list realm role permissions")
 		return
 	}
 	response.OK(c, http.StatusOK, groups)
@@ -141,14 +141,14 @@ func (h *Handler) ListRealmRolePermissions(c *gin.Context) {
 func (h *Handler) AssignRealmRolePermission(c *gin.Context) {
 	var input PermissionInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	if err := h.service.AssignRealmRolePermission(c.Request.Context(), c.Param("realmRole"), input.PermissionKey); err != nil {
 		writeError(c, err, "ASSIGN_REALM_PERMISSION_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"assigned": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Assigned: true})
 }
 
 func (h *Handler) RemoveRealmRolePermission(c *gin.Context) {
@@ -156,20 +156,20 @@ func (h *Handler) RemoveRealmRolePermission(c *gin.Context) {
 		writeError(c, err, "REMOVE_REALM_PERMISSION_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"removed": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Removed: true})
 }
 
 func (h *Handler) AddSystemAccessRole(c *gin.Context) {
 	var input AccessRoleInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	if err := h.service.AddSystemAccessRole(c.Request.Context(), c.Param("clientId"), input.RoleName); err != nil {
 		writeError(c, err, "ADD_ACCESS_ROLE_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"added": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Added: true})
 }
 
 func (h *Handler) RemoveSystemAccessRole(c *gin.Context) {
@@ -178,7 +178,7 @@ func (h *Handler) RemoveSystemAccessRole(c *gin.Context) {
 		writeError(c, err, "REMOVE_ACCESS_ROLE_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"removed": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Removed: true})
 }
 
 func (h *Handler) GetDrift(c *gin.Context) {
@@ -264,7 +264,7 @@ func (h *Handler) GetUserAccessProfile(c *gin.Context) {
 func (h *Handler) UpdateUserAccess(c *gin.Context) {
 	var input UpdateUserAccessRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 
@@ -280,7 +280,7 @@ func (h *Handler) UpdateUserAccess(c *gin.Context) {
 func (h *Handler) UpdatePermissionMetadata(c *gin.Context) {
 	var input PermissionMetadataInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	permission, err := h.service.UpdatePermissionMetadata(c.Request.Context(), c.Param("permissionKey"), input)
@@ -312,7 +312,7 @@ func (h *Handler) GetRealmRoleUsage(c *gin.Context) {
 func (h *Handler) PreviewChange(c *gin.Context) {
 	var input ChangePreviewRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	preview, err := h.service.PreviewChange(c.Request.Context(), input)
@@ -335,7 +335,7 @@ func (h *Handler) ExportSeed(c *gin.Context) {
 func (h *Handler) PreviewImport(c *gin.Context) {
 	var input ImportPreviewRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	preview, _, err := h.service.PreviewImport(c.Request.Context(), input)
@@ -349,7 +349,7 @@ func (h *Handler) PreviewImport(c *gin.Context) {
 func (h *Handler) ApplyImport(c *gin.Context) {
 	var input ImportPreviewRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	result, err := h.service.ApplyImport(c.Request.Context(), input)
@@ -386,7 +386,7 @@ func (h *Handler) ListRoleTemplates(c *gin.Context) {
 func (h *Handler) CreateRoleFromTemplate(c *gin.Context) {
 	var input RoleFromTemplateInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	role, err := h.service.CreateRoleFromTemplate(c.Request.Context(), c.Param("clientId"), input)
@@ -400,7 +400,7 @@ func (h *Handler) CreateRoleFromTemplate(c *gin.Context) {
 func (h *Handler) CopyPermissions(c *gin.Context) {
 	var input CopyPermissionsInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	role, err := h.service.CopyPermissions(c.Request.Context(), c.Param("roleId"), input)
@@ -414,33 +414,33 @@ func (h *Handler) CopyPermissions(c *gin.Context) {
 func (h *Handler) BulkAssignPermission(c *gin.Context) {
 	var input BulkPermissionInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	if err := h.service.BulkAssignPermission(c.Request.Context(), input); err != nil {
 		writeError(c, err, "BULK_ASSIGN_PERMISSION_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"assigned": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Assigned: true})
 }
 
 func (h *Handler) BulkRemovePermission(c *gin.Context) {
 	var input BulkPermissionInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	if err := h.service.BulkRemovePermission(c.Request.Context(), input); err != nil {
 		writeError(c, err, "BULK_REMOVE_PERMISSION_FAILED")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"removed": true})
+	response.OK(c, http.StatusOK, OperationResultResponse{Removed: true})
 }
 
 func (h *Handler) CreateAccessRequest(c *gin.Context) {
 	var input AccessRequestInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	request, err := h.service.CreateAccessRequest(c.Request.Context(), input)
@@ -474,7 +474,7 @@ func (h *Handler) DecideAccessRequest(c *gin.Context) {
 func (h *Handler) CreateChangeRequest(c *gin.Context) {
 	var input ChangeRequestInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	request, err := h.service.CreateChangeRequest(c.Request.Context(), input)
@@ -508,7 +508,7 @@ func (h *Handler) DecideChangeRequest(c *gin.Context) {
 func (h *Handler) Simulate(c *gin.Context) {
 	var input SimulationRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 	result, err := h.service.Simulate(c.Request.Context(), input)
@@ -537,7 +537,7 @@ func normalizeDecision(decision string) string {
 func bindRealmExportPayload(c *gin.Context) ([]byte, bool) {
 	var input SyncPreviewRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return nil, false
 	}
 	if len(input.RealmExport) == 0 {
@@ -556,14 +556,14 @@ func bindRealmExportPayload(c *gin.Context) ([]byte, bool) {
 func writeError(c *gin.Context, err error, code string) {
 	switch {
 	case errors.Is(err, ErrInvalidInput):
-		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "invalid input")
 	case errors.Is(err, ErrPermissionMissing):
-		response.Fail(c, http.StatusBadRequest, "UNKNOWN_PERMISSION", err.Error())
+		response.Fail(c, http.StatusBadRequest, "UNKNOWN_PERMISSION", "unknown permission")
 	case errors.Is(err, ErrLastAccessRole):
-		response.Fail(c, http.StatusConflict, "LAST_ACCESS_ROLE", err.Error())
+		response.Fail(c, http.StatusConflict, "LAST_ACCESS_ROLE", "last access role cannot be removed")
 	case errors.Is(err, sql.ErrNoRows):
-		response.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "not found")
 	default:
-		response.Fail(c, http.StatusInternalServerError, code, err.Error())
+		response.Fail(c, http.StatusInternalServerError, code, "request failed")
 	}
 }

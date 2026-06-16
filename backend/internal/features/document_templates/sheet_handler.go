@@ -41,7 +41,7 @@ func (h *SheetHandler) CreateSheet(c *gin.Context) {
 	sheet, err := h.service.CreateSheet(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "request failed",
 		})
 		return
 	}
@@ -109,7 +109,7 @@ func (h *SheetHandler) ListSheets(c *gin.Context) {
 	sheets, err := h.service.ListSheets(c.Request.Context(), templateID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "request failed",
 		})
 		return
 	}
@@ -129,7 +129,7 @@ func (h *SheetHandler) ListRequiredSheets(c *gin.Context) {
 	sheets, err := h.service.ListRequiredSheets(c.Request.Context(), templateID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "request failed",
 		})
 		return
 	}
@@ -150,7 +150,7 @@ func (h *SheetHandler) UpdateSheet(c *gin.Context) {
 	sheet, err := h.service.UpdateSheet(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "request failed",
 		})
 		return
 	}
@@ -169,7 +169,7 @@ func (h *SheetHandler) DeleteSheet(c *gin.Context) {
 
 	if err := h.service.DeleteSheet(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "request failed",
 		})
 		return
 	}

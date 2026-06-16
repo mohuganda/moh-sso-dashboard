@@ -45,7 +45,7 @@ func (h *ColumnHandler) CreateColumn(c *gin.Context) {
 			c,
 			http.StatusInternalServerError,
 			"CREATE_FAILED",
-			err.Error(),
+			"request failed",
 		)
 		return
 	}
@@ -164,7 +164,7 @@ func (h *ColumnHandler) UpdateColumn(c *gin.Context) {
 			c,
 			http.StatusInternalServerError,
 			"UPDATE_FAILED",
-			err.Error(),
+			"request failed",
 		)
 		return
 	}

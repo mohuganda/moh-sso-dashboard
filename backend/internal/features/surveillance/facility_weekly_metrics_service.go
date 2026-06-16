@@ -395,7 +395,7 @@ func (s *FacilityWeeklyMetricsService) ProcessFacilityMetrics(
 		if err != nil {
 			failedRows++
 
-			if markErr := s.surveillanceImportRepo.MarkRawRowFailed(ctx, raw.ID, err.Error()); markErr != nil {
+			if markErr := s.surveillanceImportRepo.MarkRawRowFailed(ctx, raw.ID, "failed to process facility metrics row"); markErr != nil {
 				return fmt.Errorf("mark raw row failed: %w", markErr)
 			}
 

@@ -41,7 +41,7 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 
@@ -56,10 +56,10 @@ func (h *Handler) Create(c *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, ErrStorageCodeExists) {
-			response.Fail(c, http.StatusConflict, "CODE_EXISTS", err.Error())
+			response.Fail(c, http.StatusConflict, "CODE_EXISTS", "storage location code already exists")
 			return
 		}
-		response.Fail(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "CREATE_FAILED", "request failed")
 		return
 	}
 
@@ -72,10 +72,10 @@ func (h *Handler) GetByID(c *gin.Context) {
 	loc, err := h.storageLocationService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrInvalidID) {
-			response.Fail(c, http.StatusBadRequest, "INVALID_ID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
 			return
 		}
-		response.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "not found")
 		return
 	}
 
@@ -85,7 +85,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 func (h *Handler) ListActive(c *gin.Context) {
 	locs, err := h.storageLocationService.ListActive(c.Request.Context())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", "request failed")
 		return
 	}
 
@@ -97,13 +97,13 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req UpdateStorageLocationInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
 	}
 
 	loc, err := h.storageLocationService.Update(c.Request.Context(), id, req)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "UPDATE_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "UPDATE_FAILED", "request failed")
 		return
 	}
 
@@ -114,9 +114,11 @@ func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.storageLocationService.Delete(c.Request.Context(), id); err != nil {
-		response.Fail(c, http.StatusInternalServerError, "DELETE_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "DELETE_FAILED", "request failed")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"message": "deleted"})
+	response.OK(c, http.StatusOK, struct {
+		Message string `json:"message"`
+	}{Message: "deleted"})
 }

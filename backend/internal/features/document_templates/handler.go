@@ -490,7 +490,7 @@ func (h *Handler) CreateTemplateWithStructure(c *gin.Context) {
 			c,
 			http.StatusInternalServerError,
 			"CREATE_TEMPLATE_FAILED",
-			err.Error(),
+			"request failed",
 		)
 
 		return

@@ -64,7 +64,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 	if err != nil {
 		h.audit(c, "client.create_failed", map[string]any{
 			"client_id": req.ClientID,
-			"reason":    err.Error(),
+			"reason":    "request failed",
 		})
 
 		var apiErr *apierror.APIError
@@ -195,7 +195,7 @@ func (h *Handler) UpdateClient(c *gin.Context) {
 	if err != nil {
 		h.audit(c, "client.update_failed", map[string]any{
 			"client_id": clientID,
-			"reason":    err.Error(),
+			"reason":    "request failed",
 		})
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update client")
 		return

@@ -259,6 +259,17 @@ type RoleUsageResponse struct {
 	Warnings          []string   `json:"warnings"`
 }
 
+type OperationResultResponse struct {
+	Deleted  bool `json:"deleted,omitempty"`
+	Assigned bool `json:"assigned,omitempty"`
+	Removed  bool `json:"removed,omitempty"`
+	Added    bool `json:"added,omitempty"`
+}
+
+type ApiMessageResponse struct {
+	Message string `json:"message"`
+}
+
 type RealmRoleUsageResponse struct {
 	RealmRole        string       `json:"realmRole"`
 	Permissions      []Permission `json:"permissions"`
