@@ -74,7 +74,7 @@ func (h *Handler) CountUsers(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"total_users": v})
+	response.OK(c, http.StatusOK, TotalUsersResponse{TotalUsers: v})
 }
 
 func (h *Handler) CountDisabledUsers(c *gin.Context) {
@@ -84,7 +84,7 @@ func (h *Handler) CountDisabledUsers(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"disabled_users": v})
+	response.OK(c, http.StatusOK, DisabledUsersResponse{DisabledUsers: v})
 }
 
 func (h *Handler) ActiveUsersToday(c *gin.Context) {
@@ -94,7 +94,7 @@ func (h *Handler) ActiveUsersToday(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"active_users_today": v})
+	response.OK(c, http.StatusOK, ActiveUsersTodayResponse{ActiveUsersToday: v})
 }
 
 func (h *Handler) ActiveUsersThisWeek(c *gin.Context) {
@@ -104,7 +104,7 @@ func (h *Handler) ActiveUsersThisWeek(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"active_users_this_week": v})
+	response.OK(c, http.StatusOK, ActiveUsersThisWeekResponse{ActiveUsersThisWeek: v})
 }
 
 /* =========================================================
@@ -118,7 +118,7 @@ func (h *Handler) LoginTrend(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toLoginTrendPoints(rows))
 }
 
 func (h *Handler) LoginTrendByDay(c *gin.Context) {
@@ -133,7 +133,7 @@ func (h *Handler) LoginTrendByDay(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toLoginTrendByDayPoints(rows))
 }
 
 /* =========================================================
@@ -147,7 +147,7 @@ func (h *Handler) CountFailedLogins(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"failed_logins": v})
+	response.OK(c, http.StatusOK, FailedLoginsResponse{FailedLogins: v})
 }
 
 func (h *Handler) CountFailedLoginsInRange(c *gin.Context) {
@@ -162,7 +162,7 @@ func (h *Handler) CountFailedLoginsInRange(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"failed_logins": v})
+	response.OK(c, http.StatusOK, FailedLoginsResponse{FailedLogins: v})
 }
 
 func (h *Handler) SuspiciousLogins(c *gin.Context) {
@@ -184,7 +184,7 @@ func (h *Handler) SuspiciousLogins(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toSuspiciousLogins(rows))
 }
 
 /* =========================================================
@@ -198,7 +198,7 @@ func (h *Handler) CountClients(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"total_clients": v})
+	response.OK(c, http.StatusOK, TotalClientsResponse{TotalClients: v})
 }
 
 func (h *Handler) MostAccessedClients(c *gin.Context) {
@@ -225,7 +225,7 @@ func (h *Handler) MostAccessedClients(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toMostAccessedClients(rows))
 }
 
 func (h *Handler) ActiveUsersPerClientToday(c *gin.Context) {
@@ -235,7 +235,7 @@ func (h *Handler) ActiveUsersPerClientToday(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toActiveUsersPerClient(rows))
 }
 
 func (h *Handler) LoginCountForClient(c *gin.Context) {
@@ -252,11 +252,11 @@ func (h *Handler) LoginCountForClient(c *gin.Context) {
 
 	v, err := h.service.LoginCountForClient(c.Request.Context(), clientID, start, end)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to count client logins")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"login_count": v})
+	response.OK(c, http.StatusOK, LoginCountResponse{LoginCount: v})
 }
 
 /* =========================================================
@@ -276,7 +276,7 @@ func (h *Handler) LastLoginForUser(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, row)
+	response.OK(c, http.StatusOK, lastLoginResponse(row))
 }
 
 func (h *Handler) UserClientUsage(c *gin.Context) {
@@ -302,7 +302,7 @@ func (h *Handler) UserClientUsage(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toUserClientUsage(rows))
 }
 
 func (h *Handler) NewUsersInRange(c *gin.Context) {
@@ -317,7 +317,7 @@ func (h *Handler) NewUsersInRange(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toUserSummaries(rows))
 }
 
 func (h *Handler) NewUsersTrend(c *gin.Context) {
@@ -332,7 +332,7 @@ func (h *Handler) NewUsersTrend(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toNewUsersTrendPoints(rows))
 }
 
 func (h *Handler) NeverLoggedInUsers(c *gin.Context) {
@@ -342,7 +342,7 @@ func (h *Handler) NeverLoggedInUsers(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, rows)
+	response.OK(c, http.StatusOK, toUserSummaries(rows))
 }
 
 /* =========================================================
@@ -354,32 +354,39 @@ func (h *Handler) Overview(c *gin.Context) {
 	now := time.Now()
 	start := now.AddDate(0, 0, -30)
 
-	response.OK(c, http.StatusOK, gin.H{
-		"system": gin.H{
-			"total_users":            must(h.service.CountUsers(ctx)),
-			"disabled_users":         must(h.service.CountDisabledUsers(ctx)),
-			"active_users_today":     must(h.service.ActiveUsersToday(ctx)),
-			"active_users_this_week": must(h.service.ActiveUsersThisWeek(ctx)),
+	loginTrend, _ := h.service.LoginTrendByDay(ctx, start, now)
+	newUsersTrend, _ := h.service.NewUsersTrend(ctx, start, now)
+	recentUsers, _ := h.service.NewUsersInRange(ctx, start, now)
+	neverLoggedIn, _ := h.service.NeverLoggedInUsers(ctx)
+	activeToday, _ := h.service.ActiveUsersPerClientToday(ctx)
+	recentClients, _ := h.service.RecentlyCreatedClients(ctx, 10)
+
+	response.OK(c, http.StatusOK, OverviewResponse{
+		System: OverviewSystemStats{
+			TotalUsers:          must(h.service.CountUsers(ctx)),
+			DisabledUsers:       must(h.service.CountDisabledUsers(ctx)),
+			ActiveUsersToday:    must(h.service.ActiveUsersToday(ctx)),
+			ActiveUsersThisWeek: must(h.service.ActiveUsersThisWeek(ctx)),
 		},
-		"clients": gin.H{
-			"total_clients":   must(h.service.CountClients(ctx)),
-			"enabled_clients": must(h.service.CountEnabledClients(ctx)),
-			"active_today":    must(h.service.ActiveUsersPerClientToday(ctx)),
-			"recent_clients":  must(h.service.RecentlyCreatedClients(ctx, 10)),
+		Clients: OverviewClientStats{
+			TotalClients:   must(h.service.CountClients(ctx)),
+			EnabledClients: must(h.service.CountEnabledClients(ctx)),
+			ActiveToday:    toActiveUsersPerClient(activeToday),
+			RecentClients:  toRecentClients(recentClients),
 		},
-		"security": gin.H{
-			"failed_logins":   must(h.service.CountFailedLogins(ctx)),
-			"active_sessions": must(h.service.ApproximateActiveSessions(ctx)),
+		Security: OverviewSecurityStats{
+			FailedLogins:   must(h.service.CountFailedLogins(ctx)),
+			ActiveSessions: must(h.service.ApproximateActiveSessions(ctx)),
 		},
-		"trends": gin.H{
-			"login_trend_30_days":     must(h.service.LoginTrendByDay(ctx, start, now)),
-			"new_users_trend_30_days": must(h.service.NewUsersTrend(ctx, start, now)),
+		Trends: OverviewTrends{
+			LoginTrend30Days:    toLoginTrendByDayPoints(loginTrend),
+			NewUsersTrend30Days: toNewUsersTrendPoints(newUsersTrend),
 		},
-		"users": gin.H{
-			"recent_users":    must(h.service.NewUsersInRange(ctx, start, now)),
-			"never_logged_in": must(h.service.NeverLoggedInUsers(ctx)),
+		Users: OverviewUsersStats{
+			RecentUsers:   toUserSummaries(recentUsers),
+			NeverLoggedIn: toUserSummaries(neverLoggedIn),
 		},
-		"_meta": gin.H{
+		Meta: map[string]time.Time{
 			"range_start":  start,
 			"range_end":    now,
 			"generated_at": time.Now(),

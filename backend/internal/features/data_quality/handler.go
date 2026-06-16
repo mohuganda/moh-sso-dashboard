@@ -3,7 +3,6 @@ package data_quality
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -55,16 +54,7 @@ func issueDBErrorMessage(err error, fallback string) string {
 	if err == nil {
 		return fallback
 	}
-
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) {
-		if pqErr.Detail != "" {
-			return fmt.Sprintf("%s (sqlstate=%s, detail=%s)", pqErr.Message, string(pqErr.Code), pqErr.Detail)
-		}
-		return fmt.Sprintf("%s (sqlstate=%s)", pqErr.Message, string(pqErr.Code))
-	}
-
-	return err.Error()
+	return fallback
 }
 
 func isUniqueViolation(err error) bool {
@@ -79,7 +69,7 @@ func isUniqueViolation(err error) bool {
 func (h *Handler) CreateIssue(c *gin.Context) {
 	var req createIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid request payload")
 		return
 	}
 
@@ -193,7 +183,7 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 
 	var req updateIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid request payload")
 		return
 	}
 
@@ -337,7 +327,7 @@ func (h *Handler) ResolveIssue(c *gin.Context) {
 
 	var req createIssueResolutionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid request payload")
 		return
 	}
 

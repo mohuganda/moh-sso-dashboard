@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/config"
-	"github.com/moh-sso-dashboard/internal/dto"
+	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type Handler struct {
@@ -55,14 +55,14 @@ func (h *Handler) GetOrgUnits(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_ORG_UNITS_FAILED", "failed to list organizational units")
 		return
 	}
 	defer rows.Close()
 
-	results := make([]dto.OrgUnitFull, 0)
+	results := make([]OrgUnitFull, 0)
 	for rows.Next() {
-		var ou dto.OrgUnitFull
+		var ou OrgUnitFull
 
 		err := rows.Scan(
 			&ou.DimOrgHierarchyKey,
@@ -84,7 +84,7 @@ func (h *Handler) GetOrgUnits(c *gin.Context) {
 			&ou.IsCurrent,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_ORG_UNITS_FAILED", "failed to list organizational units")
 			return
 		}
 
@@ -92,11 +92,11 @@ func (h *Handler) GetOrgUnits(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_ORG_UNITS_FAILED", "failed to list organizational units")
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetFacilities gets all facilities (level 6)
@@ -129,14 +129,14 @@ func (h *Handler) GetFacilities(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_FACILITIES_FAILED", "failed to list facilities")
 		return
 	}
 	defer rows.Close()
 
-	results := make([]dto.Facility, 0)
+	results := make([]Facility, 0)
 	for rows.Next() {
-		var f dto.Facility
+		var f Facility
 
 		err := rows.Scan(
 			&f.DimOrgHierarchyKey,
@@ -156,7 +156,7 @@ func (h *Handler) GetFacilities(c *gin.Context) {
 			&f.FacilityName,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_FACILITIES_FAILED", "failed to list facilities")
 			return
 		}
 
@@ -164,11 +164,11 @@ func (h *Handler) GetFacilities(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_FACILITIES_FAILED", "failed to list facilities")
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetDistricts gets all districts (level 3)
@@ -189,21 +189,21 @@ func (h *Handler) GetDistricts(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_DISTRICTS_FAILED", "failed to list districts")
 		return
 	}
 	defer rows.Close()
 
-	results := make([]dto.OrgUnitSimple, 0)
+	results := make([]OrgUnitSimple, 0)
 	for rows.Next() {
-		var ou dto.OrgUnitSimple
+		var ou OrgUnitSimple
 
 		if err := rows.Scan(
 			&ou.DimOrgHierarchyKey,
 			&ou.OrgUnitID,
 			&ou.OrgUnitName,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_DISTRICTS_FAILED", "failed to list districts")
 			return
 		}
 
@@ -211,11 +211,11 @@ func (h *Handler) GetDistricts(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_DISTRICTS_FAILED", "failed to list districts")
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetSubCounties gets subcounties (level 5), optionally filtered by sub_county
@@ -257,21 +257,21 @@ func (h *Handler) GetSubCounties(c *gin.Context) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_SUBCOUNTIES_FAILED", "failed to list subcounties")
 		return
 	}
 	defer rows.Close()
 
-	results := make([]dto.OrgUnitSimple, 0)
+	results := make([]OrgUnitSimple, 0)
 	for rows.Next() {
-		var ou dto.OrgUnitSimple
+		var ou OrgUnitSimple
 
 		if err := rows.Scan(
 			&ou.DimOrgHierarchyKey,
 			&ou.OrgUnitID,
 			&ou.OrgUnitName,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_SUBCOUNTIES_FAILED", "failed to list subcounties")
 			return
 		}
 
@@ -279,11 +279,11 @@ func (h *Handler) GetSubCounties(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_SUBCOUNTIES_FAILED", "failed to list subcounties")
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetLocalGovt gets local government units (level 4), optionally filtered by district
@@ -324,21 +324,21 @@ func (h *Handler) GetLocalGovt(c *gin.Context) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_LOCAL_GOVT_FAILED", "failed to list local governments")
 		return
 	}
 	defer rows.Close()
 
-	results := make([]dto.OrgUnitSimple, 0)
+	results := make([]OrgUnitSimple, 0)
 	for rows.Next() {
-		var ou dto.OrgUnitSimple
+		var ou OrgUnitSimple
 
 		if err := rows.Scan(
 			&ou.DimOrgHierarchyKey,
 			&ou.OrgUnitID,
 			&ou.OrgUnitName,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_LOCAL_GOVT_FAILED", "failed to list local governments")
 			return
 		}
 
@@ -346,11 +346,11 @@ func (h *Handler) GetLocalGovt(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_LOCAL_GOVT_FAILED", "failed to list local governments")
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetDistrictsByRegion gets districts (level 3) filtered by region
@@ -391,21 +391,21 @@ func (h *Handler) GetDistrictsByRegion(c *gin.Context) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_REGIONS_FAILED", "failed to list regions")
 		return
 	}
 	defer rows.Close()
 
-	results := make([]dto.OrgUnitSimple, 0)
+	results := make([]OrgUnitSimple, 0)
 	for rows.Next() {
-		var ou dto.OrgUnitSimple
+		var ou OrgUnitSimple
 
 		if err := rows.Scan(
 			&ou.DimOrgHierarchyKey,
 			&ou.OrgUnitID,
 			&ou.OrgUnitName,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_REGIONS_FAILED", "failed to list regions")
 			return
 		}
 
@@ -413,11 +413,11 @@ func (h *Handler) GetDistrictsByRegion(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_REGIONS_FAILED", "failed to list regions")
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetRegions gets all regions (level 2)
@@ -438,21 +438,21 @@ func (h *Handler) GetRegions(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_NATIONAL_FAILED", "failed to list national hierarchy")
 		return
 	}
 	defer rows.Close()
 
-	results := make([]dto.OrgUnitSimple, 0)
+	results := make([]OrgUnitSimple, 0)
 	for rows.Next() {
-		var ou dto.OrgUnitSimple
+		var ou OrgUnitSimple
 
 		if err := rows.Scan(
 			&ou.DimOrgHierarchyKey,
 			&ou.OrgUnitID,
 			&ou.OrgUnitName,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_NATIONAL_FAILED", "failed to list national hierarchy")
 			return
 		}
 
@@ -460,11 +460,11 @@ func (h *Handler) GetRegions(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_NATIONAL_FAILED", "failed to list national hierarchy")
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetNational gets national level (level 1)
@@ -485,21 +485,21 @@ func (h *Handler) GetNational(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_HIERARCHY_FAILED", "failed to list hierarchy")
 		return
 	}
 	defer rows.Close()
 
-	results := make([]dto.OrgUnitSimple, 0)
+	results := make([]OrgUnitSimple, 0)
 	for rows.Next() {
-		var ou dto.OrgUnitSimple
+		var ou OrgUnitSimple
 
 		if err := rows.Scan(
 			&ou.DimOrgHierarchyKey,
 			&ou.OrgUnitID,
 			&ou.OrgUnitName,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_HIERARCHY_FAILED", "failed to list hierarchy")
 			return
 		}
 
@@ -507,11 +507,11 @@ func (h *Handler) GetNational(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_HIERARCHY_FAILED", "failed to list hierarchy")
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetHierarchy gets the full organizational hierarchy as a tree structure
@@ -543,14 +543,14 @@ func (h *Handler) GetHierarchy(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_HIERARCHY_FAILED", "failed to list hierarchy")
 		return
 	}
 	defer rows.Close()
 
-	var data []dto.OrgUnit
+	var data []OrgUnit
 	for rows.Next() {
-		var ou dto.OrgUnit
+		var ou OrgUnit
 
 		if err := rows.Scan(
 			&ou.DimOrgHierarchyKey,
@@ -569,7 +569,7 @@ func (h *Handler) GetHierarchy(c *gin.Context) {
 			&ou.FacilityUID,
 			&ou.FacilityName,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Fail(c, http.StatusInternalServerError, "LIST_HIERARCHY_FAILED", "failed to list hierarchy")
 			return
 		}
 
@@ -577,23 +577,23 @@ func (h *Handler) GetHierarchy(c *gin.Context) {
 	}
 
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, http.StatusInternalServerError, "LIST_HIERARCHY_FAILED", "failed to list hierarchy")
 		return
 	}
 
 	tree := buildHierarchyTree(data)
-	c.JSON(http.StatusOK, tree)
+	response.OK(c, http.StatusOK, tree)
 }
 
-func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
-	grouped := make(map[string][]dto.OrgUnit, 6)
+func buildHierarchyTree(data []OrgUnit) []TreeNode {
+	grouped := make(map[string][]OrgUnit, 6)
 	for _, item := range data {
 		grouped[item.Level] = append(grouped[item.Level], item)
 	}
 
 	level1 := grouped["1"]
 	if len(level1) == 0 {
-		return []dto.TreeNode{}
+		return []TreeNode{}
 	}
 
 	nationals := make([]*hierarchyNode, 0, len(level1))
@@ -626,7 +626,7 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 	}
 
 	if len(nationals) == 0 {
-		return []dto.TreeNode{}
+		return []TreeNode{}
 	}
 	defaultNational := nationals[0]
 
@@ -762,8 +762,8 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 		})
 	}
 
-	facByDistrictAndSubUID := make(map[string]map[string][]dto.OrgUnit)
-	facByDistrictAndSubName := make(map[string]map[string][]dto.OrgUnit)
+	facByDistrictAndSubUID := make(map[string]map[string][]OrgUnit)
+	facByDistrictAndSubName := make(map[string]map[string][]OrgUnit)
 	for _, fac := range grouped["6"] {
 		if fac.FacilityName == nil {
 			continue
@@ -776,13 +776,13 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 
 		if fac.SubCountyUID != nil && *fac.SubCountyUID != "" {
 			if _, ok := facByDistrictAndSubUID[ref.Key]; !ok {
-				facByDistrictAndSubUID[ref.Key] = make(map[string][]dto.OrgUnit)
+				facByDistrictAndSubUID[ref.Key] = make(map[string][]OrgUnit)
 			}
 			facByDistrictAndSubUID[ref.Key][*fac.SubCountyUID] = append(facByDistrictAndSubUID[ref.Key][*fac.SubCountyUID], fac)
 		}
 		if fac.SubCounty != nil && *fac.SubCounty != "" {
 			if _, ok := facByDistrictAndSubName[ref.Key]; !ok {
-				facByDistrictAndSubName[ref.Key] = make(map[string][]dto.OrgUnit)
+				facByDistrictAndSubName[ref.Key] = make(map[string][]OrgUnit)
 			}
 			nameKey := normalizeName(*fac.SubCounty)
 			facByDistrictAndSubName[ref.Key][nameKey] = append(facByDistrictAndSubName[ref.Key][nameKey], fac)
@@ -832,7 +832,7 @@ func buildHierarchyTree(data []dto.OrgUnit) []dto.TreeNode {
 		ref.Node.Children = append(ref.Node.Children, subcountyNode)
 	}
 
-	tree := make([]dto.TreeNode, 0, len(nationals))
+	tree := make([]TreeNode, 0, len(nationals))
 	for _, national := range nationals {
 		tree = append(tree, national.toDTO())
 	}
@@ -849,8 +849,8 @@ type hierarchyNode struct {
 	Children []*hierarchyNode
 }
 
-func (n *hierarchyNode) toDTO() dto.TreeNode {
-	node := dto.TreeNode{
+func (n *hierarchyNode) toDTO() TreeNode {
+	node := TreeNode{
 		ID:       n.ID,
 		UID:      n.UID,
 		Name:     n.Name,
@@ -859,7 +859,7 @@ func (n *hierarchyNode) toDTO() dto.TreeNode {
 		Division: n.Division,
 	}
 	if len(n.Children) > 0 {
-		node.Children = make([]dto.TreeNode, 0, len(n.Children))
+		node.Children = make([]TreeNode, 0, len(n.Children))
 		for _, child := range n.Children {
 			node.Children = append(node.Children, child.toDTO())
 		}
@@ -887,7 +887,7 @@ func resolveRegionKey(uid *string, name *string, byUID map[string]string, byName
 }
 
 func resolveDistrictRef(
-	item dto.OrgUnit,
+	item OrgUnit,
 	byUID map[string]districtRef,
 	byRegionAndName map[string]districtRef,
 	byName map[string]districtRef,
@@ -946,13 +946,13 @@ func markSeen(seen map[string]map[string]struct{}, bucket string, key string) bo
 
 func collectFacilitiesForSubCounty(
 	districtKey string,
-	subCounty dto.OrgUnit,
-	bySubUID map[string]map[string][]dto.OrgUnit,
-	bySubName map[string]map[string][]dto.OrgUnit,
-) []dto.OrgUnit {
-	out := []dto.OrgUnit{}
+	subCounty OrgUnit,
+	bySubUID map[string]map[string][]OrgUnit,
+	bySubName map[string]map[string][]OrgUnit,
+) []OrgUnit {
+	out := []OrgUnit{}
 	seen := make(map[string]struct{})
-	appendUnique := func(list []dto.OrgUnit) {
+	appendUnique := func(list []OrgUnit) {
 		for _, fac := range list {
 			key := dedupeKey(fac.FacilityUID, fac.FacilityName, fac.DimOrgHierarchyKey)
 			if _, exists := seen[key]; exists {

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type Handler struct {
@@ -29,10 +30,7 @@ func (h *Handler) GetGeoJSON(c *gin.Context) {
 
 	filename, exists := files[name]
 	if !exists {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": "requested geojson does not exist",
-		})
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "requested geojson does not exist")
 		return
 	}
 
@@ -40,11 +38,7 @@ func (h *Handler) GetGeoJSON(c *gin.Context) {
 
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "failed to load geojson file",
-			"error":   err.Error(),
-		})
+		response.Fail(c, http.StatusInternalServerError, "GEOJSON_LOAD_FAILED", "failed to load geojson file")
 		return
 	}
 
