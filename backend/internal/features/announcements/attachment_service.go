@@ -312,6 +312,12 @@ func (s *Service) withPersistedAnnouncementEmailAttachments(
 			ContentID:   attachment.ContentID.String,
 			Inline:      attachment.Inline,
 		})
+		options.AttachmentLinks = append(options.AttachmentLinks, AnnouncementEmailAttachmentLink{
+			FileName:    attachment.OriginalFileName,
+			ContentType: attachment.ContentType.String,
+			FileSize:    attachment.FileSize,
+			URL:         s.announcementAttachmentDownloadURL(announcementID, attachment.ID),
+		})
 		seen[key] = struct{}{}
 	}
 
