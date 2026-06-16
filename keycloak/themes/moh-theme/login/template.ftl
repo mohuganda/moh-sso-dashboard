@@ -16,9 +16,16 @@
     </#if>
 
     <link rel="icon" href="${url.resourcesPath}/img/logo.png" />
-    <link rel="stylesheet" href="${url.resourcesCommonPath}/node_modules/patternfly/dist/css/patternfly.min.css" />
-    <link rel="stylesheet" href="${url.resourcesCommonPath}/node_modules/@patternfly/patternfly/patternfly.min.css" />
-    <link rel="stylesheet" href="${url.resourcesPath}/css/styles.css" />
+    <#if properties.stylesCommon?has_content>
+        <#list properties.stylesCommon?split(' ') as style>
+            <link rel="stylesheet" href="${url.resourcesCommonPath}/${style}" />
+        </#list>
+    </#if>
+    <#if properties.styles?has_content>
+        <#list properties.styles?split(' ') as style>
+            <link rel="stylesheet" href="${url.resourcesPath}/${style}" />
+        </#list>
+    </#if>
     <script src="${url.resourcesPath}/js/login.js" defer></script>
 </head>
 

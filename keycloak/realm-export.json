@@ -454,8 +454,8 @@
       "clientId": "dashboard-web",
       "name": "MOH SSO Dashboard Web",
       "description": "MOH SSO Dashboard Web",
-      "rootUrl": "http://localhost:3000",
-      "baseUrl": "http://localhost:3000",
+      "rootUrl": "http://localhost:3000/portal",
+      "baseUrl": "http://localhost:3000/portal",
       "enabled": true,
       "secret": "dashboard-web-secret",
       "publicClient": false,
@@ -464,6 +464,7 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
+        "http://localhost:3000/portal/*",
         "http://localhost:9000/api/v1/auth/callback"
       ],
       "webOrigins": [
