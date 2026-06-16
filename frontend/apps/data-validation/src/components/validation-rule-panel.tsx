@@ -13,7 +13,9 @@ import { useMemo, useState } from "react";
 import type { Operator, RuleFormState, Severity, ValidationRule } from "../types";
 
 type ValidationRulePanelProps = {
-  initialCode: string;
+  mode?: "create" | "edit";
+  initialCode?: string;
+  initialRule?: ValidationRule;
   onSubmit: (rule: ValidationRule) => void;
   onClose: () => void;
 };
@@ -44,10 +46,24 @@ const defaultFormState: RuleFormState = {
   description: "",
 };
 
-function createRule(form: RuleFormState): ValidationRule {
+function createFormState(initialCode?: string, initialRule?: ValidationRule): RuleFormState {
   return {
-    id: `custom-${crypto.randomUUID()}`,
-    type: "custom",
+    ...defaultFormState,
+    table: initialRule?.table ?? "",
+    code: initialRule?.code ?? initialCode ?? "",
+    severity: initialRule?.severity ?? "error",
+    column: initialRule?.column ?? "",
+    operator: initialRule?.operator ?? "contains",
+    compareTo: initialRule?.compareTo ?? "value",
+    value: initialRule?.value ?? "",
+    description: initialRule?.description ?? "",
+  };
+}
+
+function createRule(form: RuleFormState, initialRule?: ValidationRule): ValidationRule {
+  return {
+    id: initialRule?.id ?? `custom-${crypto.randomUUID()}`,
+    type: initialRule?.type ?? "custom",
     code: form.code.trim(),
     severity: form.severity,
     table: form.table,
@@ -59,8 +75,14 @@ function createRule(form: RuleFormState): ValidationRule {
   };
 }
 
-export function ValidationRulePanel({ initialCode, onSubmit, onClose }: ValidationRulePanelProps) {
-  const [form, setForm] = useState<RuleFormState>({ ...defaultFormState, code: initialCode });
+export function ValidationRulePanel({
+  mode = "create",
+  initialCode,
+  initialRule,
+  onSubmit,
+  onClose,
+}: ValidationRulePanelProps) {
+  const [form, setForm] = useState<RuleFormState>(() => createFormState(initialCode, initialRule));
 
   const isValid = useMemo(() => {
     return Boolean(form.code.trim() && form.table && form.column && form.description.trim());
@@ -75,7 +97,7 @@ export function ValidationRulePanel({ initialCode, onSubmit, onClose }: Validati
       return;
     }
 
-    onSubmit(createRule(form));
+    onSubmit(createRule(form, initialRule));
     onClose();
   };
 
@@ -184,7 +206,7 @@ export function ValidationRulePanel({ initialCode, onSubmit, onClose }: Validati
 
         <Stack orientation="horizontal" gap={3}>
           <Button type="button" disabled={!isValid} onClick={handleSubmit}>
-            Add rule
+            {mode === "edit" ? "Save changes" : "Add rule"}
           </Button>
           <Button kind="secondary" type="button" onClick={onClose}>
             Cancel

@@ -12,7 +12,15 @@ import {
 import { Add } from "@carbon/react/icons";
 import { useEffect, useMemo, useState } from "react";
 
-import { DataTablePagination, DataTableShell, TableStatusTag, useHeaderPanel } from "@moh-sso/ui";
+import {
+  DataTablePagination,
+  DataTableShell,
+  RowActionsCell,
+  TableStatusTag,
+  useHeaderPanel,
+} from "@moh-sso/ui";
+import { ValidationRuleActionsMenu } from "../components/validation-rule-actions-menu";
+import { ValidationRuleDetailsPanel } from "../components/validation-rule-details-panel";
 import { ValidationRulePanel } from "../components/validation-rule-panel";
 import type { ValidationRule } from "../types";
 
@@ -45,6 +53,7 @@ const headers = [
   { key: "column", header: "Column" },
   { key: "operator", header: "Operator" },
   { key: "description", header: "Description" },
+  { key: "actions", header: "" },
   { key: "raw", header: "" },
 ];
 
@@ -54,12 +63,10 @@ function normalize(value: string) {
 
 export default function DataValidationPage() {
   const { openPanel, closePanel } = useHeaderPanel();
-  const [customRules, setCustomRules] = useState<ValidationRule[]>([]);
+  const [rules, setRules] = useState<ValidationRule[]>(builtInRules);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  const rules = useMemo(() => [...builtInRules, ...customRules], [customRules]);
 
   useEffect(() => {
     setPage(1);
@@ -73,7 +80,15 @@ export default function DataValidationPage() {
     }
 
     return rules.filter((rule) =>
-      [rule.type, rule.code, rule.severity, rule.table, rule.column, rule.operator, rule.description]
+      [
+        rule.type,
+        rule.code,
+        rule.severity,
+        rule.table,
+        rule.column,
+        rule.operator,
+        rule.description,
+      ]
         .filter(Boolean)
         .some((value) => normalize(String(value)).includes(term)),
     );
@@ -93,8 +108,13 @@ export default function DataValidationPage() {
     column: rule.column ?? "",
     operator: rule.operator ?? "",
     description: rule.description,
+    actions: "",
     raw: rule,
   }));
+
+  const nextCustomCode = `CUS-${String(
+    rules.filter((rule) => rule.type === "custom").length + 1,
+  ).padStart(2, "0")}`;
 
   const openCreatePanel = () => {
     openPanel({
@@ -102,15 +122,47 @@ export default function DataValidationPage() {
       size: "md",
       content: (
         <ValidationRulePanel
-          key={`validation-rule-${customRules.length + 1}`}
-          initialCode={`CUS-${String(customRules.length + 1).padStart(2, "0")}`}
+          key={`validation-rule-${nextCustomCode}`}
+          initialCode={nextCustomCode}
           onSubmit={(rule) => {
-            setCustomRules((current) => [rule, ...current]);
+            setRules((current) => [rule, ...current]);
           }}
           onClose={closePanel}
         />
       ),
     });
+  };
+
+  const openViewPanel = (rule: ValidationRule) => {
+    openPanel({
+      title: `Rule: ${rule.code}`,
+      size: "md",
+      content: <ValidationRuleDetailsPanel rule={rule} />,
+    });
+  };
+
+  const openEditPanel = (rule: ValidationRule) => {
+    openPanel({
+      title: `Edit rule: ${rule.code}`,
+      size: "md",
+      content: (
+        <ValidationRulePanel
+          key={`edit-rule-${rule.id}`}
+          mode="edit"
+          initialRule={rule}
+          onSubmit={(updatedRule) => {
+            setRules((current) =>
+              current.map((item) => (item.id === updatedRule.id ? updatedRule : item)),
+            );
+          }}
+          onClose={closePanel}
+        />
+      ),
+    });
+  };
+
+  const deleteRule = (rule: ValidationRule) => {
+    setRules((current) => current.filter((item) => item.id !== rule.id));
   };
 
   return (
@@ -197,6 +249,19 @@ export default function DataValidationPage() {
                               );
                             }
 
+                            if (cell.info.header === "actions") {
+                              return (
+                                <RowActionsCell key={cell.id}>
+                                  <ValidationRuleActionsMenu
+                                    rule={rule}
+                                    onView={() => openViewPanel(rule)}
+                                    onEdit={() => openEditPanel(rule)}
+                                    onDelete={() => deleteRule(rule)}
+                                  />
+                                </RowActionsCell>
+                              );
+                            }
+
                             return <TableCell key={cell.id}>{cell.value || "—"}</TableCell>;
                           })}
                         </TableRow>
@@ -219,7 +284,6 @@ export default function DataValidationPage() {
           </DataTable>
         )}
       </DataTableShell>
-
     </div>
   );
 }
