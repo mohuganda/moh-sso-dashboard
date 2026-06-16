@@ -252,9 +252,7 @@ func (h *Handler) CountNotifications(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"count": count,
-	})
+	response.OK(c, http.StatusOK, CountResponse{Count: count})
 }
 
 func (h *Handler) CountUnreadNotificationsCount(c *gin.Context) {
@@ -274,9 +272,7 @@ func (h *Handler) CountUnreadNotificationsCount(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"count": count,
-	})
+	response.OK(c, http.StatusOK, CountResponse{Count: count})
 }
 
 /* =========================================================

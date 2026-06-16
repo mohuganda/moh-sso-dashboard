@@ -31,3 +31,7 @@ type SendEmailRequest struct {
 	Metadata     map[string]string        `json:"metadata,omitempty"`
 	ScheduledAt  *string                  `json:"scheduled_at,omitempty"`
 }
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}

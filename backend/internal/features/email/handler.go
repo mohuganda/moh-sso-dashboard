@@ -39,7 +39,7 @@ func (h *Handler) Send(c *gin.Context) {
 			c,
 			http.StatusBadRequest,
 			"INVALID_EMAIL_PAYLOAD",
-			err.Error(),
+			"invalid email payload",
 		)
 		return
 	}
@@ -54,9 +54,7 @@ func (h *Handler) Send(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"message": "email sent successfully",
-	})
+	response.OK(c, http.StatusOK, MessageResponse{Message: "email sent successfully"})
 }
 
 func (h *Handler) Queue(c *gin.Context) {
@@ -78,7 +76,7 @@ func (h *Handler) Queue(c *gin.Context) {
 			c,
 			http.StatusBadRequest,
 			"INVALID_EMAIL_PAYLOAD",
-			err.Error(),
+			"invalid email payload",
 		)
 		return
 	}
@@ -93,9 +91,7 @@ func (h *Handler) Queue(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusAccepted, gin.H{
-		"message": "email queued successfully",
-	})
+	response.OK(c, http.StatusAccepted, MessageResponse{Message: "email queued successfully"})
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -205,9 +201,7 @@ func (h *Handler) Retry(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusAccepted, gin.H{
-		"message": "email re-queued successfully",
-	})
+	response.OK(c, http.StatusAccepted, MessageResponse{Message: "email re-queued successfully"})
 }
 
 func (h *Handler) Delete(c *gin.Context) {
@@ -232,9 +226,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"message": "email deleted successfully",
-	})
+	response.OK(c, http.StatusOK, MessageResponse{Message: "email deleted successfully"})
 }
 
 func parsePagination(c *gin.Context) (int32, int32) {

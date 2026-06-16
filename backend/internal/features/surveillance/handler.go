@@ -61,13 +61,13 @@ func (h *Handler) ListEpiWeeksByYearWeek(c *gin.Context) {
 
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid year", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid year", "request failed")
 		return
 	}
 
 	week, err := strconv.Atoi(weekStr)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid week", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid week", "request failed")
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *Handler) ListEpiWeeksByYearWeek(c *gin.Context) {
 
 	data, err := h.epiWeekService.GetEpiWeekByYearWeek(ctx, params)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to get epi week by year and week", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to get epi week by year and week", "request failed")
 		return
 	}
 
@@ -96,13 +96,13 @@ func (h *Handler) ListEpiWeeksByYear(c *gin.Context) {
 
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid year", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid year", "request failed")
 		return
 	}
 
 	data, err := h.epiWeekService.ListEpiWeeksByYear(ctx, int32(year))
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list epi weeks by year", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list epi weeks by year", "request failed")
 		return
 	}
 
@@ -115,7 +115,7 @@ func (h *Handler) ListDiseases(c *gin.Context) {
 
 	data, err := h.diseaseService.ListDiseases(ctx)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list diseases", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list diseases", "request failed")
 		return
 	}
 
@@ -128,7 +128,7 @@ func (h *Handler) ListRegions(c *gin.Context) {
 
 	data, err := h.locationService.ListRegions(ctx)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list regions", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list regions", "request failed")
 		return
 	}
 
@@ -140,7 +140,7 @@ func (h *Handler) ListDistricts(c *gin.Context) {
 
 	data, err := h.locationService.ListDistricts(ctx)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list districts", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list districts", "request failed")
 		return
 	}
 
@@ -158,13 +158,13 @@ func (h *Handler) ListDistrictsByRegion(c *gin.Context) {
 
 	regionID, err := uuid.Parse(regionIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid region id", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid region id", "request failed")
 		return
 	}
 
 	data, err := h.locationService.ListDistrictsByRegion(ctx, regionID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list districts by region", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list districts by region", "request failed")
 		return
 	}
 
@@ -181,13 +181,13 @@ func (h *Handler) ListSubcountiesByDistrict(c *gin.Context) {
 
 	districtID, err := uuid.Parse(districtIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
 		return
 	}
 
 	data, err := h.locationService.ListSubcountiesByDistrict(ctx, districtID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list subcounties", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list subcounties", "request failed")
 		return
 	}
 
@@ -205,13 +205,13 @@ func (h *Handler) GetSubcountyByID(c *gin.Context) {
 
 	id, err := uuid.Parse(idParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid id", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid id", "request failed")
 		return
 	}
 
 	data, err := h.locationService.GetSubcountyByID(ctx, id)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to get subcounty", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to get subcounty", "request failed")
 		return
 	}
 
@@ -223,13 +223,13 @@ func (h *Handler) UpsertDistrict(c *gin.Context) {
 
 	var req db.UpsertDistrictParams
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid request body", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid request body", "request failed")
 		return
 	}
 
 	data, err := h.locationService.UpsertDistrict(ctx, req)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to upsert district", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to upsert district", "request failed")
 		return
 	}
 
@@ -241,13 +241,13 @@ func (h *Handler) UpsertSubcounty(c *gin.Context) {
 
 	var req db.UpsertSubCountyParams
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid request body", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid request body", "request failed")
 		return
 	}
 
 	data, err := h.locationService.UpsertSubcounty(ctx, req)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to upsert subcounty", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to upsert subcounty", "request failed")
 		return
 	}
 
@@ -265,16 +265,18 @@ func (h *Handler) DeleteSubcounty(c *gin.Context) {
 
 	id, err := uuid.Parse(idParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid id", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid id", "request failed")
 		return
 	}
 
 	if err := h.locationService.DeleteSubcounty(ctx, id); err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to delete subcounty", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to delete subcounty", "request failed")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"deleted": true})
+	response.OK(c, http.StatusOK, struct {
+		Deleted bool `json:"deleted"`
+	}{Deleted: true})
 }
 
 // facility weekly metrics
@@ -289,13 +291,13 @@ func (h *Handler) ListFacilityWeeklyMetricsByWeek(c *gin.Context) {
 
 	epiWeekID, err := uuid.Parse(epiWeekIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
 		return
 	}
 
 	diseaseMetrics, err := h.facilityWeeklyMetricsService.ListFacilityWeeklyDiseaseMetricsByWeek(ctx, epiWeekID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list facility weekly disease metrics by week", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility weekly disease metrics by week", "request failed")
 		return
 	}
 
@@ -316,13 +318,13 @@ func (h *Handler) ListFacilityWeeklyMetricsByFacility(c *gin.Context) {
 
 	facilityID, err := uuid.Parse(facilityIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid facilityID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid facilityID", "request failed")
 		return
 	}
 
 	data, err := h.facilityWeeklyMetricsService.ListFacilityWeeklyMetricsByFacility(ctx, facilityID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list facility weekly metrics by facility", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility weekly metrics by facility", "request failed")
 		return
 	}
 
@@ -346,19 +348,19 @@ func (h *Handler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
 
 	facilityID, err := uuid.Parse(facilityIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid facilityID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid facilityID", "request failed")
 		return
 	}
 
 	diseaseID, err := uuid.Parse(diseaseIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
 		return
 	}
 
 	data, err := h.facilityWeeklyMetricsService.ListFacilityDiseaseMetricsTrend(ctx, facilityID, diseaseID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease trend", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease trend", "request failed")
 		return
 	}
 
@@ -382,19 +384,19 @@ func (h *Handler) ListFacilityIndicatorMetricsTrend(c *gin.Context) {
 
 	facilityID, err := uuid.Parse(facilityIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid facilityID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid facilityID", "request failed")
 		return
 	}
 
 	indicatorID, err := uuid.Parse(indicatorIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid indicatorID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid indicatorID", "request failed")
 		return
 	}
 
 	data, err := h.facilityWeeklyMetricsService.ListFacilityIndicatorMetricsTrend(ctx, facilityID, indicatorID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list facility indicator trend", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility indicator trend", "request failed")
 		return
 	}
 
@@ -418,19 +420,19 @@ func (h *Handler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.Context) {
 
 	epiWeekID, err := uuid.Parse(epiWeekIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
 		return
 	}
 
 	diseaseID, err := uuid.Parse(diseaseIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
 		return
 	}
 
 	rows, err := h.facilityWeeklyMetricsService.ListFacilityDiseaseMetricsByWeekAndDisease(ctx, epiWeekID, diseaseID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease metrics by week and disease", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease metrics by week and disease", "request failed")
 		return
 	}
 
@@ -457,13 +459,13 @@ func (h *Handler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 
 	epiYear64, err := strconv.ParseInt(epiYearParam, 10, 32)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid epiYear", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid epiYear", "request failed")
 		return
 	}
 
 	diseaseID, err := uuid.Parse(diseaseIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
 		return
 	}
 
@@ -472,7 +474,7 @@ func (h *Handler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 	if regionIDParam != "" {
 		parsedRegionID, err := uuid.Parse(regionIDParam)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid regionID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", "request failed")
 			return
 		}
 		regionID = &parsedRegionID
@@ -483,7 +485,7 @@ func (h *Handler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 	if districtIDParam != "" {
 		parsedDistrictID, err := uuid.Parse(districtIDParam)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
 			return
 		}
 		districtID = &parsedDistrictID
@@ -497,7 +499,7 @@ func (h *Handler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 		districtID,
 	)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list aggregated disease weekly trend", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list aggregated disease weekly trend", "request failed")
 		return
 	}
 
@@ -517,13 +519,13 @@ func (h *Handler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
 
 	epiWeekID, err := uuid.Parse(epiWeekIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
 		return
 	}
 
 	data, err := h.weeklyStatusService.ListDistrictByWeek(ctx, epiWeekID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list district weekly statuses by week", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list district weekly statuses by week", "request failed")
 		return
 	}
 
@@ -540,7 +542,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 	if epiWeekID := c.Query("epiWeekID"); epiWeekID != "" {
 		id, err := uuid.Parse(epiWeekID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
 			return
 		}
 		params.EpiWeekID = uuid.NullUUID{UUID: id, Valid: true}
@@ -549,7 +551,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 	if regionID := c.Query("regionID"); regionID != "" {
 		id, err := uuid.Parse(regionID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid regionID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", "request failed")
 			return
 		}
 		params.RegionID = uuid.NullUUID{UUID: id, Valid: true}
@@ -558,7 +560,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 	if districtID := c.Query("districtID"); districtID != "" {
 		id, err := uuid.Parse(districtID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
 			return
 		}
 		params.DistrictID = uuid.NullUUID{UUID: id, Valid: true}
@@ -567,7 +569,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 	if subCountyID := c.Query("subCountyID"); subCountyID != "" {
 		id, err := uuid.Parse(subCountyID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", "request failed")
 			return
 		}
 		params.SubCountyID = uuid.NullUUID{UUID: id, Valid: true}
@@ -576,7 +578,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 	if diseaseID := c.Query("diseaseID"); diseaseID != "" {
 		id, err := uuid.Parse(diseaseID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
 			return
 		}
 		params.DiseaseID = uuid.NullUUID{UUID: id, Valid: true}
@@ -585,7 +587,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 	if indicatorID := c.Query("indicatorID"); indicatorID != "" {
 		id, err := uuid.Parse(indicatorID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", "request failed")
 			return
 		}
 		params.IndicatorID = uuid.NullUUID{UUID: id, Valid: true}
@@ -600,7 +602,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 
 	data, err := h.weeklyStatusService.List(ctx, params)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses", "request failed")
 		return
 	}
 
@@ -615,7 +617,7 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 	if epiWeekID := c.Query("epiWeekID"); epiWeekID != "" {
 		id, err := uuid.Parse(epiWeekID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
 			return
 		}
 		params.EpiWeekID = uuid.NullUUID{UUID: id, Valid: true}
@@ -624,7 +626,7 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 	if regionID := c.Query("regionID"); regionID != "" {
 		id, err := uuid.Parse(regionID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid regionID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", "request failed")
 			return
 		}
 		params.RegionID = uuid.NullUUID{UUID: id, Valid: true}
@@ -633,7 +635,7 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 	if districtID := c.Query("districtID"); districtID != "" {
 		id, err := uuid.Parse(districtID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
 			return
 		}
 		params.DistrictID = uuid.NullUUID{UUID: id, Valid: true}
@@ -642,7 +644,7 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 	if subCountyID := c.Query("subCountyID"); subCountyID != "" {
 		id, err := uuid.Parse(subCountyID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", "request failed")
 			return
 		}
 		params.SubCountyID = uuid.NullUUID{UUID: id, Valid: true}
@@ -651,7 +653,7 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 	if diseaseID := c.Query("diseaseID"); diseaseID != "" {
 		id, err := uuid.Parse(diseaseID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
 			return
 		}
 		params.DiseaseID = uuid.NullUUID{UUID: id, Valid: true}
@@ -660,7 +662,7 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 	if indicatorID := c.Query("indicatorID"); indicatorID != "" {
 		id, err := uuid.Parse(indicatorID)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", "request failed")
 			return
 		}
 		params.IndicatorID = uuid.NullUUID{UUID: id, Valid: true}
@@ -681,7 +683,7 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 
 	rows, err := h.weeklyStatusService.ListDetailed(ctx, params)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses detailed", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses detailed", "request failed")
 		return
 	}
 
@@ -706,13 +708,13 @@ func (h *Handler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
 
 	epiWeekID, err := uuid.Parse(epiWeekIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
 		return
 	}
 
 	data, err := h.weeklyStatusService.ListRegionByWeek(ctx, epiWeekID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list region weekly statuses by week", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list region weekly statuses by week", "request failed")
 		return
 	}
 
@@ -732,13 +734,13 @@ func (h *Handler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 
 	epiWeekID, err := uuid.Parse(epiWeekIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
 		return
 	}
 
 	data, err := h.weeklyStatusService.ListNationalByWeek(ctx, epiWeekID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list national weekly statuses by week", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list national weekly statuses by week", "request failed")
 		return
 	}
 
@@ -755,7 +757,7 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 	if value := c.Query("epiWeekID"); value != "" {
 		params.EpiWeekID, err = uuid.Parse(value)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
 			return
 		}
 	}
@@ -763,7 +765,7 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 	if value := c.Query("diseaseID"); value != "" {
 		params.DiseaseID, err = uuid.Parse(value)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
 			return
 		}
 	}
@@ -771,7 +773,7 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 	if value := c.Query("districtID"); value != "" {
 		params.DistrictID, err = uuid.Parse(value)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid districtID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
 			return
 		}
 	}
@@ -779,7 +781,7 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 	if value := c.Query("regionID"); value != "" {
 		params.RegionID, err = uuid.Parse(value)
 		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid regionID", err.Error())
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", "request failed")
 			return
 		}
 	}
@@ -805,7 +807,7 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 
 	data, err := h.alertService.ListAlerts(ctx, filters)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list alerts", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list alerts", "request failed")
 		return
 	}
 
@@ -819,7 +821,7 @@ func (h *Handler) ListImportBatches(c *gin.Context) {
 
 	data, err := h.importService.ListImportBatches(ctx)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list import batches", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list import batches", "request failed")
 		return
 	}
 
@@ -837,13 +839,13 @@ func (h *Handler) GetImportBatchByID(c *gin.Context) {
 
 	batchID, err := uuid.Parse(batchIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid batchID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid batchID", "request failed")
 		return
 	}
 
 	data, err := h.importService.GetImportBatchByID(ctx, batchID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to get import batch", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to get import batch", "request failed")
 		return
 	}
 
@@ -861,13 +863,13 @@ func (h *Handler) ListImportRawRowsByBatch(c *gin.Context) {
 
 	batchID, err := uuid.Parse(batchIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid batchID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid batchID", "request failed")
 		return
 	}
 
 	data, err := h.importService.ListImportRawRowsByBatch(ctx, batchID)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to list import raw rows", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to list import raw rows", "request failed")
 		return
 	}
 
@@ -879,13 +881,13 @@ func (h *Handler) CreateImportBatch(c *gin.Context) {
 
 	var req db.CreateImportBatchParams
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid request body", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid request body", "request failed")
 		return
 	}
 
 	data, err := h.importService.CreateImportBatch(ctx, req)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to create import batch", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to create import batch", "request failed")
 		return
 	}
 
@@ -903,7 +905,7 @@ func (h *Handler) UpdateImportBatchStatus(c *gin.Context) {
 
 	batchID, err := uuid.Parse(batchIDParam)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid batchID", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid batchID", "request failed")
 		return
 	}
 
@@ -913,7 +915,7 @@ func (h *Handler) UpdateImportBatchStatus(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid request body", err.Error())
+		response.Fail(c, http.StatusBadRequest, "invalid request body", "request failed")
 		return
 	}
 
@@ -926,7 +928,7 @@ func (h *Handler) UpdateImportBatchStatus(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "failed to update import batch status", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "failed to update import batch status", "request failed")
 		return
 	}
 

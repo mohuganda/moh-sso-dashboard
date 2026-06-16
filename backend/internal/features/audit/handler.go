@@ -1,10 +1,8 @@
 package audit
 
 import (
-	"crypto/sha256"
 	"database/sql"
 	"encoding/csv"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -176,14 +174,11 @@ func (h *Handler) ListAuditLogs(c *gin.Context) {
 		nextID = &id
 	}
 
-	resp := gin.H{
-		"items": toAuditLogResponses(rows),
-		"next_cursor": gin.H{
-			"cursor_created_at": nextCreatedAt,
-			"cursor_id":         nextID,
-		},
-		"has_more": hasMore,
-	}
+	resp := toAuditLogListResponse(
+		toAuditLogResponses(rows),
+		toAuditCursorResponse(nextCreatedAt, nextID),
+		hasMore,
+	)
 
 	if h.cache != nil {
 		_ = h.cache.Set(
@@ -228,7 +223,7 @@ func (h *Handler) ListAuditActions(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"actions": rows})
+	response.OK(c, http.StatusOK, toAuditActionsResponse(rows))
 }
 
 func (h *Handler) AuditMetricsOverview(c *gin.Context) {
@@ -253,7 +248,7 @@ func (h *Handler) AuditMetricsOverview(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, row)
+	response.OK(c, http.StatusOK, toAuditMetricsOverviewResponse(row))
 }
 
 func (h *Handler) FailedLoginsByDay(c *gin.Context) {
@@ -278,7 +273,7 @@ func (h *Handler) FailedLoginsByDay(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"series": rows})
+	response.OK(c, http.StatusOK, toAuditFailedLoginsByDayResponse(rows))
 }
 
 func (h *Handler) TopFailureIPs(c *gin.Context) {
@@ -314,7 +309,7 @@ func (h *Handler) TopFailureIPs(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"items": rows})
+	response.OK(c, http.StatusOK, toAuditTopFailureIPsResponse(rows))
 }
 
 /* =========================================================
@@ -370,10 +365,7 @@ func (h *Handler) ExportAuditLogs(c *gin.Context) {
 	if format == "json" {
 		c.Header("Content-Type", "application/json")
 		c.Header("Content-Disposition", "attachment; filename=audit_logs_export.json")
-		c.JSON(http.StatusOK, gin.H{
-			"manifest": manifest,
-			"items":    items,
-		})
+		c.JSON(http.StatusOK, toAuditExportResponse(manifest, items))
 		return
 	}
 
@@ -384,23 +376,11 @@ func (h *Handler) ExportAuditLogs(c *gin.Context) {
  * Helpers (export + sql nulls)
  * ========================================================= */
 
-func buildAuditManifest(from, to time.Time, rows any, recordCount int, c *gin.Context) map[string]any {
-	payload, _ := json.Marshal(rows)
-	sum := sha256.Sum256(payload)
-
-	return map[string]any{
-		"generated_at": time.Now().UTC().Format(time.RFC3339),
-		"range": map[string]string{
-			"from": from.UTC().Format(time.RFC3339),
-			"to":   to.UTC().Format(time.RFC3339),
-		},
-		"record_count":   recordCount,
-		"hash_algo":      "sha256",
-		"payload_sha256": hex.EncodeToString(sum[:]),
-	}
+func buildAuditManifest(from, to time.Time, rows any, recordCount int, c *gin.Context) AuditExportManifest {
+	return toAuditExportManifest(from, to, rows, recordCount)
 }
 
-func writeAuditCSV(c *gin.Context, rows []AuditLogResponse, manifest map[string]any) {
+func writeAuditCSV(c *gin.Context, rows []AuditLogResponse, manifest AuditExportManifest) {
 	c.Header("Content-Type", "text/csv")
 	c.Header("Content-Disposition", "attachment; filename=audit_logs_export.csv")
 

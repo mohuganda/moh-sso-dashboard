@@ -1,8 +1,12 @@
 package audit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sqlc-dev/pqtype"
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
@@ -26,6 +30,69 @@ func toAuditLogResponses(rows []db.ListAuditLogsRow) []AuditLogResponse {
 		out = append(out, toAuditLogResponse(row))
 	}
 	return out
+}
+
+func toAuditActionsResponse(rows []string) AuditActionsResponse {
+	return AuditActionsResponse{Actions: rows}
+}
+
+func toAuditCursorResponse(nextCreatedAt *time.Time, nextID *uuid.UUID) AuditCursor {
+	return AuditCursor{
+		CursorCreatedAt: nextCreatedAt,
+		CursorID:        nextID,
+	}
+}
+
+func toAuditMetricsOverviewResponse(row db.AuditMetricsOverviewRow) AuditMetricsOverviewResponse {
+	return AuditMetricsOverviewResponse{
+		TotalEvents:      row.TotalEvents,
+		TotalFailures:    row.TotalFailures,
+		FailedLogins:     row.FailedLogins,
+		SuccessfulLogins: row.SuccessfulLogins,
+	}
+}
+
+func toAuditFailedLoginsByDayResponse(rows []db.FailedLoginsByDayRow) AuditFailedLoginsByDayResponse {
+	out := make([]AuditFailedLoginsByDayPoint, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, AuditFailedLoginsByDayPoint{Day: row.Day, Count: row.Count})
+	}
+	return AuditFailedLoginsByDayResponse{Series: out}
+}
+
+func toAuditTopFailureIPsResponse(rows []db.TopFailureIPsRow) AuditTopFailureIPsResponse {
+	out := make([]AuditTopFailureIPPoint, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, AuditTopFailureIPPoint{
+			IP:    toAuditString(row.Ip),
+			Count: row.Count,
+		})
+	}
+	return AuditTopFailureIPsResponse{Items: out}
+}
+
+func toAuditExportResponse(manifest AuditExportManifest, items []AuditLogResponse) AuditExportResponse {
+	return AuditExportResponse{Manifest: manifest, Items: items}
+}
+
+func toAuditLogListResponse(items []AuditLogResponse, nextCursor AuditCursor, hasMore bool) AuditLogListResponse {
+	return AuditLogListResponse{
+		Items:      items,
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
+	}
+}
+
+func toAuditExportManifest(from, to time.Time, rows any, recordCount int) AuditExportManifest {
+	payload, _ := json.Marshal(rows)
+	sum := sha256.Sum256(payload)
+	return AuditExportManifest{
+		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
+		Range:         map[string]string{"from": from.UTC().Format(time.RFC3339), "to": to.UTC().Format(time.RFC3339)},
+		RecordCount:   recordCount,
+		HashAlgo:      "sha256",
+		PayloadSHA256: hex.EncodeToString(sum[:]),
+	}
 }
 
 func toExportAuditLogResponses(rows []db.ExportAuditLogsRow) []AuditLogResponse {
@@ -94,4 +161,17 @@ func boolPtr(value any) *bool {
 		}
 	}
 	return nil
+}
+
+func toAuditString(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case []byte:
+		return string(v)
+	case uuid.UUID:
+		return v.String()
+	default:
+		return ""
+	}
 }

@@ -155,13 +155,13 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 
 	loc, err := h.storageLocationService.GetByID(ctx, storageLocationStr)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_STORAGE", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_STORAGE", "request failed")
 		return
 	}
 
 	storageProvider, err := h.storageFactory.Get(loc.Provider)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PROVIDER", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PROVIDER", "request failed")
 		return
 	}
 
@@ -222,7 +222,7 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 			c,
 			http.StatusInternalServerError,
 			"CREATE_FAILED",
-			err.Error(),
+			"request failed",
 		)
 		return
 	}
@@ -250,19 +250,19 @@ func (h *Handler) GetDocument(c *gin.Context) {
 
 	doc, err := h.documentService.GetDocument(ctx, id)
 	if err != nil {
-		response.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "request failed")
 		return
 	}
 
 	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", "request failed")
 		return
 	}
 
 	storageProvider, err := h.storageFactory.Get(loc.Provider)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", "request failed")
 		return
 	}
 
@@ -285,7 +285,7 @@ func (h *Handler) EditDocument(c *gin.Context) {
 
 	var req UpdateDocumentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_REQUEST", "request failed")
 		return
 	}
 
@@ -300,19 +300,19 @@ func (h *Handler) EditDocument(c *gin.Context) {
 		ContentType:      *req.ContentType,
 	})
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "UPDATE_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "UPDATE_FAILED", "request failed")
 		return
 	}
 
 	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", "request failed")
 		return
 	}
 
 	storageProvider, err := h.storageFactory.Get(loc.Provider)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", "request failed")
 		return
 	}
 
@@ -333,13 +333,13 @@ func (h *Handler) DeleteDocument(c *gin.Context) {
 	}
 
 	if err := h.documentService.DeleteDocument(c.Request.Context(), id); err != nil {
-		response.Fail(c, http.StatusInternalServerError, "DELETE_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "DELETE_FAILED", "request failed")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"message": "document deleted successfully",
-	})
+	response.OK(c, http.StatusOK, struct {
+		Message string `json:"message"`
+	}{Message: "document deleted successfully"})
 }
 
 func (h *Handler) DownloadDocument(c *gin.Context) {
@@ -360,13 +360,13 @@ func (h *Handler) DownloadDocument(c *gin.Context) {
 
 	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", "request failed")
 		return
 	}
 
 	storageProvider, err := h.storageFactory.Get(loc.Provider)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", "request failed")
 		return
 	}
 
@@ -406,13 +406,13 @@ func (h *Handler) ViewDocument(c *gin.Context) {
 
 	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", "request failed")
 		return
 	}
 
 	storageProvider, err := h.storageFactory.Get(loc.Provider)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", err.Error())
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", "request failed")
 		return
 	}
 
@@ -508,9 +508,11 @@ func (h *Handler) ReprocessDocument(c *gin.Context) {
 
 	err = h.documentService.Reprocess(c.Request.Context(), documentID)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "error", err.Error())
+		response.Fail(c, http.StatusBadRequest, "error", "request failed")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"message": "reprocessing started"})
+	response.OK(c, http.StatusOK, struct {
+		Message string `json:"message"`
+	}{Message: "reprocessing started"})
 }

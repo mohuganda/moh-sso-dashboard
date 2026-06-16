@@ -52,10 +52,10 @@ func TestBuildAuditManifestUsesRecordCount(t *testing.T) {
 
 	manifest := buildAuditManifest(from, to, []AuditLogResponse{{ID: "one"}, {ID: "two"}}, 2, nil)
 
-	if got := manifest["record_count"]; got != 2 {
+	if got := manifest.RecordCount; got != 2 {
 		t.Fatalf("expected record_count 2, got %v", got)
 	}
-	if manifest["payload_sha256"] == "" {
+	if manifest.PayloadSHA256 == "" {
 		t.Fatal("expected payload hash to be set")
 	}
 }
