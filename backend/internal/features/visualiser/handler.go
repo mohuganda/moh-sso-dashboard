@@ -12,6 +12,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/dto"
+	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type Handler struct {
@@ -41,7 +42,7 @@ func (h *Handler) GetDatasets(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 	defer rows.Close()
@@ -56,7 +57,7 @@ func (h *Handler) GetDatasets(c *gin.Context) {
 		results = append(results, d)
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetDataElements gets data elements filtered by data_set_id
@@ -86,7 +87,7 @@ func (h *Handler) GetDataElements(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query, dataSetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 	defer rows.Close()
@@ -101,7 +102,7 @@ func (h *Handler) GetDataElements(c *gin.Context) {
 		results = append(results, de)
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetDataValues gets data values with optional filters
@@ -119,10 +120,7 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 
 	var req Request
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid JSON",
-			"details": "request failed",
-		})
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "invalid JSON")
 		return
 	}
 
@@ -402,7 +400,7 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query, values...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 	defer rows.Close()
@@ -424,18 +422,20 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 			&row.Dataelement,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+			response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 			return
 		}
 		rowsList = append(rowsList, row)
 	}
 
 	if err = rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"rows": rowsList})
+	response.OK(c, http.StatusOK, struct {
+		Rows []dto.DataValueRow `json:"rows"`
+	}{Rows: rowsList})
 }
 
 func (h *Handler) resolveAggregationLevel(ctx context.Context, requested *string, ou []string) string {
@@ -533,7 +533,7 @@ func (h *Handler) GetThemes(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 	defer rows.Close()
@@ -548,7 +548,7 @@ func (h *Handler) GetThemes(c *gin.Context) {
 		results = append(results, t)
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetDataElementsByTheme gets data elements for a specific theme
@@ -560,7 +560,7 @@ func (h *Handler) GetDataElementsByTheme(c *gin.Context) {
 
 	var req Request
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "theme_id is required"})
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "theme_id is required")
 		return
 	}
 
@@ -580,7 +580,7 @@ func (h *Handler) GetDataElementsByTheme(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query, req.ThemeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 	defer rows.Close()
@@ -595,7 +595,7 @@ func (h *Handler) GetDataElementsByTheme(c *gin.Context) {
 		results = append(results, det)
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetHIVSummary gets HIV summary data
@@ -624,7 +624,7 @@ func (h *Handler) GetHIVSummary(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 	defer rows.Close()
@@ -639,7 +639,7 @@ func (h *Handler) GetHIVSummary(c *gin.Context) {
 		results = append(results, hiv)
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetHIVTested gets HIV tested data
@@ -657,7 +657,7 @@ func (h *Handler) GetHIVTested(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 	defer rows.Close()
@@ -672,7 +672,7 @@ func (h *Handler) GetHIVTested(c *gin.Context) {
 		results = append(results, hiv)
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }
 
 // GetHIVRegimen gets HIV regimen data
@@ -697,7 +697,7 @@ func (h *Handler) GetHIVRegimen(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
 	defer rows.Close()
@@ -712,5 +712,5 @@ func (h *Handler) GetHIVRegimen(c *gin.Context) {
 		results = append(results, hiv)
 	}
 
-	c.JSON(http.StatusOK, results)
+	response.OK(c, http.StatusOK, results)
 }

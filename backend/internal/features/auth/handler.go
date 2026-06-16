@@ -174,9 +174,9 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 		},
 	)
 
-	response.OK(c, http.StatusOK, gin.H{
-		"user": user,
-	})
+	response.OK(c, http.StatusOK, struct {
+		User interface{} `json:"user"`
+	}{User: user})
 }
 
 func (h *Handler) applyResolvedAccess(c *gin.Context, user interface {
@@ -296,9 +296,6 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	cookieState, err := c.Cookie(cookieOAuthState)
 	if err != nil || cookieState == "" || returnedState == "" || returnedState != cookieState {
 		details := "oauth state mismatch"
-		if err != nil {
-			details = err.Error()
-		}
 
 		redirectURL := h.defaultFrontendRedirect()
 
@@ -336,9 +333,6 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	codeVerifier, err := c.Cookie(cookiePKCEVerifier)
 	if err != nil || codeVerifier == "" {
 		details := "pkce verifier cookie not found"
-		if err != nil {
-			details = err.Error()
-		}
 
 		redirectURL := h.defaultFrontendRedirect()
 
@@ -429,13 +423,7 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			requestID,
 		)
 
-		c.AbortWithStatusJSON(
-			http.StatusUnauthorized,
-			gin.H{
-				"error":   "authentication failed",
-				"details": err.Error(),
-			},
-		)
+		response.Fail(c, http.StatusUnauthorized, apierror.ErrTokenInvalid.Code, "authentication failed")
 		return
 	}
 
@@ -471,13 +459,7 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			c.Request.UserAgent(),
 		)
 
-		c.AbortWithStatusJSON(
-			http.StatusUnauthorized,
-			gin.H{
-				"error":   "authentication failed",
-				"details": "empty access token",
-			},
-		)
+		response.Fail(c, http.StatusUnauthorized, apierror.ErrTokenInvalid.Code, "authentication failed")
 		return
 	}
 
@@ -551,10 +533,7 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			err,
 		)
 
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			gin.H{"error": "failed to create session"},
-		)
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create session")
 		return
 	}
 
@@ -727,20 +706,47 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 		h.setCookie(c, cookieSession, newSessionID, int(ttl.Seconds()), true)
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"expires_in": tokens.ExpiresIn,
-		"cookie_debug": gin.H{
-			"environment":        h.environment(),
-			"secure":             h.cookieSecure(),
-			"same_site":          h.cookieSameSiteString(),
-			"domain":             h.cookieDomain(),
-			"has_access_token":   tokens.AccessToken != "",
-			"has_refresh_token":  tokens.RefreshToken != "",
-			"refresh_expires_in": tokens.RefreshExpiresIn,
-			"frontend_base_url":  h.config.FrontendBaseURL,
-			"keycloak_redirect":  h.config.KeycloakRedirectURI,
-			"keycloak_external":  h.config.KeycloakExternalURL,
-			"keycloak_internal":  h.config.KeycloakTokenBaseURL(),
+	response.OK(c, http.StatusOK, struct {
+		ExpiresIn   int64 `json:"expires_in"`
+		CookieDebug struct {
+			Environment      string `json:"environment"`
+			Secure           bool   `json:"secure"`
+			SameSite         string `json:"same_site"`
+			Domain           string `json:"domain"`
+			HasAccessToken   bool   `json:"has_access_token"`
+			HasRefreshToken  bool   `json:"has_refresh_token"`
+			RefreshExpiresIn int64  `json:"refresh_expires_in"`
+			FrontendBaseURL  string `json:"frontend_base_url"`
+			KeycloakRedirect string `json:"keycloak_redirect"`
+			KeycloakExternal string `json:"keycloak_external"`
+			KeycloakInternal string `json:"keycloak_internal"`
+		} `json:"cookie_debug"`
+	}{
+		ExpiresIn: tokens.ExpiresIn,
+		CookieDebug: struct {
+			Environment      string `json:"environment"`
+			Secure           bool   `json:"secure"`
+			SameSite         string `json:"same_site"`
+			Domain           string `json:"domain"`
+			HasAccessToken   bool   `json:"has_access_token"`
+			HasRefreshToken  bool   `json:"has_refresh_token"`
+			RefreshExpiresIn int64  `json:"refresh_expires_in"`
+			FrontendBaseURL  string `json:"frontend_base_url"`
+			KeycloakRedirect string `json:"keycloak_redirect"`
+			KeycloakExternal string `json:"keycloak_external"`
+			KeycloakInternal string `json:"keycloak_internal"`
+		}{
+			Environment:      h.environment(),
+			Secure:           h.cookieSecure(),
+			SameSite:         h.cookieSameSiteString(),
+			Domain:           h.cookieDomain(),
+			HasAccessToken:   tokens.AccessToken != "",
+			HasRefreshToken:  tokens.RefreshToken != "",
+			RefreshExpiresIn: tokens.RefreshExpiresIn,
+			FrontendBaseURL:  h.config.FrontendBaseURL,
+			KeycloakRedirect: h.config.KeycloakRedirectURI,
+			KeycloakExternal: h.config.KeycloakExternalURL,
+			KeycloakInternal: h.config.KeycloakTokenBaseURL(),
 		},
 	})
 }

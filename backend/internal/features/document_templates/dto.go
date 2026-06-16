@@ -6,3 +6,7 @@ type processValueRequest struct {
 	Column model.DocumentTemplateColumn `json:"column"`
 	Value  any                          `json:"value"`
 }
+
+type ExistsResponse struct {
+	Exists bool `json:"exists"`
+}
