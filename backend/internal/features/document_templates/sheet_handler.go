@@ -42,7 +42,7 @@ func (h *SheetHandler) CreateSheet(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusCreated, sheet)
+	response.OK(c, http.StatusCreated, toSheetResponse(sheet))
 }
 
 func (h *SheetHandler) GetSheet(c *gin.Context) {
@@ -58,7 +58,7 @@ func (h *SheetHandler) GetSheet(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, sheet)
+	response.OK(c, http.StatusOK, toSheetResponse(sheet))
 }
 
 func (h *SheetHandler) GetSheetByCode(c *gin.Context) {
@@ -80,7 +80,7 @@ func (h *SheetHandler) GetSheetByCode(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, sheet)
+	response.OK(c, http.StatusOK, toSheetResponse(sheet))
 }
 
 func (h *SheetHandler) ListSheets(c *gin.Context) {
@@ -96,7 +96,7 @@ func (h *SheetHandler) ListSheets(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, sheets)
+	response.OK(c, http.StatusOK, toSheetResponses(sheets))
 }
 
 func (h *SheetHandler) ListRequiredSheets(c *gin.Context) {
@@ -112,7 +112,7 @@ func (h *SheetHandler) ListRequiredSheets(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, sheets)
+	response.OK(c, http.StatusOK, toSheetResponses(sheets))
 }
 
 func (h *SheetHandler) UpdateSheet(c *gin.Context) {
@@ -129,7 +129,7 @@ func (h *SheetHandler) UpdateSheet(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, sheet)
+	response.OK(c, http.StatusOK, toSheetResponse(sheet))
 }
 
 func (h *SheetHandler) DeleteSheet(c *gin.Context) {
@@ -190,7 +190,7 @@ func (h *SheetHandler) GetSheetRuntime(c *gin.Context) {
 		response.Fail(c, http.StatusNotFound, "SHEET_NOT_FOUND", "Sheet not found in template")
 		return
 	}
-	response.OK(c, http.StatusOK, sheet)
+	response.OK(c, http.StatusOK, toSheetRuntimeResponse(sheet))
 
 }
 

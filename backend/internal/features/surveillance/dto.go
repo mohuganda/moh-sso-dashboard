@@ -84,3 +84,54 @@ type FacilityWeeklyMetricResponse struct {
 	ImportedAt  time.Time `json:"imported_at"`
 	CreatedAt   time.Time `json:"created_at"`
 }
+
+type EpiWeekResponse struct {
+	ID            uuid.UUID  `json:"id"`
+	EpiYear       int32      `json:"epi_year"`
+	EpiWeek       int32      `json:"epi_week"`
+	WeekStartDate *time.Time `json:"week_start_date,omitempty"`
+	WeekEndDate   *time.Time `json:"week_end_date,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+}
+
+type DiseaseResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	ShortName *string   `json:"short_name,omitempty"`
+	Code      *string   `json:"code,omitempty"`
+	Category  *string   `json:"category,omitempty"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type RegionResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Code      *string   `json:"code,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type DistrictResponse struct {
+	ID         uuid.UUID  `json:"id"`
+	Name       string     `json:"name"`
+	RegionID   *uuid.UUID `json:"region_id,omitempty"`
+	Code       *string    `json:"code,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	RegionName *string    `json:"region_name,omitempty"`
+}
+
+type SubCountyResponse struct {
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	DistrictID uuid.UUID `json:"district_id"`
+	Code       *string   `json:"code,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+type DeleteResponse struct {
+	Deleted bool `json:"deleted"`
+}

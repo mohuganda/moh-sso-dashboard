@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"github.com/moh-sso-dashboard/internal/config"
-	"github.com/moh-sso-dashboard/internal/dto"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
@@ -47,9 +46,9 @@ func (h *Handler) GetDatasets(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var results []dto.Dataset
+	var results []DatasetResponse
 	for rows.Next() {
-		var d dto.Dataset
+		var d DatasetResponse
 		err := rows.Scan(&d.DatasetKey, &d.DatasetID, &d.DisplayName, &d.IsCurrent, &d.CreateDate)
 		if err != nil {
 			continue
@@ -92,9 +91,9 @@ func (h *Handler) GetDataElements(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	results := make([]dto.DataElement, 0)
+	var results []DataElementResponse
 	for rows.Next() {
-		var de dto.DataElement
+		var de DataElementResponse
 		err := rows.Scan(&de.DimDataElementMapKey, &de.DataElementID, &de.DataSetID, &de.DataElementShortName, &de.DataElementLongName, &de.RowVersion, &de.IsCurrent)
 		if err != nil {
 			continue
@@ -405,9 +404,9 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	rowsList := make([]dto.DataValueRow, 0)
+	rowsList := make([]DataValueRowResponse, 0)
 	for rows.Next() {
-		var row dto.DataValueRow
+		var row DataValueRowResponse
 		err := rows.Scan(
 			&row.OrgUnitID,
 			&row.DataElementID,
@@ -433,9 +432,7 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, struct {
-		Rows []dto.DataValueRow `json:"rows"`
-	}{Rows: rowsList})
+	response.OK(c, http.StatusOK, DataValuesResponse{Rows: rowsList})
 }
 
 func (h *Handler) resolveAggregationLevel(ctx context.Context, requested *string, ou []string) string {
@@ -538,9 +535,9 @@ func (h *Handler) GetThemes(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var results []dto.Theme
+	var results []ThemeResponse
 	for rows.Next() {
-		var t dto.Theme
+		var t ThemeResponse
 		err := rows.Scan(&t.ThemeID, &t.ThemeName, &t.DatasetName)
 		if err != nil {
 			continue
@@ -585,9 +582,9 @@ func (h *Handler) GetDataElementsByTheme(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var results []dto.DataElementByTheme
+	var results []DataElementByThemeResponse
 	for rows.Next() {
-		var det dto.DataElementByTheme
+		var det DataElementByThemeResponse
 		err := rows.Scan(&det.ThemeCategoryID, &det.ThemeID, &det.ThemeName, &det.DataElementKey, &det.DataElementID, &det.DataElementShortName)
 		if err != nil {
 			continue
@@ -629,9 +626,9 @@ func (h *Handler) GetHIVSummary(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var results []dto.HIVSummary
+	var results []HIVSummaryResponse
 	for rows.Next() {
-		var hiv dto.HIVSummary
+		var hiv HIVSummaryResponse
 		err := rows.Scan(&hiv.Year, &hiv.Quarter, &hiv.TotalTested, &hiv.TotalHIVPositive, &hiv.TotalLinkedCare, &hiv.TotalEnrolledCare, &hiv.TotalARTStarts, &hiv.TotalARTWithCD4, &hiv.TotalTXCurr, &hiv.TotalTX1stLine, &hiv.TotalTX2ndLine, &hiv.TotalTX3rdPlus, &hiv.TotalTBScreened, &hiv.TotalMalnutritionAssessed)
 		if err != nil {
 			continue
@@ -662,9 +659,9 @@ func (h *Handler) GetHIVTested(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var results []dto.HIVTested
+	var results []HIVTestedResponse
 	for rows.Next() {
-		var hiv dto.HIVTested
+		var hiv HIVTestedResponse
 		err := rows.Scan(&hiv.Year, &hiv.Quarter, &hiv.TestedHIV, &hiv.TestedHIVPositive, &hiv.TotalLinkedCare)
 		if err != nil {
 			continue
@@ -702,9 +699,9 @@ func (h *Handler) GetHIVRegimen(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var results []dto.HIVRegimen
+	var results []HIVRegimenResponse
 	for rows.Next() {
-		var hiv dto.HIVRegimen
+		var hiv HIVRegimenResponse
 		err := rows.Scan(&hiv.Year, &hiv.Quarter, &hiv.Actives, &hiv.TestedViralLoad, &hiv.TotalSuppressed)
 		if err != nil {
 			continue

@@ -50,7 +50,7 @@ func (h *ColumnHandler) CreateColumn(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusCreated, col)
+	response.OK(c, http.StatusCreated, toColumnResponse(col))
 }
 
 /* =========================================================
@@ -70,7 +70,7 @@ func (h *ColumnHandler) GetColumn(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, col)
+	response.OK(c, http.StatusOK, toColumnResponse(col))
 }
 
 /* =========================================================
@@ -90,7 +90,7 @@ func (h *ColumnHandler) ListColumns(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, cols)
+	response.OK(c, http.StatusOK, toColumnResponses(cols))
 }
 
 /* =========================================================
@@ -110,7 +110,7 @@ func (h *ColumnHandler) ListRequiredColumns(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, cols)
+	response.OK(c, http.StatusOK, toColumnResponses(cols))
 }
 
 /* =========================================================
@@ -130,7 +130,7 @@ func (h *ColumnHandler) ListUniqueColumns(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, cols)
+	response.OK(c, http.StatusOK, toColumnResponses(cols))
 }
 
 /* =========================================================
@@ -169,7 +169,7 @@ func (h *ColumnHandler) UpdateColumn(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, col)
+	response.OK(c, http.StatusOK, toColumnResponse(col))
 }
 
 /* =========================================================
@@ -248,5 +248,5 @@ func (h *ColumnHandler) ProcessValue(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, result)
+	response.OK(c, http.StatusOK, toProcessedColumnValueResponse(result))
 }
