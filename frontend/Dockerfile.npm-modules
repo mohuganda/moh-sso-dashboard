@@ -1,0 +1,41 @@
+# ======================
+# Stage 1: Build shell and stage published modules
+# ======================
+FROM node:20-alpine AS build
+
+WORKDIR /app
+ENV FRONTEND_ASSET_BASE_URL=/portal
+ENV FRONTEND_BASE_PATH=/portal
+
+COPY . .
+RUN npm ci
+RUN node scripts/use-runtime-config.mjs production
+
+# Optional example:
+# --build-arg MOH_SSO_NPM_MODULES="@moh-sso/users@0.1.0 @moh-sso/api@0.1.0"
+#
+# This image path is intentionally optional. The default production Dockerfile
+# still builds apps/packages from source.
+ARG MOH_SSO_NPM_MODULES=""
+RUN if [ -n "$MOH_SSO_NPM_MODULES" ]; then npm install --no-save --workspaces=false $MOH_SSO_NPM_MODULES; fi
+
+RUN npm run build:shell
+RUN npm run generate:import-map
+RUN npm run generate:versions
+RUN npm run stage:mf:npm
+RUN npm run audit:import-map
+
+# ======================
+# Stage 2: Production (Static server)
+# ======================
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN npm install -g serve
+
+COPY --from=build /app/dist ./dist
+
+EXPOSE 3000
+
+CMD ["serve", "-s", "dist", "-l", "3000"]

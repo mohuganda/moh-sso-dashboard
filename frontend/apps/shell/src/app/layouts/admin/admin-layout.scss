@@ -1,0 +1,202 @@
+:root {
+  --moh-admin-header-height: 3rem;
+  --moh-admin-sidenav-width: 16rem;
+}
+
+/* =========================
+ * Admin layout shell
+ * ========================= */
+
+.admin-layout {
+  min-height: 100vh;
+  background: var(--cds-background, #ffffff);
+}
+
+/* =========================
+ * Header
+ * ========================= */
+
+.admin-layout__header {
+  z-index: var(--moh-z-header, 7000);
+}
+
+.admin-layout__brand {
+  height: var(--moh-admin-header-height);
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.admin-layout__brand-logo-button {
+  width: 3rem;
+  height: var(--moh-admin-header-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.admin-layout__brand-logo-button:hover {
+  background: var(--cds-background-hover, #353535);
+}
+
+.admin-layout__brand-logo-button:focus-visible {
+  outline: 2px solid var(--cds-focus, #0f62fe);
+  outline-offset: -2px;
+}
+
+.admin-layout__brand-logo {
+  width: 2rem;
+  height: 2rem;
+  max-width: 2rem;
+  max-height: 2rem;
+  object-fit: contain;
+  display: block;
+}
+
+.admin-layout__brand-name {
+  cursor: pointer;
+}
+
+/* =========================
+ * Notification badge
+ * ========================= */
+
+.admin-notification-badge {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background-color: var(--cds-support-error, #da1e28);
+  color: var(--cds-text-on-color, #ffffff);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* =========================
+ * SideNav
+ * ========================= */
+
+.admin-layout__sidenav,
+.admin-layout .cds--side-nav {
+  top: var(--moh-admin-header-height);
+  width: var(--moh-admin-sidenav-width);
+  height: calc(100vh - var(--moh-admin-header-height));
+  z-index: var(--moh-z-sidenav, 6000);
+  border-right: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+}
+
+.admin-layout .cds--side-nav__link[aria-current="page"],
+.admin-layout .cds--side-nav__link--current {
+  font-weight: 700;
+}
+
+/* =========================
+ * Content area
+ * ========================= */
+
+.admin-layout__content-shell {
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--moh-admin-sidenav-width);
+  padding-top: var(--moh-admin-header-height);
+  background: var(--cds-background, #ffffff);
+}
+
+.admin-layout__content {
+  min-width: 0;
+  flex: 1;
+  padding: 1.5rem;
+  overflow-x: hidden;
+  background: var(--cds-background, #ffffff);
+}
+
+.admin-layout__content.cds--content {
+  margin: 0;
+}
+
+/* Breadcrumb strip alignment */
+.admin-layout .moh-breadcrumb-bar {
+  flex: 0 0 auto;
+}
+
+/* =========================
+ * HeaderPanel alignment
+ * ========================= */
+
+.admin-layout .cds--header-panel.notifications-header-panel,
+.cds--header-panel.notifications-header-panel {
+  right: 0;
+  left: auto;
+}
+
+/* =========================
+ * Defensive image constraints
+ * ========================= */
+
+/*
+ * This prevents large decorative images inside admin pages
+ * from overflowing their containers.
+ */
+.admin-layout__content img {
+  max-width: 100%;
+  height: auto;
+}
+
+/*
+ * Use this class on big hero/logo images inside admin pages.
+ */
+.admin-page-image {
+  display: block;
+  max-width: 16rem;
+  max-height: 10rem;
+  object-fit: contain;
+}
+
+/* =========================
+ * Defensive polish
+ * ========================= */
+
+body {
+  overflow-x: hidden;
+}
+
+/* =========================
+ * Responsive
+ * ========================= */
+
+@media (max-width: 1056px) {
+  :root {
+    --moh-admin-sidenav-width: 0rem;
+  }
+
+  .admin-layout__content-shell {
+    margin-left: 0;
+  }
+
+  .admin-layout__sidenav,
+  .admin-layout .cds--side-nav {
+    transform: translateX(-100%);
+  }
+}
+
+@media (max-width: 672px) {
+  .admin-layout__content {
+    padding: 1rem;
+  }
+
+  .admin-layout__brand-name {
+    max-width: 12rem;
+  }
+}

@@ -7,13 +7,12 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	documenttemplates "github.com/moh-sso-dashboard/internal/features/document_templates"
+	documentRepo "github.com/moh-sso-dashboard/internal/features/documents"
+	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
-	documentRepo "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
-	"github.com/moh-sso-dashboard/internal/service"
-
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 
 	"github.com/moh-sso-dashboard/internal/storage"
 )
@@ -23,12 +22,12 @@ type Service struct {
 	templateImportRepo documentRepo.TemplateImportRepository
 	processRepo        processRepo.ProcessRepository
 	fileRepository     documentRepo.FileRepository
-	importRepository   interfaces.ImportRepository
+	importRepository   surveillancefeature.ImportRepository
 
-	documentTemplateService service.DocumentTemplateService
-	facilityMetricsService  *service.SurveillanceFacilityWeeklyMetricsService
-	weeklyStatusService     *service.SurveillanceWeeklyStatusService
-	alertsService           *service.SurveillanceAlertService
+	documentTemplateService documenttemplates.Service
+	facilityMetricsService  *surveillancefeature.FacilityWeeklyMetricsService
+	weeklyStatusService     *surveillancefeature.WeeklyStatusService
+	alertsService           *surveillancefeature.AlertService
 
 	registry *Registry
 	storage  storage.Storage
@@ -40,11 +39,11 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 	templateImportRepo documentRepo.TemplateImportRepository,
 	processRepo processRepo.ProcessRepository,
 	fileRepository documentRepo.FileRepository,
-	importRepository interfaces.ImportRepository,
-	documentTemplateService service.DocumentTemplateService,
-	facilityMetricsService *service.SurveillanceFacilityWeeklyMetricsService,
-	weeklyStatusService *service.SurveillanceWeeklyStatusService,
-	alertsService *service.SurveillanceAlertService,
+	importRepository surveillancefeature.ImportRepository,
+	documentTemplateService documenttemplates.Service,
+	facilityMetricsService *surveillancefeature.FacilityWeeklyMetricsService,
+	weeklyStatusService *surveillancefeature.WeeklyStatusService,
+	alertsService *surveillancefeature.AlertService,
 	storage storage.Storage, remote *sql.DB) *Service {
 	reg := NewRegistry()
 

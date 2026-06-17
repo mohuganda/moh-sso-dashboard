@@ -267,30 +267,52 @@ type Alert struct {
 }
 
 type Announcement struct {
-	ID           uuid.UUID      `json:"id"`
-	Title        string         `json:"title"`
-	Message      string         `json:"message"`
-	Summary      sql.NullString `json:"summary"`
-	Level        interface{}    `json:"level"`
-	Tag          sql.NullString `json:"tag"`
-	LinkUrl      sql.NullString `json:"link_url"`
-	Priority     int32          `json:"priority"`
-	IsPinned     bool           `json:"is_pinned"`
-	Status       interface{}    `json:"status"`
-	PublishAt    sql.NullTime   `json:"publish_at"`
-	ExpiresAt    sql.NullTime   `json:"expires_at"`
-	AudienceType interface{}    `json:"audience_type"`
-	CreatedBy    uuid.UUID      `json:"created_by"`
-	UpdatedBy    uuid.NullUUID  `json:"updated_by"`
-	PublishedBy  uuid.NullUUID  `json:"published_by"`
-	ArchivedBy   uuid.NullUUID  `json:"archived_by"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	PublishedAt  sql.NullTime   `json:"published_at"`
-	ArchivedAt   sql.NullTime   `json:"archived_at"`
-	DeletedAt    sql.NullTime   `json:"deleted_at"`
-	DeletedBy    uuid.NullUUID  `json:"deleted_by"`
-	Version      int32          `json:"version"`
+	ID                      uuid.UUID      `json:"id"`
+	Title                   string         `json:"title"`
+	Message                 string         `json:"message"`
+	Summary                 sql.NullString `json:"summary"`
+	Level                   interface{}    `json:"level"`
+	Tag                     sql.NullString `json:"tag"`
+	LinkUrl                 sql.NullString `json:"link_url"`
+	Priority                int32          `json:"priority"`
+	IsPinned                bool           `json:"is_pinned"`
+	Status                  interface{}    `json:"status"`
+	PublishAt               sql.NullTime   `json:"publish_at"`
+	ExpiresAt               sql.NullTime   `json:"expires_at"`
+	AudienceType            interface{}    `json:"audience_type"`
+	CreatedBy               uuid.UUID      `json:"created_by"`
+	UpdatedBy               uuid.NullUUID  `json:"updated_by"`
+	PublishedBy             uuid.NullUUID  `json:"published_by"`
+	ArchivedBy              uuid.NullUUID  `json:"archived_by"`
+	CreatedAt               time.Time      `json:"created_at"`
+	UpdatedAt               time.Time      `json:"updated_at"`
+	PublishedAt             sql.NullTime   `json:"published_at"`
+	ArchivedAt              sql.NullTime   `json:"archived_at"`
+	DeletedAt               sql.NullTime   `json:"deleted_at"`
+	DeletedBy               uuid.NullUUID  `json:"deleted_by"`
+	Version                 int32          `json:"version"`
+	NotifyByEmail           bool           `json:"notify_by_email"`
+	EmailNotificationSentAt sql.NullTime   `json:"email_notification_sent_at"`
+}
+
+type AnnouncementAttachment struct {
+	ID               uuid.UUID      `json:"id"`
+	AnnouncementID   uuid.UUID      `json:"announcement_id"`
+	FileName         string         `json:"file_name"`
+	OriginalFileName string         `json:"original_file_name"`
+	ContentType      sql.NullString `json:"content_type"`
+	FileSize         int64          `json:"file_size"`
+	StorageProvider  string         `json:"storage_provider"`
+	StorageKey       string         `json:"storage_key"`
+	Checksum         sql.NullString `json:"checksum"`
+	UploadedBy       uuid.NullUUID  `json:"uploaded_by"`
+	IncludeInEmail   bool           `json:"include_in_email"`
+	Inline           bool           `json:"inline"`
+	ContentID        sql.NullString `json:"content_id"`
+	SortOrder        int32          `json:"sort_order"`
+	CreatedAt        time.Time      `json:"created_at"`
+	DeletedAt        sql.NullTime   `json:"deleted_at"`
+	DeletedBy        uuid.NullUUID  `json:"deleted_by"`
 }
 
 type AnnouncementClient struct {
@@ -566,6 +588,25 @@ type Notification struct {
 	Metadata   pqtype.NullRawMessage `json:"metadata"`
 	Read       sql.NullBool          `json:"read"`
 	CreatedAt  sql.NullTime          `json:"created_at"`
+}
+
+type NotificationDelivery struct {
+	ID             uuid.UUID             `json:"id"`
+	NotificationID uuid.UUID             `json:"notification_id"`
+	Channel        string                `json:"channel"`
+	Status         string                `json:"status"`
+	Recipient      pqtype.NullRawMessage `json:"recipient"`
+	TemplateName   sql.NullString        `json:"template_name"`
+	TemplateData   pqtype.NullRawMessage `json:"template_data"`
+	Payload        pqtype.NullRawMessage `json:"payload"`
+	ScheduledAt    sql.NullTime          `json:"scheduled_at"`
+	LockedAt       sql.NullTime          `json:"locked_at"`
+	SentAt         sql.NullTime          `json:"sent_at"`
+	Attempts       int32                 `json:"attempts"`
+	MaxAttempts    int32                 `json:"max_attempts"`
+	LastError      sql.NullString        `json:"last_error"`
+	CreatedAt      time.Time             `json:"created_at"`
+	UpdatedAt      time.Time             `json:"updated_at"`
 }
 
 type Process struct {

@@ -158,11 +158,15 @@ type Notification struct {
 	Message    string          `json:"message"`
 	Severity   string          `json:"severity"`    // info | warning | critical
 	TargetRole string          `json:"target_role"` // admin | super_admin | etc
-	ClientID   string          `json:"client_id"`
-	UserID     string          `json:"user_id"`
-	Metadata   json.RawMessage `json:"metadata"` // JSONB from Postgres
+	ClientID   string          `json:"client_id,omitempty"`
+	UserID     string          `json:"user_id,omitempty"`
+	Metadata   json.RawMessage `json:"metadata,omitempty"` // JSONB from Postgres
 	Read       bool            `json:"read"`
 	CreatedAt  time.Time       `json:"created_at"`
+
+	// Optional delivery channels for this notification.
+	// If empty, the service will create a default in-app delivery.
+	Deliveries []NotificationDeliveryRequest `json:"deliveries,omitempty"`
 }
 
 type NotificationType string
@@ -179,13 +183,15 @@ const (
 	AccountUnlocked        NotificationType = "ACCOUNT_UNLOCKED"
 )
 const (
-	UserImported    NotificationType = "USER_IMPORTED"
-	UserCreated     NotificationType = "USER_CREATED"
-	UserUpdated     NotificationType = "USER_UPDATED"
-	UserDisabled    NotificationType = "USER_DISABLED"
-	UserDeleted     NotificationType = "USER_DELETED"
-	UserEnabled     NotificationType = "USER_ENABLED"
-	UserRoleChanged NotificationType = "USER_ROLE_CHANGED"
+	UserImported              NotificationType = "USER_IMPORTED"
+	UserCreated               NotificationType = "USER_CREATED"
+	UserUpdated               NotificationType = "USER_UPDATED"
+	UserDisabled              NotificationType = "USER_DISABLED"
+	UserDeleted               NotificationType = "USER_DELETED"
+	UserEnabled               NotificationType = "USER_ENABLED"
+	UserRoleChanged           NotificationType = "USER_ROLE_CHANGED"
+	UserInvitationSent        NotificationType = "USER_INVITATION_SENT"
+	UserVerificationEmailSent NotificationType = "USER_VERIFICATION_EMAIL_SENT"
 )
 const (
 	ClientCreated       NotificationType = "CLIENT_CREATED"
@@ -618,6 +624,9 @@ type Attachment struct {
 	// Use one of these:
 	Path string `json:"path,omitempty"`
 	Data []byte `json:"-"`
+
+	// DataBase64 is persisted through queues/outbox and decoded before send.
+	DataBase64 string `json:"data_base64,omitempty"`
 
 	// Optional inline image support
 	Inline    bool   `json:"inline,omitempty"`

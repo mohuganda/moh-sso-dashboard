@@ -1,0 +1,35 @@
+{
+  "name": "@moh-sso/api",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "module": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "vite build --config vite.config.ts && node ../../scripts/write-package-declarations.mjs package api"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "dependencies": {
+    "@moh-sso/auth": "0.1.0",
+    "@moh-sso/config": "0.1.0",
+    "@moh-sso/types": "0.1.0"
+  },
+  "peerDependencies": {
+    "@reduxjs/toolkit": "^2.11.2"
+  },
+  "private": false
+}

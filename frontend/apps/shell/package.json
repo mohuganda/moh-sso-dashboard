@@ -1,0 +1,42 @@
+{
+  "name": "@moh-sso/shell",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "vite --config ../../vite.config.ts",
+    "build": "tsc -b ../../tsconfig.json && vite build --config ../../vite.config.ts",
+    "typecheck": "tsc --noEmit -p ../../tsconfig.app.json",
+    "preview": "vite preview --config ../../vite.config.ts"
+  },
+  "dependencies": {
+    "@moh-sso/announcements": "0.1.0",
+    "@moh-sso/api": "0.1.0",
+    "@moh-sso/audit": "0.1.0",
+    "@moh-sso/auth": "0.1.0",
+    "@moh-sso/clients": "0.1.0",
+    "@moh-sso/config": "0.1.0",
+    "@moh-sso/data-visualizer": "0.1.0",
+    "@moh-sso/documents": "0.1.0",
+    "@moh-sso/e-services": "0.1.0",
+    "@moh-sso/email": "0.1.0",
+    "@moh-sso/issue-tracker": "0.1.0",
+    "@moh-sso/microfrontend": "0.1.0",
+    "@moh-sso/rbac": "0.1.0",
+    "@moh-sso/report-browser": "0.1.0",
+    "@moh-sso/state": "0.1.0",
+    "@moh-sso/surveillance": "0.1.0",
+    "@moh-sso/types": "0.1.0",
+    "@moh-sso/ui": "0.1.0",
+    "@moh-sso/users": "0.1.0",
+    "@moh-sso/utilities": "0.1.0"
+  },
+  "peerDependencies": {
+    "@carbon/react": "^1.95.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.9.6"
+  }
+}

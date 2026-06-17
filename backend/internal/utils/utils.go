@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -34,31 +34,63 @@ func ToNullUUID(s string) uuid.NullUUID {
 }
 
 func ExtractUserIDFromJWT(token string) string {
-	if token == "" {
-		return ""
-	}
-
-	parts := strings.Split(token, ".")
-	if len(parts) < 2 {
-		return ""
-	}
-
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return ""
-	}
-
-	var data map[string]interface{}
-	if err := json.Unmarshal(payload, &data); err != nil {
+	claims := jwtClaims(token)
+	if claims == nil {
 		return ""
 	}
 
 	// Keycloak stores user ID in "sub"
-	if sub, ok := data["sub"].(string); ok {
+	if sub, ok := claims["sub"].(string); ok {
 		return sub
 	}
 
 	return ""
+}
+
+// ExtractUserIDFromTokens returns the "sub" claim of the first token that
+// carries one. Keycloak access tokens may omit "sub" (lightweight access
+// tokens), while OIDC mandates it on ID tokens — pass the access token
+// first and the ID token as fallback.
+func ExtractUserIDFromTokens(tokens ...string) string {
+	for _, t := range tokens {
+		if id := ExtractUserIDFromJWT(t); id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+// JWTClaimNames returns the sorted claim names of a JWT payload, for
+// diagnostic logging. Claim values are never returned.
+func JWTClaimNames(token string) []string {
+	claims := jwtClaims(token)
+	if claims == nil {
+		return nil
+	}
+
+	names := make([]string, 0, len(claims))
+	for name := range claims {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func jwtClaims(token string) jwt.MapClaims {
+	if token == "" {
+		return nil
+	}
+
+	parsed, _, err := new(jwt.Parser).ParseUnverified(token, jwt.MapClaims{})
+	if err != nil {
+		return nil
+	}
+
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil
+	}
+	return claims
 }
 
 func Encode(v interface{}) []byte {
@@ -74,8 +106,6 @@ func ProjectRoot() string {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	log.Printf("Current working directory: %s", wd)
 
 	for {
 		if _, err := os.Stat(filepath.Join(wd, "app.env")); err == nil {

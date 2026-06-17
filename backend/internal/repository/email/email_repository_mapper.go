@@ -268,6 +268,7 @@ func stripAttachmentBytes(in []model.Attachment) []model.Attachment {
 			FileName:    a.FileName,
 			ContentType: a.ContentType,
 			Path:        a.Path,
+			DataBase64:  a.DataBase64,
 			Inline:      a.Inline,
 			ContentID:   a.ContentID,
 		})

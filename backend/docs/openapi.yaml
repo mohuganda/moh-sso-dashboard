@@ -1,0 +1,64 @@
+openapi: 3.0.3
+info:
+  title: MOH SSO Dashboard API
+  version: 0.1.0
+  description: Starter OpenAPI document for the Integrated Health Portal backend.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags:
+        - platform
+      responses:
+        "200":
+          description: Backend health status.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /auth/me:
+    get:
+      summary: Current authenticated user
+      tags:
+        - auth
+      responses:
+        "200":
+          description: Current user profile, roles, permissions, and accessible systems.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+components:
+  schemas:
+    AuthUser:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        realmRoles:
+          type: array
+          items:
+            type: string
+        clientRoles:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        accessibleSystems:
+          type: array
+          items:
+            type: object
+            additionalProperties: true

@@ -1,0 +1,19 @@
+.moh-data-table-shell {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.moh-data-table-shell__title {
+  margin: 0;
+}
+
+.moh-data-table-shell__description {
+  margin-top: 0.375rem;
+  opacity: 0.8;
+}
+
+.moh-data-table-shell__filters,
+.moh-data-table-shell__table {
+  min-width: 0;
+}

@@ -2,7 +2,6 @@ package ratelimit
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -45,8 +44,4 @@ func (l *Limiter) Allow(
 	allowed = count.Val() <= int64(limit)
 
 	return
-}
-
-func Key(parts ...string) string {
-	return "rl:" + fmt.Sprint(parts)
 }

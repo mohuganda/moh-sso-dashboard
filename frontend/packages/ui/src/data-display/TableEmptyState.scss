@@ -1,0 +1,18 @@
+.moh-table-empty-state {
+  padding: 2rem;
+  text-align: center;
+}
+
+.moh-table-empty-state__title {
+  margin: 0;
+}
+
+.moh-table-empty-state__description {
+  margin: 0.5rem auto 0;
+  max-width: 36rem;
+  color: var(--cds-text-secondary);
+}
+
+.moh-table-empty-state__actions {
+  margin-top: 1rem;
+}

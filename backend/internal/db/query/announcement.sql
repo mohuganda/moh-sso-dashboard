@@ -1,4 +1,3 @@
-
 -- name: CreateAnnouncement :one
 INSERT INTO announcements (
     title,
@@ -13,10 +12,11 @@ INSERT INTO announcements (
     publish_at,
     expires_at,
     audience_type,
+    notify_by_email,
     created_by,
     updated_by
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14
 )
 RETURNING *;
 
@@ -49,6 +49,85 @@ LIMIT $1 OFFSET $2;
 SELECT COUNT(*)::bigint
 FROM announcements
 WHERE deleted_at IS NULL;
+
+
+-- name: CreateAnnouncementAttachment :one
+INSERT INTO announcement_attachments (
+    id,
+    announcement_id,
+    file_name,
+    original_file_name,
+    content_type,
+    file_size,
+    storage_provider,
+    storage_key,
+    checksum,
+    uploaded_by,
+    include_in_email,
+    inline,
+    content_id,
+    sort_order
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+)
+RETURNING *;
+
+
+-- name: ListAnnouncementAttachmentsByAnnouncementID :many
+SELECT *
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+ORDER BY sort_order ASC, created_at ASC;
+
+
+-- name: ListAnnouncementEmailAttachments :many
+SELECT *
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+  AND include_in_email = TRUE
+ORDER BY sort_order ASC, created_at ASC;
+
+
+-- name: CountAnnouncementAttachments :one
+SELECT COUNT(*)::bigint
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL;
+
+
+-- name: GetAnnouncementAttachmentByID :one
+SELECT *
+FROM announcement_attachments
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+LIMIT 1;
+
+
+-- name: UpdateAnnouncementAttachment :one
+UPDATE announcement_attachments
+SET
+    include_in_email = $3,
+    inline = $4,
+    content_id = $5,
+    sort_order = $6
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+RETURNING *;
+
+
+-- name: SoftDeleteAnnouncementAttachment :one
+UPDATE announcement_attachments
+SET
+    deleted_at = now(),
+    deleted_by = $3
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+RETURNING *;
 
 
 -- name: ListAnnouncementsByStatus :many
@@ -127,7 +206,8 @@ SET
     publish_at = $10,
     expires_at = $11,
     audience_type = $12,
-    updated_by = $13
+    notify_by_email = $13,
+    updated_by = $14
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
@@ -164,6 +244,7 @@ SET
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
+
 
 -- name: ScheduleAnnouncement :one
 UPDATE announcements
@@ -256,6 +337,25 @@ WHERE deleted_at IS NULL
   AND created_by = $1;
 
 
+-- name: MarkAnnouncementEmailNotificationSent :one
+UPDATE announcements
+SET email_notification_sent_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING *;
+
+
+-- name: ListPendingAnnouncementEmailNotifications :many
+SELECT *
+FROM announcements
+WHERE deleted_at IS NULL
+  AND status = 'PUBLISHED'
+  AND notify_by_email = TRUE
+  AND email_notification_sent_at IS NULL
+ORDER BY published_at ASC NULLS LAST, created_at ASC
+LIMIT $1;
+
+
 -- name: InsertAnnouncementClient :exec
 INSERT INTO announcement_clients (
     announcement_id,
@@ -344,8 +444,8 @@ WHERE a.deleted_at IS NULL
   AND (a.expires_at IS NULL OR a.expires_at > now())
   AND (
       a.audience_type = 'ALL_USERS'
-      OR (a.audience_type = 'ADMINS_ONLY' AND sqlc.arg(role_name)::text = 'admin')
-      OR (a.audience_type = 'SPECIFIC_ROLES' AND ar.role_name = sqlc.arg(role_name)::text)
+      OR (a.audience_type = 'ADMINS_ONLY' AND LOWER(sqlc.arg(role_name)::text) = 'admin')
+      OR (a.audience_type = 'SPECIFIC_ROLES' AND LOWER(ar.role_name) = LOWER(sqlc.arg(role_name)::text))
   )
 ORDER BY a.is_pinned DESC, a.priority DESC, a.publish_at DESC NULLS LAST, a.created_at DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
@@ -368,7 +468,6 @@ ORDER BY a.is_pinned DESC, a.priority DESC, a.publish_at DESC NULLS LAST, a.crea
 LIMIT $2 OFFSET $3;
 
 
-
 -- name: ListPublicAnnouncements :many
 SELECT *
 FROM announcements
@@ -379,6 +478,116 @@ WHERE deleted_at IS NULL
   AND audience_type = 'ALL_USERS'
 ORDER BY is_pinned DESC, priority DESC, publish_at DESC NULLS LAST, created_at DESC
 LIMIT $1 OFFSET $2;
+
+
+-- =====================================================
+-- Announcement email recipient resolution
+-- =====================================================
+
+-- name: ListAnnouncementEmailRecipientsAllUsers :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM users u
+WHERE u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
+
+
+-- name: ListAnnouncementEmailRecipientsAdmins :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM users u
+JOIN user_roles ur
+    ON ur.user_id = u.id
+WHERE u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND LOWER(ur.role_name) = 'admin'
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
+
+
+-- name: ListAnnouncementEmailRecipientsByClients :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM announcement_clients ac
+JOIN user_clients uc
+    ON uc.client_id = ac.client_id
+JOIN users u
+    ON u.id = uc.user_id
+WHERE ac.announcement_id = $1
+  AND u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
+
+
+-- name: ListAnnouncementEmailRecipientsByRoles :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM announcement_roles ar
+JOIN user_roles ur
+    ON LOWER(ur.role_name) = LOWER(ar.role_name)
+JOIN users u
+    ON u.id = ur.user_id
+WHERE ar.announcement_id = $1
+  AND u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
+
+
+-- name: ListAnnouncementEmailRecipientsByUsers :many
+SELECT DISTINCT
+    u.id,
+    u.email,
+    u.username,
+    COALESCE(
+        NULLIF(btrim(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+        NULLIF(btrim(u.username), ''),
+        u.email
+    ) AS full_name
+FROM announcement_users au
+JOIN users u
+    ON u.id = au.user_id
+WHERE au.announcement_id = $1
+  AND u.deleted_at IS NULL
+  AND u.enabled = TRUE
+  AND u.email IS NOT NULL
+  AND btrim(u.email) <> ''
+ORDER BY u.email;
 
 
 -- name: GetAnnouncementStats :one

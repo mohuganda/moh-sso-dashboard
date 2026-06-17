@@ -1,0 +1,33 @@
+{
+  "name": "@moh-sso/types",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "module": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "vite build --config vite.config.ts && node ../../scripts/write-package-declarations.mjs package types"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "dependencies": {
+    "@moh-sso/ui": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16"
+  },
+  "private": false
+}

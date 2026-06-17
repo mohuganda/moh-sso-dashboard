@@ -1,0 +1,107 @@
+.disease-details-page {
+  padding: 1.5rem 1rem 2rem;
+}
+
+.disease-details-page__header {
+  margin: 1rem 0 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.disease-details-page__header h1 {
+  margin: 0;
+}
+
+.disease-details-page__header p {
+  margin: 0;
+  max-width: 64rem;
+  color: var(--cds-text-secondary);
+  line-height: 1.6;
+}
+
+.disease-details-page__breadcrumb {
+  margin-bottom: 0.5rem;
+}
+
+.disease-details-page__grid {
+  margin-bottom: 1.5rem;
+  row-gap: 1rem;
+}
+
+.disease-details-page__tile {
+  height: 100%;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background: var(--cds-layer);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+.disease-details-page__section:not(:last-child) {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.disease-details-page__section h3 {
+  margin: 0 0 0.75rem;
+}
+
+.disease-details-page__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.disease-details-page__stats > div {
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--cds-layer-accent);
+  border: 1px solid var(--cds-border-subtle);
+}
+
+.disease-details-page__stats dt {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary);
+}
+
+.disease-details-page__stats dd {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--cds-text-primary);
+}
+
+.disease-details-page__links {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.disease-details-page__links li {
+  margin-bottom: 0.5rem;
+}
+
+.disease-details-page__table-empty,
+.disease-details-page__loading,
+.disease-details-page__placeholder {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--cds-layer-accent);
+  color: var(--cds-text-secondary);
+}
+
+.disease-details-page__bottom {
+  margin-top: 1rem;
+}
+
+.disease-details-page__chart {
+  margin-top: 1rem;
+}
+
+@media (max-width: 1055px) {
+  .disease-details-page__stats {
+    grid-template-columns: 1fr;
+  }
+}

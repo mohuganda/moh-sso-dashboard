@@ -12,24 +12,24 @@ import (
 	"github.com/google/uuid"
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	documentRepository "github.com/moh-sso-dashboard/internal/features/documents"
+	"github.com/moh-sso-dashboard/internal/features/surveillance"
 	"github.com/moh-sso-dashboard/internal/model"
-	documentRepository "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepository "github.com/moh-sso-dashboard/internal/repository/processes"
-	"github.com/moh-sso-dashboard/internal/repository/surveillance/interfaces"
 	"github.com/moh-sso-dashboard/internal/storage"
 )
 
 type SurveillanceCSVProcessor struct {
 	documentRepository documentRepository.DocumentRepository
 	processRepository  processRepository.ProcessRepository
-	importRepository   interfaces.ImportRepository
+	importRepository   surveillance.ImportRepository
 	storage            storage.Storage
 }
 
 func NewSurveillanceCSVProcessor(
 	documentRepository documentRepository.DocumentRepository,
 	processRepository processRepository.ProcessRepository,
-	importRepository interfaces.ImportRepository,
+	importRepository surveillance.ImportRepository,
 	storage storage.Storage,
 ) *SurveillanceCSVProcessor {
 	return &SurveillanceCSVProcessor{

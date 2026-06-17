@@ -1,0 +1,26 @@
+{
+  "imports": {
+    "@carbon/react": "https://esm.sh/@carbon/react@1.95.0",
+    "@carbon/react/icons": "https://esm.sh/@carbon/react@1.95.0/icons",
+    "@reduxjs/toolkit": "https://esm.sh/@reduxjs/toolkit@2.11.2",
+    "react": "https://esm.sh/react@19.2.0",
+    "react-dom": "https://esm.sh/react-dom@19.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.2.0/client",
+    "react-redux": "https://esm.sh/react-redux@9.2.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@7.9.6",
+    "single-spa": "https://esm.sh/single-spa@6.0.3",
+    "single-spa-react": "https://esm.sh/single-spa-react@6.0.2",
+    "@moh-sso/users": "http://localhost:4101/single-spa.js",
+    "@moh-sso/clients": "http://localhost:4102/single-spa.js",
+    "@moh-sso/announcements": "http://localhost:4103/single-spa.js",
+    "@moh-sso/audit": "http://localhost:4104/single-spa.js",
+    "@moh-sso/email": "http://localhost:4105/single-spa.js",
+    "@moh-sso/documents": "http://localhost:4106/single-spa.js",
+    "@moh-sso/surveillance": "http://localhost:4107/single-spa.js",
+    "@moh-sso/data-visualizer": "http://localhost:4108/single-spa.js",
+    "@moh-sso/issue-tracker": "http://localhost:4109/single-spa.js",
+    "@moh-sso/report-browser": "http://localhost:4110/single-spa.js",
+    "@moh-sso/e-services": "http://localhost:4111/single-spa.js",
+    "@moh-sso/utilities": "http://localhost:4112/single-spa.js"
+  }
+}

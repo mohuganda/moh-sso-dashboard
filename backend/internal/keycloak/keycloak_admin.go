@@ -10,40 +10,44 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
-// Client represents the Keycloak API client
-// - Admin operations use dashboard-admin (client_credentials)
+// ----------------------------------------------------
+// TYPES
+// ----------------------------------------------------
+
 type ClientInfo struct {
-	ID                        string            `json:"id"`                        // Internal unique ID (UUID)
-	ClientID                  string            `json:"clientId"`                  // The client ID used for OAuth/OIDC protocol
-	Name                      string            `json:"name"`                      // Display name for the client
-	Description               string            `json:"description,"`              // Detailed description
-	BaseURL                   string            `json:"baseUrl"`                   // Base URL for the client application
-	RootURL                   string            `json:"rootUrl"`                   // Root URL for relative paths
-	AdminURL                  string            `json:"adminUrl"`                  // URL to the client's admin console
-	Enabled                   bool              `json:"enabled"`                   // Whether the client is active
-	PublicClient              bool              `json:"publicClient"`              // True for browser-based apps without a secret
-	BearerOnly                bool              `json:"bearerOnly"`                // True if the client only accepts bearer tokens
-	Protocol                  string            `json:"protocol"`                  // Protocol used: "openid-connect" or "saml"
-	Secret                    string            `json:"secret"`                    // Shared secret for confidential clients (if not publicClient)
-	ClientAuthenticatorType   string            `json:"clientAuthenticatorType"`   // e.g., "client-secret" or "client-jwt"
-	RedirectURIs              []string          `json:"redirectUris"`              // Valid redirect URIs after successful authentication
-	WebOrigins                []string          `json:"webOrigins"`                // List of allowed CORS origins
-	StandardFlowEnabled       bool              `json:"standardFlowEnabled"`       // Authorization Code Flow
-	ImplicitFlowEnabled       bool              `json:"implicitFlowEnabled"`       // Implicit Flow (legacy)
-	DirectAccessGrantsEnabled bool              `json:"directAccessGrantsEnabled"` // Resource Owner Password Credentials Grant
-	ServiceAccountsEnabled    bool              `json:"serviceAccountsEnabled"`    // Enables a service account for machine-to-machine
-	FullScopeAllowed          bool              `json:"fullScopeAllowed"`          // If true, all realm roles and scopes are granted
-	DefaultClientScopes       []string          `json:"defaultClientScopes"`       // List of required scopes (client scopes)
-	OptionalClientScopes      []string          `json:"optionalClientScopes"`      // List of optional scopes
-	Attributes                map[string]string `json:"attributes"`                // Custom key/value client settings
-	ProtocolMappers           []ProtocolMapper  `json:"protocolMappers"`           // Defines how claims are mapped into tokens
+	ID                        string            `json:"id"`
+	ClientID                  string            `json:"clientId"`
+	Name                      string            `json:"name"`
+	Description               string            `json:"description"`
+	BaseURL                   string            `json:"baseUrl"`
+	RootURL                   string            `json:"rootUrl"`
+	AdminURL                  string            `json:"adminUrl"`
+	Enabled                   bool              `json:"enabled"`
+	PublicClient              bool              `json:"publicClient"`
+	BearerOnly                bool              `json:"bearerOnly"`
+	Protocol                  string            `json:"protocol"`
+	Secret                    string            `json:"secret"`
+	ClientAuthenticatorType   string            `json:"clientAuthenticatorType"`
+	RedirectURIs              []string          `json:"redirectUris"`
+	WebOrigins                []string          `json:"webOrigins"`
+	StandardFlowEnabled       bool              `json:"standardFlowEnabled"`
+	ImplicitFlowEnabled       bool              `json:"implicitFlowEnabled"`
+	DirectAccessGrantsEnabled bool              `json:"directAccessGrantsEnabled"`
+	ServiceAccountsEnabled    bool              `json:"serviceAccountsEnabled"`
+	FullScopeAllowed          bool              `json:"fullScopeAllowed"`
+	DefaultClientScopes       []string          `json:"defaultClientScopes"`
+	OptionalClientScopes      []string          `json:"optionalClientScopes"`
+	Attributes                map[string]string `json:"attributes"`
+	ProtocolMappers           []ProtocolMapper  `json:"protocolMappers"`
 }
 
 type ProtocolMapper struct {
@@ -107,20 +111,19 @@ type UserInfo struct {
 	ImportedAt          *time.Time          `json:"importedAt"`
 	Notes               string              `json:"notes"`
 	CreatedAt           time.Time           `json:"createdAt"`
+	CreatedTimestamp    int64               `json:"createdTimestamp"`
+	Attributes          map[string][]string `json:"attributes"`
 }
 
 type CreateUserRequest struct {
-	Username      string `json:"username"`
-	Email         string `json:"email"`
-	FirstName     string `json:"firstName"`
-	LastName      string `json:"lastName"`
-	Enabled       bool   `json:"enabled"`
-	EmailVerified bool   `json:"emailVerified"`
-	Credentials   []struct {
-		Type      string `json:"type"`
-		Value     string `json:"value"`
-		Temporary bool   `json:"temporary"`
-	} `json:"credentials"`
+	Username        string              `json:"username"`
+	Email           string              `json:"email"`
+	FirstName       string              `json:"firstName"`
+	LastName        string              `json:"lastName"`
+	Enabled         bool                `json:"enabled"`
+	EmailVerified   bool                `json:"emailVerified"`
+	RequiredActions []string            `json:"requiredActions,omitempty"`
+	Attributes      map[string][]string `json:"attributes,omitempty"`
 }
 
 type UserRep struct {
@@ -181,13 +184,25 @@ var defaultClientScopes = []string{
 	"roles",
 }
 
+// ----------------------------------------------------
+// CLIENT
+// ----------------------------------------------------
+
 type KeyAdminClient struct {
 	BaseURL      string
 	Realm        string
 	ClientID     string
 	ClientSecret string
-	httpClient   *http.Client
-	Token        string
+
+	// Optional. Used by execute-actions-email.
+	AppClientID string
+	RedirectURI string
+
+	httpClient *http.Client
+
+	mu        sync.Mutex
+	Token     string
+	expiresAt time.Time
 }
 
 func NewAdminClient(
@@ -199,44 +214,116 @@ func NewAdminClient(
 	return &KeyAdminClient{
 		BaseURL:      strings.TrimSuffix(baseURL, "/"),
 		Realm:        realm,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
+		ClientID:     strings.TrimSpace(clientID),
+		ClientSecret: strings.TrimSpace(clientSecret),
 		httpClient:   &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
-// ----------------------------------------------------
-// ADMIN AUTH (client_credentials)
-// ----------------------------------------------------
-func (c *KeyAdminClient) Authenticate() error {
-	clientID := strings.TrimSpace(c.ClientID)
-	clientSecret := strings.TrimSpace(c.ClientSecret)
+func (c *KeyAdminClient) WithEmailActionRedirect(
+	appClientID string,
+	redirectURI string,
+) *KeyAdminClient {
+	c.AppClientID = strings.TrimSpace(appClientID)
+	c.RedirectURI = strings.TrimSpace(redirectURI)
+	return c
+}
 
-	if clientID == "" || clientSecret == "" {
-		return fmt.Errorf("client_id or client_secret is empty")
+// ----------------------------------------------------
+// ADMIN AUTH
+// ----------------------------------------------------
+
+func (c *KeyAdminClient) Authenticate() error {
+	_, err := c.ensureAdminToken(context.Background())
+	if err != nil {
+		return err
 	}
 
+	log.Println("✅ Admin client authenticated successfully")
+	return nil
+}
+
+func (c *KeyAdminClient) ensureAdminToken(ctx context.Context) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if strings.TrimSpace(c.ClientID) == "" {
+		return "", fmt.Errorf("client_id is empty")
+	}
+
+	if strings.TrimSpace(c.ClientSecret) == "" {
+		return "", fmt.Errorf("client_secret is empty")
+	}
+
+	// Reuse token if it is still valid for at least 30 seconds.
+	if strings.TrimSpace(c.Token) != "" && time.Now().Before(c.expiresAt.Add(-30*time.Second)) {
+		return c.Token, nil
+	}
+
+	token, expiresAt, err := c.requestAdminToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	c.Token = token
+	c.expiresAt = expiresAt
+
+	return c.Token, nil
+}
+
+func (c *KeyAdminClient) forceRefreshAdminToken(ctx context.Context) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.Token = ""
+	c.expiresAt = time.Time{}
+
+	token, expiresAt, err := c.requestAdminToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	c.Token = token
+	c.expiresAt = expiresAt
+
+	return c.Token, nil
+}
+
+func (c *KeyAdminClient) requestAdminToken(ctx context.Context) (string, time.Time, error) {
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", clientID)
-	form.Set("client_secret", clientSecret)
+	form.Set("client_id", strings.TrimSpace(c.ClientID))
+	form.Set("client_secret", strings.TrimSpace(c.ClientSecret))
 
 	tokenURL := fmt.Sprintf(
 		"%s/realms/%s/protocol/openid-connect/token",
-		c.BaseURL,
-		c.Realm,
+		strings.TrimRight(c.BaseURL, "/"),
+		url.PathEscape(c.Realm),
 	)
 
-	res, err := c.httpClient.PostForm(tokenURL, form)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		tokenURL,
+		strings.NewReader(form.Encode()),
+	)
 	if err != nil {
-		return fmt.Errorf("failed to call token endpoint: %w", err)
+		return "", time.Time{}, fmt.Errorf("create admin token request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to call admin token endpoint: %w", err)
 	}
 	defer res.Body.Close()
 
 	bodyBytes, _ := io.ReadAll(res.Body)
 
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("admin authentication failed [%d]: %s",
+		return "", time.Time{}, fmt.Errorf(
+			"admin authentication failed [%d]: %s",
 			res.StatusCode,
 			string(bodyBytes),
 		)
@@ -244,25 +331,48 @@ func (c *KeyAdminClient) Authenticate() error {
 
 	var body struct {
 		AccessToken string `json:"access_token"`
+		ExpiresIn   int64  `json:"expires_in"`
+		TokenType   string `json:"token_type"`
 	}
 
 	if err := json.Unmarshal(bodyBytes, &body); err != nil {
-		return fmt.Errorf("failed to parse token response: %w", err)
+		return "", time.Time{}, fmt.Errorf("failed to parse admin token response: %w", err)
 	}
 
-	if body.AccessToken == "" {
-		return fmt.Errorf("access token empty in response")
+	if strings.TrimSpace(body.AccessToken) == "" {
+		return "", time.Time{}, fmt.Errorf("admin token response missing access_token")
 	}
 
-	log.Println("✅ Admin client authenticated successfully")
+	if body.ExpiresIn <= 0 {
+		body.ExpiresIn = 60
+	}
 
-	c.Token = body.AccessToken
-	return nil
+	expiresAt := time.Now().Add(time.Duration(body.ExpiresIn) * time.Second)
+
+	return body.AccessToken, expiresAt, nil
 }
 
+// ----------------------------------------------------
+// REALM MANAGEMENT
+// ----------------------------------------------------
+//
+// Note: realm create/get endpoints live under /admin, not /admin/realms/{realm}.
+// These methods use doRawAdminRequest.
+
 func (c *KeyAdminClient) EnsureRealmExists(realmName string) error {
-	res, err := c.Get(fmt.Sprintf("admin/realms/%s", realmName))
-	if err == nil && res.StatusCode == http.StatusOK {
+	realmName = strings.TrimSpace(realmName)
+	if realmName == "" {
+		return fmt.Errorf("realmName is required")
+	}
+
+	res, err := c.doRawAdminRequest(
+		context.Background(),
+		http.MethodGet,
+		"realms/"+url.PathEscape(realmName),
+		nil,
+		nil,
+	)
+	if err == nil && res != nil && res.StatusCode == http.StatusOK {
 		res.Body.Close()
 		return nil
 	}
@@ -275,7 +385,14 @@ func (c *KeyAdminClient) EnsureRealmExists(realmName string) error {
 		"realm":   realmName,
 		"enabled": true,
 	}
-	res, err = c.Post("admin/realms", payload)
+
+	res, err = c.doRawAdminRequest(
+		context.Background(),
+		http.MethodPost,
+		"realms",
+		payload,
+		nil,
+	)
 	if err != nil {
 		return err
 	}
@@ -285,14 +402,18 @@ func (c *KeyAdminClient) EnsureRealmExists(realmName string) error {
 		body, _ := io.ReadAll(res.Body)
 		return fmt.Errorf("failed to create realm: %s", string(body))
 	}
+
 	return nil
 }
 
-//------------------------------------------
-// client management
-//------------------------------------------
+// ----------------------------------------------------
+// CLIENT MANAGEMENT
+// ----------------------------------------------------
 
 func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
+	if strings.TrimSpace(opts.ClientID) == "" {
+		return "", fmt.Errorf("clientId is required")
+	}
 
 	if opts.Protocol == "" {
 		opts.Protocol = "openid-connect"
@@ -307,9 +428,11 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 	if opts.RedirectURIs == nil {
 		opts.RedirectURIs = []string{}
 	}
+
 	if opts.WebOrigins == nil {
 		opts.WebOrigins = []string{}
 	}
+
 	if opts.Attributes == nil {
 		opts.Attributes = map[string]string{}
 	}
@@ -320,6 +443,7 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 	if _, ok := opts.Attributes["ui.icon"]; !ok {
 		opts.Attributes["ui.icon"] = "applications"
 	}
+
 	if _, ok := opts.Attributes["ui.home"]; !ok {
 		opts.Attributes["ui.home"] = "/admin"
 	}
@@ -339,15 +463,9 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 		return "", fmt.Errorf("failed to create client: %s", string(body))
 	}
 
-	location := res.Header.Get("Location")
-	if location == "" {
-		return "", fmt.Errorf("no Location header returned by Keycloak")
-	}
-
-	parts := strings.Split(strings.TrimSpace(location), "/")
-	clientUUID := parts[len(parts)-1]
-	if clientUUID == "" {
-		return "", fmt.Errorf("failed to parse Keycloak client ID from Location header")
+	clientUUID, err := parseIDFromLocation(res.Header.Get("Location"))
+	if err != nil {
+		return "", err
 	}
 
 	if err := c.EnsureClientBaseline(context.Background(), clientUUID); err != nil {
@@ -369,7 +487,11 @@ func (c *KeyAdminClient) GetClientByClientID(clientID string) (*ClientInfo, erro
 
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("failed checking clientId '%s': %s", clientID, string(body))
+		return nil, fmt.Errorf(
+			"failed checking clientId %q: %s",
+			clientID,
+			string(body),
+		)
 	}
 
 	var clients []ClientInfo
@@ -385,7 +507,7 @@ func (c *KeyAdminClient) GetClientByClientID(clientID string) (*ClientInfo, erro
 }
 
 func (c *KeyAdminClient) GetClientByID(id string) (*ClientInfo, error) {
-	res, err := c.Get("clients/" + id)
+	res, err := c.Get("clients/" + url.PathEscape(id))
 	if err != nil {
 		return nil, err
 	}
@@ -426,6 +548,7 @@ func (c *KeyAdminClient) ListClients() ([]ClientInfo, error) {
 
 func (c *KeyAdminClient) ListClientsWithBaselineCheck() ([]ClientInfo, error) {
 	ctx := context.Background()
+
 	clients, err := c.ListClients()
 	if err != nil {
 		return nil, err
@@ -438,7 +561,6 @@ func (c *KeyAdminClient) ListClientsWithBaselineCheck() ([]ClientInfo, error) {
 				client.ClientID,
 				err,
 			)
-
 		}
 	}
 
@@ -446,7 +568,11 @@ func (c *KeyAdminClient) ListClientsWithBaselineCheck() ([]ClientInfo, error) {
 }
 
 func (c *KeyAdminClient) UpdateClient(id string, payload *model.Client) error {
-	res, err := c.Put("clients/"+id, payload)
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("client id is required")
+	}
+
+	res, err := c.Put("clients/"+url.PathEscape(id), payload)
 	if err != nil {
 		return err
 	}
@@ -466,18 +592,17 @@ func (c *KeyAdminClient) UpdateClient(id string, payload *model.Client) error {
 
 func (c *KeyAdminClient) UpdateClientEnabled(
 	ctx context.Context,
-	clientId string,
+	clientID string,
 	enabled bool,
 ) error {
-
-	clientUUID, err := c.resolveClientUUID(ctx, clientId)
+	clientUUID, err := c.resolveClientUUID(ctx, clientID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve client UUID: %w", err)
 	}
 
-	u := fmt.Sprintf("clients/%s", clientUUID)
+	path := "clients/" + url.PathEscape(clientUUID)
 
-	res, err := c.Get(u)
+	res, err := c.GetWithContext(ctx, path)
 	if err != nil {
 		return err
 	}
@@ -495,7 +620,7 @@ func (c *KeyAdminClient) UpdateClientEnabled(
 
 	kcClient.Enabled = enabled
 
-	putRes, err := c.Put(u, kcClient)
+	putRes, err := c.PutWithContext(ctx, path, kcClient)
 	if err != nil {
 		return err
 	}
@@ -503,14 +628,22 @@ func (c *KeyAdminClient) UpdateClientEnabled(
 
 	if putRes.StatusCode != http.StatusNoContent {
 		b, _ := io.ReadAll(putRes.Body)
-		return fmt.Errorf("update client enabled failed [%d]: %s", putRes.StatusCode, string(b))
+		return fmt.Errorf(
+			"update client enabled failed [%d]: %s",
+			putRes.StatusCode,
+			string(b),
+		)
 	}
 
 	return nil
 }
 
 func (c *KeyAdminClient) DeleteClient(id string) error {
-	res, err := c.Delete("clients/" + id)
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("client id is required")
+	}
+
+	res, err := c.Delete("clients/" + url.PathEscape(id))
 	if err != nil {
 		return err
 	}
@@ -524,30 +657,45 @@ func (c *KeyAdminClient) DeleteClient(id string) error {
 	return nil
 }
 
-// -----------------------------------------
-// user management
-// -----------------------------------------
+// ----------------------------------------------------
+// USER MANAGEMENT
+// ----------------------------------------------------
 
 func (c *KeyAdminClient) CreateUser(user *model.User) (string, error) {
-	payload := map[string]any{
-		"username":      user.Username,
-		"email":         user.Email,
-		"enabled":       user.Enabled,
-		"firstName":     user.FirstName,
-		"lastName":      user.LastName,
-		"emailVerified": user.EmailVerified,
-		"credentials": []map[string]any{
-			{
-				"type":      "password",
-				"value":     uuid.NewString(),
-				"temporary": true,
-			},
-		},
-		"requiredActions": []string{
-			"UPDATE_PASSWORD",
-			"VERIFY_EMAIL",
-		},
-		"attributes": map[string][]string{
+	if user == nil {
+		return "", fmt.Errorf("user is required")
+	}
+
+	username := strings.TrimSpace(user.Username)
+	email := strings.TrimSpace(user.Email)
+
+	if username == "" {
+		return "", fmt.Errorf("username is required")
+	}
+
+	if email == "" {
+		return "", fmt.Errorf("email is required")
+	}
+
+	enabled := user.Enabled
+	if !enabled {
+		enabled = true
+	}
+
+	requiredActions := []string{"UPDATE_PASSWORD"}
+	if !user.EmailVerified {
+		requiredActions = append([]string{"VERIFY_EMAIL"}, requiredActions...)
+	}
+
+	payload := CreateUserRequest{
+		Username:        username,
+		Email:           email,
+		FirstName:       strings.TrimSpace(user.FirstName),
+		LastName:        strings.TrimSpace(user.LastName),
+		Enabled:         enabled,
+		EmailVerified:   user.EmailVerified,
+		RequiredActions: requiredActions,
+		Attributes: map[string][]string{
 			"created_by": {"admin"},
 			"user_type":  {"human"},
 		},
@@ -564,46 +712,55 @@ func (c *KeyAdminClient) CreateUser(user *model.User) (string, error) {
 		return "", fmt.Errorf("failed to create user: %s", string(body))
 	}
 
-	location := res.Header.Get("Location")
-	if location == "" {
-		return "", fmt.Errorf("no Location header returned by Keycloak")
-	}
-
-	parts := strings.Split(strings.TrimSpace(location), "/")
-	kcID := parts[len(parts)-1]
-
-	if kcID == "" {
-		return "", fmt.Errorf("failed to parse Keycloak user ID from Location header")
+	kcID, err := parseIDFromLocation(res.Header.Get("Location"))
+	if err != nil {
+		return "", err
 	}
 
 	return kcID, nil
 }
 
-func (c *KeyAdminClient) FindUsers(ctx context.Context, q string, exact bool) ([]UserRep, error) {
-	u := fmt.Sprintf("realms/%s/users", c.Realm)
-
+func (c *KeyAdminClient) FindUsers(
+	ctx context.Context,
+	q string,
+	exact bool,
+) ([]UserRep, error) {
 	v := url.Values{}
-	if q != "" {
-		v.Set("search", q)
+
+	if strings.TrimSpace(q) != "" {
+		v.Set("search", strings.TrimSpace(q))
 	}
+
 	if exact {
 		v.Set("exact", "true")
 	}
-	u = u + "?" + v.Encode()
 
-	res, err := c.Get(u)
+	path := "users"
+	if encoded := v.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+
+	res, err := c.GetWithContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("keycloak find users failed: status=%d body=%s", res.StatusCode, string(b))
+		return nil, fmt.Errorf(
+			"keycloak find users failed: status=%d body=%s",
+			res.StatusCode,
+			string(b),
+		)
 	}
 
 	var out []UserRep
-	return out, json.NewDecoder(res.Body).Decode(&out)
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func (c *KeyAdminClient) ListUsers() ([]UserInfo, error) {
@@ -627,7 +784,12 @@ func (c *KeyAdminClient) ListUsers() ([]UserInfo, error) {
 }
 
 func (c *KeyAdminClient) GetUser(userID string) (*UserInfo, error) {
-	res, err := c.Get("users/" + userID)
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+
+	res, err := c.Get("users/" + url.PathEscape(userID))
 	if err != nil {
 		return nil, err
 	}
@@ -647,21 +809,51 @@ func (c *KeyAdminClient) GetUser(userID string) (*UserInfo, error) {
 }
 
 func (c *KeyAdminClient) UpdateUser(user *model.User) error {
-	if user.ID == "" {
+	if user == nil {
+		return fmt.Errorf("user is required")
+	}
+
+	if strings.TrimSpace(user.ID) == "" {
 		return fmt.Errorf("missing Keycloak user ID")
 	}
 
-	payload := map[string]any{
-		"username":  user.Username,
-		"email":     user.Email,
-		"firstName": user.FirstName,
-		"lastName":  user.LastName,
-		"enabled":   user.Enabled,
+	current, err := c.GetUser(user.ID)
+	if err != nil {
+		return fmt.Errorf("get current user: %w", err)
 	}
 
-	res, err := c.Put(("users" + user.ID),
-		payload,
-	)
+	username := strings.TrimSpace(user.Username)
+	if username == "" {
+		username = current.Username
+	}
+
+	email := strings.TrimSpace(user.Email)
+	if email == "" {
+		email = current.Email
+	}
+
+	firstName := strings.TrimSpace(user.FirstName)
+	if firstName == "" {
+		firstName = current.FirstName
+	}
+
+	lastName := strings.TrimSpace(user.LastName)
+	if lastName == "" {
+		lastName = current.LastName
+	}
+
+	payload := map[string]any{
+		"username":        username,
+		"email":           email,
+		"firstName":       firstName,
+		"lastName":        lastName,
+		"enabled":         user.Enabled,
+		"emailVerified":   user.EmailVerified,
+		"requiredActions": current.RequiredActions,
+		"attributes":      current.Attributes,
+	}
+
+	res, err := c.Put("users/"+url.PathEscape(user.ID), payload)
 	if err != nil {
 		return fmt.Errorf("keycloak update request failed: %w", err)
 	}
@@ -676,15 +868,17 @@ func (c *KeyAdminClient) UpdateUser(user *model.User) error {
 }
 
 func (c *KeyAdminClient) DeleteUser(userID string) error {
+	userID = strings.TrimSpace(userID)
 	if userID == "" {
 		return fmt.Errorf("invalid user ID")
 	}
 
-	res, err := c.Delete("users/" + userID)
+	res, err := c.Delete("users/" + url.PathEscape(userID))
 	if err != nil {
 		return fmt.Errorf("keycloak delete request failed: %w", err)
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(res.Body)
 		return fmt.Errorf("failed to delete user in keycloak: %s", string(body))
@@ -693,12 +887,200 @@ func (c *KeyAdminClient) DeleteUser(userID string) error {
 	return nil
 }
 
-// -------------------------------------------------------------------
-// Realm roles Management
-// -------------------------------------------------------------------
+func (c *KeyAdminClient) SetUserEnabled(
+	ctx context.Context,
+	userID string,
+	enabled bool,
+) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
 
-func (c *KeyAdminClient) CreateRealmRole(ctx context.Context, roleName, description string) error {
-	u := "roles"
+	current, err := c.GetUser(userID)
+	if err != nil {
+		return fmt.Errorf("get current user: %w", err)
+	}
+
+	payload := map[string]any{
+		"username":        current.Username,
+		"email":           current.Email,
+		"firstName":       current.FirstName,
+		"lastName":        current.LastName,
+		"enabled":         enabled,
+		"emailVerified":   current.EmailVerified,
+		"requiredActions": current.RequiredActions,
+		"attributes":      current.Attributes,
+	}
+
+	res, err := c.PutWithContext(ctx, "users/"+url.PathEscape(userID), payload)
+	if err != nil {
+		return fmt.Errorf("keycloak set user enabled request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf(
+			"failed to set user enabled in keycloak [%d]: %s",
+			res.StatusCode,
+			string(body),
+		)
+	}
+
+	return nil
+}
+
+// ResetUserPassword sends a password reset email using Keycloak required actions.
+// It does NOT generate or set a temporary password.
+func (c *KeyAdminClient) ResetUserPassword(
+	ctx context.Context,
+	userID string,
+) error {
+	return c.SendUserPasswordResetEmail(ctx, userID)
+}
+
+func (c *KeyAdminClient) ExecuteActionsEmail(
+	ctx context.Context,
+	userID string,
+	actions []string,
+) error {
+	userID = strings.TrimSpace(userID)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if len(actions) == 0 {
+		return fmt.Errorf("at least one required action is required")
+	}
+
+	query := url.Values{}
+	query.Set("lifespan", "43200") // 12 hours
+
+	if strings.TrimSpace(c.AppClientID) != "" {
+		query.Set("client_id", strings.TrimSpace(c.AppClientID))
+	}
+
+	if strings.TrimSpace(c.RedirectURI) != "" {
+		query.Set("redirect_uri", strings.TrimSpace(c.RedirectURI))
+	}
+
+	path := fmt.Sprintf(
+		"users/%s/execute-actions-email?%s",
+		url.PathEscape(userID),
+		query.Encode(),
+	)
+
+	res, err := c.PutWithContext(ctx, path, actions)
+	if err != nil {
+		return fmt.Errorf("execute actions email request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(res.Body)
+		return fmt.Errorf(
+			"execute actions email failed [%d]: %s",
+			res.StatusCode,
+			string(b),
+		)
+	}
+
+	return nil
+}
+
+func (c *KeyAdminClient) SendUserOnboardingEmail(
+	ctx context.Context,
+	userID string,
+) error {
+	return c.ExecuteActionsEmail(ctx, userID, []string{
+		"VERIFY_EMAIL",
+		"UPDATE_PASSWORD",
+	})
+}
+
+func (c *KeyAdminClient) SendUserVerificationEmail(
+	ctx context.Context,
+	userID string,
+) error {
+	return c.ExecuteActionsEmail(ctx, userID, []string{
+		"VERIFY_EMAIL",
+	})
+}
+
+func (c *KeyAdminClient) SendUserPasswordResetEmail(
+	ctx context.Context,
+	userID string,
+) error {
+	return c.ExecuteActionsEmail(ctx, userID, []string{
+		"UPDATE_PASSWORD",
+	})
+}
+
+func (c *KeyAdminClient) SetTemporaryPassword(
+	ctx context.Context,
+	userID string,
+	temporaryPassword string,
+) error {
+	userID = strings.TrimSpace(userID)
+	temporaryPassword = strings.TrimSpace(temporaryPassword)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if temporaryPassword == "" {
+		return fmt.Errorf("temporaryPassword is required")
+	}
+
+	payload := map[string]any{
+		"type":      "password",
+		"value":     temporaryPassword,
+		"temporary": true,
+	}
+
+	path := fmt.Sprintf(
+		"users/%s/reset-password",
+		url.PathEscape(userID),
+	)
+
+	res, err := c.PutWithContext(ctx, path, payload)
+	if err != nil {
+		return fmt.Errorf("set temporary password request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent {
+		b, _ := io.ReadAll(res.Body)
+		return fmt.Errorf(
+			"set temporary password failed [%d]: %s",
+			res.StatusCode,
+			string(b),
+		)
+	}
+
+	return nil
+}
+
+func generateTemporaryPassword() string {
+	return utils.RandomString(16) + "!A1"
+}
+
+// ----------------------------------------------------
+// REALM ROLES
+// ----------------------------------------------------
+
+func (c *KeyAdminClient) CreateRealmRole(
+	ctx context.Context,
+	roleName string,
+	description string,
+) error {
+	roleName = strings.TrimSpace(roleName)
+	if roleName == "" {
+		return fmt.Errorf("roleName is required")
+	}
+
 	payload := CreateRoleRequest{
 		Name:        roleName,
 		Description: description,
@@ -706,13 +1088,12 @@ func (c *KeyAdminClient) CreateRealmRole(ctx context.Context, roleName, descript
 		ClientRole:  false,
 	}
 
-	res, err := c.Post(u, payload)
+	res, err := c.PostWithContext(ctx, "roles", payload)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
 
-	// 409 = already exists (safe for bootstrap)
 	if res.StatusCode == http.StatusConflict {
 		return nil
 	}
@@ -726,9 +1107,7 @@ func (c *KeyAdminClient) CreateRealmRole(ctx context.Context, roleName, descript
 }
 
 func (c *KeyAdminClient) ListRealmRoles(ctx context.Context) ([]RoleRep, error) {
-	u := "roles"
-
-	res, err := c.Get(u)
+	res, err := c.GetWithContext(ctx, "roles")
 	if err != nil {
 		return nil, err
 	}
@@ -740,11 +1119,23 @@ func (c *KeyAdminClient) ListRealmRoles(ctx context.Context) ([]RoleRep, error) 
 	}
 
 	var roles []RoleRep
-	return roles, json.NewDecoder(res.Body).Decode(&roles)
+	if err := json.NewDecoder(res.Body).Decode(&roles); err != nil {
+		return nil, err
+	}
+
+	return roles, nil
 }
 
-func (c *KeyAdminClient) GetRealmRoleByName(ctx context.Context, roleName string) (*RoleRep, error) {
-	res, err := c.Get(fmt.Sprintf("roles/%s", url.PathEscape(roleName)))
+func (c *KeyAdminClient) GetRealmRoleByName(
+	ctx context.Context,
+	roleName string,
+) (*RoleRep, error) {
+	roleName = strings.TrimSpace(roleName)
+	if roleName == "" {
+		return nil, fmt.Errorf("roleName is required")
+	}
+
+	res, err := c.GetWithContext(ctx, "roles/"+url.PathEscape(roleName))
 	if err != nil {
 		return nil, err
 	}
@@ -752,25 +1143,43 @@ func (c *KeyAdminClient) GetRealmRoleByName(ctx context.Context, roleName string
 
 	if res.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("keycloak get role failed: status=%d body=%s", res.StatusCode, string(b))
+		return nil, fmt.Errorf(
+			"keycloak get role failed: status=%d body=%s",
+			res.StatusCode,
+			string(b),
+		)
 	}
 
 	var out RoleRep
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 
-func (c *KeyAdminClient) AddRealmRoleToUser(ctx context.Context, userID string, role RoleRep) error {
+func (c *KeyAdminClient) AddRealmRoleToUser(
+	ctx context.Context,
+	userID string,
+	role RoleRep,
+) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if strings.TrimSpace(role.ID) == "" || strings.TrimSpace(role.Name) == "" {
+		return fmt.Errorf("role id and name are required")
+	}
+
 	payload := []RoleRep{role}
-	bs, _ := json.Marshal(payload)
 
-	bytesData := bytes.NewReader(bs)
+	path := fmt.Sprintf(
+		"users/%s/role-mappings/realm",
+		url.PathEscape(userID),
+	)
 
-	u := fmt.Sprintf("users/%s/role-mappings/realm", userID)
-
-	res, err := c.Post(u, bytesData)
+	res, err := c.PostWithContext(ctx, path, payload)
 	if err != nil {
 		return err
 	}
@@ -778,8 +1187,13 @@ func (c *KeyAdminClient) AddRealmRoleToUser(ctx context.Context, userID string, 
 
 	if res.StatusCode != http.StatusNoContent {
 		b, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("keycloak add role failed: status=%d body=%s", res.StatusCode, string(b))
+		return fmt.Errorf(
+			"keycloak add role failed: status=%d body=%s",
+			res.StatusCode,
+			string(b),
+		)
 	}
+
 	return nil
 }
 
@@ -788,17 +1202,26 @@ func (c *KeyAdminClient) RemoveRealmRoleFromUser(
 	userID string,
 	role RoleRep,
 ) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
 
-	u := fmt.Sprintf(
+	if strings.TrimSpace(role.ID) == "" || strings.TrimSpace(role.Name) == "" {
+		return fmt.Errorf("role id and name are required")
+	}
+
+	path := fmt.Sprintf(
 		"users/%s/role-mappings/realm",
-		userID,
+		url.PathEscape(userID),
 	)
 
-	bs, _ := json.Marshal([]RoleRep{role})
+	body, err := json.Marshal([]RoleRep{role})
+	if err != nil {
+		return err
+	}
 
-	bytesData := bytes.NewReader(bs)
-
-	res, err := c.Post(u, bytesData)
+	res, err := c.DeleteWithBody(ctx, path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -819,8 +1242,8 @@ func (c *KeyAdminClient) BootstrapRealmRoles(ctx context.Context) error {
 		"manager",
 	}
 
-	for _, r := range roles {
-		if err := c.CreateRealmRole(ctx, r, "system role"); err != nil {
+	for _, role := range roles {
+		if err := c.CreateRealmRole(ctx, role, "system role"); err != nil {
 			return err
 		}
 	}
@@ -828,31 +1251,40 @@ func (c *KeyAdminClient) BootstrapRealmRoles(ctx context.Context) error {
 	return nil
 }
 
-// -------------------------------------------------------------------
-// ROLES: Client roles
-// -------------------------------------------------------------------
+// ----------------------------------------------------
+// CLIENT ROLES
+// ----------------------------------------------------
 
 func (c *KeyAdminClient) CreateClientRole(
 	ctx context.Context,
-	clientId string,
+	clientID string,
 	req *model.CreateClientRoleRequest,
 ) error {
-	clientUUID, err := c.resolveClientUUID(ctx, clientId)
+	if req == nil {
+		return fmt.Errorf("role request is required")
+	}
+
+	if strings.TrimSpace(req.Role) == "" {
+		return fmt.Errorf("role is required")
+	}
+
+	clientUUID, err := c.resolveClientUUID(ctx, clientID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve client UUID: %w", err)
 	}
 
 	path := fmt.Sprintf(
 		"clients/%s/roles",
-		clientUUID,
+		url.PathEscape(clientUUID),
 	)
+
 	payload := map[string]any{
-		"name":        req.Role,
+		"name":        strings.TrimSpace(req.Role),
 		"description": req.Description,
 		"clientRole":  true,
 	}
 
-	res, err := c.Post(path, payload)
+	res, err := c.PostWithContext(ctx, path, payload)
 	if err != nil {
 		return err
 	}
@@ -880,21 +1312,22 @@ func (c *KeyAdminClient) GetClientRoleByName(
 	clientUUID string,
 	roleName string,
 ) (*ClientRoleRep, error) {
-
-	if clientID == "" || clientUUID == "" {
-		return nil, fmt.Errorf("clientID and clientUUID is required")
+	if strings.TrimSpace(clientID) == "" || strings.TrimSpace(clientUUID) == "" {
+		return nil, fmt.Errorf("clientID and clientUUID are required")
 	}
+
+	roleName = strings.TrimSpace(roleName)
 	if roleName == "" {
 		return nil, fmt.Errorf("roleName is required")
 	}
 
 	path := fmt.Sprintf(
 		"clients/%s/roles/%s",
-		clientUUID,
+		url.PathEscape(clientUUID),
 		url.PathEscape(roleName),
 	)
 
-	res, err := c.Get(path)
+	res, err := c.GetWithContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -920,21 +1353,28 @@ func (c *KeyAdminClient) GetClientRoleByName(
 func (c *KeyAdminClient) GetUserClientRoles(
 	ctx context.Context,
 	userID string,
-	clientId string,
-	clientUuid string,
+	clientID string,
+	clientUUID string,
 ) ([]ClientRoleRep, error) {
+	userID = strings.TrimSpace(userID)
+	clientID = strings.TrimSpace(clientID)
+	clientUUID = strings.TrimSpace(clientUUID)
 
-	if clientId == "" || clientUuid == "" {
-		return nil, fmt.Errorf("clientId  and clientUuid are required")
+	if userID == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+
+	if clientID == "" || clientUUID == "" {
+		return nil, fmt.Errorf("clientID and clientUUID are required")
 	}
 
 	path := fmt.Sprintf(
 		"users/%s/role-mappings/clients/%s",
-		userID,
-		clientUuid,
+		url.PathEscape(userID),
+		url.PathEscape(clientUUID),
 	)
 
-	res, err := c.Get(path)
+	res, err := c.GetWithContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -964,9 +1404,16 @@ func (c *KeyAdminClient) AssignClientRolesToUser(
 	clientUUID string,
 	roles []string,
 ) error {
+	userID = strings.TrimSpace(userID)
+	clientID = strings.TrimSpace(clientID)
+	clientUUID = strings.TrimSpace(clientUUID)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
 
 	if clientID == "" || clientUUID == "" {
-		return fmt.Errorf("clientId and clientUuid are required")
+		return fmt.Errorf("clientID and clientUUID are required")
 	}
 
 	if len(roles) == 0 {
@@ -976,6 +1423,11 @@ func (c *KeyAdminClient) AssignClientRolesToUser(
 	payload := make([]ClientRoleRequest, 0, len(roles))
 
 	for _, roleName := range roles {
+		roleName = strings.TrimSpace(roleName)
+		if roleName == "" {
+			continue
+		}
+
 		role, err := c.GetClientRoleByName(ctx, clientID, clientUUID, roleName)
 		if err != nil {
 			return fmt.Errorf(
@@ -985,7 +1437,6 @@ func (c *KeyAdminClient) AssignClientRolesToUser(
 				clientUUID,
 				err,
 			)
-
 		}
 
 		payload = append(payload, ClientRoleRequest{
@@ -994,13 +1445,17 @@ func (c *KeyAdminClient) AssignClientRolesToUser(
 		})
 	}
 
+	if len(payload) == 0 {
+		return nil
+	}
+
 	path := fmt.Sprintf(
 		"users/%s/role-mappings/clients/%s",
-		userID,
-		clientUUID,
+		url.PathEscape(userID),
+		url.PathEscape(clientUUID),
 	)
 
-	res, err := c.Post(path, payload)
+	res, err := c.PostWithContext(ctx, path, payload)
 	if err != nil {
 		return err
 	}
@@ -1020,18 +1475,37 @@ func (c *KeyAdminClient) AssignClientRolesToUser(
 
 func (c *KeyAdminClient) RemoveClientRoleFromUser(
 	ctx context.Context,
-	userID, clientID string,
+	userID string,
+	clientUUID string,
 	role ClientRoleRep,
 ) error {
+	userID = strings.TrimSpace(userID)
+	clientUUID = strings.TrimSpace(clientUUID)
 
-	u := fmt.Sprintf(
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if clientUUID == "" {
+		return fmt.Errorf("clientUUID is required")
+	}
+
+	if strings.TrimSpace(role.ID) == "" || strings.TrimSpace(role.Name) == "" {
+		return fmt.Errorf("role id and name are required")
+	}
+
+	path := fmt.Sprintf(
 		"users/%s/role-mappings/clients/%s",
-		userID, clientID,
+		url.PathEscape(userID),
+		url.PathEscape(clientUUID),
 	)
 
-	bs, _ := json.Marshal([]ClientRoleRep{role})
+	body, err := json.Marshal([]ClientRoleRep{role})
+	if err != nil {
+		return err
+	}
 
-	res, err := c.Post(u, bytes.NewReader(bs))
+	res, err := c.DeleteWithBody(ctx, path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -1041,49 +1515,70 @@ func (c *KeyAdminClient) RemoveClientRoleFromUser(
 		b, _ := io.ReadAll(res.Body)
 		return fmt.Errorf("remove client role failed: %s", string(b))
 	}
+
 	return nil
 }
 
 func (c *KeyAdminClient) RemoveClientRolesFromUser(
 	ctx context.Context,
 	userID string,
-	clientId string,
-	clientUuid string,
+	clientID string,
+	clientUUID string,
 	roles []string,
 ) error {
+	userID = strings.TrimSpace(userID)
+	clientID = strings.TrimSpace(clientID)
+	clientUUID = strings.TrimSpace(clientUUID)
 
-	if clientId == "" || clientUuid == "" {
-		return fmt.Errorf("clientId and clientUuid is required")
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if clientID == "" {
+		return fmt.Errorf("clientID is required")
+	}
+
+	if clientUUID == "" {
+		resolvedUUID, err := c.resolveClientUUID(ctx, clientID)
+		if err != nil {
+			return fmt.Errorf("failed to resolve client UUID: %w", err)
+		}
+		clientUUID = resolvedUUID
 	}
 
 	if len(roles) == 0 {
 		return nil
 	}
 
-	clientUUID, err := c.resolveClientUUID(ctx, clientId)
-	if err != nil {
-		return fmt.Errorf("failed to resolve client UUID: %w", err)
-	}
-
 	payload := make([]ClientRoleRep, 0, len(roles))
 
 	for _, roleName := range roles {
-		role, err := c.GetClientRoleByName(ctx, clientId, clientUuid, roleName)
+		roleName = strings.TrimSpace(roleName)
+		if roleName == "" {
+			continue
+		}
+
+		role, err := c.GetClientRoleByName(ctx, clientID, clientUUID, roleName)
 		if err != nil {
 			return fmt.Errorf(
 				"failed to resolve role %q for client %q: %w",
 				roleName,
-				clientId,
+				clientID,
 				err,
 			)
 		}
+
 		payload = append(payload, *role)
+	}
+
+	if len(payload) == 0 {
+		return nil
 	}
 
 	path := fmt.Sprintf(
 		"users/%s/role-mappings/clients/%s",
-		userID,
-		clientUUID,
+		url.PathEscape(userID),
+		url.PathEscape(clientUUID),
 	)
 
 	body, err := json.Marshal(payload)
@@ -1091,7 +1586,7 @@ func (c *KeyAdminClient) RemoveClientRolesFromUser(
 		return err
 	}
 
-	res, err := c.DeleteWithBody(path, bytes.NewReader(body))
+	res, err := c.DeleteWithBody(ctx, path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -1111,17 +1606,19 @@ func (c *KeyAdminClient) RemoveClientRolesFromUser(
 
 func (c *KeyAdminClient) ListClientRoles(
 	ctx context.Context,
-	clientId string,
+	clientID string,
 ) ([]ClientRoleRep, error) {
-
-	clientUUID, err := c.resolveClientUUID(ctx, clientId)
+	clientUUID, err := c.resolveClientUUID(ctx, clientID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve client UUID: %w", err)
 	}
 
-	path := fmt.Sprintf("clients/%s/roles", clientUUID)
+	path := fmt.Sprintf(
+		"clients/%s/roles",
+		url.PathEscape(clientUUID),
+	)
 
-	res, err := c.Get(path)
+	res, err := c.GetWithContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -1146,22 +1643,26 @@ func (c *KeyAdminClient) ListClientRoles(
 
 func (c *KeyAdminClient) DeleteClientRole(
 	ctx context.Context,
-	clientId string,
+	clientID string,
 	role string,
 ) error {
-
-	clientUUID, err := c.resolveClientUUID(ctx, clientId)
+	clientUUID, err := c.resolveClientUUID(ctx, clientID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve client UUID: %w", err)
 	}
 
+	role = strings.TrimSpace(role)
+	if role == "" {
+		return fmt.Errorf("role is required")
+	}
+
 	path := fmt.Sprintf(
 		"clients/%s/roles/%s",
-		clientUUID,
+		url.PathEscape(clientUUID),
 		url.PathEscape(role),
 	)
 
-	res, err := c.Delete(path)
+	res, err := c.DeleteWithContext(ctx, path)
 	if err != nil {
 		return err
 	}
@@ -1181,16 +1682,20 @@ func (c *KeyAdminClient) DeleteClientRole(
 
 func (c *KeyAdminClient) resolveClientUUID(
 	ctx context.Context,
-	clientId string,
+	clientID string,
 ) (string, error) {
-
-	if clientId == "" {
-		return "", fmt.Errorf("resolveClientUUID: clientId is required")
+	clientID = strings.TrimSpace(clientID)
+	if clientID == "" {
+		return "", fmt.Errorf("resolveClientUUID: clientID is required")
 	}
 
-	path := "clients?clientId=" + url.QueryEscape(clientId)
+	if _, err := uuid.Parse(clientID); err == nil {
+		return clientID, nil
+	}
 
-	res, err := c.Get(path)
+	path := "clients?clientId=" + url.QueryEscape(clientID)
+
+	res, err := c.GetWithContext(ctx, path)
 	if err != nil {
 		return "", err
 	}
@@ -1215,121 +1720,28 @@ func (c *KeyAdminClient) resolveClientUUID(
 	}
 
 	if len(clients) == 0 {
-		return "", fmt.Errorf(
-			"client not found in keycloak: %s",
-			clientId,
-		)
+		return "", fmt.Errorf("client not found in keycloak: %s", clientID)
 	}
 
 	return clients[0].ID, nil
 }
 
-// support helper functions
-func (c *KeyAdminClient) SendUserOnboardingEmail(
-	ctx context.Context,
-	userID string,
-) error {
-
-	actions := []string{
-		"UPDATE_PASSWORD",
-		"VERIFY_EMAIL",
-	}
-
-	url := fmt.Sprintf(
-		"users/%s/execute-actions-email",
-		userID,
-	)
-
-	req, _ := json.Marshal(actions)
-
-	resp, err := c.Put(url, bytes.NewBuffer(req))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("failed to send email: %s", resp.Status)
-	}
-
-	return nil
-}
-
-// -------------------------------------------------------------------
-// USERS: Reset password (ADMIN)
-// -------------------------------------------------------------------
-
-func (c *KeyAdminClient) ResetUserPassword(
-	ctx context.Context,
-	userID string,
-) error {
-
-	tmpPassword := generateTemporaryPassword()
-
-	payload := map[string]any{
-		"type":      "password",
-		"value":     tmpPassword,
-		"temporary": true,
-	}
-
-	u := fmt.Sprintf("users/%s/reset-password", userID)
-
-	res, err := c.Put(u, payload)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusNoContent {
-		b, _ := io.ReadAll(res.Body)
-		return fmt.Errorf(
-			"reset user password failed [%d]: %s",
-			res.StatusCode,
-			string(b),
-		)
-	}
-
-	actions := []string{"UPDATE_PASSWORD"}
-
-	actionsRes, err := c.Put(
-		fmt.Sprintf("users/%s/execute-actions-email", userID),
-		actions,
-	)
-	if err != nil {
-		return err
-	}
-	defer actionsRes.Body.Close()
-
-	if actionsRes.StatusCode != http.StatusNoContent &&
-		actionsRes.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(actionsRes.Body)
-		return fmt.Errorf(
-			"execute required actions failed [%d]: %s",
-			actionsRes.StatusCode,
-			string(b),
-		)
-	}
-
-	return nil
-}
-
-func generateTemporaryPassword() string {
-	return utils.RandomString(16) + "!A1"
-}
+// ----------------------------------------------------
+// CLIENT SCOPES / BASELINE
+// ----------------------------------------------------
 
 func (c *KeyAdminClient) attachDefaultClientScopes(
 	ctx context.Context,
 	clientUUID string,
 ) error {
-
 	scopes, err := c.ListClientScopes(ctx)
 	if err != nil {
 		return err
 	}
 
 	scopeByName := map[string]string{}
-	for _, s := range scopes {
-		scopeByName[s.Name] = s.ID
+	for _, scope := range scopes {
+		scopeByName[scope.Name] = scope.ID
 	}
 
 	for _, name := range defaultClientScopes {
@@ -1338,15 +1750,28 @@ func (c *KeyAdminClient) attachDefaultClientScopes(
 			return fmt.Errorf("required client scope %q not found", name)
 		}
 
-		if _, err := c.Put(
+		res, err := c.PutWithContext(
+			ctx,
 			fmt.Sprintf(
 				"clients/%s/default-client-scopes/%s",
-				clientUUID,
-				scopeID,
+				url.PathEscape(clientUUID),
+				url.PathEscape(scopeID),
 			),
 			nil,
-		); err != nil {
+		)
+		if err != nil {
 			return err
+		}
+
+		body, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+
+		if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
+			return fmt.Errorf(
+				"failed to attach default client scope %q: %s",
+				name,
+				string(body),
+			)
 		}
 	}
 
@@ -1354,7 +1779,7 @@ func (c *KeyAdminClient) attachDefaultClientScopes(
 }
 
 func (c *KeyAdminClient) ListClientScopes(ctx context.Context) ([]ClientScope, error) {
-	res, err := c.Get("client-scopes")
+	res, err := c.GetWithContext(ctx, "client-scopes")
 	if err != nil {
 		return nil, err
 	}
@@ -1380,18 +1805,22 @@ func (c *KeyAdminClient) EnsureClientScopes(
 	ctx context.Context,
 	required []string,
 ) (map[string]string, error) {
-
 	existing, err := c.ListClientScopes(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	scopeByName := map[string]string{}
-	for _, s := range existing {
-		scopeByName[s.Name] = s.ID
+	for _, scope := range existing {
+		scopeByName[scope.Name] = scope.ID
 	}
 
 	for _, name := range required {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+
 		if _, ok := scopeByName[name]; ok {
 			continue
 		}
@@ -1401,23 +1830,29 @@ func (c *KeyAdminClient) EnsureClientScopes(
 			"protocol": "openid-connect",
 		}
 
-		res, err := c.Post("client-scopes", payload)
+		res, err := c.PostWithContext(ctx, "client-scopes", payload)
 		if err != nil {
 			return nil, err
 		}
+
+		body, _ := io.ReadAll(res.Body)
 		res.Body.Close()
 
-		if res.StatusCode != http.StatusCreated {
-			return nil, fmt.Errorf("failed to create client scope %q", name)
+		if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusConflict {
+			return nil, fmt.Errorf(
+				"failed to create client scope %q: %s",
+				name,
+				string(body),
+			)
 		}
 
-		// refresh scopes
 		existing, err = c.ListClientScopes(ctx)
 		if err != nil {
 			return nil, err
 		}
-		for _, s := range existing {
-			scopeByName[s.Name] = s.ID
+
+		for _, scope := range existing {
+			scopeByName[scope.Name] = scope.ID
 		}
 	}
 
@@ -1429,18 +1864,21 @@ func (c *KeyAdminClient) DetectMissingClientScopes(
 	clientUUID string,
 	required map[string]string,
 ) ([]string, error) {
-
-	res, err := c.Get(fmt.Sprintf(
-		"clients/%s/default-client-scopes",
-		clientUUID,
-	))
+	res, err := c.GetWithContext(
+		ctx,
+		fmt.Sprintf(
+			"clients/%s/default-client-scopes",
+			url.PathEscape(clientUUID),
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch client scopes")
+		body, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("failed to fetch client scopes: %s", string(body))
 	}
 
 	var attached []ClientScope
@@ -1449,8 +1887,8 @@ func (c *KeyAdminClient) DetectMissingClientScopes(
 	}
 
 	attachedNames := map[string]bool{}
-	for _, s := range attached {
-		attachedNames[s.Name] = true
+	for _, scope := range attached {
+		attachedNames[scope.Name] = true
 	}
 
 	var missing []string
@@ -1468,7 +1906,6 @@ func ApplyClientTemplate(
 	template ClientTemplate,
 ) {
 	switch template {
-
 	case WebClient:
 		opts.PublicClient = false
 		opts.StandardFlowEnabled = true
@@ -1494,45 +1931,31 @@ func (c *KeyAdminClient) CreateClientWithTemplate(
 	opts CreateClientParams,
 	template ClientTemplate,
 ) (string, error) {
-
 	ApplyClientTemplate(&opts, template)
 
-	// Validate redirects
 	if err := utils.ValidateRedirectURIs(opts.RedirectURIs); err != nil {
 		return "", err
 	}
 
-	// Ensure scopes exist
 	requiredScopes := []string{"profile", "email", "roles"}
+
 	scopeIDs, err := c.EnsureClientScopes(ctx, requiredScopes)
 	if err != nil {
 		return "", err
 	}
 
-	// Create client
 	clientUUID, err := c.CreateClient(opts)
 	if err != nil {
 		return "", err
 	}
 
-	// Detect drift
-	missing, err := c.DetectMissingClientScopes(
-		ctx,
-		clientUUID,
-		scopeIDs,
-	)
+	missing, err := c.DetectMissingClientScopes(ctx, clientUUID, scopeIDs)
 	if err != nil {
 		return "", err
 	}
 
-	// Fix drift
 	if len(missing) > 0 {
-		if err := c.FixClientScopeDrift(
-			ctx,
-			clientUUID,
-			scopeIDs,
-			missing,
-		); err != nil {
+		if err := c.FixClientScopeDrift(ctx, clientUUID, scopeIDs, missing); err != nil {
 			return "", err
 		}
 	}
@@ -1546,25 +1969,29 @@ func (c *KeyAdminClient) FixClientScopeDrift(
 	scopeIDs map[string]string,
 	missing []string,
 ) error {
-
 	for _, name := range missing {
 		scopeID, ok := scopeIDs[name]
 		if !ok || scopeID == "" {
 			return fmt.Errorf("cannot fix drift: scope %q not found", name)
 		}
 
-		res, err := c.Put(
-			fmt.Sprintf("clients/%s/default-client-scopes/%s", clientUUID, scopeID),
+		res, err := c.PutWithContext(
+			ctx,
+			fmt.Sprintf(
+				"clients/%s/default-client-scopes/%s",
+				url.PathEscape(clientUUID),
+				url.PathEscape(scopeID),
+			),
 			nil,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to attach client scope %q: %w", name, err)
 		}
-		defer res.Body.Close()
 
-		// Keycloak typically returns 204 No Content
+		body, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+
 		if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(res.Body)
 			return fmt.Errorf(
 				"failed to attach client scope %q: %s",
 				name,
@@ -1580,8 +2007,6 @@ func (c *KeyAdminClient) EnsureClientBaseline(
 	ctx context.Context,
 	clientUUID string,
 ) error {
-
-	// 1. Ensure required scopes exist in the realm
 	scopeIDs, err := c.EnsureClientScopes(
 		ctx,
 		[]string{"profile", "email", "roles"},
@@ -1590,24 +2015,13 @@ func (c *KeyAdminClient) EnsureClientBaseline(
 		return err
 	}
 
-	// 2. Detect drift on this client
-	missing, err := c.DetectMissingClientScopes(
-		ctx,
-		clientUUID,
-		scopeIDs,
-	)
+	missing, err := c.DetectMissingClientScopes(ctx, clientUUID, scopeIDs)
 	if err != nil {
 		return err
 	}
 
-	// 3. Heal drift (attach missing scopes)
 	if len(missing) > 0 {
-		if err := c.FixClientScopeDrift(
-			ctx,
-			clientUUID,
-			scopeIDs,
-			missing,
-		); err != nil {
+		if err := c.FixClientScopeDrift(ctx, clientUUID, scopeIDs, missing); err != nil {
 			return err
 		}
 	}
@@ -1615,14 +2029,19 @@ func (c *KeyAdminClient) EnsureClientBaseline(
 	return nil
 }
 
-// --------------------------------------------------
-// session management
-// -------------------------------------------------
+// ----------------------------------------------------
+// SESSION MANAGEMENT
+// ----------------------------------------------------
 
-func (c *KeyAdminClient) GetUserSessions(userId string) ([]Session, error) {
+func (c *KeyAdminClient) GetUserSessions(userID string) ([]Session, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+
 	path := fmt.Sprintf(
 		"users/%s/sessions",
-		url.PathEscape(userId),
+		url.PathEscape(userID),
 	)
 
 	res, err := c.Get(path)
@@ -1636,13 +2055,11 @@ func (c *KeyAdminClient) GetUserSessions(userId string) ([]Session, error) {
 		return nil, err
 	}
 
-	// If request failed log the full body
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to list sessions: %s", string(body))
 	}
 
 	var sessions []Session
-
 	if err := json.Unmarshal(body, &sessions); err != nil {
 		return nil, err
 	}
@@ -1650,11 +2067,17 @@ func (c *KeyAdminClient) GetUserSessions(userId string) ([]Session, error) {
 	return sessions, nil
 }
 
-func (c *KeyAdminClient) LogoutSession(sessionId string) error {
+func (c *KeyAdminClient) LogoutSession(sessionID string) error {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return fmt.Errorf("sessionID is required")
+	}
+
 	path := fmt.Sprintf(
 		"sessions/%s",
-		url.PathEscape(sessionId),
+		url.PathEscape(sessionID),
 	)
+
 	res, err := c.Delete(path)
 	if err != nil {
 		return err
@@ -1664,82 +2087,204 @@ func (c *KeyAdminClient) LogoutSession(sessionId string) error {
 	if res.StatusCode != http.StatusNoContent {
 		b, _ := io.ReadAll(res.Body)
 		return fmt.Errorf(
-			"delete session  failed [%d]: %s",
+			"delete session failed [%d]: %s",
 			res.StatusCode,
 			string(b),
 		)
 	}
 
 	return nil
-
 }
 
 // ----------------------------------------------------
-// ADMIN API HELPERS
+// HTTP HELPERS
 // ----------------------------------------------------
 
 func (c *KeyAdminClient) doRequest(
+	ctx context.Context,
 	method string,
 	path string,
 	body any,
 	rawBody io.Reader,
 ) (*http.Response, error) {
-
 	adminURL := fmt.Sprintf(
 		"%s/admin/realms/%s/%s",
-		c.BaseURL,
-		c.Realm,
-		path,
+		strings.TrimRight(c.BaseURL, "/"),
+		url.PathEscape(c.Realm),
+		strings.TrimPrefix(path, "/"),
 	)
 
-	var reqBody io.Reader
+	return c.doAuthenticatedRequest(ctx, method, adminURL, body, rawBody)
+}
 
-	if rawBody != nil {
-		reqBody = rawBody
-	} else if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		reqBody = bytes.NewBuffer(jsonBody)
-	}
+func (c *KeyAdminClient) doRawAdminRequest(
+	ctx context.Context,
+	method string,
+	path string,
+	body any,
+	rawBody io.Reader,
+) (*http.Response, error) {
+	adminURL := fmt.Sprintf(
+		"%s/admin/%s",
+		strings.TrimRight(c.BaseURL, "/"),
+		strings.TrimPrefix(path, "/"),
+	)
 
-	req, err := http.NewRequest(method, adminURL, reqBody)
+	return c.doAuthenticatedRequest(ctx, method, adminURL, body, rawBody)
+}
+
+func (c *KeyAdminClient) doAuthenticatedRequest(
+	ctx context.Context,
+	method string,
+	fullURL string,
+	body any,
+	rawBody io.Reader,
+) (*http.Response, error) {
+	bodyBytes, err := buildRequestBodyBytes(body, rawBody)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.Token)
-	req.Header.Set("Content-Type", "application/json")
+	token, err := c.ensureAdminToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("keycloak admin client authentication failed: %w", err)
+	}
+
+	res, err := c.executeAdminRequest(ctx, method, fullURL, bodyBytes, token)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusUnauthorized {
+		return res, nil
+	}
+
+	// Token may have expired or been invalidated.
+	// Close the failed response and retry once using a freshly requested token.
+	_ = res.Body.Close()
+
+	token, err = c.forceRefreshAdminToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("keycloak admin token refresh failed after 401: %w", err)
+	}
+
+	return c.executeAdminRequest(ctx, method, fullURL, bodyBytes, token)
+}
+
+func (c *KeyAdminClient) executeAdminRequest(
+	ctx context.Context,
+	method string,
+	fullURL string,
+	bodyBytes []byte,
+	token string,
+) (*http.Response, error) {
+	var reqBody io.Reader
+	if bodyBytes != nil {
+		reqBody = bytes.NewReader(bodyBytes)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	if bodyBytes != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 
 	return c.httpClient.Do(req)
 }
 
-func (c *KeyAdminClient) DeleteWithBody(
-	path string,
-	body io.Reader,
-) (*http.Response, error) {
+func buildRequestBodyBytes(body any, rawBody io.Reader) ([]byte, error) {
+	if rawBody != nil {
+		bodyBytes, err := io.ReadAll(rawBody)
+		if err != nil {
+			return nil, err
+		}
 
-	return c.doRequest(
-		http.MethodDelete,
-		path,
-		nil,
-		body,
-	)
+		return bodyBytes, nil
+	}
+
+	if body == nil {
+		return nil, nil
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	return bodyBytes, nil
 }
 
 func (c *KeyAdminClient) Get(path string) (*http.Response, error) {
-	return c.doRequest(http.MethodGet, path, nil, nil)
+	return c.GetWithContext(context.Background(), path)
 }
 
 func (c *KeyAdminClient) Post(path string, body any) (*http.Response, error) {
-	return c.doRequest(http.MethodPost, path, body, nil)
+	return c.PostWithContext(context.Background(), path, body)
 }
 
 func (c *KeyAdminClient) Put(path string, body any) (*http.Response, error) {
-	return c.doRequest(http.MethodPut, path, body, nil)
+	return c.PutWithContext(context.Background(), path, body)
 }
 
 func (c *KeyAdminClient) Delete(path string) (*http.Response, error) {
-	return c.doRequest(http.MethodDelete, path, nil, nil)
+	return c.DeleteWithContext(context.Background(), path)
+}
+
+func (c *KeyAdminClient) GetWithContext(
+	ctx context.Context,
+	path string,
+) (*http.Response, error) {
+	return c.doRequest(ctx, http.MethodGet, path, nil, nil)
+}
+
+func (c *KeyAdminClient) PostWithContext(
+	ctx context.Context,
+	path string,
+	body any,
+) (*http.Response, error) {
+	return c.doRequest(ctx, http.MethodPost, path, body, nil)
+}
+
+func (c *KeyAdminClient) PutWithContext(
+	ctx context.Context,
+	path string,
+	body any,
+) (*http.Response, error) {
+	return c.doRequest(ctx, http.MethodPut, path, body, nil)
+}
+
+func (c *KeyAdminClient) DeleteWithContext(
+	ctx context.Context,
+	path string,
+) (*http.Response, error) {
+	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
+}
+
+func (c *KeyAdminClient) DeleteWithBody(
+	ctx context.Context,
+	path string,
+	body io.Reader,
+) (*http.Response, error) {
+	return c.doRequest(ctx, http.MethodDelete, path, nil, body)
+}
+
+func parseIDFromLocation(location string) (string, error) {
+	location = strings.TrimSpace(location)
+	if location == "" {
+		return "", fmt.Errorf("no Location header returned by Keycloak")
+	}
+
+	parts := strings.Split(strings.TrimRight(location, "/"), "/")
+	id := strings.TrimSpace(parts[len(parts)-1])
+
+	if id == "" {
+		return "", fmt.Errorf("failed to parse ID from Location header")
+	}
+
+	return id, nil
 }

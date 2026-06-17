@@ -16,17 +16,17 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	documenttemplates "github.com/moh-sso-dashboard/internal/features/document_templates"
+	documentRepository "github.com/moh-sso-dashboard/internal/features/documents"
 	"github.com/moh-sso-dashboard/internal/model"
-	documentRepository "github.com/moh-sso-dashboard/internal/repository/document"
 	processRepository "github.com/moh-sso-dashboard/internal/repository/processes"
-	"github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/xuri/excelize/v2"
 )
 
 type ExcelProcessor struct {
 	documentRepository      documentRepository.DocumentRepository
-	documentTemplateService service.DocumentTemplateService
+	documentTemplateService documenttemplates.Service
 	templateImportRepo      documentRepository.TemplateImportRepository
 	processRepository       processRepository.ProcessRepository
 	storage                 storage.Storage
@@ -37,7 +37,7 @@ func NewExcelProcessor(
 	documentRepository documentRepository.DocumentRepository,
 	templateImportRepo documentRepository.TemplateImportRepository,
 	processRepository processRepository.ProcessRepository,
-	documentTemplateService service.DocumentTemplateService,
+	documentTemplateService documenttemplates.Service,
 	storage storage.Storage,
 	remoteDB *sql.DB,
 ) *ExcelProcessor {

@@ -4,12 +4,13 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
+ENV FRONTEND_ASSET_BASE_URL=/portal
+ENV FRONTEND_BASE_PATH=/portal
 
 COPY . .
-RUN npm run build
+RUN npm ci
+RUN node scripts/use-runtime-config.mjs production
+RUN npm run build:docker
 
 # ======================
 # Stage 2: Production (Static server)

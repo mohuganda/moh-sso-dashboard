@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@moh-sso/api",
+      "@moh-sso/auth",
+      "@moh-sso/config",
+      "@moh-sso/microfrontend",
+      "@moh-sso/state",
+      "@moh-sso/types",
+      "@moh-sso/ui",
+      "@moh-sso/utils"
+    ]
+  ],
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@moh-sso/ui",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "module": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "vite build --config vite.config.ts && node ../../scripts/write-package-declarations.mjs package ui",
+    "ladle": "ladle serve --host 0.0.0.0",
+    "ladle:build": "ladle build",
+    "ladle:preview": "ladle preview --host 0.0.0.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "dependencies": {
+    "@moh-sso/types": "0.1.0"
+  },
+  "peerDependencies": {
+    "@carbon/react": "^1.95.0",
+    "react": "^19.2.0",
+    "react-router-dom": "^7.9.6"
+  },
+  "private": false,
+  "devDependencies": {
+    "@ladle/react": "^5.1.1"
+  }
+}
