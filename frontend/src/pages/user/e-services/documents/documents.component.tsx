@@ -51,7 +51,7 @@ export default function DocumentPage() {
         <Tabs>
           <TabList aria-label="Document management tabs" contained>
             <Tab>Templates</Tab>
-            <Tab>Data Upload</Tab>
+            <Tab>Template Data Upload</Tab>
           </TabList>
 
           <TabPanels>

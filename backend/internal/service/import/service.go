@@ -19,11 +19,11 @@ import (
 )
 
 type Service struct {
-	documentRepo     documentRepo.DocumentRepository
-	stockRepo        documentRepo.StockImportRepository
-	processRepo      processRepo.ProcessRepository
-	fileRepository   documentRepo.FileRepository
-	importRepository interfaces.ImportRepository
+	documentRepo       documentRepo.DocumentRepository
+	templateImportRepo documentRepo.TemplateImportRepository
+	processRepo        processRepo.ProcessRepository
+	fileRepository     documentRepo.FileRepository
+	importRepository   interfaces.ImportRepository
 
 	documentTemplateService service.DocumentTemplateService
 	facilityMetricsService  *service.SurveillanceFacilityWeeklyMetricsService
@@ -37,7 +37,7 @@ type Service struct {
 }
 
 func NewService(documentRepo documentRepo.DocumentRepository,
-	stockRepo documentRepo.StockImportRepository,
+	templateImportRepo documentRepo.TemplateImportRepository,
 	processRepo processRepo.ProcessRepository,
 	fileRepository documentRepo.FileRepository,
 	importRepository interfaces.ImportRepository,
@@ -50,7 +50,7 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 
 	s := &Service{
 		documentRepo:            documentRepo,
-		stockRepo:               stockRepo,
+		templateImportRepo:      templateImportRepo,
 		processRepo:             processRepo,
 		fileRepository:          fileRepository,
 		importRepository:        importRepository,
@@ -70,7 +70,7 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 
 	reg.Register(model.ProcessTypeCSVImport, NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))
 
-	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, stockRepo, processRepo, documentTemplateService, storage, remote))
+	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, templateImportRepo, processRepo, documentTemplateService, storage, remote))
 
 	reg.Register(model.ProcessTypeFHIRImport, NewFhirBundlerProcessor(documentRepo, storage))
 

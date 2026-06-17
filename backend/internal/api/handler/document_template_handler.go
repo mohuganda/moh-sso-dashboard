@@ -538,43 +538,13 @@ func (h *DocumentTemplateHandler) HasData(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	var hasData bool
-	var err error
 
-	switch code {
-	case "NMS_STOCK_REPORT":
-		err = h.remoteDB.QueryRowContext(ctx,
-			`SELECT EXISTS(SELECT 1 FROM import.nms_stock_issues WHERE is_valid = TRUE)`).Scan(&hasData)
-		if err == nil && !hasData {
-			err = h.remoteDB.QueryRowContext(ctx,
-				`SELECT EXISTS(SELECT 1 FROM import.nms_stock_on_hand WHERE is_valid = TRUE)`).Scan(&hasData)
-		}
-	case "JMS_STOCK_REPORT":
-		err = h.remoteDB.QueryRowContext(ctx,
-			`SELECT EXISTS(SELECT 1 FROM import.jms_stock_issues WHERE is_valid = TRUE)`).Scan(&hasData)
-		if err == nil && !hasData {
-			err = h.remoteDB.QueryRowContext(ctx,
-				`SELECT EXISTS(SELECT 1 FROM import.jms_stock_on_hand WHERE is_valid = TRUE)`).Scan(&hasData)
-		}
-	case "GF_PIPELINE":
-		err = h.remoteDB.QueryRowContext(ctx,
-			`SELECT EXISTS(SELECT 1 FROM import.gf_pipeline WHERE is_valid = TRUE)`).Scan(&hasData)
-	case "GDF_TB_ORDERS":
-		err = h.remoteDB.QueryRowContext(ctx,
-			`SELECT EXISTS(SELECT 1 FROM import.gdf_tb_orders WHERE is_valid = TRUE)`).Scan(&hasData)
-	case "GHSC_PSM":
-		err = h.remoteDB.QueryRowContext(ctx,
-			`SELECT EXISTS(SELECT 1 FROM import.ghsc_psm_lab WHERE is_valid = TRUE)`).Scan(&hasData)
-		if err == nil && !hasData {
-			err = h.remoteDB.QueryRowContext(ctx,
-				`SELECT EXISTS(SELECT 1 FROM import.ghsc_psm_pharma WHERE is_valid = TRUE)`).Scan(&hasData)
-		}
-		if err == nil && !hasData {
-			err = h.remoteDB.QueryRowContext(ctx,
-				`SELECT EXISTS(SELECT 1 FROM import.ghsc_psm_malaria WHERE is_valid = TRUE)`).Scan(&hasData)
-		}
-	default:
-		hasData = false
-	}
+	err := h.remoteDB.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM import.template_row_data
+			WHERE template_code = $1 AND is_valid = TRUE
+		)
+	`, strings.ToUpper(strings.TrimSpace(code))).Scan(&hasData)
 
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "HAS_DATA_CHECK_FAILED", "Failed to check template data")
@@ -582,6 +552,30 @@ func (h *DocumentTemplateHandler) HasData(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusOK, gin.H{"has_data": hasData})
+}
+
+func (h *DocumentTemplateHandler) ReplaceStructure(c *gin.Context) {
+	templateID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ID", "invalid template id")
+		return
+	}
+
+	var req struct {
+		Sheets []model.CreateTemplateSheetWithColumnsRequest `json:"sheets"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "invalid request payload")
+		return
+	}
+
+	structure, err := h.service.ReplaceStructure(c.Request.Context(), templateID, req.Sheets)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "REPLACE_FAILED", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, structure)
 }
 
 func (h *DocumentTemplateHandler) CreateTemplateWithStructure(c *gin.Context) {

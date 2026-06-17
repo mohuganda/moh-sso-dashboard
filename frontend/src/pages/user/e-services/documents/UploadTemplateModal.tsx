@@ -15,14 +15,16 @@ import {
   Toggle,
 } from "@carbon/react";
 import { TrashCan } from "@carbon/icons-react";
-import * as XLSX from "xlsx";
-import Papa from "papaparse";
+
+import { useSelector } from "react-redux";
 
 import {
   useCreateDocumentMutation,
   useListStorageLocationsQuery,
+  useLazyParseDocumentStructureQuery,
 } from "../../../../store/api/document.api";
 import { useCreateTemplateStructureMutation } from "../../../../store/api/document_template.api";
+import { selectUser } from "../../../../store/auth/auth.selectors";
 import { formatFileSize } from "../../../../utils/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -32,24 +34,23 @@ type ColumnDraft = {
   column_name: string;
   data_type: string;
   required: boolean;
+  filterable: boolean;
   column_order: number;
 };
 
 type SheetDraft = {
   name: string;
+  excluded: boolean;
   headerRow: number;
+  startRow: number;
   columns: ColumnDraft[];
 };
-
-type ColumnDefaults = Partial<Pick<ColumnDraft, "column_key" | "data_type">>;
 
 export type UploadTemplateModalProps = {
   onClose: () => void;
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const CSV_HEADER_READ_BYTES = 64 * 1024;
 
 const DATA_TYPE_OPTIONS = [
   { value: "STRING", label: "Text" },
@@ -58,15 +59,6 @@ const DATA_TYPE_OPTIONS = [
   { value: "DATE", label: "Date" },
   { value: "DATETIME", label: "Date & Time" },
   { value: "BOOLEAN", label: "Boolean" },
-];
-
-const IMPLEMENTED_TEMPLATES = [
-  { code: "NMS_STOCK_REPORT", name: "NMS Stock Report" },
-  { code: "JMS_STOCK_REPORT", name: "JMS Stock Report" },
-  { code: "GF_PIPELINE", name: "GF Pipeline" },
-  { code: "GDF_TB_ORDERS", name: "GDF TB Orders" },
-  { code: "GHSC_PSM", name: "GHSC-PSM" },
-  { code: "UNFPA", name: "UNFPA Pipeline" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -79,157 +71,32 @@ function getFileExtension(fileName: string): string {
 function normalizeKey(value: string): string {
   return value
     .trim()
-    .replace(/([a-z])([A-Z])/g, "$1_$2")   // CamelCase → snake_case
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
     .toLowerCase()
-    .replace(/[\s\-\/]+/g, "_")             // spaces, hyphens, slashes → _
-    .replace(/[^a-z0-9_]/g, "")            // strip remaining special chars
-    .replace(/_+/g, "_")                   // collapse repeated underscores
-    .replace(/^_|_$/g, "");               // trim leading/trailing underscores
-}
-
-function getGHSCPSMColumnDefaults(columnName: string): ColumnDefaults {
-  const trimmed = columnName.trim();
-  const key = normalizeKey(trimmed);
-
-  if (trimmed === "#") return { column_key: "line_number", data_type: "INTEGER" };
-  if (key === "commodity_category") return { column_key: "commodity_category" };
-  if (key === "item_description") return { column_key: "item_description" };
-  if (key === "uom" || key === "uo_m") return { column_key: "uom" };
-  if (key === "stock_on_hand") return { column_key: "stock_on_hand", data_type: "DECIMAL" };
-  if (key === "average_monthly_consumption_amc") return { column_key: "amc", data_type: "DECIMAL" };
-  if (key.startsWith("mos_as_of_end_of_")) return { column_key: "mos", data_type: "DECIMAL" };
-  if (key === "quantity_on_order") return { column_key: "quantity_on_order", data_type: "DECIMAL" };
-  if (key === "requested_delivery_date") return { column_key: "requested_delivery_date", data_type: "DATE" };
-  if (key === "estimated_delivery_date") return { column_key: "estimated_delivery_date", data_type: "DATE" };
-  if (key === "status") return { column_key: "status" };
-  if (key === "comment") return { column_key: "comment" };
-
-  return {};
-}
-
-function applyTemplateDefaults(templateCode: string, sheets: SheetDraft[]): SheetDraft[] {
-  if (templateCode !== "GHSC_PSM") return sheets;
-
-  return sheets.map((sheet) => ({
-    ...sheet,
-    columns: sheet.columns.map((column) => ({
-      ...column,
-      ...getGHSCPSMColumnDefaults(column.column_name),
-    })),
-  }));
-}
-
-async function readSheetsFromFile(file: File): Promise<SheetDraft[]> {
-  const ext = getFileExtension(file.name);
-
-  if (ext === ".csv") {
-    const text = await file.slice(0, CSV_HEADER_READ_BYTES).text();
-    const headers = await new Promise<string[]>((resolve, reject) => {
-      Papa.parse<Record<string, unknown>>(text, {
-        header: true,
-        skipEmptyLines: true,
-        preview: 1,
-        complete: (results) => {
-          resolve((results.meta.fields ?? []).map((h) => String(h ?? "").trim()).filter(Boolean));
-        },
-        error: reject,
-      });
-    });
-
-    return [
-      {
-        name: "CSV Data",
-        headerRow: 1,
-        columns: headers.map((name, i) => ({
-          column_key: normalizeKey(name) || `col_${i + 1}`,
-          column_name: name,
-          data_type: "STRING",
-          required: false,
-          column_order: i + 1,
-        })),
-      },
-    ];
-  }
-
-  if (ext === ".xlsx" || ext === ".xls") {
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array", sheetRows: 10 });
-
-    const visibleNames = workbook.SheetNames.filter((_, idx) => {
-      const meta = workbook.Workbook?.Sheets?.[idx];
-      return !meta?.Hidden;
-    });
-
-    return visibleNames
-      .map((sheetName) => {
-        const ws = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(ws, {
-          header: 1,
-          defval: "",
-          blankrows: true,
-        });
-
-        // Find the first row with at least 2 non-empty cells — that is the header row.
-        let headerRowIdx = 0;
-        for (let i = 0; i < rows.length; i++) {
-          const nonEmpty = rows[i].filter((cell) => String(cell ?? "").trim() !== "").length;
-          if (nonEmpty >= 4) {
-            headerRowIdx = i;
-            break;
-          }
-        }
-
-        const headerRow = Array.isArray(rows[headerRowIdx]) ? rows[headerRowIdx] : [];
-        const rawHeaders = headerRow.map((h) => String(h ?? "").trim()).filter(Boolean);
-
-        // Deduplicate column names and keys so the DB unique constraints aren't violated.
-        // When a header appears more than once, suffix duplicates with _2, _3, …
-        const nameCounts: Record<string, number> = {};
-        const keyCounts: Record<string, number> = {};
-        const headers = rawHeaders.map((name) => {
-          const baseKey = normalizeKey(name) || `col`;
-          nameCounts[name] = (nameCounts[name] ?? 0) + 1;
-          keyCounts[baseKey] = (keyCounts[baseKey] ?? 0) + 1;
-          const nc = nameCounts[name];
-          const kc = keyCounts[baseKey];
-          return {
-            name: nc > 1 ? `${name}_${nc}` : name,
-            key: kc > 1 ? `${baseKey}_${kc}` : baseKey,
-          };
-        });
-
-        return {
-          name: sheetName,
-          headerRow: headerRowIdx + 1,
-          columns: headers.map(({ name, key }, i) => ({
-            column_key: key,
-            column_name: name,
-            data_type: "STRING",
-            required: false,
-            column_order: i + 1,
-          })),
-        };
-      })
-      .filter((s) => s.columns.length > 0);
-  }
-
-  return [];
+    .replace(/[\s\-\/]+/g, "_")
+    .replace(/[^a-z0-9_]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClose }) => {
+  const currentUser = useSelector(selectUser);
+
   const [file, setFile] = useState<File | null>(null);
   const [sheets, setSheets] = useState<SheetDraft[]>([]);
-  const [selectedTemplateCode, setSelectedTemplateCode] = useState("");
+  const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [storageLocation, setStorageLocation] = useState("");
-  const [isReadingFile, setIsReadingFile] = useState(false);
+  const [preUploadedDocId, setPreUploadedDocId] = useState<string | null>(null);
+  const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [createDocument, { isLoading: isUploadingFile }] = useCreateDocumentMutation();
   const [createTemplateStructure, { isLoading: isCreatingStructure }] =
     useCreateTemplateStructureMutation();
+  const [triggerParseStructure] = useLazyParseDocumentStructureQuery();
 
   const {
     data: locations = [],
@@ -237,8 +104,6 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
   } = useListStorageLocationsQuery();
 
   const activeLocations = useMemo(() => locations.filter((l) => l.is_active), [locations]);
-
-  // Auto-select local storage as soon as locations load
   const localLocation = useMemo(
     () => activeLocations.find((l) => l.provider === "local"),
     [activeLocations],
@@ -247,20 +112,17 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
     setStorageLocation(localLocation.id);
   }
 
-  const selectedTemplate = useMemo(
-    () => IMPLEMENTED_TEMPLATES.find((t) => t.code === selectedTemplateCode) ?? null,
-    [selectedTemplateCode],
-  );
+  const templateCode = useMemo(() => normalizeKey(templateName).toUpperCase(), [templateName]);
+  const isSubmitting = isUploadingFile || isCreatingStructure || isDetecting;
 
-  const isSubmitting = isUploadingFile || isCreatingStructure;
-
-  const totalColumns = sheets.reduce((sum, s) => sum + s.columns.length, 0);
-  const requiredCount = sheets.reduce(
+  const includedSheets = sheets.filter((s) => !s.excluded);
+  const totalColumns = includedSheets.reduce((sum, s) => sum + s.columns.length, 0);
+  const requiredCount = includedSheets.reduce(
     (sum, s) => sum + s.columns.filter((c) => c.required).length,
     0,
   );
 
-  // ── File selection ────────────────────────────────────────────────────────
+  // ── File selection → upload + detect structure ────────────────────────────
 
   const handleFileChange = useCallback(
     async (_event: SyntheticEvent<HTMLElement, Event>, { addedFiles }: { addedFiles: File[] }) => {
@@ -268,41 +130,83 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
       if (!selected) return;
 
       const ext = getFileExtension(selected.name);
-      if (![".csv", ".xlsx", ".xls"].includes(ext)) {
-        setError("Templates must be CSV or Excel files (.csv, .xlsx, .xls).");
+      if (![".xlsx", ".xls"].includes(ext)) {
+        setError("Templates must be Excel files (.xlsx or .xls).");
+        return;
+      }
+      if (!storageLocation) {
+        setError("Storage location unavailable.");
         return;
       }
 
       setError(null);
       setFile(selected);
       setSheets([]);
-      setIsReadingFile(true);
+      setTemplateName("");
+      setTemplateDescription("");
+      setPreUploadedDocId(null);
+      setIsDetecting(true);
 
       try {
-        const detected = await readSheetsFromFile(selected);
-        if (detected.length === 0 || detected.every((s) => s.columns.length === 0)) {
-          setError("No column headers found in the file. Make sure row 1 contains headers.");
+        // Upload first — server detects structure; avoids parsing large files in browser
+        const uploaded = await createDocument({
+          file: selected,
+          storageLocation,
+          isTemplate: true,
+        }).unwrap();
+
+        setPreUploadedDocId(uploaded.id);
+
+        const result = await triggerParseStructure(uploaded.id).unwrap();
+
+        if (result.sheets.length === 0) {
+          setError("No usable sheets found. Make sure visible sheets have at least 4 column headers.");
           setFile(null);
+          setPreUploadedDocId(null);
           return;
         }
-        setSheets(applyTemplateDefaults(selectedTemplateCode, detected));
+
+        setSheets(
+          result.sheets.map((s) => ({
+            name: s.name,
+            excluded: false,
+            headerRow: s.header_row,
+            startRow: s.start_row,
+            columns: s.columns.map((col, i) => ({
+              column_key: col.column_key,
+              column_name: col.column_name,
+              data_type: "STRING",
+              required: false,
+              filterable: false,
+              column_order: i + 1,
+            })),
+          })),
+        );
       } catch {
-        setError("Failed to read file headers. Please check the file and try again.");
+        setError("Failed to read the file. Please check it is a valid Excel file and try again.");
         setFile(null);
+        setPreUploadedDocId(null);
       } finally {
-        setIsReadingFile(false);
+        setIsDetecting(false);
       }
     },
-    [selectedTemplateCode],
+    [storageLocation, createDocument, triggerParseStructure],
   );
 
   const handleClearFile = useCallback(() => {
     setFile(null);
     setSheets([]);
+    setPreUploadedDocId(null);
     setError(null);
   }, []);
 
   // ── Column editor ─────────────────────────────────────────────────────────
+
+  const toggleSheetExcluded = useCallback((sheetIndex: number) => {
+    setSheets((prev) =>
+      prev.map((s, i) => (i !== sheetIndex ? s : { ...s, excluded: !s.excluded })),
+    );
+  }, []);
 
   const updateColumn = useCallback(
     (sheetIndex: number, colIndex: number, patch: Partial<ColumnDraft>) => {
@@ -325,32 +229,28 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
   // ── Submit ────────────────────────────────────────────────────────────────
 
   const handleUpload = async () => {
-    if (!file) return setError("Please select a file.");
+    if (!file || !preUploadedDocId) return setError("Please select a file.");
     if (!storageLocation) return setError("Storage location unavailable.");
-    if (!selectedTemplate) return setError("Please select a template.");
-    if (sheets.length === 0) return setError("No columns detected in the file.");
+    if (!templateName.trim()) return setError("Please enter a template name.");
+    const includedForSubmit = sheets.filter((s) => !s.excluded);
+    if (includedForSubmit.length === 0) return setError("No sheets are included. Toggle at least one sheet on.");
 
     setError(null);
 
     try {
-      const uploadedDoc = await createDocument({
-        file,
-        storageLocation,
-        isTemplate: true,
-      }).unwrap();
-
       await createTemplateStructure({
         template: {
-          document_id: uploadedDoc.id,
-          code: selectedTemplate.code,
-          name: selectedTemplate.name,
+          document_id: preUploadedDocId,
+          code: templateCode,
+          name: templateName.trim(),
           description: templateDescription.trim(),
           file_type: getFileExtension(file.name).replace(".", ""),
+          created_by: currentUser?.id,
           configuration: {
             allowed_extensions: [getFileExtension(file.name)],
           },
         },
-        sheets: sheets.map((sheet, si) => ({
+        sheets: includedForSubmit.map((sheet, si) => ({
           sheet: {
             code: normalizeKey(sheet.name),
             name: sheet.name,
@@ -358,7 +258,7 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
             required: true,
             sheet_order: si + 1,
             header_row: sheet.headerRow,
-            start_row: sheet.headerRow + 1,
+            start_row: sheet.startRow,
             allow_extra_columns: true,
             allow_duplicate_headers: false,
             configuration: {},
@@ -374,31 +274,35 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
             default_value: null,
             allowed_values: [],
             aliases: [],
-            configuration: {},
+            configuration: { filterable: col.filterable },
           })),
         })),
       }).unwrap();
 
       onClose();
     } catch (err: unknown) {
-      const message =
-        typeof err === "object" &&
-        err !== null &&
-        "data" in err &&
-        typeof (err as { data?: { message?: unknown } }).data?.message === "string"
-          ? (err as { data?: { message?: string } }).data!.message
-          : "Upload failed. Please try again.";
-      setError(message!);
+      const errData =
+        typeof err === "object" && err !== null && "data" in err
+          ? (err as { data?: { message?: string; code?: string } }).data
+          : null;
+
+      let message = errData?.message ?? "Upload failed. Please try again.";
+
+      if (errData?.code === "TEMPLATE_CODE_EXISTS") {
+        message = `A template with code "${templateCode}" already exists. Try a different name, or edit the existing template from the Templates list.`;
+      }
+
+      setError(message);
     }
   };
 
   const isSubmitDisabled =
     isSubmitting ||
-    isReadingFile ||
     !file ||
+    !preUploadedDocId ||
     !storageLocation ||
-    !selectedTemplate ||
-    sheets.length === 0;
+    !templateName.trim() ||
+    includedSheets.length === 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -407,8 +311,8 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
       <div style={{ marginBottom: "1.5rem" }}>
         <h2 style={{ margin: 0, marginBottom: "0.5rem" }}>Upload Template</h2>
         <p style={{ margin: 0, color: "#6f6f6f" }}>
-          Upload a CSV or Excel file to define a reusable template. Set which columns are required
-          — uploads against this template will be rejected if required columns are missing.
+          Upload an Excel file to define a reusable template. Set which columns are required —
+          uploads against this template will be rejected if required columns are missing.
         </p>
       </div>
 
@@ -427,20 +331,62 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
           {/* ── File drop ── */}
           <FormGroup legendText="Template file">
             <FileUploaderDropContainer
-              labelText="Drag and drop a CSV or Excel file here, or click to browse"
-              accept={[".csv", ".xlsx", ".xls"]}
+              labelText="Drag and drop an Excel file (.xlsx / .xls) here, or click to browse"
+              accept={[".xlsx", ".xls"]}
               multiple={false}
               onAddFiles={handleFileChange}
               disabled={isSubmitting}
             />
           </FormGroup>
 
+          {/* ── Template name & description (shown before columns so user always sees them) ── */}
+          <div>
+            <TextInput
+              id="template-name"
+              labelText="Template name"
+              helperText='Give this template a unique name, e.g. "GHSC PSM" or "NMS Stock Report".'
+              placeholder="e.g. GHSC PSM"
+              value={templateName}
+              onChange={(e) => {
+                setTemplateName(e.target.value);
+                setError(null);
+              }}
+              disabled={isSubmitting}
+            />
+            {templateName.trim() && (
+              <div style={{ marginTop: "0.4rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "0.75rem", color: "#6f6f6f" }}>Code:</span>
+                <code
+                  style={{
+                    fontSize: "0.8125rem",
+                    fontFamily: "monospace",
+                    backgroundColor: "#f4f4f4",
+                    padding: "0.1rem 0.5rem",
+                    borderRadius: "3px",
+                    color: "#161616",
+                  }}
+                >
+                  {templateCode}
+                </code>
+              </div>
+            )}
+          </div>
+
+          <TextArea
+            id="template-description"
+            labelText="Description (optional)"
+            placeholder="Describe what this template is used for"
+            value={templateDescription}
+            onChange={(e) => setTemplateDescription(e.target.value)}
+            disabled={isSubmitting}
+          />
+
           {file && (
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
               <Tag type="cyan">Template file</Tag>
               <span style={{ fontWeight: 500 }}>{file.name}</span>
               <span style={{ color: "#6f6f6f" }}>{formatFileSize(file.size)}</span>
-              {!isReadingFile && (
+              {!isDetecting && (
                 <Button
                   kind="ghost"
                   size="sm"
@@ -455,10 +401,18 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
             </div>
           )}
 
-          {isReadingFile && <InlineLoading description="Reading columns from file..." />}
+          {isDetecting && (
+            <InlineLoading
+              description={
+                isUploadingFile
+                  ? "Uploading file…"
+                  : "Detecting columns from file…"
+              }
+            />
+          )}
 
           {/* ── Column editor ── */}
-          {!isReadingFile && sheets.length > 0 && (
+          {!isDetecting && sheets.length > 0 && (
             <div>
               <div
                 style={{
@@ -481,162 +435,128 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
               </div>
 
               {sheets.map((sheet, si) => (
-                <div key={sheet.name} style={{ marginBottom: "1.5rem" }}>
+                <div key={sheet.name} style={{ marginBottom: "1.5rem", opacity: sheet.excluded ? 0.6 : 1 }}>
                   {sheets.length > 1 && (
-                    <p
-                      style={{
-                        margin: "0 0 0.5rem",
-                        fontSize: "0.875rem",
-                        color: "#6f6f6f",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Sheet: {sheet.name}
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
+                      <p style={{ margin: 0, fontSize: "0.875rem", color: sheet.excluded ? "#a8a8a8" : "#6f6f6f", fontWeight: 600 }}>
+                        Sheet: {sheet.name}
+                      </p>
+                      <Toggle
+                        id={`sheet-include-${si}`}
+                        labelText="Include sheet"
+                        labelA="Excluded"
+                        labelB="Included"
+                        size="sm"
+                        toggled={!sheet.excluded}
+                        onToggle={() => toggleSheetExcluded(si)}
+                        disabled={isSubmitting}
+                      />
+                    </div>
                   )}
 
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: "0.875rem",
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "30%" }}>
-                          Column name
-                        </th>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "25%" }}>
-                          Column key
-                          <span style={{ fontWeight: 400, color: "#6f6f6f", fontSize: "0.75rem", marginLeft: "0.35rem" }}>
-                            (editable)
-                          </span>
-                        </th>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "25%" }}>
-                          Data type
-                        </th>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "20%" }}>
-                          Required
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sheet.columns.map((col, ci) => (
-                        <tr
-                          key={`${si}-${ci}`}
-                          style={{
-                            borderBottom: "1px solid #f4f4f4",
-                            backgroundColor: col.required ? "#f0f7ff" : undefined,
-                          }}
-                        >
-                          <td style={{ padding: "0.5rem 0.75rem", fontWeight: col.required ? 600 : 400 }}>
-                            {col.column_name}
-                          </td>
-                          <td style={{ padding: "0.3rem 0.75rem" }}>
-                            <TextInput
-                              id={`key-${si}-${ci}`}
-                              labelText=""
-                              hideLabel
-                              size="sm"
-                              value={col.column_key}
-                              onChange={(e) =>
-                                updateColumn(si, ci, {
-                                  column_key: e.target.value
-                                    .trim()
-                                    .toLowerCase()
-                                    .replace(/[^a-z0-9_]/g, ""),
-                                })
-                              }
-                              disabled={isSubmitting}
-                              style={{ fontFamily: "monospace" }}
-                            />
-                          </td>
-                          <td style={{ padding: "0.4rem 0.75rem" }}>
-                            <Select
-                              id={`dtype-${si}-${ci}`}
-                              labelText=""
-                              hideLabel
-                              size="sm"
-                              value={col.data_type}
-                              onChange={(e) =>
-                                updateColumn(si, ci, { data_type: e.target.value })
-                              }
-                              disabled={isSubmitting}
-                            >
-                              {DATA_TYPE_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value} text={opt.label} />
-                              ))}
-                            </Select>
-                          </td>
-                          <td style={{ padding: "0.4rem 0.75rem" }}>
-                            <Toggle
-                              id={`req-${si}-${ci}`}
-                              labelText="Required"
-                              hideLabel
-                              size="sm"
-                              toggled={col.required}
-                              onToggle={(checked) => updateColumn(si, ci, { required: checked })}
-                              disabled={isSubmitting}
-                            />
-                          </td>
+                  {!sheet.excluded && (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                      <thead>
+                        <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
+                          <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "25%", verticalAlign: "middle" }}>
+                            Column name
+                          </th>
+                          <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "30%", verticalAlign: "middle" }}>
+                            Column key
+                            <span style={{ fontWeight: 400, color: "#6f6f6f", fontSize: "0.75rem", marginLeft: "0.35rem" }}>
+                              (editable)
+                            </span>
+                          </th>
+                          <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "20%", verticalAlign: "middle" }}>
+                            Data type
+                          </th>
+                          <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "12%", verticalAlign: "middle" }}>
+                            Required
+                          </th>
+                          <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "13%", verticalAlign: "middle" }}>
+                            Filterable
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {sheet.columns.map((col, ci) => (
+                          <tr
+                            key={`${si}-${ci}`}
+                            style={{
+                              borderBottom: "1px solid #f4f4f4",
+                              backgroundColor: col.required ? "#f0f7ff" : undefined,
+                            }}
+                          >
+                            <td style={{ padding: "0.5rem 0.75rem", fontWeight: col.required ? 600 : 400, verticalAlign: "middle" }}>
+                              {col.column_name}
+                            </td>
+                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                              <TextInput
+                                id={`key-${si}-${ci}`}
+                                labelText=""
+                                hideLabel
+                                size="sm"
+                                value={col.column_key}
+                                onChange={(e) =>
+                                  updateColumn(si, ci, {
+                                    column_key: e.target.value
+                                      .trim()
+                                      .toLowerCase()
+                                      .replace(/[^a-z0-9_]/g, ""),
+                                  })
+                                }
+                                disabled={isSubmitting}
+                                style={{ fontFamily: "monospace" }}
+                              />
+                            </td>
+                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                              <Select
+                                id={`dtype-${si}-${ci}`}
+                                labelText=""
+                                hideLabel
+                                size="sm"
+                                value={col.data_type}
+                                onChange={(e) =>
+                                  updateColumn(si, ci, { data_type: e.target.value })
+                                }
+                                disabled={isSubmitting}
+                              >
+                                {DATA_TYPE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value} text={opt.label} />
+                                ))}
+                              </Select>
+                            </td>
+                            <td style={{ padding: "0.5rem 0.75rem", verticalAlign: "middle" }}>
+                              <Toggle
+                                id={`req-${si}-${ci}`}
+                                labelText="Required"
+                                hideLabel
+                                size="sm"
+                                toggled={col.required}
+                                onToggle={(checked) => updateColumn(si, ci, { required: checked })}
+                                disabled={isSubmitting}
+                              />
+                            </td>
+                            <td style={{ padding: "0.5rem 0.75rem", verticalAlign: "middle" }}>
+                              <Toggle
+                                id={`filter-${si}-${ci}`}
+                                labelText="Filterable"
+                                hideLabel
+                                size="sm"
+                                toggled={col.filterable}
+                                onToggle={(checked) => updateColumn(si, ci, { filterable: checked })}
+                                disabled={isSubmitting}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               ))}
             </div>
           )}
-
-          {/* ── Template selector ── */}
-          <div>
-            <Select
-              id="template-name"
-              labelText="Template name"
-              helperText="Select the template this file defines."
-              value={selectedTemplateCode}
-              onChange={(e) => {
-                const nextTemplateCode = e.target.value;
-                setSelectedTemplateCode(nextTemplateCode);
-                setSheets((current) => applyTemplateDefaults(nextTemplateCode, current));
-                setError(null);
-              }}
-              disabled={isSubmitting}
-            >
-              <SelectItem value="" text="Select a template" />
-              {IMPLEMENTED_TEMPLATES.map((t) => (
-                <SelectItem key={t.code} value={t.code} text={t.name} />
-              ))}
-            </Select>
-
-            {selectedTemplate && (
-              <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.75rem", color: "#6f6f6f" }}>Code:</span>
-                <code
-                  style={{
-                    fontSize: "0.8125rem",
-                    fontFamily: "monospace",
-                    backgroundColor: "#f4f4f4",
-                    padding: "0.1rem 0.5rem",
-                    borderRadius: "3px",
-                    color: "#161616",
-                  }}
-                >
-                  {selectedTemplate.code}
-                </code>
-              </div>
-            )}
-          </div>
-
-          <TextArea
-            id="template-description"
-            labelText="Description (optional)"
-            placeholder="Describe what this template is used for"
-            value={templateDescription}
-            onChange={(e) => setTemplateDescription(e.target.value)}
-            disabled={isSubmitting}
-          />
 
           {/* ── Storage location (locked to local) ── */}
           <Select
@@ -663,10 +583,8 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
               marginTop: "0.5rem",
             }}
           >
-            {isSubmitting && (
-              <InlineLoading
-                description={isUploadingFile ? "Uploading file..." : "Saving template structure..."}
-              />
+            {isCreatingStructure && (
+              <InlineLoading description="Saving template structure…" />
             )}
             <Button kind="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel

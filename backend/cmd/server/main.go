@@ -105,7 +105,7 @@ func main() {
 		appLogger.Fatal("Migration failed: ", err)
 	}
 
-	if err := db.MigrateDB(remoteDB, "file://internal/db/migrations"); err != nil {
+	if err := db.MigrateDB(remoteDB, "file://internal/db/migrations/remote"); err != nil {
 		appLogger.Fatal("Remote DB migration failed: ", err)
 	}
 
@@ -175,7 +175,7 @@ func main() {
 	notificationsRepository := notificationsRepo.NewNotificationsRepository(store, *appLogger)
 
 	documentRepository := documentRepo.NewDocumentRepository(cfg, store, *appLogger)
-	documentStockImportRepository := documentRepo.NewStockImportRepository()
+	templateImportRepository := documentRepo.NewTemplateImportRepository()
 
 	documentTemplateRepository := documentTemplateRepo.NewDocumentTemplateRepository(store)
 	documentTemplateColumnRepository := documentTemplateColumnRepo.NewDocumentTemplateColumnRepository(store)
@@ -296,7 +296,7 @@ func main() {
 
 	importService := importSvc.NewService(
 		documentRepository,
-		documentStockImportRepository,
+		templateImportRepository,
 		processRepository,
 		fileRepository,
 		importRepository,

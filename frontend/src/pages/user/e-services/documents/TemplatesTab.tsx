@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSelector } from "react-redux";
 import {
   Button,
   IconButton,
@@ -13,11 +14,13 @@ import {
   Archive,
   ChevronDown,
   ChevronRight,
+  Download,
   Edit,
   Renew,
   TaskComplete,
   TrashCan,
 } from "@carbon/react/icons";
+import ExcelJS from "exceljs";
 
 import { useHeaderPanel } from "../../../../components/header-panel/header-panel.context";
 import { UploadTemplateModal } from "./UploadTemplateModal";
@@ -25,10 +28,13 @@ import { EditTemplateModal } from "./EditTemplateModal";
 import {
   useGetTemplatesQuery,
   useGetTemplateStructureQuery,
+  useLazyGetTemplateStructureQuery,
   usePublishTemplateMutation,
   useArchiveTemplateMutation,
   useDeleteTemplateMutation,
 } from "../../../../store/api/document_template.api";
+import { useGetUserQuery } from "../../../../store/api/users.api";
+import { selectUser } from "../../../../store/auth/auth.selectors";
 import type { DocumentTemplate } from "../../../../store/types/document_template.types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -52,6 +58,50 @@ function formatDateTime(iso?: string): string {
   });
 }
 
+async function downloadTemplateFile(template: DocumentTemplate, structure: import("../../../../store/types/document_template.types").TemplateStructure) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "MOH SSO Dashboard";
+  workbook.created = new Date();
+
+  const YELLOW = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFFFF2CC" } };
+  const BLUE   = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFD0E4FF" } };
+
+  for (const sheet of structure.sheets) {
+    const ws = workbook.addWorksheet(sheet.name);
+    const ordered = sheet.columns
+      .slice()
+      .sort((a, b) => (a.column_order ?? 0) - (b.column_order ?? 0));
+
+    ws.columns = ordered.map((col) => ({
+      header: col.column_name,
+      key: col.column_key,
+      width: Math.max(col.column_name.length + 4, 18),
+    }));
+
+    // Style header row
+    const headerRow = ws.getRow(1);
+    headerRow.eachCell((cell, colNumber) => {
+      const col = ordered[colNumber - 1];
+      cell.fill = col?.required ? YELLOW : BLUE;
+      cell.font = { bold: true, size: 11 };
+      cell.alignment = { vertical: "middle", horizontal: "left" };
+      cell.border = {
+        bottom: { style: "medium", color: { argb: "FF000000" } },
+      };
+    });
+    headerRow.height = 20;
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${template.code}_template.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Status helpers ────────────────────────────────────────────────────────────
 
 function getTemplateStatus(t: DocumentTemplate): "active" | "archived" | "draft" {
@@ -69,6 +119,27 @@ function StatusTag({ template }: { template: DocumentTemplate }) {
   };
   const { type, label } = map[status];
   return <Tag type={type}>{label}</Tag>;
+}
+
+// ── Uploader name resolver ────────────────────────────────────────────────────
+
+function UploaderName({ userId }: { userId?: string }) {
+  const currentUser = useSelector(selectUser);
+  const isOwn = !!userId && currentUser?.id === userId;
+
+  const { data: user, isLoading } = useGetUserQuery(userId!, {
+    skip: !userId || isOwn,
+  });
+
+  if (!userId) return <>—</>;
+  if (isOwn) {
+    const name = [currentUser!.firstName, currentUser!.lastName].filter(Boolean).join(" ");
+    return <>{name || currentUser!.username}</>;
+  }
+  if (isLoading) return <span style={{ color: "#6f6f6f" }}>Loading…</span>;
+  if (!user) return <>—</>;
+  const name = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  return <>{name || user.username}</>;
 }
 
 // ── Structure expanded view ───────────────────────────────────────────────────
@@ -197,6 +268,7 @@ export function TemplatesTab() {
   const [publishTemplate, { isLoading: isPublishing }] = usePublishTemplateMutation();
   const [archiveTemplate, { isLoading: isArchiving }] = useArchiveTemplateMutation();
   const [deleteTemplate, { isLoading: isDeleting }] = useDeleteTemplateMutation();
+  const [getStructure] = useLazyGetTemplateStructureQuery();
 
   const isMutating = isPublishing || isArchiving || isDeleting;
 
@@ -232,6 +304,13 @@ export function TemplatesTab() {
       content: <EditTemplateModal template={t} onClose={closePanel} />,
       size: "lg",
     });
+  }
+
+  async function handleDownload(t: DocumentTemplate) {
+    const result = await getStructure(t.code);
+    if (result.data) {
+      await downloadTemplateFile(t, result.data);
+    }
   }
 
   async function handlePublish(t: DocumentTemplate) {
@@ -327,6 +406,7 @@ export function TemplatesTab() {
               <th style={{ textAlign: "left", padding: "0.6rem 1rem", fontWeight: 600 }}>Name</th>
               <th style={{ textAlign: "left", padding: "0.6rem 1rem", fontWeight: 600 }}>Code</th>
               <th style={{ textAlign: "left", padding: "0.6rem 1rem", fontWeight: 600 }}>File type</th>
+              <th style={{ textAlign: "left", padding: "0.6rem 1rem", fontWeight: 600 }}>Uploaded by</th>
               <th style={{ textAlign: "left", padding: "0.6rem 1rem", fontWeight: 600 }}>Uploaded</th>
               <th style={{ textAlign: "left", padding: "0.6rem 1rem", fontWeight: 600 }}>Status</th>
               <th style={{ textAlign: "left", padding: "0.6rem 1rem", fontWeight: 600 }}>Version</th>
@@ -383,6 +463,10 @@ export function TemplatesTab() {
                       {formatFileType(t.file_type)}
                     </td>
 
+                    <td style={{ padding: "0.6rem 1rem", fontSize: "0.8rem", color: "#525252" }}>
+                      <UploaderName userId={t.created_by} />
+                    </td>
+
                     <td style={{ padding: "0.6rem 1rem", fontSize: "0.8rem", color: "#525252", whiteSpace: "nowrap" }}>
                       {formatDateTime(t.created_at)}
                     </td>
@@ -429,6 +513,15 @@ export function TemplatesTab() {
                           </IconButton>
                         )}
                         <IconButton
+                          label="Download empty template"
+                          kind="ghost"
+                          size="sm"
+                          onClick={() => void handleDownload(t)}
+                          disabled={isMutating}
+                        >
+                          <Download />
+                        </IconButton>
+                        <IconButton
                           label="Edit"
                           kind="ghost"
                           size="sm"
@@ -454,7 +547,7 @@ export function TemplatesTab() {
                   {isExpanded && (
                     <tr key={`${t.id}-expanded`} style={{ borderBottom: "1px solid #e0e0e0" }}>
                       <td />
-                      <td colSpan={7} style={{ padding: 0 }}>
+                      <td colSpan={8} style={{ padding: 0 }}>
                         <TemplateStructureView code={t.code} />
                       </td>
                     </tr>

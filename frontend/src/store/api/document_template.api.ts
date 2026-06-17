@@ -138,6 +138,19 @@ export const documentTemplateApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `/document-templates/${id}`, method: "DELETE" }),
       invalidatesTags: ["DocumentTemplates"],
     }),
+
+    replaceStructure: builder.mutation<
+      TemplateStructure,
+      { templateId: string; sheets: CreateTemplateStructureRequest["sheets"] }
+    >({
+      query: ({ templateId, sheets }) => ({
+        url: `/document-templates/${templateId}/structure`,
+        method: "PUT",
+        body: { sheets },
+      }),
+      transformResponse: (res: ApiEnvelope<TemplateStructure>) => res.data,
+      invalidatesTags: ["DocumentTemplates", "DocumentSheets", "DocumentColumns"],
+    }),
   }),
 });
 
@@ -146,6 +159,7 @@ export const {
   useListActiveTemplatesQuery,
   useGetTemplateByIdQuery,
   useGetTemplateStructureQuery,
+  useLazyGetTemplateStructureQuery,
   useGetTemplateHasDataQuery,
   useGetTemplateSheetsQuery,
   useGetSheetColumnsQuery,
@@ -158,4 +172,5 @@ export const {
   usePublishTemplateMutation,
   useArchiveTemplateMutation,
   useDeleteTemplateMutation,
+  useReplaceStructureMutation,
 } = documentTemplateApi;

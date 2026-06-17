@@ -1,12 +1,15 @@
 import { TableRow, TableCell, Tag, IconButton } from "@carbon/react";
 import { DataVis_1, Download, TrashCan, Renew } from "@carbon/icons-react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import {
   useGetDocumentProcessesQuery,
   useLazyDownloadDocumentQuery,
   useDeleteDocumentMutation,
   useReprocessDocumentMutation,
 } from "../../../../store/api/document.api";
+import { useGetUserQuery } from "../../../../store/api/users.api";
+import { selectUser } from "../../../../store/auth/auth.selectors";
 import type { DocumentProcess, DocumentResponse } from "../../../../store/types/documents.types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -97,6 +100,23 @@ export function DocumentRow({ document }: Props) {
   const reportDate = document.metadata?.report_date ?? "—";
   const isBusy = isDeleting || isReprocessing;
 
+  // ── Uploader name ──
+  const currentUser = useSelector(selectUser);
+  const isOwnUpload = !!document.uploaded_by && currentUser?.id === document.uploaded_by;
+  const { data: uploaderUser, isLoading: isLoadingUploader } = useGetUserQuery(
+    document.uploaded_by,
+    { skip: !document.uploaded_by || isOwnUpload },
+  );
+  const uploaderName = !document.uploaded_by
+    ? "—"
+    : isOwnUpload
+      ? [currentUser!.firstName, currentUser!.lastName].filter(Boolean).join(" ") || currentUser!.username
+      : isLoadingUploader
+        ? "Loading…"
+        : uploaderUser
+          ? [uploaderUser.firstName, uploaderUser.lastName].filter(Boolean).join(" ") || uploaderUser.username
+          : "—";
+
   const handleDownload = async () => {
     try {
       const blob = await triggerDownload(document.id).unwrap();
@@ -141,6 +161,9 @@ export function DocumentRow({ document }: Props) {
       <TableCell style={{ fontSize: "0.875rem", color: reportDate === "—" ? "#8d8d8d" : "#161616" }}>
         {reportDate}
       </TableCell>
+      <TableCell style={{ fontSize: "0.875rem", color: "#525252" }}>
+        {uploaderName}
+      </TableCell>
       <TableCell style={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}>
         {formatDateTime(document.created_at)}
       </TableCell>
@@ -171,7 +194,7 @@ export function DocumentRow({ document }: Props) {
             kind="ghost"
             size="sm"
             onClick={() => void handleReprocess()}
-            disabled={status !== "FAILED" || isBusy}
+            disabled={!["FAILED", "COMPLETED"].includes(status) || isBusy}
           >
             <Renew />
           </IconButton>

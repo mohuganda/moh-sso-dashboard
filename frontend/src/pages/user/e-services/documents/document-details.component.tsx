@@ -9,8 +9,6 @@ import {
   InlineNotification,
   Modal,
   FilterableMultiSelect,
-  Select,
-  SelectItem,
   Tab,
   TabList,
   TabPanel,
@@ -30,6 +28,7 @@ import {
   useLazyDownloadDocumentQuery,
   useReprocessDocumentMutation,
 } from "../../../../store/api/document.api";
+import { useGetTemplateStructureQuery } from "../../../../store/api/document_template.api";
 import { useGetUserQuery } from "../../../../store/api/users.api";
 import { selectUser } from "../../../../store/auth/auth.selectors";
 import type { DataPreviewSheet, DocumentProcess, DocumentResponse } from "../../../../store/types/documents.types";
@@ -136,53 +135,42 @@ function exportCSV(columns: string[], rows: Record<string, unknown>[], filename:
 
 const ROWS_PER_PAGE = 100;
 
-function SheetView({ sheet, reportDate: docReportDate }: { sheet: DataPreviewSheet; reportDate?: string }) {
+function SheetView({ sheet, reportDate: docReportDate, filterableKeys }: {
+  sheet: DataPreviewSheet;
+  reportDate?: string;
+  filterableKeys: string[];
+}) {
   const [search, setSearch] = useState("");
-  const [reportDate, setReportDate] = useState("");
-  const [selectedDescriptions, setSelectedDescriptions] = useState<string[]>([]);
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
   const [page, setPage] = useState(0);
 
-  const hasReportDate = sheet.columns.includes("report_date");
+  // Keys that are both marked filterable and present in this sheet
+  const activeFilterKeys = useMemo(
+    () => filterableKeys.filter((k) => sheet.columns.includes(k)),
+    [filterableKeys, sheet.columns],
+  );
 
-  const filterCol: string | null = [
-    "item_description",   // NMS/JMS stock issues & on hand, GHSC-PSM
-    "item_name",          // UNFPA NMS Pipeline
-    "product_id",         // UNFPA Pipeline
-    "part_description",   // JMS Stock Issues
-    "item_name_tgf",      // GF Pipeline
-    "inn_code",           // GDF TB Orders
-    "description",        // JMS Stock On Hand
-  ].find((col) => sheet.columns.includes(col)) ?? null;
-  const hasItemFilter = filterCol !== null;
-  const itemFilterLabel = filterCol
-    ? filterCol.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-    : "";
-
-  const uniqueReportDates = useMemo(() => {
-    if (!hasReportDate) return [];
-    return [...new Set(sheet.rows.map((r) => formatCell(r.report_date)).filter(Boolean))].sort();
-  }, [sheet.rows, hasReportDate]);
-
-  const descriptionItems = useMemo(() => {
-    if (!filterCol) return [];
-    return [...new Set(sheet.rows.map((r) => formatCell(r[filterCol])).filter(Boolean))]
-      .sort()
-      .map((d) => ({ id: d, label: d }));
-  }, [sheet.rows, filterCol]);
+  // Unique values per filterable key for building the dropdowns
+  const filterOptions = useMemo(() => {
+    const result: Record<string, { id: string; label: string }[]> = {};
+    for (const key of activeFilterKeys) {
+      const unique = [...new Set(sheet.rows.map((r) => formatCell(r[key])).filter(Boolean))].sort();
+      result[key] = unique.map((v) => ({ id: v, label: v }));
+    }
+    return result;
+  }, [sheet.rows, activeFilterKeys]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = sheet.rows;
 
-    if (reportDate) {
-      rows = rows.filter((r) => formatCell(r.report_date) === reportDate);
-    }
-
-    if (selectedDescriptions.length > 0 && filterCol) {
-      const set = new Set(selectedDescriptions);
-      rows = rows.filter((r) => set.has(formatCell(r[filterCol])));
+    for (const key of activeFilterKeys) {
+      const sel = selections[key] ?? [];
+      if (sel.length === 0) continue;
+      const set = new Set(sel);
+      rows = rows.filter((r) => set.has(formatCell(r[key])));
     }
 
     if (q) {
@@ -201,7 +189,7 @@ function SheetView({ sheet, reportDate: docReportDate }: { sheet: DataPreviewShe
     }
 
     return rows;
-  }, [sheet.rows, search, reportDate, selectedDescriptions, sortCol, sortDir]);
+  }, [sheet.rows, search, selections, activeFilterKeys, sortCol, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
   const safePageIdx = Math.min(page, totalPages - 1);
@@ -215,11 +203,11 @@ function SheetView({ sheet, reportDate: docReportDate }: { sheet: DataPreviewShe
   }
 
   function clearFilters() {
-    setSearch(""); setReportDate(""); setSelectedDescriptions([]);
+    setSearch(""); setSelections({});
     setSortCol(null); setSortDir(null); setPage(0);
   }
 
-  const hasActiveFilters = !!(search || reportDate || selectedDescriptions.length > 0 || sortCol);
+  const hasActiveFilters = !!(search || Object.values(selections).some((s) => s.length > 0) || sortCol);
 
   const csvFilename = `${sheet.name.replace(/\s+/g, "_")}${docReportDate ? `_${docReportDate}` : ""}${hasActiveFilters ? "_filtered" : ""}.csv`;
 
@@ -243,44 +231,31 @@ function SheetView({ sheet, reportDate: docReportDate }: { sheet: DataPreviewShe
           />
         </div>
 
-        {/* Report date */}
-        {hasReportDate && uniqueReportDates.length > 0 && (
-          <div style={{ flex: "0 0 auto" }}>
-            <Select
-              id={`filter-report-date-${sheet.name}`}
-              labelText="Report date"
-              size="sm"
-              value={reportDate}
-              onChange={(e) => { setReportDate(e.target.value); setPage(0); }}
-              style={{ minWidth: 160 }}
-            >
-              <SelectItem value="" text="All dates" />
-              {uniqueReportDates.map((d) => (
-                <SelectItem key={d} value={d} text={d} />
-              ))}
-            </Select>
-          </div>
-        )}
-
-        {/* Item filter multi-select */}
-        {hasItemFilter && descriptionItems.length > 0 && (
-          <div style={{ flex: "0 1 280px", minWidth: 200 }}>
-            <FilterableMultiSelect
-              id={`filter-item-desc-${sheet.name}`}
-              titleText={itemFilterLabel}
-              placeholder="Type to search…"
-              label={selectedDescriptions.length > 0 ? `${selectedDescriptions.length} selected` : "All items"}
-              items={descriptionItems}
-              itemToString={(item) => item?.label ?? ""}
-              selectedItems={descriptionItems.filter((d) => selectedDescriptions.includes(d.id))}
-              onChange={({ selectedItems }) => {
-                setSelectedDescriptions((selectedItems ?? []).map((i) => i.id));
-                setPage(0);
-              }}
-              size="sm"
-            />
-          </div>
-        )}
+        {/* Dynamic filterable-column dropdowns */}
+        {activeFilterKeys.map((key) => {
+          const opts = filterOptions[key] ?? [];
+          if (opts.length === 0) return null;
+          const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          const selected = (selections[key] ?? []).map((v) => ({ id: v, label: v }));
+          return (
+            <div key={key} style={{ flex: "0 1 280px", minWidth: 200 }}>
+              <FilterableMultiSelect
+                id={`filter-${sheet.name}-${key}`}
+                titleText={label}
+                placeholder="Type to search…"
+                label={selected.length > 0 ? `${selected.length} selected` : `All ${label.toLowerCase()}`}
+                items={opts}
+                itemToString={(item) => item?.label ?? ""}
+                selectedItems={selected}
+                onChange={({ selectedItems }) => {
+                  setSelections((prev) => ({ ...prev, [key]: (selectedItems ?? []).map((i) => i.id) }));
+                  setPage(0);
+                }}
+                size="sm"
+              />
+            </div>
+          );
+        })}
 
         {hasActiveFilters && (
           <button
@@ -419,6 +394,21 @@ export default function DocumentDetailsPage() {
   const { data: preview, isLoading: previewLoading, isError: previewError } =
     useGetDocumentDataPreviewQuery(id!, { skip: !id || !templateCode });
 
+  const { data: structure } = useGetTemplateStructureQuery(templateCode, { skip: !templateCode });
+
+  const filterableKeysBySheet = useMemo(() => {
+    if (!structure) return {} as Record<string, string[]>;
+    const map: Record<string, string[]> = {};
+    for (const s of structure.sheets) {
+      const keys = s.columns
+        .filter((c) => c.configuration?.filterable === true)
+        .map((c) => c.column_key);
+      map[s.name] = keys;
+      if (s.display_name && s.display_name !== s.name) map[s.display_name] = keys;
+    }
+    return map;
+  }, [structure]);
+
   const currentUser = useSelector(selectUser);
   const isOwnUpload = !!document && currentUser?.id === document.uploaded_by;
 
@@ -529,11 +519,47 @@ export default function DocumentDetailsPage() {
         {/* Tabs */}
         <Tabs>
           <TabList aria-label="Document detail tabs" contained>
-            <Tab>Document Info</Tab>
             {templateCode && <Tab>Data Preview</Tab>}
+            <Tab>Document Info</Tab>
           </TabList>
 
           <TabPanels>
+            {/* ── Data Preview ── */}
+            {templateCode && (
+              <TabPanel style={{ paddingInline: 0, paddingTop: "1.25rem", minWidth: 0, overflow: "hidden" }}>
+                {previewLoading ? (
+                  <InlineLoading description="Loading imported data…" />
+                ) : previewError ? (
+                  <InlineNotification kind="error" title="Preview failed"
+                    subtitle="Could not load imported data." lowContrast />
+                ) : !preview || preview.sheets.length === 0 ? (
+                  <InlineNotification kind="info" title="No data available"
+                    subtitle="No imported rows found. The file may still be processing."
+                    lowContrast />
+                ) : (
+                  <Tabs>
+                    <TabList aria-label="Sheet tabs">
+                      {preview.sheets.map((sheet) => (
+                        <Tab key={sheet.name}>
+                          {sheet.name}
+                          <Tag type="gray" style={{ marginLeft: "0.5rem" }}>
+                            {sheet.row_count.toLocaleString()}
+                          </Tag>
+                        </Tab>
+                      ))}
+                    </TabList>
+                    <TabPanels>
+                      {preview.sheets.map((sheet) => (
+                        <TabPanel key={sheet.name} style={{ paddingInline: 0, paddingTop: "0.75rem" }}>
+                          <SheetView sheet={sheet} reportDate={reportDate} filterableKeys={filterableKeysBySheet[sheet.name] ?? []} />
+                        </TabPanel>
+                      ))}
+                    </TabPanels>
+                  </Tabs>
+                )}
+              </TabPanel>
+            )}
+
             {/* ── Document Info ── */}
             <TabPanel style={{ paddingInline: 0, paddingTop: "1.5rem" }}>
 
@@ -633,41 +659,6 @@ export default function DocumentDetailsPage() {
               </div>
             </TabPanel>
 
-            {/* ── Data Preview ── */}
-            {templateCode && (
-              <TabPanel style={{ paddingInline: 0, paddingTop: "1.25rem", minWidth: 0, overflow: "hidden" }}>
-                {previewLoading ? (
-                  <InlineLoading description="Loading imported data…" />
-                ) : previewError ? (
-                  <InlineNotification kind="error" title="Preview failed"
-                    subtitle="Could not load imported data." lowContrast />
-                ) : !preview || preview.sheets.length === 0 ? (
-                  <InlineNotification kind="info" title="No data available"
-                    subtitle="No imported rows found. The file may still be processing."
-                    lowContrast />
-                ) : (
-                  <Tabs>
-                    <TabList aria-label="Sheet tabs">
-                      {preview.sheets.map((sheet) => (
-                        <Tab key={sheet.name}>
-                          {sheet.name}
-                          <Tag type="gray" style={{ marginLeft: "0.5rem" }}>
-                            {sheet.row_count.toLocaleString()}
-                          </Tag>
-                        </Tab>
-                      ))}
-                    </TabList>
-                    <TabPanels>
-                      {preview.sheets.map((sheet) => (
-                        <TabPanel key={sheet.name} style={{ paddingInline: 0, paddingTop: "0.75rem" }}>
-                          <SheetView sheet={sheet} reportDate={reportDate} />
-                        </TabPanel>
-                      ))}
-                    </TabPanels>
-                  </Tabs>
-                )}
-              </TabPanel>
-            )}
           </TabPanels>
         </Tabs>
       </div>

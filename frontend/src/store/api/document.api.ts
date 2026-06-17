@@ -216,6 +216,58 @@ export const documentsApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiEnvelope<DataPreviewResponse>) => res.data,
       providesTags: (_res, _err, id) => [{ type: "Document", id }],
     }),
+
+    // -----------------------------
+    // PARSE STRUCTURE (server-side detection from stored document)
+    // -----------------------------
+    parseDocumentStructure: builder.query<{
+      sheets: {
+        name: string;
+        header_row: number;
+        start_row: number;
+        columns: { column_key: string; column_name: string }[];
+      }[];
+    }, string>({
+      query: (id) => `/documents/${id}/parse-structure`,
+      transformResponse: (res: ApiEnvelope<{
+        sheets: {
+          name: string;
+          header_row: number;
+          start_row: number;
+          columns: { column_key: string; column_name: string }[];
+        }[];
+      }>) => res.data,
+    }),
+
+    // -----------------------------
+    // SCAN STRUCTURE (server-side detection from uploaded file, no storage)
+    // -----------------------------
+    scanDocumentStructure: builder.mutation<{
+      sheets: {
+        name: string;
+        header_row: number;
+        start_row: number;
+        columns: { column_key: string; column_name: string }[];
+      }[];
+    }, File>({
+      query: (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        return {
+          url: `/documents/scan-structure`,
+          method: "POST",
+          body: formData,
+        };
+      },
+      transformResponse: (res: ApiEnvelope<{
+        sheets: {
+          name: string;
+          header_row: number;
+          start_row: number;
+          columns: { column_key: string; column_name: string }[];
+        }[];
+      }>) => res.data,
+    }),
   }),
 });
 
@@ -237,4 +289,6 @@ export const {
   useGetDocumentDataPreviewQuery,
   useLazyGetDocumentDataPreviewQuery,
   useGetDocumentStatsQuery,
+  useLazyParseDocumentStructureQuery,
+  useScanDocumentStructureMutation,
 } = documentsApi;

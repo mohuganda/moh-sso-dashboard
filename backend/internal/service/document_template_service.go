@@ -50,9 +50,14 @@ type DocumentTemplateService interface {
 
 	GetTemplateStructure(ctx context.Context, code string) (*model.TemplateStructure, error)
 	GetTemplateStructureByDocumentID(
-
 		ctx context.Context,
 		documentID uuid.UUID,
+	) (*model.TemplateStructure, error)
+
+	ReplaceStructure(
+		ctx context.Context,
+		templateID uuid.UUID,
+		sheets []model.CreateTemplateSheetWithColumnsRequest,
 	) (*model.TemplateStructure, error)
 }
 
@@ -480,6 +485,14 @@ func (s *documentTemplateService) CreateTemplateStructure(
 	ctx context.Context,
 	req model.CreateTemplateStructureRequest,
 ) (*model.TemplateStructure, error) {
+	exists, err := s.documentTemplateRepo.ExistsCode(ctx, req.Template.Code)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, ErrTemplateCodeExists
+	}
+
 	template, err := s.documentTemplateRepo.Create(ctx, db.CreateDocumentTemplateParams{
 		ID: uuid.New(),
 		DocumentID: uuid.NullUUID{
@@ -707,4 +720,152 @@ func nullTimeStringPtr(value sql.NullTime) *string {
 
 	v := value.Time.Format(time.RFC3339)
 	return &v
+}
+
+func (s *documentTemplateService) ReplaceStructure(
+	ctx context.Context,
+	templateID uuid.UUID,
+	sheets []model.CreateTemplateSheetWithColumnsRequest,
+) (*model.TemplateStructure, error) {
+	t, err := s.documentTemplateRepo.GetByID(ctx, templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Drop all existing sheets (columns cascade-delete via FK)
+	existing, err := s.sheetRepo.List(ctx, templateID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sh := range existing {
+		if err := s.sheetRepo.Delete(ctx, sh.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	// Recreate sheets and columns
+	structure := &model.TemplateStructure{
+		Template: model.DocumentTemplate{
+			ID:            t.ID,
+			DocumentID:    nullUUIDPtr(t.DocumentID),
+			Code:          t.Code,
+			Name:          t.Name,
+			Description:   nullStringValue(t.Description),
+			FileType:      t.FileType,
+			Version:       int(t.Version),
+			IsActive:      t.IsActive,
+			Configuration: fromJSON(t.Configuration),
+			CreatedBy:     t.CreatedBy,
+			CreatedAt:     t.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:     t.UpdatedAt.Format(time.RFC3339),
+			ArchivedAt:    nullTimeStringPtr(t.ArchivedAt),
+		},
+		Sheets: make([]model.TemplateSheetStructure, 0, len(sheets)),
+	}
+
+	for _, sheetReq := range sheets {
+		si := sheetReq.Sheet
+		sheet, err := s.sheetRepo.Create(ctx, db.CreateDocumentTemplateSheetParams{
+			ID:         uuid.New(),
+			TemplateID: t.ID,
+			Code:       si.Code,
+			Name:       si.Name,
+			DisplayName: sql.NullString{
+				String: si.DisplayName,
+				Valid:  si.DisplayName != "",
+			},
+			Required: si.Required,
+			SheetOrder: sql.NullInt32{
+				Int32: func() int32 {
+					if si.SheetOrder != nil {
+						return int32(*si.SheetOrder)
+					}
+					return 0
+				}(),
+				Valid: si.SheetOrder != nil,
+			},
+			HeaderRow:             int32(si.HeaderRow),
+			StartRow:              int32(si.StartRow),
+			AllowExtraColumns:     si.AllowExtraColumns,
+			AllowDuplicateHeaders: si.AllowDuplicateHeaders,
+			Configuration:         toJSON(si.Configuration),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		sheetStructure := model.TemplateSheetStructure{
+			ID:                    sheet.ID,
+			TemplateID:            sheet.TemplateID,
+			Code:                  sheet.Code,
+			Name:                  sheet.Name,
+			DisplayName:           nullStringValue(sheet.DisplayName),
+			Required:              sheet.Required,
+			SheetOrder:            nullInt32Ptr(sheet.SheetOrder),
+			HeaderRow:             int(sheet.HeaderRow),
+			StartRow:              int(sheet.StartRow),
+			AllowExtraColumns:     sheet.AllowExtraColumns,
+			AllowDuplicateHeaders: sheet.AllowDuplicateHeaders,
+			Configuration:         fromJSON(sheet.Configuration),
+			Columns:               make([]model.TemplateColumnStructure, 0, len(sheetReq.Columns)),
+		}
+
+		for _, colReq := range sheetReq.Columns {
+			col, err := s.columnRepo.Create(ctx, db.CreateDocumentTemplateColumnParams{
+				ID:         uuid.New(),
+				SheetID:    sheet.ID,
+				ColumnKey:  colReq.ColumnKey,
+				ColumnName: colReq.ColumnName,
+				DisplayName: sql.NullString{
+					String: colReq.DisplayName,
+					Valid:  colReq.DisplayName != "",
+				},
+				DataType: normalizeColumnDataType(colReq.DataType),
+				Required: colReq.Required,
+				IsUnique: colReq.IsUnique,
+				ColumnOrder: sql.NullInt32{
+					Int32: func() int32 {
+						if colReq.ColumnOrder != nil {
+							return int32(*colReq.ColumnOrder)
+						}
+						return 0
+					}(),
+					Valid: colReq.ColumnOrder != nil,
+				},
+				DefaultValue: sql.NullString{
+					String: func() string {
+						if colReq.DefaultValue != nil {
+							return *colReq.DefaultValue
+						}
+						return ""
+					}(),
+					Valid: colReq.DefaultValue != nil,
+				},
+				AllowedValues: toJSON(colReq.AllowedValues),
+				Aliases:       toJSON(colReq.Aliases),
+				Configuration: toJSON(colReq.Configuration),
+			})
+			if err != nil {
+				return nil, err
+			}
+			sheetStructure.Columns = append(sheetStructure.Columns, model.TemplateColumnStructure{
+				ID:            col.ID,
+				SheetID:       col.SheetID,
+				ColumnKey:     col.ColumnKey,
+				ColumnName:    col.ColumnName,
+				DisplayName:   nullStringValue(col.DisplayName),
+				DataType:      string(col.DataType),
+				Required:      col.Required,
+				IsUnique:      col.IsUnique,
+				ColumnOrder:   nullInt32Ptr(col.ColumnOrder),
+				AllowedValues: fromJSONStringArray(col.AllowedValues),
+				Aliases:       fromJSONStringArray(col.Aliases),
+				Configuration: fromJSON(col.Configuration),
+			})
+		}
+
+		structure.Sheets = append(structure.Sheets, sheetStructure)
+	}
+
+	return structure, nil
 }

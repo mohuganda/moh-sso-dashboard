@@ -277,7 +277,7 @@ export function DocumentDetailPanel({ document, onClose }: Props) {
               renderIcon={Renew}
               kind="secondary"
               size="sm"
-              disabled={status !== "FAILED" || isBusy}
+              disabled={!["FAILED", "COMPLETED"].includes(status) || isBusy}
               onClick={() => void handleReprocess()}
             >
               {isReprocessing ? "Reprocessing…" : "Reprocess"}

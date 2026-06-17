@@ -212,6 +212,8 @@ func SetupRouter(
 			documents.GET("/:id/processes", documentHandler.ListDocumentProcesses)
 			documents.POST("/:id/reprocess", documentHandler.ReprocessDocument)
 			documents.GET("/:id/data-preview", documentHandler.DataPreview)
+			documents.GET("/:id/parse-structure", documentHandler.ParseStructure)
+			documents.POST("/scan-structure", documentHandler.ScanStructure)
 		}
 
 		documentTemplates := protected.Group("/document-templates")
@@ -233,8 +235,9 @@ func SetupRouter(
 			documentTemplates.POST("/:id/publish", documentTemplateHandler.PublishTemplate)
 			documentTemplates.POST("/:id/archive", documentTemplateHandler.ArchiveTemplate)
 
-			// Get structure by template id if your handler supports id-based lookup
+			// Get / replace structure by template id
 			documentTemplates.GET("/:id/structure", documentTemplateHandler.GetTemplateStructure)
+			documentTemplates.PUT("/:id/structure", documentTemplateHandler.ReplaceStructure)
 
 			// UI builder helpers
 			documentTemplates.GET("/:id/sheets", documentTemplateHandler.ListSheets)

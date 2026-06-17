@@ -27,6 +27,7 @@ import { DocumentRow } from "./document-row.component";
 const TABLE_HEADERS = [
   { key: "filename", header: "Filename" },
   { key: "report_date", header: "Report Date" },
+  { key: "uploaded_by", header: "Uploaded by" },
   { key: "uploaded", header: "Uploaded" },
   { key: "status", header: "Status" },
   { key: "actions", header: "" },

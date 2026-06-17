@@ -4,11 +4,9 @@ import {
   Breadcrumb,
   BreadcrumbItem,
   Button,
+  FilterableMultiSelect,
   InlineLoading,
   InlineNotification,
-  MultiSelect,
-  Select,
-  SelectItem,
   Tab,
   TabList,
   TabPanel,
@@ -24,6 +22,7 @@ import {
   useGetDocumentDataPreviewQuery,
   useLazyDownloadDocumentQuery,
 } from "../../../../store/api/document.api";
+import { useGetTemplateStructureQuery } from "../../../../store/api/document_template.api";
 import type { DataPreviewSheet } from "../../../../store/types/documents.types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -48,40 +47,36 @@ type SortDir = "asc" | "desc" | null;
 
 // ── Sheet view ────────────────────────────────────────────────────────────────
 
-function SheetView({ sheet }: { sheet: DataPreviewSheet }) {
+function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filterableKeys: string[] }) {
   const [search, setSearch] = useState("");
-  const [reportDate, setReportDate] = useState("");
-  const [selectedDescriptions, setSelectedDescriptions] = useState<string[]>([]);
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [page, setPage] = useState(0);
 
-  const hasReportDate = sheet.columns.includes("report_date");
-  const hasItemDescription = sheet.columns.includes("item_description");
+  const activeFilterKeys = useMemo(
+    () => filterableKeys.filter((k) => sheet.columns.includes(k)),
+    [filterableKeys, sheet.columns],
+  );
 
-  const uniqueReportDates = useMemo(() => {
-    if (!hasReportDate) return [];
-    return [...new Set(sheet.rows.map((r) => formatCell(r.report_date)).filter(Boolean))].sort();
-  }, [sheet.rows, hasReportDate]);
-
-  const descriptionItems = useMemo(() => {
-    if (!hasItemDescription) return [];
-    return [...new Set(sheet.rows.map((r) => formatCell(r.item_description)).filter(Boolean))]
-      .sort()
-      .map((d) => ({ id: d, label: d }));
-  }, [sheet.rows, hasItemDescription]);
+  const filterOptions = useMemo(() => {
+    const result: Record<string, { id: string; label: string }[]> = {};
+    for (const key of activeFilterKeys) {
+      const unique = [...new Set(sheet.rows.map((r) => formatCell(r[key])).filter(Boolean))].sort();
+      result[key] = unique.map((v) => ({ id: v, label: v }));
+    }
+    return result;
+  }, [sheet.rows, activeFilterKeys]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = sheet.rows;
 
-    if (reportDate) {
-      rows = rows.filter((r) => formatCell(r.report_date) === reportDate);
-    }
-
-    if (selectedDescriptions.length > 0) {
-      const set = new Set(selectedDescriptions);
-      rows = rows.filter((r) => set.has(formatCell(r.item_description)));
+    for (const key of activeFilterKeys) {
+      const sel = selections[key] ?? [];
+      if (sel.length === 0) continue;
+      const set = new Set(sel);
+      rows = rows.filter((r) => set.has(formatCell(r[key])));
     }
 
     if (q) {
@@ -103,7 +98,7 @@ function SheetView({ sheet }: { sheet: DataPreviewSheet }) {
     }
 
     return rows;
-  }, [sheet.rows, search, reportDate, selectedDescriptions, sortCol, sortDir]);
+  }, [sheet.rows, search, selections, activeFilterKeys, sortCol, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
   const pageRows = filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
@@ -117,14 +112,13 @@ function SheetView({ sheet }: { sheet: DataPreviewSheet }) {
 
   function clearFilters() {
     setSearch("");
-    setReportDate("");
-    setSelectedDescriptions([]);
+    setSelections({});
     setSortCol(null);
     setSortDir(null);
     setPage(0);
   }
 
-  const hasActiveFilters = !!(search || reportDate || selectedDescriptions.length > 0 || sortCol);
+  const hasActiveFilters = !!(search || Object.values(selections).some((s) => s.length > 0) || sortCol);
 
   return (
     <div>
@@ -144,41 +138,30 @@ function SheetView({ sheet }: { sheet: DataPreviewSheet }) {
           />
         </div>
 
-        {hasReportDate && uniqueReportDates.length > 0 && (
-          <div style={{ flex: "0 0 auto" }}>
-            <Select
-              id="filter-report-date"
-              labelText="Report date"
-              size="sm"
-              value={reportDate}
-              onChange={(e) => { setReportDate(e.target.value); setPage(0); }}
-              style={{ minWidth: 160 }}
-            >
-              <SelectItem value="" text="All dates" />
-              {uniqueReportDates.map((d) => (
-                <SelectItem key={d} value={d} text={d} />
-              ))}
-            </Select>
-          </div>
-        )}
-
-        {hasItemDescription && descriptionItems.length > 0 && (
-          <div style={{ flex: "0 1 280px", minWidth: 200 }}>
-            <MultiSelect
-              id="filter-item-description"
-              titleText="Item description"
-              label={selectedDescriptions.length > 0 ? `${selectedDescriptions.length} selected` : "All items"}
-              items={descriptionItems}
-              itemToString={(item) => item?.label ?? ""}
-              selectedItems={descriptionItems.filter((d) => selectedDescriptions.includes(d.id))}
-              onChange={({ selectedItems }) => {
-                setSelectedDescriptions((selectedItems ?? []).map((i) => i.id));
-                setPage(0);
-              }}
-              size="sm"
-            />
-          </div>
-        )}
+        {activeFilterKeys.map((key) => {
+          const opts = filterOptions[key] ?? [];
+          if (opts.length === 0) return null;
+          const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          const selected = (selections[key] ?? []).map((v) => ({ id: v, label: v }));
+          return (
+            <div key={key} style={{ flex: "0 1 280px", minWidth: 200 }}>
+              <FilterableMultiSelect
+                id={`filter-${sheet.name}-${key}`}
+                titleText={label}
+                placeholder="Type to search…"
+                label={selected.length > 0 ? `${selected.length} selected` : `All ${label.toLowerCase()}`}
+                items={opts}
+                itemToString={(item) => item?.label ?? ""}
+                selectedItems={selected}
+                onChange={({ selectedItems }) => {
+                  setSelections((prev) => ({ ...prev, [key]: (selectedItems ?? []).map((i) => i.id) }));
+                  setPage(0);
+                }}
+                size="sm"
+              />
+            </div>
+          );
+        })}
 
         {hasActiveFilters && (
           <Button kind="ghost" size="sm" onClick={clearFilters}>
@@ -293,6 +276,22 @@ export default function DocumentPreviewPage() {
     id!, { skip: !id },
   );
 
+  const templateCode = (document?.metadata?.template_code as string | undefined) ?? "";
+  const { data: structure } = useGetTemplateStructureQuery(templateCode, { skip: !templateCode });
+
+  const filterableKeysBySheet = useMemo(() => {
+    if (!structure) return {} as Record<string, string[]>;
+    const map: Record<string, string[]> = {};
+    for (const s of structure.sheets) {
+      const keys = s.columns
+        .filter((c) => c.configuration?.filterable === true)
+        .map((c) => c.column_key);
+      map[s.name] = keys;
+      if (s.display_name && s.display_name !== s.name) map[s.display_name] = keys;
+    }
+    return map;
+  }, [structure]);
+
   const handleDownload = async () => {
     if (!id || !document) return;
     try {
@@ -393,7 +392,7 @@ export default function DocumentPreviewPage() {
           <TabPanels>
             {preview.sheets.map((sheet) => (
               <TabPanel key={sheet.name} style={{ paddingInline: 0, paddingTop: "0.75rem" }}>
-                <SheetView sheet={sheet} />
+                <SheetView sheet={sheet} filterableKeys={filterableKeysBySheet[sheet.name] ?? []} />
               </TabPanel>
             ))}
           </TabPanels>
