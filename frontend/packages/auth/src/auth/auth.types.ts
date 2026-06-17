@@ -29,9 +29,9 @@ export interface SystemAccess {
   roles: string[];
 }
 
-export type Role = "admin" | "user" | "manager";
+export type Role = string;
 
-export type System = "dashboard-web" | "integrated-outbreak-system" | "report-browser";
+export type System = string;
 
 export type Permission =
   | "portal:access"

@@ -104,6 +104,10 @@
   gap: 0.625rem;
 }
 
+.notifications-panel__switcher {
+  margin-bottom: 0.875rem;
+}
+
 /* =========================
  * Notification card
  * ========================= */
@@ -243,6 +247,10 @@
 .notification-actions .cds--btn {
   min-height: 2rem;
   padding-inline: 0.5rem;
+}
+
+.notification-actions--delete {
+  margin-top: 0.25rem;
 }
 
 /* =========================

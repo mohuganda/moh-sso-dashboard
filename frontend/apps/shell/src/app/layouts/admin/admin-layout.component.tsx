@@ -34,7 +34,12 @@ import {
 } from "@moh-sso/ui";
 
 import { API } from "@moh-sso/config";
-import { useGetNotificationsQuery, useGetUnreadNotificationsCountQuery } from "@moh-sso/api";
+import {
+  useDeleteNotificationMutation,
+  useGetNotificationsQuery,
+  useGetUnreadNotificationsCountQuery,
+  useMarkNotificationAsReadMutation,
+} from "@moh-sso/api";
 import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
 import type { Permission } from "@moh-sso/auth";
 
@@ -121,14 +126,24 @@ function HeaderActions() {
   const {
     data: notifications = [],
     isLoading: isLoadingNotifications,
-    refetch,
+    refetch: refetchUnreadNotifications,
   } = useGetNotificationsQuery({
     unread: true,
     limit: 10,
     offset: 0,
   });
+  const {
+    data: recentNotifications = [],
+    isLoading: isLoadingRecentNotifications,
+    refetch: refetchRecentNotifications,
+  } = useGetNotificationsQuery({
+    limit: 20,
+    offset: 0,
+  });
 
   const { data: unreadCount = 0 } = useGetUnreadNotificationsCountQuery();
+  const [markNotificationAsRead] = useMarkNotificationAsReadMutation();
+  const [deleteNotification] = useDeleteNotificationMutation();
 
   const safeUnreadCount = Number(unreadCount) || 0;
 
@@ -143,9 +158,20 @@ function HeaderActions() {
         <div className="notifications-header-panel">
           <NotificationsPanel
             notifications={notifications}
+            recentNotifications={recentNotifications}
             isLoading={isLoadingNotifications}
-            onMarkRead={() => {
-              refetch();
+            isLoadingRecent={isLoadingRecentNotifications}
+            onMarkRead={(id) => {
+              void markNotificationAsRead(id).then(() => {
+                void refetchUnreadNotifications();
+                void refetchRecentNotifications();
+              });
+            }}
+            onDelete={(id) => {
+              void deleteNotification(id).then(() => {
+                void refetchUnreadNotifications();
+                void refetchRecentNotifications();
+              });
             }}
           />
         </div>

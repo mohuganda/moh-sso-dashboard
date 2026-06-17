@@ -54,6 +54,7 @@ npm run generate:versions
 4. build shell
 5. generate version manifest
 6. stage microfrontends into `dist`
+7. inline the generated import map into `dist/index.html`
 
 ## Final `dist` Layout
 
@@ -88,7 +89,7 @@ During Docker builds, `node scripts/use-runtime-config.mjs production` activates
 - `singleSpaOrchestration: true`
 - `microfrontendMountMode: "orchestrated"`
 
-The shell HTML loads `/import-map.json`, and the generated import map points app/package modules to `/mf/*` and `/packages/*`.
+The shell build keeps `import-map.json` as a static artifact for inspection and tooling. During staging, the generated map is also inlined into `dist/index.html` so browsers can use it without an import-map shim.
 
 The nginx image is still available:
 
@@ -185,9 +186,6 @@ The static server must:
 - provide SPA fallback to `index.html`
 - serve `/mf/*`
 - serve `/packages/*`
-- serve `/mf/*`
-- serve `/packages/*`
-- serve `/config.js`
 - serve `/config.js`
 - serve `/import-map.json`
 

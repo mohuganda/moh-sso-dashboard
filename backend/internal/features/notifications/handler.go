@@ -51,7 +51,7 @@ func (h *Handler) Notify(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusCreated, n)
+	response.OK(c, http.StatusCreated, toNotificationResponse(*n))
 }
 
 /* =========================================================
@@ -101,7 +101,7 @@ func (h *Handler) ListNotifications(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, notifications)
+	response.OK(c, http.StatusOK, toNotificationResponses(notifications))
 }
 
 /* =========================================================
@@ -144,7 +144,7 @@ func (h *Handler) GetNotificationByID(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, n)
+	response.OK(c, http.StatusOK, toNotificationResponse(*n))
 }
 
 /* =========================================================

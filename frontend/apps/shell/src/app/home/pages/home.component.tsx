@@ -1,5 +1,6 @@
 import { Add, UserFollow, Security, Notification, Need } from "@carbon/react/icons";
 import { Tile, Button, Tag, Stack, InlineLoading } from "@carbon/react";
+import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import "./home.scss";
 
@@ -13,11 +14,12 @@ import {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
 } from "@moh-sso/api";
-import { selectUser } from "@moh-sso/auth";
+import { selectUser, useAuthorization } from "@moh-sso/auth";
 import { ManageAnnouncementsPanel } from "@moh-sso/announcements";
 
 export default function HomePage() {
   const { openPanel } = useHeaderPanel();
+  const { canLaunchSystem, accessibleSystems } = useAuthorization();
 
   /* -----------------------------
    * Identity
@@ -33,6 +35,22 @@ export default function HomePage() {
     isError: appsError,
     refetch: refetchApps,
   } = useListClientsQuery();
+  const visibleClients = useMemo(
+    () =>
+      clients.filter((client) => {
+        if (!client.clientId) return false;
+        return canLaunchSystem(client.clientId);
+      }),
+    [canLaunchSystem, clients],
+  );
+  const accessByClientId = useMemo(
+    () =>
+      accessibleSystems.reduce<Record<string, (typeof accessibleSystems)[number]>>((map, system) => {
+        map[system.clientId] = system;
+        return map;
+      }, {}),
+    [accessibleSystems],
+  );
 
   const { data: notifications = [], isLoading: notificationsLoading } = useGetNotificationsQuery({
     unread: true,
@@ -80,7 +98,7 @@ export default function HomePage() {
         <h4>
           Your applications{" "}
           <Tag size="sm" type="cool-gray">
-            {clients.length}
+            {visibleClients.length}
           </Tag>
         </h4>
 
@@ -94,23 +112,23 @@ export default function HomePage() {
           />
         )}
 
-        {!appsLoading && !appsError && clients.length === 0 && (
+        {!appsLoading && !appsError && visibleClients.length === 0 && (
           <EmptyState
             title="No applications assigned"
             description="You do not have access to any applications yet."
           />
         )}
 
-        {!appsLoading && !appsError && clients.length > 0 && (
+        {!appsLoading && !appsError && visibleClients.length > 0 && (
           <div className="home-grid">
-            {clients.map((client) => (
+            {visibleClients.map((client) => (
               <ApplicationTile
                 key={client.clientId}
                 clientId={client.clientId}
                 name={client.name}
                 description={client.description}
                 enabled={client?.enabled}
-                rootUrl={client.baseUrl}
+                rootUrl={accessByClientId[client.clientId]?.launchUrl || client.baseUrl}
               />
             ))}
           </div>

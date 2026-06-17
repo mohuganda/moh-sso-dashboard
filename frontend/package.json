@@ -88,8 +88,8 @@
     "remote:preview:documents": "npm run config:local-remote && npm run build:mf:documents && npm run preview:mf:documents",
     "remote:preview:surveillance": "npm run config:local-remote && npm run build:mf:surveillance && npm run preview:mf:surveillance",
     "remote:preview:all": "npm run config:local-remote && npm run build:apps && node scripts/dev-microfrontends.mjs --preview all",
-    "stage:mf": "node scripts/stage-microfrontends.mjs",
-    "stage:mf:npm": "node scripts/stage-from-npm-packages.mjs",
+    "stage:mf": "node scripts/stage-microfrontends.mjs && node scripts/inline-import-map.mjs",
+    "stage:mf:npm": "node scripts/stage-from-npm-packages.mjs && node scripts/inline-import-map.mjs",
     "build:docker": "npm run build:all && npm run generate:versions && npm run stage:mf",
     "build:docker:npm-modules": "npm run build:shell && npm run generate:import-map && npm run generate:versions && npm run stage:mf:npm && npm run audit:import-map"
   },

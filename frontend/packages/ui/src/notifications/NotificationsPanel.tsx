@@ -1,5 +1,6 @@
-import { Button, SkeletonText, Tag } from "@carbon/react";
-import { Checkmark, Information, Time } from "@carbon/react/icons";
+import { Button, ContentSwitcher, SkeletonText, Switch, Tag } from "@carbon/react";
+import { Checkmark, Information, TrashCan, Time } from "@carbon/react/icons";
+import { useMemo, useState } from "react";
 
 import type { Notification } from "@moh-sso/types";
 import { getSeverityTagType } from "../utils/severity";
@@ -8,8 +9,11 @@ import "./notifications-panel.css";
 
 type Props = {
   notifications: Notification[];
+  recentNotifications?: Notification[];
   isLoading?: boolean;
+  isLoadingRecent?: boolean;
   onMarkRead?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onView?: (notification: Notification) => void;
 };
 
@@ -91,19 +95,40 @@ function LoadingNotifications() {
 
 export function NotificationsPanel({
   notifications,
+  recentNotifications,
   isLoading = false,
+  isLoadingRecent = false,
   onMarkRead,
+  onDelete,
   onView,
 }: Props) {
+  const [selectedView, setSelectedView] = useState<"unread" | "recent">("unread");
   const unreadCount = notifications.filter((item) => !item.read).length;
+  const recentItems = recentNotifications ?? notifications;
+  const visibleNotifications = selectedView === "unread" ? notifications : recentItems;
+  const loadingCurrentView = selectedView === "unread" ? isLoading : isLoadingRecent;
+  const emptyTitle = selectedView === "unread" ? "No unread notifications" : "No notifications";
+  const emptyDescription =
+    selectedView === "unread"
+      ? "You are all caught up. Recent activity is available in the Recent tab."
+      : "New alerts and system updates will appear here.";
+  const subtitle = useMemo(() => {
+    if (selectedView === "recent") {
+      return `${recentItems.length} recent notification${recentItems.length === 1 ? "" : "s"}`;
+    }
 
-  if (isLoading && notifications.length === 0) {
+    return unreadCount > 0
+      ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+      : "You are all caught up";
+  }, [recentItems.length, selectedView, unreadCount]);
+
+  if (loadingCurrentView && visibleNotifications.length === 0) {
     return (
       <div className="notifications-panel">
         <div className="notifications-panel__header">
           <div>
             <h4 className="notifications-panel__title">Notifications</h4>
-            <p className="notifications-panel__subtitle">Loading recent activity...</p>
+            <p className="notifications-panel__subtitle">Loading activity...</p>
           </div>
         </div>
 
@@ -112,18 +137,36 @@ export function NotificationsPanel({
     );
   }
 
-  if (notifications.length === 0) {
+  if (visibleNotifications.length === 0) {
     return (
-      <div className="notifications-panel notifications-panel--empty">
-        <div className="notifications-panel__empty-icon">
-          <Checkmark size={24} />
+      <div className="notifications-panel">
+        <div className="notifications-panel__header">
+          <div>
+            <h4 className="notifications-panel__title">Notifications</h4>
+            <p className="notifications-panel__subtitle">{subtitle}</p>
+          </div>
+
+          {unreadCount > 0 && (
+            <Tag type="blue" size="sm">
+              {unreadCount} unread
+            </Tag>
+          )}
         </div>
 
-        <h4 className="notifications-panel__empty-title">No notifications</h4>
+        <NotificationSwitcher
+          selectedView={selectedView}
+          onChange={setSelectedView}
+        />
 
-        <p className="notifications-panel__empty">
-          You are all caught up. New alerts and system updates will appear here.
-        </p>
+        <div className="notifications-panel--empty">
+          <div className="notifications-panel__empty-icon">
+            <Checkmark size={24} />
+          </div>
+
+          <h4 className="notifications-panel__empty-title">{emptyTitle}</h4>
+
+          <p className="notifications-panel__empty">{emptyDescription}</p>
+        </div>
       </div>
     );
   }
@@ -133,11 +176,7 @@ export function NotificationsPanel({
       <div className="notifications-panel__header">
         <div>
           <h4 className="notifications-panel__title">Notifications</h4>
-          <p className="notifications-panel__subtitle">
-            {unreadCount > 0
-              ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
-              : "You are all caught up"}
-          </p>
+          <p className="notifications-panel__subtitle">{subtitle}</p>
         </div>
 
         {unreadCount > 0 && (
@@ -147,8 +186,13 @@ export function NotificationsPanel({
         )}
       </div>
 
+      <NotificationSwitcher
+        selectedView={selectedView}
+        onChange={setSelectedView}
+      />
+
       <div className="notifications-panel__list">
-        {notifications.map((notification) => {
+        {visibleNotifications.map((notification) => {
           const severity = normalizeSeverity(notification.severity);
           const isUnread = !notification.read;
 
@@ -218,10 +262,49 @@ export function NotificationsPanel({
                   </Button>
                 </div>
               )}
+
+              {onDelete && (
+                <div className="notification-actions notification-actions--delete">
+                  <Button
+                    size="sm"
+                    kind="ghost"
+                    renderIcon={TrashCan}
+                    iconDescription="Delete notification"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDelete(notification.id);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              )}
             </article>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function NotificationSwitcher({
+  selectedView,
+  onChange,
+}: {
+  selectedView: "unread" | "recent";
+  onChange: (view: "unread" | "recent") => void;
+}) {
+  return (
+    <ContentSwitcher
+      size="sm"
+      className="notifications-panel__switcher"
+      selectedIndex={selectedView === "unread" ? 0 : 1}
+      onChange={({ name }) => {
+        onChange(name === "recent" ? "recent" : "unread");
+      }}
+    >
+      <Switch name="unread" text="Unread" />
+      <Switch name="recent" text="Recent" />
+    </ContentSwitcher>
   );
 }
