@@ -32,14 +32,7 @@ func NewHandler(
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	var req struct {
-		Code     string `json:"code" binding:"required"`
-		Name     string `json:"name" binding:"required"`
-		Provider string `json:"provider"`
-		BaseUri  string `json:"base_uri"`
-		IsActive bool   `json:"is_active" binding:"required"`
-	}
-
+	var req createStorageLocationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
 		return
@@ -63,7 +56,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusCreated, loc)
+	response.OK(c, http.StatusCreated, toStorageLocationResponse(loc))
 }
 
 func (h *Handler) GetByID(c *gin.Context) {
@@ -79,7 +72,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, loc)
+	response.OK(c, http.StatusOK, toStorageLocationResponse(loc))
 }
 
 func (h *Handler) ListActive(c *gin.Context) {
@@ -89,7 +82,7 @@ func (h *Handler) ListActive(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, locs)
+	response.OK(c, http.StatusOK, toStorageLocationResponses(locs))
 }
 
 func (h *Handler) Update(c *gin.Context) {
@@ -107,7 +100,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, loc)
+	response.OK(c, http.StatusOK, toStorageLocationResponse(loc))
 }
 
 func (h *Handler) Delete(c *gin.Context) {
@@ -118,7 +111,5 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, struct {
-		Message string `json:"message"`
-	}{Message: "deleted"})
+	response.OK(c, http.StatusOK, deleteStorageLocationResponse{Message: "deleted"})
 }

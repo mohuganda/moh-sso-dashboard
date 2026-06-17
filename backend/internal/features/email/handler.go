@@ -108,7 +108,7 @@ func (h *Handler) List(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, items)
+	response.OK(c, http.StatusOK, toOutboxMessageResponses(items))
 }
 
 func (h *Handler) GetByID(c *gin.Context) {
@@ -134,7 +134,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, item)
+	response.OK(c, http.StatusOK, toOutboxMessageResponse(*item))
 }
 
 func (h *Handler) ListByStatus(c *gin.Context) {
@@ -162,7 +162,7 @@ func (h *Handler) ListByStatus(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, items)
+	response.OK(c, http.StatusOK, toOutboxMessageResponses(items))
 }
 
 func (h *Handler) Retry(c *gin.Context) {

@@ -183,7 +183,7 @@ func (h *Handler) GetDistricts(c *gin.Context) {
 		FROM dwh.dim_org_hierarchy
 		WHERE dim_org_hierarchy_key <> -1
 		  AND is_current = true
-		  AND "level" = "3"
+		  AND "level" = '3'
 		ORDER BY region, district, sub_county, facility_name
 	`
 
@@ -240,7 +240,7 @@ func (h *Handler) GetSubCounties(c *gin.Context) {
 		FROM dwh.dim_org_hierarchy
 		WHERE dim_org_hierarchy_key <> -1
 		  AND is_current = true
-		  AND "level" = "5"
+		  AND "level" = '5'
 	`
 
 	var (
@@ -307,7 +307,7 @@ func (h *Handler) GetLocalGovt(c *gin.Context) {
 		FROM dwh.dim_org_hierarchy
 		WHERE dim_org_hierarchy_key <> -1
 		  AND is_current = true
-		  AND "level" = "4"
+		  AND "level" = '4'
 	`
 
 	var (
@@ -374,7 +374,7 @@ func (h *Handler) GetDistrictsByRegion(c *gin.Context) {
 		FROM dwh.dim_org_hierarchy
 		WHERE dim_org_hierarchy_key <> -1
 		  AND is_current = true
-		  AND "level" = "3"
+		  AND "level" = '3'
 	`
 
 	var (
@@ -432,7 +432,7 @@ func (h *Handler) GetRegions(c *gin.Context) {
 		FROM dwh.dim_org_hierarchy
 		WHERE dim_org_hierarchy_key <> -1
 		  AND is_current = true
-		  AND "level" = "2"
+		  AND "level" = '2'
 		ORDER BY region, district, sub_county, facility_name
 	`
 
