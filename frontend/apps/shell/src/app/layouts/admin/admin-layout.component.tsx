@@ -13,6 +13,7 @@ import {
 import {
   Activity,
   Api,
+  Application,
   Bullhorn,
   Dashboard,
   Email,
@@ -62,6 +63,7 @@ type AdminNavItem = {
   icon: CarbonIconComponent;
   exact?: boolean;
   requiredPermission?: Permission;
+  requiredAnyPermissions?: Permission[];
 };
 
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
@@ -83,6 +85,13 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Clients",
     path: "/admin/clients",
     icon: Api,
+  },
+  {
+    id: "systems",
+    label: "Systems",
+    path: "/admin/systems",
+    icon: Application,
+    requiredAnyPermissions: [PERMISSIONS.systemsRead, PERMISSIONS.rbacRead],
   },
   {
     id: "announcements",
@@ -214,12 +223,16 @@ function HeaderActions() {
 function AdminSideNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { can } = useAuthorization();
+  const { can, canAny } = useAuthorization();
 
   const navItems = useMemo(
     () =>
-      ADMIN_NAV_ITEMS.filter((item) => !item.requiredPermission || can(item.requiredPermission)),
-    [can],
+      ADMIN_NAV_ITEMS.filter(
+        (item) =>
+          (!item.requiredPermission || can(item.requiredPermission)) &&
+          (!item.requiredAnyPermissions || canAny(item.requiredAnyPermissions)),
+      ),
+    [can, canAny],
   );
 
   return (

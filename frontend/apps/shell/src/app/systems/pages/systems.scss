@@ -1,0 +1,47 @@
+.systems-summary,
+.system-panel__mapping {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+}
+
+.systems-summary__item {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem;
+  background: var(--cds-layer);
+  border: 1px solid var(--cds-border-subtle-01);
+
+  span {
+    color: var(--cds-text-secondary);
+    font-size: 0.75rem;
+  }
+
+  strong {
+    color: var(--cds-text-primary);
+    font-size: 1.5rem;
+    font-weight: 500;
+  }
+}
+
+.system-panel {
+  padding: 1.5rem;
+}
+
+.system-panel .cds--form__helper-text {
+  max-width: none;
+}
+
+.system-panel__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  color: var(--cds-text-secondary);
+}
+
+@media (max-width: 48rem) {
+  .system-panel .cds--stack-horizontal {
+    flex-direction: column;
+  }
+}
