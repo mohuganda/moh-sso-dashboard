@@ -98,6 +98,15 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
+type AnnouncementStatsResponse struct {
+	Total          int64 `json:"total"`
+	DraftCount     int64 `json:"draft_count"`
+	ScheduledCount int64 `json:"scheduled_count"`
+	PublishedCount int64 `json:"published_count"`
+	ArchivedCount  int64 `json:"archived_count"`
+	ActiveCount    int64 `json:"active_count"`
+}
+
 type createAnnouncementAttachmentRequest struct {
 	FileName       string `json:"file_name" binding:"required"`
 	ContentType    string `json:"content_type,omitempty"`

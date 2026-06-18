@@ -143,6 +143,17 @@ func toAnnouncementAttachmentResponses(
 	return out
 }
 
+func toAnnouncementStatsResponse(stats db.GetAnnouncementStatsRow) AnnouncementStatsResponse {
+	return AnnouncementStatsResponse{
+		Total:          stats.Total,
+		DraftCount:     stats.DraftCount,
+		ScheduledCount: stats.ScheduledCount,
+		PublishedCount: stats.PublishedCount,
+		ArchivedCount:  stats.ArchivedCount,
+		ActiveCount:    stats.ActiveCount,
+	}
+}
+
 func mapAnnouncementAttachments(in []announcementAttachmentRequest) []model.Attachment {
 	out := make([]model.Attachment, 0, len(in))
 	for _, attachment := range in {

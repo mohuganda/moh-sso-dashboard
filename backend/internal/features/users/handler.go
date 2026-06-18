@@ -167,7 +167,7 @@ func (h *Handler) ListUsers(c *gin.Context) {
 			)
 		}
 	}
-	out := make([]models.UserResponse, len(users))
+	out := make([]UserResponse, len(users))
 	for i := range users {
 		out[i] = toUserResponse(&users[i])
 	}
@@ -308,7 +308,7 @@ func (h *Handler) GetUserClientRoles(c *gin.Context) {
 		"user_id": userID.String(),
 	})
 
-	response.OK(c, http.StatusOK, roles)
+	response.OK(c, http.StatusOK, toUserClientRoleAssignmentResponses(roles))
 }
 
 /* =========================================================
@@ -414,7 +414,7 @@ func (h *Handler) GetUserClientRolesForClient(c *gin.Context) {
 		},
 	)
 
-	response.OK(c, http.StatusOK, roles)
+	response.OK(c, http.StatusOK, toClientRoleResponses(roles))
 }
 
 /* =========================================================

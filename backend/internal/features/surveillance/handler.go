@@ -1,7 +1,6 @@
 package surveillance
 
 import (
-	"database/sql"
 	"net/http"
 	"strconv"
 
@@ -82,7 +81,7 @@ func (h *Handler) ListEpiWeeksByYearWeek(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toEpiWeekResponse(data))
 }
 
 func (h *Handler) ListEpiWeeksByYear(c *gin.Context) {
@@ -106,7 +105,7 @@ func (h *Handler) ListEpiWeeksByYear(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toEpiWeekResponses(data))
 }
 
 // diseases
@@ -119,7 +118,7 @@ func (h *Handler) ListDiseases(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toDiseaseResponses(data))
 }
 
 // locations
@@ -132,7 +131,7 @@ func (h *Handler) ListRegions(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toRegionResponses(data))
 }
 
 func (h *Handler) ListDistricts(c *gin.Context) {
@@ -144,7 +143,7 @@ func (h *Handler) ListDistricts(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toDistrictListResponses(data))
 }
 
 func (h *Handler) ListDistrictsByRegion(c *gin.Context) {
@@ -168,7 +167,7 @@ func (h *Handler) ListDistrictsByRegion(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toDistrictResponses(data))
 }
 func (h *Handler) ListSubcountiesByDistrict(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -191,7 +190,7 @@ func (h *Handler) ListSubcountiesByDistrict(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toSubCountyResponses(data))
 }
 
 func (h *Handler) GetSubcountyByID(c *gin.Context) {
@@ -215,43 +214,55 @@ func (h *Handler) GetSubcountyByID(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toSubCountyResponse(data))
 }
 
 func (h *Handler) UpsertDistrict(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var req db.UpsertDistrictParams
+	var req UpsertDistrictRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid request body", "request failed")
 		return
 	}
 
-	data, err := h.locationService.UpsertDistrict(ctx, req)
+	data, err := h.locationService.UpsertDistrict(ctx, db.UpsertDistrictParams{
+		Name:     req.Name,
+		RegionID: uuidNullFromPtr(req.RegionID),
+		Code:     sqlNullStringFromPtr(req.Code),
+	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to upsert district", "request failed")
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toDistrictResponse(data))
 }
 
 func (h *Handler) UpsertSubcounty(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var req db.UpsertSubCountyParams
+	var req UpsertSubCountyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid request body", "request failed")
 		return
 	}
+	if req.DistrictID == nil || *req.DistrictID == uuid.Nil {
+		response.Fail(c, http.StatusBadRequest, "invalid request body", "district_id is required")
+		return
+	}
 
-	data, err := h.locationService.UpsertSubcounty(ctx, req)
+	data, err := h.locationService.UpsertSubcounty(ctx, db.UpsertSubCountyParams{
+		Name:       req.Name,
+		DistrictID: *req.DistrictID,
+		Code:       sqlNullStringFromPtr(req.Code),
+	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to upsert subcounty", "request failed")
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toSubCountyResponse(data))
 }
 
 func (h *Handler) DeleteSubcounty(c *gin.Context) {
@@ -274,9 +285,7 @@ func (h *Handler) DeleteSubcounty(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, struct {
-		Deleted bool `json:"deleted"`
-	}{Deleted: true})
+	response.OK(c, http.StatusOK, DeleteResponse{Deleted: true})
 }
 
 // facility weekly metrics
@@ -328,7 +337,7 @@ func (h *Handler) ListFacilityWeeklyMetricsByFacility(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toFacilityMetricByFacilityResponses(data))
 }
 
 func (h *Handler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
@@ -364,7 +373,7 @@ func (h *Handler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toFacilityDiseaseMetricTrendResponses(data))
 }
 
 func (h *Handler) ListFacilityIndicatorMetricsTrend(c *gin.Context) {
@@ -400,7 +409,7 @@ func (h *Handler) ListFacilityIndicatorMetricsTrend(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toFacilityIndicatorMetricTrendResponses(data))
 }
 
 func (h *Handler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.Context) {
@@ -503,7 +512,7 @@ func (h *Handler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toDiseaseWeeklyTrendAggregateResponses(data))
 }
 
 // district weekly status
@@ -606,7 +615,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toWeeklyStatusResponses(data))
 }
 
 func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
@@ -718,7 +727,7 @@ func (h *Handler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toWeeklyStatusResponses(data))
 }
 
 // national weekly status
@@ -744,7 +753,7 @@ func (h *Handler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toWeeklyStatusResponses(data))
 }
 
 // alerts
@@ -825,7 +834,7 @@ func (h *Handler) ListImportBatches(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toImportBatchResponses(data))
 }
 
 func (h *Handler) GetImportBatchByID(c *gin.Context) {
@@ -849,7 +858,7 @@ func (h *Handler) GetImportBatchByID(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toImportBatchResponse(data))
 }
 
 func (h *Handler) ListImportRawRowsByBatch(c *gin.Context) {
@@ -873,25 +882,38 @@ func (h *Handler) ListImportRawRowsByBatch(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toImportRawRowResponses(data))
 }
 
 func (h *Handler) CreateImportBatch(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var req db.CreateImportBatchParams
+	var req CreateImportBatchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid request body", "request failed")
 		return
 	}
 
-	data, err := h.importService.CreateImportBatch(ctx, req)
+	status := req.Status
+	if status == "" {
+		status = "pending"
+	}
+
+	data, err := h.importService.CreateImportBatch(ctx, db.CreateImportBatchParams{
+		SourceName:  req.SourceName,
+		FileName:    sqlNullStringFromPtr(req.FileName),
+		DatasetType: req.DatasetType,
+		ImportedBy:  sqlNullStringFromPtr(req.ImportedBy),
+		Status:      status,
+		Notes:       sqlNullStringFromPtr(req.Notes),
+		DocumentID:  uuidNullFromPtr(req.DocumentID),
+	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to create import batch", "request failed")
 		return
 	}
 
-	response.OK(c, http.StatusCreated, data)
+	response.OK(c, http.StatusCreated, toImportBatchResponse(data))
 }
 
 func (h *Handler) UpdateImportBatchStatus(c *gin.Context) {
@@ -909,11 +931,7 @@ func (h *Handler) UpdateImportBatchStatus(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Status string  `json:"status" binding:"required"`
-		Notes  *string `json:"notes"`
-	}
-
+	var req UpdateImportBatchStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid request body", "request failed")
 		return
@@ -922,15 +940,12 @@ func (h *Handler) UpdateImportBatchStatus(c *gin.Context) {
 	data, err := h.importService.UpdateImportBatchStatus(ctx, db.UpdateImportBatchStatusParams{
 		ID:     batchID,
 		Status: req.Status,
-		Notes: sql.NullString{
-			String: *req.Notes,
-			Valid:  true,
-		},
+		Notes:  sqlNullStringFromPtr(req.Notes),
 	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to update import batch status", "request failed")
 		return
 	}
 
-	response.OK(c, http.StatusOK, data)
+	response.OK(c, http.StatusOK, toImportBatchResponse(data))
 }

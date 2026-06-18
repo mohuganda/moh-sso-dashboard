@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/features/authsession"
+	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 )
 
@@ -19,17 +21,13 @@ func ExtractAuthContext(
 	return func(c *gin.Context) {
 		accessToken := extractAccessToken(c, sessions)
 		if accessToken == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "missing token",
-			})
+			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing token")
 			return
 		}
 
 		user, err := kc.Me(accessToken)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid user session",
-			})
+			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid user session")
 			return
 		}
 
@@ -61,9 +59,7 @@ func RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists || userID == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
-			})
+			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
 			return
 		}
 
@@ -80,17 +76,13 @@ func RequireAdmin() gin.HandlerFunc {
 
 		isAdmin, exists := c.Get("is_admin")
 		if !exists {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "admin access required",
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", "admin access required")
 			return
 		}
 
 		admin, ok := isAdmin.(bool)
 		if !ok || !admin {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "admin access required",
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", "admin access required")
 			return
 		}
 
@@ -102,17 +94,12 @@ func RequirePermission(permission authz.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authContext, ok := authz.FromGin(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
-			})
+			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
 			return
 		}
 
 		if !authContext.HasPermission(permission) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":               "permission required",
-				"required_permission": string(permission),
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("permission required: %s", permission))
 			return
 		}
 
@@ -124,9 +111,7 @@ func RequireAnyPermission(permissions ...authz.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authContext, ok := authz.FromGin(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
-			})
+			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
 			return
 		}
 
@@ -136,10 +121,7 @@ func RequireAnyPermission(permissions ...authz.Permission) gin.HandlerFunc {
 				required = append(required, string(permission))
 			}
 
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":                "permission required",
-				"required_permissions": required,
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("one of these permissions is required: %s", strings.Join(required, ", ")))
 			return
 		}
 
@@ -151,9 +133,7 @@ func RequireAllPermissions(permissions ...authz.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authContext, ok := authz.FromGin(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
-			})
+			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
 			return
 		}
 
@@ -164,10 +144,7 @@ func RequireAllPermissions(permissions ...authz.Permission) gin.HandlerFunc {
 			}
 		}
 		if len(missing) > 0 {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":               "permission required",
-				"missing_permissions": missing,
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("missing required permissions: %s", strings.Join(missing, ", ")))
 			return
 		}
 
@@ -179,17 +156,12 @@ func RequireSystem(systemClientID string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authContext, ok := authz.FromGin(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
-			})
+			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
 			return
 		}
 
 		if !authContext.HasSystem(systemClientID) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":           "system access required",
-				"required_system": systemClientID,
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("system access required: %s", systemClientID))
 			return
 		}
 
@@ -201,18 +173,12 @@ func RequireSystemRole(systemClientID string, role string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authContext, ok := authz.FromGin(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
-			})
+			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
 			return
 		}
 
 		if !authContext.HasSystemRole(systemClientID, role) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":                "system role required",
-				"required_system":      systemClientID,
-				"required_system_role": role,
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("system role required: %s:%s", systemClientID, role))
 			return
 		}
 
@@ -224,10 +190,7 @@ func RequireRealmRole(role string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authContext, ok := authz.FromGin(c)
 		if !ok || !authContext.HasRealmRole(role) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":         "role required",
-				"required_role": role,
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("realm role required: %s", role))
 			return
 		}
 
@@ -240,15 +203,17 @@ func RequireClientRole(clientIDParam string, role string) gin.HandlerFunc {
 		authContext, ok := authz.FromGin(c)
 		clientID := strings.TrimSpace(c.Param(clientIDParam))
 		if !ok || !authContext.HasClientRole(clientID, role) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":                "client role required",
-				"required_client_role": role,
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("client role required: %s", role))
 			return
 		}
 
 		c.Next()
 	}
+}
+
+func abortWithError(c *gin.Context, status int, code string, message string) {
+	response.Fail(c, status, code, message)
+	c.Abort()
 }
 
 func extractAccessToken(c *gin.Context, sessions *authsession.Store) string {

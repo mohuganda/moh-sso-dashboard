@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type Policy struct {
@@ -60,13 +62,8 @@ func MiddlewareForPolicy(limiter *Limiter, policy Policy) gin.HandlerFunc {
 		}
 
 		if !allowed {
-			c.AbortWithStatusJSON(
-				http.StatusTooManyRequests,
-				gin.H{
-					"error":   "RATE_LIMIT_EXCEEDED",
-					"message": "Too many requests, slow down",
-				},
-			)
+			response.Fail(c, http.StatusTooManyRequests, "RATE_LIMIT_EXCEEDED", "Too many requests, slow down")
+			c.Abort()
 			return
 		}
 

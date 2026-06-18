@@ -933,7 +933,7 @@ func (h *Handler) GetAnnouncementStats(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, stats)
+	response.OK(c, http.StatusOK, toAnnouncementStatsResponse(stats))
 }
 
 func (h *Handler) ListActivePublishedAnnouncements(c *gin.Context) {

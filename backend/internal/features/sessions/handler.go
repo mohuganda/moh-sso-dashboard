@@ -34,7 +34,7 @@ func (h *Handler) GetUserSessions(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, sessions)
+	response.OK(c, http.StatusOK, toSessionResponses(sessions))
 }
 
 func (h *Handler) LogoutSession(c *gin.Context) {

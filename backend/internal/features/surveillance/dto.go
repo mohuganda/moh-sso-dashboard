@@ -1,6 +1,7 @@
 package surveillance
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,6 +53,20 @@ type WeeklyStatusDetailedResponse struct {
 	SubCountyName string     `json:"sub_county_name"`
 	DiseaseName   string     `json:"disease_name"`
 	IndicatorName string     `json:"indicator_name"`
+}
+
+type WeeklyStatusResponse struct {
+	ID          uuid.UUID  `json:"id"`
+	RegionID    *uuid.UUID `json:"region_id,omitempty"`
+	DistrictID  *uuid.UUID `json:"district_id,omitempty"`
+	SubCountyID *uuid.UUID `json:"sub_county_id,omitempty"`
+	DiseaseID   *uuid.UUID `json:"disease_id,omitempty"`
+	IndicatorID *uuid.UUID `json:"indicator_id,omitempty"`
+	EpiWeekID   uuid.UUID  `json:"epi_week_id"`
+	Status      string     `json:"status"`
+	SourceName  *string    `json:"source_name,omitempty"`
+	ImportedAt  time.Time  `json:"imported_at"`
+	CreatedAt   time.Time  `json:"created_at"`
 }
 
 type FacilityWeeklyMetricResponse struct {
@@ -132,6 +147,66 @@ type SubCountyResponse struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
+type UpsertDistrictRequest struct {
+	Name     string     `json:"name" binding:"required"`
+	RegionID *uuid.UUID `json:"region_id,omitempty"`
+	Code     *string    `json:"code,omitempty"`
+}
+
+type UpsertSubCountyRequest struct {
+	Name       string     `json:"name" binding:"required"`
+	DistrictID *uuid.UUID `json:"district_id" binding:"required"`
+	Code       *string    `json:"code,omitempty"`
+}
+
 type DeleteResponse struct {
 	Deleted bool `json:"deleted"`
+}
+
+type DiseaseWeeklyTrendAggregateResponse struct {
+	EpiWeekID  uuid.UUID `json:"epi_week_id"`
+	EpiYear    int32     `json:"epi_year"`
+	EpiWeek    int32     `json:"epi_week"`
+	TotalCases int64     `json:"total_cases"`
+}
+
+type CreateImportBatchRequest struct {
+	SourceName  string     `json:"source_name" binding:"required"`
+	FileName    *string    `json:"file_name,omitempty"`
+	DatasetType string     `json:"dataset_type" binding:"required"`
+	ImportedBy  *string    `json:"imported_by,omitempty"`
+	Status      string     `json:"status,omitempty"`
+	Notes       *string    `json:"notes,omitempty"`
+	DocumentID  *uuid.UUID `json:"document_id,omitempty"`
+}
+
+type UpdateImportBatchStatusRequest struct {
+	Status string  `json:"status" binding:"required"`
+	Notes  *string `json:"notes,omitempty"`
+}
+
+type ImportBatchResponse struct {
+	ID          uuid.UUID  `json:"id"`
+	SourceName  string     `json:"source_name"`
+	FileName    *string    `json:"file_name,omitempty"`
+	DatasetType string     `json:"dataset_type"`
+	ImportedBy  *string    `json:"imported_by,omitempty"`
+	ImportedAt  time.Time  `json:"imported_at"`
+	Status      string     `json:"status"`
+	Notes       *string    `json:"notes,omitempty"`
+	TotalRows   int32      `json:"total_rows"`
+	SuccessRows int32      `json:"success_rows"`
+	FailedRows  int32      `json:"failed_rows"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	DocumentID  *uuid.UUID `json:"document_id,omitempty"`
+}
+
+type ImportRawRowResponse struct {
+	ID           uuid.UUID       `json:"id"`
+	BatchID      uuid.UUID       `json:"batch_id"`
+	RowNumber    int32           `json:"row_number"`
+	Payload      json.RawMessage `json:"payload"`
+	CreatedAt    time.Time       `json:"created_at"`
+	Status       string          `json:"status"`
+	ErrorMessage *string         `json:"error_message,omitempty"`
 }
