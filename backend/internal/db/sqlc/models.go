@@ -274,6 +274,7 @@ type Announcement struct {
 	Level                   interface{}    `json:"level"`
 	Tag                     sql.NullString `json:"tag"`
 	LinkUrl                 sql.NullString `json:"link_url"`
+	LinkLabel               sql.NullString `json:"link_label"`
 	Priority                int32          `json:"priority"`
 	IsPinned                bool           `json:"is_pinned"`
 	Status                  interface{}    `json:"status"`

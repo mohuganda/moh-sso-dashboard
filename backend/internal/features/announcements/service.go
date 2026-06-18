@@ -116,6 +116,7 @@ func (s *Service) CreateAnnouncementFromInput(
 		Level:         dbAnnouncementLevel(input.Level),
 		Tag:           input.Tag,
 		LinkUrl:       input.LinkURL,
+		LinkLabel:     input.LinkLabel,
 		Priority:      input.Priority,
 		IsPinned:      input.IsPinned,
 		Status:        dbAnnouncementStatus(input.Status),
@@ -199,6 +200,7 @@ func (s *Service) UpdateAnnouncementFromInput(
 		Level:         dbAnnouncementLevel(input.Level),
 		Tag:           input.Tag,
 		LinkUrl:       input.LinkURL,
+		LinkLabel:     input.LinkLabel,
 		Priority:      input.Priority,
 		IsPinned:      input.IsPinned,
 		PublishAt:     input.PublishAt,
@@ -1783,6 +1785,7 @@ func (s *Service) attachAnnouncementEmailDelivery(
 		attachmentLinks := options.AttachmentLinks
 		actionURL := s.announcementActionURL(item)
 		relatedLinkURL := s.announcementRelatedLinkURL(item)
+		relatedLinkLabel := s.announcementRelatedLinkLabel(item)
 
 		deliveries = append(deliveries, models.NotificationDeliveryRequest{
 			Channel: models.NotificationChannelEmail,
@@ -1806,7 +1809,7 @@ func (s *Service) attachAnnouncementEmailDelivery(
 				"AttachmentNames":       attachmentNames,
 				"AttachmentLinks":       attachmentLinks,
 				"AnnouncementLinkURL":   relatedLinkURL,
-				"AnnouncementLinkLabel": "Open related link",
+				"AnnouncementLinkLabel": relatedLinkLabel,
 				"ActionURL":             actionURL,
 				"Details": fmt.Sprintf(
 					"Title: %s\nLevel: %s\nStatus: %s\nMessage: %s",
@@ -2013,6 +2016,14 @@ func (s *Service) announcementRelatedLinkURL(item db.Announcement) string {
 	}
 
 	return s.absolutePortalURL(item.LinkUrl.String)
+}
+
+func (s *Service) announcementRelatedLinkLabel(item db.Announcement) string {
+	if item.LinkLabel.Valid && strings.TrimSpace(item.LinkLabel.String) != "" {
+		return strings.TrimSpace(item.LinkLabel.String)
+	}
+
+	return "Open related link"
 }
 
 func (s *Service) absolutePortalURL(raw string) string {

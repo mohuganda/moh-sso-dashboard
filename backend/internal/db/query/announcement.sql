@@ -6,6 +6,7 @@ INSERT INTO announcements (
     level,
     tag,
     link_url,
+    link_label,
     priority,
     is_pinned,
     status,
@@ -16,7 +17,7 @@ INSERT INTO announcements (
     created_by,
     updated_by
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15
 )
 RETURNING *;
 
@@ -201,13 +202,14 @@ SET
     level = $5,
     tag = $6,
     link_url = $7,
-    priority = $8,
-    is_pinned = $9,
-    publish_at = $10,
-    expires_at = $11,
-    audience_type = $12,
-    notify_by_email = $13,
-    updated_by = $14
+    link_label = $8,
+    priority = $9,
+    is_pinned = $10,
+    publish_at = $11,
+    expires_at = $12,
+    audience_type = $13,
+    notify_by_email = $14,
+    updated_by = $15
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;

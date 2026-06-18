@@ -36,6 +36,7 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 		Level:                   normalizeLevel(model.AnnouncementLevel(interfaceToString(a.Level))),
 		Tag:                     nullStringPtr(a.Tag),
 		LinkURL:                 nullStringPtr(a.LinkUrl),
+		LinkLabel:               nullStringPtr(a.LinkLabel),
 		Priority:                a.Priority,
 		IsPinned:                a.IsPinned,
 		Status:                  normalizeAnnouncementStatus(model.AnnouncementStatus(interfaceToString(a.Status))),

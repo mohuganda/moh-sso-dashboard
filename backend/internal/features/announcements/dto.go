@@ -14,6 +14,7 @@ type createAnnouncementRequest struct {
 	Level         string   `json:"level" binding:"required"`
 	Tag           *string  `json:"tag"`
 	LinkURL       *string  `json:"link_url"`
+	LinkLabel     *string  `json:"link_label"`
 	Priority      int32    `json:"priority"`
 	IsPinned      bool     `json:"is_pinned"`
 	Status        string   `json:"status"`
@@ -33,6 +34,7 @@ type updateAnnouncementRequest struct {
 	Level         string   `json:"level" binding:"required"`
 	Tag           *string  `json:"tag"`
 	LinkURL       *string  `json:"link_url"`
+	LinkLabel     *string  `json:"link_label"`
 	Priority      int32    `json:"priority"`
 	IsPinned      bool     `json:"is_pinned"`
 	PublishAt     *string  `json:"publish_at"`
@@ -51,6 +53,7 @@ type CreateAnnouncementInput struct {
 	Level         string
 	Tag           sql.NullString
 	LinkURL       sql.NullString
+	LinkLabel     sql.NullString
 	Priority      int32
 	IsPinned      bool
 	Status        string
@@ -69,6 +72,7 @@ type UpdateAnnouncementInput struct {
 	Level         string
 	Tag           sql.NullString
 	LinkURL       sql.NullString
+	LinkLabel     sql.NullString
 	Priority      int32
 	IsPinned      bool
 	PublishAt     sql.NullTime
@@ -86,6 +90,7 @@ type AnnouncementResponse struct {
 	Level                   string                           `json:"level"`
 	Tag                     *string                          `json:"tag,omitempty"`
 	LinkURL                 *string                          `json:"link_url,omitempty"`
+	LinkLabel               *string                          `json:"link_label,omitempty"`
 	Priority                int32                            `json:"priority"`
 	IsPinned                bool                             `json:"is_pinned"`
 	Status                  string                           `json:"status"`
