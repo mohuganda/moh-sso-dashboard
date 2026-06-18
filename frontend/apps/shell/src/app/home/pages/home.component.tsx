@@ -13,7 +13,7 @@ import {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
 } from "@moh-sso/api";
-import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
+import { selectUser, useAuthorization } from "@moh-sso/auth";
 import { ManageAnnouncementsPanel } from "@moh-sso/announcements";
 import { buildAccessibleClients } from "@/app/access/accessClients";
 
@@ -35,7 +35,7 @@ function normalizePortalPath(href?: string): string | undefined {
 
 export default function HomePage() {
   const { openPanel } = useHeaderPanel();
-  const { accessibleSystems, canAny } = useAuthorization();
+  const { accessibleSystems } = useAuthorization();
 
   /* -----------------------------
    * Identity
@@ -45,19 +45,12 @@ export default function HomePage() {
   /* -----------------------------
    * Applications
    * ----------------------------- */
-  const canAccessDataStatistics = canAny([
-    PERMISSIONS.dataQualityRead,
-    PERMISSIONS.documentsRead,
-    PERMISSIONS.reportBrowserRead,
-    PERMISSIONS.surveillanceRead,
-  ]);
   const visibleClients = useMemo(
     () =>
       buildAccessibleClients({
         accessibleSystems,
-        includeDataStatistics: canAccessDataStatistics,
       }),
-    [accessibleSystems, canAccessDataStatistics],
+    [accessibleSystems],
   );
 
   const { data: notifications = [], isLoading: notificationsLoading } = useGetNotificationsQuery({

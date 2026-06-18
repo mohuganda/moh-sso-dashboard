@@ -18,6 +18,5 @@ export type AppDispatch = typeof store.dispatch;
 
 export * from "./clients/clients.selectors";
 export * from "./clients/clients.slice";
-export { DEFAULT_CLIENT_ID } from "./clients/defaultClient";
 export * from "./document/documents.selectors";
 export * from "./ui/ui.state";

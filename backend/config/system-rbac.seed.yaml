@@ -45,6 +45,13 @@ systems:
       icon: outbreak
       launchUrl: /portal/apps/dwh/surveillance
       category: surveillance
+      navigation: |-
+        [
+          {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","icon":"surveillance","permission":"surveillance:read"},
+          {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","icon":"data-quality","permission":"data_quality:read"},
+          {"id":"document-upload","label":"Document Upload","path":"/apps/dwh/filesvr","icon":"document","permission":"documents:read"},
+          {"id":"reports","label":"Reports","path":"/apps/dwh/reports","icon":"reporting","permission":"report_browser:read"}
+        ]
       enabled: true
       accessRoles:
         - integrated-outbreak-system_access
@@ -117,6 +124,11 @@ systems:
       icon: reporting
       launchUrl: /portal/apps/dwh/reports
       category: reports
+      navigation: |-
+        [
+          {"id":"reports","label":"Report Browser","path":"/apps/dwh/reports","icon":"reporting","permission":"report_browser:read"},
+          {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","icon":"dashboard","permission":"report_browser:read"}
+        ]
       enabled: true
       accessRoles:
         - report-browser_access

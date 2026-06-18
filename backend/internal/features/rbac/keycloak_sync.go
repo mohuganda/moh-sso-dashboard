@@ -205,6 +205,7 @@ func (s *Service) applyDiscoveredSync(ctx context.Context, preview SyncPreviewRe
 			Icon:        system.Icon,
 			LaunchURL:   system.LaunchURL,
 			Category:    system.Category,
+			Navigation:  system.Navigation,
 			Enabled:     &enabled,
 		}); err != nil {
 			return SyncApplyResponse{}, err
@@ -288,6 +289,7 @@ func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource) (d
 			Icon:        client.Attributes["ui.icon"],
 			LaunchURL:   firstNonEmpty(client.Attributes["ui.launchUrl"], client.Attributes["ui.home"], client.BaseURL, client.RootURL),
 			Category:    client.Attributes["ui.category"],
+			Navigation:  firstNonEmpty(client.Attributes["ui.navigation"], client.Attributes["ui.sidenav"]),
 			Enabled:     client.Enabled,
 			Roles:       make([]KeycloakDiscoveredRole, 0, len(roles)),
 		}

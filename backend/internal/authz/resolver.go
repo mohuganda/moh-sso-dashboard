@@ -20,6 +20,7 @@ type SystemAccess struct {
 	LaunchURL   string   `json:"launchUrl,omitempty"`
 	Icon        string   `json:"icon,omitempty"`
 	Category    string   `json:"category,omitempty"`
+	Navigation  string   `json:"navigation,omitempty"`
 	Roles       []string `json:"roles"`
 }
 

@@ -67,6 +67,7 @@ func (s *Service) UpsertSystem(ctx context.Context, input UpsertSystemInput) (Sy
 	input.DocumentationURL = strings.TrimSpace(input.DocumentationURL)
 	input.Environment = strings.TrimSpace(input.Environment)
 	input.Criticality = strings.TrimSpace(input.Criticality)
+	input.Navigation = strings.TrimSpace(input.Navigation)
 	if input.ClientID == "" {
 		return System{}, fmt.Errorf("%w: clientId is required", ErrInvalidInput)
 	}
@@ -458,6 +459,7 @@ func (s *Service) GetEffectiveAccess(ctx context.Context, userID string, usernam
 				LaunchURL:   detail.LaunchURL,
 				Icon:        detail.Icon,
 				Category:    detail.Category,
+				Navigation:  detail.Navigation,
 				Roles:       accessRoles,
 			})
 		}
@@ -633,6 +635,7 @@ func (s *Service) ExportSeed(ctx context.Context) (systemrbac.SeedFile, error) {
 			DocumentationURL: system.DocumentationURL,
 			Environment:      system.Environment,
 			Criticality:      system.Criticality,
+			Navigation:       system.Navigation,
 			Enabled:          &enabled,
 			AccessRoles:      detail.AccessRoles,
 			Roles:            make([]systemrbac.SeedRole, 0, len(detail.Roles)),
@@ -712,6 +715,7 @@ func (s *Service) ApplyImport(ctx context.Context, input ImportPreviewRequest) (
 			DocumentationURL: system.DocumentationURL,
 			Environment:      system.Environment,
 			Criticality:      system.Criticality,
+			Navigation:       system.Navigation,
 			Enabled:          system.Enabled,
 		})
 		if err != nil {
@@ -1194,6 +1198,7 @@ func (s *Service) resolveAccessForRoles(ctx context.Context, realmRoles []string
 				LaunchURL:   detail.LaunchURL,
 				Icon:        detail.Icon,
 				Category:    detail.Category,
+				Navigation:  detail.Navigation,
 				Roles:       accessRoles,
 			})
 		}

@@ -24,6 +24,7 @@ export type RbacSystem = {
   documentationUrl?: string;
   environment?: string;
   criticality?: string;
+  navigation?: string;
   enabled: boolean;
   sortOrder: number;
 };
@@ -62,6 +63,7 @@ export type UpsertRbacSystemPayload = {
   documentationUrl?: string;
   environment?: string;
   criticality?: string;
+  navigation?: string;
   enabled?: boolean;
   sortOrder?: number;
 };
@@ -159,6 +161,7 @@ export type RbacSystemAccessSummary = {
   launchUrl?: string;
   icon?: string;
   category?: string;
+  navigation?: string;
   roles: string[];
 };
 

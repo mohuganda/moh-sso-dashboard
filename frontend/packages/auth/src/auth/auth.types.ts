@@ -26,6 +26,7 @@ export interface SystemAccess {
   launchUrl?: string;
   icon?: string;
   category?: string;
+  navigation?: string;
   roles: string[];
 }
 

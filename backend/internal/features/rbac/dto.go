@@ -17,6 +17,7 @@ type System struct {
 	DocumentationURL string `json:"documentationUrl,omitempty"`
 	Environment      string `json:"environment,omitempty"`
 	Criticality      string `json:"criticality,omitempty"`
+	Navigation       string `json:"navigation,omitempty"`
 	Enabled          bool   `json:"enabled"`
 	SortOrder        int32  `json:"sortOrder"`
 }
@@ -68,6 +69,7 @@ type UpsertSystemInput struct {
 	DocumentationURL string `json:"documentationUrl"`
 	Environment      string `json:"environment"`
 	Criticality      string `json:"criticality"`
+	Navigation       string `json:"navigation"`
 	Enabled          *bool  `json:"enabled"`
 	SortOrder        int32  `json:"sortOrder"`
 }
@@ -99,6 +101,7 @@ type KeycloakDiscoveredSystem struct {
 	Icon        string                   `json:"icon,omitempty"`
 	LaunchURL   string                   `json:"launchUrl,omitempty"`
 	Category    string                   `json:"category,omitempty"`
+	Navigation  string                   `json:"navigation,omitempty"`
 	Enabled     bool                     `json:"enabled"`
 	Roles       []KeycloakDiscoveredRole `json:"roles"`
 }
@@ -242,6 +245,7 @@ type SystemAccessSummary struct {
 	LaunchURL   string   `json:"launchUrl,omitempty"`
 	Icon        string   `json:"icon,omitempty"`
 	Category    string   `json:"category,omitempty"`
+	Navigation  string   `json:"navigation,omitempty"`
 	Roles       []string `json:"roles"`
 }
 

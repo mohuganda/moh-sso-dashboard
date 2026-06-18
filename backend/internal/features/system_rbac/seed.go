@@ -30,6 +30,7 @@ type SeedSystem struct {
 	DocumentationURL string     `json:"documentationUrl,omitempty" yaml:"documentationUrl,omitempty"`
 	Environment      string     `json:"environment,omitempty" yaml:"environment,omitempty"`
 	Criticality      string     `json:"criticality,omitempty" yaml:"criticality,omitempty"`
+	Navigation       string     `json:"navigation,omitempty" yaml:"navigation,omitempty"`
 	Enabled          *bool      `json:"enabled,omitempty" yaml:"enabled,omitempty"`
 	AccessRoles      []string   `json:"accessRoles,omitempty" yaml:"accessRoles,omitempty"`
 	Roles            []SeedRole `json:"roles,omitempty" yaml:"roles,omitempty"`
@@ -46,6 +47,18 @@ type SeedRealmRole struct {
 	Name        string   `json:"name" yaml:"name"`
 	Permissions []string `json:"permissions,omitempty" yaml:"permissions,omitempty"`
 }
+
+const integratedOutbreakNavigation = `[
+  {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","icon":"surveillance","permission":"surveillance:read"},
+  {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","icon":"data-quality","permission":"data_quality:read"},
+  {"id":"document-upload","label":"Document Upload","path":"/apps/dwh/filesvr","icon":"document","permission":"documents:read"},
+  {"id":"reports","label":"Reports","path":"/apps/dwh/reports","icon":"reporting","permission":"report_browser:read"}
+]`
+
+const reportBrowserNavigation = `[
+  {"id":"reports","label":"Report Browser","path":"/apps/dwh/reports","icon":"reporting","permission":"report_browser:read"},
+  {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","icon":"dashboard","permission":"report_browser:read"}
+]`
 
 func LoadSeedFile(path string) (SeedFile, error) {
 	data, err := os.ReadFile(path)
@@ -211,6 +224,7 @@ func DefaultSeed() SeedFile {
 				Icon:        "outbreak",
 				LaunchURL:   "/portal/apps/dwh/surveillance",
 				Category:    "surveillance",
+				Navigation:  integratedOutbreakNavigation,
 				Enabled:     &enabled,
 				AccessRoles: []string{
 					authz.IntegratedOutbreakAccess,
@@ -308,6 +322,7 @@ func DefaultSeed() SeedFile {
 				Icon:        "reporting",
 				LaunchURL:   "/portal/apps/dwh/reports",
 				Category:    "reports",
+				Navigation:  reportBrowserNavigation,
 				Enabled:     &enabled,
 				AccessRoles: []string{
 					authz.ReportBrowserAccess,

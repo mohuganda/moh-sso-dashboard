@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -21,6 +22,7 @@ func (r *postgresRepository) ListSystems(ctx context.Context) ([]System, error) 
 		       COALESCE(launch_url, ''), COALESCE(category, ''), COALESCE(owner_team, ''),
 		       COALESCE(owner_name, ''), COALESCE(owner_email, ''), COALESCE(support_url, ''),
 		       COALESCE(documentation_url, ''), COALESCE(environment, ''), COALESCE(criticality, ''),
+		       COALESCE(metadata->>'navigation', ''),
 		       enabled, sort_order
 		FROM ihp_systems
 		ORDER BY sort_order, display_name, client_id
@@ -48,6 +50,7 @@ func (r *postgresRepository) ListSystems(ctx context.Context) ([]System, error) 
 			&system.DocumentationURL,
 			&system.Environment,
 			&system.Criticality,
+			&system.Navigation,
 			&system.Enabled,
 			&system.SortOrder,
 		); err != nil {
@@ -65,6 +68,7 @@ func (r *postgresRepository) GetSystem(ctx context.Context, clientID string) (Sy
 		       COALESCE(launch_url, ''), COALESCE(category, ''), COALESCE(owner_team, ''),
 		       COALESCE(owner_name, ''), COALESCE(owner_email, ''), COALESCE(support_url, ''),
 		       COALESCE(documentation_url, ''), COALESCE(environment, ''), COALESCE(criticality, ''),
+		       COALESCE(metadata->>'navigation', ''),
 		       enabled, sort_order
 		FROM ihp_systems
 		WHERE client_id = $1
@@ -83,6 +87,7 @@ func (r *postgresRepository) GetSystem(ctx context.Context, clientID string) (Sy
 		&detail.DocumentationURL,
 		&detail.Environment,
 		&detail.Criticality,
+		&detail.Navigation,
 		&detail.Enabled,
 		&detail.SortOrder,
 	)
@@ -108,16 +113,22 @@ func (r *postgresRepository) UpsertSystem(ctx context.Context, input UpsertSyste
 	if input.Enabled != nil {
 		enabled = *input.Enabled
 	}
+	metadata, err := json.Marshal(map[string]string{
+		"navigation": input.Navigation,
+	})
+	if err != nil {
+		return System{}, err
+	}
 
 	var system System
-	err := r.db.QueryRowContext(ctx, `
+	err = r.db.QueryRowContext(ctx, `
 		INSERT INTO ihp_systems (
 			client_id, display_name, description, icon, launch_url, category, owner_team, owner_name,
-			owner_email, support_url, documentation_url, environment, criticality, enabled, sort_order
+			owner_email, support_url, documentation_url, environment, criticality, enabled, sort_order, metadata
 		) VALUES (
 			$1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''),
 			NULLIF($8, ''), NULLIF($9, ''), NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''),
-			NULLIF($13, ''), $14, $15
+			NULLIF($13, ''), $14, $15, $16
 		)
 		ON CONFLICT (client_id) DO UPDATE SET
 			display_name = EXCLUDED.display_name,
@@ -134,13 +145,17 @@ func (r *postgresRepository) UpsertSystem(ctx context.Context, input UpsertSyste
 			criticality = EXCLUDED.criticality,
 			enabled = EXCLUDED.enabled,
 			sort_order = EXCLUDED.sort_order,
+			metadata = CASE
+				WHEN NULLIF(EXCLUDED.metadata->>'navigation', '') IS NULL THEN ihp_systems.metadata
+				ELSE COALESCE(ihp_systems.metadata, '{}'::jsonb) || EXCLUDED.metadata
+			END,
 			updated_at = now()
 		RETURNING id::text, client_id, display_name, COALESCE(description, ''), COALESCE(icon, ''),
 		          COALESCE(launch_url, ''), COALESCE(category, ''), COALESCE(owner_team, ''),
 		          COALESCE(owner_name, ''), COALESCE(owner_email, ''), COALESCE(support_url, ''),
 		          COALESCE(documentation_url, ''), COALESCE(environment, ''), COALESCE(criticality, ''),
-		          enabled, sort_order
-	`, input.ClientID, input.DisplayName, input.Description, input.Icon, input.LaunchURL, input.Category, input.OwnerTeam, input.OwnerName, input.OwnerEmail, input.SupportURL, input.DocumentationURL, input.Environment, input.Criticality, enabled, input.SortOrder).Scan(
+		          COALESCE(metadata->>'navigation', ''), enabled, sort_order
+	`, input.ClientID, input.DisplayName, input.Description, input.Icon, input.LaunchURL, input.Category, input.OwnerTeam, input.OwnerName, input.OwnerEmail, input.SupportURL, input.DocumentationURL, input.Environment, input.Criticality, enabled, input.SortOrder, metadata).Scan(
 		&system.ID,
 		&system.ClientID,
 		&system.DisplayName,
@@ -155,6 +170,7 @@ func (r *postgresRepository) UpsertSystem(ctx context.Context, input UpsertSyste
 		&system.DocumentationURL,
 		&system.Environment,
 		&system.Criticality,
+		&system.Navigation,
 		&system.Enabled,
 		&system.SortOrder,
 	)

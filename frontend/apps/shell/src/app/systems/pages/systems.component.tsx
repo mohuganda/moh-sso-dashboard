@@ -67,6 +67,7 @@ function toDraft(system: RbacSystem): SystemDraft {
     documentationUrl: system.documentationUrl || "",
     environment: system.environment || "",
     criticality: system.criticality || "",
+    navigation: system.navigation || "",
     enabled: system.enabled,
     sortOrder: system.sortOrder ?? 0,
   };
@@ -316,6 +317,12 @@ function SystemPanel({ clientId, onClose }: { clientId: string; onClose: () => v
                 onChange={(event) => updateField("icon", event.target.value)}
               />
             </Stack>
+            <TextArea
+              id="system-navigation"
+              labelText="Navigation JSON"
+              value={currentDraft.navigation}
+              onChange={(event) => updateField("navigation", event.target.value)}
+            />
             <Stack orientation="horizontal" gap={4}>
               <TextInput
                 id="system-environment"

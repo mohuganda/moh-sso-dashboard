@@ -151,7 +151,9 @@ func upsertSystem(ctx context.Context, tx *sql.Tx, system SeedSystem) (string, e
 		enabled = *system.Enabled
 	}
 
-	metadata, err := json.Marshal(map[string]any{})
+	metadata, err := json.Marshal(map[string]string{
+		"navigation": strings.TrimSpace(system.Navigation),
+	})
 	if err != nil {
 		return "", err
 	}
@@ -180,7 +182,10 @@ func upsertSystem(ctx context.Context, tx *sql.Tx, system SeedSystem) (string, e
 			environment = EXCLUDED.environment,
 			criticality = EXCLUDED.criticality,
 			enabled = EXCLUDED.enabled,
-			metadata = EXCLUDED.metadata,
+			metadata = CASE
+				WHEN NULLIF(EXCLUDED.metadata->>'navigation', '') IS NULL THEN ihp_systems.metadata
+				ELSE COALESCE(ihp_systems.metadata, '{}'::jsonb) || EXCLUDED.metadata
+			END,
 			updated_at = now()
 		RETURNING id::text
 	`, system.ClientID, system.DisplayName, system.Description, system.Icon, system.LaunchURL, system.Category, system.OwnerTeam, system.OwnerName, system.OwnerEmail, system.SupportURL, system.DocumentationURL, system.Environment, system.Criticality, enabled, metadata).Scan(&id)

@@ -158,6 +158,7 @@ func (r *DBResolver) listAccessibleSystems(
 			COALESCE(s.launch_url, '') AS launch_url,
 			COALESCE(s.icon, '') AS icon,
 			COALESCE(s.category, '') AS category,
+			COALESCE(s.metadata->>'navigation', '') AS navigation,
 			ARRAY(
 				SELECT DISTINCT ar.role_name
 				FROM ihp_system_access_roles ar
@@ -186,6 +187,7 @@ func (r *DBResolver) listAccessibleSystems(
 			&system.LaunchURL,
 			&system.Icon,
 			&system.Category,
+			&system.Navigation,
 			pq.Array(&system.Roles),
 		); err != nil {
 			return nil, err
