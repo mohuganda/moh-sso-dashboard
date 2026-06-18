@@ -13,4 +13,5 @@ type HealthResponse struct {
 	Reason        string                 `json:"reason,omitempty"`
 	Service       string                 `json:"service,omitempty"`
 	Components    *HealthComponentStatus `json:"components,omitempty"`
+	Version       string                 `json:"version,omitempty"`
 }

@@ -6,6 +6,17 @@ BIN_DIR = bin
 MAIN_FILE = ./cmd/server/main.go
 GO_FILES = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
+
+VERSION := $(shell git describe --tags --always --dirty)
+COMMIT := $(shell git rev-parse --short HEAD)
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+LDFLAGS := -s -w \
+
+	-X 'github.com/mohuganda/moh-sso-dashboard/internal/version.Version=$(VERSION)' \
+	-X 'github.com/mohuganda/moh-sso-dashboard/internal/version.Commit=$(COMMIT)' \
+	-X 'github.com/mohuganda/moh-sso-dashboard/internal/version.BuildTime=$(BUILD_TIME)'
+
 # ============================================================
 #                 🔧 Configuration
 # ============================================================
@@ -80,6 +91,12 @@ clean: ## Remove binaries and temp files
 	@echo "🧹 Cleaning up..."
 	@rm -rf $(BIN_DIR)
 
+
+version:
+	@echo "Version: $(VERSION)"
+	@echo "Commit: $(COMMIT)"
+	@echo "Build Time: $(BUILD_TIME)"
+
 # ============================================================
 #        🐳 Docker Commands
 # ============================================================
@@ -138,7 +155,7 @@ migratedown1: ## Rollback one migration
 # ============================================================
 # Make everything phony
 # ============================================================
-.PHONY: help tidy fmt lint test build run clean \
+.PHONY: help tidy fmt lint test build run clean version \
         postgres createdb backupdb restoredb \
         docker-up docker-down docker-logs docker-restart \
         create_migration migrateup migrateup1 migratedown migratedown1 \

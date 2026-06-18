@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/http/response"
+	"github.com/moh-sso-dashboard/internal/version"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -41,6 +42,7 @@ func (h *HealthHandler) HandleLive(c *gin.Context) {
 	response.OK(c, http.StatusOK, HealthResponse{
 		Status:        "alive",
 		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
+		Version:       "v" + version.Get().Version + " (" + version.Get().Commit + ")",
 	})
 }
 
@@ -79,6 +81,7 @@ func (h *HealthHandler) HandleReady(c *gin.Context) {
 	response.OK(c, http.StatusOK, HealthResponse{
 		Status:        "ready",
 		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
+		Version:       "v" + version.Get().Version + " (" + version.Get().Commit + ")",
 	})
 }
 
@@ -130,5 +133,6 @@ func (h *HealthHandler) HandleHealth(c *gin.Context) {
 			Keycloak: keycloak,
 			Redis:    redis,
 		},
+		Version: "v" + version.Get().Version + " (" + version.Get().Commit + ")",
 	})
 }
