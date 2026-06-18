@@ -6,6 +6,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	DocumentStatusPending   = "PENDING"
+	DocumentStatusCompleted = "COMPLETED"
+)
+
 type UpdateDocumentRequest struct {
 	OriginalFilename *string `json:"original_filename"`
 	ContentType      *string `json:"content_type"`

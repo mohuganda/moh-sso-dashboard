@@ -11,6 +11,8 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 )
 
+type announcement = db.Announcement
+
 func nullStringPtr(ns sql.NullString) *string {
 	if !ns.Valid {
 		return nil

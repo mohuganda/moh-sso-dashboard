@@ -14,6 +14,32 @@ type AlertListParams struct {
 	RegionID   uuid.UUID
 }
 
+type WeeklyStatusListInput struct {
+	EpiWeekID   uuid.UUID
+	RegionID    uuid.UUID
+	DistrictID  uuid.UUID
+	SubCountyID uuid.UUID
+	DiseaseID   uuid.UUID
+	IndicatorID uuid.UUID
+	Status      string
+}
+
+type CreateImportBatchInput struct {
+	SourceName  string
+	FileName    *string
+	DatasetType string
+	ImportedBy  *string
+	Status      string
+	Notes       *string
+	DocumentID  *uuid.UUID
+}
+
+type UpdateImportBatchStatusInput struct {
+	ID     uuid.UUID
+	Status string
+	Notes  *string
+}
+
 type AlertResponse struct {
 	ID           uuid.UUID  `json:"id"`
 	ExternalID   *string    `json:"external_id,omitempty"`

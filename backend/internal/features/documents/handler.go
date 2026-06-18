@@ -12,7 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -188,9 +187,9 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 
 	checksumStr := hex.EncodeToString(hasher.Sum(nil))
 
-	status := db.DocumentStatusCOMPLETED
+	status := DocumentStatusCompleted
 	if fileNeedsProcessing && !isTemplate {
-		status = db.DocumentStatusPENDING
+		status = DocumentStatusPending
 	}
 
 	if templateCode != "" {

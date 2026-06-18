@@ -153,6 +153,22 @@ func uuidNullFromPtr(value *uuid.UUID) uuid.NullUUID {
 	}
 }
 
+func uuidNull(value uuid.UUID) uuid.NullUUID {
+	if value == uuid.Nil {
+		return uuid.NullUUID{}
+	}
+	return uuid.NullUUID{UUID: value, Valid: true}
+}
+
+func riskLevelNull(value string) db.NullRiskLevel {
+	switch db.RiskLevel(value) {
+	case db.RiskLevelMAROON, db.RiskLevelRED, db.RiskLevelYELLOW, db.RiskLevelGREEN:
+		return db.NullRiskLevel{RiskLevel: db.RiskLevel(value), Valid: true}
+	default:
+		return db.NullRiskLevel{}
+	}
+}
+
 func toEpiWeekResponse(item db.EpiWeek) EpiWeekResponse {
 	return EpiWeekResponse{
 		ID:            item.ID,

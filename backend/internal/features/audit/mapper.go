@@ -137,6 +137,18 @@ func auditLogResponse(
 	return response
 }
 
+func extractAuditMetadata(r pqtype.NullRawMessage) map[string]any {
+	if !r.Valid || len(r.RawMessage) == 0 {
+		return nil
+	}
+
+	var meta map[string]any
+	if err := json.Unmarshal(r.RawMessage, &meta); err != nil {
+		return nil
+	}
+	return meta
+}
+
 func stringValue(value any) string {
 	switch v := value.(type) {
 	case string:

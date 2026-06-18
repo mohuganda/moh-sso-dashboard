@@ -181,6 +181,18 @@ func (s *AlertService) ListAlerts(
 	return items, nil
 }
 
+func (s *AlertService) ListAlertsFromParams(
+	ctx context.Context,
+	params AlertListParams,
+) ([]db.ListAlertsRow, error) {
+	return s.ListAlerts(ctx, db.ListAlertsParams{
+		EpiWeekID:  uuidNull(params.EpiWeekID),
+		DiseaseID:  uuidNull(params.DiseaseID),
+		DistrictID: uuidNull(params.DistrictID),
+		RegionID:   uuidNull(params.RegionID),
+	})
+}
+
 func (s *AlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) error {
 	if err := requireUUID("batch id", batchID); err != nil {
 		return err

@@ -105,6 +105,17 @@ func (s *EpiWeekService) GetEpiWeekByYearWeek(
 	return item, nil
 }
 
+func (s *EpiWeekService) GetEpiWeekByYearWeekValue(
+	ctx context.Context,
+	year int32,
+	week int32,
+) (db.EpiWeek, error) {
+	return s.GetEpiWeekByYearWeek(ctx, db.GetEpiWeekByYearWeekParams{
+		EpiYear: year,
+		EpiWeek: week,
+	})
+}
+
 func (s *EpiWeekService) ListEpiWeeksByYear(
 	ctx context.Context,
 	year int32,

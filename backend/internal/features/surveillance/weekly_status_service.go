@@ -110,6 +110,21 @@ func (s *WeeklyStatusService) List(
 	return rows, nil
 }
 
+func (s *WeeklyStatusService) ListFromInput(
+	ctx context.Context,
+	input WeeklyStatusListInput,
+) ([]db.WeeklyStatus, error) {
+	return s.List(ctx, db.ListWeeklyStatusesParams{
+		EpiWeekID:   uuidNull(input.EpiWeekID),
+		RegionID:    uuidNull(input.RegionID),
+		DistrictID:  uuidNull(input.DistrictID),
+		SubCountyID: uuidNull(input.SubCountyID),
+		DiseaseID:   uuidNull(input.DiseaseID),
+		IndicatorID: uuidNull(input.IndicatorID),
+		Status:      riskLevelNull(input.Status),
+	})
+}
+
 func (s *WeeklyStatusService) ListDetailed(
 	ctx context.Context,
 	arg db.ListWeeklyStatusesDetailedParams,
@@ -124,6 +139,21 @@ func (s *WeeklyStatusService) ListDetailed(
 
 	s.log.Info("detailed weekly statuses listed", "count", len(rows))
 	return rows, nil
+}
+
+func (s *WeeklyStatusService) ListDetailedFromInput(
+	ctx context.Context,
+	input WeeklyStatusListInput,
+) ([]db.ListWeeklyStatusesDetailedRow, error) {
+	return s.ListDetailed(ctx, db.ListWeeklyStatusesDetailedParams{
+		EpiWeekID:   uuidNull(input.EpiWeekID),
+		RegionID:    uuidNull(input.RegionID),
+		DistrictID:  uuidNull(input.DistrictID),
+		SubCountyID: uuidNull(input.SubCountyID),
+		DiseaseID:   uuidNull(input.DiseaseID),
+		IndicatorID: uuidNull(input.IndicatorID),
+		Status:      riskLevelNull(input.Status),
+	})
 }
 
 func (s *WeeklyStatusService) ListByWeek(

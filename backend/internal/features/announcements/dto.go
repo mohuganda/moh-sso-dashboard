@@ -1,6 +1,7 @@
 package announcements
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,6 +42,40 @@ type updateAnnouncementRequest struct {
 	RoleNames     []string `json:"role_names"`
 	UserIDs       []string `json:"user_ids"`
 	NotifyByEmail bool     `json:"notify_by_email"`
+}
+
+type CreateAnnouncementInput struct {
+	Title         string
+	Message       string
+	Summary       sql.NullString
+	Level         string
+	Tag           sql.NullString
+	LinkURL       sql.NullString
+	Priority      int32
+	IsPinned      bool
+	Status        string
+	PublishAt     sql.NullTime
+	ExpiresAt     sql.NullTime
+	AudienceType  string
+	NotifyByEmail bool
+	CreatedBy     uuid.UUID
+}
+
+type UpdateAnnouncementInput struct {
+	ID            uuid.UUID
+	Title         string
+	Message       string
+	Summary       sql.NullString
+	Level         string
+	Tag           sql.NullString
+	LinkURL       sql.NullString
+	Priority      int32
+	IsPinned      bool
+	PublishAt     sql.NullTime
+	ExpiresAt     sql.NullTime
+	AudienceType  string
+	NotifyByEmail bool
+	UpdatedBy     uuid.UUID
 }
 
 type AnnouncementResponse struct {

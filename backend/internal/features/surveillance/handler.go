@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
@@ -42,6 +41,83 @@ func NewHandler(
 	}
 }
 
+func parseWeeklyStatusListInput(c *gin.Context, validateStatus bool) (WeeklyStatusListInput, bool) {
+	var input WeeklyStatusListInput
+
+	if epiWeekID := c.Query("epiWeekID"); epiWeekID != "" {
+		id, err := uuid.Parse(epiWeekID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
+			return input, false
+		}
+		input.EpiWeekID = id
+	}
+
+	if regionID := c.Query("regionID"); regionID != "" {
+		id, err := uuid.Parse(regionID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid regionID", "request failed")
+			return input, false
+		}
+		input.RegionID = id
+	}
+
+	if districtID := c.Query("districtID"); districtID != "" {
+		id, err := uuid.Parse(districtID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
+			return input, false
+		}
+		input.DistrictID = id
+	}
+
+	if subCountyID := c.Query("subCountyID"); subCountyID != "" {
+		id, err := uuid.Parse(subCountyID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", "request failed")
+			return input, false
+		}
+		input.SubCountyID = id
+	}
+
+	if diseaseID := c.Query("diseaseID"); diseaseID != "" {
+		id, err := uuid.Parse(diseaseID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
+			return input, false
+		}
+		input.DiseaseID = id
+	}
+
+	if indicatorID := c.Query("indicatorID"); indicatorID != "" {
+		id, err := uuid.Parse(indicatorID)
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", "request failed")
+			return input, false
+		}
+		input.IndicatorID = id
+	}
+
+	if status := c.Query("status"); status != "" {
+		if validateStatus && !isValidRiskLevel(status) {
+			response.Fail(c, http.StatusBadRequest, "invalid status", status)
+			return input, false
+		}
+		input.Status = status
+	}
+
+	return input, true
+}
+
+func isValidRiskLevel(status string) bool {
+	switch status {
+	case "MAROON", "RED", "YELLOW", "GREEN":
+		return true
+	default:
+		return false
+	}
+}
+
 // weeks
 func (h *Handler) ListEpiWeeksByYearWeek(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -70,12 +146,7 @@ func (h *Handler) ListEpiWeeksByYearWeek(c *gin.Context) {
 		return
 	}
 
-	params := db.GetEpiWeekByYearWeekParams{
-		EpiYear: int32(year),
-		EpiWeek: int32(week),
-	}
-
-	data, err := h.epiWeekService.GetEpiWeekByYearWeek(ctx, params)
+	data, err := h.epiWeekService.GetEpiWeekByYearWeekValue(ctx, int32(year), int32(week))
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to get epi week by year and week", "request failed")
 		return
@@ -226,11 +297,7 @@ func (h *Handler) UpsertDistrict(c *gin.Context) {
 		return
 	}
 
-	data, err := h.locationService.UpsertDistrict(ctx, db.UpsertDistrictParams{
-		Name:     req.Name,
-		RegionID: uuidNullFromPtr(req.RegionID),
-		Code:     sqlNullStringFromPtr(req.Code),
-	})
+	data, err := h.locationService.UpsertDistrictFromRequest(ctx, req)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to upsert district", "request failed")
 		return
@@ -252,11 +319,7 @@ func (h *Handler) UpsertSubcounty(c *gin.Context) {
 		return
 	}
 
-	data, err := h.locationService.UpsertSubcounty(ctx, db.UpsertSubCountyParams{
-		Name:       req.Name,
-		DistrictID: *req.DistrictID,
-		Code:       sqlNullStringFromPtr(req.Code),
-	})
+	data, err := h.locationService.UpsertSubcountyFromRequest(ctx, req)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to upsert subcounty", "request failed")
 		return
@@ -546,70 +609,12 @@ func (h *Handler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
 func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	params := db.ListWeeklyStatusesParams{}
-
-	if epiWeekID := c.Query("epiWeekID"); epiWeekID != "" {
-		id, err := uuid.Parse(epiWeekID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
-			return
-		}
-		params.EpiWeekID = uuid.NullUUID{UUID: id, Valid: true}
+	params, ok := parseWeeklyStatusListInput(c, false)
+	if !ok {
+		return
 	}
 
-	if regionID := c.Query("regionID"); regionID != "" {
-		id, err := uuid.Parse(regionID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid regionID", "request failed")
-			return
-		}
-		params.RegionID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if districtID := c.Query("districtID"); districtID != "" {
-		id, err := uuid.Parse(districtID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
-			return
-		}
-		params.DistrictID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if subCountyID := c.Query("subCountyID"); subCountyID != "" {
-		id, err := uuid.Parse(subCountyID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", "request failed")
-			return
-		}
-		params.SubCountyID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if diseaseID := c.Query("diseaseID"); diseaseID != "" {
-		id, err := uuid.Parse(diseaseID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
-			return
-		}
-		params.DiseaseID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if indicatorID := c.Query("indicatorID"); indicatorID != "" {
-		id, err := uuid.Parse(indicatorID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", "request failed")
-			return
-		}
-		params.IndicatorID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if status := c.Query("status"); status != "" {
-		params.Status = db.NullRiskLevel{
-			RiskLevel: db.RiskLevel(status),
-			Valid:     true,
-		}
-	}
-
-	data, err := h.weeklyStatusService.List(ctx, params)
+	data, err := h.weeklyStatusService.ListFromInput(ctx, params)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses", "request failed")
 		return
@@ -621,76 +626,12 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	params := db.ListWeeklyStatusesDetailedParams{}
-
-	if epiWeekID := c.Query("epiWeekID"); epiWeekID != "" {
-		id, err := uuid.Parse(epiWeekID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid epiWeekID", "request failed")
-			return
-		}
-		params.EpiWeekID = uuid.NullUUID{UUID: id, Valid: true}
+	params, ok := parseWeeklyStatusListInput(c, true)
+	if !ok {
+		return
 	}
 
-	if regionID := c.Query("regionID"); regionID != "" {
-		id, err := uuid.Parse(regionID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid regionID", "request failed")
-			return
-		}
-		params.RegionID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if districtID := c.Query("districtID"); districtID != "" {
-		id, err := uuid.Parse(districtID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
-			return
-		}
-		params.DistrictID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if subCountyID := c.Query("subCountyID"); subCountyID != "" {
-		id, err := uuid.Parse(subCountyID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid subCountyID", "request failed")
-			return
-		}
-		params.SubCountyID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if diseaseID := c.Query("diseaseID"); diseaseID != "" {
-		id, err := uuid.Parse(diseaseID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid diseaseID", "request failed")
-			return
-		}
-		params.DiseaseID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if indicatorID := c.Query("indicatorID"); indicatorID != "" {
-		id, err := uuid.Parse(indicatorID)
-		if err != nil {
-			response.Fail(c, http.StatusBadRequest, "invalid indicatorID", "request failed")
-			return
-		}
-		params.IndicatorID = uuid.NullUUID{UUID: id, Valid: true}
-	}
-
-	if status := c.Query("status"); status != "" {
-		switch db.RiskLevel(status) {
-		case db.RiskLevelMAROON, db.RiskLevelRED, db.RiskLevelYELLOW, db.RiskLevelGREEN:
-			params.Status = db.NullRiskLevel{
-				RiskLevel: db.RiskLevel(status),
-				Valid:     true,
-			}
-		default:
-			response.Fail(c, http.StatusBadRequest, "invalid status", status)
-			return
-		}
-	}
-
-	rows, err := h.weeklyStatusService.ListDetailed(ctx, params)
+	rows, err := h.weeklyStatusService.ListDetailedFromInput(ctx, params)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses detailed", "request failed")
 		return
@@ -795,26 +736,7 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 		}
 	}
 
-	filters := db.ListAlertsParams{
-		EpiWeekID: uuid.NullUUID{
-			UUID:  params.EpiWeekID,
-			Valid: params.EpiWeekID != uuid.Nil,
-		},
-		DiseaseID: uuid.NullUUID{
-			UUID:  params.DiseaseID,
-			Valid: params.DiseaseID != uuid.Nil,
-		},
-		DistrictID: uuid.NullUUID{
-			UUID:  params.DistrictID,
-			Valid: params.DistrictID != uuid.Nil,
-		},
-		RegionID: uuid.NullUUID{
-			UUID:  params.RegionID,
-			Valid: params.RegionID != uuid.Nil,
-		},
-	}
-
-	data, err := h.alertService.ListAlerts(ctx, filters)
+	data, err := h.alertService.ListAlertsFromParams(ctx, params)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list alerts", "request failed")
 		return
@@ -899,14 +821,14 @@ func (h *Handler) CreateImportBatch(c *gin.Context) {
 		status = "pending"
 	}
 
-	data, err := h.importService.CreateImportBatch(ctx, db.CreateImportBatchParams{
+	data, err := h.importService.CreateImportBatchFromInput(ctx, CreateImportBatchInput{
 		SourceName:  req.SourceName,
-		FileName:    sqlNullStringFromPtr(req.FileName),
+		FileName:    req.FileName,
 		DatasetType: req.DatasetType,
-		ImportedBy:  sqlNullStringFromPtr(req.ImportedBy),
+		ImportedBy:  req.ImportedBy,
 		Status:      status,
-		Notes:       sqlNullStringFromPtr(req.Notes),
-		DocumentID:  uuidNullFromPtr(req.DocumentID),
+		Notes:       req.Notes,
+		DocumentID:  req.DocumentID,
 	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to create import batch", "request failed")
@@ -937,10 +859,10 @@ func (h *Handler) UpdateImportBatchStatus(c *gin.Context) {
 		return
 	}
 
-	data, err := h.importService.UpdateImportBatchStatus(ctx, db.UpdateImportBatchStatusParams{
+	data, err := h.importService.UpdateImportBatchStatusFromInput(ctx, UpdateImportBatchStatusInput{
 		ID:     batchID,
 		Status: req.Status,
-		Notes:  sqlNullStringFromPtr(req.Notes),
+		Notes:  req.Notes,
 	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to update import batch status", "request failed")

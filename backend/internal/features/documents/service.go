@@ -28,7 +28,7 @@ type CreateDocumentInput struct {
 	ObjectKey        string
 	UploadedBy       uuid.UUID
 	ProcessType      models.ProcessType
-	Status           db.DocumentStatus
+	Status           string
 	IsTemplate       bool
 	Metadata         map[string]any
 }
@@ -112,8 +112,8 @@ func (s *Service) CreateDocument(
 
 	needsProcessing := requiresProcessing(input.ContentType, input.OriginalFilename)
 
-	status := input.Status
-	if status == "" {
+	status := db.DocumentStatus(input.Status)
+	if input.Status == "" {
 		if needsProcessing && !input.IsTemplate {
 			status = db.DocumentStatusPENDING
 		} else {

@@ -66,7 +66,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 	clientHandler := clientfeature.NewHandler(deps.Services.Clients, deps.Services.Audit, deps.Cache)
 	userHandler := userfeature.NewHandler(deps.Services.Users, deps.Services.Audit, deps.Cache)
 	metricsHandler := metricsfeature.NewHandler(deps.Services.Metrics)
-	auditHandler := auditfeature.NewHandler(deps.Store, deps.Cache)
+	auditHandler := auditfeature.NewHandler(auditfeature.NewService(auditfeature.NewRepository(deps.Store)), deps.Cache)
 	notificationsHandler := notificationsfeature.NewHandler(deps.Services.Notifications)
 
 	documentHandler := documentsfeature.NewHandler(

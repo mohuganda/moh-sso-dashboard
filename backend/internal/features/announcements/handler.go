@@ -1,7 +1,6 @@
 package announcements
 
 import (
-	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
@@ -99,7 +97,7 @@ func getCurrentUserID(c *gin.Context) (uuid.UUID, bool) {
 
 func (h *Handler) announcementResponsesWithAttachments(
 	ctx *gin.Context,
-	items []db.Announcement,
+	items []announcement,
 	adminLinks bool,
 ) []AnnouncementResponse {
 	res := make([]AnnouncementResponse, len(items))
@@ -122,12 +120,10 @@ func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListAnnouncementsAdmin(
+	items, err := h.announcementService.ListAnnouncementsAdminPage(
 		c.Request.Context(),
-		db.ListAnnouncementsAdminParams{
-			Limit:  limit,
-			Offset: offset,
-		},
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcements")
@@ -205,24 +201,24 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		return
 	}
 
-	params := db.CreateAnnouncementParams{
+	input := CreateAnnouncementInput{
 		Title:         strings.TrimSpace(req.Title),
 		Message:       strings.TrimSpace(req.Message),
 		Summary:       nullableString(req.Summary),
-		Level:         dbAnnouncementLevel(req.Level),
+		Level:         req.Level,
 		Tag:           nullableString(req.Tag),
-		LinkUrl:       nullableString(req.LinkURL),
+		LinkURL:       nullableString(req.LinkURL),
 		Priority:      req.Priority,
 		IsPinned:      req.IsPinned,
-		Status:        dbAnnouncementStatus(req.Status),
+		Status:        req.Status,
 		PublishAt:     publishAt,
 		ExpiresAt:     expiresAt,
-		AudienceType:  dbAnnouncementAudienceType(req.AudienceType),
+		AudienceType:  req.AudienceType,
 		NotifyByEmail: req.NotifyByEmail,
 		CreatedBy:     userID,
 	}
 
-	item, err := h.announcementService.CreateAnnouncement(c.Request.Context(), params)
+	item, err := h.announcementService.CreateAnnouncementFromInput(c.Request.Context(), input)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create announcement")
 		return
@@ -310,27 +306,24 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
-	params := db.UpdateAnnouncementParams{
+	input := UpdateAnnouncementInput{
 		ID:            announcementID,
 		Title:         strings.TrimSpace(req.Title),
 		Message:       strings.TrimSpace(req.Message),
 		Summary:       nullableString(req.Summary),
-		Level:         dbAnnouncementLevel(req.Level),
+		Level:         req.Level,
 		Tag:           nullableString(req.Tag),
-		LinkUrl:       nullableString(req.LinkURL),
+		LinkURL:       nullableString(req.LinkURL),
 		Priority:      req.Priority,
 		IsPinned:      req.IsPinned,
 		PublishAt:     publishAt,
 		ExpiresAt:     expiresAt,
-		AudienceType:  dbAnnouncementAudienceType(req.AudienceType),
+		AudienceType:  req.AudienceType,
 		NotifyByEmail: req.NotifyByEmail,
-		UpdatedBy: uuid.NullUUID{
-			UUID:  userID,
-			Valid: true,
-		},
+		UpdatedBy:     userID,
 	}
 
-	item, err := h.announcementService.UpdateAnnouncement(c.Request.Context(), params)
+	item, err := h.announcementService.UpdateAnnouncementFromInput(c.Request.Context(), input)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update announcement")
 		return
@@ -441,15 +434,10 @@ func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
 		return
 	}
 
-	item, err := h.announcementService.MoveAnnouncementToDraft(
+	item, err := h.announcementService.MoveAnnouncementToDraftByUser(
 		c.Request.Context(),
-		db.DraftAnnouncementParams{
-			ID: announcementID,
-			UpdatedBy: uuid.NullUUID{
-				UUID:  userID,
-				Valid: true,
-			},
-		},
+		announcementID,
+		userID,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to draft announcement")
@@ -493,19 +481,11 @@ func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 		return
 	}
 
-	item, err := h.announcementService.ScheduleAnnouncement(
+	item, err := h.announcementService.ScheduleAnnouncementByUser(
 		c.Request.Context(),
-		db.ScheduleAnnouncementParams{
-			ID: announcementID,
-			PublishAt: sql.NullTime{
-				Time:  publishAt,
-				Valid: true,
-			},
-			UpdatedBy: uuid.NullUUID{
-				UUID:  userID,
-				Valid: true,
-			},
-		},
+		announcementID,
+		publishAt,
+		userID,
 		announcementEmailOptionsFromScheduleRequest(req, publishAt),
 	)
 	if err != nil {
@@ -940,12 +920,10 @@ func (h *Handler) ListActivePublishedAnnouncements(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListActivePublishedAnnouncements(
+	items, err := h.announcementService.ListActivePublishedAnnouncementsPage(
 		c.Request.Context(),
-		db.ListActivePublishedAnnouncementsParams{
-			Limit:  limit,
-			Offset: offset,
-		},
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch active announcements")
@@ -971,13 +949,11 @@ func (h *Handler) ListAnnouncementsForClient(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListAnnouncementsForClient(
+	items, err := h.announcementService.ListAnnouncementsForClientPage(
 		c.Request.Context(),
-		db.ListAnnouncementsForClientParams{
-			ClientID: clientID,
-			Limit:    limit,
-			Offset:   offset,
-		},
+		clientID,
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcements for client")
@@ -997,13 +973,11 @@ func (h *Handler) ListAnnouncementsForRole(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListAnnouncementsForRole(
+	items, err := h.announcementService.ListAnnouncementsForRolePage(
 		c.Request.Context(),
-		db.ListAnnouncementsForRoleParams{
-			RoleName:   roleName,
-			PageLimit:  limit,
-			PageOffset: offset,
-		},
+		roleName,
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcements for role")
@@ -1022,13 +996,11 @@ func (h *Handler) ListAnnouncementsForUser(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListAnnouncementsForUser(
+	items, err := h.announcementService.ListAnnouncementsForUserPage(
 		c.Request.Context(),
-		db.ListAnnouncementsForUserParams{
-			UserID: userID,
-			Limit:  limit,
-			Offset: offset,
-		},
+		userID,
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcements for user")

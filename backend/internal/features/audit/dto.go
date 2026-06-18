@@ -6,6 +6,40 @@ import (
 	"github.com/google/uuid"
 )
 
+type ListAuditLogsInput struct {
+	StartTime       time.Time
+	EndTime         time.Time
+	Action          string
+	UserID          *uuid.UUID
+	ClientID        string
+	IP              string
+	Success         string
+	CursorCreatedAt *time.Time
+	CursorID        *uuid.UUID
+	Limit           int32
+}
+
+type AuditWindowInput struct {
+	StartTime time.Time
+	EndTime   time.Time
+}
+
+type TopFailureIPsInput struct {
+	StartTime time.Time
+	EndTime   time.Time
+	Limit     int32
+}
+
+type ExportAuditLogsInput struct {
+	StartTime time.Time
+	EndTime   time.Time
+	Action    string
+	UserID    *uuid.UUID
+	ClientID  string
+	IP        string
+	Success   string
+}
+
 type AuditLogResponse struct {
 	ID        string         `json:"id"`
 	CreatedAt string         `json:"createdAt"`
