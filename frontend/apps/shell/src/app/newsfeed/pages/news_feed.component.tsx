@@ -278,6 +278,7 @@ function AppLink({ href, className, children }: AppLinkProps) {
 
 function AnnouncementLink({ item }: { item: Announcement }) {
   const href = item.link_url?.trim();
+  const label = item.link_label?.trim() || "Read more";
 
   if (!href) {
     return null;
@@ -286,7 +287,7 @@ function AnnouncementLink({ item }: { item: Announcement }) {
   return (
     <div className="feed-link-row">
       <AppLink href={href} className="feed-link">
-        Read more
+        {label}
         <ChevronRight size={16} />
       </AppLink>
     </div>

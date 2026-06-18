@@ -37,6 +37,27 @@ import { AnnouncementBulkActions } from "../components/announcement-bulk-actions
 import { AnnouncementActionsMenu } from "../components/announcement-actions-menu.component";
 import { ManageAnnouncementsPanel } from "../components/manage-announcement-panel";
 
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== "object") {
+    return fallback;
+  }
+
+  const maybeError = error as {
+    data?: {
+      message?: unknown;
+      error?: {
+        message?: unknown;
+      };
+    };
+    error?: unknown;
+  };
+
+  if (typeof maybeError.data?.message === "string") return maybeError.data.message;
+  if (typeof maybeError.data?.error?.message === "string") return maybeError.data.error.message;
+  if (typeof maybeError.error === "string") return maybeError.error;
+  return fallback;
+}
+
 /* -----------------------------
  * Filters
  * ----------------------------- */
@@ -180,6 +201,14 @@ export function AnnouncementsPage() {
     return filteredAnnouncements.slice(start, start + pageSize);
   }, [filteredAnnouncements, page, pageSize]);
 
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filteredAnnouncements.length / pageSize));
+
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [filteredAnnouncements.length, page, pageSize]);
+
   /* -----------------------------
    * Rows
    * ----------------------------- */
@@ -310,7 +339,7 @@ export function AnnouncementsPage() {
     return (
       <ErrorState
         title="Failed to load announcements"
-        description={(error as any)?.data?.message ?? "Failed to load announcements"}
+        description={getApiErrorMessage(error, "Failed to load announcements")}
         primaryAction={{ label: "Retry", onClick: refetch }}
       />
     );
@@ -530,9 +559,15 @@ export function AnnouncementsPage() {
 
                       {headers
                         .filter((header) => header.key !== "raw")
-                        .map((header) => (
-                          <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
-                        ))}
+                        .map((header) => {
+                          const { key, ...headerProps } = getHeaderProps({ header });
+
+                          return (
+                            <TableHeader key={key} {...headerProps}>
+                              {header.header}
+                            </TableHeader>
+                          );
+                        })}
                     </TableRow>
                   </TableHead>
 
@@ -541,8 +576,10 @@ export function AnnouncementsPage() {
                       const announcement = row.cells.find((cell) => cell.info.header === "raw")
                         ?.value as Announcement;
 
+                      const { key, ...rowProps } = getRowProps({ row });
+
                       return (
-                        <TableRow {...getRowProps({ row })}>
+                        <TableRow key={key} {...rowProps}>
                           <TableSelectRow {...getSelectionProps({ row })} />
 
                           {row.cells.map((cell) => {
