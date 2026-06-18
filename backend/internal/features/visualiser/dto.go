@@ -1,5 +1,22 @@
 package visualiser
 
+type DataElementsRequest struct {
+	DataSetID *string `json:"data_set_id"`
+}
+
+type DataValuesRequest struct {
+	OU           []string `json:"ou"`
+	PE           []string `json:"pe"`
+	DX           []string `json:"dx"`
+	StartDate    string   `json:"startDate"`
+	EndDate      string   `json:"endDate"`
+	OrgunitLevel any      `json:"orgunitLevel"`
+}
+
+type DataElementsByThemeRequest struct {
+	ThemeID string `json:"theme_id" binding:"required"`
+}
+
 type DatasetResponse struct {
 	DatasetKey  int64  `json:"dataset_key"`
 	DatasetID   string `json:"dataset_id"`

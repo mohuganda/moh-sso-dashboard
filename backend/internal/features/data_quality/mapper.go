@@ -122,3 +122,54 @@ func scanIssue(scanner interface {
 		TimePeriod:   dqNullStringPtr(timePeriod),
 	}, nil
 }
+
+func scanIssueStage(scanner interface {
+	Scan(dest ...interface{}) error
+}) (issueStageResponse, error) {
+	var row issueStageResponse
+	var status sql.NullString
+	var resolutionAction sql.NullString
+	var resolvedBy sql.NullString
+	var resolutionDate sql.NullTime
+	var verificationStatus sql.NullString
+	var verifiedBy sql.NullString
+	var verificationDate sql.NullTime
+	var preventiveAction sql.NullString
+	var processChange sql.NullString
+	var preventiveOwner sql.NullString
+	var dueDate sql.NullTime
+
+	if err := scanner.Scan(
+		&row.ID,
+		&row.IssueCode,
+		&status,
+		&row.IsCurrent,
+		&resolutionAction,
+		&resolvedBy,
+		&resolutionDate,
+		&verificationStatus,
+		&verifiedBy,
+		&verificationDate,
+		&preventiveAction,
+		&processChange,
+		&preventiveOwner,
+		&dueDate,
+	); err != nil {
+		return issueStageResponse{}, err
+	}
+
+	row.Status = dqNullStringPtr(status)
+	row.Stage = row.Status
+	row.ResolutionAction = dqNullStringPtr(resolutionAction)
+	row.ResolvedBy = dqNullStringPtr(resolvedBy)
+	row.ResolutionDate = dqNullDatePtr(resolutionDate)
+	row.VerificationStatus = dqNullStringPtr(verificationStatus)
+	row.VerifiedBy = dqNullStringPtr(verifiedBy)
+	row.VerificationDate = dqNullDatePtr(verificationDate)
+	row.PreventiveAction = dqNullStringPtr(preventiveAction)
+	row.ProcessChange = dqNullStringPtr(processChange)
+	row.PreventiveOwner = dqNullStringPtr(preventiveOwner)
+	row.DueDate = dqNullDatePtr(dueDate)
+
+	return row, nil
+}
