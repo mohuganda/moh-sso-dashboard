@@ -2,37 +2,63 @@ import { useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
-import { useListClientsQuery } from "@moh-sso/api";
-import { useAuthorization } from "@moh-sso/auth";
+import { PERMISSIONS, useAuthorization } from "@moh-sso/auth";
 import { AppGridContent } from "@moh-sso/ui";
 import { setActiveClient, setClients } from "@moh-sso/state";
+
+import { buildAccessibleClients } from "@/app/access/accessClients";
 
 type ConnectedAppGridContentProps = {
   onSelect?: () => void;
 };
 
+const DATA_STATISTICS_CLIENT_ID = "__default__";
+
 function isExternalUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
+}
+
+function normalizePortalPath(href: string): string {
+  if (isExternalUrl(href)) {
+    return href;
+  }
+
+  if (href === "/portal") {
+    return "/apps";
+  }
+
+  if (href.startsWith("/portal/")) {
+    return href.replace(/^\/portal/, "");
+  }
+
+  return href;
 }
 
 export function ConnectedAppGridContent({ onSelect }: ConnectedAppGridContentProps) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { data: clients = [], isLoading, isError, refetch } = useListClientsQuery();
-  const { canLaunchSystem } = useAuthorization();
+  const { accessibleSystems, canAny } = useAuthorization();
+  const canAccessDataStatistics = canAny([
+    PERMISSIONS.dataQualityRead,
+    PERMISSIONS.documentsRead,
+    PERMISSIONS.reportBrowserRead,
+    PERMISSIONS.surveillanceRead,
+  ]);
   const visibleClients = useMemo(
     () =>
-      clients.filter((client) => {
-        if (!client.clientId) {
-          return false;
-        }
-        return canLaunchSystem(client.clientId);
+      buildAccessibleClients({
+        accessibleSystems,
+        includeDataStatistics: canAccessDataStatistics,
       }),
-    [canLaunchSystem, clients],
+    [accessibleSystems, canAccessDataStatistics],
   );
 
   useEffect(() => {
-    dispatch(setClients(visibleClients));
+    dispatch(
+      setClients(
+        visibleClients.filter((client) => client.clientId !== DATA_STATISTICS_CLIENT_ID),
+      ),
+    );
   }, [dispatch, visibleClients]);
 
   const handleOpenClient = (href: string, clientId?: string) => {
@@ -40,20 +66,19 @@ export function ConnectedAppGridContent({ onSelect }: ConnectedAppGridContentPro
       dispatch(setActiveClient(clientId));
     }
 
-    if (isExternalUrl(href)) {
-      window.open(href, "_blank", "noopener,noreferrer");
+    const targetHref = normalizePortalPath(href);
+
+    if (isExternalUrl(targetHref)) {
+      window.open(targetHref, "_blank", "noopener,noreferrer");
       return;
     }
 
-    navigate(href);
+    navigate(targetHref);
   };
 
   return (
     <AppGridContent
       clients={visibleClients}
-      isLoading={isLoading}
-      isError={isError}
-      onRetry={refetch}
       onSelect={onSelect}
       onOpenClient={handleOpenClient}
     />

@@ -4,22 +4,38 @@ import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import "./home.scss";
 
-import { EmptyState, ErrorState, useHeaderPanel, getSeverityTagType } from "@moh-sso/ui";
+import { EmptyState, useHeaderPanel, getSeverityTagType } from "@moh-sso/ui";
 import { ApplicationTile } from "@/app/home/components/app/ApplicationTile";
 import { QuickAction } from "@/app/home/components/quick-action/quick-action.component";
 import { ClientFormPanel, UserClientRolesPanel } from "@moh-sso/clients";
 import { UserFormPanel } from "@moh-sso/users";
 import {
-  useListClientsQuery,
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
 } from "@moh-sso/api";
-import { selectUser, useAuthorization } from "@moh-sso/auth";
+import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
 import { ManageAnnouncementsPanel } from "@moh-sso/announcements";
+import { buildAccessibleClients } from "@/app/access/accessClients";
+
+function normalizePortalPath(href?: string): string | undefined {
+  if (!href || /^https?:\/\//i.test(href)) {
+    return href;
+  }
+
+  if (href === "/portal") {
+    return "/apps";
+  }
+
+  if (href.startsWith("/portal/")) {
+    return href.replace(/^\/portal/, "");
+  }
+
+  return href;
+}
 
 export default function HomePage() {
   const { openPanel } = useHeaderPanel();
-  const { canLaunchSystem, accessibleSystems } = useAuthorization();
+  const { accessibleSystems, canAny } = useAuthorization();
 
   /* -----------------------------
    * Identity
@@ -29,27 +45,19 @@ export default function HomePage() {
   /* -----------------------------
    * Applications
    * ----------------------------- */
-  const {
-    data: clients = [],
-    isLoading: appsLoading,
-    isError: appsError,
-    refetch: refetchApps,
-  } = useListClientsQuery();
+  const canAccessDataStatistics = canAny([
+    PERMISSIONS.dataQualityRead,
+    PERMISSIONS.documentsRead,
+    PERMISSIONS.reportBrowserRead,
+    PERMISSIONS.surveillanceRead,
+  ]);
   const visibleClients = useMemo(
     () =>
-      clients.filter((client) => {
-        if (!client.clientId) return false;
-        return canLaunchSystem(client.clientId);
+      buildAccessibleClients({
+        accessibleSystems,
+        includeDataStatistics: canAccessDataStatistics,
       }),
-    [canLaunchSystem, clients],
-  );
-  const accessByClientId = useMemo(
-    () =>
-      accessibleSystems.reduce<Record<string, (typeof accessibleSystems)[number]>>((map, system) => {
-        map[system.clientId] = system;
-        return map;
-      }, {}),
-    [accessibleSystems],
+    [accessibleSystems, canAccessDataStatistics],
   );
 
   const { data: notifications = [], isLoading: notificationsLoading } = useGetNotificationsQuery({
@@ -102,24 +110,14 @@ export default function HomePage() {
           </Tag>
         </h4>
 
-        {appsLoading && <InlineLoading description="Loading applications…" />}
-
-        {appsError && (
-          <ErrorState
-            title="Failed to load applications"
-            description="Unable to fetch assigned applications."
-            primaryAction={{ label: "Retry", onClick: refetchApps }}
-          />
-        )}
-
-        {!appsLoading && !appsError && visibleClients.length === 0 && (
+        {visibleClients.length === 0 && (
           <EmptyState
             title="No applications assigned"
             description="You do not have access to any applications yet."
           />
         )}
 
-        {!appsLoading && !appsError && visibleClients.length > 0 && (
+        {visibleClients.length > 0 && (
           <div className="home-grid">
             {visibleClients.map((client) => (
               <ApplicationTile
@@ -128,7 +126,7 @@ export default function HomePage() {
                 name={client.name}
                 description={client.description}
                 enabled={client?.enabled}
-                rootUrl={accessByClientId[client.clientId]?.launchUrl || client.baseUrl}
+                rootUrl={normalizePortalPath(client.baseUrl)}
               />
             ))}
           </div>

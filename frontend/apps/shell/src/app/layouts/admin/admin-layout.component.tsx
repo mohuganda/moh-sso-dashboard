@@ -73,18 +73,21 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     path: "/admin",
     icon: Dashboard,
     exact: true,
+    requiredPermission: PERMISSIONS.portalAccess,
   },
   {
     id: "users",
     label: "Users",
     path: "/admin/users",
     icon: UserMultiple,
+    requiredPermission: PERMISSIONS.usersRead,
   },
   {
     id: "clients",
     label: "Clients",
     path: "/admin/clients",
     icon: Api,
+    requiredPermission: PERMISSIONS.clientsRead,
   },
   {
     id: "systems",
@@ -98,25 +101,28 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Announcements",
     path: "/admin/announcements",
     icon: Bullhorn,
+    requiredPermission: PERMISSIONS.announcementsRead,
   },
   {
     id: "emails",
     label: "Emails",
     path: "/admin/emails",
     icon: Email,
+    requiredAnyPermissions: [PERMISSIONS.emailRead, PERMISSIONS.emailManage],
   },
   {
     id: "audit-logs",
     label: "Audits",
     path: "/admin/audit-logs",
     icon: Activity,
+    requiredPermission: PERMISSIONS.auditRead,
   },
   {
     id: "rbac",
     label: "RBAC",
     path: "/admin/rbac",
     icon: UserRole,
-    requiredPermission: PERMISSIONS.rbacRolesWrite,
+    requiredAnyPermissions: [PERMISSIONS.rbacRead, PERMISSIONS.rbacRolesWrite],
   },
 ];
 
