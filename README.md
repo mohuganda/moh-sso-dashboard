@@ -634,6 +634,7 @@ Create announcement:
   "level": "information",
   "tag": "surveillance",
   "link_url": "/portal/apps/dwh/surveillance",
+  "link_label": "Open surveillance dashboard",
   "priority": 5,
   "is_pinned": true,
   "status": "draft",
@@ -679,6 +680,12 @@ Publish or schedule with transient email attachments:
 ```
 
 For transient email attachments, provide exactly one of `path` or `data_base64`.
+Persistent announcement attachments are stored as announcement assets and exposed
+through `download_url`. When an announcement is published with email delivery,
+attachments marked `include_in_email` are sent with the email and also rendered
+as secure download links in the announcement email template. If `link_url` is set,
+the template and News & Updates UI use `link_label` as the call-to-action text,
+falling back to a generic label when it is omitted.
 
 #### Email Payload
 
