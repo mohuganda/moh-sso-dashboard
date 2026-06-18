@@ -28,10 +28,19 @@
   vertical-align: top;
 }
 
+.data-validation-panel {
+  padding-block-end: 1rem;
+}
+
+.data-validation-panel .cds--form__helper-text,
 .data-validation-panel__hint {
   margin: 0;
   color: var(--cds-text-secondary, #525252);
   line-height: 1.45;
+}
+
+.data-validation-panel .cds--stack-horizontal {
+  align-items: flex-start;
 }
 
 @media (max-width: 672px) {

@@ -102,7 +102,7 @@ export function ValidationRulePanel({
   };
 
   return (
-    <Form>
+    <Form className="data-validation-panel">
       <Stack gap={7}>
         <FormGroup legendText="Rule definition">
           <Stack gap={4}>

@@ -18,6 +18,7 @@ import {
   RowActionsCell,
   TableStatusTag,
   useHeaderPanel,
+  useToast,
 } from "@moh-sso/ui";
 import { ValidationRuleActionsMenu } from "../components/validation-rule-actions-menu";
 import { ValidationRuleDetailsPanel } from "../components/validation-rule-details-panel";
@@ -63,6 +64,7 @@ function normalize(value: string) {
 
 export default function DataValidationPage() {
   const { openPanel, closePanel } = useHeaderPanel();
+  const toast = useToast();
   const [rules, setRules] = useState<ValidationRule[]>(builtInRules);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -99,6 +101,14 @@ export default function DataValidationPage() {
     return filteredRules.slice(start, start + pageSize);
   }, [filteredRules, page, pageSize]);
 
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filteredRules.length / pageSize));
+
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [filteredRules.length, page, pageSize]);
+
   const rows = paginatedRules.map((rule) => ({
     id: rule.id,
     type: rule.type,
@@ -126,6 +136,7 @@ export default function DataValidationPage() {
           initialCode={nextCustomCode}
           onSubmit={(rule) => {
             setRules((current) => [rule, ...current]);
+            toast.success("Validation rule added", `${rule.code} is now available.`);
           }}
           onClose={closePanel}
         />
@@ -154,6 +165,7 @@ export default function DataValidationPage() {
             setRules((current) =>
               current.map((item) => (item.id === updatedRule.id ? updatedRule : item)),
             );
+            toast.success("Validation rule updated", `${updatedRule.code} was saved.`);
           }}
           onClose={closePanel}
         />
@@ -163,6 +175,10 @@ export default function DataValidationPage() {
 
   const deleteRule = (rule: ValidationRule) => {
     setRules((current) => current.filter((item) => item.id !== rule.id));
+    toast.success(
+      rule.type === "builtin" ? "Built-in rule hidden" : "Validation rule deleted",
+      `${rule.code} was removed from this view.`,
+    );
   };
 
   return (
@@ -200,11 +216,15 @@ export default function DataValidationPage() {
                     <TableRow>
                       {headers
                         .filter((header) => header.key !== "raw")
-                        .map((header) => (
-                          <TableHeader {...getHeaderProps({ header })} key={header.key}>
-                            {header.header}
-                          </TableHeader>
-                        ))}
+                        .map((header) => {
+                          const { key, ...headerProps } = getHeaderProps({ header });
+
+                          return (
+                            <TableHeader key={key} {...headerProps}>
+                              {header.header}
+                            </TableHeader>
+                          );
+                        })}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -212,8 +232,10 @@ export default function DataValidationPage() {
                       const rule = row.cells.find((cell) => cell.info.header === "raw")
                         ?.value as ValidationRule;
 
+                      const { key, ...rowProps } = getRowProps({ row });
+
                       return (
-                        <TableRow {...getRowProps({ row })} key={row.id}>
+                        <TableRow key={key} {...rowProps}>
                           {row.cells.map((cell) => {
                             if (cell.info.header === "raw") return null;
 
