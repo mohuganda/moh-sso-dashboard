@@ -32,7 +32,7 @@ func (h *Handler) GetDatasets(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toDatasetResponses(results))
 }
 
 // GetDataElements gets data elements, optionally filtered by data_set_id.
@@ -47,7 +47,7 @@ func (h *Handler) GetDataElements(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toDataElementResponses(results))
 }
 
 // GetDataValues gets data values with optional filters.
@@ -63,7 +63,7 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toDataValuesResponse(results))
 }
 
 func normalizeOrgunitLevel(v any) *string {
@@ -107,7 +107,7 @@ func (h *Handler) GetThemes(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toThemeResponses(results))
 }
 
 // GetDataElementsByTheme gets data elements for a specific theme.
@@ -123,7 +123,7 @@ func (h *Handler) GetDataElementsByTheme(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toDataElementByThemeResponses(results))
 }
 
 // GetHIVSummary gets HIV summary data.
@@ -133,7 +133,7 @@ func (h *Handler) GetHIVSummary(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toHIVSummaryResponses(results))
 }
 
 // GetHIVTested gets HIV tested data.
@@ -143,7 +143,7 @@ func (h *Handler) GetHIVTested(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toHIVTestedResponses(results))
 }
 
 // GetHIVRegimen gets HIV regimen data.
@@ -153,5 +153,5 @@ func (h *Handler) GetHIVRegimen(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toHIVRegimenResponses(results))
 }

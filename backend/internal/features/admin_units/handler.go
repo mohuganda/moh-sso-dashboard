@@ -32,7 +32,7 @@ func (h *Handler) GetOrgUnits(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toOrgUnitFullResponses(results))
 }
 
 // GetFacilities gets all facilities (level 6)
@@ -43,7 +43,7 @@ func (h *Handler) GetFacilities(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toFacilityResponses(results))
 }
 
 // GetDistricts gets all districts (level 3)
@@ -54,7 +54,7 @@ func (h *Handler) GetDistricts(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
 
 // GetSubCounties gets subcounties (level 5), optionally filtered by sub_county
@@ -75,7 +75,7 @@ func (h *Handler) GetSubCounties(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
 
 // GetLocalGovt gets local government units (level 4), optionally filtered by district
@@ -95,7 +95,7 @@ func (h *Handler) GetLocalGovt(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
 
 // GetDistrictsByRegion gets districts (level 3) filtered by region
@@ -115,7 +115,7 @@ func (h *Handler) GetDistrictsByRegion(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
 
 // GetRegions gets all regions (level 2)
@@ -126,7 +126,7 @@ func (h *Handler) GetRegions(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
 
 // GetNational gets national level (level 1)
@@ -137,7 +137,7 @@ func (h *Handler) GetNational(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, results)
+	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
 
 // GetHierarchy gets the full organizational hierarchy as a tree structure
@@ -148,7 +148,7 @@ func (h *Handler) GetHierarchy(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, tree)
+	response.OK(c, http.StatusOK, toTreeNodeResponses(tree))
 }
 
 func buildHierarchyTree(data []OrgUnit) []TreeNode {

@@ -63,6 +63,36 @@ func optionalTrimmedParam(value *string, emptyAsNil bool) interface{} {
 	return trimmed
 }
 
+func toIssueResponse(issue issueResponse) issueResponse {
+	return issue
+}
+
+func toIssueResponses(issues []issueResponse) []issueResponse {
+	if issues == nil {
+		return []issueResponse{}
+	}
+	out := make([]issueResponse, 0, len(issues))
+	for _, issue := range issues {
+		out = append(out, toIssueResponse(issue))
+	}
+	return out
+}
+
+func toIssueStageResponse(stage issueStageResponse) issueStageResponse {
+	return stage
+}
+
+func toIssueStageResponses(stages []issueStageResponse) []issueStageResponse {
+	if stages == nil {
+		return []issueStageResponse{}
+	}
+	out := make([]issueStageResponse, 0, len(stages))
+	for _, stage := range stages {
+		out = append(out, toIssueStageResponse(stage))
+	}
+	return out
+}
+
 func scanIssue(scanner interface {
 	Scan(dest ...interface{}) error
 }) (issueResponse, error) {

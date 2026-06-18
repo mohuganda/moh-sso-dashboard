@@ -98,7 +98,7 @@ func (h *Handler) CreateIssue(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusCreated, issue)
+	response.OK(c, http.StatusCreated, toIssueResponse(issue))
 }
 
 func (h *Handler) ListIssues(c *gin.Context) {
@@ -111,7 +111,7 @@ func (h *Handler) ListIssues(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, issues)
+	response.OK(c, http.StatusOK, toIssueResponses(issues))
 }
 
 func (h *Handler) UpdateIssue(c *gin.Context) {
@@ -235,7 +235,7 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, issue)
+	response.OK(c, http.StatusOK, toIssueResponse(issue))
 }
 
 func (h *Handler) ResolveIssue(c *gin.Context) {
@@ -324,7 +324,7 @@ func (h *Handler) ResolveIssue(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusCreated, stageRow)
+	response.OK(c, http.StatusCreated, toIssueStageResponse(stageRow))
 }
 
 func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
@@ -347,5 +347,5 @@ func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, transactions)
+	response.OK(c, http.StatusOK, toIssueStageResponses(transactions))
 }
