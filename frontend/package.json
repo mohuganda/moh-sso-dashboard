@@ -14,7 +14,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "typecheck": "npm run typecheck -w @moh-sso/shell",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "preview": "npm run preview -w @moh-sso/shell",
     "prepare": "husky",
     "ui:ladle": "npm run ladle --workspace @moh-sso/ui",

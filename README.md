@@ -15,6 +15,7 @@ The project is now organized as a feature-first backend and a monorepo-style mic
 - [Local Development](#local-development)
 - [Docker And Production Deployment](#docker-and-production-deployment)
 - [API Reference](#api-reference)
+- [Documentation Map](#documentation-map)
 - [Verification](#verification)
 - [Troubleshooting](#troubleshooting)
 
@@ -211,6 +212,12 @@ Run these from `frontend/`.
 
 ## Backend Documentation
 
+Backend-specific development, architecture, and operations notes live in:
+
+- [`backend/README.md`](backend/README.md)
+- [`docs/api-reference.md`](docs/api-reference.md)
+- [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml)
+
 ### Backend Architecture
 
 The backend follows a feature-first modular monolith structure. It is designed to stay deployable as one service now, while keeping boundaries clear enough for future service extraction.
@@ -302,7 +309,7 @@ Not every feature has every file. Smaller HTTP adapters may only have handlers a
 | Email | `features/email` | Email send, queue, retry, listing, and delete. |
 | GeoJSON | `features/geojson` | GeoJSON assets for maps. |
 | Metrics | `features/metrics` | Admin metrics for users, clients, logins, and security. |
-| Notifications | `features/notifications` | Notifications, unread counts, read state, cleanup, and deletion. |
+| Notifications | `features/notifications` | Notifications, unread counts, read state, delivery history, retry, cleanup, and deletion. |
 | RBAC | `features/rbac` | System-aware RBAC, Keycloak sync, drift, permissions, roles, and user access. |
 | Sessions | `features/sessions` | Current user sessions and logout. |
 | Storage locations | `features/storage_locations` | Storage configuration records. |
@@ -1077,9 +1084,13 @@ Mounted under `/api/v1/admin/notifications`.
 | `GET` | `/count` | `notifications:read` | Count notifications. |
 | `GET` | `/count/unread` | `notifications:read` | Count unread notifications. |
 | `DELETE` | `/cleanup` | `notifications:write` | Delete old notifications. |
+| `GET` | `/:id/deliveries` | `notifications:read` | List delivery history and status records for a notification. |
+| `POST` | `/deliveries/:deliveryID/retry` | `notifications:write` | Requeue a failed, retry, or cancelled notification delivery. |
 | `GET` | `/:id` | `notifications:read` | Get notification. |
 | `PATCH` | `/:id/read` | `notifications:read` | Mark notification as read. |
 | `DELETE` | `/:id` | `notifications:write` | Delete notification. |
+
+Notification delivery statuses include `PENDING`, `PROCESSING`, `SENT`, `FAILED`, `RETRY`, and `CANCELLED`.
 
 ### Email
 
@@ -1350,4 +1361,36 @@ frontend/apps/*/README.md
 frontend/packages/*/README.md
 ```
 
-Use this root README for system-level architecture, development, deployment, and API reference. Use module READMEs for module-specific UI behavior and ownership.
+Backend docs:
+
+| Document | Purpose |
+| --- | --- |
+| [`backend/README.md`](backend/README.md) | Backend architecture, module boundaries, operations, and verification. |
+| [`docs/api-reference.md`](docs/api-reference.md) | Human-readable API endpoint map and payload notes. |
+| [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml) | Machine-readable OpenAPI starter contract. |
+
+RBAC and onboarding docs:
+
+| Document | Purpose |
+| --- | --- |
+| [`docs/rbac-keycloak-sync.md`](docs/rbac-keycloak-sync.md) | Keycloak/client/role sync operating model. |
+| [`docs/rbac-governance.md`](docs/rbac-governance.md) | RBAC governance center behavior and workflows. |
+| [`docs/rbac-usage.md`](docs/rbac-usage.md) | How RBAC permissions are used by backend and frontend. |
+| [`docs/system-onboarding.md`](docs/system-onboarding.md) | How to onboard a new Keycloak client/system. |
+| [`docs/tooling.md`](docs/tooling.md) | Project-wide doctor/audit/tooling commands. |
+
+Frontend docs:
+
+| Document | Purpose |
+| --- | --- |
+| [`frontend/README.md`](frontend/README.md) | Frontend workspace overview. |
+| [`frontend/docs/architecture.md`](frontend/docs/architecture.md) | Frontend app/package architecture. |
+| [`frontend/docs/development.md`](frontend/docs/development.md) | Local development modes. |
+| [`frontend/docs/build-and-deployment.md`](frontend/docs/build-and-deployment.md) | Build, Docker, import-map, and deployment modes. |
+| [`frontend/docs/import-maps.md`](frontend/docs/import-maps.md) | Import map behavior. |
+| [`frontend/docs/package-publishing.md`](frontend/docs/package-publishing.md) | npm package publish readiness. |
+| [`frontend/docs/versioning.md`](frontend/docs/versioning.md) | App/package versioning strategy. |
+| [`frontend/docs/verification.md`](frontend/docs/verification.md) | Frontend verification commands. |
+| [`frontend/docs/troubleshooting.md`](frontend/docs/troubleshooting.md) | Common frontend issues. |
+
+Use this root README for system-level orientation. Use module READMEs for module-specific UI behavior and ownership, `backend/README.md` for backend implementation rules, and `docs/api-reference.md` for endpoint lookup.

@@ -12,6 +12,7 @@ tags:
   - name: auth
   - name: announcements
   - name: admin-announcements
+  - name: notifications
 paths:
   /health:
     get:
@@ -554,6 +555,141 @@ paths:
               schema:
                 type: string
                 format: binary
+  /api/v1/admin/notifications:
+    get:
+      summary: List notifications
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Notification list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListEnvelope"
+    post:
+      summary: Create notification
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      responses:
+        "201":
+          description: Notification created.
+  /api/v1/admin/notifications/count:
+    get:
+      summary: Count notifications
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Notification count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountEnvelope"
+  /api/v1/admin/notifications/count/unread:
+    get:
+      summary: Count unread notifications
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Unread notification count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountEnvelope"
+  /api/v1/admin/notifications/{notificationId}:
+    get:
+      summary: Get notification
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationID"
+      responses:
+        "200":
+          description: Notification detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationEnvelope"
+    delete:
+      summary: Delete notification
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationID"
+      responses:
+        "204":
+          description: Notification deleted.
+  /api/v1/admin/notifications/{notificationId}/read:
+    patch:
+      summary: Mark notification as read
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationID"
+      responses:
+        "204":
+          description: Notification marked read.
+  /api/v1/admin/notifications/{notificationId}/deliveries:
+    get:
+      summary: List notification deliveries
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationID"
+      responses:
+        "200":
+          description: Delivery history for a notification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDeliveryListEnvelope"
+  /api/v1/admin/notifications/deliveries/{deliveryId}/retry:
+    post:
+      summary: Retry notification delivery
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/DeliveryID"
+      responses:
+        "200":
+          description: Delivery queued for retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryRetryEnvelope"
+        "409":
+          description: Delivery cannot be retried in its current state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   securitySchemes:
     sessionCookie:
@@ -585,6 +721,20 @@ components:
         format: uuid
     AttachmentID:
       name: attachmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    NotificationID:
+      name: notificationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DeliveryID:
+      name: deliveryId
       in: path
       required: true
       schema:
@@ -655,6 +805,142 @@ components:
               properties:
                 message:
                   type: string
+    CountEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  format: int64
+    DeliveryRetryEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  example: RETRY
+    NotificationEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Notification"
+    NotificationListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Notification"
+    NotificationDeliveryListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/NotificationDelivery"
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+        target_role:
+          type: string
+        client_id:
+          type: string
+        user_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    NotificationDelivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        notification_id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          example: email
+        status:
+          type: string
+          enum:
+            - PENDING
+            - PROCESSING
+            - SENT
+            - FAILED
+            - RETRY
+            - CANCELLED
+        recipient:
+          type: object
+          additionalProperties: true
+        template_name:
+          type: string
+        template_data:
+          type: object
+          additionalProperties: true
+        payload:
+          type: object
+          additionalProperties: true
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        locked_at:
+          type: string
+          format: date-time
+          nullable: true
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        attempts:
+          type: integer
+          format: int32
+        max_attempts:
+          type: integer
+          format: int32
+        last_error:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     AuthUser:
       type: object
       additionalProperties: true
