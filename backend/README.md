@@ -58,6 +58,16 @@ internal/features/<feature>/
 
 Not every module needs every file. Thin HTTP adapters such as `auth`, `metrics`, or `geojson` may stay smaller when the underlying service is shared.
 
+## Architecture Boundary Checks
+
+Backend feature-to-feature imports are guarded by an architecture test:
+
+```bash
+GOCACHE=/private/tmp/moh-sso-go-build go test ./internal/architecture
+```
+
+The same check runs inside `go test ./...`. Approved cross-feature imports are documented in [`../docs/backend-microservice-readiness.md`](../docs/backend-microservice-readiness.md). New feature dependencies should normally be expressed as constructor-injected interfaces or shared infrastructure packages, not direct imports.
+
 ## Composition Root
 
 `internal/bootstrap` wires the application in one place:
@@ -103,6 +113,8 @@ Error envelope:
 ```
 
 Detailed database, Keycloak, or filesystem errors should be logged server-side and converted to safe API errors.
+
+Every request receives a request ID and correlation ID. Clients may send `X-Request-ID` and `X-Correlation-ID`; otherwise the backend generates them. Responses expose both headers, and standard API envelopes include `meta.requestId`.
 
 ## RBAC And Keycloak
 
@@ -222,5 +234,6 @@ NODE_OPTIONS=--max-old-space-size=8192 ./node_modules/.bin/eslint . --cache --ca
 
 - [`../README.md`](../README.md)
 - [`../docs/api-reference.md`](../docs/api-reference.md)
+- [`../docs/backend-microservice-readiness.md`](../docs/backend-microservice-readiness.md)
 - [`docs/openapi.yaml`](docs/openapi.yaml)
 - [`../docs/tooling.md`](../docs/tooling.md)

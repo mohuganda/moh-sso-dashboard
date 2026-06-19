@@ -1,10 +1,12 @@
 package middleware
 
 import (
-	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
+
+	"github.com/moh-sso-dashboard/internal/observability"
 	"github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -29,11 +31,13 @@ func AuditMiddleware(audit *service.AuditService) gin.HandlerFunc {
 
 		// Build metadata
 		meta := map[string]interface{}{
-			"method":     c.Request.Method,
-			"status":     c.Writer.Status(),
-			"ip":         c.ClientIP(),
-			"user_agent": c.Request.UserAgent(),
-			"latency_ms": duration.Milliseconds(),
+			"request_id":     observability.RequestIDFromContext(c.Request.Context()),
+			"correlation_id": observability.CorrelationIDFromContext(c.Request.Context()),
+			"method":         c.Request.Method,
+			"status":         c.Writer.Status(),
+			"ip":             c.ClientIP(),
+			"user_agent":     c.Request.UserAgent(),
+			"latency_ms":     duration.Milliseconds(),
 		}
 
 		err := audit.Log(
@@ -45,7 +49,10 @@ func AuditMiddleware(audit *service.AuditService) gin.HandlerFunc {
 
 		if err != nil {
 			// Log error internally, don't interrupt API
-			log.Printf("[AUDIT ERROR] Failed to record audit log: %v", err)
+			log.Error().
+				Err(err).
+				Str("request_id", observability.RequestIDFromContext(c.Request.Context())).
+				Msg("failed to record audit log")
 		}
 	}
 }

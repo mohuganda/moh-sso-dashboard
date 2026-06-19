@@ -66,11 +66,15 @@ test: ## Run all tests
 	@echo "Running tests..."
 	@$(GOTEST) ./... -v
 
+architecture: ## Run backend architecture boundary checks
+	@echo "Checking backend architecture boundaries..."
+	@$(GOTEST) ./internal/architecture -v
+
 deps: ## Install go dependencies
 	@echo "📦 Installing dependencies..."
 	$(GO) mod download
 
-verify: fmt lint test ## Run code checks before commit
+verify: fmt lint architecture test ## Run code checks before commit
 	@echo "✅ All checks passed!"
 
 # ============================================================
@@ -155,7 +159,7 @@ migratedown1: ## Rollback one migration
 # ============================================================
 # Make everything phony
 # ============================================================
-.PHONY: help tidy fmt lint test build run clean version \
+.PHONY: help tidy fmt lint test architecture build run clean version \
         postgres createdb backupdb restoredb \
         docker-up docker-down docker-logs docker-restart \
         create_migration migrateup migrateup1 migratedown migratedown1 \

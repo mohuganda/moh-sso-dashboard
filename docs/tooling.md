@@ -56,6 +56,20 @@ Backend:
 GOCACHE=/private/tmp/moh-sso-go-build go test ./...
 ```
 
+Backend architecture boundary check only:
+
+```sh
+cd backend
+GOCACHE=/private/tmp/moh-sso-go-build go test ./internal/architecture
+```
+
+Backend observability/event checks:
+
+```sh
+cd backend
+GOCACHE=/private/tmp/moh-sso-go-build go test ./internal/middleware ./internal/events
+```
+
 Frontend:
 
 ```sh
