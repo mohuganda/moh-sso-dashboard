@@ -14,7 +14,7 @@ import {
   Pagination,
   Button,
 } from "@carbon/react";
-import { Add } from "@carbon/react/icons";
+import { Add, Attachment, Link as LinkIcon } from "@carbon/react/icons";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -586,6 +586,12 @@ export function AnnouncementsPage() {
                             if (cell.info.header === "raw") return null;
 
                             if (cell.info.header === "title") {
+                              const attachmentCount =
+                                announcement.attachment_count ??
+                                announcement.attachments?.length ??
+                                0;
+                              const hasLink = Boolean(announcement.link_url?.trim());
+
                               return (
                                 <TableCell key={cell.id}>
                                   <div style={{ display: "grid", gap: 4 }}>
@@ -613,7 +619,73 @@ export function AnnouncementsPage() {
                                         </Tag>
                                       </span>
                                     )}
+
+                                    {(hasLink || attachmentCount > 0) && (
+                                      <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                        {hasLink && (
+                                          <Tag size="sm" type="blue">
+                                            <span
+                                              style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                              }}
+                                            >
+                                              <LinkIcon size={12} />
+                                              Link
+                                            </span>
+                                          </Tag>
+                                        )}
+
+                                        {attachmentCount > 0 && (
+                                          <Tag size="sm" type="cyan">
+                                            <span
+                                              style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                              }}
+                                            >
+                                              <Attachment size={12} />
+                                              {attachmentCount === 1
+                                                ? "1 attachment"
+                                                : `${attachmentCount} attachments`}
+                                            </span>
+                                          </Tag>
+                                        )}
+                                      </span>
+                                    )}
                                   </div>
+                                </TableCell>
+                              );
+                            }
+
+                            if (cell.info.header === "attachments") {
+                              const attachmentCount =
+                                announcement.attachment_count ??
+                                announcement.attachments?.length ??
+                                0;
+
+                              return (
+                                <TableCell key={cell.id}>
+                                  {attachmentCount > 0 ? (
+                                    <Tag type="cyan" size="sm">
+                                      <span
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                        }}
+                                      >
+                                        <Attachment size={12} />
+                                        {attachmentCount}
+                                      </span>
+                                    </Tag>
+                                  ) : (
+                                    <Tag type="gray" size="sm">
+                                      None
+                                    </Tag>
+                                  )}
                                 </TableCell>
                               );
                             }

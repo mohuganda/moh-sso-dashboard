@@ -1783,6 +1783,10 @@ func (s *Service) attachAnnouncementEmailDelivery(
 		}
 		attachmentNames := announcementEmailAttachmentNames(attachments)
 		attachmentLinks := options.AttachmentLinks
+		attachmentCount := len(attachments)
+		if len(attachmentLinks) > attachmentCount {
+			attachmentCount = len(attachmentLinks)
+		}
 		actionURL := s.announcementActionURL(item)
 		relatedLinkURL := s.announcementRelatedLinkURL(item)
 		relatedLinkLabel := s.announcementRelatedLinkLabel(item)
@@ -1804,8 +1808,8 @@ func (s *Service) attachAnnouncementEmailDelivery(
 				"Level":                 announcementLevelString(item.Level),
 				"Status":                announcementStatusString(item.Status),
 				"AnnouncementID":        item.ID.String(),
-				"HasAttachments":        len(attachments) > 0,
-				"AttachmentCount":       len(attachments),
+				"HasAttachments":        attachmentCount > 0,
+				"AttachmentCount":       attachmentCount,
 				"AttachmentNames":       attachmentNames,
 				"AttachmentLinks":       attachmentLinks,
 				"AnnouncementLinkURL":   relatedLinkURL,
