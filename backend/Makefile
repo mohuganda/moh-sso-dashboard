@@ -91,8 +91,9 @@ build: ## Build the Go binary
 	@echo "✅ Build complete: $(BIN_DIR)/$(APP_NAME)"
 
 build-release: ## Build a clean semantic backend release binary
-	@if [ "$(VERSION)" = "dev" ]; then echo "VERSION must be a semantic release version"; exit 1; fi
+	@printf '%s' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$$' || { echo "VERSION must be semantic"; exit 1; }
 	@if [ "$(DIRTY)" != "false" ]; then echo "release builds require DIRTY=false"; exit 1; fi
+	@if [ -n "$$(git status --porcelain)" ]; then echo "release builds require a clean Git worktree"; exit 1; fi
 	@$(MAKE) build VERSION="$(VERSION)" COMMIT="$(COMMIT)" BUILD_TIME="$(BUILD_TIME)" DIRTY="$(DIRTY)"
 	@./scripts/verify-version.sh "$(BIN_DIR)/$(APP_NAME)" "$(VERSION)" "$(COMMIT)" "$(DIRTY)"
 

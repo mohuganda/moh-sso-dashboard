@@ -1,5 +1,5 @@
-# Use Go 1.25 Alpine as base
-FROM golang:1.25-alpine
+# Keep local development aligned with backend/go.mod.
+FROM golang:1.25.4-alpine
 
 # Install necessary tools and CA utilities.
 # The 'ca-certificates' package is required for the Go application to trust the

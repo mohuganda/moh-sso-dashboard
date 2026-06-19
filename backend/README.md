@@ -192,6 +192,29 @@ GOCACHE=/private/tmp/moh-sso-go-build go test ./...
 go run ./cmd/server
 ```
 
+## Versioning And Builds
+
+Backend releases use component-scoped semantic tags such as `backend/v1.2.3`. The binary, Docker image labels, health response, `/version` endpoint, and deployment record all use the same linker-injected build metadata.
+
+```bash
+make build
+./bin/moh-sso-dashboard --version
+
+make build-cli
+./bin/moh-sso version --output json
+
+GOCACHE=/private/tmp/moh-sso-go-build make verify-version
+```
+
+Production deployments must set `BACKEND_TAG` to an immutable semantic or SHA image tag. They must not use `latest`.
+
+See:
+
+- [`../docs/versioning.md`](../docs/versioning.md)
+- [`../docs/releasing-backend.md`](../docs/releasing-backend.md)
+- [`../docs/deployment.md`](../docs/deployment.md)
+- [`../docs/rollback.md`](../docs/rollback.md)
+
 Docker Compose uses service hostnames such as:
 
 - `backend-db`
@@ -235,5 +258,6 @@ NODE_OPTIONS=--max-old-space-size=8192 ./node_modules/.bin/eslint . --cache --ca
 - [`../README.md`](../README.md)
 - [`../docs/api-reference.md`](../docs/api-reference.md)
 - [`../docs/backend-microservice-readiness.md`](../docs/backend-microservice-readiness.md)
+- [`../docs/versioning.md`](../docs/versioning.md)
 - [`docs/openapi.yaml`](docs/openapi.yaml)
 - [`../docs/tooling.md`](../docs/tooling.md)

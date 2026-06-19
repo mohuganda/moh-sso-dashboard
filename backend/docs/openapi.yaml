@@ -43,6 +43,24 @@ paths:
       responses:
         "200":
           description: Backend is ready.
+  /version:
+    get:
+      summary: Backend build information
+      description: Returns safe build metadata without checking external dependencies.
+      tags:
+        - platform
+      responses:
+        "200":
+          description: Backend build information.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/BuildInfo"
   /api/v1/auth/me:
     get:
       summary: Current authenticated user
@@ -754,6 +772,33 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
   schemas:
+    BuildInfo:
+      type: object
+      required:
+        - service
+        - version
+        - commit
+        - buildTime
+        - dirty
+        - goVersion
+      properties:
+        service:
+          type: string
+          example: moh-sso-dashboard-backend
+        version:
+          type: string
+          example: 1.2.3
+        commit:
+          type: string
+          example: d3062e2
+        buildTime:
+          type: string
+          example: 2026-06-19T12:00:00Z
+        dirty:
+          type: boolean
+        goVersion:
+          type: string
+          example: go1.25.4
     SuccessEnvelope:
       type: object
       required:

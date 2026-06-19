@@ -410,6 +410,7 @@ Access is granted to users with a relevant reporting, surveillance, or data-qual
 | `GET` | `/health` | Public | General health check. |
 | `GET` | `/health/live` | Public | Liveness. |
 | `GET` | `/health/ready` | Public | Readiness. |
+| `GET` | `/version` | Public | Dependency-free backend build metadata. |
 
 ## Verification
 

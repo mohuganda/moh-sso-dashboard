@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     tags:
-      - "v*.*.*"
+      - "backend/v*.*.*"
 
 concurrency:
   group: build-${{ github.ref }}
@@ -44,8 +44,21 @@ jobs:
         id: sha
         run: echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
+      - name: Calculate backend build metadata
+        id: backend-meta
+        shell: bash
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          VERSION="0.0.0-dev.${SHORT_SHA}"
+          if [[ "$GITHUB_REF" == refs/tags/backend/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/backend/v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "commit=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "build_time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU (multi-arch on tag only)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/backend/v')
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -67,17 +80,52 @@ jobs:
           tags: |
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
+            type=raw,value=${{ steps.backend-meta.outputs.version }},enable=${{ matrix.service == 'backend' && startsWith(github.ref, 'refs/tags/backend/v') }}
 
-      - name: Build & push
+      - name: Build and push backend
+        if: matrix.service == 'backend'
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          platforms: ${{ startsWith(github.ref, 'refs/tags/v') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          platforms: ${{ startsWith(github.ref, 'refs/tags/backend/v') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: true
-          provenance: false
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.backend-meta.outputs.version }}
+            COMMIT=${{ steps.backend-meta.outputs.commit }}
+            BUILD_TIME=${{ steps.backend-meta.outputs.build_time }}
+            DIRTY=false
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}:buildcache,mode=max
+
+      - name: Build and push frontend
+        if: matrix.service == 'frontend' && github.ref_type != 'tag'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          provenance: mode=max
+          sbom: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-${{ matrix.suffix }}:buildcache,mode=max
+
+      - name: Verify backend runtime metadata
+        if: matrix.service == 'backend'
+        shell: bash
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_REPO }}-backend:sha-${{ steps.sha.outputs.tag }}"
+          docker pull "$IMAGE"
+          OUTPUT="$(docker run --rm "$IMAGE" --version)"
+          echo "$OUTPUT"
+          grep -F "moh-sso-dashboard-backend ${{ steps.backend-meta.outputs.version }} " <<< "$OUTPUT"
+          grep -F "commit ${{ steps.backend-meta.outputs.commit }}," <<< "$OUTPUT"
+          grep -F "dirty=false" <<< "$OUTPUT"

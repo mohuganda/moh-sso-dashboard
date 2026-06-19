@@ -99,6 +99,7 @@ func isLocalToolCommand(cmd *cobra.Command) bool {
 		"moh-sso config",
 		"moh-sso dev",
 		"moh-sso openapi",
+		"moh-sso version",
 	}
 	for _, prefix := range localPrefixes {
 		if strings.HasPrefix(commandPath, prefix) {
