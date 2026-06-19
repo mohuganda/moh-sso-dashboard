@@ -15,11 +15,13 @@ type KeycloakSyncSource interface {
 	ListClients() ([]keycloak.ClientInfo, error)
 	ListRealmRoles(ctx context.Context) ([]keycloak.RoleRep, error)
 	ListClientRoles(ctx context.Context, clientID string) ([]keycloak.ClientRoleRep, error)
+	CreateClient(opts keycloak.CreateClientParams) (string, error)
 	CreateRealmRole(ctx context.Context, roleName string, description string) error
 	CreateClientRole(ctx context.Context, clientID string, req *model.CreateClientRoleRequest) error
 }
 
 type KeycloakPushResult struct {
+	ClientsCreated     int      `json:"clientsCreated"`
 	RealmRolesCreated  int      `json:"realmRolesCreated"`
 	ClientRolesCreated int      `json:"clientRolesCreated"`
 	Warnings           []string `json:"warnings,omitempty"`
@@ -108,8 +110,26 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 
 		discoveredSystem, ok := discoveredSystems[clientID]
 		if !ok {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("system %q exists in RBAC but not Keycloak; client creation is intentionally not automatic", clientID))
-			continue
+			if _, err := source.CreateClient(keycloak.CreateClientParams{
+				ClientID:    clientID,
+				Name:        system.DisplayName,
+				Description: system.Description,
+				BaseURL:     system.LaunchURL,
+				RootURL:     system.LaunchURL,
+				Enabled:     system.Enabled,
+				Attributes: map[string]string{
+					"ui.icon":       system.Icon,
+					"ui.home":       system.LaunchURL,
+					"ui.category":   system.Category,
+					"ui.navigation": system.Navigation,
+					"ui.sidenav":    system.Navigation,
+					"portal.system": "true",
+				},
+			}); err != nil {
+				return KeycloakPushResult{}, fmt.Errorf("create keycloak client %q: %w", clientID, err)
+			}
+			result.ClientsCreated++
+			discoveredSystem = KeycloakDiscoveredSystem{ClientID: clientID}
 		}
 
 		detail, err := s.repository.GetSystem(ctx, clientID)
@@ -160,6 +180,7 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 
 	sort.Strings(result.Warnings)
 	if err := s.recordAudit(ctx, "rbac.keycloak_push_applied", "sync", "live-keycloak", "", "", "", map[string]any{
+		"clients_created":      result.ClientsCreated,
 		"realm_roles_created":  result.RealmRolesCreated,
 		"client_roles_created": result.ClientRolesCreated,
 		"warnings":             result.Warnings,

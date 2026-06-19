@@ -343,7 +343,7 @@ Startup sync is configured through backend env vars:
 | `RBAC_STARTUP_SYNC_REALM_EXPORT_PATH` | Optional explicit realm export path. |
 | `RBAC_STARTUP_SYNC_LIVE_KEYCLOAK` | Pulls live Keycloak clients, roles, and users. |
 | `RBAC_STARTUP_SYNC_USERS` | Syncs user access profiles from Keycloak. |
-| `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK` | Creates missing roles back into Keycloak when intentionally enabled. |
+| `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK` | Creates missing portal-defined Keycloak clients and realm/client roles from the RBAC registry. |
 | `RBAC_STARTUP_SYNC_FAIL_ON_ERROR` | Fails backend startup if RBAC sync fails. Useful in stricter environments. |
 
 Recommended development settings:
@@ -353,7 +353,7 @@ RBAC_STARTUP_SYNC_ENABLED=true
 RBAC_STARTUP_SEED_ENABLED=true
 RBAC_STARTUP_SYNC_LIVE_KEYCLOAK=true
 RBAC_STARTUP_SYNC_USERS=true
-RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=false
+RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true
 RBAC_STARTUP_SYNC_FAIL_ON_ERROR=false
 ```
 
@@ -363,7 +363,7 @@ Recommended production posture:
 - Keep portal DB as the source for permission metadata and launch metadata.
 - Use RBAC drift tools before applying changes.
 - Enable `RBAC_STARTUP_SYNC_FAIL_ON_ERROR=true` only when operational readiness requires sync failures to block startup.
-- Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=false` unless intentionally promoting portal-defined roles into Keycloak.
+- Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` when the portal should create missing registry clients and roles in Keycloak during startup. User access is still granted only after assigning the relevant client roles, such as `data-statistics_access`.
 
 ## Configuration
 

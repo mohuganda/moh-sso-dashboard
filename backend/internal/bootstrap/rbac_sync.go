@@ -111,6 +111,7 @@ func runStartupRBACSync(
 		if appLogger != nil {
 			appLogger.Info(
 				"RBAC Keycloak push startup sync complete",
+				"clients_created", result.ClientsCreated,
 				"realm_roles_created", result.RealmRolesCreated,
 				"client_roles_created", result.ClientRolesCreated,
 				"warnings", result.Warnings,

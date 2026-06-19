@@ -50,7 +50,7 @@ RBAC_STARTUP_SYNC_REALM_EXPORT=true
 RBAC_STARTUP_SYNC_REALM_EXPORT_PATH=
 RBAC_STARTUP_SYNC_LIVE_KEYCLOAK=true
 RBAC_STARTUP_SYNC_USERS=true
-RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=false
+RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true
 RBAC_STARTUP_SYNC_FAIL_ON_ERROR=false
 ```
 
@@ -70,7 +70,7 @@ Use these rules to avoid accidental overwrites:
 
 - Assign users to roles in Keycloak or through portal APIs that write to Keycloak.
 - Define what roles can do in portal RBAC.
-- Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=false` unless you intentionally want startup to create missing Keycloak realm/client roles.
+- Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` when startup should create missing portal-defined Keycloak clients and realm/client roles from the RBAC registry. This does not grant users access by itself; users still need explicit client role assignments.
 - Do not use startup sync to delete Keycloak roles or users.
 - Do not store passwords or credentials in portal RBAC.
 
@@ -354,5 +354,5 @@ In production:
 - Keep seed files source-controlled and reviewed.
 - Keep Keycloak admin credentials restricted to the backend.
 - Prefer drift preview before applying major changes.
-- Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=false` unless there is an approved operating procedure.
+- Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` only when the approved operating procedure allows the portal to create missing registry clients and roles in Keycloak.
 - Use audit logs when changing high-risk role mappings.

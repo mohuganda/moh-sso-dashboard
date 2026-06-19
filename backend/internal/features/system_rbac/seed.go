@@ -60,6 +60,79 @@ const reportBrowserNavigation = `[
   {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","icon":"dashboard","permission":"report_browser:read"}
 ]`
 
+const dataStatisticsNavigation = `[
+  {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
+  {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
+  {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"data_quality:read"},
+  {"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"},
+  {"id":"data-exports","label":"Data Exports","path":"/apps/dwh/exports","permission":"data_quality:read"},
+  {"id":"file-svr","label":"File Upload","path":"/apps/dwh/filesvr","permission":"documents:read"},
+  {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
+  {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"data_quality:read"}
+]`
+
+const utilitiesNavigation = `[
+  {"id":"self-service","label":"Self Service","children":[
+    {"id":"my-timesheet","label":"My Timesheet","path":"/apps/utilities/self-service/timesheet"},
+    {"id":"elearning","label":"eLearning","path":"/apps/utilities/self-service/elearning"},
+    {"id":"leave-plan","label":"Leave Plan","path":"/apps/utilities/self-service/leave-plan"},
+    {"id":"absence-requests","label":"Absence Requests","path":"/apps/utilities/self-service/absence-requests"},
+    {"id":"absence-dashboard","label":"My Absence Dashboard","path":"/apps/utilities/self-service/absence-dashboard"},
+    {"id":"eservice-requests","label":"eService Requests","children":[
+      {"id":"document-upload","label":"Document Upload","path":"/apps/utilities/self-service/eservice/document-upload"},
+      {"id":"service-access","label":"Service Access","path":"/apps/utilities/self-service/eservice/service-access"},
+      {"id":"equipment-request","label":"Equipment Request","path":"/apps/utilities/self-service/eservice/equipment-request"}
+    ]}
+  ]}
+]`
+
+const settingsNavigation = `[
+  {"id":"profile","label":"My Profile","path":"/apps/settings/profile"},
+  {"id":"sessions","label":"Active Sessions","path":"/apps/settings/sessions"},
+  {"id":"security","label":"Security","path":"/apps/settings/security"}
+]`
+
+const caseRegistersNavigation = `[
+  {"id":"external-referrals","label":"External Referrals","path":"/apps/case-registers/external-referrals"},
+  {"id":"disease-registers","label":"Disease Registers","path":"/apps/case-registers/disease-registers"}
+]`
+
+const outbreakManagementNavigation = `[
+  {"id":"signals-alerts","label":"Signals & Alerts","path":"/apps/outbreak-management/signals-alerts"},
+  {"id":"poe-management","label":"PoE Management","path":"/apps/outbreak-management/poe-management"},
+  {"id":"case-management","label":"Case Management","path":"/apps/outbreak-management/case-management"}
+]`
+
+const referenceRegistersNavigation = `[
+  {"id":"facility-register","label":"Facility Register","path":"/apps/reference-registers/facility-register"},
+  {"id":"terminology-service","label":"Terminology Service","children":[
+    {"id":"test-menu","label":"Test Menu","path":"/apps/reference-registers/terminology/test-menu"},
+    {"id":"pharmaceuticals","label":"Pharmaceuticals","path":"/apps/reference-registers/terminology/pharmaceuticals"},
+    {"id":"procedures","label":"Procedures","path":"/apps/reference-registers/terminology/procedures"},
+    {"id":"equipment","label":"Equipment","path":"/apps/reference-registers/terminology/equipment"}
+  ]}
+]`
+
+const eServicesNavigation = `[
+  {"id":"ihris","label":"iHRIS","path":"/apps/eservices/ihris"},
+  {"id":"meeting-manager","label":"Meeting Manager","path":"/apps/eservices/meeting-manager"},
+  {"id":"action-tracker","label":"Action Tracker","path":"/apps/eservices/action-tracker"},
+  {"id":"clinician-outputs","label":"Clinician Outputs","path":"/apps/eservices/clinician-outputs"},
+  {"id":"leave-absence","label":"Leave & Absence Management","path":"/apps/eservices/leave-absence"},
+  {"id":"workplans","label":"Workplans","path":"/apps/eservices/workplans"},
+  {"id":"budget-tracker","label":"Budget Tracker","path":"/apps/eservices/budget-tracker"},
+  {"id":"activity-reporting","label":"Activity Reporting","path":"/apps/eservices/activity-reporting"},
+  {"id":"partner-management","label":"Partner Management","path":"/apps/eservices/partner-management"},
+  {"id":"observatory-uploads","label":"Observatory Uploads","path":"/apps/eservices/observatory-uploads"}
+]`
+
+const researchStudiesNavigation = `[
+  {"id":"studies","label":"Studies","path":"/apps/research-studies/studies"},
+  {"id":"datasets","label":"Datasets","path":"/apps/research-studies/datasets"},
+  {"id":"ethics-approvals","label":"Ethics & Approvals","path":"/apps/research-studies/ethics"},
+  {"id":"publications","label":"Publications","path":"/apps/research-studies/publications"}
+]`
+
 func LoadSeedFile(path string) (SeedFile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -316,6 +389,26 @@ func DefaultSeed() SeedFile {
 					},
 				},
 			},
+			defaultPortalSystem("data-statistics", "Data & Statistics", "Data quality, document upload, reports, and surveillance tools.", "home", "/portal/apps/dwh", "platform", dataStatisticsNavigation, []string{
+				string(authz.PermissionDataQualityRead),
+				string(authz.PermissionDocumentsRead),
+				string(authz.PermissionSurveillanceRead),
+				string(authz.PermissionReportBrowserRead),
+			}, enabled),
+			defaultPortalSystem("eservices", "eServices", "Digital service requests and operational tools.", "application", "/portal/apps/eservices", "services", eServicesNavigation, nil, enabled),
+			defaultPortalSystem("research-studies", "Research & Studies", "Research studies, datasets, ethics approvals, and publications.", "microscope", "/portal/apps/research-studies", "research", researchStudiesNavigation, nil, enabled),
+			defaultPortalSystem("case-registers", "Case Registers", "Case registers and referral tracking.", "document", "/portal/apps/case-registers", "clinical", caseRegistersNavigation, []string{
+				string(authz.PermissionDocumentsRead),
+			}, enabled),
+			defaultPortalSystem("outbreak-management", "Outbreak Management", "Signals, alerts, points of entry, and case management.", "warning-alt", "/portal/apps/outbreak-management", "surveillance", outbreakManagementNavigation, []string{
+				string(authz.PermissionOutbreakAccess),
+				string(authz.PermissionSurveillanceRead),
+			}, enabled),
+			defaultPortalSystem("reference-registers", "Reference Registers", "Facility, terminology, and reference data registers.", "catalog", "/portal/apps/reference-registers", "registry", referenceRegistersNavigation, []string{
+				string(authz.PermissionSystemsRead),
+			}, enabled),
+			defaultPortalSystem("utilities", "Utilities", "Self-service utilities and staff tools.", "tools", "/portal/apps/utilities", "utilities", utilitiesNavigation, nil, enabled),
+			defaultPortalSystem("settings", "Settings", "User profile, session, and security settings.", "settings", "/portal/apps/settings", "platform", settingsNavigation, nil, enabled),
 			{
 				ClientID:    authz.SystemReportBrowser,
 				DisplayName: "Report Browser",
@@ -399,6 +492,45 @@ func DefaultSeed() SeedFile {
 					string(authz.PermissionDataQualityWrite),
 					string(authz.PermissionNotificationsRead),
 				},
+			},
+		},
+	}
+}
+
+func defaultPortalSystem(
+	clientID string,
+	displayName string,
+	description string,
+	icon string,
+	launchURL string,
+	category string,
+	navigation string,
+	extraPermissions []string,
+	enabled bool,
+) SeedSystem {
+	accessRole := clientID + "_access"
+	permissions := []string{
+		string(authz.PermissionPortalAccess),
+		string(authz.PermissionSystemsRead),
+		string(authz.PermissionSystemsLaunch),
+	}
+	permissions = append(permissions, extraPermissions...)
+
+	return SeedSystem{
+		ClientID:    clientID,
+		DisplayName: displayName,
+		Description: description,
+		Icon:        icon,
+		LaunchURL:   launchURL,
+		Category:    category,
+		Navigation:  navigation,
+		Enabled:     &enabled,
+		AccessRoles: []string{accessRole},
+		Roles: []SeedRole{
+			{
+				Name:        accessRole,
+				DisplayName: displayName + " Access",
+				Permissions: permissions,
 			},
 		},
 	}

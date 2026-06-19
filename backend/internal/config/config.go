@@ -255,7 +255,7 @@ func setDefaults() {
 	viper.SetDefault("RBAC_STARTUP_SYNC_REALM_EXPORT", true)
 	viper.SetDefault("RBAC_STARTUP_SYNC_REALM_EXPORT_PATH", "")
 	viper.SetDefault("RBAC_STARTUP_SYNC_LIVE_KEYCLOAK", true)
-	viper.SetDefault("RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK", false)
+	viper.SetDefault("RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK", true)
 	viper.SetDefault("RBAC_STARTUP_SYNC_USERS", true)
 	viper.SetDefault("RBAC_STARTUP_SYNC_FAIL_ON_ERROR", false)
 
