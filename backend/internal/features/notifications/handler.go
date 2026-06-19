@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -273,6 +274,79 @@ func (h *Handler) CountUnreadNotificationsCount(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusOK, CountResponse{Count: count})
+}
+
+/* =========================================================
+ * Delivery history
+ * ========================================================= */
+
+func (h *Handler) ListNotificationDeliveries(c *gin.Context) {
+	notificationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Valid notification ID is required",
+		)
+		return
+	}
+
+	deliveries, err := h.NotificationsSvc.ListNotificationDeliveries(
+		c.Request.Context(),
+		notificationID,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"INTERNAL_ERROR",
+			"Failed to list notification deliveries",
+		)
+		return
+	}
+
+	response.OK(c, http.StatusOK, toNotificationDeliveryResponses(deliveries))
+}
+
+func (h *Handler) RetryNotificationDelivery(c *gin.Context) {
+	deliveryID, err := uuid.Parse(c.Param("deliveryID"))
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Valid notification delivery ID is required",
+		)
+		return
+	}
+
+	if err := h.NotificationsSvc.RetryNotificationDelivery(
+		c.Request.Context(),
+		deliveryID,
+	); err != nil {
+		status := http.StatusInternalServerError
+		code := "INTERNAL_ERROR"
+		message := "Failed to retry notification delivery"
+
+		if err.Error() == "sent notification deliveries cannot be retried" {
+			status = http.StatusConflict
+			code = "INVALID_DELIVERY_STATE"
+			message = "Sent notification deliveries cannot be retried"
+		}
+
+		response.Fail(c, status, code, message)
+		return
+	}
+
+	response.OK(
+		c,
+		http.StatusOK,
+		DeliveryRetryResponse{
+			ID:     deliveryID.String(),
+			Status: "RETRY",
+		},
+	)
 }
 
 /* =========================================================

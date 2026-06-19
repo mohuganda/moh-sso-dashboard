@@ -1,10 +1,13 @@
 package notifications
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 
+	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
+	"github.com/sqlc-dev/pqtype"
 )
 
 func toNotificationResponse(notification model.Notification) NotificationResponse {
@@ -41,4 +44,60 @@ func toNotificationMetadata(raw json.RawMessage) map[string]any {
 		return nil
 	}
 	return metadata
+}
+
+func toNotificationDeliveryResponse(delivery db.NotificationDelivery) NotificationDeliveryResponse {
+	return NotificationDeliveryResponse{
+		ID:             delivery.ID.String(),
+		NotificationID: delivery.NotificationID.String(),
+		Channel:        delivery.Channel,
+		Status:         delivery.Status,
+		Recipient:      toNullRawMessageMap(delivery.Recipient),
+		TemplateName:   nullStringValue(delivery.TemplateName),
+		TemplateData:   toNullRawMessageMap(delivery.TemplateData),
+		Payload:        toNullRawMessageMap(delivery.Payload),
+		ScheduledAt:    nullTimeValue(delivery.ScheduledAt),
+		LockedAt:       nullTimeValue(delivery.LockedAt),
+		SentAt:         nullTimeValue(delivery.SentAt),
+		Attempts:       delivery.Attempts,
+		MaxAttempts:    delivery.MaxAttempts,
+		LastError:      nullStringValue(delivery.LastError),
+		CreatedAt:      delivery.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:      delivery.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func toNotificationDeliveryResponses(deliveries []db.NotificationDelivery) []NotificationDeliveryResponse {
+	out := make([]NotificationDeliveryResponse, 0, len(deliveries))
+	for _, delivery := range deliveries {
+		out = append(out, toNotificationDeliveryResponse(delivery))
+	}
+	return out
+}
+
+func toNullRawMessageMap(raw pqtype.NullRawMessage) map[string]any {
+	if !raw.Valid || len(raw.RawMessage) == 0 {
+		return nil
+	}
+
+	var value map[string]any
+	if err := json.Unmarshal(raw.RawMessage, &value); err != nil {
+		return nil
+	}
+
+	return value
+}
+
+func nullStringValue(value sql.NullString) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.String
+}
+
+func nullTimeValue(value sql.NullTime) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.Time.UTC().Format(time.RFC3339)
 }

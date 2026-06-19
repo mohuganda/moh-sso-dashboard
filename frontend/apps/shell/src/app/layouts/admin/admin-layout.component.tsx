@@ -45,6 +45,7 @@ import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
 import type { Permission } from "@moh-sso/auth";
 
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
+import { NotificationDetailPanel } from "./NotificationDetailPanel";
 
 import "./admin-layout.scss";
 
@@ -137,6 +138,7 @@ function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
 function HeaderActions() {
   const user = useSelector(selectUser);
   const { openPanel } = useHeaderPanel();
+  const { can } = useAuthorization();
 
   const {
     data: notifications = [],
@@ -186,6 +188,18 @@ function HeaderActions() {
               void deleteNotification(id).then(() => {
                 void refetchUnreadNotifications();
                 void refetchRecentNotifications();
+              });
+            }}
+            onView={(notification) => {
+              openPanel({
+                title: "Notification details",
+                size: "md",
+                content: (
+                  <NotificationDetailPanel
+                    notification={notification}
+                    canRetryDelivery={can(PERMISSIONS.notificationsWrite)}
+                  />
+                ),
               });
             }}
           />

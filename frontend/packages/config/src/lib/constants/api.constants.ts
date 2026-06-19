@@ -181,6 +181,9 @@ export const API = {
       count: () => `${API_BASE}/admin/notifications/count`,
       countUnread: () => `${API_BASE}/admin/notifications/count/unread`,
       deleteOld: () => `${API_BASE}/admin/notifications/cleanup`,
+      deliveries: (id: string) => `${API_BASE}/admin/notifications/${id}/deliveries`,
+      retryDelivery: (deliveryId: string) =>
+        `${API_BASE}/admin/notifications/deliveries/${deliveryId}/retry`,
     },
   },
 

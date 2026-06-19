@@ -55,6 +55,8 @@ type NotificationsService interface {
 	DeleteOldNotifications(ctx context.Context) error
 	CountNotifications(ctx context.Context, targetRole string) (int64, error)
 	CountUnreadNotificationsCount(ctx context.Context, targetRole string) (int64, error)
+	ListNotificationDeliveries(ctx context.Context, notificationID uuid.UUID) ([]db.NotificationDelivery, error)
+	RetryNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) error
 }
 
 type notificationsService struct {
@@ -130,6 +132,55 @@ func (s *notificationsService) Notify(
 	}
 
 	return n, nil
+}
+
+func (s *notificationsService) ListNotificationDeliveries(
+	ctx context.Context,
+	notificationID uuid.UUID,
+) ([]db.NotificationDelivery, error) {
+	if s == nil {
+		return nil, errors.New("notifications service is nil")
+	}
+
+	if s.notificationDeliveryRepo == nil {
+		return nil, errors.New("notification delivery repository is nil")
+	}
+
+	return s.notificationDeliveryRepo.ListByNotificationID(ctx, notificationID)
+}
+
+func (s *notificationsService) RetryNotificationDelivery(
+	ctx context.Context,
+	deliveryID uuid.UUID,
+) error {
+	if s == nil {
+		return errors.New("notifications service is nil")
+	}
+
+	if s.notificationDeliveryRepo == nil {
+		return errors.New("notification delivery repository is nil")
+	}
+
+	delivery, err := s.notificationDeliveryRepo.GetByID(ctx, deliveryID)
+	if err != nil {
+		return err
+	}
+
+	if strings.EqualFold(delivery.Status, string(model.NotificationDeliverySent)) {
+		return errors.New("sent notification deliveries cannot be retried")
+	}
+
+	return s.notificationDeliveryRepo.MarkRetry(
+		ctx,
+		db.MarkNotificationDeliveryRetryParams{
+			ID: deliveryID,
+			LastError: sql.NullString{
+				String: "Manually queued for retry",
+				Valid:  true,
+			},
+			Column3: "0 seconds",
+		},
+	)
 }
 
 func (s *notificationsService) NotifyLoginFailed(

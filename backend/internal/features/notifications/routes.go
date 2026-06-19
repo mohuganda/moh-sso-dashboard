@@ -17,6 +17,8 @@ func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler, limiter *rate
 		notifications.GET("/count", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.CountNotifications)
 		notifications.GET("/count/unread", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.CountUnreadNotificationsCount)
 		notifications.DELETE("/cleanup", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.DeleteOldNotifications)
+		notifications.GET("/:id/deliveries", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.ListNotificationDeliveries)
+		notifications.POST("/deliveries/:deliveryID/retry", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.RetryNotificationDelivery)
 		notifications.GET("/:id", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.GetNotificationByID)
 		notifications.PATCH("/:id/read", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.MarkNotificationAsRead)
 		notifications.DELETE("/:id", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.DeleteNotification)
