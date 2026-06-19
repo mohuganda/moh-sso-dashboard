@@ -2,7 +2,7 @@ import {Button, Modal, TextArea, Tile} from "@carbon/react";
 import {ArrowLeft} from "@carbon/react/icons";
 import "./issue-detail.scss";
 import React, {useState} from "react";
-import {useCreateTransactionMutation, useGetIssuesQuery, useGetTransactionsQuery} from "../../component/issuetracker.api.ts";
+import { useCreateTransactionMutation, useGetIssuesQuery, useGetTransactionsQuery } from "@moh-sso/api";
 import {useSelector} from "react-redux";
 
 import type {Issue} from "../issue-tracker.component.tsx";

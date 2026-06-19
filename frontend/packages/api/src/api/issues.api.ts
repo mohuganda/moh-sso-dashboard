@@ -1,4 +1,3 @@
-import { baseApi } from "@moh-sso/api";
 import { API } from "@moh-sso/config";
 import type {
   Issue,
@@ -10,11 +9,10 @@ import type {
   SingleIssueResponse,
 } from "@moh-sso/types";
 
+import { baseApi } from "./baseApi";
+
 export const issuesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    /* --------------------------------
-     * GET /issues
-     * -------------------------------- */
     getIssues: builder.query<IssueResponse, void>({
       query: () => ({
         url: API.issue.list(),
@@ -24,9 +22,6 @@ export const issuesApi = baseApi.injectEndpoints({
       providesTags: ["Issues"],
     }),
 
-    /* --------------------------------
-     * POST /issues
-     * -------------------------------- */
     createIssue: builder.mutation<Issue, IssuePayload>({
       query: (body) => ({
         url: API.issue.list(),
@@ -38,9 +33,6 @@ export const issuesApi = baseApi.injectEndpoints({
       invalidatesTags: ["Issues"],
     }),
 
-    /* --------------------------------
-     * PUT /issues/:id
-     * -------------------------------- */
     updateIssue: builder.mutation<
       Issue,
       {
@@ -58,9 +50,6 @@ export const issuesApi = baseApi.injectEndpoints({
       invalidatesTags: ["Issues"],
     }),
 
-    /* --------------------------------
-     * GET /issues/:id/transactions
-     * -------------------------------- */
     getTransactions: builder.query<IssueTransactionsResponse, string | number>({
       query: (id) => ({
         url: `${API.issue.list()}/${id}/transactions`,
@@ -70,9 +59,6 @@ export const issuesApi = baseApi.injectEndpoints({
       providesTags: ["Transactions", "Issues"],
     }),
 
-    /* --------------------------------
-     * POST /issues/:id/resolveIssue
-     * -------------------------------- */
     createTransaction: builder.mutation<
       IssueTransaction,
       {

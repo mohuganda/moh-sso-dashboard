@@ -4,7 +4,7 @@ import {Add, Filter, ChevronDown} from "@carbon/react/icons";
 import "./issue-tracker.scss";
 import {useEffect, useState, useCallback, useRef} from "react";
 import {IssueModal} from "../component/issue-modal.component.tsx";
-import { useGetIssuesQuery} from "../component/issuetracker.api.ts";
+import { useGetIssuesQuery } from "@moh-sso/api";
 import { headers } from "../lib/constants.ts";
 import IssueDetail from "./issue-detail/issue-detail.component.tsx";
 import {getAvailablePeriods, periodType} from "../../../data-visualizer/src/pages/Constants.tsx";

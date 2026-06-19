@@ -35,11 +35,13 @@ Apps version independently because they are future deployable units:
 - `@moh-sso/announcements`
 - `@moh-sso/audit`
 - `@moh-sso/clients`
+- `@moh-sso/data-validation`
 - `@moh-sso/data-visualizer`
 - `@moh-sso/documents`
 - `@moh-sso/e-services`
 - `@moh-sso/email`
 - `@moh-sso/issue-tracker`
+- `@moh-sso/rbac`
 - `@moh-sso/report-browser`
 - `@moh-sso/surveillance`
 - `@moh-sso/users`
@@ -104,6 +106,8 @@ Run release checks:
 ```bash
 npm run release:check
 ```
+
+`release:check` validates architecture, package boundaries, versions, TypeScript, lint, source-built Docker artifacts, staged import-map coverage, and npm publishability metadata.
 
 Apply version bumps:
 
@@ -209,7 +213,9 @@ Redeploy the import map or shell config. No app rebuild is required for import-m
 3. run typecheck
 4. run lint
 5. build packages/apps/shell
-6. run Changesets version/publish
-7. upload bundles to versioned CDN paths
-8. generate import map
-9. deploy import map and shell config
+6. stage Docker/import-map artifacts
+7. audit staged import-map coverage
+8. run Changesets version/publish
+9. upload bundles to versioned CDN paths
+10. generate import map
+11. deploy import map and shell config
