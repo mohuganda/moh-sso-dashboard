@@ -1,21 +1,33 @@
 import { Add, UserFollow, Security, Notification, Need } from "@carbon/react/icons";
 import { Tile, Button, Tag, Stack, InlineLoading } from "@carbon/react";
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { useSelector } from "react-redux";
 import "./home.scss";
 
 import { EmptyState, useHeaderPanel, getSeverityTagType } from "@moh-sso/ui";
 import { ApplicationTile } from "@/app/home/components/app/ApplicationTile";
 import { QuickAction } from "@/app/home/components/quick-action/quick-action.component";
-import { ClientFormPanel, UserClientRolesPanel } from "@moh-sso/clients";
-import { UserFormPanel } from "@moh-sso/users";
 import {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
 } from "@moh-sso/api";
 import { selectUser, useAuthorization } from "@moh-sso/auth";
-import { ManageAnnouncementsPanel } from "@moh-sso/announcements";
 import { buildAccessibleClients } from "@/app/access/accessClients";
+
+const ClientFormPanel = lazy(() =>
+  import("@moh-sso/clients").then((module) => ({ default: module.ClientFormPanel })),
+);
+const UserClientRolesPanel = lazy(() =>
+  import("@moh-sso/clients").then((module) => ({ default: module.UserClientRolesPanel })),
+);
+const UserFormPanel = lazy(() =>
+  import("@moh-sso/users").then((module) => ({ default: module.UserFormPanel })),
+);
+const ManageAnnouncementsPanel = lazy(() =>
+  import("@moh-sso/announcements").then((module) => ({
+    default: module.ManageAnnouncementsPanel,
+  })),
+);
 
 function normalizePortalPath(href?: string): string | undefined {
   if (!href || /^https?:\/\//i.test(href)) {
@@ -31,6 +43,14 @@ function normalizePortalPath(href?: string): string | undefined {
   }
 
   return href;
+}
+
+function LazyPanelFallback() {
+  return <InlineLoading description="Loading panel..." />;
+}
+
+function lazyPanel(content: ReactNode) {
+  return <Suspense fallback={<LazyPanelFallback />}>{content}</Suspense>;
 }
 
 export default function HomePage() {
@@ -147,7 +167,7 @@ export default function HomePage() {
             onClick={() => {
               openPanel({
                 title: "Create user",
-                content: <UserFormPanel mode="create" />,
+                content: lazyPanel(<UserFormPanel mode="create" />),
                 size: "md",
               });
             }}
@@ -162,7 +182,7 @@ export default function HomePage() {
             onClick={() => {
               openPanel({
                 title: "Create client",
-                content: <ClientFormPanel mode="create" />,
+                content: lazyPanel(<ClientFormPanel mode="create" />),
                 size: "md",
               });
             }}
@@ -180,14 +200,14 @@ export default function HomePage() {
               openPanel({
                 title: `Roles: ${user.username}`,
                 size: "lg",
-                content: (
+                content: lazyPanel(
                   <Stack gap={6}>
                     {/* User basic details */}
                     <UserFormPanel mode="edit" initialUser={user} />
 
                     {/* Client role assignment */}
                     <UserClientRolesPanel userId={user.id} />
-                  </Stack>
+                  </Stack>,
                 ),
               });
             }}
@@ -201,7 +221,7 @@ export default function HomePage() {
             onClick={() => {
               openPanel({
                 title: "Create Announcement",
-                content: <ManageAnnouncementsPanel mode={"create"} />,
+                content: lazyPanel(<ManageAnnouncementsPanel mode="create" />),
                 size: "lg",
               });
             }}

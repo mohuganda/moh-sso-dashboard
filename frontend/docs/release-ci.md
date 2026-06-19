@@ -9,9 +9,13 @@ npm ci
 npm run audit:packages
 npm run typecheck
 npm run lint
-npm run build:docker
+npm run config:prod
+FRONTEND_ASSET_BASE_URL=/portal FRONTEND_BASE_PATH=/portal npm run build:docker
 npm run audit:import-map
+npm run runtime:verify
+npm run bundle:budget
 npm run audit:publishability
+npm run config:dev
 ```
 
 The local equivalent is:

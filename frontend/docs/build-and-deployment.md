@@ -38,6 +38,15 @@ Build the static Docker-ready artifact:
 npm run build:docker
 ```
 
+Build the same `/portal`-based artifact that production Docker uses:
+
+```bash
+npm run config:prod
+FRONTEND_ASSET_BASE_URL=/portal FRONTEND_BASE_PATH=/portal npm run build:docker
+npm run runtime:verify
+npm run config:dev
+```
+
 Generate version metadata:
 
 ```bash
@@ -193,4 +202,20 @@ Before deploying remote/import-map mode, run:
 
 ```bash
 npm run audit:import-map
+npm run runtime:verify
+npm run bundle:budget
+```
+
+`runtime:verify` confirms that the staged production artifact has:
+
+- `/portal/config.js`
+- an inlined import map
+- `/portal/mf/*` app bundles
+- `/portal/packages/*` shared package bundles
+- `version-manifest.json`
+
+`bundle:budget` keeps the current shell and microfrontend bundle sizes from growing silently. Override thresholds with:
+
+```bash
+BUNDLE_BUDGET_SHELL_JS_KB=9000 BUNDLE_BUDGET_APP_CHUNK_JS_KB=11000 npm run bundle:budget
 ```

@@ -8,14 +8,16 @@ import AdminLayout from "../layouts/admin/admin-layout.component";
 import HomePage from "@/app/home/pages/home.component";
 import SystemsPage from "@/app/systems/pages/systems.component";
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
-import { announcementsRoute } from "@moh-sso/announcements";
-import { auditRoute } from "@moh-sso/audit";
-import { clientsRoute } from "@moh-sso/clients";
-import { emailRoute } from "@moh-sso/email";
 import { PERMISSIONS, type Permission, type System } from "@moh-sso/auth";
 import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
-import { rbacRoute } from "@moh-sso/rbac";
-import { usersRoute } from "@moh-sso/users";
+import {
+  announcementsRoute,
+  auditRoute,
+  clientsRoute,
+  emailRoute,
+  rbacRoute,
+  usersRoute,
+} from "@/app/microfrontends/registry";
 
 import {
   announcementsLifecycles,

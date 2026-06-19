@@ -7,15 +7,17 @@ import { UserRoute } from "./guards/UserRoute";
 import UserLayout from "../layouts/user/user-layout.component";
 import { ComingSoon } from "@moh-sso/ui";
 import { PERMISSIONS, type Permission, type System } from "@moh-sso/auth";
-import { dataValidationRoute } from "@moh-sso/data-validation";
-import { dataVisualizerRoute } from "@moh-sso/data-visualizer";
-import { documentsRoute } from "@moh-sso/documents";
-import { eServicesRoute } from "@moh-sso/e-services";
-import { issueTrackerRoute } from "@moh-sso/issue-tracker";
 import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
-import { reportBrowserRoute } from "@moh-sso/report-browser";
-import { surveillanceRoute } from "@moh-sso/surveillance";
-import { utilitiesRoute } from "@moh-sso/utilities";
+import {
+  dataValidationRoute,
+  dataVisualizerRoute,
+  documentsRoute,
+  eServicesRoute,
+  issueTrackerRoute,
+  reportBrowserRoute,
+  surveillanceRoute,
+  utilitiesRoute,
+} from "@/app/microfrontends/registry";
 
 import NewsFeedPage from "@/app/newsfeed/pages/news_feed.component";
 import MyProfilePage from "@/app/settings/pages/Profile/profile.component";
