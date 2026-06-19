@@ -79,6 +79,38 @@
   gap: 0.75rem;
 }
 
+.audit-log-panel__changes {
+  display: grid;
+  border: 1px solid var(--cds-border-subtle);
+}
+
+.audit-log-panel__change {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--cds-border-subtle);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  strong,
+  span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.8125rem;
+  }
+
+  strong {
+    color: var(--cds-text-primary);
+  }
+
+  span {
+    color: var(--cds-text-secondary);
+  }
+}
+
 .audit-log-panel__diff-block {
   display: grid;
   gap: 0.5rem;
@@ -93,7 +125,8 @@
 
 @media (max-width: 48rem) {
   .audit-log-panel__grid,
-  .audit-log-panel__diff {
+  .audit-log-panel__diff,
+  .audit-log-panel__change {
     grid-template-columns: 1fr;
   }
 }

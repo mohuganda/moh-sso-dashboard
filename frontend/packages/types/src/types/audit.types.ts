@@ -9,6 +9,10 @@ export type AuditListResponse = {
   has_more: boolean;
 };
 
+export type AuditActionsResponse = {
+  actions: string[];
+};
+
 export interface AuditFilters {
   from: string;
   to: string;

@@ -31,6 +31,7 @@ export function AuditLogPanel({ log, onClose }: { log: AuditLog | null; onClose:
   const latency = firstString(metadata, LATENCY_KEYS);
   const before = firstPresent(metadata, BEFORE_KEYS);
   const after = firstPresent(metadata, AFTER_KEYS);
+  const changes = diffRecords(before, after);
   const safeMetadata = omitKeys(redactSensitive(metadata), [
     ...BEFORE_KEYS,
     ...AFTER_KEYS,
@@ -93,6 +94,17 @@ export function AuditLogPanel({ log, onClose }: { log: AuditLog | null; onClose:
       {(before !== undefined || after !== undefined) && (
         <section className="audit-log-panel__section">
           <h4>Before / After</h4>
+          {changes.length > 0 && (
+            <div className="audit-log-panel__changes">
+              {changes.map((change) => (
+                <div className="audit-log-panel__change" key={change.path}>
+                  <strong>{change.path}</strong>
+                  <span>{stringifyCompact(change.before)}</span>
+                  <span>{stringifyCompact(change.after)}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="audit-log-panel__diff">
             <DiffBlock title="Before" value={before} />
             <DiffBlock title="After" value={after} />
@@ -193,4 +205,34 @@ function redactSensitive(value: unknown): unknown {
       SENSITIVE_KEY_PATTERN.test(key) ? "[redacted]" : redactSensitive(current),
     ]),
   );
+}
+
+type Change = {
+  path: string;
+  before: unknown;
+  after: unknown;
+};
+
+function diffRecords(before: unknown, after: unknown): Change[] {
+  const previous = toRecord(before);
+  const current = toRecord(after);
+  const keys = Array.from(new Set([...Object.keys(previous), ...Object.keys(current)])).sort();
+
+  return keys
+    .filter((key) => JSON.stringify(previous[key]) !== JSON.stringify(current[key]))
+    .slice(0, 12)
+    .map((key) => ({
+      path: key,
+      before: redactSensitive(previous[key]),
+      after: redactSensitive(current[key]),
+    }));
+}
+
+function stringifyCompact(value: unknown) {
+  if (value === undefined) return "—";
+  if (value === null) return "null";
+  if (typeof value === "string") return value || "—";
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+
+  return JSON.stringify(value);
 }

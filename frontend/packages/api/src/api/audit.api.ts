@@ -1,5 +1,5 @@
 import { API } from "@moh-sso/config";
-import type { AuditFilters, AuditListResponse } from "@moh-sso/types";
+import type { AuditActionsResponse, AuditFilters, AuditListResponse } from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 
@@ -55,7 +55,17 @@ export const auditApi = baseApi.injectEndpoints({
 
       providesTags: ["Audit"],
     }),
+    listAuditActions: builder.query<AuditActionsResponse, void>({
+      query: () => ({
+        url: API.admin.audit.actions(),
+        credentials: "include",
+      }),
+
+      transformResponse: (response: ApiEnvelope<AuditActionsResponse>) => response.data,
+
+      providesTags: ["Audit"],
+    }),
   }),
 });
 
-export const { useListAuditLogsQuery } = auditApi;
+export const { useListAuditActionsQuery, useListAuditLogsQuery } = auditApi;

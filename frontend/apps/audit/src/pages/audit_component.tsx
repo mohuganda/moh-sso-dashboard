@@ -25,7 +25,7 @@ import {
   useToast,
 } from "@moh-sso/ui";
 
-import { buildAuditExportUrl, useListAuditLogsQuery } from "@moh-sso/api";
+import { buildAuditExportUrl, useListAuditActionsQuery, useListAuditLogsQuery } from "@moh-sso/api";
 import type { AuditFilters, AuditLog, Cursor } from "@moh-sso/types";
 import { AuditLogBulkActions } from "../components/audit-log-bulk-actions.component";
 import { AuditLogActionsMenu } from "../components/audit-log-actions-menu.component";
@@ -76,6 +76,16 @@ function getAuditResult(log: AuditLog) {
 
 function getAuditClient(log: AuditLog) {
   return log.clientId || (typeof log.metadata?.client_id === "string" ? log.metadata.client_id : "—");
+}
+
+function getAuditModule(log: AuditLog) {
+  const metadataModule = log.metadata?.module;
+  if (typeof metadataModule === "string" && metadataModule.trim()) {
+    return metadataModule.trim();
+  }
+
+  const [module] = log.action.split(/[.:_]/);
+  return module || "platform";
 }
 
 function getAuditIp(log: AuditLog) {
@@ -156,6 +166,8 @@ export default function AuditLogs() {
   const [from, setFrom] = useState(toRFC3339(start));
   const [to, setTo] = useState(toRFC3339(now));
   const [action, setAction] = useState<string>();
+  const [actor, setActor] = useState<string>();
+  const [module, setModule] = useState<string>();
   const [clientId, setClientId] = useState<string>();
   const [success, setSuccess] = useState<SuccessFilter>();
   const [userId, setUserId] = useState<string>();
@@ -198,6 +210,7 @@ export default function AuditLogs() {
       skip: !from || !to,
     },
   );
+  const { data: actionCatalog } = useListAuditActionsQuery();
 
   /* -----------------------------
    * Append cursor data
@@ -229,12 +242,42 @@ export default function AuditLogs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, action, clientId, userId, ip, success]);
 
+  const actionOptions = useMemo(
+    () => Array.from(new Set([...(actionCatalog?.actions ?? []), ...items.map((log) => log.action)])).sort(),
+    [actionCatalog?.actions, items],
+  );
+
+  const moduleOptions = useMemo(
+    () => Array.from(new Set(items.map(getAuditModule))).filter(Boolean).sort(),
+    [items],
+  );
+
+  const visibleItems = useMemo(() => {
+    const actorQuery = actor?.trim().toLowerCase();
+    const moduleQuery = module?.trim().toLowerCase();
+
+    return items.filter((log) => {
+      if (actorQuery) {
+        const actorText = `${log.username ?? ""} ${log.userId ?? ""}`.toLowerCase();
+        if (!actorText.includes(actorQuery)) {
+          return false;
+        }
+      }
+
+      if (moduleQuery && !getAuditModule(log).toLowerCase().includes(moduleQuery)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [actor, items, module]);
+
   /* -----------------------------
    * Rows
    * ----------------------------- */
   const rows = useMemo(
     () =>
-      items.map((log) => ({
+      visibleItems.map((log) => ({
         id: log.id,
         shortId: log.id.slice(0, 8),
         time: getAuditLogTime(log),
@@ -246,11 +289,13 @@ export default function AuditLogs() {
         actions: "",
         raw: log,
       })),
-    [items],
+    [visibleItems],
   );
 
   function clearFilters() {
     setAction(undefined);
+    setActor(undefined);
+    setModule(undefined);
     setClientId(undefined);
     setUserId(undefined);
     setIp(undefined);
@@ -327,13 +372,19 @@ export default function AuditLogs() {
       filters={
         <AuditLogFilters
           action={action}
+          actor={actor}
+          module={module}
           clientId={clientId}
           userId={userId}
           ip={ip}
           success={success}
+          actionOptions={actionOptions}
+          moduleOptions={moduleOptions}
           onFromChange={setFrom}
           onToChange={setTo}
           onActionChange={setAction}
+          onActorChange={setActor}
+          onModuleChange={setModule}
           onClientChange={setClientId}
           onUserChange={setUserId}
           onIpChange={setIp}
