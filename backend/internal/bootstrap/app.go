@@ -10,8 +10,10 @@ import (
 	"github.com/moh-sso-dashboard/internal/features/authsession"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/storage"
+	"github.com/moh-sso-dashboard/internal/version"
 
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func Run() {
@@ -31,7 +33,16 @@ func Run() {
 
 	appLogger := logger.NewLogger()
 	appLogger.SetLevel(zerolog.InfoLevel)
-	appLogger.Info("Starting MOH SSO Dashboard - Environment: " + cfg.Environment)
+	build := version.Get()
+	log.Info().
+		Str("service", build.Service).
+		Str("version", build.Version).
+		Str("commit", build.Commit).
+		Str("build_time", build.BuildTime).
+		Bool("dirty", build.Dirty).
+		Str("go_version", build.GoVersion).
+		Str("environment", cfg.Environment).
+		Msg("starting MOH SSO Dashboard")
 
 	appLogger.Info(
 		"notification config loaded",

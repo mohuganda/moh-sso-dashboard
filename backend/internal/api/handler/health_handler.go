@@ -39,11 +39,17 @@ func NewHealthHandler(
 // Used by Kubernetes to check if process is alive
 // --------------------------------------------------
 func (h *HealthHandler) HandleLive(c *gin.Context) {
+	build := version.Get()
 	response.OK(c, http.StatusOK, HealthResponse{
 		Status:        "alive",
 		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
-		Version:       "v" + version.Get().Version + " (" + version.Get().Commit + ")",
+		Version:       build.Version,
+		Build:         &build,
 	})
+}
+
+func (h *HealthHandler) HandleVersion(c *gin.Context) {
+	response.OK(c, http.StatusOK, version.Get())
 }
 
 // --------------------------------------------------
@@ -78,10 +84,12 @@ func (h *HealthHandler) HandleReady(c *gin.Context) {
 		return
 	}
 
+	build := version.Get()
 	response.OK(c, http.StatusOK, HealthResponse{
 		Status:        "ready",
 		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
-		Version:       "v" + version.Get().Version + " (" + version.Get().Commit + ")",
+		Version:       build.Version,
+		Build:         &build,
 	})
 }
 
@@ -124,6 +132,7 @@ func (h *HealthHandler) HandleHealth(c *gin.Context) {
 		httpStatus = http.StatusServiceUnavailable
 	}
 
+	build := version.Get()
 	response.OK(c, httpStatus, HealthResponse{
 		Status:        status,
 		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
@@ -133,6 +142,7 @@ func (h *HealthHandler) HandleHealth(c *gin.Context) {
 			Keycloak: keycloak,
 			Redis:    redis,
 		},
-		Version: "v" + version.Get().Version + " (" + version.Get().Commit + ")",
+		Version: build.Version,
+		Build:   &build,
 	})
 }

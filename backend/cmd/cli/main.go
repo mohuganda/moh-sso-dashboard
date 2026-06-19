@@ -80,6 +80,7 @@ func main() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(devCmd)
 	rootCmd.AddCommand(openAPICmd)
+	rootCmd.AddCommand(versionCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("❌", err)

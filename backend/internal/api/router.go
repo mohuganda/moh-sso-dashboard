@@ -141,6 +141,7 @@ func RegisterHealthRoutes(r *gin.Engine, healthHandler *handler.HealthHandler) {
 	r.GET("/health/live", healthHandler.HandleLive)
 	r.GET("/health/ready", healthHandler.HandleReady)
 	r.GET("/health", healthHandler.HandleHealth)
+	r.GET("/version", healthHandler.HandleVersion)
 }
 
 func (limits RateLimits) withDefaults() RateLimits {

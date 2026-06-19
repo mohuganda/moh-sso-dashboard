@@ -1,5 +1,7 @@
 package handler
 
+import "github.com/moh-sso-dashboard/internal/version"
+
 type HealthComponentStatus struct {
 	Database string `json:"database"`
 	RemoteDB string `json:"remoteDB"`
@@ -14,4 +16,5 @@ type HealthResponse struct {
 	Service       string                 `json:"service,omitempty"`
 	Components    *HealthComponentStatus `json:"components,omitempty"`
 	Version       string                 `json:"version,omitempty"`
+	Build         *version.BuildInfo     `json:"build,omitempty"`
 }
