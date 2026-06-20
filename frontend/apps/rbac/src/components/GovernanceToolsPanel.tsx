@@ -49,7 +49,7 @@ export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelPro
   const [seedText, setSeedText] = useState("");
   const [simulationUser, setSimulationUser] = useState("");
   const [simulationRoles, setSimulationRoles] = useState("admin");
-  const [simulationClientRoles, setSimulationClientRoles] = useState("integrated-outbreak-system:viewer");
+  const [simulationClientRoles, setSimulationClientRoles] = useState("outbreak-management:viewer");
   const [addRealmRoles, setAddRealmRoles] = useState("");
   const [removeRealmRoles, setRemoveRealmRoles] = useState("");
   const [addClientRoles, setAddClientRoles] = useState("");

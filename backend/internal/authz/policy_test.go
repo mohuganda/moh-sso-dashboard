@@ -69,25 +69,25 @@ func TestDashboardWebAccessGetsPortalPermissions(t *testing.T) {
 	}
 }
 
-func TestIntegratedOutbreakViewerGetsReadOnlyPermissions(t *testing.T) {
+func TestOutbreakManagementViewerGetsReadOnlyPermissions(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
-		SystemIntegratedOutbreak: {IntegratedOutbreakViewer},
+		SystemOutbreakManagement: {OutbreakManagementViewer},
 	})
 
 	if !ctx.HasPermission(PermissionSurveillanceRead) {
-		t.Fatal("expected IOS viewer to have surveillance read")
+		t.Fatal("expected Outbreak Management viewer to have surveillance read")
 	}
 	if ctx.HasPermission(PermissionSurveillanceImport) {
-		t.Fatal("did not expect IOS viewer to have surveillance import")
+		t.Fatal("did not expect Outbreak Management viewer to have surveillance import")
 	}
-	if !ctx.HasSystem(SystemIntegratedOutbreak) {
-		t.Fatal("expected integrated outbreak system to be accessible")
+	if !ctx.HasSystem(SystemOutbreakManagement) {
+		t.Fatal("expected outbreak management to be accessible")
 	}
 }
 
-func TestIntegratedOutbreakSuperAdminGetsElevatedPermissions(t *testing.T) {
+func TestOutbreakManagementSuperAdminGetsElevatedPermissions(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
-		SystemIntegratedOutbreak: {IntegratedOutbreakSuperAdmin},
+		SystemOutbreakManagement: {OutbreakManagementSuperAdmin},
 	})
 
 	for _, permission := range []Permission{
@@ -97,7 +97,7 @@ func TestIntegratedOutbreakSuperAdminGetsElevatedPermissions(t *testing.T) {
 		PermissionDocumentsProcess,
 	} {
 		if !ctx.HasPermission(permission) {
-			t.Fatalf("expected IOS super admin to have %s", permission)
+			t.Fatalf("expected Outbreak Management super admin to have %s", permission)
 		}
 	}
 }
@@ -123,19 +123,19 @@ func TestDashboardRoleDoesNotExposeOtherSystems(t *testing.T) {
 	if !ctx.HasSystem(SystemDashboardWeb) {
 		t.Fatal("expected dashboard web to be accessible")
 	}
-	if ctx.HasSystem(SystemIntegratedOutbreak) {
-		t.Fatal("did not expect dashboard web role to expose integrated outbreak system")
+	if ctx.HasSystem(SystemOutbreakManagement) {
+		t.Fatal("did not expect dashboard web role to expose outbreak management")
 	}
 }
 
 func TestSystemClientRolesExposeEachSystemDifferently(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
 		SystemDashboardWeb:       {DashboardWebManager},
-		SystemIntegratedOutbreak: {IntegratedOutbreakSurveillanceOfficer},
+		SystemOutbreakManagement: {OutbreakManagementSurveillanceOfficer},
 		SystemReportBrowser:      {ReportBrowserAnalyst},
 	})
 
-	for _, system := range []string{SystemDashboardWeb, SystemIntegratedOutbreak, SystemReportBrowser} {
+	for _, system := range []string{SystemDashboardWeb, SystemOutbreakManagement, SystemReportBrowser} {
 		if !ctx.HasSystem(system) {
 			t.Fatalf("expected %s to be accessible", system)
 		}

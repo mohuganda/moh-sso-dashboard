@@ -72,7 +72,7 @@ export const surveillanceRoute: MicrofrontendRoute = {
   appName: "@moh-sso/surveillance",
   path: "/apps/dwh/surveillance",
   requiredAnyPermissions: ["surveillance:read", "outbreak:access"],
-  requiredSystems: ["integrated-outbreak-system"],
+  requiredSystems: ["outbreak-management"],
 };
 
 export const usersRoute: MicrofrontendRoute = {

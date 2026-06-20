@@ -11,7 +11,7 @@ go run ./cmd/cli doctor
 go run ./cmd/cli config validate
 go run ./cmd/cli system-rbac validate --file config/system-rbac.seed.yaml
 go run ./cmd/cli system-rbac doctor --file config/system-rbac.seed.yaml
-go run ./cmd/cli system-rbac explain --realm-role admin --client-role integrated-outbreak-system:viewer
+go run ./cmd/cli system-rbac explain --realm-role admin --client-role outbreak-management:viewer
 go run ./cmd/cli system-rbac sync-keycloak --draft-file /tmp/system-rbac.seed.yaml
 go run ./cmd/cli dev seed --system-rbac
 go run ./cmd/cli openapi validate

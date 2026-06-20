@@ -68,7 +68,7 @@ The signed-in administrator needs `rbac:read` to open the page. Write actions re
 ```sh
 go run ./cmd/cli system-rbac explain \
   --realm-role user \
-  --client-role integrated-outbreak-system:viewer
+  --client-role outbreak-management:viewer
 ```
 
 ## 7. Check for Drift

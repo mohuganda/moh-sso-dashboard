@@ -97,12 +97,12 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionSystemsLaunch,
 		},
 	},
-	SystemIntegratedOutbreak: {
-		IntegratedOutbreakAccess: {
+	SystemOutbreakManagement: {
+		OutbreakManagementAccess: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 		},
-		IntegratedOutbreakSuperAdmin: {
+		OutbreakManagementSuperAdmin: {
 			PermissionOutbreakAccess,
 			PermissionOutbreakManage,
 			PermissionSurveillanceRead,
@@ -116,7 +116,7 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionDocumentsWrite,
 			PermissionDocumentsProcess,
 		},
-		IntegratedOutbreakAdmin: {
+		OutbreakManagementAdmin: {
 			PermissionOutbreakAccess,
 			PermissionOutbreakManage,
 			PermissionSurveillanceRead,
@@ -127,33 +127,33 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionDataQualityWrite,
 			PermissionDataQualityResolve,
 		},
-		IntegratedOutbreakManager: {
+		OutbreakManagementManager: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionDataQualityRead,
 			PermissionDataQualityWrite,
 			PermissionDocumentsRead,
 		},
-		IntegratedOutbreakViewer: {
+		OutbreakManagementViewer: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionDataQualityRead,
 			PermissionDocumentsRead,
 		},
-		IntegratedOutbreakDataEntry: {
+		OutbreakManagementDataEntry: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionSurveillanceImport,
 			PermissionDataQualityRead,
 			PermissionDataQualityWrite,
 		},
-		IntegratedOutbreakLabTechnician: {
+		OutbreakManagementLabTechnician: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionDataQualityRead,
 			PermissionDataQualityWrite,
 		},
-		IntegratedOutbreakSurveillanceOfficer: {
+		OutbreakManagementSurveillanceOfficer: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionSurveillanceImport,
@@ -282,7 +282,7 @@ func AccessibleSystemDetailsForContext(clientRoles map[string][]string) []System
 		switch system {
 		case SystemDashboardWeb:
 			add(systemAccess(system, roles))
-		case SystemIntegratedOutbreak, SystemReportBrowser, SystemDataStatistics, SystemUtilities, SystemSettings:
+		case SystemOutbreakManagement, SystemReportBrowser, SystemDataStatistics, SystemUtilities, SystemSettings:
 			add(systemAccess(system, roles))
 		}
 	}
@@ -304,8 +304,8 @@ var staticSystemMetadata = map[string]systemMetadata{
 		Icon:        "dashboard",
 		Category:    "platform",
 	},
-	SystemIntegratedOutbreak: {
-		DisplayName: "Integrated Outbreak System",
+	SystemOutbreakManagement: {
+		DisplayName: "Outbreak Management",
 		LaunchURL:   "/portal/apps/dwh/surveillance",
 		Icon:        "outbreak",
 		Category:    "surveillance",

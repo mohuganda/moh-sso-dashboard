@@ -1,0 +1,3 @@
+-- This migration intentionally has no automatic rollback. It merges role and
+-- governance data from a retired Keycloak client into its canonical replacement;
+-- recreating the obsolete client would make authorization ambiguous.

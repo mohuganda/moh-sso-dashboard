@@ -648,8 +648,8 @@ Create announcement:
   "publish_at": "2026-06-16T09:00:00Z",
   "expires_at": "2026-07-16T09:00:00Z",
   "audience_type": "client",
-  "client_ids": ["integrated-outbreak-system"],
-  "role_names": ["integrated-outbreak-system_access"],
+  "client_ids": ["outbreak-management"],
+  "role_names": ["outbreak-management_access"],
   "user_ids": [],
   "notify_by_email": true
 }
@@ -1184,7 +1184,7 @@ Mounted under `/api/v1/issues`.
 
 ### Surveillance
 
-Mounted under `/api/v1/surveillance`. Requires access to the integrated outbreak system plus route-specific surveillance permissions.
+Mounted under `/api/v1/surveillance`. Requires access to the outbreak management plus route-specific surveillance permissions.
 
 | Method | Path | Permission | Purpose |
 | --- | --- | --- | --- |

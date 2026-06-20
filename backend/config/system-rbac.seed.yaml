@@ -39,22 +39,21 @@ systems:
             - portal:access
             - systems:read
             - systems:launch
-    - clientId: integrated-outbreak-system
-      displayName: Integrated Outbreak System
-      description: Outbreak surveillance and response
-      icon: outbreak
-      launchUrl: /portal/apps/dwh/surveillance
+    - clientId: outbreak-management
+      displayName: Outbreak Management
+      description: Signals, alerts, surveillance, points of entry, and case management.
+      icon: warning-alt
+      launchUrl: /portal/apps/outbreak-management
       category: surveillance
       navigation: |-
         [
-          {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","icon":"surveillance","permission":"surveillance:read"},
-          {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","icon":"data-quality","permission":"data_quality:read"},
-          {"id":"document-upload","label":"Document Upload","path":"/apps/dwh/filesvr","icon":"document","permission":"documents:read"},
-          {"id":"reports","label":"Reports","path":"/apps/dwh/reports","icon":"reporting","permission":"report_browser:read"}
+          {"id":"signals-alerts","label":"Signals & Alerts","path":"/apps/outbreak-management/signals-alerts"},
+          {"id":"poe-management","label":"PoE Management","path":"/apps/outbreak-management/poe-management"},
+          {"id":"case-management","label":"Case Management","path":"/apps/outbreak-management/case-management"}
         ]
       enabled: true
       accessRoles:
-        - integrated-outbreak-system_access
+        - outbreak-management_access
         - viewer
         - data_entry
         - surveillance_officer
@@ -62,6 +61,14 @@ systems:
         - admin
         - super_admin
       roles:
+        - name: outbreak-management_access
+          displayName: Outbreak Management Access
+          permissions:
+            - portal:access
+            - systems:read
+            - systems:launch
+            - outbreak:access
+            - surveillance:read
         - name: super_admin
           permissions:
             - outbreak:access
@@ -224,30 +231,6 @@ systems:
             - systems:read
             - systems:launch
             - documents:read
-    - clientId: outbreak-management
-      displayName: Outbreak Management
-      description: Signals, alerts, points of entry, and case management.
-      icon: warning-alt
-      launchUrl: /portal/apps/outbreak-management
-      category: surveillance
-      navigation: |-
-        [
-          {"id":"signals-alerts","label":"Signals & Alerts","path":"/apps/outbreak-management/signals-alerts"},
-          {"id":"poe-management","label":"PoE Management","path":"/apps/outbreak-management/poe-management"},
-          {"id":"case-management","label":"Case Management","path":"/apps/outbreak-management/case-management"}
-        ]
-      enabled: true
-      accessRoles:
-        - outbreak-management_access
-      roles:
-        - name: outbreak-management_access
-          displayName: Outbreak Management Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-            - outbreak:access
-            - surveillance:read
     - clientId: reference-registers
       displayName: Reference Registers
       description: Facility, terminology, and reference data registers.

@@ -206,11 +206,11 @@
           "description": "Access MOH Dashboard"
         },
         {
-          "name": "integrated-outbreak-system_access",
+          "name": "outbreak-management_access",
           "description": "Can open IOS from the dashboard"
         }
       ],
-      "integrated-outbreak-system": [
+      "outbreak-management": [
         {
           "name": "super_admin",
           "description": "Super Administrator with full system access"
@@ -257,9 +257,9 @@
       "authorizationServicesEnabled": false
     },
     {
-      "clientId": "integrated-outbreak-system-admin",
-      "name": "Integrated Outbreak System Admin Client",
-      "description": "Admin client for managing Integrated Outbreak System",
+      "clientId": "outbreak-management-admin",
+      "name": "Outbreak Management Admin Client",
+      "description": "Admin client for managing Outbreak Management",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -311,9 +311,9 @@
       ]
     },
     {
-      "clientId": "integrated-outbreak-system",
-      "name": "Integrated Outbreak System",
-      "description": "Integrated Outbreak System Backend API",
+      "clientId": "outbreak-management",
+      "name": "Outbreak Management",
+      "description": "Outbreak Management Backend API",
       "rootUrl": "http://localhost:3001",
       "baseUrl": "http://localhost:3001",
       "enabled": true,
@@ -332,8 +332,10 @@
       ],
       "attributes": {
         "access.token.lifespan": "1800",
-        "ui.icon": "user",
-        "ui.home": "/dashboard"
+        "ui.icon": "warning-alt",
+        "ui.home": "/portal/apps/outbreak-management",
+        "ui.category": "surveillance",
+        "portal.system": "true"
       },
       "defaultClientScopes": [
         "openid",
@@ -364,10 +366,10 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "outbreak-management_access"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "super_admin"
         ]
       }
@@ -392,10 +394,10 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "outbreak-management_access"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "viewer"
         ]
       }
@@ -420,10 +422,10 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "outbreak-management_access"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "super_admin",
           "admin"
         ]
@@ -449,10 +451,10 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "outbreak-management_access"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "super_admin",
           "admin"
         ]
@@ -478,9 +480,9 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "outbreak-management_access"
         ],
-        "integrated-outbreak-system": [
+        "outbreak-management": [
           "viewer"
         ]
       }
@@ -500,9 +502,9 @@
       }
     },
     {
-      "username": "service-account-integrated-outbreak-system-admin",
+      "username": "service-account-outbreak-management-admin",
       "enabled": true,
-      "serviceAccountClientId": "integrated-outbreak-system-admin",
+      "serviceAccountClientId": "outbreak-management-admin",
       "clientRoles": {
         "realm-management": [
           "realm-admin",

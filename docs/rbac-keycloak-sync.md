@@ -17,7 +17,7 @@ Keycloak can tell us that a user has:
 ```text
 realm role: admin
 client role: report-browser:report_admin
-client role: integrated-outbreak-system:super_admin
+client role: outbreak-management:super_admin
 ```
 
 But Keycloak does not know that `report_admin` should mean:
@@ -89,6 +89,28 @@ Use these rules to avoid accidental overwrites:
 - Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` when startup should create missing portal-defined Keycloak clients, realm/client roles, and configured realm-role composites from the RBAC registry. Apart from explicitly configured realm-role defaults such as `user`, other systems still require explicit client-role assignments.
 - Do not use startup sync to delete Keycloak roles or users.
 - Do not store passwords or credentials in portal RBAC.
+
+## Retiring The Integrated Outbreak System Client
+
+`outbreak-management` is the canonical replacement for the retired
+`integrated-outbreak-system` client. Migration
+`000031_consolidate_outbreak_management_system` merges the legacy portal RBAC
+roles, permissions, access-role markers, realm-role mappings, access requests,
+and audit references into the replacement system.
+
+Startup synchronization is intentionally non-destructive and will not delete a
+live Keycloak client. For an existing realm:
+
+1. Confirm `outbreak-management` exists with the required roles.
+2. Move or recreate user, group, service-account, and realm-role composite
+   assignments on `outbreak-management`.
+3. Refresh a representative user's token and verify portal access.
+4. Delete `integrated-outbreak-system` and its legacy admin client in Keycloak.
+5. Run the RBAC drift report and confirm the retired client is absent.
+
+Do not delete the legacy Keycloak client before its assignments have been
+verified on the replacement. Realm exports in this repository now contain only
+`outbreak-management`.
 
 ## Adding A New System / Client
 

@@ -315,26 +315,37 @@ func DefaultSeed() SeedFile {
 				},
 			},
 			{
-				ClientID:    authz.SystemIntegratedOutbreak,
-				DisplayName: "Integrated Outbreak System",
-				Description: "Outbreak surveillance and response",
-				Icon:        "outbreak",
-				LaunchURL:   "/portal/apps/dwh/surveillance",
+				ClientID:    authz.SystemOutbreakManagement,
+				DisplayName: "Outbreak Management",
+				Description: "Signals, alerts, surveillance, points of entry, and case management.",
+				Icon:        "warning-alt",
+				LaunchURL:   "/portal/apps/outbreak-management",
 				Category:    "surveillance",
-				Navigation:  integratedOutbreakNavigation,
+				Navigation:  outbreakManagementNavigation,
 				Enabled:     &enabled,
 				AccessRoles: []string{
-					authz.IntegratedOutbreakAccess,
-					authz.IntegratedOutbreakViewer,
-					authz.IntegratedOutbreakDataEntry,
-					authz.IntegratedOutbreakSurveillanceOfficer,
-					authz.IntegratedOutbreakManager,
-					authz.IntegratedOutbreakAdmin,
-					authz.IntegratedOutbreakSuperAdmin,
+					authz.OutbreakManagementAccess,
+					authz.OutbreakManagementViewer,
+					authz.OutbreakManagementDataEntry,
+					authz.OutbreakManagementSurveillanceOfficer,
+					authz.OutbreakManagementManager,
+					authz.OutbreakManagementAdmin,
+					authz.OutbreakManagementSuperAdmin,
 				},
 				Roles: []SeedRole{
 					{
-						Name: authz.IntegratedOutbreakSuperAdmin,
+						Name:        authz.OutbreakManagementAccess,
+						DisplayName: "Outbreak Management Access",
+						Permissions: []string{
+							string(authz.PermissionPortalAccess),
+							string(authz.PermissionSystemsRead),
+							string(authz.PermissionSystemsLaunch),
+							string(authz.PermissionOutbreakAccess),
+							string(authz.PermissionSurveillanceRead),
+						},
+					},
+					{
+						Name: authz.OutbreakManagementSuperAdmin,
 						Permissions: []string{
 							string(authz.PermissionOutbreakAccess),
 							string(authz.PermissionOutbreakManage),
@@ -351,7 +362,7 @@ func DefaultSeed() SeedFile {
 						},
 					},
 					{
-						Name: authz.IntegratedOutbreakAdmin,
+						Name: authz.OutbreakManagementAdmin,
 						Permissions: []string{
 							string(authz.PermissionOutbreakAccess),
 							string(authz.PermissionOutbreakManage),
@@ -365,7 +376,7 @@ func DefaultSeed() SeedFile {
 						},
 					},
 					{
-						Name: authz.IntegratedOutbreakManager,
+						Name: authz.OutbreakManagementManager,
 						Permissions: []string{
 							string(authz.PermissionOutbreakAccess),
 							string(authz.PermissionSurveillanceRead),
@@ -375,7 +386,7 @@ func DefaultSeed() SeedFile {
 						},
 					},
 					{
-						Name: authz.IntegratedOutbreakViewer,
+						Name: authz.OutbreakManagementViewer,
 						Permissions: []string{
 							string(authz.PermissionOutbreakAccess),
 							string(authz.PermissionSurveillanceRead),
@@ -384,7 +395,7 @@ func DefaultSeed() SeedFile {
 						},
 					},
 					{
-						Name: authz.IntegratedOutbreakDataEntry,
+						Name: authz.OutbreakManagementDataEntry,
 						Permissions: []string{
 							string(authz.PermissionOutbreakAccess),
 							string(authz.PermissionSurveillanceRead),
@@ -394,7 +405,7 @@ func DefaultSeed() SeedFile {
 						},
 					},
 					{
-						Name: authz.IntegratedOutbreakLabTechnician,
+						Name: authz.OutbreakManagementLabTechnician,
 						Permissions: []string{
 							string(authz.PermissionOutbreakAccess),
 							string(authz.PermissionSurveillanceRead),
@@ -403,7 +414,7 @@ func DefaultSeed() SeedFile {
 						},
 					},
 					{
-						Name: authz.IntegratedOutbreakSurveillanceOfficer,
+						Name: authz.OutbreakManagementSurveillanceOfficer,
 						Permissions: []string{
 							string(authz.PermissionOutbreakAccess),
 							string(authz.PermissionSurveillanceRead),
@@ -423,10 +434,6 @@ func DefaultSeed() SeedFile {
 			defaultPortalSystem("research-studies", "Research & Studies", "Research studies, datasets, ethics approvals, and publications.", "microscope", "/portal/apps/research-studies", "research", researchStudiesNavigation, nil, enabled),
 			defaultPortalSystem("case-registers", "Case Registers", "Case registers and referral tracking.", "document", "/portal/apps/case-registers", "clinical", caseRegistersNavigation, []string{
 				string(authz.PermissionDocumentsRead),
-			}, enabled),
-			defaultPortalSystem("outbreak-management", "Outbreak Management", "Signals, alerts, points of entry, and case management.", "warning-alt", "/portal/apps/outbreak-management", "surveillance", outbreakManagementNavigation, []string{
-				string(authz.PermissionOutbreakAccess),
-				string(authz.PermissionSurveillanceRead),
 			}, enabled),
 			defaultPortalSystem("reference-registers", "Reference Registers", "Facility, terminology, and reference data registers.", "catalog", "/portal/apps/reference-registers", "registry", referenceRegistersNavigation, []string{
 				string(authz.PermissionSystemsRead),

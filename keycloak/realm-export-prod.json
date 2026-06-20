@@ -227,10 +227,10 @@
           "description": "Standard portal user access"
         }
       ],
-      "integrated-outbreak-system": [
+      "outbreak-management": [
         {
-          "name": "integrated-outbreak-system_access",
-          "description": "Base access to Integrated Outbreak System"
+          "name": "outbreak-management_access",
+          "description": "Base access to Outbreak Management"
         },
         {
           "name": "super_admin",
@@ -300,9 +300,9 @@
       "authorizationServicesEnabled": false
     },
     {
-      "clientId": "integrated-outbreak-system-admin",
-      "name": "Integrated Outbreak System Admin Client",
-      "description": "Admin client for managing Integrated Outbreak System",
+      "clientId": "outbreak-management-admin",
+      "name": "Outbreak Management Admin Client",
+      "description": "Admin client for managing Outbreak Management",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -393,9 +393,9 @@
       ]
     },
     {
-      "clientId": "integrated-outbreak-system",
-      "name": "Integrated Outbreak System",
-      "description": "Integrated Outbreak System Backend API",
+      "clientId": "outbreak-management",
+      "name": "Outbreak Management",
+      "description": "Outbreak Management Backend API",
       "rootUrl": "http://localhost:3001",
       "baseUrl": "http://localhost:3001",
       "enabled": true,
@@ -414,8 +414,10 @@
       ],
       "attributes": {
         "access.token.lifespan": "1800",
-        "ui.icon": "user",
-        "ui.home": "/dashboard"
+        "ui.icon": "warning-alt",
+        "ui.home": "/portal/apps/outbreak-management",
+        "ui.category": "surveillance",
+        "portal.system": "true"
       },
       "defaultClientScopes": [
         "openid",
@@ -452,8 +454,8 @@
           "dashboard-web_access",
           "portal_admin"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "super_admin",
           "admin"
         ],
@@ -486,8 +488,8 @@
           "dashboard-web_access",
           "portal_user"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "viewer"
         ],
         "report-browser": [
@@ -518,8 +520,8 @@
           "dashboard-web_access",
           "portal_manager"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "manager",
           "surveillance_officer"
         ],
@@ -552,8 +554,8 @@
           "dashboard-web_access",
           "portal_user"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "data_entry",
           "surveillance_officer"
         ],
@@ -585,8 +587,8 @@
           "dashboard-web_access",
           "portal_user"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "viewer"
         ],
         "report-browser": [
@@ -610,9 +612,9 @@
       }
     },
     {
-      "username": "service-account-integrated-outbreak-system-admin",
+      "username": "service-account-outbreak-management-admin",
       "enabled": true,
-      "serviceAccountClientId": "integrated-outbreak-system-admin",
+      "serviceAccountClientId": "outbreak-management-admin",
       "clientRoles": {
         "realm-management": [
           "realm-admin",

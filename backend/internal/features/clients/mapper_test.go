@@ -14,7 +14,7 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 			Attributes: map[string]string{"ui.icon": "dashboard"},
 		},
 		{
-			ClientID:   "integrated-outbreak-system",
+			ClientID:   "outbreak-management",
 			Name:       "IOS",
 			Attributes: map[string]string{"ui.icon": "outbreak"},
 		},
@@ -33,9 +33,9 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 	filtered := filterAccessibleClients(
 		clients,
 		map[string][]string{
-			"dashboard-web":              {"dashboard-web_access", "portal_user"},
-			"integrated-outbreak-system": {"integrated-outbreak-system_access", "viewer"},
-			"report-browser":             {"report-browser_access", "report_viewer"},
+			"dashboard-web":       {"dashboard-web_access", "portal_user"},
+			"outbreak-management": {"outbreak-management_access", "viewer"},
+			"report-browser":      {"report-browser_access", "report_viewer"},
 		},
 		false,
 	)
@@ -45,7 +45,7 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 		got = append(got, client.ClientID)
 	}
 
-	want := []string{"dashboard-web", "integrated-outbreak-system", "report-browser"}
+	want := []string{"dashboard-web", "outbreak-management", "report-browser"}
 	if len(got) != len(want) {
 		t.Fatalf("expected %v, got %v", want, got)
 	}
@@ -60,7 +60,7 @@ func TestFilterAccessibleClientsSkipsClientsWithoutUiMetadata(t *testing.T) {
 	filtered := filterAccessibleClients(
 		[]model.Client{
 			{
-				ClientID:   "integrated-outbreak-system",
+				ClientID:   "outbreak-management",
 				Name:       "IOS",
 				Attributes: map[string]string{"ui.icon": "outbreak"},
 			},
@@ -70,13 +70,13 @@ func TestFilterAccessibleClientsSkipsClientsWithoutUiMetadata(t *testing.T) {
 			},
 		},
 		map[string][]string{
-			"integrated-outbreak-system": {"integrated-outbreak-system_access"},
-			"technical-client":           {"technical-client_access"},
+			"outbreak-management": {"outbreak-management_access"},
+			"technical-client":    {"technical-client_access"},
 		},
 		false,
 	)
 
-	if len(filtered) != 1 || filtered[0].ClientID != "integrated-outbreak-system" {
+	if len(filtered) != 1 || filtered[0].ClientID != "outbreak-management" {
 		t.Fatalf("expected only IOS client, got %v", filtered)
 	}
 }
