@@ -260,12 +260,16 @@ func AccessibleSystemDetailsForContext(clientRoles map[string][]string) []System
 		system = strings.TrimSpace(system)
 		metadata := staticSystemMetadata[system]
 		return SystemAccess{
-			ClientID:    system,
-			DisplayName: metadata.DisplayName,
-			LaunchURL:   metadata.LaunchURL,
-			Icon:        metadata.Icon,
-			Category:    metadata.Category,
-			Roles:       roles,
+			ClientID:          system,
+			DisplayName:       metadata.DisplayName,
+			LaunchURL:         metadata.LaunchURL,
+			Icon:              metadata.Icon,
+			Category:          metadata.Category,
+			SystemType:        "platform",
+			DisplayInLauncher: true,
+			DisplayInSideNav:  false,
+			LaunchMode:        "internal",
+			Roles:             roles,
 		}
 	}
 

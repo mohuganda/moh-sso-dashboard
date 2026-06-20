@@ -3,6 +3,7 @@ package system_rbac
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,23 +18,27 @@ type SeedFile struct {
 }
 
 type SeedSystem struct {
-	ClientID         string     `json:"clientId" yaml:"clientId"`
-	DisplayName      string     `json:"displayName" yaml:"displayName"`
-	Description      string     `json:"description,omitempty" yaml:"description,omitempty"`
-	Icon             string     `json:"icon,omitempty" yaml:"icon,omitempty"`
-	LaunchURL        string     `json:"launchUrl,omitempty" yaml:"launchUrl,omitempty"`
-	Category         string     `json:"category,omitempty" yaml:"category,omitempty"`
-	OwnerTeam        string     `json:"ownerTeam,omitempty" yaml:"ownerTeam,omitempty"`
-	OwnerName        string     `json:"ownerName,omitempty" yaml:"ownerName,omitempty"`
-	OwnerEmail       string     `json:"ownerEmail,omitempty" yaml:"ownerEmail,omitempty"`
-	SupportURL       string     `json:"supportUrl,omitempty" yaml:"supportUrl,omitempty"`
-	DocumentationURL string     `json:"documentationUrl,omitempty" yaml:"documentationUrl,omitempty"`
-	Environment      string     `json:"environment,omitempty" yaml:"environment,omitempty"`
-	Criticality      string     `json:"criticality,omitempty" yaml:"criticality,omitempty"`
-	Navigation       string     `json:"navigation,omitempty" yaml:"navigation,omitempty"`
-	Enabled          *bool      `json:"enabled,omitempty" yaml:"enabled,omitempty"`
-	AccessRoles      []string   `json:"accessRoles,omitempty" yaml:"accessRoles,omitempty"`
-	Roles            []SeedRole `json:"roles,omitempty" yaml:"roles,omitempty"`
+	ClientID          string     `json:"clientId" yaml:"clientId"`
+	DisplayName       string     `json:"displayName" yaml:"displayName"`
+	Description       string     `json:"description,omitempty" yaml:"description,omitempty"`
+	Icon              string     `json:"icon,omitempty" yaml:"icon,omitempty"`
+	LaunchURL         string     `json:"launchUrl,omitempty" yaml:"launchUrl,omitempty"`
+	Category          string     `json:"category,omitempty" yaml:"category,omitempty"`
+	OwnerTeam         string     `json:"ownerTeam,omitempty" yaml:"ownerTeam,omitempty"`
+	OwnerName         string     `json:"ownerName,omitempty" yaml:"ownerName,omitempty"`
+	OwnerEmail        string     `json:"ownerEmail,omitempty" yaml:"ownerEmail,omitempty"`
+	SupportURL        string     `json:"supportUrl,omitempty" yaml:"supportUrl,omitempty"`
+	DocumentationURL  string     `json:"documentationUrl,omitempty" yaml:"documentationUrl,omitempty"`
+	Environment       string     `json:"environment,omitempty" yaml:"environment,omitempty"`
+	Criticality       string     `json:"criticality,omitempty" yaml:"criticality,omitempty"`
+	Navigation        string     `json:"navigation,omitempty" yaml:"navigation,omitempty"`
+	SystemType        string     `json:"systemType,omitempty" yaml:"systemType,omitempty"`
+	DisplayInLauncher *bool      `json:"displayInLauncher,omitempty" yaml:"displayInLauncher,omitempty"`
+	DisplayInSideNav  *bool      `json:"displayInSideNav,omitempty" yaml:"displayInSideNav,omitempty"`
+	LaunchMode        string     `json:"launchMode,omitempty" yaml:"launchMode,omitempty"`
+	Enabled           *bool      `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	AccessRoles       []string   `json:"accessRoles,omitempty" yaml:"accessRoles,omitempty"`
+	Roles             []SeedRole `json:"roles,omitempty" yaml:"roles,omitempty"`
 }
 
 type SeedRole struct {
@@ -161,6 +166,7 @@ func ValidateSeed(seed SeedFile) error {
 	systemRoles := map[string]map[string]bool{}
 	systemAccessRoles := map[string]map[string]bool{}
 	for _, system := range seed.Systems {
+		system = NormalizeSystemBehavior(system)
 		clientID := strings.ToLower(strings.TrimSpace(system.ClientID))
 		if clientID == "" {
 			return fmt.Errorf("system clientId is required")
@@ -172,6 +178,9 @@ func ValidateSeed(seed SeedFile) error {
 
 		if strings.TrimSpace(system.DisplayName) == "" {
 			return fmt.Errorf("system %q displayName is required", clientID)
+		}
+		if err := ValidateSystemBehavior(system); err != nil {
+			return fmt.Errorf("system %q: %w", clientID, err)
 		}
 
 		seenRoles := map[string]bool{}
@@ -243,10 +252,91 @@ func validatePermissions(knownPermissions map[string]bool, permissions []string)
 	return nil
 }
 
+func NormalizeSystemBehavior(system SeedSystem) SeedSystem {
+	system.SystemType = strings.ToLower(strings.TrimSpace(system.SystemType))
+	system.LaunchMode = strings.ToLower(strings.TrimSpace(system.LaunchMode))
+	system.LaunchURL = strings.TrimSpace(system.LaunchURL)
+	system.Navigation = strings.TrimSpace(system.Navigation)
+
+	if system.SystemType == "" {
+		if isHTTPURL(system.LaunchURL) && system.Navigation == "" {
+			system.SystemType = "external"
+		} else {
+			system.SystemType = "platform"
+		}
+	}
+	if system.LaunchMode == "" {
+		if system.SystemType == "external" {
+			system.LaunchMode = "new_tab"
+		} else {
+			system.LaunchMode = "internal"
+		}
+	}
+	if system.DisplayInLauncher == nil {
+		value := true
+		system.DisplayInLauncher = &value
+	}
+	if system.DisplayInSideNav == nil {
+		value := system.SystemType == "platform" && system.Navigation != ""
+		system.DisplayInSideNav = &value
+	}
+	return system
+}
+
+func ValidateSystemBehavior(system SeedSystem) error {
+	system = NormalizeSystemBehavior(system)
+	if system.SystemType != "platform" && system.SystemType != "external" {
+		return fmt.Errorf("systemType must be platform or external")
+	}
+	if system.LaunchMode != "internal" && system.LaunchMode != "new_tab" && system.LaunchMode != "same_tab" {
+		return fmt.Errorf("launchMode must be internal, new_tab, or same_tab")
+	}
+	if system.SystemType == "platform" {
+		if system.LaunchMode != "internal" {
+			return fmt.Errorf("platform systems must use internal launchMode")
+		}
+		if system.LaunchURL != "" && !isPortalPath(system.LaunchURL) {
+			return fmt.Errorf("platform launchUrl must begin with /portal or /apps")
+		}
+	} else {
+		if system.LaunchMode == "internal" {
+			return fmt.Errorf("external systems must use new_tab or same_tab launchMode")
+		}
+		if !isHTTPURL(system.LaunchURL) {
+			return fmt.Errorf("external launchUrl must be an absolute HTTP or HTTPS URL")
+		}
+		if system.Navigation != "" || (system.DisplayInSideNav != nil && *system.DisplayInSideNav) {
+			return fmt.Errorf("external systems cannot define portal side navigation")
+		}
+	}
+	if system.DisplayInSideNav != nil && *system.DisplayInSideNav {
+		if system.SystemType != "platform" {
+			return fmt.Errorf("side navigation requires a platform system")
+		}
+		var items []map[string]any
+		if err := json.Unmarshal([]byte(system.Navigation), &items); err != nil || len(items) == 0 {
+			return fmt.Errorf("side navigation requires a non-empty navigation JSON array")
+		}
+	}
+	return nil
+}
+
+func isPortalPath(value string) bool {
+	return value == "/portal" || strings.HasPrefix(value, "/portal/") || value == "/apps" || strings.HasPrefix(value, "/apps/")
+}
+
+func isHTTPURL(value string) bool {
+	if strings.HasPrefix(value, "//") {
+		return false
+	}
+	parsed, err := url.Parse(value)
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" && parsed.User == nil
+}
+
 func DefaultSeed() SeedFile {
 	enabled := true
 
-	return SeedFile{
+	seed := SeedFile{
 		Systems: []SeedSystem{
 			{
 				ClientID:    authz.SystemDashboardWeb,
@@ -461,6 +551,10 @@ func DefaultSeed() SeedFile {
 			},
 		},
 	}
+	for index := range seed.Systems {
+		seed.Systems[index] = NormalizeSystemBehavior(seed.Systems[index])
+	}
+	return seed
 }
 
 func defaultPortalSystem(

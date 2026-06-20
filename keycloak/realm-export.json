@@ -470,6 +470,45 @@
             ]
           }
         }
+      ],
+      "demo-platform-system": [
+        {
+          "name": "demo-platform-system_access",
+          "description": "Development access role for Demo Platform System",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
+        }
+      ],
+      "demo-external-new-tab": [
+        {
+          "name": "demo-external-new-tab_access",
+          "description": "Development access role for External Health System",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
+        }
+      ],
+      "demo-external-same-tab": [
+        {
+          "name": "demo-external-same-tab_access",
+          "description": "Development access role for External Support Portal",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
+        }
       ]
     }
   },
@@ -529,7 +568,14 @@
       "attributes": {
         "access.token.lifespan": "1800",
         "ui.icon": "reporting",
-        "ui.home": "/dashboard"
+        "ui.home": "/dashboard",
+        "portal.system": "true",
+        "portal.accessRoles": "dashboard-web_access",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/dashboard"
       },
       "protocolMappers": [
         {
@@ -561,7 +607,13 @@
         "ui.icon": "home",
         "ui.home": "/portal/apps/dwh",
         "ui.category": "platform",
-        "portal.system": "true"
+        "portal.system": "true",
+        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/dwh"
       }
     },
     {
@@ -580,7 +632,13 @@
         "ui.icon": "tools",
         "ui.home": "/portal/apps/utilities",
         "ui.category": "utilities",
-        "portal.system": "true"
+        "portal.system": "true",
+        "portal.accessRoles": "utilities_access",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/utilities"
       }
     },
     {
@@ -599,7 +657,13 @@
         "ui.icon": "settings",
         "ui.home": "/portal/apps/settings",
         "ui.category": "platform",
-        "portal.system": "true"
+        "portal.system": "true",
+        "portal.accessRoles": "settings_access",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/settings"
       }
     },
     {
@@ -627,7 +691,13 @@
         "ui.icon": "warning-alt",
         "ui.home": "/portal/apps/outbreak-management",
         "ui.category": "surveillance",
-        "portal.system": "true"
+        "portal.system": "true",
+        "portal.accessRoles": "outbreak-management_access,viewer,data_entry,surveillance_officer,manager,admin,super_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/outbreak-management"
       },
       "defaultClientScopes": [
         "openid",
@@ -635,6 +705,82 @@
         "email",
         "roles"
       ]
+    },
+    {
+      "clientId": "demo-platform-system",
+      "name": "Demo Platform System",
+      "description": "Development example of an internal platform system with side navigation",
+      "rootUrl": "http://localhost:3000/portal/apps/dwh",
+      "baseUrl": "http://localhost:3000/portal/apps/dwh",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "portal.system": "true",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "true",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/dwh",
+        "ui.home": "/portal/apps/dwh",
+        "ui.icon": "dashboard",
+        "ui.category": "platform",
+        "ui.navigation": "[{\"id\":\"overview\",\"label\":\"Overview\",\"path\":\"/apps/dwh\"},{\"id\":\"reports\",\"label\":\"Reports\",\"path\":\"/apps/dwh/reports\",\"permission\":\"report_browser:read\"}]",
+        "portal.accessRoles": "demo-platform-system_access"
+      }
+    },
+    {
+      "clientId": "demo-external-new-tab",
+      "name": "External Health System",
+      "description": "Development example of a launcher-only external system opening in a new tab",
+      "rootUrl": "https://example.org/external-health-system",
+      "baseUrl": "https://example.org/external-health-system",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "portal.system": "true",
+        "ui.systemType": "external",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "new_tab",
+        "ui.launchUrl": "https://example.org/external-health-system",
+        "ui.home": "https://example.org/external-health-system",
+        "ui.icon": "application",
+        "ui.category": "external",
+        "portal.accessRoles": "demo-external-new-tab_access"
+      }
+    },
+    {
+      "clientId": "demo-external-same-tab",
+      "name": "External Support Portal",
+      "description": "Development example of a launcher-only external system opening in the current tab",
+      "rootUrl": "https://example.org/support",
+      "baseUrl": "https://example.org/support",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "portal.system": "true",
+        "ui.systemType": "external",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "same_tab",
+        "ui.launchUrl": "https://example.org/support",
+        "ui.home": "https://example.org/support",
+        "ui.icon": "help",
+        "ui.category": "support",
+        "portal.accessRoles": "demo-external-same-tab_access"
+      }
     }
   ],
   "users": [
@@ -896,6 +1042,48 @@
           "view-clients",
           "manage-clients",
           "view-realm"
+        ]
+      }
+    },
+    {
+      "username": "demo.registry.user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Registry",
+      "lastName": "Demo",
+      "email": "registry.demo@example.org",
+      "attributes": {
+        "access_profile": [
+          "registry-launch-demo"
+        ],
+        "primary_system": [
+          "demo-platform-system"
+        ],
+        "accessible_systems": [
+          "demo-platform-system",
+          "demo-external-new-tab",
+          "demo-external-same-tab"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "demo-platform-system": [
+          "demo-platform-system_access"
+        ],
+        "demo-external-new-tab": [
+          "demo-external-new-tab_access"
+        ],
+        "demo-external-same-tab": [
+          "demo-external-same-tab_access"
         ]
       }
     }

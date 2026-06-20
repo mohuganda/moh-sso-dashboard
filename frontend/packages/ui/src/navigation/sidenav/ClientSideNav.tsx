@@ -83,6 +83,13 @@ function parseSideNav(client: Client): SideNavItem[] {
   }
 }
 
+function isPlatformSideNavClient(client: Client): boolean {
+  return (
+    client.attributes?.["ui.systemType"] === "platform" &&
+    client.attributes?.["ui.displayInSideNav"] === "true"
+  );
+}
+
 function hasActiveChild(item: SideNavItem, currentPath: string): boolean {
   if (isActivePath(currentPath, item.path)) {
     return true;
@@ -193,6 +200,7 @@ export function ClientSideNav({
 }: ClientSideNavProps) {
   const navClients = useMemo(() => {
     return clients
+      .filter(isPlatformSideNavClient)
       .map((client) => {
         const items = filterByPermission(parseSideNav(client), hasPermission);
 
@@ -203,6 +211,10 @@ export function ClientSideNav({
       })
       .filter(({ items }) => items.length > 0);
   }, [clients, hasPermission]);
+
+  if (navClients.length === 0) {
+    return null;
+  }
 
   const handleNavigate = (path: string) => {
     if (currentPath === path) {
@@ -241,4 +253,16 @@ export function ClientSideNav({
       </SideNavItems>
     </SideNav>
   );
+}
+
+export function hasVisibleClientSideNav(
+  clients: Client[],
+  hasPermission?: (permission: string) => boolean,
+): boolean {
+  return clients.some((client) => {
+    if (!isPlatformSideNavClient(client)) {
+      return false;
+    }
+    return filterByPermission(parseSideNav(client), hasPermission).length > 0;
+  });
 }

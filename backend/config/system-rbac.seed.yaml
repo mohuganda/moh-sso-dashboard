@@ -1,369 +1,405 @@
 systems:
-    - clientId: dashboard-web
-      displayName: Integrated Health Portal
-      description: Central portal shell
-      icon: dashboard
-      launchUrl: /portal
-      category: platform
-      enabled: true
-      accessRoles:
-        - dashboard-web_access
-      roles:
-        - name: dashboard-web_access
-          displayName: Dashboard Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-        - name: portal_admin
-          displayName: Portal Admin
-          permissions:
-            - '*'
-        - name: portal_manager
-          displayName: Portal Manager
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-            - users:read
-            - clients:read
-            - announcements:read
-            - documents:read
-            - document_templates:read
-            - surveillance:read
-            - report_browser:read
-            - notifications:read
-        - name: portal_user
-          displayName: Portal User
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-    - clientId: outbreak-management
-      displayName: Outbreak Management
-      description: Signals, alerts, surveillance, points of entry, and case management.
-      icon: warning-alt
-      launchUrl: /portal/apps/outbreak-management
-      category: surveillance
-      navigation: |-
-        [
-          {"id":"signals-alerts","label":"Signals & Alerts","path":"/apps/outbreak-management/signals-alerts"},
-          {"id":"poe-management","label":"PoE Management","path":"/apps/outbreak-management/poe-management"},
-          {"id":"case-management","label":"Case Management","path":"/apps/outbreak-management/case-management"}
-        ]
-      enabled: true
-      accessRoles:
-        - outbreak-management_access
-        - viewer
-        - data_entry
-        - surveillance_officer
-        - manager
-        - admin
-        - super_admin
-      roles:
-        - name: outbreak-management_access
-          displayName: Outbreak Management Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-            - outbreak:access
-            - surveillance:read
-        - name: super_admin
-          permissions:
-            - outbreak:access
-            - outbreak:manage
-            - surveillance:read
-            - surveillance:import
-            - surveillance:manage_locations
-            - surveillance:manage_alerts
-            - data_quality:read
-            - data_quality:write
-            - data_quality:resolve
-            - documents:read
-            - documents:write
-            - documents:process
-        - name: admin
-          permissions:
-            - outbreak:access
-            - outbreak:manage
-            - surveillance:read
-            - surveillance:import
-            - surveillance:manage_locations
-            - surveillance:manage_alerts
-            - data_quality:read
-            - data_quality:write
-            - data_quality:resolve
-        - name: manager
-          permissions:
-            - outbreak:access
-            - surveillance:read
-            - data_quality:read
-            - data_quality:write
-            - documents:read
-        - name: viewer
-          permissions:
-            - outbreak:access
-            - surveillance:read
-            - data_quality:read
-            - documents:read
-        - name: data_entry
-          permissions:
-            - outbreak:access
-            - surveillance:read
-            - surveillance:import
-            - data_quality:read
-            - data_quality:write
-        - name: lab_technician
-          permissions:
-            - outbreak:access
-            - surveillance:read
-            - data_quality:read
-            - data_quality:write
-        - name: surveillance_officer
-          permissions:
-            - outbreak:access
-            - surveillance:read
-            - surveillance:import
-            - surveillance:manage_alerts
-    - clientId: data-statistics
-      displayName: Data & Statistics
-      description: Data quality, document upload, reports, and surveillance tools.
-      icon: home
-      launchUrl: /portal/apps/dwh
-      category: platform
-      navigation: |-
-        [
-          {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
-          {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
-          {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"data_quality:read"},
-          {"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"},
-          {"id":"data-exports","label":"Data Exports","path":"/apps/dwh/exports","permission":"data_quality:read"},
-          {"id":"file-svr","label":"File Upload","path":"/apps/dwh/filesvr","permission":"documents:read"},
-          {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
-          {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"data_quality:read"}
-        ]
-      enabled: true
-      accessRoles:
-        - data-statistics_access
-        - report_viewer
-        - report_analyst
-        - report_manager
-        - report_admin
-      roles:
-        - name: data-statistics_access
-          displayName: Data & Statistics Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-            - data_quality:read
-            - documents:read
-            - surveillance:read
-            - report_browser:read
-        - name: report_admin
-          displayName: Report Admin
-          permissions:
-            - report_browser:read
-            - metrics:read
-            - audit:read
-        - name: report_manager
-          displayName: Report Manager
-          permissions:
-            - report_browser:read
-            - metrics:read
-        - name: report_analyst
-          displayName: Report Analyst
-          permissions:
-            - report_browser:read
-            - data_quality:read
-        - name: report_viewer
-          displayName: Report Viewer
-          permissions:
-            - report_browser:read
-    - clientId: eservices
-      displayName: eServices
-      description: Digital service requests and operational tools.
-      icon: application
-      launchUrl: /portal/apps/eservices
-      category: services
-      navigation: |-
-        [
-          {"id":"ihris","label":"iHRIS","path":"/apps/eservices/ihris"},
-          {"id":"meeting-manager","label":"Meeting Manager","path":"/apps/eservices/meeting-manager"},
-          {"id":"action-tracker","label":"Action Tracker","path":"/apps/eservices/action-tracker"},
-          {"id":"clinician-outputs","label":"Clinician Outputs","path":"/apps/eservices/clinician-outputs"},
-          {"id":"leave-absence","label":"Leave & Absence Management","path":"/apps/eservices/leave-absence"},
-          {"id":"workplans","label":"Workplans","path":"/apps/eservices/workplans"},
-          {"id":"budget-tracker","label":"Budget Tracker","path":"/apps/eservices/budget-tracker"},
-          {"id":"activity-reporting","label":"Activity Reporting","path":"/apps/eservices/activity-reporting"},
-          {"id":"partner-management","label":"Partner Management","path":"/apps/eservices/partner-management"},
-          {"id":"observatory-uploads","label":"Observatory Uploads","path":"/apps/eservices/observatory-uploads"}
-        ]
-      enabled: true
-      accessRoles:
-        - eservices_access
-      roles:
-        - name: eservices_access
-          displayName: eServices Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-    - clientId: research-studies
-      displayName: Research & Studies
-      description: Research studies, datasets, ethics approvals, and publications.
-      icon: microscope
-      launchUrl: /portal/apps/research-studies
-      category: research
-      navigation: |-
-        [
-          {"id":"studies","label":"Studies","path":"/apps/research-studies/studies"},
-          {"id":"datasets","label":"Datasets","path":"/apps/research-studies/datasets"},
-          {"id":"ethics-approvals","label":"Ethics & Approvals","path":"/apps/research-studies/ethics"},
-          {"id":"publications","label":"Publications","path":"/apps/research-studies/publications"}
-        ]
-      enabled: true
-      accessRoles:
-        - research-studies_access
-      roles:
-        - name: research-studies_access
-          displayName: Research & Studies Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-    - clientId: case-registers
-      displayName: Case Registers
-      description: Case registers and referral tracking.
-      icon: document
-      launchUrl: /portal/apps/case-registers
-      category: clinical
-      navigation: |-
-        [
-          {"id":"external-referrals","label":"External Referrals","path":"/apps/case-registers/external-referrals"},
-          {"id":"disease-registers","label":"Disease Registers","path":"/apps/case-registers/disease-registers"}
-        ]
-      enabled: true
-      accessRoles:
-        - case-registers_access
-      roles:
-        - name: case-registers_access
-          displayName: Case Registers Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-            - documents:read
-    - clientId: reference-registers
-      displayName: Reference Registers
-      description: Facility, terminology, and reference data registers.
-      icon: catalog
-      launchUrl: /portal/apps/reference-registers
-      category: registry
-      navigation: |-
-        [
-          {"id":"facility-register","label":"Facility Register","path":"/apps/reference-registers/facility-register"},
-          {"id":"terminology-service","label":"Terminology Service","children":[
-            {"id":"test-menu","label":"Test Menu","path":"/apps/reference-registers/terminology/test-menu"},
-            {"id":"pharmaceuticals","label":"Pharmaceuticals","path":"/apps/reference-registers/terminology/pharmaceuticals"},
-            {"id":"procedures","label":"Procedures","path":"/apps/reference-registers/terminology/procedures"},
-            {"id":"equipment","label":"Equipment","path":"/apps/reference-registers/terminology/equipment"}
+  - clientId: dashboard-web
+    displayName: Integrated Health Portal
+    description: Central portal shell
+    icon: dashboard
+    launchUrl: /portal
+    category: platform
+    systemType: platform
+    displayInLauncher: false
+    displayInSideNav: false
+    launchMode: internal
+    enabled: true
+    accessRoles:
+      - dashboard-web_access
+    roles:
+      - name: dashboard-web_access
+        displayName: Dashboard Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+      - name: portal_admin
+        displayName: Portal Admin
+        permissions:
+          - "*"
+      - name: portal_manager
+        displayName: Portal Manager
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+          - users:read
+          - clients:read
+          - announcements:read
+          - documents:read
+          - document_templates:read
+          - surveillance:read
+          - report_browser:read
+          - notifications:read
+      - name: portal_user
+        displayName: Portal User
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+  - clientId: outbreak-management
+    displayName: Outbreak Management
+    description: Signals, alerts, surveillance, points of entry, and case management.
+    icon: warning-alt
+    launchUrl: /portal/apps/outbreak-management
+    category: surveillance
+    systemType: platform
+    displayInLauncher: false
+    displayInSideNav: true
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"signals-alerts","label":"Signals & Alerts","path":"/apps/outbreak-management/signals-alerts"},
+        {"id":"poe-management","label":"PoE Management","path":"/apps/outbreak-management/poe-management"},
+        {"id":"case-management","label":"Case Management","path":"/apps/outbreak-management/case-management"}
+      ]
+    enabled: true
+    accessRoles:
+      - outbreak-management_access
+      - viewer
+      - data_entry
+      - surveillance_officer
+      - manager
+      - admin
+      - super_admin
+    roles:
+      - name: outbreak-management_access
+        displayName: Outbreak Management Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+          - outbreak:access
+          - surveillance:read
+      - name: super_admin
+        permissions:
+          - outbreak:access
+          - outbreak:manage
+          - surveillance:read
+          - surveillance:import
+          - surveillance:manage_locations
+          - surveillance:manage_alerts
+          - data_quality:read
+          - data_quality:write
+          - data_quality:resolve
+          - documents:read
+          - documents:write
+          - documents:process
+      - name: admin
+        permissions:
+          - outbreak:access
+          - outbreak:manage
+          - surveillance:read
+          - surveillance:import
+          - surveillance:manage_locations
+          - surveillance:manage_alerts
+          - data_quality:read
+          - data_quality:write
+          - data_quality:resolve
+      - name: manager
+        permissions:
+          - outbreak:access
+          - surveillance:read
+          - data_quality:read
+          - data_quality:write
+          - documents:read
+      - name: viewer
+        permissions:
+          - outbreak:access
+          - surveillance:read
+          - data_quality:read
+          - documents:read
+      - name: data_entry
+        permissions:
+          - outbreak:access
+          - surveillance:read
+          - surveillance:import
+          - data_quality:read
+          - data_quality:write
+      - name: lab_technician
+        permissions:
+          - outbreak:access
+          - surveillance:read
+          - data_quality:read
+          - data_quality:write
+      - name: surveillance_officer
+        permissions:
+          - outbreak:access
+          - surveillance:read
+          - surveillance:import
+          - surveillance:manage_alerts
+  - clientId: data-statistics
+    displayName: Data & Statistics
+    description: Data quality, document upload, reports, and surveillance tools.
+    icon: home
+    launchUrl: /portal/apps/dwh
+    category: platform
+    systemType: platform
+    displayInLauncher: false
+    displayInSideNav: true
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
+        {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
+        {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"data_quality:read"},
+        {"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"},
+        {"id":"data-exports","label":"Data Exports","path":"/apps/dwh/exports","permission":"data_quality:read"},
+        {"id":"file-svr","label":"File Upload","path":"/apps/dwh/filesvr","permission":"documents:read"},
+        {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
+        {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"data_quality:read"}
+      ]
+    enabled: true
+    accessRoles:
+      - data-statistics_access
+      - report_viewer
+      - report_analyst
+      - report_manager
+      - report_admin
+    roles:
+      - name: data-statistics_access
+        displayName: Data & Statistics Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+          - data_quality:read
+          - documents:read
+          - surveillance:read
+          - report_browser:read
+      - name: report_admin
+        displayName: Report Admin
+        permissions:
+          - report_browser:read
+          - metrics:read
+          - audit:read
+      - name: report_manager
+        displayName: Report Manager
+        permissions:
+          - report_browser:read
+          - metrics:read
+      - name: report_analyst
+        displayName: Report Analyst
+        permissions:
+          - report_browser:read
+          - data_quality:read
+      - name: report_viewer
+        displayName: Report Viewer
+        permissions:
+          - report_browser:read
+  - clientId: eservices
+    displayName: eServices
+    description: Digital service requests and operational tools.
+    icon: application
+    launchUrl: /portal/apps/eservices
+    category: services
+    systemType: platform
+    displayInLauncher: false
+    displayInSideNav: true
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"ihris","label":"iHRIS","path":"/apps/eservices/ihris"},
+        {"id":"meeting-manager","label":"Meeting Manager","path":"/apps/eservices/meeting-manager"},
+        {"id":"action-tracker","label":"Action Tracker","path":"/apps/eservices/action-tracker"},
+        {"id":"clinician-outputs","label":"Clinician Outputs","path":"/apps/eservices/clinician-outputs"},
+        {"id":"leave-absence","label":"Leave & Absence Management","path":"/apps/eservices/leave-absence"},
+        {"id":"workplans","label":"Workplans","path":"/apps/eservices/workplans"},
+        {"id":"budget-tracker","label":"Budget Tracker","path":"/apps/eservices/budget-tracker"},
+        {"id":"activity-reporting","label":"Activity Reporting","path":"/apps/eservices/activity-reporting"},
+        {"id":"partner-management","label":"Partner Management","path":"/apps/eservices/partner-management"},
+        {"id":"observatory-uploads","label":"Observatory Uploads","path":"/apps/eservices/observatory-uploads"}
+      ]
+    enabled: true
+    accessRoles:
+      - eservices_access
+    roles:
+      - name: eservices_access
+        displayName: eServices Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+  - clientId: research-studies
+    displayName: Research & Studies
+    description: Research studies, datasets, ethics approvals, and publications.
+    icon: microscope
+    launchUrl: /portal/apps/research-studies
+    category: research
+    systemType: platform
+    displayInLauncher: false
+    displayInSideNav: true
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"studies","label":"Studies","path":"/apps/research-studies/studies"},
+        {"id":"datasets","label":"Datasets","path":"/apps/research-studies/datasets"},
+        {"id":"ethics-approvals","label":"Ethics & Approvals","path":"/apps/research-studies/ethics"},
+        {"id":"publications","label":"Publications","path":"/apps/research-studies/publications"}
+      ]
+    enabled: true
+    accessRoles:
+      - research-studies_access
+    roles:
+      - name: research-studies_access
+        displayName: Research & Studies Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+  - clientId: case-registers
+    displayName: Case Registers
+    description: Case registers and referral tracking.
+    icon: document
+    launchUrl: /portal/apps/case-registers
+    category: clinical
+    systemType: platform
+    displayInLauncher: false
+    displayInSideNav: true
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"external-referrals","label":"External Referrals","path":"/apps/case-registers/external-referrals"},
+        {"id":"disease-registers","label":"Disease Registers","path":"/apps/case-registers/disease-registers"}
+      ]
+    enabled: true
+    accessRoles:
+      - case-registers_access
+    roles:
+      - name: case-registers_access
+        displayName: Case Registers Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+          - documents:read
+  - clientId: reference-registers
+    displayName: Reference Registers
+    description: Facility, terminology, and reference data registers.
+    icon: catalog
+    launchUrl: /portal/apps/reference-registers
+    category: registry
+    systemType: platform
+    displayInLauncher: false
+    displayInSideNav: true
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"facility-register","label":"Facility Register","path":"/apps/reference-registers/facility-register"},
+        {"id":"terminology-service","label":"Terminology Service","children":[
+          {"id":"test-menu","label":"Test Menu","path":"/apps/reference-registers/terminology/test-menu"},
+          {"id":"pharmaceuticals","label":"Pharmaceuticals","path":"/apps/reference-registers/terminology/pharmaceuticals"},
+          {"id":"procedures","label":"Procedures","path":"/apps/reference-registers/terminology/procedures"},
+          {"id":"equipment","label":"Equipment","path":"/apps/reference-registers/terminology/equipment"}
+        ]}
+      ]
+    enabled: true
+    accessRoles:
+      - reference-registers_access
+    roles:
+      - name: reference-registers_access
+        displayName: Reference Registers Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+  - clientId: utilities
+    displayName: Utilities
+    description: Self-service utilities and staff tools.
+    icon: tools
+    launchUrl: /portal/apps/utilities
+    category: utilities
+    systemType: platform
+    displayInLauncher: true
+    displayInSideNav: true
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"self-service","label":"Self Service","children":[
+          {"id":"my-timesheet","label":"My Timesheet","path":"/apps/utilities/self-service/timesheet"},
+          {"id":"elearning","label":"eLearning","path":"/apps/utilities/self-service/elearning"},
+          {"id":"leave-plan","label":"Leave Plan","path":"/apps/utilities/self-service/leave-plan"},
+          {"id":"absence-requests","label":"Absence Requests","path":"/apps/utilities/self-service/absence-requests"},
+          {"id":"absence-dashboard","label":"My Absence Dashboard","path":"/apps/utilities/self-service/absence-dashboard"},
+          {"id":"eservice-requests","label":"eService Requests","children":[
+            {"id":"document-upload","label":"Document Upload","path":"/apps/utilities/self-service/eservice/document-upload"},
+            {"id":"service-access","label":"Service Access","path":"/apps/utilities/self-service/eservice/service-access"},
+            {"id":"equipment-request","label":"Equipment Request","path":"/apps/utilities/self-service/eservice/equipment-request"}
           ]}
-        ]
-      enabled: true
-      accessRoles:
-        - reference-registers_access
-      roles:
-        - name: reference-registers_access
-          displayName: Reference Registers Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-    - clientId: utilities
-      displayName: Utilities
-      description: Self-service utilities and staff tools.
-      icon: tools
-      launchUrl: /portal/apps/utilities
-      category: utilities
-      navigation: |-
-        [
-          {"id":"self-service","label":"Self Service","children":[
-            {"id":"my-timesheet","label":"My Timesheet","path":"/apps/utilities/self-service/timesheet"},
-            {"id":"elearning","label":"eLearning","path":"/apps/utilities/self-service/elearning"},
-            {"id":"leave-plan","label":"Leave Plan","path":"/apps/utilities/self-service/leave-plan"},
-            {"id":"absence-requests","label":"Absence Requests","path":"/apps/utilities/self-service/absence-requests"},
-            {"id":"absence-dashboard","label":"My Absence Dashboard","path":"/apps/utilities/self-service/absence-dashboard"},
-            {"id":"eservice-requests","label":"eService Requests","children":[
-              {"id":"document-upload","label":"Document Upload","path":"/apps/utilities/self-service/eservice/document-upload"},
-              {"id":"service-access","label":"Service Access","path":"/apps/utilities/self-service/eservice/service-access"},
-              {"id":"equipment-request","label":"Equipment Request","path":"/apps/utilities/self-service/eservice/equipment-request"}
-            ]}
-          ]}
-        ]
-      enabled: true
-      accessRoles:
-        - utilities_access
-      roles:
-        - name: utilities_access
-          displayName: Utilities Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
-    - clientId: settings
-      displayName: Settings
-      description: User profile, session, and security settings.
-      icon: settings
-      launchUrl: /portal/apps/settings
-      category: platform
-      navigation: |-
-        [
-          {"id":"profile","label":"My Profile","path":"/apps/settings/profile"},
-          {"id":"sessions","label":"Active Sessions","path":"/apps/settings/sessions"},
-          {"id":"security","label":"Security","path":"/apps/settings/security"}
-        ]
-      enabled: true
-      accessRoles:
-        - settings_access
-      roles:
-        - name: settings_access
-          displayName: Settings Access
-          permissions:
-            - portal:access
-            - systems:read
-            - systems:launch
+        ]}
+      ]
+    enabled: true
+    accessRoles:
+      - utilities_access
+    roles:
+      - name: utilities_access
+        displayName: Utilities Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+  - clientId: settings
+    displayName: Settings
+    description: User profile, session, and security settings.
+    icon: settings
+    launchUrl: /portal/apps/settings
+    category: platform
+    systemType: platform
+    displayInLauncher: false
+    displayInSideNav: true
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"profile","label":"My Profile","path":"/apps/settings/profile"},
+        {"id":"sessions","label":"Active Sessions","path":"/apps/settings/sessions"},
+        {"id":"security","label":"Security","path":"/apps/settings/security"}
+      ]
+    enabled: true
+    accessRoles:
+      - settings_access
+    roles:
+      - name: settings_access
+        displayName: Settings Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
 realmRoles:
-    - name: admin
-      permissions:
-        - '*'
-    - name: user
-      permissions:
-        - portal:access
-        - systems:read
-        - systems:launch
-        - data_quality:read
-        - documents:read
-        - surveillance:read
-        - report_browser:read
-      systemRoles:
-        data-statistics:
-          - data-statistics_access
-        utilities:
-          - utilities_access
-        settings:
-          - settings_access
-    - name: manager
-      permissions:
-        - portal:access
-        - systems:read
-        - systems:launch
-        - users:read
-        - clients:read
-        - announcements:read
-        - documents:read
-        - surveillance:read
-        - data_quality:read
-        - data_quality:write
-        - notifications:read
+  - name: admin
+    permissions:
+      - "*"
+  - name: user
+    permissions:
+      - portal:access
+      - systems:read
+      - systems:launch
+      - data_quality:read
+      - documents:read
+      - surveillance:read
+      - report_browser:read
+    systemRoles:
+      data-statistics:
+        - data-statistics_access
+      utilities:
+        - utilities_access
+      settings:
+        - settings_access
+  - name: manager
+    permissions:
+      - portal:access
+      - systems:read
+      - systems:launch
+      - users:read
+      - clients:read
+      - announcements:read
+      - documents:read
+      - surveillance:read
+      - data_quality:read
+      - data_quality:write
+      - notifications:read

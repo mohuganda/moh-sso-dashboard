@@ -4,6 +4,8 @@ MOH SSO Dashboard is the Integrated Health Portal for Ministry of Health Uganda.
 
 The project is now organized as a feature-first backend and a monorepo-style microfrontend-ready frontend.
 
+The system registry explicitly supports portal-owned modules and external launcher-only applications. Keycloak clients opt in with `portal.system=true`; registry metadata controls launcher visibility, side-navigation visibility, and internal, new-tab, or same-tab launch behavior. See [System onboarding](docs/system-onboarding.md).
+
 ## Contents
 
 - [Platform Overview](#platform-overview)

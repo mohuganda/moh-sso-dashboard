@@ -1,10 +1,13 @@
 import {
   Button,
+  ContentSwitcher,
   DataTable,
   Form,
   FormGroup,
   InlineLoading,
   Search,
+  Select,
+  SelectItem,
   Stack,
   Table,
   TableBody,
@@ -16,8 +19,9 @@ import {
   TextArea,
   TextInput,
   Toggle,
+  Switch,
 } from "@carbon/react";
-import { Launch, Save } from "@carbon/react/icons";
+import { Add, Launch, Save } from "@carbon/react/icons";
 import { useMemo, useState } from "react";
 
 import {
@@ -41,6 +45,8 @@ const headers = [
   { key: "displayName", header: "System" },
   { key: "clientId", header: "Client ID" },
   { key: "category", header: "Category" },
+  { key: "systemType", header: "Type" },
+  { key: "launchMode", header: "Launch mode" },
   { key: "environment", header: "Environment" },
   { key: "criticality", header: "Criticality" },
   { key: "enabled", header: "Status" },
@@ -68,6 +74,10 @@ function toDraft(system: RbacSystem): SystemDraft {
     environment: system.environment || "",
     criticality: system.criticality || "",
     navigation: system.navigation || "",
+    systemType: system.systemType || "platform",
+    displayInLauncher: system.displayInLauncher ?? true,
+    displayInSideNav: system.displayInSideNav ?? false,
+    launchMode: system.launchMode || "internal",
     enabled: system.enabled,
     sortOrder: system.sortOrder ?? 0,
   };
@@ -101,6 +111,8 @@ export default function SystemsPage() {
           displayName: system.displayName || system.clientId,
           clientId: system.clientId,
           category: system.category || "-",
+          systemType: system.systemType || "platform",
+          launchMode: system.launchMode || "internal",
           environment: system.environment || "-",
           criticality: system.criticality || "-",
           enabled: system.enabled ? "Enabled" : "Disabled",
@@ -138,6 +150,18 @@ export default function SystemsPage() {
           <SummaryTile label="Registered" value={systems.length} />
           <SummaryTile label="Enabled" value={enabledCount} />
           <SummaryTile label="Disabled" value={systems.length - enabledCount} />
+          <Button
+            renderIcon={Add}
+            onClick={() =>
+              openPanel({
+                title: "Add system",
+                size: "lg",
+                content: <CreateSystemPanel onClose={closePanel} />,
+              })
+            }
+          >
+            Add system
+          </Button>
         </div>
       }
       filters={
@@ -249,6 +273,7 @@ function SystemPanel({ clientId, onClose }: { clientId: string; onClose: () => v
   const { data: system, isLoading, isError, error } = useGetRbacSystemQuery(clientId);
   const [updateSystem, { isLoading: saving }] = useUpdateRbacSystemMutation();
   const [draft, setDraft] = useState<SystemDraft | null>(null);
+  const [validationError, setValidationError] = useState("");
 
   const currentDraft = draft ?? (system ? toDraft(system) : null);
 
@@ -270,6 +295,12 @@ function SystemPanel({ clientId, onClose }: { clientId: string; onClose: () => v
   };
 
   const handleSave = async () => {
+    const validation = validateSystemDraft(currentDraft);
+    if (validation) {
+      setValidationError(validation);
+      return;
+    }
+    setValidationError("");
     try {
       await updateSystem({ clientId, data: currentDraft }).unwrap();
       toast.success("System updated", `${currentDraft.displayName} was saved.`);
@@ -291,6 +322,35 @@ function SystemPanel({ clientId, onClose }: { clientId: string; onClose: () => v
               value={currentDraft.displayName}
               onChange={(event) => updateField("displayName", event.target.value)}
             />
+            <ContentSwitcher
+              selectedIndex={currentDraft.systemType === "external" ? 1 : 0}
+              onChange={({ index }) => {
+                const external = index === 1;
+                setDraft({
+                  ...currentDraft,
+                  systemType: external ? "external" : "platform",
+                  launchMode: external ? "new_tab" : "internal",
+                  displayInSideNav: external ? false : currentDraft.displayInSideNav,
+                  navigation: external ? "" : currentDraft.navigation,
+                });
+              }}
+            >
+              <Switch name="platform" text="Platform" />
+              <Switch name="external" text="External" />
+            </ContentSwitcher>
+            {currentDraft.systemType === "external" && (
+              <Select
+                id="system-launch-mode"
+                labelText="Launch mode"
+                value={currentDraft.launchMode}
+                onChange={(event) =>
+                  updateField("launchMode", event.target.value as "new_tab" | "same_tab")
+                }
+              >
+                <SelectItem value="new_tab" text="Open in a new tab" />
+                <SelectItem value="same_tab" text="Open in the current tab" />
+              </Select>
+            )}
             <TextArea
               id="system-description"
               labelText="Description"
@@ -317,12 +377,30 @@ function SystemPanel({ clientId, onClose }: { clientId: string; onClose: () => v
                 onChange={(event) => updateField("icon", event.target.value)}
               />
             </Stack>
-            <TextArea
-              id="system-navigation"
-              labelText="Navigation JSON"
-              value={currentDraft.navigation}
-              onChange={(event) => updateField("navigation", event.target.value)}
+            <Toggle
+              id="system-display-launcher"
+              labelText="Display in application launcher"
+              toggled={currentDraft.displayInLauncher}
+              onToggle={(value) => updateField("displayInLauncher", value)}
             />
+            {currentDraft.systemType === "platform" && (
+              <>
+                <Toggle
+                  id="system-display-sidenav"
+                  labelText="Display in side navigation"
+                  toggled={currentDraft.displayInSideNav}
+                  onToggle={(value) => updateField("displayInSideNav", value)}
+                />
+                {currentDraft.displayInSideNav && (
+                  <TextArea
+                    id="system-navigation"
+                    labelText="Navigation JSON"
+                    value={currentDraft.navigation}
+                    onChange={(event) => updateField("navigation", event.target.value)}
+                  />
+                )}
+              </>
+            )}
             <Stack orientation="horizontal" gap={4}>
               <TextInput
                 id="system-environment"
@@ -399,12 +477,136 @@ function SystemPanel({ clientId, onClose }: { clientId: string; onClose: () => v
           </div>
         </FormGroup>
 
+        {validationError && <p className="system-panel__validation-error">{validationError}</p>}
         <Button renderIcon={Save} disabled={saving} onClick={handleSave}>
           {saving ? "Saving..." : "Save system"}
         </Button>
       </Stack>
     </Form>
   );
+}
+
+function CreateSystemPanel({ onClose }: { onClose: () => void }) {
+  const toast = useToast();
+  const [updateSystem, { isLoading: saving }] = useUpdateRbacSystemMutation();
+  const [clientId, setClientId] = useState("");
+  const [draft, setDraft] = useState<SystemDraft>({
+    displayName: "",
+    description: "",
+    icon: "application",
+    launchUrl: "/portal",
+    category: "platform",
+    ownerTeam: "",
+    ownerName: "",
+    ownerEmail: "",
+    supportUrl: "",
+    documentationUrl: "",
+    environment: "",
+    criticality: "",
+    navigation: "",
+    systemType: "platform",
+    displayInLauncher: true,
+    displayInSideNav: false,
+    launchMode: "internal",
+    enabled: true,
+    sortOrder: 0,
+  });
+  const [validationError, setValidationError] = useState("");
+
+  const setSystemType = (external: boolean) => {
+    setDraft((current) => ({
+      ...current,
+      systemType: external ? "external" : "platform",
+      launchMode: external ? "new_tab" : "internal",
+      displayInSideNav: false,
+      navigation: "",
+      launchUrl: external ? "https://" : "/portal",
+    }));
+  };
+
+  const handleCreate = async () => {
+    const normalizedClientID = clientId.trim();
+    if (!normalizedClientID || !/^[a-z0-9][a-z0-9-]*$/.test(normalizedClientID)) {
+      setValidationError("Client ID must use lowercase letters, numbers, and hyphens.");
+      return;
+    }
+    if (!draft.displayName.trim()) {
+      setValidationError("Display name is required.");
+      return;
+    }
+    const validation = validateSystemDraft(draft);
+    if (validation) {
+      setValidationError(validation);
+      return;
+    }
+    try {
+      await updateSystem({ clientId: normalizedClientID, data: draft }).unwrap();
+      toast.success("System added", `${draft.displayName} was added to the registry.`);
+      onClose();
+    } catch (error) {
+      toast.error("Create failed", getApiErrorMessage(error, "Unable to add system."));
+    }
+  };
+
+  return (
+    <Form className="system-panel">
+      <Stack gap={5}>
+        <TextInput id="new-system-client-id" labelText="Client ID" value={clientId} onChange={(event) => setClientId(event.target.value)} />
+        <TextInput id="new-system-display-name" labelText="Display name" value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} />
+        <ContentSwitcher selectedIndex={draft.systemType === "external" ? 1 : 0} onChange={({ index }) => setSystemType(index === 1)}>
+          <Switch name="platform" text="Platform" />
+          <Switch name="external" text="External" />
+        </ContentSwitcher>
+        <TextInput id="new-system-launch-url" labelText="Launch URL" value={draft.launchUrl} onChange={(event) => setDraft({ ...draft, launchUrl: event.target.value })} />
+        {draft.systemType === "external" && (
+          <Select id="new-system-launch-mode" labelText="Launch mode" value={draft.launchMode} onChange={(event) => setDraft({ ...draft, launchMode: event.target.value as "new_tab" | "same_tab" })}>
+            <SelectItem value="new_tab" text="Open in a new tab" />
+            <SelectItem value="same_tab" text="Open in the current tab" />
+          </Select>
+        )}
+        <Toggle id="new-system-display-launcher" labelText="Display in application launcher" toggled={draft.displayInLauncher} onToggle={(value) => setDraft({ ...draft, displayInLauncher: value })} />
+        {draft.systemType === "platform" && (
+          <>
+            <Toggle id="new-system-display-sidenav" labelText="Display in side navigation" toggled={draft.displayInSideNav} onToggle={(value) => setDraft({ ...draft, displayInSideNav: value })} />
+            {draft.displayInSideNav && <TextArea id="new-system-navigation" labelText="Navigation JSON" value={draft.navigation} onChange={(event) => setDraft({ ...draft, navigation: event.target.value })} />}
+          </>
+        )}
+        {validationError && <p className="system-panel__validation-error">{validationError}</p>}
+        <Button renderIcon={Save} disabled={saving} onClick={handleCreate}>
+          {saving ? "Adding..." : "Add system"}
+        </Button>
+      </Stack>
+    </Form>
+  );
+}
+
+function validateSystemDraft(draft: SystemDraft): string {
+  if (draft.systemType === "platform") {
+    if (draft.launchMode !== "internal") return "Platform systems must use internal launch mode.";
+    if (draft.launchUrl && !/^\/(portal|apps)(\/|$)/.test(draft.launchUrl)) {
+      return "Platform launch URLs must begin with /portal or /apps.";
+    }
+    if (draft.displayInSideNav) {
+      try {
+        const items = JSON.parse(draft.navigation || "[]");
+        if (!Array.isArray(items) || items.length === 0) throw new Error("empty");
+      } catch {
+        return "Side navigation requires a non-empty navigation JSON array.";
+      }
+    }
+    return "";
+  }
+
+  if (draft.displayInSideNav || (draft.navigation ?? "").trim()) {
+    return "External systems cannot define portal side navigation.";
+  }
+  try {
+    const url = new URL(draft.launchUrl ?? "");
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error("unsafe");
+  } catch {
+    return "External launch URLs must be safe absolute HTTP or HTTPS URLs.";
+  }
+  return "";
 }
 
 function getCriticalityTag(criticality?: string) {

@@ -10,6 +10,8 @@ This means:
 - Portal RBAC owns permission keys and maps Keycloak roles to portal permissions.
 - The portal decides app/menu/API access from the effective permission set.
 
+Only clients marked `portal.system=true`, or clients already registered for backward compatibility, participate in system discovery. `portal.accessRoles` identifies the roles that expose a system. Launch behavior is synchronized through `ui.systemType`, `ui.displayInLauncher`, `ui.displayInSideNav`, `ui.launchMode`, `ui.launchUrl`, and optional `ui.navigation`.
+
 ## Why Sync Is Needed
 
 Keycloak can tell us that a user has:

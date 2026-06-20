@@ -3,23 +3,27 @@ package rbac
 import "encoding/json"
 
 type System struct {
-	ID               string `json:"id"`
-	ClientID         string `json:"clientId"`
-	DisplayName      string `json:"displayName"`
-	Description      string `json:"description,omitempty"`
-	Icon             string `json:"icon,omitempty"`
-	LaunchURL        string `json:"launchUrl,omitempty"`
-	Category         string `json:"category,omitempty"`
-	OwnerTeam        string `json:"ownerTeam,omitempty"`
-	OwnerName        string `json:"ownerName,omitempty"`
-	OwnerEmail       string `json:"ownerEmail,omitempty"`
-	SupportURL       string `json:"supportUrl,omitempty"`
-	DocumentationURL string `json:"documentationUrl,omitempty"`
-	Environment      string `json:"environment,omitempty"`
-	Criticality      string `json:"criticality,omitempty"`
-	Navigation       string `json:"navigation,omitempty"`
-	Enabled          bool   `json:"enabled"`
-	SortOrder        int32  `json:"sortOrder"`
+	ID                string `json:"id"`
+	ClientID          string `json:"clientId"`
+	DisplayName       string `json:"displayName"`
+	Description       string `json:"description,omitempty"`
+	Icon              string `json:"icon,omitempty"`
+	LaunchURL         string `json:"launchUrl,omitempty"`
+	Category          string `json:"category,omitempty"`
+	OwnerTeam         string `json:"ownerTeam,omitempty"`
+	OwnerName         string `json:"ownerName,omitempty"`
+	OwnerEmail        string `json:"ownerEmail,omitempty"`
+	SupportURL        string `json:"supportUrl,omitempty"`
+	DocumentationURL  string `json:"documentationUrl,omitempty"`
+	Environment       string `json:"environment,omitempty"`
+	Criticality       string `json:"criticality,omitempty"`
+	Navigation        string `json:"navigation,omitempty"`
+	SystemType        string `json:"systemType"`
+	DisplayInLauncher bool   `json:"displayInLauncher"`
+	DisplayInSideNav  bool   `json:"displayInSideNav"`
+	LaunchMode        string `json:"launchMode"`
+	Enabled           bool   `json:"enabled"`
+	SortOrder         int32  `json:"sortOrder"`
 }
 
 type SystemDetail struct {
@@ -62,22 +66,26 @@ type RealmRoleSystemRole struct {
 }
 
 type UpsertSystemInput struct {
-	ClientID         string `json:"clientId"`
-	DisplayName      string `json:"displayName"`
-	Description      string `json:"description"`
-	Icon             string `json:"icon"`
-	LaunchURL        string `json:"launchUrl"`
-	Category         string `json:"category"`
-	OwnerTeam        string `json:"ownerTeam"`
-	OwnerName        string `json:"ownerName"`
-	OwnerEmail       string `json:"ownerEmail"`
-	SupportURL       string `json:"supportUrl"`
-	DocumentationURL string `json:"documentationUrl"`
-	Environment      string `json:"environment"`
-	Criticality      string `json:"criticality"`
-	Navigation       string `json:"navigation"`
-	Enabled          *bool  `json:"enabled"`
-	SortOrder        int32  `json:"sortOrder"`
+	ClientID          string `json:"clientId"`
+	DisplayName       string `json:"displayName"`
+	Description       string `json:"description"`
+	Icon              string `json:"icon"`
+	LaunchURL         string `json:"launchUrl"`
+	Category          string `json:"category"`
+	OwnerTeam         string `json:"ownerTeam"`
+	OwnerName         string `json:"ownerName"`
+	OwnerEmail        string `json:"ownerEmail"`
+	SupportURL        string `json:"supportUrl"`
+	DocumentationURL  string `json:"documentationUrl"`
+	Environment       string `json:"environment"`
+	Criticality       string `json:"criticality"`
+	Navigation        string `json:"navigation"`
+	SystemType        string `json:"systemType"`
+	DisplayInLauncher *bool  `json:"displayInLauncher"`
+	DisplayInSideNav  *bool  `json:"displayInSideNav"`
+	LaunchMode        string `json:"launchMode"`
+	Enabled           *bool  `json:"enabled"`
+	SortOrder         int32  `json:"sortOrder"`
 }
 
 type RoleInput struct {
@@ -101,15 +109,20 @@ type KeycloakDiscoveredRole struct {
 }
 
 type KeycloakDiscoveredSystem struct {
-	ClientID    string                   `json:"clientId"`
-	DisplayName string                   `json:"displayName"`
-	Description string                   `json:"description,omitempty"`
-	Icon        string                   `json:"icon,omitempty"`
-	LaunchURL   string                   `json:"launchUrl,omitempty"`
-	Category    string                   `json:"category,omitempty"`
-	Navigation  string                   `json:"navigation,omitempty"`
-	Enabled     bool                     `json:"enabled"`
-	Roles       []KeycloakDiscoveredRole `json:"roles"`
+	ClientID          string                   `json:"clientId"`
+	DisplayName       string                   `json:"displayName"`
+	Description       string                   `json:"description,omitempty"`
+	Icon              string                   `json:"icon,omitempty"`
+	LaunchURL         string                   `json:"launchUrl,omitempty"`
+	Category          string                   `json:"category,omitempty"`
+	Navigation        string                   `json:"navigation,omitempty"`
+	SystemType        string                   `json:"systemType"`
+	DisplayInLauncher bool                     `json:"displayInLauncher"`
+	DisplayInSideNav  bool                     `json:"displayInSideNav"`
+	LaunchMode        string                   `json:"launchMode"`
+	AccessRoles       []string                 `json:"accessRoles,omitempty"`
+	Enabled           bool                     `json:"enabled"`
+	Roles             []KeycloakDiscoveredRole `json:"roles"`
 }
 
 type RbacDriftRole struct {
@@ -118,14 +131,15 @@ type RbacDriftRole struct {
 }
 
 type RbacDriftSystem struct {
-	ClientID              string          `json:"clientId"`
-	DisplayName           string          `json:"displayName"`
-	KeycloakStatus        string          `json:"keycloakStatus"`
-	RBACStatus            string          `json:"rbacStatus"`
-	MissingRolesInRBAC    []string        `json:"missingRolesInRbac"`
-	StaleRolesInRBAC      []string        `json:"staleRolesInRbac"`
-	MissingAccessRoles    []string        `json:"missingAccessRoles"`
-	DiscoveredRoleDetails []RbacDriftRole `json:"discoveredRoleDetails"`
+	ClientID                 string          `json:"clientId"`
+	DisplayName              string          `json:"displayName"`
+	KeycloakStatus           string          `json:"keycloakStatus"`
+	RBACStatus               string          `json:"rbacStatus"`
+	MissingRolesInRBAC       []string        `json:"missingRolesInRbac"`
+	StaleRolesInRBAC         []string        `json:"staleRolesInRbac"`
+	MissingAccessRoles       []string        `json:"missingAccessRoles"`
+	DiscoveredRoleDetails    []RbacDriftRole `json:"discoveredRoleDetails"`
+	ConfigurationDifferences []string        `json:"configurationDifferences,omitempty"`
 }
 
 type RbacDriftRealmRole struct {
@@ -219,13 +233,17 @@ type AssignableSystemRole struct {
 }
 
 type AssignableSystemAccess struct {
-	ClientID    string                 `json:"clientId"`
-	DisplayName string                 `json:"displayName"`
-	LaunchURL   string                 `json:"launchUrl,omitempty"`
-	Icon        string                 `json:"icon,omitempty"`
-	Category    string                 `json:"category,omitempty"`
-	Roles       []AssignableSystemRole `json:"roles"`
-	AccessRoles []string               `json:"accessRoles"`
+	ClientID          string                 `json:"clientId"`
+	DisplayName       string                 `json:"displayName"`
+	LaunchURL         string                 `json:"launchUrl,omitempty"`
+	Icon              string                 `json:"icon,omitempty"`
+	Category          string                 `json:"category,omitempty"`
+	SystemType        string                 `json:"systemType"`
+	DisplayInLauncher bool                   `json:"displayInLauncher"`
+	DisplayInSideNav  bool                   `json:"displayInSideNav"`
+	LaunchMode        string                 `json:"launchMode"`
+	Roles             []AssignableSystemRole `json:"roles"`
+	AccessRoles       []string               `json:"accessRoles"`
 }
 
 type AssignableUserAccessResponse struct {
@@ -246,13 +264,17 @@ type UpdateUserAccessRequest struct {
 }
 
 type SystemAccessSummary struct {
-	ClientID    string   `json:"clientId"`
-	DisplayName string   `json:"displayName"`
-	LaunchURL   string   `json:"launchUrl,omitempty"`
-	Icon        string   `json:"icon,omitempty"`
-	Category    string   `json:"category,omitempty"`
-	Navigation  string   `json:"navigation,omitempty"`
-	Roles       []string `json:"roles"`
+	ClientID          string   `json:"clientId"`
+	DisplayName       string   `json:"displayName"`
+	LaunchURL         string   `json:"launchUrl,omitempty"`
+	Icon              string   `json:"icon,omitempty"`
+	Category          string   `json:"category,omitempty"`
+	Navigation        string   `json:"navigation,omitempty"`
+	SystemType        string   `json:"systemType"`
+	DisplayInLauncher bool     `json:"displayInLauncher"`
+	DisplayInSideNav  bool     `json:"displayInSideNav"`
+	LaunchMode        string   `json:"launchMode"`
+	Roles             []string `json:"roles"`
 }
 
 type PermissionMetadataInput struct {

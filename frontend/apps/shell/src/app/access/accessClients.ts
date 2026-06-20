@@ -19,6 +19,10 @@ export function mapAccessibleSystemToClient(system: SystemAccess): Client {
       "ui.category": system.category ?? "",
       "ui.navigation": system.navigation ?? "",
       "ui.sidenav": system.navigation ?? "",
+      "ui.systemType": system.systemType,
+      "ui.displayInLauncher": String(system.displayInLauncher),
+      "ui.displayInSideNav": String(system.displayInSideNav),
+      "ui.launchMode": system.launchMode,
     },
   };
 }
@@ -29,6 +33,11 @@ export function buildAccessibleClients({
   accessibleSystems: SystemAccess[];
 }): Client[] {
   return accessibleSystems
-    .filter((system) => system.clientId && system.launchUrl)
+    .filter(
+      (system) =>
+        system.clientId &&
+        system.launchUrl &&
+        system.displayInLauncher,
+    )
     .map(mapAccessibleSystemToClient);
 }

@@ -144,6 +144,10 @@ func (r *DBResolver) listRealmAccessibleSystems(ctx context.Context, realmRoles 
 			COALESCE(s.icon, '') AS icon,
 			COALESCE(s.category, '') AS category,
 			COALESCE(s.metadata->>'navigation', '') AS navigation,
+			s.system_type,
+			s.display_in_launcher,
+			s.display_in_sidenav,
+			s.launch_mode,
 			ARRAY_AGG(DISTINCT sr.role_name ORDER BY sr.role_name)::text[] AS roles
 		FROM ihp_realm_role_system_roles rrsr
 		JOIN ihp_system_roles sr ON sr.id = rrsr.system_role_id
@@ -153,7 +157,8 @@ func (r *DBResolver) listRealmAccessibleSystems(ctx context.Context, realmRoles 
 		WHERE rrsr.realm_role = ANY($1::text[])
 		  AND s.enabled = TRUE
 		  AND sr.enabled = TRUE
-		GROUP BY s.id, s.client_id, s.display_name, s.launch_url, s.icon, s.category, s.metadata
+		GROUP BY s.id, s.client_id, s.display_name, s.launch_url, s.icon, s.category, s.metadata,
+		         s.system_type, s.display_in_launcher, s.display_in_sidenav, s.launch_mode
 		ORDER BY s.display_name ASC
 	`, pq.Array(realmRoles))
 	if err != nil {
@@ -171,6 +176,10 @@ func (r *DBResolver) listRealmAccessibleSystems(ctx context.Context, realmRoles 
 			&system.Icon,
 			&system.Category,
 			&system.Navigation,
+			&system.SystemType,
+			&system.DisplayInLauncher,
+			&system.DisplayInSideNav,
+			&system.LaunchMode,
 			pq.Array(&system.Roles),
 		); err != nil {
 			return nil, err
@@ -248,6 +257,10 @@ func (r *DBResolver) listAccessibleSystems(
 			COALESCE(s.icon, '') AS icon,
 			COALESCE(s.category, '') AS category,
 			COALESCE(s.metadata->>'navigation', '') AS navigation,
+			s.system_type,
+			s.display_in_launcher,
+			s.display_in_sidenav,
+			s.launch_mode,
 			ARRAY(
 				SELECT DISTINCT ar.role_name
 				FROM ihp_system_access_roles ar
@@ -277,6 +290,10 @@ func (r *DBResolver) listAccessibleSystems(
 			&system.Icon,
 			&system.Category,
 			&system.Navigation,
+			&system.SystemType,
+			&system.DisplayInLauncher,
+			&system.DisplayInSideNav,
+			&system.LaunchMode,
 			pq.Array(&system.Roles),
 		); err != nil {
 			return nil, err

@@ -68,15 +68,27 @@ func (s *Service) UpsertSystem(ctx context.Context, input UpsertSystemInput) (Sy
 	input.Environment = strings.TrimSpace(input.Environment)
 	input.Criticality = strings.TrimSpace(input.Criticality)
 	input.Navigation = strings.TrimSpace(input.Navigation)
+	behavior := systemrbac.NormalizeSystemBehavior(systemrbac.SeedSystem{
+		LaunchURL:         input.LaunchURL,
+		Navigation:        input.Navigation,
+		SystemType:        input.SystemType,
+		DisplayInLauncher: input.DisplayInLauncher,
+		DisplayInSideNav:  input.DisplayInSideNav,
+		LaunchMode:        input.LaunchMode,
+	})
+	if err := systemrbac.ValidateSystemBehavior(behavior); err != nil {
+		return System{}, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
+	input.SystemType = behavior.SystemType
+	input.DisplayInLauncher = behavior.DisplayInLauncher
+	input.DisplayInSideNav = behavior.DisplayInSideNav
+	input.LaunchMode = behavior.LaunchMode
 	if input.ClientID == "" {
 		return System{}, fmt.Errorf("%w: clientId is required", ErrInvalidInput)
 	}
 	if input.DisplayName == "" {
 		return System{}, fmt.Errorf("%w: displayName is required", ErrInvalidInput)
 	}
-	// if err := validateSystemLaunchURL(input.LaunchURL); err != nil {
-	// 	return System{}, err
-	// }
 	if err := validateOptionalURL("supportUrl", input.SupportURL); err != nil {
 		return System{}, err
 	}
@@ -154,13 +166,17 @@ func (s *Service) ListAssignableUserAccess(ctx context.Context) (AssignableUserA
 		sort.Slice(roles, func(i, j int) bool { return roles[i].Name < roles[j].Name })
 
 		assignableSystems = append(assignableSystems, AssignableSystemAccess{
-			ClientID:    detail.ClientID,
-			DisplayName: detail.DisplayName,
-			LaunchURL:   detail.LaunchURL,
-			Icon:        detail.Icon,
-			Category:    detail.Category,
-			Roles:       roles,
-			AccessRoles: sortedStrings(detail.AccessRoles),
+			ClientID:          detail.ClientID,
+			DisplayName:       detail.DisplayName,
+			LaunchURL:         detail.LaunchURL,
+			Icon:              detail.Icon,
+			Category:          detail.Category,
+			SystemType:        detail.SystemType,
+			DisplayInLauncher: detail.DisplayInLauncher,
+			DisplayInSideNav:  detail.DisplayInSideNav,
+			LaunchMode:        detail.LaunchMode,
+			Roles:             roles,
+			AccessRoles:       sortedStrings(detail.AccessRoles),
 		})
 	}
 
@@ -454,13 +470,17 @@ func (s *Service) GetEffectiveAccess(ctx context.Context, userID string, usernam
 		accessRoles := intersectRoleNames(detail.AccessRoles, roleSet)
 		if len(accessRoles) > 0 {
 			accessible = append(accessible, SystemAccessSummary{
-				ClientID:    detail.ClientID,
-				DisplayName: detail.DisplayName,
-				LaunchURL:   detail.LaunchURL,
-				Icon:        detail.Icon,
-				Category:    detail.Category,
-				Navigation:  detail.Navigation,
-				Roles:       accessRoles,
+				ClientID:          detail.ClientID,
+				DisplayName:       detail.DisplayName,
+				LaunchURL:         detail.LaunchURL,
+				Icon:              detail.Icon,
+				Category:          detail.Category,
+				Navigation:        detail.Navigation,
+				SystemType:        detail.SystemType,
+				DisplayInLauncher: detail.DisplayInLauncher,
+				DisplayInSideNav:  detail.DisplayInSideNav,
+				LaunchMode:        detail.LaunchMode,
+				Roles:             accessRoles,
 			})
 		}
 
@@ -626,23 +646,27 @@ func (s *Service) ExportSeed(ctx context.Context) (systemrbac.SeedFile, error) {
 		}
 		enabled := system.Enabled
 		seedSystem := systemrbac.SeedSystem{
-			ClientID:         system.ClientID,
-			DisplayName:      system.DisplayName,
-			Description:      system.Description,
-			Icon:             system.Icon,
-			LaunchURL:        system.LaunchURL,
-			Category:         system.Category,
-			OwnerTeam:        system.OwnerTeam,
-			OwnerName:        system.OwnerName,
-			OwnerEmail:       system.OwnerEmail,
-			SupportURL:       system.SupportURL,
-			DocumentationURL: system.DocumentationURL,
-			Environment:      system.Environment,
-			Criticality:      system.Criticality,
-			Navigation:       system.Navigation,
-			Enabled:          &enabled,
-			AccessRoles:      detail.AccessRoles,
-			Roles:            make([]systemrbac.SeedRole, 0, len(detail.Roles)),
+			ClientID:          system.ClientID,
+			DisplayName:       system.DisplayName,
+			Description:       system.Description,
+			Icon:              system.Icon,
+			LaunchURL:         system.LaunchURL,
+			Category:          system.Category,
+			OwnerTeam:         system.OwnerTeam,
+			OwnerName:         system.OwnerName,
+			OwnerEmail:        system.OwnerEmail,
+			SupportURL:        system.SupportURL,
+			DocumentationURL:  system.DocumentationURL,
+			Environment:       system.Environment,
+			Criticality:       system.Criticality,
+			Navigation:        system.Navigation,
+			SystemType:        system.SystemType,
+			DisplayInLauncher: boolPointer(system.DisplayInLauncher),
+			DisplayInSideNav:  boolPointer(system.DisplayInSideNav),
+			LaunchMode:        system.LaunchMode,
+			Enabled:           &enabled,
+			AccessRoles:       detail.AccessRoles,
+			Roles:             make([]systemrbac.SeedRole, 0, len(detail.Roles)),
 		}
 		for _, role := range detail.Roles {
 			permissions := make([]string, 0, len(role.Permissions))
@@ -720,21 +744,25 @@ func (s *Service) ApplyImport(ctx context.Context, input ImportPreviewRequest) (
 	}
 	for _, system := range seed.Systems {
 		_, err := s.UpsertSystem(ctx, UpsertSystemInput{
-			ClientID:         system.ClientID,
-			DisplayName:      system.DisplayName,
-			Description:      system.Description,
-			Icon:             system.Icon,
-			LaunchURL:        system.LaunchURL,
-			Category:         system.Category,
-			OwnerTeam:        system.OwnerTeam,
-			OwnerName:        system.OwnerName,
-			OwnerEmail:       system.OwnerEmail,
-			SupportURL:       system.SupportURL,
-			DocumentationURL: system.DocumentationURL,
-			Environment:      system.Environment,
-			Criticality:      system.Criticality,
-			Navigation:       system.Navigation,
-			Enabled:          system.Enabled,
+			ClientID:          system.ClientID,
+			DisplayName:       system.DisplayName,
+			Description:       system.Description,
+			Icon:              system.Icon,
+			LaunchURL:         system.LaunchURL,
+			Category:          system.Category,
+			OwnerTeam:         system.OwnerTeam,
+			OwnerName:         system.OwnerName,
+			OwnerEmail:        system.OwnerEmail,
+			SupportURL:        system.SupportURL,
+			DocumentationURL:  system.DocumentationURL,
+			Environment:       system.Environment,
+			Criticality:       system.Criticality,
+			Navigation:        system.Navigation,
+			SystemType:        system.SystemType,
+			DisplayInLauncher: system.DisplayInLauncher,
+			DisplayInSideNav:  system.DisplayInSideNav,
+			LaunchMode:        system.LaunchMode,
+			Enabled:           system.Enabled,
 		})
 		if err != nil {
 			return ImportApplyResponse{}, err
@@ -1110,6 +1138,10 @@ func normalizeRoleInput(input RoleInput) RoleInput {
 	return input
 }
 
+func boolPointer(value bool) *bool {
+	return &value
+}
+
 func validateSystemLaunchURL(value string) error {
 	if value == "" {
 		return nil
@@ -1211,13 +1243,17 @@ func (s *Service) resolveAccessForRoles(ctx context.Context, realmRoles []string
 		accessRoles := intersectRoleNames(detail.AccessRoles, roleSet)
 		if len(accessRoles) > 0 {
 			accessible = append(accessible, SystemAccessSummary{
-				ClientID:    detail.ClientID,
-				DisplayName: detail.DisplayName,
-				LaunchURL:   detail.LaunchURL,
-				Icon:        detail.Icon,
-				Category:    detail.Category,
-				Navigation:  detail.Navigation,
-				Roles:       accessRoles,
+				ClientID:          detail.ClientID,
+				DisplayName:       detail.DisplayName,
+				LaunchURL:         detail.LaunchURL,
+				Icon:              detail.Icon,
+				Category:          detail.Category,
+				Navigation:        detail.Navigation,
+				SystemType:        detail.SystemType,
+				DisplayInLauncher: detail.DisplayInLauncher,
+				DisplayInSideNav:  detail.DisplayInSideNav,
+				LaunchMode:        detail.LaunchMode,
+				Roles:             accessRoles,
 			})
 		}
 		for _, role := range detail.Roles {

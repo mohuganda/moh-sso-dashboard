@@ -365,7 +365,16 @@
             "access.token.claim": "true"
           }
         }
-      ]
+      ],
+      "attributes": {
+        "portal.system": "true",
+        "portal.accessRoles": "dashboard-web_access",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "http://localhost:3000"
+      }
     },
     {
       "clientId": "outbreak-management",
@@ -392,7 +401,13 @@
         "ui.icon": "warning-alt",
         "ui.home": "/portal/apps/outbreak-management",
         "ui.category": "surveillance",
-        "portal.system": "true"
+        "portal.system": "true",
+        "portal.accessRoles": "outbreak-management_access,viewer,data_entry,surveillance_officer,manager,admin,super_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/outbreak-management"
       },
       "defaultClientScopes": [
         "openid",
@@ -417,7 +432,13 @@
         "ui.icon": "home",
         "ui.home": "/portal/apps/dwh",
         "ui.category": "platform",
-        "portal.system": "true"
+        "portal.system": "true",
+        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/dwh"
       }
     }
   ],

@@ -28,6 +28,11 @@
   padding: 1.5rem;
 }
 
+.system-panel__validation-error {
+  color: var(--cds-text-error, #da1e28);
+  margin: 0;
+}
+
 .system-panel .cds--form__helper-text {
   max-width: none;
 }

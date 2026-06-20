@@ -664,6 +664,37 @@ func (c *KeyAdminClient) DeleteClient(id string) error {
 	return nil
 }
 
+func (c *KeyAdminClient) UpdateClientPortalAttributes(
+	ctx context.Context,
+	clientID string,
+	attributes map[string]string,
+) error {
+	client, err := c.GetClientByClientID(strings.TrimSpace(clientID))
+	if err != nil {
+		return err
+	}
+	if client == nil || strings.TrimSpace(client.ID) == "" {
+		return fmt.Errorf("client %q does not exist", clientID)
+	}
+	if client.Attributes == nil {
+		client.Attributes = map[string]string{}
+	}
+	for key, value := range attributes {
+		client.Attributes[key] = value
+	}
+
+	res, err := c.PutWithContext(ctx, "clients/"+url.PathEscape(client.ID), client)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("update client portal attributes failed [%d]: %s", res.StatusCode, string(body))
+	}
+	return nil
+}
+
 // ----------------------------------------------------
 // USER MANAGEMENT
 // ----------------------------------------------------

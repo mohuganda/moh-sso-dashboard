@@ -140,6 +140,7 @@ export default function HomePage() {
                 description={client.description}
                 enabled={client?.enabled}
                 rootUrl={normalizePortalPath(client.baseUrl)}
+                launchMode={(client.attributes?.["ui.launchMode"] as "internal" | "new_tab" | "same_tab") || "internal"}
               />
             ))}
           </div>

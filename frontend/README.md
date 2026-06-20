@@ -2,6 +2,8 @@
 
 This frontend is a workspace-based React/Vite application prepared for single-spa microfrontends. The default development and deployment path still works as one shell application, while standalone apps can also build independently and be staged under `dist/mf`.
 
+The application launcher and user side navigation are registry-driven. Platform systems use internal routing and may contribute permission-filtered navigation. External systems are launcher-only and use either new-tab or same-tab navigation. If no authorized navigation remains, the shell removes the side navigation and its reserved width.
+
 ## Architecture
 
 ```text

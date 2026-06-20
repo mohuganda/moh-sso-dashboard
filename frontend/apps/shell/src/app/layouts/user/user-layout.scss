@@ -31,6 +31,10 @@
   background: var(--cds-background, #ffffff);
 }
 
+.user-layout--without-sidenav {
+  --moh-sidenav-width: 0rem;
+}
+
 .user-layout__content {
   min-width: 0;
   flex: 1;

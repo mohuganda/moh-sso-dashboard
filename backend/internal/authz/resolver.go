@@ -15,13 +15,17 @@ type ResolvedAccess struct {
 }
 
 type SystemAccess struct {
-	ClientID    string   `json:"clientId"`
-	DisplayName string   `json:"displayName"`
-	LaunchURL   string   `json:"launchUrl,omitempty"`
-	Icon        string   `json:"icon,omitempty"`
-	Category    string   `json:"category,omitempty"`
-	Navigation  string   `json:"navigation,omitempty"`
-	Roles       []string `json:"roles"`
+	ClientID          string   `json:"clientId"`
+	DisplayName       string   `json:"displayName"`
+	LaunchURL         string   `json:"launchUrl,omitempty"`
+	Icon              string   `json:"icon,omitempty"`
+	Category          string   `json:"category,omitempty"`
+	Navigation        string   `json:"navigation,omitempty"`
+	SystemType        string   `json:"systemType"`
+	DisplayInLauncher bool     `json:"displayInLauncher"`
+	DisplayInSideNav  bool     `json:"displayInSideNav"`
+	LaunchMode        string   `json:"launchMode"`
+	Roles             []string `json:"roles"`
 }
 
 type StaticResolver struct{}

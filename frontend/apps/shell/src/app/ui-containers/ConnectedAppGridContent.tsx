@@ -53,10 +53,17 @@ export function ConnectedAppGridContent({ onSelect }: ConnectedAppGridContentPro
       dispatch(setActiveClient(clientId));
     }
 
+    const client = visibleClients.find((item) => item.clientId === clientId);
+    const launchMode = client?.attributes?.["ui.launchMode"] ?? "internal";
     const targetHref = normalizePortalPath(href);
 
-    if (isExternalUrl(targetHref)) {
+    if (launchMode === "new_tab") {
       window.open(targetHref, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (launchMode === "same_tab") {
+      window.location.assign(targetHref);
       return;
     }
 

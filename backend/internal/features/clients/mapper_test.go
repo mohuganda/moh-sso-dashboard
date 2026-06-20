@@ -11,22 +11,22 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 		{
 			ClientID:   "dashboard-web",
 			Name:       "Portal",
-			Attributes: map[string]string{"ui.icon": "dashboard"},
+			Attributes: map[string]string{"ui.icon": "dashboard", "portal.system": "true"},
 		},
 		{
 			ClientID:   "outbreak-management",
 			Name:       "Outbreak Management",
-			Attributes: map[string]string{"ui.icon": "outbreak"},
+			Attributes: map[string]string{"ui.icon": "outbreak", "portal.system": "true"},
 		},
 		{
 			ClientID:   "data-statistics",
 			Name:       "Data & Statistics",
-			Attributes: map[string]string{"ui.icon": "reporting"},
+			Attributes: map[string]string{"ui.icon": "reporting", "portal.system": "true"},
 		},
 		{
 			ClientID:   "dashboard-admin",
 			Name:       "Technical admin client",
-			Attributes: map[string]string{"ui.icon": "settings"},
+			Attributes: map[string]string{"ui.icon": "settings", "portal.system": "true"},
 		},
 	}
 
@@ -62,7 +62,7 @@ func TestFilterAccessibleClientsSkipsClientsWithoutUiMetadata(t *testing.T) {
 			{
 				ClientID:   "outbreak-management",
 				Name:       "Outbreak Management",
-				Attributes: map[string]string{"ui.icon": "outbreak"},
+				Attributes: map[string]string{"ui.icon": "outbreak", "portal.system": "true"},
 			},
 			{
 				ClientID: "technical-client",

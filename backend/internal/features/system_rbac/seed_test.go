@@ -43,6 +43,47 @@ func TestValidateSeedRejectsUnknownDefaultSystemRole(t *testing.T) {
 	}
 }
 
+func TestValidateSystemBehaviorSupportsAllLaunchModes(t *testing.T) {
+	trueValue := true
+	falseValue := false
+	cases := []SeedSystem{
+		{
+			SystemType: "platform", LaunchMode: "internal", LaunchURL: "/portal/apps/dwh",
+			DisplayInLauncher: &trueValue, DisplayInSideNav: &trueValue,
+			Navigation: `[{"id":"reports","label":"Reports","path":"/apps/dwh/reports"}]`,
+		},
+		{
+			SystemType: "external", LaunchMode: "new_tab", LaunchURL: "https://example.org/health",
+			DisplayInLauncher: &trueValue, DisplayInSideNav: &falseValue,
+		},
+		{
+			SystemType: "external", LaunchMode: "same_tab", LaunchURL: "https://example.org/support",
+			DisplayInLauncher: &trueValue, DisplayInSideNav: &falseValue,
+		},
+	}
+	for _, system := range cases {
+		if err := ValidateSystemBehavior(system); err != nil {
+			t.Fatalf("expected valid behavior %+v: %v", system, err)
+		}
+	}
+}
+
+func TestValidateSystemBehaviorRejectsUnsafeOrInconsistentConfiguration(t *testing.T) {
+	trueValue := true
+	cases := []SeedSystem{
+		{SystemType: "external", LaunchMode: "new_tab", LaunchURL: "javascript://example.org"},
+		{SystemType: "external", LaunchMode: "same_tab", LaunchURL: "https://user:pass@example.org"},
+		{SystemType: "platform", LaunchMode: "new_tab", LaunchURL: "/portal/apps/dwh"},
+		{SystemType: "external", LaunchMode: "new_tab", LaunchURL: "https://example.org", DisplayInSideNav: &trueValue},
+		{SystemType: "platform", LaunchMode: "internal", LaunchURL: "/portal/apps/dwh", DisplayInSideNav: &trueValue, Navigation: "[]"},
+	}
+	for _, system := range cases {
+		if err := ValidateSystemBehavior(system); err == nil {
+			t.Fatalf("expected invalid behavior %+v", system)
+		}
+	}
+}
+
 func contains(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {

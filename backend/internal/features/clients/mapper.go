@@ -3,6 +3,7 @@ package clients
 import (
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	"github.com/moh-sso-dashboard/internal/model"
+	"strings"
 )
 
 func filterAccessibleClients(
@@ -13,7 +14,7 @@ func filterAccessibleClients(
 	filtered := make([]model.Client, 0)
 
 	for _, client := range clients {
-		if client.Attributes == nil || client.Attributes["ui.icon"] == "" {
+		if isTechnicalClient(client.ClientID) || !isPortalApplicationClient(client) {
 			continue
 		}
 
@@ -22,9 +23,9 @@ func filterAccessibleClients(
 			continue
 		}
 
-		expectedRole := client.ClientID + "_access"
+		configuredRoles := configuredClientAccessRoles(client)
 		for _, role := range clientRoles[client.ClientID] {
-			if role == expectedRole {
+			if configuredRoles[strings.TrimSpace(role)] {
 				filtered = append(filtered, client)
 				break
 			}
@@ -32,6 +33,35 @@ func filterAccessibleClients(
 	}
 
 	return filtered
+}
+
+func configuredClientAccessRoles(client model.Client) map[string]bool {
+	roles := map[string]bool{client.ClientID + "_access": true}
+	for _, role := range strings.Split(client.Attributes["portal.accessRoles"], ",") {
+		if role = strings.TrimSpace(role); role != "" {
+			roles[role] = true
+		}
+	}
+	return roles
+}
+
+func isPortalApplicationClient(client model.Client) bool {
+	if client.Attributes == nil {
+		return false
+	}
+	return strings.EqualFold(client.Attributes["portal.system"], "true") ||
+		strings.TrimSpace(client.Attributes["ui.home"]) != "" ||
+		strings.TrimSpace(client.Attributes["ui.launchUrl"]) != ""
+}
+
+func isTechnicalClient(clientID string) bool {
+	clientID = strings.TrimSpace(clientID)
+	for _, prefix := range []string{"account", "realm-management", "security-admin-console", "admin-cli"} {
+		if strings.HasPrefix(clientID, prefix) {
+			return true
+		}
+	}
+	return strings.HasSuffix(clientID, "-admin")
 }
 
 func toClientResponse(client *model.Client) ClientResponse {
