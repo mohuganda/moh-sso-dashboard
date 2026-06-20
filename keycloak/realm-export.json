@@ -197,11 +197,29 @@
       {
         "name": "user",
         "description": "Standard user role",
+        "composite": true,
+        "composites": {
+          "client": {
+            "data-statistics": [
+              "data-statistics_access"
+            ],
+            "utilities": [
+              "utilities_access"
+            ],
+            "settings": [
+              "settings_access"
+            ]
+          }
+        },
         "attributes": {
           "portal.permissions": [
             "portal:access",
             "systems:read",
-            "systems:launch"
+            "systems:launch",
+            "data_quality:read",
+            "documents:read",
+            "surveillance:read",
+            "report_browser:read"
           ]
         }
       }
@@ -250,6 +268,49 @@
         {
           "name": "portal_user",
           "description": "Standard portal user access",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
+        }
+      ],
+      "data-statistics": [
+        {
+          "name": "data-statistics_access",
+          "description": "Default access to Data & Statistics",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "data_quality:read",
+              "documents:read",
+              "surveillance:read",
+              "report_browser:read"
+            ]
+          }
+        }
+      ],
+      "utilities": [
+        {
+          "name": "utilities_access",
+          "description": "Default access to Utilities",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
+        }
+      ],
+      "settings": [
+        {
+          "name": "settings_access",
+          "description": "Default access to Settings",
           "attributes": {
             "portal.permissions": [
               "portal:access",
@@ -528,6 +589,63 @@
       ]
     },
     {
+      "clientId": "data-statistics",
+      "name": "Data & Statistics",
+      "description": "Data quality, document upload, reports, and surveillance tools",
+      "rootUrl": "http://localhost:3000/portal/apps/dwh",
+      "baseUrl": "http://localhost:3000/portal/apps/dwh",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "ui.icon": "home",
+        "ui.home": "/portal/apps/dwh",
+        "ui.category": "platform",
+        "portal.system": "true"
+      }
+    },
+    {
+      "clientId": "utilities",
+      "name": "Utilities",
+      "description": "Self-service utilities and staff tools",
+      "rootUrl": "http://localhost:3000/portal/apps/utilities",
+      "baseUrl": "http://localhost:3000/portal/apps/utilities",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "ui.icon": "tools",
+        "ui.home": "/portal/apps/utilities",
+        "ui.category": "utilities",
+        "portal.system": "true"
+      }
+    },
+    {
+      "clientId": "settings",
+      "name": "Settings",
+      "description": "User profile, session, and security settings",
+      "rootUrl": "http://localhost:3000/portal/apps/settings",
+      "baseUrl": "http://localhost:3000/portal/apps/settings",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "ui.icon": "settings",
+        "ui.home": "/portal/apps/settings",
+        "ui.category": "platform",
+        "portal.system": "true"
+      }
+    },
+    {
       "clientId": "integrated-outbreak-system",
       "name": "IOS",
       "description": "Integrated Outbreak System Backend API",
@@ -625,7 +743,10 @@
         "accessible_systems": [
           "dashboard-web",
           "integrated-outbreak-system",
-          "report-browser"
+          "report-browser",
+          "data-statistics",
+          "utilities",
+          "settings"
         ]
       },
       "credentials": [
@@ -717,7 +838,10 @@
         "accessible_systems": [
           "dashboard-web",
           "integrated-outbreak-system",
-          "report-browser"
+          "report-browser",
+          "data-statistics",
+          "utilities",
+          "settings"
         ]
       },
       "credentials": [
@@ -763,7 +887,10 @@
         "accessible_systems": [
           "dashboard-web",
           "integrated-outbreak-system",
-          "report-browser"
+          "report-browser",
+          "data-statistics",
+          "utilities",
+          "settings"
         ]
       },
       "credentials": [

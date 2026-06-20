@@ -610,6 +610,10 @@ func (s *Service) ExportSeed(ctx context.Context) (systemrbac.SeedFile, error) {
 	if err != nil {
 		return systemrbac.SeedFile{}, err
 	}
+	realmSystemRoles, err := s.repository.ListRealmRoleSystemRoles(ctx)
+	if err != nil {
+		return systemrbac.SeedFile{}, err
+	}
 
 	seed := systemrbac.SeedFile{
 		Systems:    make([]systemrbac.SeedSystem, 0, len(systems)),
@@ -654,12 +658,26 @@ func (s *Service) ExportSeed(ctx context.Context) (systemrbac.SeedFile, error) {
 		}
 		seed.Systems = append(seed.Systems, seedSystem)
 	}
+	defaultRolesByRealm := map[string]map[string][]string{}
+	for _, mapping := range realmSystemRoles {
+		if defaultRolesByRealm[mapping.RealmRole] == nil {
+			defaultRolesByRealm[mapping.RealmRole] = map[string][]string{}
+		}
+		defaultRolesByRealm[mapping.RealmRole][mapping.ClientID] = append(
+			defaultRolesByRealm[mapping.RealmRole][mapping.ClientID],
+			mapping.RoleName,
+		)
+	}
 	for _, group := range realmGroups {
 		permissions := make([]string, 0, len(group.Permissions))
 		for _, permission := range group.Permissions {
 			permissions = append(permissions, permission.Key)
 		}
-		seed.RealmRoles = append(seed.RealmRoles, systemrbac.SeedRealmRole{Name: group.RealmRole, Permissions: permissions})
+		seed.RealmRoles = append(seed.RealmRoles, systemrbac.SeedRealmRole{
+			Name:        group.RealmRole,
+			Permissions: permissions,
+			SystemRoles: defaultRolesByRealm[group.RealmRole],
+		})
 	}
 	return seed, nil
 }

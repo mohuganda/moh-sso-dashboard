@@ -4,6 +4,9 @@ const (
 	SystemDashboardWeb       = "dashboard-web"
 	SystemIntegratedOutbreak = "integrated-outbreak-system"
 	SystemReportBrowser      = "report-browser"
+	SystemDataStatistics     = "data-statistics"
+	SystemUtilities          = "utilities"
+	SystemSettings           = "settings"
 )
 
 const (
@@ -26,4 +29,8 @@ const (
 	ReportBrowserManager = "report_manager"
 	ReportBrowserAnalyst = "report_analyst"
 	ReportBrowserViewer  = "report_viewer"
+
+	DataStatisticsAccess = "data-statistics_access"
+	UtilitiesAccess      = "utilities_access"
+	SettingsAccess       = "settings_access"
 )

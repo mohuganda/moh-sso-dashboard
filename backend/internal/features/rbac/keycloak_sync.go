@@ -18,12 +18,14 @@ type KeycloakSyncSource interface {
 	CreateClient(opts keycloak.CreateClientParams) (string, error)
 	CreateRealmRole(ctx context.Context, roleName string, description string) error
 	CreateClientRole(ctx context.Context, clientID string, req *model.CreateClientRoleRequest) error
+	EnsureRealmRoleClientRoleComposite(ctx context.Context, realmRole string, clientID string, roleName string) error
 }
 
 type KeycloakPushResult struct {
 	ClientsCreated     int      `json:"clientsCreated"`
 	RealmRolesCreated  int      `json:"realmRolesCreated"`
 	ClientRolesCreated int      `json:"clientRolesCreated"`
+	CompositesSynced   int      `json:"compositesSynced"`
 	Warnings           []string `json:"warnings,omitempty"`
 }
 
@@ -178,11 +180,34 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 		result.RealmRolesCreated++
 	}
 
+	realmSystemRoles, err := s.repository.ListRealmRoleSystemRoles(ctx)
+	if err != nil {
+		return KeycloakPushResult{}, err
+	}
+	for _, mapping := range realmSystemRoles {
+		if err := source.EnsureRealmRoleClientRoleComposite(
+			ctx,
+			mapping.RealmRole,
+			mapping.ClientID,
+			mapping.RoleName,
+		); err != nil {
+			return KeycloakPushResult{}, fmt.Errorf(
+				"sync realm role %q composite %q/%q: %w",
+				mapping.RealmRole,
+				mapping.ClientID,
+				mapping.RoleName,
+				err,
+			)
+		}
+		result.CompositesSynced++
+	}
+
 	sort.Strings(result.Warnings)
 	if err := s.recordAudit(ctx, "rbac.keycloak_push_applied", "sync", "live-keycloak", "", "", "", map[string]any{
 		"clients_created":      result.ClientsCreated,
 		"realm_roles_created":  result.RealmRolesCreated,
 		"client_roles_created": result.ClientRolesCreated,
+		"composites_synced":    result.CompositesSynced,
 		"warnings":             result.Warnings,
 	}); err != nil {
 		return KeycloakPushResult{}, err

@@ -28,6 +28,21 @@ func TestUserRoleGetsReadOnlyPortalPermissions(t *testing.T) {
 	if ctx.HasPermission(PermissionDocumentsWrite) {
 		t.Fatal("did not expect user to have documents:write permission")
 	}
+	for _, system := range []string{SystemDataStatistics, SystemUtilities, SystemSettings} {
+		if !ctx.HasSystem(system) {
+			t.Fatalf("expected user realm role to have default access to %s", system)
+		}
+	}
+	for _, permission := range []Permission{
+		PermissionDataQualityRead,
+		PermissionDocumentsRead,
+		PermissionSurveillanceRead,
+		PermissionReportBrowserRead,
+	} {
+		if !ctx.HasPermission(permission) {
+			t.Fatalf("expected user realm role to have %s", permission)
+		}
+	}
 }
 
 func TestSpecializedRolesGetScopedPermissions(t *testing.T) {

@@ -55,6 +55,12 @@ type RealmRolePermissionGroup struct {
 	Permissions []Permission `json:"permissions"`
 }
 
+type RealmRoleSystemRole struct {
+	RealmRole string `json:"realmRole"`
+	ClientID  string `json:"clientId"`
+	RoleName  string `json:"roleName"`
+}
+
 type UpsertSystemInput struct {
 	ClientID         string `json:"clientId"`
 	DisplayName      string `json:"displayName"`

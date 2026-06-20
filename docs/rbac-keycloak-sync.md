@@ -64,13 +64,29 @@ Startup order:
 
 The curated seed is applied after discovery so known portal metadata and permission mappings win over generic Keycloak metadata.
 
+### Default Access For The `user` Realm Role
+
+The curated seed maps the `user` realm role to these default system roles:
+
+| System | Client role |
+| --- | --- |
+| Data & Statistics (`data-statistics`) | `data-statistics_access` |
+| Utilities (`utilities`) | `utilities_access` |
+| Settings (`settings`) | `settings_access` |
+
+Migration `000030_add_realm_role_system_roles` stores these defaults in the portal DB. The authorization resolver therefore exposes the three systems to every user carrying the `user` realm role, even before a refreshed Keycloak token contains the composite client roles.
+
+When `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true`, startup reconciliation also adds those client roles as composites of the Keycloak `user` realm role. Existing users receive the composite roles on their next login or token refresh.
+
+The `accessible_systems` attribute in the local realm export is descriptive seed metadata only. Runtime authorization is derived from realm roles, client-role assignments/composites, and the portal RBAC mappings; changing that attribute alone never grants access.
+
 ## Safe Source Of Truth Rules
 
 Use these rules to avoid accidental overwrites:
 
 - Assign users to roles in Keycloak or through portal APIs that write to Keycloak.
 - Define what roles can do in portal RBAC.
-- Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` when startup should create missing portal-defined Keycloak clients and realm/client roles from the RBAC registry. This does not grant users access by itself; users still need explicit client role assignments.
+- Keep `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` when startup should create missing portal-defined Keycloak clients, realm/client roles, and configured realm-role composites from the RBAC registry. Apart from explicitly configured realm-role defaults such as `user`, other systems still require explicit client-role assignments.
 - Do not use startup sync to delete Keycloak roles or users.
 - Do not store passwords or credentials in portal RBAC.
 

@@ -49,9 +49,27 @@ func (r *DBResolver) Resolve(
 		}
 		addPermission(Permission(key))
 	}
+	realmSystemPermissionKeys, err := r.listRealmSystemPermissions(ctx, NormalizeRoles(realmRoles))
+	if err != nil {
+		return ResolvedAccess{}, err
+	}
+	for _, key := range realmSystemPermissionKeys {
+		addPermission(Permission(key))
+	}
 
 	systemSeen := map[string]bool{}
 	systems := make([]SystemAccess, 0)
+	realmSystems, err := r.listRealmAccessibleSystems(ctx, NormalizeRoles(realmRoles))
+	if err != nil {
+		return ResolvedAccess{}, err
+	}
+	for _, system := range realmSystems {
+		if system.ClientID == "" || systemSeen[system.ClientID] {
+			continue
+		}
+		systemSeen[system.ClientID] = true
+		systems = append(systems, system)
+	}
 
 	for clientID, roles := range normalizeClientRoles(clientRoles) {
 		if len(roles) == 0 {
@@ -89,6 +107,77 @@ func (r *DBResolver) Resolve(
 		Permissions: permissions,
 		Systems:     systems,
 	}, nil
+}
+
+func (r *DBResolver) listRealmSystemPermissions(ctx context.Context, realmRoles []string) ([]string, error) {
+	if len(realmRoles) == 0 {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT p.permission_key
+		FROM ihp_realm_role_system_roles rrsr
+		JOIN ihp_system_roles sr ON sr.id = rrsr.system_role_id
+		JOIN ihp_systems s ON s.id = sr.system_id
+		JOIN ihp_system_role_permissions srp ON srp.system_role_id = sr.id
+		JOIN ihp_permissions p ON p.id = srp.permission_id
+		WHERE rrsr.realm_role = ANY($1::text[])
+		  AND s.enabled = TRUE
+		  AND sr.enabled = TRUE
+		ORDER BY p.permission_key ASC
+	`, pq.Array(realmRoles))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanStrings(rows)
+}
+
+func (r *DBResolver) listRealmAccessibleSystems(ctx context.Context, realmRoles []string) ([]SystemAccess, error) {
+	if len(realmRoles) == 0 {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT
+			s.client_id,
+			s.display_name,
+			COALESCE(s.launch_url, '') AS launch_url,
+			COALESCE(s.icon, '') AS icon,
+			COALESCE(s.category, '') AS category,
+			COALESCE(s.metadata->>'navigation', '') AS navigation,
+			ARRAY_AGG(DISTINCT sr.role_name ORDER BY sr.role_name)::text[] AS roles
+		FROM ihp_realm_role_system_roles rrsr
+		JOIN ihp_system_roles sr ON sr.id = rrsr.system_role_id
+		JOIN ihp_systems s ON s.id = sr.system_id
+		JOIN ihp_system_access_roles sar
+		  ON sar.system_id = s.id AND sar.role_name = sr.role_name
+		WHERE rrsr.realm_role = ANY($1::text[])
+		  AND s.enabled = TRUE
+		  AND sr.enabled = TRUE
+		GROUP BY s.id, s.client_id, s.display_name, s.launch_url, s.icon, s.category, s.metadata
+		ORDER BY s.display_name ASC
+	`, pq.Array(realmRoles))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	systems := make([]SystemAccess, 0)
+	for rows.Next() {
+		var system SystemAccess
+		if err := rows.Scan(
+			&system.ClientID,
+			&system.DisplayName,
+			&system.LaunchURL,
+			&system.Icon,
+			&system.Category,
+			&system.Navigation,
+			pq.Array(&system.Roles),
+		); err != nil {
+			return nil, err
+		}
+		systems = append(systems, system)
+	}
+	return systems, rows.Err()
 }
 
 func (r *DBResolver) listRealmPermissions(ctx context.Context, roles []string) ([]string, error) {

@@ -181,6 +181,39 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionReportBrowserRead,
 		},
 	},
+	SystemDataStatistics: {
+		DataStatisticsAccess: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
+			PermissionDataQualityRead,
+			PermissionDocumentsRead,
+			PermissionSurveillanceRead,
+			PermissionReportBrowserRead,
+		},
+	},
+	SystemUtilities: {
+		UtilitiesAccess: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
+		},
+	},
+	SystemSettings: {
+		SettingsAccess: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
+		},
+	},
+}
+
+var defaultSystemRolesForRealmRole = map[string]map[string][]string{
+	RoleUser: {
+		SystemDataStatistics: {DataStatisticsAccess},
+		SystemUtilities:      {UtilitiesAccess},
+		SystemSettings:       {SettingsAccess},
+	},
 }
 
 func PermissionsForContext(realmRoles []string, clientRoles map[string][]string) []Permission {
@@ -201,7 +234,7 @@ func PermissionsForContext(realmRoles []string, clientRoles map[string][]string)
 		add(rolePermissions[role])
 	}
 
-	for system, roles := range normalizeClientRoles(clientRoles) {
+	for system, roles := range clientRolesWithRealmDefaults(realmRoles, clientRoles) {
 		roleMap := systemRolePermissions[system]
 		for _, role := range roles {
 			add(roleMap[role])
@@ -249,7 +282,7 @@ func AccessibleSystemDetailsForContext(clientRoles map[string][]string) []System
 		switch system {
 		case SystemDashboardWeb:
 			add(systemAccess(system, roles))
-		case SystemIntegratedOutbreak, SystemReportBrowser:
+		case SystemIntegratedOutbreak, SystemReportBrowser, SystemDataStatistics, SystemUtilities, SystemSettings:
 			add(systemAccess(system, roles))
 		}
 	}
@@ -283,6 +316,37 @@ var staticSystemMetadata = map[string]systemMetadata{
 		Icon:        "reporting",
 		Category:    "reports",
 	},
+	SystemDataStatistics: {
+		DisplayName: "Data & Statistics",
+		LaunchURL:   "/portal/apps/dwh",
+		Icon:        "home",
+		Category:    "platform",
+	},
+	SystemUtilities: {
+		DisplayName: "Utilities",
+		LaunchURL:   "/portal/apps/utilities",
+		Icon:        "tools",
+		Category:    "utilities",
+	},
+	SystemSettings: {
+		DisplayName: "Settings",
+		LaunchURL:   "/portal/apps/settings",
+		Icon:        "settings",
+		Category:    "platform",
+	},
+}
+
+func clientRolesWithRealmDefaults(
+	realmRoles []string,
+	clientRoles map[string][]string,
+) map[string][]string {
+	merged := normalizeClientRoles(clientRoles)
+	for _, realmRole := range NormalizeRoles(realmRoles) {
+		for clientID, roles := range defaultSystemRolesForRealmRole[realmRole] {
+			merged[clientID] = NormalizeRoles(append(merged[clientID], roles...))
+		}
+	}
+	return merged
 }
 
 func PermissionsForRoles(roles []string) []Permission {

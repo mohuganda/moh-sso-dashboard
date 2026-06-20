@@ -35,9 +35,10 @@ func (StaticResolver) Resolve(
 	realmRoles []string,
 	clientRoles map[string][]string,
 ) (ResolvedAccess, error) {
+	effectiveClientRoles := clientRolesWithRealmDefaults(realmRoles, clientRoles)
 	return ResolvedAccess{
-		Permissions: PermissionsForContext(realmRoles, clientRoles),
-		Systems:     AccessibleSystemDetailsForContext(clientRoles),
+		Permissions: PermissionsForContext(realmRoles, effectiveClientRoles),
+		Systems:     AccessibleSystemDetailsForContext(effectiveClientRoles),
 	}, nil
 }
 
@@ -90,7 +91,9 @@ func ResolveAccess(
 	if err != nil {
 		return ResolvedAccess{
 			Permissions: PermissionsForContext(realmRoles, clientRoles),
-			Systems:     AccessibleSystemDetailsForContext(clientRoles),
+			Systems: AccessibleSystemDetailsForContext(
+				clientRolesWithRealmDefaults(realmRoles, clientRoles),
+			),
 		}
 	}
 

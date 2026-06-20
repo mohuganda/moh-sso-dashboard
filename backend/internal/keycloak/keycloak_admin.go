@@ -164,6 +164,13 @@ type RoleRep struct {
 	Description string `json:"description"`
 }
 
+type compositeRoleRepresentation struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	ClientRole  bool   `json:"clientRole"`
+	ContainerID string `json:"containerId"`
+}
+
 type ClientScope struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
@@ -1124,6 +1131,50 @@ func (c *KeyAdminClient) ListRealmRoles(ctx context.Context) ([]RoleRep, error) 
 	}
 
 	return roles, nil
+}
+
+func (c *KeyAdminClient) EnsureRealmRoleClientRoleComposite(
+	ctx context.Context,
+	realmRole string,
+	clientID string,
+	roleName string,
+) error {
+	realmRole = strings.TrimSpace(realmRole)
+	clientID = strings.TrimSpace(clientID)
+	roleName = strings.TrimSpace(roleName)
+	if realmRole == "" || clientID == "" || roleName == "" {
+		return fmt.Errorf("realmRole, clientID, and roleName are required")
+	}
+
+	client, err := c.GetClientByClientID(clientID)
+	if err != nil {
+		return err
+	}
+	if client == nil {
+		return fmt.Errorf("client %q does not exist", clientID)
+	}
+	role, err := c.GetClientRoleByName(ctx, clientID, client.ID, roleName)
+	if err != nil {
+		return err
+	}
+
+	payload := []compositeRoleRepresentation{{
+		ID:          role.ID,
+		Name:        role.Name,
+		ClientRole:  true,
+		ContainerID: client.ID,
+	}}
+	endpoint := fmt.Sprintf("roles/%s/composites", url.PathEscape(realmRole))
+	res, err := c.PostWithContext(ctx, endpoint, payload)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("add realm role composite failed [%d]: %s", res.StatusCode, string(body))
+	}
+	return nil
 }
 
 func (c *KeyAdminClient) GetRealmRoleByName(

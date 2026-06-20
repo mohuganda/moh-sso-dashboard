@@ -44,8 +44,9 @@ type SeedRole struct {
 }
 
 type SeedRealmRole struct {
-	Name        string   `json:"name" yaml:"name"`
-	Permissions []string `json:"permissions,omitempty" yaml:"permissions,omitempty"`
+	Name        string              `json:"name" yaml:"name"`
+	Permissions []string            `json:"permissions,omitempty" yaml:"permissions,omitempty"`
+	SystemRoles map[string][]string `json:"systemRoles,omitempty" yaml:"systemRoles,omitempty"`
 }
 
 const integratedOutbreakNavigation = `[
@@ -169,8 +170,10 @@ func ValidateSeed(seed SeedFile) error {
 	}
 
 	seenSystems := map[string]bool{}
+	systemRoles := map[string]map[string]bool{}
+	systemAccessRoles := map[string]map[string]bool{}
 	for _, system := range seed.Systems {
-		clientID := strings.TrimSpace(system.ClientID)
+		clientID := strings.ToLower(strings.TrimSpace(system.ClientID))
 		if clientID == "" {
 			return fmt.Errorf("system clientId is required")
 		}
@@ -185,7 +188,7 @@ func ValidateSeed(seed SeedFile) error {
 
 		seenRoles := map[string]bool{}
 		for _, role := range system.Roles {
-			roleName := strings.TrimSpace(role.Name)
+			roleName := strings.ToLower(strings.TrimSpace(role.Name))
 			if roleName == "" {
 				return fmt.Errorf("system %q has a role without a name", clientID)
 			}
@@ -197,6 +200,12 @@ func ValidateSeed(seed SeedFile) error {
 				return fmt.Errorf("system %q role %q: %w", clientID, roleName, err)
 			}
 		}
+		systemRoles[clientID] = seenRoles
+		accessRoles := map[string]bool{}
+		for _, roleName := range system.AccessRoles {
+			accessRoles[strings.ToLower(strings.TrimSpace(roleName))] = true
+		}
+		systemAccessRoles[clientID] = accessRoles
 	}
 
 	seenRealmRoles := map[string]bool{}
@@ -211,6 +220,21 @@ func ValidateSeed(seed SeedFile) error {
 		seenRealmRoles[roleName] = true
 		if err := validatePermissions(knownPermissions, role.Permissions); err != nil {
 			return fmt.Errorf("realm role %q: %w", roleName, err)
+		}
+		for clientID, roles := range role.SystemRoles {
+			clientID = strings.ToLower(strings.TrimSpace(clientID))
+			if !seenSystems[clientID] {
+				return fmt.Errorf("realm role %q references unknown system %q", roleName, clientID)
+			}
+			for _, systemRole := range roles {
+				systemRole = strings.ToLower(strings.TrimSpace(systemRole))
+				if !systemRoles[clientID][systemRole] {
+					return fmt.Errorf("realm role %q references unknown role %q for system %q", roleName, systemRole, clientID)
+				}
+				if !systemAccessRoles[clientID][systemRole] {
+					return fmt.Errorf("realm role %q default role %q is not an access role for system %q", roleName, systemRole, clientID)
+				}
+			}
 		}
 	}
 
@@ -475,6 +499,15 @@ func DefaultSeed() SeedFile {
 					string(authz.PermissionPortalAccess),
 					string(authz.PermissionSystemsRead),
 					string(authz.PermissionSystemsLaunch),
+					string(authz.PermissionDataQualityRead),
+					string(authz.PermissionDocumentsRead),
+					string(authz.PermissionSurveillanceRead),
+					string(authz.PermissionReportBrowserRead),
+				},
+				SystemRoles: map[string][]string{
+					authz.SystemDataStatistics: {authz.DataStatisticsAccess},
+					authz.SystemUtilities:      {authz.UtilitiesAccess},
+					authz.SystemSettings:       {authz.SettingsAccess},
 				},
 			},
 			{

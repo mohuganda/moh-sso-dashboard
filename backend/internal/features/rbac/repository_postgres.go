@@ -444,6 +444,31 @@ func (r *postgresRepository) RemoveRealmRolePermission(ctx context.Context, real
 	return err
 }
 
+func (r *postgresRepository) ListRealmRoleSystemRoles(ctx context.Context) ([]RealmRoleSystemRole, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT rrsr.realm_role, s.client_id, sr.role_name
+		FROM ihp_realm_role_system_roles rrsr
+		JOIN ihp_system_roles sr ON sr.id = rrsr.system_role_id
+		JOIN ihp_systems s ON s.id = sr.system_id
+		WHERE s.enabled = TRUE AND sr.enabled = TRUE
+		ORDER BY rrsr.realm_role, s.client_id, sr.role_name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	values := make([]RealmRoleSystemRole, 0)
+	for rows.Next() {
+		var value RealmRoleSystemRole
+		if err := rows.Scan(&value.RealmRole, &value.ClientID, &value.RoleName); err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+	}
+	return values, rows.Err()
+}
+
 func (r *postgresRepository) AddSystemAccessRole(ctx context.Context, clientID string, roleName string) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO ihp_system_access_roles (system_id, role_name)

@@ -86,6 +86,13 @@ func ApplySeed(ctx context.Context, db *sql.DB, seed SeedFile) error {
 				return err
 			}
 		}
+		for clientID, systemRoles := range role.SystemRoles {
+			for _, systemRole := range systemRoles {
+				if err := assignRealmRoleSystemRole(ctx, tx, realmRole, clientID, systemRole); err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	return tx.Commit()
@@ -251,5 +258,23 @@ func assignRealmRolePermission(ctx context.Context, tx *sql.Tx, realmRole string
 		ON CONFLICT DO NOTHING
 	`, realmRole, permissionID)
 
+	return err
+}
+
+func assignRealmRoleSystemRole(
+	ctx context.Context,
+	tx *sql.Tx,
+	realmRole string,
+	clientID string,
+	roleName string,
+) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO ihp_realm_role_system_roles (realm_role, system_role_id)
+		SELECT $1, sr.id
+		FROM ihp_system_roles sr
+		JOIN ihp_systems s ON s.id = sr.system_id
+		WHERE s.client_id = $2 AND sr.role_name = $3
+		ON CONFLICT DO NOTHING
+	`, strings.ToLower(strings.TrimSpace(realmRole)), strings.TrimSpace(clientID), strings.ToLower(strings.TrimSpace(roleName)))
 	return err
 }

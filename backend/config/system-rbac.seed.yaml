@@ -378,6 +378,17 @@ realmRoles:
         - portal:access
         - systems:read
         - systems:launch
+        - data_quality:read
+        - documents:read
+        - surveillance:read
+        - report_browser:read
+      systemRoles:
+        data-statistics:
+          - data-statistics_access
+        utilities:
+          - utilities_access
+        settings:
+          - settings_access
     - name: manager
       permissions:
         - portal:access
