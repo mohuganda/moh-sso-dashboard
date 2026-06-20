@@ -102,16 +102,16 @@ func TestOutbreakManagementSuperAdminGetsElevatedPermissions(t *testing.T) {
 	}
 }
 
-func TestReportBrowserAccessGetsReportBrowserPermission(t *testing.T) {
+func TestDataStatisticsAccessGetsReportBrowserPermission(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
-		SystemReportBrowser: {ReportBrowserAccess},
+		SystemDataStatistics: {DataStatisticsAccess},
 	})
 
 	if !ctx.HasPermission(PermissionReportBrowserRead) {
-		t.Fatal("expected report browser access to grant report browser read")
+		t.Fatal("expected Data & Statistics access to grant report browser read")
 	}
-	if !ctx.HasSystem(SystemReportBrowser) {
-		t.Fatal("expected report browser to be accessible")
+	if !ctx.HasSystem(SystemDataStatistics) {
+		t.Fatal("expected Data & Statistics to be accessible")
 	}
 }
 
@@ -132,10 +132,10 @@ func TestSystemClientRolesExposeEachSystemDifferently(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
 		SystemDashboardWeb:       {DashboardWebManager},
 		SystemOutbreakManagement: {OutbreakManagementSurveillanceOfficer},
-		SystemReportBrowser:      {ReportBrowserAnalyst},
+		SystemDataStatistics:     {ReportBrowserAnalyst},
 	})
 
-	for _, system := range []string{SystemDashboardWeb, SystemOutbreakManagement, SystemReportBrowser} {
+	for _, system := range []string{SystemDashboardWeb, SystemOutbreakManagement, SystemDataStatistics} {
 		if !ctx.HasSystem(system) {
 			t.Fatalf("expected %s to be accessible", system)
 		}

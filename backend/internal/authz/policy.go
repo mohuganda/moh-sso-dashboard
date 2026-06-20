@@ -160,8 +160,14 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionSurveillanceManageAlerts,
 		},
 	},
-	SystemReportBrowser: {
-		ReportBrowserAccess: {
+	SystemDataStatistics: {
+		DataStatisticsAccess: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
+			PermissionDataQualityRead,
+			PermissionDocumentsRead,
+			PermissionSurveillanceRead,
 			PermissionReportBrowserRead,
 		},
 		ReportBrowserAdmin: {
@@ -178,17 +184,6 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionDataQualityRead,
 		},
 		ReportBrowserViewer: {
-			PermissionReportBrowserRead,
-		},
-	},
-	SystemDataStatistics: {
-		DataStatisticsAccess: {
-			PermissionPortalAccess,
-			PermissionSystemsRead,
-			PermissionSystemsLaunch,
-			PermissionDataQualityRead,
-			PermissionDocumentsRead,
-			PermissionSurveillanceRead,
 			PermissionReportBrowserRead,
 		},
 	},
@@ -282,7 +277,7 @@ func AccessibleSystemDetailsForContext(clientRoles map[string][]string) []System
 		switch system {
 		case SystemDashboardWeb:
 			add(systemAccess(system, roles))
-		case SystemOutbreakManagement, SystemReportBrowser, SystemDataStatistics, SystemUtilities, SystemSettings:
+		case SystemOutbreakManagement, SystemDataStatistics, SystemUtilities, SystemSettings:
 			add(systemAccess(system, roles))
 		}
 	}
@@ -309,12 +304,6 @@ var staticSystemMetadata = map[string]systemMetadata{
 		LaunchURL:   "/portal/apps/dwh/surveillance",
 		Icon:        "outbreak",
 		Category:    "surveillance",
-	},
-	SystemReportBrowser: {
-		DisplayName: "Report Browser",
-		LaunchURL:   "/portal/apps/dwh/reports",
-		Icon:        "reporting",
-		Category:    "reports",
 	},
 	SystemDataStatistics: {
 		DisplayName: "Data & Statistics",

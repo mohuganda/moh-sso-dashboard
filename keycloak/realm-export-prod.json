@@ -261,10 +261,21 @@
           "description": "Surveillance officer with monitoring access"
         }
       ],
-      "report-browser": [
+      "data-statistics": [
         {
-          "name": "report-browser_access",
-          "description": "Access MOH Report browser"
+          "name": "data-statistics_access",
+          "description": "Default access to Data & Statistics",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "data_quality:read",
+              "documents:read",
+              "surveillance:read",
+              "report_browser:read"
+            ]
+          }
         },
         {
           "name": "report_admin",
@@ -357,42 +368,6 @@
       ]
     },
     {
-      "clientId": "report-browser",
-      "name": "Report Browser",
-      "description": "Report Browser Dashboard",
-      "rootUrl": "https://dashboards.health.go.ug/report-browser/",
-      "baseUrl": "https://dashboards.health.go.ug/report-browser/",
-      "enabled": true,
-      "publicClient": false,
-      "protocol": "openid-connect",
-      "secret": "report-browser-secret",
-      "serviceAccountsEnabled": true,
-      "authorizationServicesEnabled": true,
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
-      "redirectUris": [
-        "http://localhost:3001/auth/callback"
-      ],
-      "webOrigins": [
-        "https://dashboards.health.go.ug/report-browser/"
-      ],
-      "attributes": {
-        "access.token.lifespan": "1800",
-        "ui.icon": "reporting",
-        "ui.home": "/dashboard"
-      },
-      "defaultClientScopes": [
-        "openid",
-        "profile",
-        "email",
-        "roles"
-      ],
-      "optionalClientScopes": [
-        "health-context",
-        "user_id"
-      ]
-    },
-    {
       "clientId": "outbreak-management",
       "name": "Outbreak Management",
       "description": "Outbreak Management Backend API",
@@ -429,6 +404,25 @@
         "health-context",
         "user_id"
       ]
+    },
+    {
+      "clientId": "data-statistics",
+      "name": "Data & Statistics",
+      "description": "Data quality, document upload, reports, and surveillance tools",
+      "rootUrl": "http://localhost:3000/portal/apps/dwh",
+      "baseUrl": "http://localhost:3000/portal/apps/dwh",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "ui.icon": "home",
+        "ui.home": "/portal/apps/dwh",
+        "ui.category": "platform",
+        "portal.system": "true"
+      }
     }
   ],
   "users": [
@@ -459,10 +453,14 @@
           "super_admin",
           "admin"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_admin",
           "report_manager"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -492,9 +490,13 @@
           "outbreak-management_access",
           "viewer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_viewer"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -525,10 +527,14 @@
           "manager",
           "surveillance_officer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_manager",
           "report_analyst"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -559,9 +565,13 @@
           "data_entry",
           "surveillance_officer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_analyst"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -591,9 +601,13 @@
           "outbreak-management_access",
           "viewer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_viewer"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },

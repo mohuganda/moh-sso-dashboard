@@ -221,10 +221,61 @@
           "description": "Surveillance officer with monitoring access"
         }
       ],
-      "report-browser": [
+      "data-statistics": [
         {
-          "name": "report-browser_access",
-          "description": "Access MOH Report browser"
+          "name": "data-statistics_access",
+          "description": "Default access to Data & Statistics",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "data_quality:read",
+              "documents:read",
+              "surveillance:read",
+              "report_browser:read"
+            ]
+          }
+        },
+        {
+          "name": "report_admin",
+          "description": "Report Browser administrator access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read",
+              "audit:read"
+            ]
+          }
+        },
+        {
+          "name": "report_manager",
+          "description": "Report Browser manager access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read"
+            ]
+          }
+        },
+        {
+          "name": "report_analyst",
+          "description": "Report Browser analyst access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "data_quality:read"
+            ]
+          }
+        },
+        {
+          "name": "report_viewer",
+          "description": "Report Browser read-only access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read"
+            ]
+          }
         }
       ]
     }
@@ -296,38 +347,6 @@
       ]
     },
     {
-      "clientId": "report-browser",
-      "name": "Report Browser",
-      "description": "Report Browser Dashboard",
-      "rootUrl": "https://dashboards.health.go.ug/report-browser/",
-      "baseUrl": "https://dashboards.health.go.ug/report-browser/",
-      "enabled": true,
-      "publicClient": false,
-      "protocol": "openid-connect",
-      "secret": "report-browser-secret",
-      "serviceAccountsEnabled": true,
-      "authorizationServicesEnabled": true,
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
-      "redirectUris": [
-        "http://localhost:3001/auth/callback"
-      ],
-      "webOrigins": [
-        "https://dashboards.health.go.ug/report-browser/"
-      ],
-      "attributes": {
-        "access.token.lifespan": "1800",
-        "ui.icon": "reporting",
-        "ui.home": "/dashboard"
-      },
-      "defaultClientScopes": [
-        "openid",
-        "profile",
-        "email",
-        "roles"
-      ]
-    },
-    {
       "clientId": "outbreak-management",
       "name": "Outbreak Management",
       "description": "Outbreak Management Backend API",
@@ -360,6 +379,25 @@
         "email",
         "roles"
       ]
+    },
+    {
+      "clientId": "data-statistics",
+      "name": "Data & Statistics",
+      "description": "Data quality, document upload, reports, and surveillance tools",
+      "rootUrl": "http://localhost:3000/portal/apps/dwh",
+      "baseUrl": "http://localhost:3000/portal/apps/dwh",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "ui.icon": "home",
+        "ui.home": "/portal/apps/dwh",
+        "ui.category": "platform",
+        "portal.system": "true"
+      }
     }
   ],
   "users": [
@@ -418,9 +456,11 @@
         "outbreak-management": [
           "outbreak-management_access",
           "viewer"
-        ],
-        "report-browser" : [
-          "report-browser_access"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -451,6 +491,11 @@
           "super_admin",
           "admin"
         ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
+        ]
       }
     },
     {
@@ -480,6 +525,11 @@
           "super_admin",
           "admin"
         ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
+        ]
       }
     },
     {
@@ -506,6 +556,11 @@
         ],
         "outbreak-management": [
           "viewer"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },

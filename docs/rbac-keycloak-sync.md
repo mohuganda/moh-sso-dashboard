@@ -16,7 +16,7 @@ Keycloak can tell us that a user has:
 
 ```text
 realm role: admin
-client role: report-browser:report_admin
+client role: data-statistics:report_admin
 client role: outbreak-management:super_admin
 ```
 
@@ -111,6 +111,17 @@ live Keycloak client. For an existing realm:
 Do not delete the legacy Keycloak client before its assignments have been
 verified on the replacement. Realm exports in this repository now contain only
 `outbreak-management`.
+
+### Retiring The Report Browser Client
+
+The Report Browser remains a frontend microfrontend under Data & Statistics;
+it is no longer a standalone Keycloak/system client. Migration
+`000032_consolidate_report_browser_system` moves its specialized report roles,
+permissions, realm-role mappings, access requests, and audit references to
+`data-statistics`. Existing Keycloak installations should move assignments to
+the matching roles on `data-statistics`, verify report access, and then delete
+the retired `report-browser` client. Startup synchronization will not perform
+that destructive deletion automatically.
 
 ## Adding A New System / Client
 

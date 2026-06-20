@@ -580,18 +580,18 @@ Used by `POST /api/v1/clients` and `PUT /api/v1/clients/:id`.
 
 ```json
 {
-  "name": "Report Browser",
-  "description": "Reports and dashboards",
-  "icon": "reporting",
-  "publicClient": false,
+  "name": "Data & Statistics",
+  "description": "Data quality, reports, surveillance, and dashboards",
+  "icon": "home",
+  "publicClient": true,
   "enabled": true,
-  "rootUrl": "https://reports.example.org",
-  "baseUrl": "/portal/apps/dwh/reports",
+  "rootUrl": "https://portal.example.org/portal/apps/dwh",
+  "baseUrl": "/portal/apps/dwh",
   "adminUrl": "",
-  "redirectUris": ["https://reports.example.org/*"],
-  "webOrigins": ["https://reports.example.org"],
+  "redirectUris": ["https://portal.example.org/portal/*"],
+  "webOrigins": ["https://portal.example.org"],
   "attributes": {
-    "category": "reporting"
+    "category": "platform"
   }
 }
 ```
@@ -602,9 +602,9 @@ Add/remove roles for a user and client:
 
 ```json
 {
-  "clientId": "report-browser",
+  "clientId": "data-statistics",
   "clientUuid": "optional-keycloak-client-uuid",
-  "roles": ["report_browser_access", "report_admin"]
+  "roles": ["data-statistics_access", "report_admin"]
 }
 ```
 
@@ -623,7 +623,7 @@ Dynamic RBAC user access is managed through `PUT /api/v1/admin/rbac/user-access/
   "realmRoles": ["admin"],
   "clientRoles": {
     "dashboard-web": ["dashboard-web_access"],
-    "report-browser": ["report-browser_access", "report_admin"]
+    "data-statistics": ["data-statistics_access", "report_admin"]
   },
   "permissions": ["portal:access", "report_browser:read"]
 }
@@ -782,12 +782,12 @@ Update system metadata:
 
 ```json
 {
-  "clientId": "report-browser",
-  "displayName": "Report Browser",
-  "description": "Reports and dashboards",
-  "icon": "reporting",
-  "launchUrl": "/portal/apps/dwh/reports",
-  "category": "reporting",
+  "clientId": "data-statistics",
+  "displayName": "Data & Statistics",
+  "description": "Data quality, reports, surveillance, and dashboards",
+  "icon": "home",
+  "launchUrl": "/portal/apps/dwh",
+  "category": "platform",
   "ownerTeam": "Analytics",
   "ownerName": "System Owner",
   "ownerEmail": "owner@example.org",

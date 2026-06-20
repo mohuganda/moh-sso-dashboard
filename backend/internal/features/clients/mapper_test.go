@@ -15,12 +15,12 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 		},
 		{
 			ClientID:   "outbreak-management",
-			Name:       "IOS",
+			Name:       "Outbreak Management",
 			Attributes: map[string]string{"ui.icon": "outbreak"},
 		},
 		{
-			ClientID:   "report-browser",
-			Name:       "Reports",
+			ClientID:   "data-statistics",
+			Name:       "Data & Statistics",
 			Attributes: map[string]string{"ui.icon": "reporting"},
 		},
 		{
@@ -35,7 +35,7 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 		map[string][]string{
 			"dashboard-web":       {"dashboard-web_access", "portal_user"},
 			"outbreak-management": {"outbreak-management_access", "viewer"},
-			"report-browser":      {"report-browser_access", "report_viewer"},
+			"data-statistics":     {"data-statistics_access", "report_viewer"},
 		},
 		false,
 	)
@@ -45,7 +45,7 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 		got = append(got, client.ClientID)
 	}
 
-	want := []string{"dashboard-web", "outbreak-management", "report-browser"}
+	want := []string{"dashboard-web", "outbreak-management", "data-statistics"}
 	if len(got) != len(want) {
 		t.Fatalf("expected %v, got %v", want, got)
 	}
@@ -61,7 +61,7 @@ func TestFilterAccessibleClientsSkipsClientsWithoutUiMetadata(t *testing.T) {
 		[]model.Client{
 			{
 				ClientID:   "outbreak-management",
-				Name:       "IOS",
+				Name:       "Outbreak Management",
 				Attributes: map[string]string{"ui.icon": "outbreak"},
 			},
 			{
@@ -77,6 +77,6 @@ func TestFilterAccessibleClientsSkipsClientsWithoutUiMetadata(t *testing.T) {
 	)
 
 	if len(filtered) != 1 || filtered[0].ClientID != "outbreak-management" {
-		t.Fatalf("expected only IOS client, got %v", filtered)
+		t.Fatalf("expected only Outbreak Management client, got %v", filtered)
 	}
 }

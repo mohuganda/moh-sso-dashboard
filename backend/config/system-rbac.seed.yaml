@@ -146,6 +146,10 @@ systems:
       enabled: true
       accessRoles:
         - data-statistics_access
+        - report_viewer
+        - report_analyst
+        - report_manager
+        - report_admin
       roles:
         - name: data-statistics_access
           displayName: Data & Statistics Access
@@ -156,6 +160,26 @@ systems:
             - data_quality:read
             - documents:read
             - surveillance:read
+            - report_browser:read
+        - name: report_admin
+          displayName: Report Admin
+          permissions:
+            - report_browser:read
+            - metrics:read
+            - audit:read
+        - name: report_manager
+          displayName: Report Manager
+          permissions:
+            - report_browser:read
+            - metrics:read
+        - name: report_analyst
+          displayName: Report Analyst
+          permissions:
+            - report_browser:read
+            - data_quality:read
+        - name: report_viewer
+          displayName: Report Viewer
+          permissions:
             - report_browser:read
     - clientId: eservices
       displayName: eServices
@@ -310,48 +334,6 @@ systems:
             - portal:access
             - systems:read
             - systems:launch
-    - clientId: report-browser
-      displayName: Report Browser
-      icon: reporting
-      launchUrl: /portal/apps/dwh/reports
-      category: reports
-      navigation: |-
-        [
-          {"id":"reports","label":"Report Browser","path":"/apps/dwh/reports","icon":"reporting","permission":"report_browser:read"},
-          {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","icon":"dashboard","permission":"report_browser:read"}
-        ]
-      enabled: true
-      accessRoles:
-        - report-browser_access
-        - report_viewer
-        - report_analyst
-        - report_manager
-        - report_admin
-      roles:
-        - name: report-browser_access
-          displayName: Report Browser Access
-          permissions:
-            - report_browser:read
-        - name: report_admin
-          displayName: Report Admin
-          permissions:
-            - report_browser:read
-            - metrics:read
-            - audit:read
-        - name: report_manager
-          displayName: Report Manager
-          permissions:
-            - report_browser:read
-            - metrics:read
-        - name: report_analyst
-          displayName: Report Analyst
-          permissions:
-            - report_browser:read
-            - data_quality:read
-        - name: report_viewer
-          displayName: Report Viewer
-          permissions:
-            - report_browser:read
 realmRoles:
     - name: admin
       permissions:

@@ -49,18 +49,6 @@ type SeedRealmRole struct {
 	SystemRoles map[string][]string `json:"systemRoles,omitempty" yaml:"systemRoles,omitempty"`
 }
 
-const integratedOutbreakNavigation = `[
-  {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","icon":"surveillance","permission":"surveillance:read"},
-  {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","icon":"data-quality","permission":"data_quality:read"},
-  {"id":"document-upload","label":"Document Upload","path":"/apps/dwh/filesvr","icon":"document","permission":"documents:read"},
-  {"id":"reports","label":"Reports","path":"/apps/dwh/reports","icon":"reporting","permission":"report_browser:read"}
-]`
-
-const reportBrowserNavigation = `[
-  {"id":"reports","label":"Report Browser","path":"/apps/dwh/reports","icon":"reporting","permission":"report_browser:read"},
-  {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","icon":"dashboard","permission":"report_browser:read"}
-]`
-
 const dataStatisticsNavigation = `[
   {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
   {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
@@ -424,12 +412,7 @@ func DefaultSeed() SeedFile {
 					},
 				},
 			},
-			defaultPortalSystem("data-statistics", "Data & Statistics", "Data quality, document upload, reports, and surveillance tools.", "home", "/portal/apps/dwh", "platform", dataStatisticsNavigation, []string{
-				string(authz.PermissionDataQualityRead),
-				string(authz.PermissionDocumentsRead),
-				string(authz.PermissionSurveillanceRead),
-				string(authz.PermissionReportBrowserRead),
-			}, enabled),
+			defaultDataStatisticsSystem(enabled),
 			defaultPortalSystem("eservices", "eServices", "Digital service requests and operational tools.", "application", "/portal/apps/eservices", "services", eServicesNavigation, nil, enabled),
 			defaultPortalSystem("research-studies", "Research & Studies", "Research studies, datasets, ethics approvals, and publications.", "microscope", "/portal/apps/research-studies", "research", researchStudiesNavigation, nil, enabled),
 			defaultPortalSystem("case-registers", "Case Registers", "Case registers and referral tracking.", "document", "/portal/apps/case-registers", "clinical", caseRegistersNavigation, []string{
@@ -440,63 +423,6 @@ func DefaultSeed() SeedFile {
 			}, enabled),
 			defaultPortalSystem("utilities", "Utilities", "Self-service utilities and staff tools.", "tools", "/portal/apps/utilities", "utilities", utilitiesNavigation, nil, enabled),
 			defaultPortalSystem("settings", "Settings", "User profile, session, and security settings.", "settings", "/portal/apps/settings", "platform", settingsNavigation, nil, enabled),
-			{
-				ClientID:    authz.SystemReportBrowser,
-				DisplayName: "Report Browser",
-				Icon:        "reporting",
-				LaunchURL:   "/portal/apps/dwh/reports",
-				Category:    "reports",
-				Navigation:  reportBrowserNavigation,
-				Enabled:     &enabled,
-				AccessRoles: []string{
-					authz.ReportBrowserAccess,
-					authz.ReportBrowserViewer,
-					authz.ReportBrowserAnalyst,
-					authz.ReportBrowserManager,
-					authz.ReportBrowserAdmin,
-				},
-				Roles: []SeedRole{
-					{
-						Name:        authz.ReportBrowserAccess,
-						DisplayName: "Report Browser Access",
-						Permissions: []string{
-							string(authz.PermissionReportBrowserRead),
-						},
-					},
-					{
-						Name:        authz.ReportBrowserAdmin,
-						DisplayName: "Report Admin",
-						Permissions: []string{
-							string(authz.PermissionReportBrowserRead),
-							string(authz.PermissionMetricsRead),
-							string(authz.PermissionAuditRead),
-						},
-					},
-					{
-						Name:        authz.ReportBrowserManager,
-						DisplayName: "Report Manager",
-						Permissions: []string{
-							string(authz.PermissionReportBrowserRead),
-							string(authz.PermissionMetricsRead),
-						},
-					},
-					{
-						Name:        authz.ReportBrowserAnalyst,
-						DisplayName: "Report Analyst",
-						Permissions: []string{
-							string(authz.PermissionReportBrowserRead),
-							string(authz.PermissionDataQualityRead),
-						},
-					},
-					{
-						Name:        authz.ReportBrowserViewer,
-						DisplayName: "Report Viewer",
-						Permissions: []string{
-							string(authz.PermissionReportBrowserRead),
-						},
-					},
-				},
-			},
 		},
 		RealmRoles: []SeedRealmRole{
 			{Name: authz.RoleAdmin, Permissions: []string{"*"}},
@@ -574,4 +500,64 @@ func defaultPortalSystem(
 			},
 		},
 	}
+}
+
+func defaultDataStatisticsSystem(enabled bool) SeedSystem {
+	system := defaultPortalSystem(
+		authz.SystemDataStatistics,
+		"Data & Statistics",
+		"Data quality, document upload, reports, and surveillance tools.",
+		"home",
+		"/portal/apps/dwh",
+		"platform",
+		dataStatisticsNavigation,
+		[]string{
+			string(authz.PermissionDataQualityRead),
+			string(authz.PermissionDocumentsRead),
+			string(authz.PermissionSurveillanceRead),
+			string(authz.PermissionReportBrowserRead),
+		},
+		enabled,
+	)
+	system.AccessRoles = append(system.AccessRoles,
+		authz.ReportBrowserViewer,
+		authz.ReportBrowserAnalyst,
+		authz.ReportBrowserManager,
+		authz.ReportBrowserAdmin,
+	)
+	system.Roles = append(system.Roles,
+		SeedRole{
+			Name:        authz.ReportBrowserAdmin,
+			DisplayName: "Report Admin",
+			Permissions: []string{
+				string(authz.PermissionReportBrowserRead),
+				string(authz.PermissionMetricsRead),
+				string(authz.PermissionAuditRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.ReportBrowserManager,
+			DisplayName: "Report Manager",
+			Permissions: []string{
+				string(authz.PermissionReportBrowserRead),
+				string(authz.PermissionMetricsRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.ReportBrowserAnalyst,
+			DisplayName: "Report Analyst",
+			Permissions: []string{
+				string(authz.PermissionReportBrowserRead),
+				string(authz.PermissionDataQualityRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.ReportBrowserViewer,
+			DisplayName: "Report Viewer",
+			Permissions: []string{
+				string(authz.PermissionReportBrowserRead),
+			},
+		},
+	)
+	return system
 }

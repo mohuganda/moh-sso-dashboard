@@ -4,5 +4,5 @@ export const reportBrowserRoute: MicrofrontendRoute = {
   appName: "@moh-sso/report-browser",
   path: "/apps/dwh/reports",
   requiredPermissions: ["report_browser:read"],
-  requiredSystems: ["report-browser"],
+  requiredSystems: ["data-statistics"],
 };

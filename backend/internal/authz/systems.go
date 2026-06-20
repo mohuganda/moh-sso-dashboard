@@ -3,7 +3,6 @@ package authz
 const (
 	SystemDashboardWeb       = "dashboard-web"
 	SystemOutbreakManagement = "outbreak-management"
-	SystemReportBrowser      = "report-browser"
 	SystemDataStatistics     = "data-statistics"
 	SystemUtilities          = "utilities"
 	SystemSettings           = "settings"
@@ -24,7 +23,6 @@ const (
 	OutbreakManagementLabTechnician       = "lab_technician"
 	OutbreakManagementSurveillanceOfficer = "surveillance_officer"
 
-	ReportBrowserAccess  = "report-browser_access"
 	ReportBrowserAdmin   = "report_admin"
 	ReportBrowserManager = "report_manager"
 	ReportBrowserAnalyst = "report_analyst"

@@ -292,6 +292,46 @@
               "report_browser:read"
             ]
           }
+        },
+        {
+          "name": "report_admin",
+          "description": "Report Browser administrator access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read",
+              "audit:read"
+            ]
+          }
+        },
+        {
+          "name": "report_manager",
+          "description": "Report Browser manager access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read"
+            ]
+          }
+        },
+        {
+          "name": "report_analyst",
+          "description": "Report Browser analyst access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "data_quality:read"
+            ]
+          }
+        },
+        {
+          "name": "report_viewer",
+          "description": "Report Browser read-only access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read"
+            ]
+          }
         }
       ],
       "utilities": [
@@ -430,57 +470,6 @@
             ]
           }
         }
-      ],
-      "report-browser": [
-        {
-          "name": "report-browser_access",
-          "description": "Access MOH Report browser",
-          "attributes": {
-            "portal.permissions": [
-              "report_browser:read"
-            ]
-          }
-        },
-        {
-          "name": "report_admin",
-          "description": "Report Browser administrator access",
-          "attributes": {
-            "portal.permissions": [
-              "report_browser:read",
-              "metrics:read",
-              "audit:read"
-            ]
-          }
-        },
-        {
-          "name": "report_manager",
-          "description": "Report Browser manager access",
-          "attributes": {
-            "portal.permissions": [
-              "report_browser:read",
-              "metrics:read"
-            ]
-          }
-        },
-        {
-          "name": "report_analyst",
-          "description": "Report Browser analyst access",
-          "attributes": {
-            "portal.permissions": [
-              "report_browser:read",
-              "data_quality:read"
-            ]
-          }
-        },
-        {
-          "name": "report_viewer",
-          "description": "Report Browser read-only access",
-          "attributes": {
-            "portal.permissions": [
-              "report_browser:read"
-            ]
-          }
-        }
       ]
     }
   },
@@ -554,38 +543,6 @@
             "access.token.claim": "true"
           }
         }
-      ]
-    },
-    {
-      "clientId": "report-browser",
-      "name": "Report Browser",
-      "description": "Report Browser Dashboard",
-      "rootUrl": "https://dashboards.health.go.ug/report-browser/",
-      "baseUrl": "https://dashboards.health.go.ug/report-browser/",
-      "enabled": true,
-      "publicClient": false,
-      "protocol": "openid-connect",
-      "secret": "report-browser-secret",
-      "serviceAccountsEnabled": true,
-      "authorizationServicesEnabled": true,
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
-      "redirectUris": [
-        "http://localhost:3001/auth/callback"
-      ],
-      "webOrigins": [
-        "https://dashboards.health.go.ug/report-browser/"
-      ],
-      "attributes": {
-        "access.token.lifespan": "1800",
-        "ui.icon": "reporting",
-        "ui.home": "/dashboard"
-      },
-      "defaultClientScopes": [
-        "openid",
-        "profile",
-        "email",
-        "roles"
       ]
     },
     {
@@ -698,7 +655,7 @@
         "accessible_systems": [
           "dashboard-web",
           "outbreak-management",
-          "report-browser"
+          "data-statistics"
         ]
       },
       "credentials": [
@@ -721,8 +678,7 @@
           "super_admin",
           "admin"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_admin",
           "report_manager"
         ]
@@ -745,7 +701,6 @@
         "accessible_systems": [
           "dashboard-web",
           "outbreak-management",
-          "report-browser",
           "data-statistics",
           "utilities",
           "settings"
@@ -770,8 +725,7 @@
           "outbreak-management_access",
           "viewer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_viewer"
         ]
       }
@@ -793,7 +747,7 @@
         "accessible_systems": [
           "dashboard-web",
           "outbreak-management",
-          "report-browser"
+          "data-statistics"
         ]
       },
       "credentials": [
@@ -816,8 +770,7 @@
           "manager",
           "surveillance_officer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_manager",
           "report_analyst"
         ]
@@ -840,7 +793,6 @@
         "accessible_systems": [
           "dashboard-web",
           "outbreak-management",
-          "report-browser",
           "data-statistics",
           "utilities",
           "settings"
@@ -866,8 +818,7 @@
           "data_entry",
           "surveillance_officer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_analyst"
         ]
       }
@@ -889,7 +840,6 @@
         "accessible_systems": [
           "dashboard-web",
           "outbreak-management",
-          "report-browser",
           "data-statistics",
           "utilities",
           "settings"
@@ -914,8 +864,7 @@
           "outbreak-management_access",
           "viewer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_viewer"
         ]
       }
