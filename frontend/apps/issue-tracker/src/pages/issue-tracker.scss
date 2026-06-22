@@ -84,6 +84,71 @@
   justify-content: space-between;
 }
 
+.issue-filter-container {
+  background-color: white;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+}
+
+.issue-filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+
+  .filter-popovers {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .cds--popover-content {
+    padding: 1rem;
+  }
+}
+
+.filter-popover-content {
+  padding: 1.5rem;
+  background-color: white;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+  width: 320px;
+  z-index: 9000;
+}
+
+.popover-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.popover-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+  gap: 0.5rem;
+}
+
+.org-filter-inner {
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.org-tree-container {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
 .cds--tree-node__label {
   display: flex;
   align-items: center;

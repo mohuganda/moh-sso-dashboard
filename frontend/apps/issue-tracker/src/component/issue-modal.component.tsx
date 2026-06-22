@@ -127,7 +127,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
     setTimeout(() => setIsOrgExpanded(false), 150);
   };
 
-  const renderRecursive = (nodes: any[]) => {
+  const renderRecursive = (nodes: any[], idPrefix: string = "modal-org") => {
     if (!nodes || !Array.isArray(nodes)) return [];
 
     return nodes
@@ -140,6 +140,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                 selectedOrgUnit={selectedOrgUnit}
                 onSelect={handleSelect}
                 renderRecursive={renderRecursive}
+                idPrefix={idPrefix}
             />
         ));
   };
@@ -228,7 +229,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                 />
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                   <TreeView label="Org Units" hideLabel>
-                    {renderRecursive(orgUnits)}
+                    {renderRecursive(orgUnits, "modal-org")}
                   </TreeView>
                 </div>
               </div>

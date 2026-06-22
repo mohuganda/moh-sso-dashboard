@@ -527,7 +527,7 @@ func aggregationExpressions(level string) (orgUnitExpr, facilityExpr, levelExpr,
 func (h *Handler) GetThemes(c *gin.Context) {
 	ctx := c.Request.Context()
 	query := `
-		SELECT theme_id, theme_name,dataset_name
+		SELECT theme_id, theme_name
 		FROM report.themes
 	`
 
