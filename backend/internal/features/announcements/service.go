@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -31,8 +32,16 @@ type Service struct {
 
 type AnnouncementEmailOptions struct {
 	Attachments               []models.Attachment
+	AttachmentLinks           []AnnouncementEmailAttachmentLink
 	IncludeAttachmentsInEmail bool
 	ScheduledAt               *time.Time
+}
+
+type AnnouncementEmailAttachmentLink struct {
+	FileName    string
+	ContentType string
+	FileSize    int64
+	URL         string
 }
 
 func NewService(
@@ -1625,6 +1634,9 @@ func (s *Service) attachAnnouncementEmailDelivery(
 			attachments = options.Attachments
 		}
 		attachmentNames := announcementEmailAttachmentNames(attachments)
+		attachmentLinks := options.AttachmentLinks
+		actionURL := s.announcementActionURL(item)
+		relatedLinkURL := s.announcementRelatedLinkURL(item)
 
 		deliveries = append(deliveries, models.NotificationDeliveryRequest{
 			Channel: models.NotificationChannelEmail,
@@ -1635,18 +1647,21 @@ func (s *Service) attachAnnouncementEmailDelivery(
 			},
 			TemplateName: "announcement",
 			TemplateData: map[string]any{
-				"Name":            name,
-				"Platform":        s.platformName(),
-				"Title":           item.Title,
-				"Summary":         nullStringValue(item.Summary),
-				"Message":         item.Message,
-				"Level":           announcementLevelString(item.Level),
-				"Status":          announcementStatusString(item.Status),
-				"AnnouncementID":  item.ID.String(),
-				"HasAttachments":  len(attachments) > 0,
-				"AttachmentCount": len(attachments),
-				"AttachmentNames": attachmentNames,
-				"ActionURL":       announcementLinkOrDefault(item, s.portalAnnouncementsURL()),
+				"Name":                  name,
+				"Platform":              s.platformName(),
+				"Title":                 item.Title,
+				"Summary":               nullStringValue(item.Summary),
+				"Message":               item.Message,
+				"Level":                 announcementLevelString(item.Level),
+				"Status":                announcementStatusString(item.Status),
+				"AnnouncementID":        item.ID.String(),
+				"HasAttachments":        len(attachments) > 0,
+				"AttachmentCount":       len(attachments),
+				"AttachmentNames":       attachmentNames,
+				"AttachmentLinks":       attachmentLinks,
+				"AnnouncementLinkURL":   relatedLinkURL,
+				"AnnouncementLinkLabel": "Open related link",
+				"ActionURL":             actionURL,
 				"Details": fmt.Sprintf(
 					"Title: %s\nLevel: %s\nStatus: %s\nMessage: %s",
 					item.Title,
@@ -1677,6 +1692,31 @@ func announcementEmailAttachmentNames(attachments []models.Attachment) []string 
 		}
 	}
 	return names
+}
+
+func (s *Service) announcementAttachmentDownloadURL(
+	announcementID uuid.UUID,
+	attachmentID uuid.UUID,
+) string {
+	if announcementID == uuid.Nil || attachmentID == uuid.Nil {
+		return ""
+	}
+
+	base := ""
+	if s != nil && s.cfg != nil {
+		base = strings.TrimRight(strings.TrimSpace(s.cfg.AppBaseURL), "/")
+	}
+
+	if base == "" {
+		base = "http://localhost:9000"
+	}
+
+	return fmt.Sprintf(
+		"%s/api/v1/announcements/%s/attachments/%s/download",
+		base,
+		announcementID.String(),
+		attachmentID.String(),
+	)
 }
 
 func (s *Service) normalizeAnnouncementEmailOptions(options ...AnnouncementEmailOptions) (AnnouncementEmailOptions, error) {
@@ -1815,6 +1855,59 @@ func (s *Service) portalAnnouncementsURL() string {
 	}
 
 	return base + "/apps/news"
+}
+
+func (s *Service) announcementActionURL(item db.Announcement) string {
+	return s.absolutePortalURL(announcementLinkOrDefault(item, s.portalAnnouncementsURL()))
+}
+
+func (s *Service) announcementRelatedLinkURL(item db.Announcement) string {
+	if !item.LinkUrl.Valid || strings.TrimSpace(item.LinkUrl.String) == "" {
+		return ""
+	}
+
+	return s.absolutePortalURL(item.LinkUrl.String)
+}
+
+func (s *Service) absolutePortalURL(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+
+	if parsed, err := url.Parse(value); err == nil && parsed.IsAbs() {
+		return value
+	}
+
+	base := ""
+	if s != nil && s.cfg != nil {
+		base = strings.TrimSpace(s.cfg.FrontendBaseURL)
+		if base == "" {
+			base = strings.TrimSpace(s.cfg.FrontendRedirectURI)
+		}
+	}
+	if base == "" {
+		base = s.adminDashboardURL()
+	}
+	if base == "" {
+		return value
+	}
+
+	parsedBase, err := url.Parse(base)
+	if err != nil || parsedBase.Scheme == "" || parsedBase.Host == "" {
+		return value
+	}
+
+	if strings.HasPrefix(value, "/") {
+		return parsedBase.Scheme + "://" + parsedBase.Host + value
+	}
+
+	basePath := strings.TrimRight(parsedBase.Path, "/")
+	if basePath == "" {
+		return parsedBase.Scheme + "://" + parsedBase.Host + "/" + strings.TrimLeft(value, "/")
+	}
+
+	return parsedBase.Scheme + "://" + parsedBase.Host + basePath + "/" + strings.TrimLeft(value, "/")
 }
 
 // ---------------------------------

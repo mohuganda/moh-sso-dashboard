@@ -731,6 +731,24 @@ func DefaultTemplates() map[string]string {
               </p>
               {{end}}
 
+              {{if .AnnouncementLinkURL}}
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f4f8ff; border:1px solid #d0e2ff; border-radius:4px; margin:16px 0;">
+                <tr>
+                  <td style="padding:12px 14px;">
+                    <p style="color:#393939; font-size:13px; line-height:1.6; margin:0 0 8px 0;">
+                      This announcement includes a related link.
+                    </p>
+                    <a href="{{.AnnouncementLinkURL}}" style="background:#145a92; color:#ffffff; text-decoration:none; padding:9px 14px; border-radius:4px; display:inline-block; font-size:13px; font-weight:700;">
+                      {{if .AnnouncementLinkLabel}}{{.AnnouncementLinkLabel}}{{else}}Open related link{{end}}
+                    </a>
+                    <p style="color:#6f6f6f; font-size:11px; line-height:1.5; margin:8px 0 0 0; word-break:break-all;">
+                      {{.AnnouncementLinkURL}}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              {{end}}
+
               {{if .HasAttachments}}
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#edf5ff; border:1px solid #d0e2ff; border-radius:4px; margin:16px 0;">
                 <tr>
@@ -738,7 +756,24 @@ func DefaultTemplates() map[string]string {
                     <p style="color:#0f62fe; font-size:13px; line-height:1.6; margin:0;">
                       This announcement includes {{.AttachmentCount}} attachment(s).
                     </p>
-                    {{if .AttachmentNames}}
+                    {{if .AttachmentLinks}}
+                    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:10px 0 0 0;">
+                      {{range .AttachmentLinks}}
+                      <tr>
+                        <td style="padding:8px 0; border-top:1px solid #d0e2ff;">
+                          <p style="color:#393939; font-size:12px; line-height:1.5; margin:0 0 6px 0;">
+                            <strong>{{.FileName}}</strong>{{if .ContentType}} <span style="color:#6f6f6f;">({{.ContentType}})</span>{{end}}
+                          </p>
+                          {{if .URL}}
+                          <a href="{{.URL}}" style="background:#0f62fe; color:#ffffff; text-decoration:none; padding:8px 12px; border-radius:4px; display:inline-block; font-size:12px; font-weight:700;">
+                            Download attachment
+                          </a>
+                          {{end}}
+                        </td>
+                      </tr>
+                      {{end}}
+                    </table>
+                    {{else if .AttachmentNames}}
                     <p style="color:#393939; font-size:12px; line-height:1.6; margin:6px 0 0 0;">
                       {{range $index, $name := .AttachmentNames}}{{if $index}}, {{end}}{{$name}}{{end}}
                     </p>
