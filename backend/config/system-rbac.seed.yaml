@@ -6,7 +6,7 @@ systems:
     launchUrl: /portal
     category: platform
     systemType: platform
-    displayInLauncher: false
+    displayInLauncher: true
     displayInSideNav: false
     launchMode: internal
     enabled: true
@@ -15,16 +15,21 @@ systems:
     roles:
       - name: dashboard-web_access
         displayName: Dashboard Access
+        description: Access MOH Dashboard
         permissions:
           - portal:access
           - systems:read
           - systems:launch
+
       - name: portal_admin
         displayName: Portal Admin
+        description: Portal administrator access
         permissions:
           - "*"
+
       - name: portal_manager
         displayName: Portal Manager
+        description: Portal manager access
         permissions:
           - portal:access
           - systems:read
@@ -37,12 +42,15 @@ systems:
           - surveillance:read
           - report_browser:read
           - notifications:read
+
       - name: portal_user
         displayName: Portal User
+        description: Standard portal user access
         permissions:
           - portal:access
           - systems:read
           - systems:launch
+
   - clientId: outbreak-management
     displayName: Outbreak Management
     description: Signals, alerts, surveillance, points of entry, and case management.
@@ -71,13 +79,17 @@ systems:
     roles:
       - name: outbreak-management_access
         displayName: Outbreak Management Access
+        description: Base access to Outbreak Management
         permissions:
           - portal:access
           - systems:read
           - systems:launch
           - outbreak:access
           - surveillance:read
+
       - name: super_admin
+        displayName: Super Administrator
+        description: Super Administrator with full system access
         permissions:
           - outbreak:access
           - outbreak:manage
@@ -91,7 +103,10 @@ systems:
           - documents:read
           - documents:write
           - documents:process
+
       - name: admin
+        displayName: Administrator
+        description: Administrator with management access
         permissions:
           - outbreak:access
           - outbreak:manage
@@ -102,38 +117,54 @@ systems:
           - data_quality:read
           - data_quality:write
           - data_quality:resolve
+
       - name: manager
+        displayName: Manager
+        description: Department manager with oversight access
         permissions:
           - outbreak:access
           - surveillance:read
           - data_quality:read
           - data_quality:write
           - documents:read
+
       - name: viewer
+        displayName: Viewer
+        description: Read-only access to reports and data
         permissions:
           - outbreak:access
           - surveillance:read
           - data_quality:read
           - documents:read
+
       - name: data_entry
+        displayName: Data Entry
+        description: Data entry personnel
         permissions:
           - outbreak:access
           - surveillance:read
           - surveillance:import
           - data_quality:read
           - data_quality:write
+
       - name: lab_technician
+        displayName: Lab Technician
+        description: Laboratory technician with lab-specific access
         permissions:
           - outbreak:access
           - surveillance:read
           - data_quality:read
           - data_quality:write
+
       - name: surveillance_officer
+        displayName: Surveillance Officer
+        description: Surveillance officer with monitoring access
         permissions:
           - outbreak:access
           - surveillance:read
           - surveillance:import
           - surveillance:manage_alerts
+
   - clientId: data-statistics
     displayName: Data & Statistics
     description: Data quality, document upload, reports, and surveillance tools.
@@ -165,6 +196,7 @@ systems:
     roles:
       - name: data-statistics_access
         displayName: Data & Statistics Access
+        description: Default access to Data & Statistics
         permissions:
           - portal:access
           - systems:read
@@ -173,26 +205,35 @@ systems:
           - documents:read
           - surveillance:read
           - report_browser:read
+
       - name: report_admin
         displayName: Report Admin
+        description: Report Browser administrator access
         permissions:
           - report_browser:read
           - metrics:read
           - audit:read
+
       - name: report_manager
         displayName: Report Manager
+        description: Report Browser manager access
         permissions:
           - report_browser:read
           - metrics:read
+
       - name: report_analyst
         displayName: Report Analyst
+        description: Report Browser analyst access
         permissions:
           - report_browser:read
           - data_quality:read
+
       - name: report_viewer
         displayName: Report Viewer
+        description: Report Browser read-only access
         permissions:
           - report_browser:read
+
   - clientId: eservices
     displayName: eServices
     description: Digital service requests and operational tools.
@@ -222,10 +263,12 @@ systems:
     roles:
       - name: eservices_access
         displayName: eServices Access
+        description: Default access to eServices
         permissions:
           - portal:access
           - systems:read
           - systems:launch
+
   - clientId: research-studies
     displayName: Research & Studies
     description: Research studies, datasets, ethics approvals, and publications.
@@ -249,10 +292,12 @@ systems:
     roles:
       - name: research-studies_access
         displayName: Research & Studies Access
+        description: Default access to Research & Studies
         permissions:
           - portal:access
           - systems:read
           - systems:launch
+
   - clientId: case-registers
     displayName: Case Registers
     description: Case registers and referral tracking.
@@ -274,11 +319,13 @@ systems:
     roles:
       - name: case-registers_access
         displayName: Case Registers Access
+        description: Default access to Case Registers
         permissions:
           - portal:access
           - systems:read
           - systems:launch
           - documents:read
+
   - clientId: reference-registers
     displayName: Reference Registers
     description: Facility, terminology, and reference data registers.
@@ -305,10 +352,12 @@ systems:
     roles:
       - name: reference-registers_access
         displayName: Reference Registers Access
+        description: Default access to Reference Registers
         permissions:
           - portal:access
           - systems:read
           - systems:launch
+
   - clientId: utilities
     displayName: Utilities
     description: Self-service utilities and staff tools.
@@ -316,7 +365,7 @@ systems:
     launchUrl: /portal/apps/utilities
     category: utilities
     systemType: platform
-    displayInLauncher: true
+    displayInLauncher: false
     displayInSideNav: true
     launchMode: internal
     navigation: |-
@@ -340,10 +389,12 @@ systems:
     roles:
       - name: utilities_access
         displayName: Utilities Access
+        description: Default access to Utilities
         permissions:
           - portal:access
           - systems:read
           - systems:launch
+
   - clientId: settings
     displayName: Settings
     description: User profile, session, and security settings.
@@ -366,15 +417,91 @@ systems:
     roles:
       - name: settings_access
         displayName: Settings Access
+        description: Default access to Settings
         permissions:
           - portal:access
           - systems:read
           - systems:launch
+
+  - clientId: demo-platform-system
+    displayName: Demo Platform System
+    description: Development example of an internal platform system with side navigation.
+    icon: dashboard
+    launchUrl: /portal/apps/dwh
+    category: platform
+    systemType: platform
+    displayInLauncher: true
+    displayInSideNav: false
+    launchMode: internal
+    navigation: |-
+      [
+        {"id":"overview","label":"Overview","path":"/apps/dwh"},
+        {"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"}
+      ]
+    enabled: true
+    accessRoles:
+      - demo-platform-system_access
+    roles:
+      - name: demo-platform-system_access
+        displayName: Demo Platform System Access
+        description: Development access role for Demo Platform System
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+
+  - clientId: demo-external-new-tab
+    displayName: External Health System
+    description: Development example of a launcher-only external system opening in a new tab.
+    icon: application
+    launchUrl: https://example.org/external-health-system
+    category: external
+    systemType: external
+    displayInLauncher: true
+    displayInSideNav: false
+    launchMode: new_tab
+    enabled: true
+    accessRoles:
+      - demo-external-new-tab_access
+    roles:
+      - name: demo-external-new-tab_access
+        displayName: External Health System Access
+        description: Development access role for External Health System
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+
+  - clientId: demo-external-same-tab
+    displayName: External Support Portal
+    description: Development example of a launcher-only external system opening in the current tab.
+    icon: help
+    launchUrl: https://example.org/support
+    category: support
+    systemType: external
+    displayInLauncher: true
+    displayInSideNav: false
+    launchMode: same_tab
+    enabled: true
+    accessRoles:
+      - demo-external-same-tab_access
+    roles:
+      - name: demo-external-same-tab_access
+        displayName: External Support Portal Access
+        description: Development access role for External Support Portal
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+
 realmRoles:
   - name: admin
+    description: Administrator role with full access
     permissions:
       - "*"
+
   - name: user
+    description: Standard user role
     permissions:
       - portal:access
       - systems:read
@@ -390,7 +517,9 @@ realmRoles:
         - utilities_access
       settings:
         - settings_access
+
   - name: manager
+    description: Can manage some applications
     permissions:
       - portal:access
       - systems:read

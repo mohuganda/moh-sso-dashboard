@@ -610,8 +610,8 @@
         "portal.system": "true",
         "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin",
         "ui.systemType": "platform",
-        "ui.displayInLauncher": "true",
-        "ui.displayInSideNav": "false",
+        "ui.displayInLauncher": "false",
+        "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
         "ui.launchUrl": "/portal/apps/dwh"
       }
@@ -635,8 +635,8 @@
         "portal.system": "true",
         "portal.accessRoles": "utilities_access",
         "ui.systemType": "platform",
-        "ui.displayInLauncher": "true",
-        "ui.displayInSideNav": "false",
+        "ui.displayInLauncher": "false",
+        "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
         "ui.launchUrl": "/portal/apps/utilities"
       }
@@ -660,8 +660,8 @@
         "portal.system": "true",
         "portal.accessRoles": "settings_access",
         "ui.systemType": "platform",
-        "ui.displayInLauncher": "true",
-        "ui.displayInSideNav": "false",
+        "ui.displayInLauncher": "false",
+        "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
         "ui.launchUrl": "/portal/apps/settings"
       }
@@ -694,8 +694,8 @@
         "portal.system": "true",
         "portal.accessRoles": "outbreak-management_access,viewer,data_entry,surveillance_officer,manager,admin,super_admin",
         "ui.systemType": "platform",
-        "ui.displayInLauncher": "true",
-        "ui.displayInSideNav": "false",
+        "ui.displayInLauncher": "false",
+        "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
         "ui.launchUrl": "/portal/apps/outbreak-management"
       },
@@ -722,7 +722,7 @@
         "portal.system": "true",
         "ui.systemType": "platform",
         "ui.displayInLauncher": "true",
-        "ui.displayInSideNav": "true",
+        "ui.displayInSideNav": "false",
         "ui.launchMode": "internal",
         "ui.launchUrl": "/portal/apps/dwh",
         "ui.home": "/portal/apps/dwh",
@@ -846,7 +846,6 @@
         ],
         "accessible_systems": [
           "dashboard-web",
-          "outbreak-management",
           "data-statistics",
           "utilities",
           "settings"
@@ -866,10 +865,6 @@
         "dashboard-web": [
           "dashboard-web_access",
           "portal_user"
-        ],
-        "outbreak-management": [
-          "outbreak-management_access",
-          "viewer"
         ],
         "data-statistics": [
           "report_viewer"

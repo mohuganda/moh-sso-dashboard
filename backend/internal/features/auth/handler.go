@@ -210,51 +210,13 @@ func (h *Handler) applyResolvedAccess(c *gin.Context, user interface {
 // OIDC CALLBACK (PKCE + state verification)
 // ----------------------------------------------------
 func (h *Handler) HandleAuthCallback(c *gin.Context) {
-	requestID := c.GetHeader("X-Request-ID")
-	if requestID == "" {
-		requestID = c.GetHeader("Cf-Ray")
-	}
-	if requestID == "" {
-		requestID = "-"
-	}
-
-	log.Printf(
-		"[AUTH CALLBACK] started: request_id=%s method=%s path=%s raw_query_present=%v ip=%s user_agent=%s",
-		requestID,
-		c.Request.Method,
-		c.Request.URL.Path,
-		c.Request.URL.RawQuery != "",
-		c.ClientIP(),
-		c.Request.UserAgent(),
-	)
-
-	log.Printf(
-		"[AUTH CALLBACK] query summary: request_id=%s state_present=%v code_present=%v session_state_present=%v issuer_present=%v error_present=%v",
-		requestID,
-		c.Query("state") != "",
-		c.Query("code") != "",
-		c.Query("session_state") != "",
-		c.Query("iss") != "",
-		c.Query("error") != "",
-	)
-
-	// Keycloak may redirect back with an error instead of a code.
 	if kcErr := c.Query("error"); kcErr != "" {
 		h.auditLoginFailure(c)
 
-		redirectURL := h.defaultFrontendRedirect()
-
-		log.Printf(
-			"[AUTH CALLBACK] keycloak error: request_id=%s error=%s description=%s redirect=%s ip=%s user_agent=%s",
-			requestID,
-			kcErr,
-			c.Query("error_description"),
-			redirectURL,
-			c.ClientIP(),
-			c.Request.UserAgent(),
+		c.Redirect(
+			http.StatusTemporaryRedirect,
+			h.defaultFrontendRedirect(),
 		)
-
-		c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		return
 	}
 
@@ -262,144 +224,45 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 	if code == "" {
 		h.auditLoginFailure(c)
 
-		redirectURL := h.defaultFrontendRedirect()
-
-		log.Printf(
-			"[AUTH CALLBACK] missing authorization code: request_id=%s redirect=%s ip=%s user_agent=%s",
-			requestID,
-			redirectURL,
-			c.ClientIP(),
-			c.Request.UserAgent(),
+		c.Redirect(
+			http.StatusTemporaryRedirect,
+			h.defaultFrontendRedirect(),
 		)
-
-		c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		return
 	}
 
-	log.Printf(
-		"[AUTH CALLBACK] authorization code received: request_id=%s code_present=%v",
-		requestID,
-		code != "",
-	)
-
-	// 🔐 Validate OAuth state.
 	returnedState := c.Query("state")
 
-	log.Printf(
-		"[AUTH CALLBACK] reading oauth state cookie: request_id=%s returned_state_present=%v",
-		requestID,
-		returnedState != "",
-	)
-
 	cookieState, err := c.Cookie(cookieOAuthState)
-	if err != nil || cookieState == "" || returnedState == "" || returnedState != cookieState {
-		details := "oauth state mismatch"
-
-		redirectURL := h.defaultFrontendRedirect()
-
-		log.Printf(
-			"[AUTH CALLBACK] invalid oauth state: request_id=%s returned_state_present=%v cookie_state_present=%v states_match=%v redirect=%s ip=%s user_agent=%s err=%v details=%s",
-			requestID,
-			returnedState != "",
-			cookieState != "",
-			returnedState != "" && cookieState != "" && returnedState == cookieState,
-			redirectURL,
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			err,
-			details,
+	if err != nil ||
+		cookieState == "" ||
+		returnedState == "" ||
+		returnedState != cookieState {
+		c.Redirect(
+			http.StatusTemporaryRedirect,
+			h.defaultFrontendRedirect(),
 		)
-
-		// Stale callback, expired login attempt, refreshed callback URL,
-		// or OAuth cookies cleared by the browser.
-		// Do not notify admins for this normal browser/OAuth behavior.
-		c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		return
 	}
-
-	log.Printf(
-		"[AUTH CALLBACK] oauth state validated: request_id=%s",
-		requestID,
-	)
-
-	// 🔐 Read PKCE verifier.
-	log.Printf(
-		"[AUTH CALLBACK] reading pkce verifier cookie: request_id=%s",
-		requestID,
-	)
 
 	codeVerifier, err := c.Cookie(cookiePKCEVerifier)
 	if err != nil || codeVerifier == "" {
-		details := "pkce verifier cookie not found"
-
-		redirectURL := h.defaultFrontendRedirect()
-
-		log.Printf(
-			"[AUTH CALLBACK] missing pkce verifier: request_id=%s verifier_present=%v redirect=%s ip=%s user_agent=%s err=%v details=%s",
-			requestID,
-			codeVerifier != "",
-			redirectURL,
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			err,
-			details,
+		c.Redirect(
+			http.StatusTemporaryRedirect,
+			h.defaultFrontendRedirect(),
 		)
-
-		// Same as state failure: usually stale/expired callback.
-		// Do not notify admins.
-		c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		return
 	}
 
-	log.Printf(
-		"[AUTH CALLBACK] pkce verifier found: request_id=%s verifier_present=%v",
-		requestID,
-		codeVerifier != "",
-	)
-
-	log.Printf(
-		"[AUTH CALLBACK] starting token exchange: request_id=%s client_id=%s ip=%s user_agent=%s",
-		requestID,
-		h.config.KeycloakWebClientID,
-		c.ClientIP(),
-		c.Request.UserAgent(),
-	)
-
 	tokens, err := h.authService.ProcessAuthCode(code, codeVerifier)
 	if err != nil {
-		log.Printf(
-			"[AUTH CALLBACK] token exchange failed: request_id=%s ip=%s user_agent=%s err=%v",
-			requestID,
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			err,
-		)
-
-		// Authorization codes are one-time use.
-		// If the user refreshes the callback URL after a successful exchange,
-		// Keycloak returns invalid_grant / Code not valid.
 		if h.isCodeAlreadyUsedError(err) {
-			redirectURL := h.defaultFrontendRedirect()
-			hasAuthCookie := h.hasAnyAuthCookie(c)
-
-			log.Printf(
-				"[AUTH CALLBACK] authorization code already used: request_id=%s has_auth_cookie=%v redirect=%s ip=%s user_agent=%s",
-				requestID,
-				hasAuthCookie,
-				redirectURL,
-				c.ClientIP(),
-				c.Request.UserAgent(),
+			c.Redirect(
+				http.StatusTemporaryRedirect,
+				h.defaultFrontendRedirect(),
 			)
-
-			c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 			return
 		}
-
-		log.Printf(
-			"[AUTH CALLBACK] notifying login failure: request_id=%s client_id=%s",
-			requestID,
-			h.config.KeycloakWebClientID,
-		)
 
 		h.notificationService.NotifyLoginFailed(
 			c.Request.Context(),
@@ -409,94 +272,37 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 			err,
 		)
 
-		log.Printf(
-			"[AUTH CALLBACK] writing login failure audit: request_id=%s",
-			requestID,
-		)
-
 		h.auditLoginFailure(c)
 
-		log.Printf(
-			"[AUTH CALLBACK] returning unauthorized: request_id=%s reason=token_exchange_failed",
-			requestID,
+		response.Fail(
+			c,
+			http.StatusUnauthorized,
+			apierror.ErrTokenInvalid.Code,
+			"authentication failed",
 		)
-
-		response.Fail(c, http.StatusUnauthorized, apierror.ErrTokenInvalid.Code, "authentication failed")
 		return
 	}
-
-	log.Printf(
-		"[AUTH CALLBACK] token exchange completed: request_id=%s tokens_nil=%v access_token_present=%v refresh_token_present=%v id_token_present=%v expires_in=%d refresh_expires_in=%d",
-		requestID,
-		tokens == nil,
-		tokens != nil && tokens.AccessToken != "",
-		tokens != nil && tokens.RefreshToken != "",
-		tokens != nil && tokens.IDToken != "",
-		func() int {
-			if tokens == nil {
-				return 0
-			}
-			return int(tokens.ExpiresIn)
-		}(),
-		func() int {
-			if tokens == nil {
-				return 0
-			}
-			return int(tokens.RefreshExpiresIn)
-		}(),
-	)
 
 	if tokens == nil || tokens.AccessToken == "" {
 		h.auditLoginFailure(c)
 
-		log.Printf(
-			"[AUTH CALLBACK] empty token response: request_id=%s tokens_nil=%v ip=%s user_agent=%s",
-			requestID,
-			tokens == nil,
-			c.ClientIP(),
-			c.Request.UserAgent(),
+		response.Fail(
+			c,
+			http.StatusUnauthorized,
+			apierror.ErrTokenInvalid.Code,
+			"authentication failed",
 		)
-
-		response.Fail(c, http.StatusUnauthorized, apierror.ErrTokenInvalid.Code, "authentication failed")
 		return
 	}
 
-	// Clear only OAuth one-time cookies after successful exchange.
-	// Do not clear session cookies here.
-	log.Printf(
-		"[AUTH CALLBACK] clearing oauth one-time cookies: request_id=%s",
-		requestID,
-	)
-
 	h.clearOAuthCookies(c)
 
-	// Keycloak access tokens may omit "sub" (lightweight access tokens);
-	// the ID token is guaranteed by OIDC to carry it.
-	userID := utils.ExtractUserIDFromTokens(tokens.AccessToken, tokens.IDToken)
-
-	log.Printf(
-		"[AUTH CALLBACK] extracted user from tokens: request_id=%s user_id_present=%v",
-		requestID,
-		userID != "",
+	userID := utils.ExtractUserIDFromTokens(
+		tokens.AccessToken,
+		tokens.IDToken,
 	)
 
-	if userID == "" {
-		log.Printf(
-			"[AUTH CALLBACK] no sub claim found: request_id=%s access_token_claims=%v id_token_claims=%v",
-			requestID,
-			utils.JWTClaimNames(tokens.AccessToken),
-			utils.JWTClaimNames(tokens.IDToken),
-		)
-	}
-
-	log.Printf(
-		"[AUTH CALLBACK] writing successful login audit: request_id=%s client_id=%s user_id_present=%v",
-		requestID,
-		h.config.KeycloakWebClientID,
-		userID != "",
-	)
-
-	if err := h.auditService.LoginResult(
+	_ = h.auditService.LoginResult(
 		c.Request.Context(),
 		utils.ToNullUUID(userID),
 		true,
@@ -505,64 +311,48 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 		c.Request.UserAgent(),
 		"",
 		"",
-	); err != nil {
-		log.Printf(
-			"[AUTH CALLBACK] successful login audit failed: request_id=%s user_id_present=%v err=%v",
-			requestID,
-			userID != "",
-			err,
-		)
-	}
+	)
 
-	// Store the token bundle server-side; the browser only gets a small
-	// opaque session cookie. Three JWT Set-Cookie headers (~8KB+) overflow
-	// default proxy buffers on upstream nginx hops and cause 502s.
-	ttl := h.sessionTTL(tokens.RefreshExpiresIn, tokens.ExpiresIn)
+	ttl := h.sessionTTL(
+		tokens.RefreshExpiresIn,
+		tokens.ExpiresIn,
+	)
 
-	sessionID, err := h.sessions.Create(c.Request.Context(), authsession.Data{
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
-		IDToken:      tokens.IDToken,
-	}, ttl)
+	sessionID, err := h.sessions.Create(
+		c.Request.Context(),
+		authsession.Data{
+			AccessToken:  tokens.AccessToken,
+			RefreshToken: tokens.RefreshToken,
+			IDToken:      tokens.IDToken,
+		},
+		ttl,
+	)
 	if err != nil {
-		log.Printf(
-			"[AUTH CALLBACK] failed to create server-side session: request_id=%s err=%v",
-			requestID,
-			err,
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"INTERNAL_ERROR",
+			"failed to create session",
 		)
-
-		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create session")
 		return
 	}
 
-	log.Printf(
-		"[AUTH CALLBACK] session created: request_id=%s ttl_seconds=%d",
-		requestID,
-		int(ttl.Seconds()),
-	)
-
-	// Purge any legacy JWT cookies from previous deployments, then set the
-	// single session cookie.
 	h.clearLegacyTokenCookies(c)
-	h.setCookie(c, cookieSession, sessionID, int(ttl.Seconds()), true)
 
-	// ------------------------------------------------------------------
-	// Role-based redirect
-	// ------------------------------------------------------------------
-	log.Printf(
-		"[AUTH CALLBACK] resolving role-based redirect: request_id=%s",
-		requestID,
+	h.setCookie(
+		c,
+		cookieSession,
+		sessionID,
+		int(ttl.Seconds()),
+		true,
 	)
 
 	redirectURL := h.redirectAfterLogin(tokens.AccessToken)
 
-	log.Printf(
-		"[AUTH CALLBACK] redirecting after login: request_id=%s redirect_url=%s",
-		requestID,
+	c.Redirect(
+		http.StatusTemporaryRedirect,
 		redirectURL,
 	)
-
-	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // ----------------------------------------------------
