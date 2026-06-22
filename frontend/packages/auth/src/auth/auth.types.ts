@@ -69,6 +69,7 @@ export type Permission =
   | "data_quality:read"
   | "data_quality:write"
   | "data_quality:resolve"
+  | "issue_tracker:resolve"
   | "report_browser:read"
   | "outbreak:access"
   | "outbreak:manage"

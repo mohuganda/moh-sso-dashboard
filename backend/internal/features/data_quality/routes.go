@@ -13,7 +13,7 @@ func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
 		issues.POST("", middleware.RequirePermission(authz.PermissionDataQualityWrite), handler.CreateIssue)
 		issues.GET("", middleware.RequirePermission(authz.PermissionDataQualityRead), handler.ListIssues)
 		issues.PUT("/:issueCode", middleware.RequirePermission(authz.PermissionDataQualityWrite), handler.UpdateIssue)
-		issues.POST("/:issueCode/resolveIssue", middleware.RequirePermission(authz.PermissionDataQualityResolve), handler.ResolveIssue)
+		issues.POST("/:issueCode/resolveIssue", middleware.RequireAnyPermission(authz.PermissionDataQualityResolve, authz.PermissionIssueTrackerResolve), handler.ResolveIssue)
 		issues.GET("/:issueCode/transactions", middleware.RequirePermission(authz.PermissionDataQualityRead), handler.ListIssueResolutionTransactions)
 	}
 }

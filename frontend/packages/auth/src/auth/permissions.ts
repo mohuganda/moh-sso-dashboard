@@ -42,4 +42,5 @@ export const PERMISSIONS = {
   rbacWrite: "rbac:write",
   rbacRolesWrite: "rbac:roles:write",
   rbacPermissionsWrite: "rbac:permissions:write",
+  issueTrackerResolve: "issue_tracker:resolve",
 } as const satisfies Record<string, Permission>;

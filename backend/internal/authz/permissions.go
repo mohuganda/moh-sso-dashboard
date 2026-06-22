@@ -43,6 +43,8 @@ const (
 	PermissionDataQualityWrite   Permission = "data_quality:write"
 	PermissionDataQualityResolve Permission = "data_quality:resolve"
 
+	PermissionIssueTrackerResolve Permission = "issue_tracker:resolve"
+
 	PermissionReportBrowserRead Permission = "report_browser:read"
 	PermissionOutbreakAccess    Permission = "outbreak:access"
 	PermissionOutbreakManage    Permission = "outbreak:manage"
@@ -100,4 +102,5 @@ var AllPermissions = []Permission{
 	PermissionRBACWrite,
 	PermissionRBACRolesWrite,
 	PermissionRBACPermissionsWrite,
+	PermissionIssueTrackerResolve,
 }
