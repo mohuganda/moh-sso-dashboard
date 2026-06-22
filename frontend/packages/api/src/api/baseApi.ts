@@ -197,6 +197,7 @@ export const baseApi = createApi({
     "RbacAccessRequest",
     "RbacChangeRequest",
     "RbacAudit",
+    "Datasets",
   ],
 
   endpoints: () => ({}),

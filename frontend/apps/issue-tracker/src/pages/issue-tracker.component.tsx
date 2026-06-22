@@ -9,10 +9,9 @@ import { headers } from "../lib/constants.ts";
 import IssueDetail from "./issue-detail/issue-detail.component.tsx";
 import {getAvailablePeriods, periodType} from "../../../data-visualizer/src/pages/Constants.tsx";
 import {
-  useGetThemesQuery,
-  useLazyGetThemeElementsQuery,
-  type Theme,
-  type ThemeElement
+  useGetDataSetsQuery,
+  useLazyGetDataSetElementsQuery,
+  type ThemeElement, type Dataset
 } from "../../../data-visualizer/src/pages/modals/data-model/data-model.ts";
 import {useGetHierarchyQuery} from "../../../data-visualizer/src/pages/modals/orgunit/org-unit.ts";
 import {OrgUnitNode} from "../component/tree-node.component.tsx";
@@ -59,8 +58,8 @@ const IssueTracker = () => {
   const [dataElements, setDataElements] = useState<ThemeElement[]>([]);
   const [isDataPopoverOpen, setIsDataPopoverOpen] = useState(false);
   const dataPopoverRef = useRef<HTMLDivElement>(null);
-  const { data: themes } = useGetThemesQuery();
-  const [ triggerGetThemeElements ] = useLazyGetThemeElementsQuery();
+  const { data: datasets } = useGetDataSetsQuery();
+  const [ triggerGetDataSetElements ] = useLazyGetDataSetElementsQuery();
 
   // Org Unit Filters
   const [selectedOrgUnit, setSelectedOrgUnit] = useState("");
@@ -149,10 +148,10 @@ const IssueTracker = () => {
       return;
     }
 
-    const theme = (themes as Theme[])?.find(t => t.theme_name === datasetName);
+    const theme = (datasets as Dataset[])?.find(t => t.display_name === datasetName);
     if (theme) {
       try {
-        const elements = await triggerGetThemeElements(theme.theme_id).unwrap();
+        const elements = await triggerGetDataSetElements(theme.dataset_id).unwrap();
         setDataElements(elements);
       } catch (err) {
         console.error("Failed to fetch data elements:", err);
@@ -340,7 +339,7 @@ const IssueTracker = () => {
                                   id="dataset-filter"
                                   titleText="Dataset"
                                   placeholder="Select Dataset"
-                                  items={(themes as Theme[])?.map(t => t.theme_name) || []}
+                                  items={(datasets as Dataset[])?.map(t => t.display_name) || []}
                                   selectedItem={selectedDataset}
                                   onChange={handleDatasetChange}
                               />

@@ -65,6 +65,8 @@ export const API = {
     theme: () => `${API_BASE}/visualizer/dataelements/theme`,
     hierarchy: () => `${API_BASE}/visualizer/adminunits/hierarchy`,
     dataValues: () => `${API_BASE}/visualizer/datavalues`,
+    datasets: () => `${API_BASE}/visualizer/datasets`,
+    dataElements: () => `${API_BASE}/visualizer/dataelements`
   },
   // --------------------------------------------------
   // Visualizer

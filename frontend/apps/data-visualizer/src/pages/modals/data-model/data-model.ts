@@ -1,9 +1,9 @@
 import { baseApi } from "@moh-sso/api";
 import { API } from "@moh-sso/config";
 
-export type Theme = {
-  theme_id: string;
-  theme_name: string;
+export type Dataset = {
+  dataset_id: string;
+  display_name: string;
 };
 
 export type ThemeElement = {
@@ -15,36 +15,28 @@ export type ThemeElement = {
   data_element_short_name: string;
 };
 
-export const themesApi = baseApi.injectEndpoints({
+export const datasetApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     /* --------------------------------
-     * List Visualizer Themes
-     * GET /visualizer/themes
+     * List Visualizer Datasets
+     * GET /visualizer/Datasets
      * -------------------------------- */
-    getThemes: builder.query<Theme[], void>({
+    getDataSets: builder.query<Dataset[], void>({
       query: () => ({
-        url: API.visualizer.themes(),
+        url: API.visualizer.datasets(),
         method: "GET",
         credentials: "include",
       }),
     }),
-    getThemeElements: builder.query<ThemeElement[], string>({
+    getDataSetElements: builder.query<ThemeElement[], string | number>({
       query: (id) => ({
-        url: API.visualizer.theme(),
-        method: "POST",
-        body: { theme_id: id },
+        url: `${API.visualizer.dataElements()}?data_set_id=${id}`,
+        method: "GET",
         credentials: "include",
       }),
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.map(({ theme_id }) => ({ type: "ThemeElement" as const, theme_id })),
-              { type: "ThemeElement", theme_id: "LIST" }, // The "General" tag
-            ]
-          : [{ type: "ThemeElement", theme_id: "LIST" }],
-      keepUnusedDataFor: 0,
+      providesTags: ["Datasets"],
     }),
   }),
 });
 
-export const { useGetThemesQuery, useLazyGetThemeElementsQuery } = themesApi;
+export const { useGetDataSetsQuery, useLazyGetDataSetElementsQuery } = datasetApi;

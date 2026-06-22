@@ -39,6 +39,7 @@ type DataValueRow struct {
 type Theme struct {
 	ThemeID   string `json:"theme_id"`
 	ThemeName string `json:"theme_name"`
+	DatasetName string `json:"dataset_name"`
 }
 
 // DataElementByTheme represents a data element associated with a theme
