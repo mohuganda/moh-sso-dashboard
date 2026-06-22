@@ -217,6 +217,7 @@
             "systems:read",
             "systems:launch",
             "data_quality:read",
+            "issue_tracker:resolve",
             "documents:read",
             "surveillance:read",
             "report_browser:read"
