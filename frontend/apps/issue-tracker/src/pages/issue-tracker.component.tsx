@@ -174,7 +174,7 @@ const IssueTracker = () => {
     setSelectedOrgUnit(name);
   };
 
-  const renderRecursive = (nodes: any[]) => {
+  const renderRecursive = (nodes: any[], idPrefix: string = "filter-org") => {
     if (!nodes || !Array.isArray(nodes)) return [];
 
     return nodes
@@ -187,6 +187,7 @@ const IssueTracker = () => {
           selectedOrgUnit={selectedOrgUnit}
           onSelect={handleOrgSelect}
           renderRecursive={renderRecursive}
+          idPrefix={idPrefix}
         />
       ));
   };
@@ -306,7 +307,7 @@ const IssueTracker = () => {
                               />
                               <div className="org-tree-container">
                                 <TreeView label="Org Units" hideLabel>
-                                  {renderRecursive(hierarchyData || [])}
+                                  {renderRecursive(hierarchyData || [], "filter-org")}
                                 </TreeView>
                               </div>
                               <div className="popover-footer">
