@@ -59,49 +59,39 @@ func (h *Handler) GetDatasets(c *gin.Context) {
 	c.JSON(http.StatusOK, results)
 }
 
-// GetDataElements gets data elements, optionally filtered by data_set_id
+// GetDataElements gets data elements filtered by data_set_id
 func (h *Handler) GetDataElements(c *gin.Context) {
 	ctx := c.Request.Context()
-	type Request struct {
-		DataSetID *string `json:"data_set_id"`
-	}
 
-	var req Request
-	if err := c.BindJSON(&req); err != nil {
-		req = Request{}
+	dataSetID := c.Query("data_set_id")
+	if dataSetID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "data_set_id is required"})
+		return
 	}
 
 	query := `
-		SELECT 
-			dim_data_element_map_key, 
-			data_element_id, 
-			data_set_id, 
-			data_element_short_name, 
+		SELECT
+			dim_data_element_map_key,
+			data_element_id,
+			data_set_id,
+			data_element_short_name,
 			data_element_long_name,
-			row_version, 
+			row_version,
 			is_current
 		FROM dwh.dim_hmis_data_element_map
 		WHERE dim_data_element_map_key <> -1
 		AND is_current = true
+		AND data_set_id = $1
 	`
 
-	var rows *sql.Rows
-	var err error
-
-	if req.DataSetID != nil && *req.DataSetID != "" {
-		query += ` AND data_set_id = $1`
-		rows, err = h.db.QueryContext(ctx, query, *req.DataSetID)
-	} else {
-		rows, err = h.db.QueryContext(ctx, query)
-	}
-
+	rows, err := h.db.QueryContext(ctx, query, dataSetID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	var results []dto.DataElement
+	results := make([]dto.DataElement, 0)
 	for rows.Next() {
 		var de dto.DataElement
 		err := rows.Scan(&de.DimDataElementMapKey, &de.DataElementID, &de.DataSetID, &de.DataElementShortName, &de.DataElementLongName, &de.RowVersion, &de.IsCurrent)
@@ -551,7 +541,7 @@ func (h *Handler) GetThemes(c *gin.Context) {
 	var results []dto.Theme
 	for rows.Next() {
 		var t dto.Theme
-		err := rows.Scan(&t.ThemeID, &t.ThemeName)
+		err := rows.Scan(&t.ThemeID, &t.ThemeName, &t.DatasetName)
 		if err != nil {
 			continue
 		}

@@ -4,7 +4,7 @@ import "github.com/gin-gonic/gin"
 
 func RegisterRoutes(visualiser *gin.RouterGroup, handler *Handler) {
 	visualiser.GET("/datasets", handler.GetDatasets)
-	visualiser.POST("/dataelements", handler.GetDataElements)
+	visualiser.GET("/dataelements", handler.GetDataElements)
 	visualiser.POST("/datavalues", handler.GetDataValues)
 	visualiser.GET("/themes", handler.GetThemes)
 	visualiser.POST("/dataelements/theme", handler.GetDataElementsByTheme)
