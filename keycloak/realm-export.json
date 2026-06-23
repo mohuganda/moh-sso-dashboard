@@ -187,6 +187,9 @@
             "clients:read",
             "announcements:read",
             "documents:read",
+            "documents:write",
+            "documents:process",
+            "storage_locations:read",
             "surveillance:read",
             "data_quality:read",
             "data_quality:write",
@@ -226,6 +229,7 @@
             "data_quality:read",
             "issue_tracker:read",
             "documents:read",
+            "storage_locations:read",
             "surveillance:read",
             "report_browser:read"
           ]
@@ -267,6 +271,7 @@
               "announcements:read",
               "documents:read",
               "document_templates:read",
+              "storage_locations:read",
               "surveillance:read",
               "report_browser:read",
               "notifications:read"
@@ -297,6 +302,7 @@
               "data_quality:read",
               "issue_tracker:read",
               "documents:read",
+              "storage_locations:read",
               "surveillance:read",
               "report_browser:read"
             ]
@@ -384,6 +390,50 @@
               "issue_tracker:close",
               "issue_tracker:reopen",
               "issue_tracker:comment"
+            ]
+          }
+        },
+        {
+          "name": "document_viewer",
+          "description": "Read-only access to documents",
+          "attributes": {
+            "portal.permissions": [
+              "documents:read",
+              "storage_locations:read"
+            ]
+          }
+        },
+        {
+          "name": "document_editor",
+          "description": "Can view, upload, update, and delete documents",
+          "attributes": {
+            "portal.permissions": [
+              "documents:read",
+              "documents:write",
+              "storage_locations:read"
+            ]
+          }
+        },
+        {
+          "name": "document_processor",
+          "description": "Can view and process documents",
+          "attributes": {
+            "portal.permissions": [
+              "documents:read",
+              "documents:process",
+              "storage_locations:read"
+            ]
+          }
+        },
+        {
+          "name": "document_manager",
+          "description": "Full document management access",
+          "attributes": {
+            "portal.permissions": [
+              "documents:read",
+              "documents:write",
+              "documents:process",
+              "storage_locations:read"
             ]
           }
         }
@@ -648,7 +698,7 @@
     {
       "clientId": "data-statistics",
       "name": "Data & Statistics",
-      "description": "Data quality, document upload, reports, surveillance, and issue tracking tools",
+      "description": "Data quality, document management, reporting, surveillance, and issue tracking tools",
       "rootUrl": "http://localhost:3000/portal/apps/dwh",
       "baseUrl": "http://localhost:3000/portal/apps/dwh",
       "enabled": true,
@@ -662,7 +712,7 @@
         "ui.home": "/portal/apps/dwh",
         "ui.category": "platform",
         "portal.system": "true",
-        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin,issue_tracker_viewer,issue_tracker_contributor,issue_tracker_editor,issue_tracker_manager",
+        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin,issue_tracker_viewer,issue_tracker_contributor,issue_tracker_editor,issue_tracker_manager,document_viewer,document_editor,document_processor,document_manager",
         "ui.systemType": "platform",
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
@@ -882,7 +932,8 @@
           "data-statistics_access",
           "report_admin",
           "report_manager",
-          "issue_tracker_manager"
+          "issue_tracker_manager",
+          "document_manager"
         ]
       }
     },
@@ -925,7 +976,8 @@
         "data-statistics": [
           "data-statistics_access",
           "report_viewer",
-          "issue_tracker_viewer"
+          "issue_tracker_viewer",
+          "document_viewer"
         ]
       }
     },
@@ -973,7 +1025,8 @@
           "data-statistics_access",
           "report_manager",
           "report_analyst",
-          "issue_tracker_manager"
+          "issue_tracker_manager",
+          "document_manager"
         ]
       }
     },
@@ -1022,7 +1075,8 @@
         "data-statistics": [
           "data-statistics_access",
           "report_analyst",
-          "issue_tracker_editor"
+          "issue_tracker_editor",
+          "document_editor"
         ]
       }
     },
@@ -1070,7 +1124,8 @@
         "data-statistics": [
           "data-statistics_access",
           "report_viewer",
-          "issue_tracker_viewer"
+          "issue_tracker_viewer",
+          "document_viewer"
         ]
       }
     },

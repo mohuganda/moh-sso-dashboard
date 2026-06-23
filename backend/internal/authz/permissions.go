@@ -56,8 +56,9 @@ const (
 	PermissionOutbreakAccess Permission = "outbreak:access"
 	PermissionOutbreakManage Permission = "outbreak:manage"
 
-	PermissionMetricsRead        Permission = "metrics:read"
-	PermissionAuditRead          Permission = "audit:read"
+	PermissionMetricsRead Permission = "metrics:read"
+	PermissionAuditRead   Permission = "audit:read"
+
 	PermissionNotificationsRead  Permission = "notifications:read"
 	PermissionNotificationsWrite Permission = "notifications:write"
 

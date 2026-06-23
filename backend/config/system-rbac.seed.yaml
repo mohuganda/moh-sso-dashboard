@@ -167,7 +167,7 @@ systems:
 
   - clientId: data-statistics
     displayName: Data & Statistics
-    description: Data quality, document upload, reports, surveillance, and issue tracking tools.
+    description: Data quality, document management, reports, surveillance, and issue tracking tools.
     icon: home
     launchUrl: /portal/apps/dwh
     category: platform
@@ -182,7 +182,7 @@ systems:
         {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"data_quality:read"},
         {"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"},
         {"id":"data-exports","label":"Data Exports","path":"/apps/dwh/exports","permission":"data_quality:read"},
-        {"id":"file-svr","label":"File Upload","path":"/apps/dwh/filesvr","permission":"documents:read"},
+        {"id":"file-svr","label":"Document Management","path":"/apps/dwh/filesvr","permission":"documents:read"},
         {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
         {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read"}
       ]
@@ -197,6 +197,10 @@ systems:
       - issue_tracker_contributor
       - issue_tracker_editor
       - issue_tracker_manager
+      - document_viewer
+      - document_editor
+      - document_processor
+      - document_manager
     roles:
       - name: data-statistics_access
         displayName: Data & Statistics Access
@@ -241,7 +245,7 @@ systems:
 
       - name: issue_tracker_viewer
         displayName: Issue Tracker Viewer
-        description: Read-only access to issues and issue history
+        description: Read-only access to issue records and issue history
         permissions:
           - issue_tracker:read
 
@@ -271,6 +275,38 @@ systems:
           - issue_tracker:close
           - issue_tracker:reopen
           - issue_tracker:comment
+
+      - name: document_viewer
+        displayName: Document Viewer
+        description: Read-only access to documents
+        permissions:
+          - documents:read
+          - storage_locations:read
+
+      - name: document_editor
+        displayName: Document Editor
+        description: Can view, upload, update, and delete documents
+        permissions:
+          - documents:read
+          - storage_locations:read
+          - documents:write
+
+      - name: document_processor
+        displayName: Document Processor
+        description: Can view and process documents
+        permissions:
+          - documents:read
+          - storage_locations:read
+          - documents:process
+
+      - name: document_manager
+        displayName: Document Manager
+        description: Full document management access
+        permissions:
+          - documents:read
+          - storage_locations:read
+          - documents:write
+          - documents:process
 
   - clientId: eservices
     displayName: eServices
@@ -415,7 +451,7 @@ systems:
           {"id":"absence-requests","label":"Absence Requests","path":"/apps/utilities/self-service/absence-requests"},
           {"id":"absence-dashboard","label":"My Absence Dashboard","path":"/apps/utilities/self-service/absence-dashboard"},
           {"id":"eservice-requests","label":"eService Requests","children":[
-            {"id":"document-upload","label":"Document Upload","path":"/apps/utilities/self-service/eservice/document-upload"},
+            {"id":"document-upload","label":"Document Upload","path":"/apps/utilities/self-service/eservice/document-upload","permission":"documents:write"},
             {"id":"service-access","label":"Service Access","path":"/apps/utilities/self-service/eservice/service-access"},
             {"id":"equipment-request","label":"Equipment Request","path":"/apps/utilities/self-service/eservice/equipment-request"}
           ]}
@@ -424,6 +460,7 @@ systems:
     enabled: true
     accessRoles:
       - utilities_access
+      - utilities_document_uploader
     roles:
       - name: utilities_access
         displayName: Utilities Access
@@ -432,6 +469,16 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
+
+      - name: utilities_document_uploader
+        displayName: Utilities Document Uploader
+        description: Can upload documents through the self-service document upload utility
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+          - documents:read
+          - documents:write
 
   - clientId: settings
     displayName: Settings
@@ -539,7 +586,7 @@ realmRoles:
       - "*"
 
   - name: user
-    description: Standard user role
+    description: Standard user role with read-only access to common platform services
     permissions:
       - portal:access
       - systems:read
@@ -547,6 +594,7 @@ realmRoles:
       - data_quality:read
       - issue_tracker:read
       - documents:read
+      - storage_locations:read
       - surveillance:read
       - report_browser:read
     systemRoles:
@@ -567,6 +615,8 @@ realmRoles:
       - clients:read
       - announcements:read
       - documents:read
+      - documents:write
+      - documents:process
       - surveillance:read
       - data_quality:read
       - data_quality:write
@@ -578,3 +628,12 @@ realmRoles:
       - issue_tracker:reopen
       - issue_tracker:comment
       - notifications:read
+    systemRoles:
+      data-statistics:
+        - data-statistics_access
+        - report_manager
+        - issue_tracker_manager
+        - document_manager
+      utilities:
+        - utilities_access
+        - utilities_document_uploader
