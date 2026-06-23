@@ -235,7 +235,7 @@ const IssueTracker = () => {
 
   useEffect(() => {
     if (!isLoading) {
-      setIssues(normalizeIssueRows(data?.data as Issue[] | undefined));
+      setIssues(normalizeIssueRows(data as Issue[] | undefined));
     }
 
     if (error) {
@@ -380,7 +380,7 @@ const IssueTracker = () => {
       orgUnit?: string;
     } = {},
   ) => {
-    const sourceRows = data?.data as Issue[] | undefined;
+    const sourceRows = data as Issue[] | undefined;
 
     if (!sourceRows) {
       return;
@@ -440,7 +440,7 @@ const IssueTracker = () => {
     setOrgSearchTerm("");
     setTableSearchTerm("");
 
-    setIssues(normalizeIssueRows(data?.data as Issue[] | undefined));
+    setIssues(normalizeIssueRows(data as Issue[] | undefined));
 
     closeAllPopovers();
   };
