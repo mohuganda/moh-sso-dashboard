@@ -80,4 +80,11 @@ export type Permission =
   | "rbac:read"
   | "rbac:write"
   | "rbac:roles:write"
-  | "rbac:permissions:write";
+  | "rbac:permissions:write"
+  | "issue_tracker:read"
+  | "issue_tracker:write"
+  | "issue_tracker:manage"
+  | "issue_tracker:assign"
+  | "issue_tracker:close"
+  | "issue_tracker:reopen"
+  | "issue_tracker:comment";

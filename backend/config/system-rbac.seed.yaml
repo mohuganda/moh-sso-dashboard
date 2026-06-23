@@ -167,7 +167,7 @@ systems:
 
   - clientId: data-statistics
     displayName: Data & Statistics
-    description: Data quality, document upload, reports, and surveillance tools.
+    description: Data quality, document upload, reports, surveillance, and issue tracking tools.
     icon: home
     launchUrl: /portal/apps/dwh
     category: platform
@@ -184,7 +184,7 @@ systems:
         {"id":"data-exports","label":"Data Exports","path":"/apps/dwh/exports","permission":"data_quality:read"},
         {"id":"file-svr","label":"File Upload","path":"/apps/dwh/filesvr","permission":"documents:read"},
         {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
-        {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"data_quality:read"}
+        {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read"}
       ]
     enabled: true
     accessRoles:
@@ -193,6 +193,10 @@ systems:
       - report_analyst
       - report_manager
       - report_admin
+      - issue_tracker_viewer
+      - issue_tracker_contributor
+      - issue_tracker_editor
+      - issue_tracker_manager
     roles:
       - name: data-statistics_access
         displayName: Data & Statistics Access
@@ -202,6 +206,7 @@ systems:
           - systems:read
           - systems:launch
           - data_quality:read
+          - issue_tracker:read
           - documents:read
           - surveillance:read
           - report_browser:read
@@ -233,6 +238,39 @@ systems:
         description: Report Browser read-only access
         permissions:
           - report_browser:read
+
+      - name: issue_tracker_viewer
+        displayName: Issue Tracker Viewer
+        description: Read-only access to issues and issue history
+        permissions:
+          - issue_tracker:read
+
+      - name: issue_tracker_contributor
+        displayName: Issue Tracker Contributor
+        description: Can view issues and add comments
+        permissions:
+          - issue_tracker:read
+          - issue_tracker:comment
+
+      - name: issue_tracker_editor
+        displayName: Issue Tracker Editor
+        description: Can create, edit, and comment on issues
+        permissions:
+          - issue_tracker:read
+          - issue_tracker:write
+          - issue_tracker:comment
+
+      - name: issue_tracker_manager
+        displayName: Issue Tracker Manager
+        description: Can manage the complete issue lifecycle
+        permissions:
+          - issue_tracker:read
+          - issue_tracker:write
+          - issue_tracker:manage
+          - issue_tracker:assign
+          - issue_tracker:close
+          - issue_tracker:reopen
+          - issue_tracker:comment
 
   - clientId: eservices
     displayName: eServices
@@ -507,7 +545,7 @@ realmRoles:
       - systems:read
       - systems:launch
       - data_quality:read
-      - issue_tracker:resolve
+      - issue_tracker:read
       - documents:read
       - surveillance:read
       - report_browser:read
@@ -520,7 +558,7 @@ realmRoles:
         - settings_access
 
   - name: manager
-    description: Can manage some applications
+    description: Can manage applications and operational workflows
     permissions:
       - portal:access
       - systems:read
@@ -532,4 +570,11 @@ realmRoles:
       - surveillance:read
       - data_quality:read
       - data_quality:write
+      - issue_tracker:read
+      - issue_tracker:write
+      - issue_tracker:manage
+      - issue_tracker:assign
+      - issue_tracker:close
+      - issue_tracker:reopen
+      - issue_tracker:comment
       - notifications:read

@@ -43,11 +43,18 @@ const (
 	PermissionDataQualityWrite   Permission = "data_quality:write"
 	PermissionDataQualityResolve Permission = "data_quality:resolve"
 
-	PermissionIssueTrackerResolve Permission = "issue_tracker:resolve"
+	PermissionIssueTrackerRead    Permission = "issue_tracker:read"
+	PermissionIssueTrackerWrite   Permission = "issue_tracker:write"
+	PermissionIssueTrackerManage  Permission = "issue_tracker:manage"
+	PermissionIssueTrackerAssign  Permission = "issue_tracker:assign"
+	PermissionIssueTrackerClose   Permission = "issue_tracker:close"
+	PermissionIssueTrackerReopen  Permission = "issue_tracker:reopen"
+	PermissionIssueTrackerComment Permission = "issue_tracker:comment"
 
 	PermissionReportBrowserRead Permission = "report_browser:read"
-	PermissionOutbreakAccess    Permission = "outbreak:access"
-	PermissionOutbreakManage    Permission = "outbreak:manage"
+
+	PermissionOutbreakAccess Permission = "outbreak:access"
+	PermissionOutbreakManage Permission = "outbreak:manage"
 
 	PermissionMetricsRead        Permission = "metrics:read"
 	PermissionAuditRead          Permission = "audit:read"
@@ -64,43 +71,64 @@ var AllPermissions = []Permission{
 	PermissionPortalAccess,
 	PermissionSystemsRead,
 	PermissionSystemsLaunch,
+
 	PermissionUsersRead,
 	PermissionUsersWrite,
 	PermissionUsersRolesWrite,
+
 	PermissionClientsRead,
 	PermissionClientsWrite,
 	PermissionClientsRolesWrite,
+
 	PermissionAnnouncementsRead,
 	PermissionAnnouncementsWrite,
 	PermissionAnnouncementsPublish,
+
 	PermissionDocumentsRead,
 	PermissionDocumentsWrite,
 	PermissionDocumentsProcess,
+
 	PermissionDocumentTemplatesRead,
 	PermissionDocumentTemplatesWrite,
 	PermissionDocumentTemplatesPublish,
+
 	PermissionSurveillanceRead,
 	PermissionSurveillanceImport,
 	PermissionSurveillanceManageLocations,
 	PermissionSurveillanceManageAlerts,
+
 	PermissionEmailRead,
 	PermissionEmailSend,
 	PermissionEmailManage,
+
 	PermissionStorageLocationsRead,
 	PermissionStorageLocationsWrite,
+
 	PermissionDataQualityRead,
 	PermissionDataQualityWrite,
 	PermissionDataQualityResolve,
+
+	PermissionIssueTrackerRead,
+	PermissionIssueTrackerWrite,
+	PermissionIssueTrackerManage,
+	PermissionIssueTrackerAssign,
+	PermissionIssueTrackerClose,
+	PermissionIssueTrackerReopen,
+	PermissionIssueTrackerComment,
+
 	PermissionReportBrowserRead,
+
 	PermissionOutbreakAccess,
 	PermissionOutbreakManage,
+
 	PermissionMetricsRead,
 	PermissionAuditRead,
+
 	PermissionNotificationsRead,
 	PermissionNotificationsWrite,
+
 	PermissionRBACRead,
 	PermissionRBACWrite,
 	PermissionRBACRolesWrite,
 	PermissionRBACPermissionsWrite,
-	PermissionIssueTrackerResolve,
 }
