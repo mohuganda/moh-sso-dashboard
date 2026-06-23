@@ -27,6 +27,7 @@ export const datasetApi = baseApi.injectEndpoints({
         method: "GET",
         credentials: "include",
       }),
+      transformResponse: (response: any) => response?.data,
     }),
     getDataSetElements: builder.query<ThemeElement[], string | number>({
       query: (id) => ({
@@ -34,7 +35,8 @@ export const datasetApi = baseApi.injectEndpoints({
         method: "GET",
         credentials: "include",
       }),
-      providesTags: ["Datasets"],
+      providesTags: ["DataElements"],
+      transformResponse: (response: any) => response?.data,
     }),
   }),
 });

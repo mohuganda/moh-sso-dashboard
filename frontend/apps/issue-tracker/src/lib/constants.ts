@@ -33,6 +33,18 @@ export const headers = [
   },
 ];
 
+/** Headers used in the downloadable import template */
+export const IMPORT_TEMPLATE_HEADERS = [
+  "dataset",
+  "data_element",
+  "org_unit",
+  "issue",
+  "issue_type",
+  "priority",
+  "severity",
+  "time_period",
+];
+
 export const ORG_UNIT_DATA = [
   {
     id: "ug-1",

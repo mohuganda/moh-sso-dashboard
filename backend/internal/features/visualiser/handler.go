@@ -38,7 +38,7 @@ func (h *Handler) GetDatasets(c *gin.Context) {
 // GetDataElements gets data elements, optionally filtered by data_set_id.
 func (h *Handler) GetDataElements(c *gin.Context) {
 	var req DataElementsRequest
-	if err := c.BindJSON(&req); err != nil {
+	if err := c.ShouldBindQuery(&req); err != nil {
 		req = DataElementsRequest{}
 	}
 
@@ -53,7 +53,7 @@ func (h *Handler) GetDataElements(c *gin.Context) {
 // GetDataValues gets data values with optional filters.
 func (h *Handler) GetDataValues(c *gin.Context) {
 	var req DataValuesRequest
-	if err := c.BindJSON(&req); err != nil {
+	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "invalid JSON")
 		return
 	}
@@ -113,7 +113,7 @@ func (h *Handler) GetThemes(c *gin.Context) {
 // GetDataElementsByTheme gets data elements for a specific theme.
 func (h *Handler) GetDataElementsByTheme(c *gin.Context) {
 	var req DataElementsByThemeRequest
-	if err := c.BindJSON(&req); err != nil {
+	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "theme_id is required")
 		return
 	}

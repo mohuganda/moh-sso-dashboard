@@ -158,3 +158,72 @@
     margin-right: 4px;
   }
 }
+/* ==============================
+   Import Issues Modal
+   ============================== */
+.import-template-section {
+  padding: 1rem;
+  background-color: #f4f4f4;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.import-preview {
+  margin-top: 1rem;
+}
+
+.import-preview-table-wrapper {
+  overflow-x: auto;
+  max-height: 320px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fff;
+  margin-top: 0.5rem;
+
+  .cds--table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    background-color: #f4f4f4;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+  }
+
+  td,
+  th {
+    border-bottom: 1px solid #f0f0f0;
+    padding: 6px 8px;
+    vertical-align: top;
+  }
+}
+
+.import-summary {
+  margin-top: 1rem;
+}
+
+.import-errors {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: #fff8f8;
+  border: 1px solid #fbc8c8;
+  border-radius: 4px;
+
+  p {
+    font-size: 0.875rem;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.8125rem;
+    color: #6f6f6f;
+  }
+
+  li {
+    margin-bottom: 0.25rem;
+  }
+}

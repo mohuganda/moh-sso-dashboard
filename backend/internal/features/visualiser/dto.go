@@ -1,7 +1,7 @@
 package visualiser
 
 type DataElementsRequest struct {
-	DataSetID *string `json:"data_set_id"`
+	DataSetID *string `json:"data_set_id" form:"data_set_id"`
 }
 
 type DataValuesRequest struct {
