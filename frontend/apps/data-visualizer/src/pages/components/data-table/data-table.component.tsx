@@ -37,19 +37,23 @@ const DataList: React.FC<ListProps> = ({ columns, data, handleIssueClick, closeV
               <TableHead>
                 <TableRow>
                   <TableExpandHeader {...getExpandHeaderProps()} />
-                  {headers.map((header) => (
-                      <TableHeader {...getHeaderProps({ header })}>
+                  {headers.map((header) => {
+                    const { key: headerKey, ...headerProps } = getHeaderProps({ header });
+                    return (
+                      <TableHeader key={headerKey} {...headerProps}>
                         {header.header}
                       </TableHeader>
-                  ))}
+                    );
+                  })}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {rows.map((row) => {
                   const issue = data.find((item: any) => item.id === row.id);
+                  const { key: rowKey, ...rowProps } = getRowProps({ row });
                   return (
                       <React.Fragment key={row.id}>
-                        <TableExpandRow {...getRowProps({ row })}>
+                        <TableExpandRow key={rowKey} {...rowProps}>
                           {row.cells.map((cell) => {
                             if (cell.info.header === "issue") {
                               return (

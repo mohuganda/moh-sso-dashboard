@@ -2,7 +2,7 @@ import DataList from "../../../data-visualizer/src/pages/components/data-table/d
 import {Button, Dropdown, Popover, PopoverContent, ComboBox, Search, TreeView} from "@carbon/react";
 import {Add, Filter, ChevronDown, Upload, Download} from "@carbon/react/icons";
 import "./issue-tracker.scss";
-import {useEffect, useState, useCallback, useRef} from "react";
+import {useEffect, useState, useCallback, useRef, useMemo} from "react";
 import {IssueModal} from "../component/issue-modal.component.tsx";
 import {ImportIssuesModal} from "../component/import-issues-modal.component.tsx";
 import { useGetIssuesQuery } from "@moh-sso/api";
@@ -46,6 +46,7 @@ const IssueTracker = () => {
   const { data, isLoading, error } = useGetIssuesQuery();
   const [selectedIssue, setSelectedIssue] = useState<Issue>();
   const [isViewIssueDetail, setIsViewIssueDetail] = useState(false);
+  const [tableSearchTerm, setTableSearchTerm] = useState("");
 
   // Period Filters
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
@@ -132,6 +133,15 @@ const IssueTracker = () => {
       console.error("Error Encountered while fetching issues:: " + error)
     }
   }, [data, error, isLoading]);
+
+  const filteredIssues = useMemo(() => {
+    if (!tableSearchTerm.trim()) return issues;
+    const term = tableSearchTerm.toLowerCase();
+    return issues.filter(issue =>
+      [issue.issue_code, issue.dataset, issue.data_element, issue.issue, issue.status, issue.org_unit, issue.date_reported, issue.issue_type]
+        .some(field => field?.toLowerCase().includes(term))
+    );
+  }, [issues, tableSearchTerm]);
 
   const handleIssueClick = (issue) => {
     const selectedItem = issues?.find(item => item?.issue_id.toString() === issue?.id);
@@ -491,7 +501,17 @@ const IssueTracker = () => {
                     </div>
                   </div>
                 </div>
-                <DataList columns={headers} data={issues} handleIssueClick={handleIssueClick} closeView={() => setIsViewIssueDetail(false)}/>
+                <div className="issue-table-search">
+                  <Search
+                    labelText="Search issues"
+                    placeholder="Search by issue code, dataset, data element, issue, status, org unit..."
+                    value={tableSearchTerm}
+                    onChange={(e) => setTableSearchTerm(e.target.value)}
+                    size="lg"
+                    closeButtonLabelText="Clear search"
+                  />
+                </div>
+                <DataList columns={headers} data={filteredIssues} handleIssueClick={handleIssueClick} closeView={() => setIsViewIssueDetail(false)}/>
               </div>
               {
                   showModal && <IssueModal onClose={close}/>
