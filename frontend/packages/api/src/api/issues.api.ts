@@ -2,23 +2,26 @@ import { API } from "@moh-sso/config";
 import type {
   Issue,
   IssuePayload,
-  IssueResponse,
   IssueTransaction,
   IssueTransactionPayload,
-  IssueTransactionsResponse,
-  SingleIssueResponse,
 } from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 
+type ApiEnvelope<T> = {
+  success: boolean;
+  data: T;
+};
+
 export const issuesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getIssues: builder.query<IssueResponse, void>({
+    getIssues: builder.query<Issue[], void>({
       query: () => ({
         url: API.issue.list(),
         method: "GET",
         credentials: "include",
       }),
+      transformResponse: (res: ApiEnvelope<Issue[]>) => res.data,
       providesTags: ["Issues"],
     }),
 
@@ -29,7 +32,7 @@ export const issuesApi = baseApi.injectEndpoints({
         body,
         credentials: "include",
       }),
-      transformResponse: (res: SingleIssueResponse) => res.data,
+      transformResponse: (res: ApiEnvelope<Issue>) => res.data,
       invalidatesTags: ["Issues"],
     }),
 
@@ -46,16 +49,17 @@ export const issuesApi = baseApi.injectEndpoints({
         body,
         credentials: "include",
       }),
-      transformResponse: (res: SingleIssueResponse) => res.data,
+      transformResponse: (res: ApiEnvelope<Issue>) => res.data,
       invalidatesTags: ["Issues"],
     }),
 
-    getTransactions: builder.query<IssueTransactionsResponse, string | number>({
+    getTransactions: builder.query<IssueTransaction[], string | number>({
       query: (id) => ({
         url: `${API.issue.list()}/${id}/transactions`,
         method: "GET",
         credentials: "include",
       }),
+      transformResponse: (res: ApiEnvelope<IssueTransaction[]>) => res.data,
       providesTags: ["Transactions", "Issues"],
     }),
 
@@ -72,7 +76,7 @@ export const issuesApi = baseApi.injectEndpoints({
         body,
         credentials: "include",
       }),
-      transformResponse: (res: { data: IssueTransaction }) => res.data,
+      transformResponse: (res: ApiEnvelope<IssueTransaction>) => res.data,
       invalidatesTags: ["Transactions", "Issues"],
     }),
   }),
