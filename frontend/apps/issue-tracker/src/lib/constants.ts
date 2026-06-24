@@ -4,10 +4,6 @@ export const Priority = ["Low", "Moderate", "High"];
 
 export const headers = [
   {
-    key: "issue_code",
-    header: "Issue Code",
-  },
-  {
     key: "dataset",
     header: "DataSet",
   },
@@ -20,12 +16,16 @@ export const headers = [
     header: "Issue",
   },
   {
-    key: "status",
-    header: "Status",
-  },
-  {
     key: "org_unit",
     header: "Organization Unit",
+  },
+  {
+    key: "time_Period",
+    header: "Reporting Period",
+  },
+  {
+    key: "status",
+    header: "Status",
   },
   {
     key: "date_reported",
