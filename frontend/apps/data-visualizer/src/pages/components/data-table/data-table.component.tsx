@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from "react";
 import {
   DataTable,
   Table,
@@ -11,6 +11,7 @@ import {
   TableExpandRow,
   TableExpandedRow,
 } from "@carbon/react";
+import { DataTablePagination } from "@moh-sso/ui";
 import IssueDetail from "../../../../../issue-tracker/src/pages/issue-detail/issue-detail.component.tsx";
 
 
@@ -23,8 +24,34 @@ interface ListProps {
 }
 
 const DataList: React.FC<ListProps> = ({ columns, data, handleIssueClick, closeView }) => {
+  /* -----------------------------
+   * Pagination
+   * ----------------------------- */
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  /* -----------------------------
+   * Pagination slice
+   * ----------------------------- */
+  const paginatedData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return data.slice(start, end);
+  }, [data, page, pageSize]);
+
+  /* -----------------------------
+   * Clamp page when data shrinks
+   * ----------------------------- */
+  useEffect(() => {
+    const lastPage = Math.ceil(data.length / pageSize) || 1;
+    if (page > lastPage) {
+      setPage(lastPage);
+    }
+  }, [data.length, pageSize, page]);
+
   return (
-      <DataTable rows={data} headers={columns}>
+    <>
+      <DataTable rows={paginatedData} headers={columns}>
         {({
             rows,
             headers,
@@ -85,6 +112,18 @@ const DataList: React.FC<ListProps> = ({ columns, data, handleIssueClick, closeV
             </Table>
         )}
       </DataTable>
+
+      {/* ================= PAGINATION ================= */}
+      <DataTablePagination
+        page={page}
+        pageSize={pageSize}
+        totalItems={data.length}
+        onChange={({ page: newPage, pageSize: newPageSize }) => {
+          setPage(newPage);
+          setPageSize(newPageSize);
+        }}
+      />
+    </>
   );
 };
 
