@@ -21,10 +21,11 @@ export function defineMicrofrontendConfig({
   return defineConfig(({ mode }) => ({
     plugins: [react()],
 
+    // Solves the esbuild vs rollup primitive evaluation conflicts
     define: {
       "process.env.NODE_ENV": JSON.stringify(mode),
-      "process.env": "({ NODE_ENV: '" + mode + "' })",
-      process: "({ env: { NODE_ENV: '" + mode + "' } })",
+      "process.env": JSON.stringify({ NODE_ENV: mode }),
+      process: JSON.stringify({ env: { NODE_ENV: mode } }),
     },
 
     resolve: {
@@ -70,7 +71,7 @@ export function defineMicrofrontendConfig({
         external: [
           "react",
           "react-dom",
-          "react-dom/client", // <-- CRITICAL: Added to prevent internal chunk bundle pollution
+          "react-dom/client", // Prevents internal React bundle pollution
           "react-redux",
           "react-router-dom",
           "@reduxjs/toolkit",
