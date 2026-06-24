@@ -132,12 +132,7 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 		return
 	}
 
-	// Userinfo is the authoritative source of the user ID; the access
-	// token may omit "sub" (Keycloak lightweight access tokens).
-	userID := user.ID
-	if userID == "" {
-		userID = utils.ExtractUserIDFromJWT(accessToken)
-	}
+	userID := utils.ExtractUserIDFromJWT(accessToken)
 
 	_ = h.auditService.Log(
 		c.Request.Context(),
@@ -436,24 +431,13 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 
 	h.clearOAuthCookies(c)
 
-	// Keycloak access tokens may omit "sub" (lightweight access tokens);
-	// the ID token is guaranteed by OIDC to carry it.
-	userID := utils.ExtractUserIDFromTokens(tokens.AccessToken, tokens.IDToken)
+	userID := utils.ExtractUserIDFromJWT(tokens.AccessToken)
 
 	log.Printf(
-		"[AUTH CALLBACK] extracted user from tokens: request_id=%s user_id_present=%v",
+		"[AUTH CALLBACK] extracted user from access token: request_id=%s user_id_present=%v",
 		requestID,
 		userID != "",
 	)
-
-	if userID == "" {
-		log.Printf(
-			"[AUTH CALLBACK] no sub claim found: request_id=%s access_token_claims=%v id_token_claims=%v",
-			requestID,
-			utils.JWTClaimNames(tokens.AccessToken),
-			utils.JWTClaimNames(tokens.IDToken),
-		)
-	}
 
 	log.Printf(
 		"[AUTH CALLBACK] writing successful login audit: request_id=%s client_id=%s user_id_present=%v",
@@ -611,7 +595,7 @@ func (h *Handler) HandleAuthRefreshToken(c *gin.Context) {
 		return
 	}
 
-	userID := utils.ExtractUserIDFromTokens(tokens.AccessToken, tokens.IDToken)
+	userID := utils.ExtractUserIDFromJWT(tokens.AccessToken)
 
 	_ = h.auditService.TokenRefresh(
 		c.Request.Context(),
