@@ -297,30 +297,9 @@ func (h *Handler) HandleAuthCallback(c *gin.Context) {
 
 	h.clearOAuthCookies(c)
 
-	// Keycloak access tokens may omit "sub" (lightweight access tokens);
-	// the ID token is guaranteed by OIDC to carry it.
-	userID := utils.ExtractUserIDFromTokens(tokens.AccessToken, tokens.IDToken)
-
-	log.Printf(
-		"[AUTH CALLBACK] extracted user from tokens: request_id=%s user_id_present=%v",
-		requestID,
-		userID != "",
-	)
-
-	if userID == "" {
-		log.Printf(
-			"[AUTH CALLBACK] no sub claim found: request_id=%s access_token_claims=%v id_token_claims=%v",
-			requestID,
-			utils.JWTClaimNames(tokens.AccessToken),
-			utils.JWTClaimNames(tokens.IDToken),
-		)
-	}
-
-	log.Printf(
-		"[AUTH CALLBACK] writing successful login audit: request_id=%s client_id=%s user_id_present=%v",
-		requestID,
-		h.config.KeycloakWebClientID,
-		userID != "",
+	userID := utils.ExtractUserIDFromTokens(
+		tokens.AccessToken,
+		tokens.IDToken,
 	)
 
 	_ = h.auditService.LoginResult(
