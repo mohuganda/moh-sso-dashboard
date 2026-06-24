@@ -68,6 +68,8 @@ const imports = {
   "@carbon/react/icons": "https://esm.sh/@carbon/react@1.95.0/icons?external=react,react-dom",
   "@reduxjs/toolkit": "https://esm.sh/@reduxjs/toolkit@2.11.2?external=react",
   react: "https://esm.sh/react@19.2.0",
+  "react/jsx-runtime": "https://esm.sh/react@19.2.0/jsx-runtime?external=react",
+  "react/jsx-dev-runtime": "https://esm.sh/react@19.2.0/jsx-dev-runtime?external=react",
   "react-dom": "https://esm.sh/react-dom@19.2.0?external=react",
   "react-dom/client": "https://esm.sh/react-dom@19.2.0/client?external=react",
   "react-redux": "https://esm.sh/react-redux@9.2.0?external=react,react-dom",
