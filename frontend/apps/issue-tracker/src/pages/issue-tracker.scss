@@ -196,9 +196,15 @@
 .issue-table-search {
   width: 100%;
   margin-bottom: 1rem;
+}
+
+.issue-table-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 
   .cds--search {
-    width: 100%;
+    flex: 1;
     max-width: none;
   }
 

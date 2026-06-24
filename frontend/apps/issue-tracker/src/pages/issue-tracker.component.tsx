@@ -183,6 +183,18 @@ const IssueTracker = () => {
     setIsOrgPopoverOpen(false);
   }, []);
 
+  /* -----------------------------
+   * Excel export columns
+   * ----------------------------- */
+  const EXPORT_COLUMNS: { key: string; header: string }[] = [
+    ...headers,
+    { key: "time_period", header: "Reporting Period" },
+    { key: "issue_type", header: "Issue Type" },
+    { key: "priority", header: "Priority" },
+    { key: "severity", header: "Severity" },
+    { key: "reported_by", header: "Reported By" },
+  ];
+
   const downloadTemplate = () => {
     const workbook = XLSX.utils.book_new();
 
@@ -207,6 +219,31 @@ const IssueTracker = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Issues Template");
 
     XLSX.writeFile(workbook, "issue-import-template.xlsx");
+  };
+
+  const downloadIssues = () => {
+    const headerRow = EXPORT_COLUMNS.map((col) => col.header);
+
+    const dataRows = filteredIssues.map((issue) =>
+      EXPORT_COLUMNS.map((col) => {
+        if (col.key === "time_period") {
+          return (issue as Record<string, unknown>)["time_period"] ??
+                 (issue as Record<string, unknown>)["time_Period"] ??
+                 "";
+        }
+        return (issue as Record<string, unknown>)[col.key] ?? "";
+      }),
+    );
+
+    const workbook = XLSX.utils.book_new();
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
+
+    worksheet["!cols"] = EXPORT_COLUMNS.map(() => ({ wch: 22 }));
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Issues");
+
+    XLSX.writeFile(workbook, `issues-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   useEffect(() => {
@@ -705,14 +742,21 @@ const IssueTracker = () => {
         </div>
 
         <div className="issue-table-search">
-          <Search
-            labelText="Search issues"
-            placeholder="Search by issue code, dataset, data element, issue, status, or organisation unit"
-            value={tableSearchTerm}
-            onChange={(event) => setTableSearchTerm(event.target.value)}
-            size="lg"
-            closeButtonLabelText="Clear search"
-          />
+          <div className="issue-table-search-bar">
+            <Search
+              labelText="Search issues"
+              placeholder="Search by issue code, dataset, data element, issue, status, or organisation unit"
+              value={tableSearchTerm}
+              onChange={(event) => setTableSearchTerm(event.target.value)}
+              size="lg"
+              closeButtonLabelText="Clear search"
+            />
+            <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
+              <Button size="md" kind="ghost" renderIcon={Download} onClick={downloadIssues}>
+                Download
+              </Button>
+            </PermissionGuard>
+          </div>
         </div>
 
         <DataList
