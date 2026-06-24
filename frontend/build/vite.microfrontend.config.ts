@@ -82,6 +82,8 @@ export function defineMicrofrontendConfig({
           "react",
           "react-dom",
           "react-dom/client", // Prevents internal React bundle pollution
+          "react/jsx-runtime", // Automatic JSX runtime — resolved via import map
+          "react/jsx-dev-runtime",
           "react-redux",
           "react-router-dom",
           "@reduxjs/toolkit",
