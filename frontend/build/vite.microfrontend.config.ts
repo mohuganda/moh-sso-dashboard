@@ -67,6 +67,15 @@ export function defineMicrofrontendConfig({
         fileName: (_format, entryName) => `${entryName}.js`,
       },
 
+      dedupe: [
+        "react",
+        "react-dom",
+        "react-router-dom",
+        "react-redux",
+        "@carbon/react",
+        "single-spa-react",
+      ],
+
       rollupOptions: {
         external: [
           "react",
