@@ -53,17 +53,27 @@ function packageUrl(pkg) {
   return `${assetBaseUrl}/packages/${pkg}/${readVersion("packages", pkg)}/index.js`;
 }
 
+// IMPORTANT: every esm.sh package with a React peer dependency MUST carry
+// `?external=react,react-dom` (or `?external=react`). Without it, esm.sh
+// bundles its OWN pinned React into the package (it emits imports from
+// `/react@^19.2.0?...` instead of the bare `react` specifier), producing a
+// second React instance on the page. That breaks shared-context hooks — e.g.
+// @carbon/react's `usePrefix` calls `useContext` on a null dispatcher and the
+// micro-frontend dies on mount with "Cannot read properties of null
+// (reading 'useContext')". The `external` query forces esm.sh to emit a bare
+// `from "react"`, which this import map then resolves to the single shared
+// copy below.
 const imports = {
-  "@carbon/react": "https://esm.sh/@carbon/react@1.95.0",
-  "@carbon/react/icons": "https://esm.sh/@carbon/react@1.95.0/icons",
-  "@reduxjs/toolkit": "https://esm.sh/@reduxjs/toolkit@2.11.2",
+  "@carbon/react": "https://esm.sh/@carbon/react@1.95.0?external=react,react-dom",
+  "@carbon/react/icons": "https://esm.sh/@carbon/react@1.95.0/icons?external=react,react-dom",
+  "@reduxjs/toolkit": "https://esm.sh/@reduxjs/toolkit@2.11.2?external=react",
   react: "https://esm.sh/react@19.2.0",
-  "react-dom": "https://esm.sh/react-dom@19.2.0",
-  "react-dom/client": "https://esm.sh/react-dom@19.2.0/client",
-  "react-redux": "https://esm.sh/react-redux@9.2.0",
-  "react-router-dom": "https://esm.sh/react-router-dom@7.9.6",
+  "react-dom": "https://esm.sh/react-dom@19.2.0?external=react",
+  "react-dom/client": "https://esm.sh/react-dom@19.2.0/client?external=react",
+  "react-redux": "https://esm.sh/react-redux@9.2.0?external=react,react-dom",
+  "react-router-dom": "https://esm.sh/react-router-dom@7.9.6?external=react,react-dom",
   "single-spa": "https://esm.sh/single-spa@6.0.3",
-  "single-spa-react": "https://esm.sh/single-spa-react@6.0.2",
+  "single-spa-react": "https://esm.sh/single-spa-react@6.0.2?external=react,react-dom",
 };
 
 for (const app of apps) {
