@@ -76,6 +76,7 @@ export default defineConfig({
     include: [
       "react",
       "react-dom",
+      "react-dom/client", // Prevents internal React bundle pollution
       "react/jsx-runtime",
       "react-redux",
       "react-router-dom",
