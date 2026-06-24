@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/moh-sso-dashboard/internal/config"
+	emailutil "github.com/moh-sso-dashboard/internal/email"
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -37,12 +39,14 @@ type service struct {
 	sender smtpSender
 	queue  queueWriter
 	tm     *TemplateManager
+	cfg    *config.Config
 }
 
 func NewEmailService(
 	sender smtpSender,
 	queue queueWriter,
 	tm *TemplateManager,
+	cfg ...*config.Config,
 ) (EmailService, error) {
 	if sender == nil {
 		return nil, ErrSMTPSenderNil
@@ -56,10 +60,16 @@ func NewEmailService(
 		return nil, ErrTemplateManagerNil
 	}
 
+	var appConfig *config.Config
+	if len(cfg) > 0 {
+		appConfig = cfg[0]
+	}
+
 	return &service{
 		sender: sender,
 		queue:  queue,
 		tm:     tm,
+		cfg:    appConfig,
 	}, nil
 }
 
@@ -70,6 +80,12 @@ func (s *service) Send(ctx context.Context, msg model.Message) error {
 
 	if strings.TrimSpace(msg.TemplateName) != "" {
 		return s.SendTemplate(ctx, msg)
+	}
+
+	var err error
+	msg.Attachments, err = emailutil.NormalizeAttachments(s.cfg, msg.Attachments)
+	if err != nil {
+		return fmt.Errorf("validate attachments: %w", err)
 	}
 
 	if err := utils.ValidateMessage(msg); err != nil {
@@ -101,6 +117,11 @@ func (s *service) SendTemplate(ctx context.Context, msg model.Message) error {
 		return fmt.Errorf("validate templated message: %w", err)
 	}
 
+	renderedMsg.Attachments, err = emailutil.NormalizeAttachments(s.cfg, renderedMsg.Attachments)
+	if err != nil {
+		return fmt.Errorf("validate attachments: %w", err)
+	}
+
 	if err := s.sender.Send(ctx, renderedMsg); err != nil {
 		return fmt.Errorf("send templated email: %w", err)
 	}
@@ -120,6 +141,12 @@ func (s *service) Queue(ctx context.Context, msg model.Message) error {
 		}
 
 		msg = renderedMsg
+	}
+
+	var err error
+	msg.Attachments, err = emailutil.NormalizeAttachments(s.cfg, msg.Attachments)
+	if err != nil {
+		return fmt.Errorf("validate attachments: %w", err)
 	}
 
 	if err := utils.ValidateMessage(msg); err != nil {
@@ -154,6 +181,12 @@ func (s *service) SendBulk(ctx context.Context, messages []model.Message) error 
 
 		if err := utils.ValidateMessage(msg); err != nil {
 			return fmt.Errorf("validate bulk message at index %d: %w", i, err)
+		}
+
+		var err error
+		msg.Attachments, err = emailutil.NormalizeAttachments(s.cfg, msg.Attachments)
+		if err != nil {
+			return fmt.Errorf("validate attachments for bulk message at index %d: %w", i, err)
 		}
 
 		if err := s.sender.Send(ctx, msg); err != nil {

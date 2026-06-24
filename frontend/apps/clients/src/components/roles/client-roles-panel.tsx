@@ -11,7 +11,9 @@ import {
   InlineLoading,
   OverflowMenu,
   OverflowMenuItem,
+  Modal,
 } from "@carbon/react";
+import { useState } from "react";
 
 import { useListClientRolesQuery, useDeleteClientRoleMutation } from "@moh-sso/api";
 import { useToast } from "@moh-sso/ui";
@@ -19,7 +21,7 @@ import { useToast } from "@moh-sso/ui";
 import { CreateClientRoleForm } from "./create-client-role-form";
 
 type Props = {
-  id: string;
+  clientUuid: string;
   clientId: string;
 };
 
@@ -27,21 +29,24 @@ const headers = [
   { key: "name", header: "Role" },
   { key: "description", header: "Description" },
   { key: "actions", header: "" },
+  { key: "roleName", header: "" },
 ];
 
-export function ClientRolesPanel({ id, clientId }: Props) {
+export function ClientRolesPanel({ clientUuid, clientId }: Props) {
   const toast = useToast();
+  const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
 
-  const { data: roles = [], isLoading } = useListClientRolesQuery(id);
+  const { data: roles = [], isLoading } = useListClientRolesQuery(clientUuid);
 
-  const [deleteRole] = useDeleteClientRoleMutation();
+  const [deleteRole, { isLoading: deletingRole }] = useDeleteClientRoleMutation();
 
-  const handleDelete = async (roleId: string, roleName: string) => {
-    if (!confirm(`Delete role "${roleName}"?`)) return;
+  const handleDelete = async () => {
+    if (!roleToDelete) return;
 
     try {
-      await deleteRole({ clientId, role: roleId }).unwrap();
-      toast.success("Role deleted", `"${roleName}" was removed`);
+      await deleteRole({ clientUuid, roleName: roleToDelete }).unwrap();
+      toast.success("Role deleted", `"${roleToDelete}" was removed`);
+      setRoleToDelete(null);
     } catch {
       toast.error("Failed to delete role", "Please try again");
     }
@@ -59,7 +64,7 @@ export function ClientRolesPanel({ id, clientId }: Props) {
       <Tile>
         <Stack gap={4}>
           <strong>Add role</strong>
-          <CreateClientRoleForm clientId={clientId} />
+          <CreateClientRoleForm clientUuid={clientUuid} />
         </Stack>
       </Tile>
 
@@ -71,6 +76,7 @@ export function ClientRolesPanel({ id, clientId }: Props) {
           rows={roles.map((r) => ({
             id: r.id,
             name: r.name.replace(`${clientId}:`, ""),
+            roleName: r.name,
             description: r.description ?? "—",
           }))}
           headers={headers}
@@ -79,9 +85,11 @@ export function ClientRolesPanel({ id, clientId }: Props) {
             <Table>
               <TableHead>
                 <TableRow>
-                  {headers.map((header) => (
-                    <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
-                  ))}
+                  {headers
+                    .filter((header) => header.key !== "roleName")
+                    .map((header) => (
+                      <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
+                    ))}
                 </TableRow>
               </TableHead>
 
@@ -89,6 +97,10 @@ export function ClientRolesPanel({ id, clientId }: Props) {
                 {rows.map((row) => (
                   <TableRow {...getRowProps({ row })}>
                     {row.cells.map((cell) => {
+                      if (cell.info.header === "roleName") {
+                        return null;
+                      }
+
                       if (cell.info.header === "actions") {
                         return (
                           <TableCell key={cell.id}>
@@ -96,7 +108,12 @@ export function ClientRolesPanel({ id, clientId }: Props) {
                               <OverflowMenuItem
                                 itemText="Delete"
                                 isDelete
-                                onClick={() => handleDelete(row.id, row.cells[0].value)}
+                                onClick={() => {
+                                  const roleName = row.cells.find(
+                                    (cell) => cell.info.header === "roleName",
+                                  )?.value;
+                                  if (typeof roleName === "string") setRoleToDelete(roleName);
+                                }}
                               />
                             </OverflowMenu>
                           </TableCell>
@@ -112,6 +129,21 @@ export function ClientRolesPanel({ id, clientId }: Props) {
           )}
         </DataTable>
       </Tile>
+
+      <Modal
+        open={roleToDelete !== null}
+        modalHeading="Delete client role"
+        primaryButtonText="Delete role"
+        secondaryButtonText="Cancel"
+        danger
+        primaryButtonDisabled={deletingRole}
+        onRequestSubmit={handleDelete}
+        onRequestClose={() => setRoleToDelete(null)}
+      >
+        <p>
+          Are you sure you want to delete the role <strong>{roleToDelete}</strong>?
+        </p>
+      </Modal>
     </Stack>
   );
 }

@@ -5,6 +5,7 @@ import (
 
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/api/handler"
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
@@ -12,6 +13,7 @@ import (
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
 	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
 	authfeature "github.com/moh-sso-dashboard/internal/features/auth"
+	"github.com/moh-sso-dashboard/internal/features/authsession"
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
 	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
 	documenttemplatesfeature "github.com/moh-sso-dashboard/internal/features/document_templates"
@@ -20,6 +22,7 @@ import (
 	geojsonfeature "github.com/moh-sso-dashboard/internal/features/geojson"
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
+	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -47,6 +50,8 @@ type handlerDependencies struct {
 	StorageFactory *storage.StorageFactory
 	AdminKeycloak  *keycloak.KeyAdminClient
 	Redis          *redis.Client
+	AuthSessions   *authsession.Store
+	AuthzResolver  authz.PermissionResolver
 }
 
 func buildHandlers(deps handlerDependencies) handlers {
@@ -54,12 +59,14 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.Auth,
 		deps.Services.Audit,
 		deps.Services.Notifications,
+		deps.AuthSessions,
 		deps.Config,
+		deps.AuthzResolver,
 	)
 	clientHandler := clientfeature.NewHandler(deps.Services.Clients, deps.Services.Audit, deps.Cache)
 	userHandler := userfeature.NewHandler(deps.Services.Users, deps.Services.Audit, deps.Cache)
 	metricsHandler := metricsfeature.NewHandler(deps.Services.Metrics)
-	auditHandler := auditfeature.NewHandler(deps.Store, deps.Cache)
+	auditHandler := auditfeature.NewHandler(auditfeature.NewService(auditfeature.NewRepository(deps.Store)), deps.Cache)
 	notificationsHandler := notificationsfeature.NewHandler(deps.Services.Notifications)
 
 	documentHandler := documentsfeature.NewHandler(
@@ -84,6 +91,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 	visualiserHandler := visualiserfeature.NewHandler(deps.Config, deps.Databases.DWH)
 	geoJSONHandler := geojsonfeature.NewHandler("./assets/geojson")
 	emailHandler := emailfeature.NewHandler(deps.Services.EmailFeature)
+	rbacHandler := rbacfeature.NewHandler(deps.Services.RBAC)
 
 	surveillanceHandler := surveillancefeature.NewHandler(
 		deps.Services.EpiWeeks,
@@ -135,6 +143,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 			Surveillance:            surveillanceHandler,
 			GeoJSON:                 geoJSONHandler,
 			Email:                   emailHandler,
+			RBAC:                    rbacHandler,
 		},
 		Health: healthHandler,
 	}

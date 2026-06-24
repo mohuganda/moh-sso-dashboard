@@ -7,6 +7,7 @@ export * from "./types/document_template.types";
 export * from "./types/documents.types";
 export * from "./types/email.types";
 export * from "./types/notifications.types";
+export * from "./types/rbac.types";
 export * from "./types/sessions.types";
 export * from "./types/storage.types";
 export * from "./types/surveillance.types";

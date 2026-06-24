@@ -38,6 +38,15 @@ Build the static Docker-ready artifact:
 npm run build:docker
 ```
 
+Build the same `/portal`-based artifact that production Docker uses:
+
+```bash
+npm run config:prod
+FRONTEND_ASSET_BASE_URL=/portal FRONTEND_BASE_PATH=/portal npm run build:docker
+npm run runtime:verify
+npm run config:dev
+```
+
 Generate version metadata:
 
 ```bash
@@ -54,6 +63,7 @@ npm run generate:versions
 4. build shell
 5. generate version manifest
 6. stage microfrontends into `dist`
+7. inline the generated import map into `dist/index.html`
 
 ## Final `dist` Layout
 
@@ -88,7 +98,7 @@ During Docker builds, `node scripts/use-runtime-config.mjs production` activates
 - `singleSpaOrchestration: true`
 - `microfrontendMountMode: "orchestrated"`
 
-The shell HTML loads `/import-map.json`, and the generated import map points app/package modules to `/mf/*` and `/packages/*`.
+The shell build keeps `import-map.json` as a static artifact for inspection and tooling. During staging, the generated map is also inlined into `dist/index.html` so browsers can use it without an import-map shim.
 
 The nginx image is still available:
 
@@ -185,9 +195,6 @@ The static server must:
 - provide SPA fallback to `index.html`
 - serve `/mf/*`
 - serve `/packages/*`
-- serve `/mf/*`
-- serve `/packages/*`
-- serve `/config.js`
 - serve `/config.js`
 - serve `/import-map.json`
 
@@ -195,4 +202,20 @@ Before deploying remote/import-map mode, run:
 
 ```bash
 npm run audit:import-map
+npm run runtime:verify
+npm run bundle:budget
+```
+
+`runtime:verify` confirms that the staged production artifact has:
+
+- `/portal/config.js`
+- an inlined import map
+- `/portal/mf/*` app bundles
+- `/portal/packages/*` shared package bundles
+- `version-manifest.json`
+
+`bundle:budget` keeps the current shell and microfrontend bundle sizes from growing silently. Override thresholds with:
+
+```bash
+BUNDLE_BUDGET_SHELL_JS_KB=9000 BUNDLE_BUDGET_APP_CHUNK_JS_KB=11000 npm run bundle:budget
 ```

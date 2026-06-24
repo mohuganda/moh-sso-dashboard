@@ -75,3 +75,44 @@ type issueStageResponse struct {
 	PreventiveOwner    *string `json:"preventive_owner,omitempty"`
 	DueDate            *string `json:"due_date,omitempty"`
 }
+
+type createIssueInput struct {
+	Dataset     interface{}
+	DataElement interface{}
+	OrgUnit     interface{}
+	Issue       string
+	IssueType   interface{}
+	ReportedBy  interface{}
+	TimePeriod  interface{}
+}
+
+type updateIssueInput struct {
+	IssueCode    string
+	Dataset      interface{}
+	DataElement  interface{}
+	OrgUnit      interface{}
+	Issue        interface{}
+	DateReported interface{}
+	ReportedBy   interface{}
+	Status       interface{}
+	Priority     interface{}
+	Severity     interface{}
+	UpdatedBy    interface{}
+	IssueType    interface{}
+	TimePeriod   interface{}
+}
+
+type resolveIssueInput struct {
+	IssueCode          string
+	Status             string
+	ResolutionAction   interface{}
+	ResolvedBy         interface{}
+	ResolutionDate     interface{}
+	VerificationStatus interface{}
+	VerifiedBy         interface{}
+	VerificationDate   interface{}
+	PreventiveAction   interface{}
+	ProcessChange      interface{}
+	PreventiveOwner    interface{}
+	DueDate            interface{}
+}

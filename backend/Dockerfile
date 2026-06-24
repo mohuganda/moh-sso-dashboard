@@ -1,11 +1,16 @@
 # ======================
 # Stage 1: Build
 # ======================
-FROM golang:1.25-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.4-alpine AS builder
 
-ENV CGO_ENABLED=0 \
-  GOOS=linux \
-  GOARCH=amd64
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG VERSION=dev
+ARG COMMIT=none
+ARG BUILD_TIME=unknown
+ARG DIRTY=false
+
+ENV CGO_ENABLED=0
 
 WORKDIR /app
 
@@ -14,12 +19,30 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -ldflags="-s -w" -o sso-server ./cmd/server
+RUN GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build \
+  -trimpath \
+  -ldflags="-s -w \
+    -X 'github.com/moh-sso-dashboard/internal/version.Version=${VERSION}' \
+    -X 'github.com/moh-sso-dashboard/internal/version.Commit=${COMMIT}' \
+    -X 'github.com/moh-sso-dashboard/internal/version.BuildTime=${BUILD_TIME}' \
+    -X 'github.com/moh-sso-dashboard/internal/version.Dirty=${DIRTY}'" \
+  -o sso-server ./cmd/server
 
 # ======================
 # Stage 2: Runtime
 # ======================
 FROM alpine:3.19
+
+ARG VERSION=dev
+ARG COMMIT=none
+ARG BUILD_TIME=unknown
+ARG SOURCE_URL=https://github.com/mohuganda/moh-sso-dashboard
+
+LABEL org.opencontainers.image.title="MOH SSO Dashboard Backend" \
+  org.opencontainers.image.version="$VERSION" \
+  org.opencontainers.image.revision="$COMMIT" \
+  org.opencontainers.image.created="$BUILD_TIME" \
+  org.opencontainers.image.source="$SOURCE_URL"
 
 RUN apk --no-cache add ca-certificates tzdata
 

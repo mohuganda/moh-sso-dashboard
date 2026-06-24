@@ -1,41 +1,54 @@
 package surveillance
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
 
-func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
+	"github.com/moh-sso-dashboard/internal/authz"
+	"github.com/moh-sso-dashboard/internal/middleware"
+	"github.com/moh-sso-dashboard/internal/ratelimit"
+)
+
+func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler, limiter *ratelimit.Limiter) {
 	surveillance := protected.Group("/surveillance")
+	surveillance.Use(middleware.RequireSystem(authz.SystemOutbreakManagement))
 	{
-		surveillance.GET("/weeks", handler.ListEpiWeeksByYear)
-		surveillance.GET("/alerts", handler.ListAlerts)
-		surveillance.GET("/diseases", handler.ListDiseases)
-		surveillance.GET("/regions", handler.ListRegions)
+		read := middleware.RequirePermission(authz.PermissionSurveillanceRead)
+		importData := middleware.RequirePermission(authz.PermissionSurveillanceImport)
+		manageLocations := middleware.RequirePermission(authz.PermissionSurveillanceManageLocations)
+		importLimit := ratelimit.MiddlewareForPolicy(limiter, ratelimit.SurveillanceImportPolicy())
+		manageLimit := ratelimit.MiddlewareForPolicy(limiter, ratelimit.SurveillanceManagePolicy())
 
-		surveillance.GET("/districts", handler.ListDistricts)
-		surveillance.GET("/regions/:regionID/districts", handler.ListDistrictsByRegion)
-		surveillance.POST("/districts", handler.UpsertDistrict)
+		surveillance.GET("/weeks", read, handler.ListEpiWeeksByYear)
+		surveillance.GET("/alerts", read, handler.ListAlerts)
+		surveillance.GET("/diseases", read, handler.ListDiseases)
+		surveillance.GET("/regions", read, handler.ListRegions)
 
-		surveillance.GET("/districts/:districtID/subcounties", handler.ListSubcountiesByDistrict)
-		surveillance.GET("/subcounties/:id", handler.GetSubcountyByID)
-		surveillance.POST("/subcounties", handler.UpsertSubcounty)
-		surveillance.DELETE("/subcounties/:id", handler.DeleteSubcounty)
+		surveillance.GET("/districts", read, handler.ListDistricts)
+		surveillance.GET("/regions/:regionID/districts", read, handler.ListDistrictsByRegion)
+		surveillance.POST("/districts", manageLocations, manageLimit, handler.UpsertDistrict)
 
-		surveillance.GET("/facility-weekly-metrics/week/:epiWeekID", handler.ListFacilityWeeklyMetricsByWeek)
-		surveillance.GET("/facility-weekly-metrics/facility/:facilityID", handler.ListFacilityWeeklyMetricsByFacility)
-		surveillance.GET("/facility-weekly-metrics/facility/:facilityID/disease/:diseaseID/trend", handler.ListFacilityDiseaseMetricsTrend)
-		surveillance.GET("/facility-weekly-metrics/facility/:facilityID/indicator/:indicatorID/trend", handler.ListFacilityIndicatorMetricsTrend)
-		surveillance.GET("/facility-weekly-metrics/week/:epiWeekID/disease/:diseaseID", handler.ListFacilityDiseaseMetricsByWeekAndDisease)
-		surveillance.GET("/facility-weekly-metrics/disease-trend", handler.ListDiseaseWeeklyTrendAggregated)
+		surveillance.GET("/districts/:districtID/subcounties", read, handler.ListSubcountiesByDistrict)
+		surveillance.GET("/subcounties/:id", read, handler.GetSubcountyByID)
+		surveillance.POST("/subcounties", manageLocations, manageLimit, handler.UpsertSubcounty)
+		surveillance.DELETE("/subcounties/:id", manageLocations, manageLimit, handler.DeleteSubcounty)
 
-		surveillance.GET("/weekly-statuses/list", handler.ListWeeklyStatuses)
-		surveillance.GET("/weekly-statuses/detailed", handler.ListWeeklyStatusesDetailed)
-		surveillance.GET("/weekly-statuses/district/week/:epiWeekID", handler.ListDistrictWeeklyStatusesByWeek)
-		surveillance.GET("/weekly-statuses/region/week/:epiWeekID", handler.ListRegionWeeklyStatusesByWeek)
-		surveillance.GET("/weekly-statuses/national/week/:epiWeekID", handler.ListNationalWeeklyStatusesByWeek)
+		surveillance.GET("/facility-weekly-metrics/week/:epiWeekID", read, handler.ListFacilityWeeklyMetricsByWeek)
+		surveillance.GET("/facility-weekly-metrics/facility/:facilityID", read, handler.ListFacilityWeeklyMetricsByFacility)
+		surveillance.GET("/facility-weekly-metrics/facility/:facilityID/disease/:diseaseID/trend", read, handler.ListFacilityDiseaseMetricsTrend)
+		surveillance.GET("/facility-weekly-metrics/facility/:facilityID/indicator/:indicatorID/trend", read, handler.ListFacilityIndicatorMetricsTrend)
+		surveillance.GET("/facility-weekly-metrics/week/:epiWeekID/disease/:diseaseID", read, handler.ListFacilityDiseaseMetricsByWeekAndDisease)
+		surveillance.GET("/facility-weekly-metrics/disease-trend", read, handler.ListDiseaseWeeklyTrendAggregated)
 
-		surveillance.GET("/imports", handler.ListImportBatches)
-		surveillance.POST("/imports", handler.CreateImportBatch)
-		surveillance.GET("/imports/:batchID", handler.GetImportBatchByID)
-		surveillance.PATCH("/imports/:batchID/status", handler.UpdateImportBatchStatus)
-		surveillance.GET("/imports/:batchID/raw-rows", handler.ListImportRawRowsByBatch)
+		surveillance.GET("/weekly-statuses/list", read, handler.ListWeeklyStatuses)
+		surveillance.GET("/weekly-statuses/detailed", read, handler.ListWeeklyStatusesDetailed)
+		surveillance.GET("/weekly-statuses/district/week/:epiWeekID", read, handler.ListDistrictWeeklyStatusesByWeek)
+		surveillance.GET("/weekly-statuses/region/week/:epiWeekID", read, handler.ListRegionWeeklyStatusesByWeek)
+		surveillance.GET("/weekly-statuses/national/week/:epiWeekID", read, handler.ListNationalWeeklyStatusesByWeek)
+
+		surveillance.GET("/imports", read, handler.ListImportBatches)
+		surveillance.POST("/imports", importData, importLimit, handler.CreateImportBatch)
+		surveillance.GET("/imports/:batchID", read, handler.GetImportBatchByID)
+		surveillance.PATCH("/imports/:batchID/status", importData, importLimit, handler.UpdateImportBatchStatus)
+		surveillance.GET("/imports/:batchID/raw-rows", read, handler.ListImportRawRowsByBatch)
 	}
 }

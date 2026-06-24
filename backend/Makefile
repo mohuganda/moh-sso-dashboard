@@ -2,9 +2,23 @@
 #                 📦 Project Variables
 # ============================================================
 APP_NAME = moh-sso-dashboard
+CLI_NAME = moh-sso
 BIN_DIR = bin
-MAIN_FILE = ./cmd/server/main.go
+MAIN_PACKAGE = ./cmd/server
+CLI_PACKAGE = ./cmd/cli
 GO_FILES = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+
+VERSION ?= $(shell tag=$$(git describe --tags --match 'backend/v[0-9]*' --abbrev=0 2>/dev/null); if [ -n "$$tag" ]; then printf '%s' "$$tag" | sed 's|^backend/v||'; else printf 'dev'; fi)
+COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || printf 'none')
+BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+DIRTY ?= $(shell if [ -n "$$(git status --porcelain 2>/dev/null)" ]; then printf 'true'; else printf 'false'; fi)
+VERSION_PACKAGE = github.com/moh-sso-dashboard/internal/version
+
+LDFLAGS := -s -w \
+	-X '$(VERSION_PACKAGE).Version=$(VERSION)' \
+	-X '$(VERSION_PACKAGE).Commit=$(COMMIT)' \
+	-X '$(VERSION_PACKAGE).BuildTime=$(BUILD_TIME)' \
+	-X '$(VERSION_PACKAGE).Dirty=$(DIRTY)'
 
 # ============================================================
 #                 🔧 Configuration
@@ -49,17 +63,21 @@ fmt: ## Format Go files
 
 lint: ## Run static analysis
 	@echo "Running linter..."
-	@$(GOLINT) || true
+	@$(GOLINT)
 
 test: ## Run all tests
 	@echo "Running tests..."
 	@$(GOTEST) ./... -v
 
+architecture: ## Run backend architecture boundary checks
+	@echo "Checking backend architecture boundaries..."
+	@$(GOTEST) ./internal/architecture -v
+
 deps: ## Install go dependencies
 	@echo "📦 Installing dependencies..."
 	$(GO) mod download
 
-verify: fmt lint test ## Run code checks before commit
+verify: fmt lint architecture test ## Run code checks before commit
 	@echo "✅ All checks passed!"
 
 # ============================================================
@@ -69,16 +87,40 @@ verify: fmt lint test ## Run code checks before commit
 build: ## Build the Go binary
 	@echo "Building $(APP_NAME)..."
 	@mkdir -p $(BIN_DIR)
-	$(GOBUILD) -o $(BIN_DIR)/$(APP_NAME) $(MAIN_FILE)
+	$(GOBUILD) -trimpath -ldflags="$(LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME) $(MAIN_PACKAGE)
 	@echo "✅ Build complete: $(BIN_DIR)/$(APP_NAME)"
+
+build-release: ## Build a clean semantic backend release binary
+	@printf '%s' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$$' || { echo "VERSION must be semantic"; exit 1; }
+	@if [ "$(DIRTY)" != "false" ]; then echo "release builds require DIRTY=false"; exit 1; fi
+	@if [ -n "$$(git status --porcelain)" ]; then echo "release builds require a clean Git worktree"; exit 1; fi
+	@$(MAKE) build VERSION="$(VERSION)" COMMIT="$(COMMIT)" BUILD_TIME="$(BUILD_TIME)" DIRTY="$(DIRTY)"
+	@./scripts/verify-version.sh "$(BIN_DIR)/$(APP_NAME)" "$(VERSION)" "$(COMMIT)" "$(DIRTY)"
+
+build-cli: ## Build the management CLI with the same build metadata
+	@echo "Building $(CLI_NAME)..."
+	@mkdir -p $(BIN_DIR)
+	$(GOBUILD) -trimpath -ldflags="$(LDFLAGS)" -o $(BIN_DIR)/$(CLI_NAME) $(CLI_PACKAGE)
+	@echo "✅ Build complete: $(BIN_DIR)/$(CLI_NAME)"
 
 run: ## Run the Go application
 	@echo "🚀 Starting $(APP_NAME)..."
-	$(GORUN) $(MAIN_FILE)
+	$(GORUN) $(MAIN_PACKAGE)
 
 clean: ## Remove binaries and temp files
 	@echo "🧹 Cleaning up..."
 	@rm -rf $(BIN_DIR)
+
+
+version:
+	@echo "Version: $(VERSION)"
+	@echo "Commit: $(COMMIT)"
+	@echo "Build Time: $(BUILD_TIME)"
+	@echo "Dirty: $(DIRTY)"
+
+verify-version: ## Build and verify deterministic linker metadata
+	@$(MAKE) build VERSION=1.2.3 COMMIT=abc123 BUILD_TIME=2026-06-19T12:00:00Z DIRTY=false
+	@./scripts/verify-version.sh "$(BIN_DIR)/$(APP_NAME)" "1.2.3" "abc123" "false"
 
 # ============================================================
 #        🐳 Docker Commands
@@ -138,7 +180,7 @@ migratedown1: ## Rollback one migration
 # ============================================================
 # Make everything phony
 # ============================================================
-.PHONY: help tidy fmt lint test build run clean \
+.PHONY: help tidy fmt lint test architecture build build-release build-cli run clean version verify-version \
         postgres createdb backupdb restoredb \
         docker-up docker-down docker-logs docker-restart \
         create_migration migrateup migrateup1 migratedown migratedown1 \

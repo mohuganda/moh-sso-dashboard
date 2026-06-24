@@ -31,14 +31,6 @@ export type IssuePayload = {
   time_period: string;
 };
 
-export type IssueResponse = {
-  data: Issue[];
-};
-
-export type SingleIssueResponse = {
-  data: Issue;
-};
-
 export type IssueTransaction = {
   id?: string | number;
   issue_id?: number;
@@ -54,10 +46,6 @@ export type IssueTransaction = {
   updated_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
-};
-
-export type IssueTransactionsResponse = {
-  data: IssueTransaction[];
 };
 
 export type IssueTransactionPayload = {

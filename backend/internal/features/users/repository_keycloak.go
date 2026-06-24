@@ -207,6 +207,53 @@ func (r *userRepository) ListUsers() ([]models.User, error) {
 	return result, nil
 }
 
+func (r *userRepository) SyncUsersFromKeycloak(ctx context.Context) (int, error) {
+	if r == nil || r.keycloakClient == nil {
+		return 0, fmt.Errorf("user repository is not configured")
+	}
+
+	kcUsers, err := r.keycloakClient.ListUsers()
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch keycloak users: %w", err)
+	}
+
+	synced := 0
+	for _, kcUser := range kcUsers {
+		userID, err := uuid.Parse(strings.TrimSpace(kcUser.ID))
+		if err != nil {
+			r.logger.Warn(
+				"skipping keycloak user with invalid id during startup sync",
+				"userId", kcUser.ID,
+				"username", kcUser.Username,
+				"error", err,
+			)
+			continue
+		}
+
+		user := &models.User{
+			ID:            kcUser.ID,
+			Username:      kcUser.Username,
+			Email:         kcUser.Email,
+			FirstName:     kcUser.FirstName,
+			LastName:      kcUser.LastName,
+			Enabled:       kcUser.Enabled,
+			EmailVerified: kcUser.EmailVerified,
+		}
+		if err := r.upsertLocalUser(ctx, userID, user); err != nil {
+			r.logger.Warn(
+				"failed to sync keycloak user into local db",
+				"userId", kcUser.ID,
+				"username", kcUser.Username,
+				"error", err,
+			)
+			continue
+		}
+		synced++
+	}
+
+	return synced, nil
+}
+
 func (r *userRepository) UpdateUser(user *models.User) error {
 	ctx := context.Background()
 
@@ -228,12 +275,13 @@ func (r *userRepository) UpdateUser(user *models.User) error {
 	}
 
 	if err := r.keycloakClient.UpdateUser(&models.User{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Enabled:   user.Enabled,
+		ID:            user.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		FirstName:     user.FirstName,
+		LastName:      user.LastName,
+		Enabled:       user.Enabled,
+		EmailVerified: user.EmailVerified,
 	}); err != nil {
 		return fmt.Errorf("keycloak update failed: %w", err)
 	}
@@ -459,6 +507,74 @@ func (r *userRepository) GetUsersByRealmRole(
 	}
 
 	return result, nil
+}
+
+func (r *userRepository) AddUserRealmRoles(
+	ctx context.Context,
+	userID string,
+	roles []string,
+) error {
+	userID = strings.TrimSpace(userID)
+	roles = normalizeRepositoryRoleNames(roles)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if len(roles) == 0 {
+		return nil
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	for _, roleName := range roles {
+		role, err := r.keycloakClient.GetRealmRoleByName(ctx, roleName)
+		if err != nil {
+			return fmt.Errorf("resolve realm role %q: %w", roleName, err)
+		}
+
+		if err := r.keycloakClient.AddRealmRoleToUser(ctx, userID, *role); err != nil {
+			return fmt.Errorf("add realm role %q: %w", roleName, err)
+		}
+	}
+
+	return nil
+}
+
+func (r *userRepository) RemoveUserRealmRoles(
+	ctx context.Context,
+	userID string,
+	roles []string,
+) error {
+	userID = strings.TrimSpace(userID)
+	roles = normalizeRepositoryRoleNames(roles)
+
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	if len(roles) == 0 {
+		return nil
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return fmt.Errorf("user repository is not configured")
+	}
+
+	for _, roleName := range roles {
+		role, err := r.keycloakClient.GetRealmRoleByName(ctx, roleName)
+		if err != nil {
+			return fmt.Errorf("resolve realm role %q: %w", roleName, err)
+		}
+
+		if err := r.keycloakClient.RemoveRealmRoleFromUser(ctx, userID, *role); err != nil {
+			return fmt.Errorf("remove realm role %q: %w", roleName, err)
+		}
+	}
+
+	return nil
 }
 
 // ----------------------------------------------------

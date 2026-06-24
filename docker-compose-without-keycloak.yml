@@ -12,6 +12,19 @@ services:
       - sso_network
 
   # --------------------------------------------------
+  # MailHog - Local SMTP Testing
+  # --------------------------------------------------
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    networks:
+      - sso_network
+
+  # --------------------------------------------------
   # Backend Database
   # --------------------------------------------------
   backend-db:
@@ -23,11 +36,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     volumes:
       - backend_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+    ports:
+      - "5432:5432"
     networks:
       - sso_network
 
@@ -48,25 +58,42 @@ services:
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-dashboard-admin-secret}
       KEYCLOAK_WEB_CLIENT_ID: ${KEYCLOAK_WEB_CLIENT_ID:-dashboard-web}
       KEYCLOAK_WEB_CLIENT_SECRET: ${KEYCLOAK_WEB_CLIENT_SECRET:-dashboard-web-secret}
+      KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_EXTERNAL_URL:-https://auth.health.go.ug}
+
       DB_HOST: ${DB_HOST:-backend-db}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_NAME: ${DB_NAME:-sso_dashboard}
+
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_EXTERNAL_URL:-https://auth.health.go.ug}
+
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
       LOGIN_URL: ${LOGIN_URL:-http://localhost:9000/api/v1/auth/login}
-    depends_on:
-      backend-db:
-        condition: service_healthy
-      redis:
-        condition: service_started
+
+      # --------------------------------------------------
+      # Email SMTP - MailHog
+      # --------------------------------------------------
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@moh.go.ug}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-MOH Integrated Health Portal}
+      SMTP_CONNECT_TIMEOUT: ${SMTP_CONNECT_TIMEOUT:-10s}
+      SMTP_SEND_TIMEOUT: ${SMTP_SEND_TIMEOUT:-15s}
+
+      RETRY_MAX_ATTEMPTS: ${RETRY_MAX_ATTEMPTS:-3}
+      RETRY_BASE_DELAY: ${RETRY_BASE_DELAY:-2s}
     ports:
       - "9000:9000"
     volumes:
       - ./backend:/app
     command: sh -c "go run ./cmd/server"
+    depends_on:
+      - backend-db
+      - redis
+      - mailhog
     networks:
       - sso_network
 
@@ -84,14 +111,44 @@ services:
       VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-MoH}
       VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_WEB_CLIENT_ID:-dashboard-web}
       VITE_KEYCLOAK_REDIRECT_URI: ${VITE_KEYCLOAK_REDIRECT_URI:-http://localhost:9000/api/v1/auth/callback}
+      VITE_SINGLE_SPA_ORCHESTRATION: ${VITE_SINGLE_SPA_ORCHESTRATION:-false}
+      VITE_MICROFRONTEND_MODE: ${VITE_MICROFRONTEND_MODE:-local}
+      FRONTEND_DEV_COMMAND: ${FRONTEND_DEV_COMMAND:-npm run dev:shell}
     ports:
       - "3000:3000"
-    depends_on:
-      backend:
-        condition: service_started
+      - "4101:4101"
+      - "4102:4102"
+      - "4103:4103"
+      - "4104:4104"
+      - "4105:4105"
+      - "4106:4106"
+      - "4107:4107"
+      - "4108:4108"
+      - "4109:4109"
+      - "4110:4110"
+      - "4111:4111"
+      - "4112:4112"
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    networks:
+      - sso_network
+
+  # -------------------------------------------------
+  # Remote DB
+  # --------------------------------------------------
+  remote-postgres:
+    image: postgres:16
+    container_name: remote-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jaba
+      POSTGRES_PASSWORD: 12345678=j
+      POSTGRES_DB: file_upload
+    ports:
+      - "5433:5432"
+    volumes:
+      - remote_pg_data:/var/lib/postgresql/data
     networks:
       - sso_network
 
@@ -99,7 +156,9 @@ services:
 # Volumes
 # --------------------------------------------------
 volumes:
+  keycloak_data:
   backend_data:
+  remote_pg_data:
 
 # --------------------------------------------------
 # Network

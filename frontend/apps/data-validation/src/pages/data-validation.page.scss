@@ -1,0 +1,51 @@
+.data-validation-page {
+  min-height: calc(100vh - 8rem);
+}
+
+.data-validation-filters {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.data-validation-filters .cds--search {
+  min-width: min(100%, 24rem);
+  flex: 1 1 24rem;
+}
+
+.data-validation-filters .cds--search-input {
+  width: 100%;
+}
+
+.data-validation-page__table {
+  width: 100%;
+}
+
+.data-validation-page__table td,
+.data-validation-page__table th {
+  vertical-align: top;
+}
+
+.data-validation-panel {
+  padding-block-end: 1rem;
+}
+
+.data-validation-panel .cds--form__helper-text,
+.data-validation-panel__hint {
+  margin: 0;
+  color: var(--cds-text-secondary, #525252);
+  line-height: 1.45;
+}
+
+.data-validation-panel .cds--stack-horizontal {
+  align-items: flex-start;
+}
+
+@media (max-width: 672px) {
+  .data-validation-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

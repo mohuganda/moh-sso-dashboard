@@ -1,17 +1,53 @@
 import { Navigate, Route } from "react-router-dom";
+import type { ReactElement } from "react";
 
 import { AdminRoute } from "./guards/AdminRoute";
+import { PermissionRoute } from "./guards/PermissionRoute";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import AdminLayout from "../layouts/admin/admin-layout.component";
 import HomePage from "@/app/home/pages/home.component";
+import SystemsPage from "@/app/systems/pages/systems.component";
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
+import { PERMISSIONS, type Permission, type System } from "@moh-sso/auth";
+import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
+import {
+  announcementsRoute,
+  auditRoute,
+  clientsRoute,
+  emailRoute,
+  rbacRoute,
+  usersRoute,
+} from "@/app/microfrontends/registry";
+
 import {
   announcementsLifecycles,
   auditLifecycles,
   clientsLifecycles,
   emailLifecycles,
+  rbacLifecycles,
   usersLifecycles,
 } from "@/app/microfrontends/lifecycles";
+
+const routePermissions = (route: MicrofrontendRoute) =>
+  route.requiredPermissions as Permission[] | undefined;
+
+const routeAnyPermissions = (route: MicrofrontendRoute) =>
+  route.requiredAnyPermissions as Permission[] | undefined;
+
+const routeSystems = (route: MicrofrontendRoute) => route.requiredSystems as System[] | undefined;
+
+const adminPage = (route: MicrofrontendRoute, element: ReactElement) => (
+  <AdminRoute>
+    <PermissionRoute
+      allOf={routePermissions(route)}
+      anyOf={routeAnyPermissions(route)}
+      systems={routeSystems(route)}
+      systemRoles={route.requiredSystemRoles}
+    >
+      {element}
+    </PermissionRoute>
+  </AdminRoute>
+);
 
 export const adminRoutes = (
   <Route
@@ -27,69 +63,83 @@ export const adminRoutes = (
       path="home"
       element={
         <AdminRoute>
-          <HomePage />
+          <PermissionRoute permission={PERMISSIONS.portalAccess}>
+            <HomePage />
+          </PermissionRoute>
+        </AdminRoute>
+      }
+    />
+    <Route
+      path="systems"
+      element={
+        <AdminRoute>
+          <PermissionRoute anyOf={[PERMISSIONS.systemsRead, PERMISSIONS.rbacRead]}>
+            <SystemsPage />
+          </PermissionRoute>
         </AdminRoute>
       }
     />
     <Route
       path="users"
-      element={
-        <AdminRoute>
-          <SingleSpaApp
-            appName="@moh-sso/users"
-            lifecycles={usersLifecycles}
-            basename="/admin/users"
-          />
-        </AdminRoute>
-      }
+      element={adminPage(
+        usersRoute,
+        <SingleSpaApp
+          appName="@moh-sso/users"
+          lifecycles={usersLifecycles}
+          basename="/admin/users"
+        />,
+      )}
     />
     <Route
       path="clients"
-      element={
-        <AdminRoute>
-          <SingleSpaApp
-            appName="@moh-sso/clients"
-            lifecycles={clientsLifecycles}
-            basename="/admin/clients"
-          />
-        </AdminRoute>
-      }
+      element={adminPage(
+        clientsRoute,
+        <SingleSpaApp
+          appName="@moh-sso/clients"
+          lifecycles={clientsLifecycles}
+          basename="/admin/clients"
+        />,
+      )}
     />
     <Route
       path="audit-logs"
-      element={
-        <AdminRoute>
-          <SingleSpaApp
-            appName="@moh-sso/audit"
-            lifecycles={auditLifecycles}
-            basename="/admin/audit-logs"
-          />
-        </AdminRoute>
-      }
+      element={adminPage(
+        auditRoute,
+        <SingleSpaApp
+          appName="@moh-sso/audit"
+          lifecycles={auditLifecycles}
+          basename="/admin/audit-logs"
+        />,
+      )}
     />
     <Route
       path="announcements"
-      element={
-        <AdminRoute>
-          <SingleSpaApp
-            appName="@moh-sso/announcements"
-            lifecycles={announcementsLifecycles}
-            basename="/admin/announcements"
-          />
-        </AdminRoute>
-      }
+      element={adminPage(
+        announcementsRoute,
+        <SingleSpaApp
+          appName="@moh-sso/announcements"
+          lifecycles={announcementsLifecycles}
+          basename="/admin/announcements"
+        />,
+      )}
     />
     <Route
       path="emails"
-      element={
-        <AdminRoute>
-          <SingleSpaApp
-            appName="@moh-sso/email"
-            lifecycles={emailLifecycles}
-            basename="/admin/emails"
-          />
-        </AdminRoute>
-      }
+      element={adminPage(
+        emailRoute,
+        <SingleSpaApp
+          appName="@moh-sso/email"
+          lifecycles={emailLifecycles}
+          basename="/admin/emails"
+        />,
+      )}
+    />
+    <Route
+      path="rbac"
+      element={adminPage(
+        rbacRoute,
+        <SingleSpaApp appName="@moh-sso/rbac" lifecycles={rbacLifecycles} basename="/admin/rbac" />,
+      )}
     />
   </Route>
 );

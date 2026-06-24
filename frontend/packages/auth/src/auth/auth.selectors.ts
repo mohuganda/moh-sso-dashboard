@@ -14,6 +14,21 @@ export const selectIsAdmin = createSelector(selectUser, (user) => user?.isAdmin 
 
 export const selectIsUser = createSelector(selectUser, (user) => user?.isUser === true);
 
+export const selectPermissions = createSelector(selectUser, (user) => user?.permissions ?? []);
+
+export const selectSystems = createSelector(selectUser, (user) => user?.systems ?? []);
+
+export const selectHasPermission = (permission: string) =>
+  createSelector(selectPermissions, (permissions) => permissions.includes(permission as never));
+
+export const selectHasAnyPermission = (requiredPermissions: string[]) =>
+  createSelector(selectPermissions, (permissions) =>
+    requiredPermissions.some((permission) => permissions.includes(permission as never)),
+  );
+
+export const selectHasSystem = (system: string) =>
+  createSelector(selectSystems, (systems) => systems.includes(system as never));
+
 export const selectAuthLoading = createSelector(selectAuth, (auth) => auth.loading);
 
 export const selectAuthLoaded = createSelector(selectAuth, (auth) => auth.loaded);

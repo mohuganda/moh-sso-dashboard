@@ -23,6 +23,10 @@ type UserRepository interface {
 
 	ListUsers() ([]models.User, error)
 
+	SyncUsersFromKeycloak(
+		ctx context.Context,
+	) (int, error)
+
 	UpdateUser(
 		user *models.User,
 	) error
@@ -77,6 +81,18 @@ type UserRepository interface {
 		ctx context.Context,
 		roleName string,
 	) ([]models.User, error)
+
+	AddUserRealmRoles(
+		ctx context.Context,
+		userID string,
+		roles []string,
+	) error
+
+	RemoveUserRealmRoles(
+		ctx context.Context,
+		userID string,
+		roles []string,
+	) error
 
 	// ----------------------------------------------------
 	// CLIENT ROLES

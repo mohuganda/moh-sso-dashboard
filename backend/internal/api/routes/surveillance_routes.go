@@ -7,5 +7,5 @@ import (
 )
 
 func registerSurveillanceRoutes(protected *gin.RouterGroup, deps Dependencies) {
-	surveillancefeature.RegisterProtectedRoutes(protected, deps.Surveillance)
+	surveillancefeature.RegisterProtectedRoutes(protected, deps.Surveillance, deps.Limiter)
 }

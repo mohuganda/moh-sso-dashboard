@@ -13,6 +13,7 @@ import (
 	geojsonfeature "github.com/moh-sso-dashboard/internal/features/geojson"
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
+	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -43,10 +44,9 @@ type Dependencies struct {
 	Surveillance            *surveillancefeature.Handler
 	GeoJSON                 *geojsonfeature.Handler
 	Email                   *emailfeature.Handler
+	RBAC                    *rbacfeature.Handler
 
 	AuthenticatedRateLimitPerMin  int
-	AdminRateLimitPerMin          int
-	AuditLogRateLimitPerMin       int
 	AuthLoginRateLimitPerMin      int
 	AuthCallbackRateLimitPerMin   int
 	AuthSessionRateLimitPerMinute int

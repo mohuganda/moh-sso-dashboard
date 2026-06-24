@@ -1,5 +1,6 @@
 import { Launch } from "@carbon/react/icons";
 import { Tile, Stack, Tag, Button } from "@carbon/react";
+import { useNavigate } from "react-router-dom";
 import "./application-tile.css";
 
 export type ApplicationTileProps = {
@@ -10,6 +11,7 @@ export type ApplicationTileProps = {
 
   /** Application root URL */
   rootUrl?: string;
+  launchMode?: "internal" | "new_tab" | "same_tab";
 
   /** Optional override click handler */
   onLaunch?: () => void;
@@ -21,8 +23,10 @@ export function ApplicationTile({
   description,
   enabled,
   rootUrl,
+  launchMode = "internal",
   onLaunch,
 }: ApplicationTileProps) {
+  const navigate = useNavigate();
   const handleLaunch = () => {
     if (!enabled) return;
 
@@ -32,7 +36,13 @@ export function ApplicationTile({
     }
 
     if (rootUrl) {
-      window.location.href = rootUrl;
+      if (launchMode === "new_tab") {
+        window.open(rootUrl, "_blank", "noopener,noreferrer");
+      } else if (launchMode === "same_tab") {
+        window.location.assign(rootUrl);
+      } else {
+        navigate(rootUrl);
+      }
     }
   };
 

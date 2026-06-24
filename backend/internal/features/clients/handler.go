@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
@@ -63,7 +64,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 	if err != nil {
 		h.audit(c, "client.create_failed", map[string]any{
 			"client_id": req.ClientID,
-			"reason":    err.Error(),
+			"reason":    "request failed",
 		})
 
 		var apiErr *apierror.APIError
@@ -84,8 +85,9 @@ func (h *Handler) CreateClient(c *gin.Context) {
 	h.audit(c, "client.create_success", map[string]any{
 		"client_id": client.ClientID,
 	})
+	h.invalidateClientsCache(c.Request.Context())
 
-	response.OK(c, http.StatusCreated, client)
+	response.OK(c, http.StatusCreated, toClientResponse(client))
 }
 
 /* =========================================================
@@ -111,7 +113,15 @@ func (h *Handler) GetClient(c *gin.Context) {
 		return
 	}
 
-	uid, _ := uuid.Parse(id)
+	uid, err := parseClientUUIDParam(c)
+	if err != nil {
+		h.audit(c, "client.get_failed", map[string]any{
+			"client_id": id,
+			"reason":    "invalid_uuid",
+		})
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
+		return
+	}
 
 	client, err := h.service.GetClient(uid)
 	if err != nil {
@@ -136,7 +146,67 @@ func (h *Handler) GetClient(c *gin.Context) {
 		"client_id": id,
 	})
 
-	response.OK(c, http.StatusOK, client)
+	response.OK(c, http.StatusOK, toClientResponse(client))
+}
+
+/* =========================================================
+ * Update Client
+ * ========================================================= */
+func (h *Handler) UpdateClient(c *gin.Context) {
+	clientID := c.Param("id")
+	if clientID == "" {
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "Client ID is required")
+		return
+	}
+
+	var req UpdateClientRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.audit(c, "client.update_failed", map[string]any{
+			"client_id": clientID,
+			"reason":    "invalid_body",
+		})
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "Invalid request payload")
+		return
+	}
+
+	adminID, _ := uuid.Parse(c.GetString("user_id"))
+
+	var (
+		client *model.Client
+		err    error
+	)
+
+	if parsedID, parseErr := uuid.Parse(clientID); parseErr == nil && parsedID != uuid.Nil {
+		client, err = h.service.UpdateClient(
+			c.Request.Context(),
+			parsedID,
+			req,
+			adminID,
+		)
+	} else {
+		client, err = h.service.UpdateClientByClientID(
+			c.Request.Context(),
+			clientID,
+			req,
+			adminID,
+		)
+	}
+
+	if err != nil {
+		h.audit(c, "client.update_failed", map[string]any{
+			"client_id": clientID,
+			"reason":    "request failed",
+		})
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update client")
+		return
+	}
+
+	h.audit(c, "client.update_success", map[string]any{
+		"client_id": clientID,
+	})
+	h.invalidateClientsCache(c.Request.Context())
+
+	response.OK(c, http.StatusOK, toClientResponse(client))
 }
 
 /* =========================================================
@@ -186,14 +256,14 @@ func (h *Handler) ListClients(c *gin.Context) {
 	filtered := filterAccessibleClients(clients, clientRoles, isAdmin)
 
 	h.audit(c, "client.list", nil)
-	response.OK(c, http.StatusOK, filtered)
+	response.OK(c, http.StatusOK, toClientResponses(filtered))
 }
 
 /* =========================================================
  * Delete Client
  * ========================================================= */
 func (h *Handler) DeleteClient(c *gin.Context) {
-	clientID, err := uuid.Parse(c.Param("id"))
+	clientID, err := parseClientUUIDParam(c)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
 		return
@@ -218,6 +288,7 @@ func (h *Handler) DeleteClient(c *gin.Context) {
 	h.audit(c, "client.delete_success", map[string]any{
 		"client_id": clientID.String(),
 	})
+	h.invalidateClientsCache(c.Request.Context())
 
 	c.Status(http.StatusNoContent)
 }
@@ -226,7 +297,7 @@ func (h *Handler) DeleteClient(c *gin.Context) {
  * Toggle Client Enabled
  * ========================================================= */
 func (h *Handler) ToggleClientEnabled(c *gin.Context) {
-	clientID, err := uuid.Parse(c.Param("id"))
+	clientID, err := parseClientUUIDParam(c)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
 		return
@@ -264,6 +335,7 @@ func (h *Handler) ToggleClientEnabled(c *gin.Context) {
 		"client_id": clientID.String(),
 		"enabled":   body.Enabled,
 	})
+	h.invalidateClientsCache(c.Request.Context())
 
 	c.Status(http.StatusNoContent)
 }
@@ -272,9 +344,9 @@ func (h *Handler) ToggleClientEnabled(c *gin.Context) {
  * Client Roles
  * ========================================================= */
 
-// POST /clients/:id/roles
+// POST /admin/clients/:id/roles
 func (h *Handler) CreateClientRole(c *gin.Context) {
-	clientID, err := uuid.Parse(c.Param("id"))
+	clientID, err := parseClientUUIDParam(c)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
 		return
@@ -312,13 +384,14 @@ func (h *Handler) CreateClientRole(c *gin.Context) {
 		"client_id": clientID.String(),
 		"role":      body.Role,
 	})
+	h.invalidateClientsCache(c.Request.Context())
 
 	c.Status(http.StatusCreated)
 }
 
 // GET /clients/:id/roles
 func (h *Handler) ListClientRoles(c *gin.Context) {
-	clientID, err := uuid.Parse(c.Param("id"))
+	clientID, err := parseClientUUIDParam(c)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
 		return
@@ -342,12 +415,12 @@ func (h *Handler) ListClientRoles(c *gin.Context) {
 		"client_id": clientID.String(),
 	})
 
-	response.OK(c, http.StatusOK, roles)
+	response.OK(c, http.StatusOK, toClientRoleResponses(roles))
 }
 
-// DELETE /clients/:id/roles/:role
+// DELETE /admin/clients/:id/roles/:role
 func (h *Handler) DeleteClientRole(c *gin.Context) {
-	clientID, err := uuid.Parse(c.Param("id"))
+	clientID, err := parseClientUUIDParam(c)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "Invalid client ID")
 		return
@@ -385,6 +458,7 @@ func (h *Handler) DeleteClientRole(c *gin.Context) {
 		"client_id": clientID.String(),
 		"role":      role,
 	})
+	h.invalidateClientsCache(c.Request.Context())
 
 	c.Status(http.StatusNoContent)
 }
@@ -397,6 +471,10 @@ func (h *Handler) audit(
 	action string,
 	meta map[string]any,
 ) {
+	if h == nil || h.auditService == nil {
+		return
+	}
+
 	if meta == nil {
 		meta = map[string]any{}
 	}
@@ -414,4 +492,25 @@ func (h *Handler) audit(
 
 func listClientsCacheKey() string {
 	return "clients:all"
+}
+
+func parseClientUUIDParam(c *gin.Context) (uuid.UUID, error) {
+	id := c.Param("id")
+	if id == "" {
+		return uuid.Nil, errors.New("client id is required")
+	}
+
+	parsed, err := uuid.Parse(id)
+	if err != nil || parsed == uuid.Nil {
+		return uuid.Nil, errors.New("invalid client id")
+	}
+
+	return parsed, nil
+}
+
+func (h *Handler) invalidateClientsCache(ctx context.Context) {
+	if h == nil || h.cache == nil {
+		return
+	}
+	_ = h.cache.Del(ctx, listClientsCacheKey())
 }

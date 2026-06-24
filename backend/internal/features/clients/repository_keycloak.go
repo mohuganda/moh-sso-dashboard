@@ -208,20 +208,45 @@ func (r *sqlcClientRepository) UpdateClient(client *models.Client) error {
 		return err
 	}
 
-	attrsJSON, _ := json.Marshal(client.Attributes)
+	id, err := uuid.Parse(client.ID)
+	if err != nil {
+		return fmt.Errorf("invalid client UUID after keycloak update: %w", err)
+	}
+
+	var icon sql.NullString
+	if client.Attributes["ui.icon"] != "" {
+		icon = sql.NullString{String: client.Attributes["ui.icon"], Valid: true}
+	}
+
+	attrsJSON, err := json.Marshal(client.Attributes)
+	if err != nil {
+		return fmt.Errorf("marshal client attributes failed: %w", err)
+	}
 
 	if err := r.db.UpsertClient(ctx, db.UpsertClientParams{
+		ID:       id,
 		ClientID: client.ClientID,
 		Name:     client.Name,
 		Description: sql.NullString{
 			String: client.Description,
 			Valid:  client.Description != "",
 		},
+		Icon: icon,
 		BaseUrl: sql.NullString{
 			String: client.BaseURL,
 			Valid:  client.BaseURL != "",
 		},
+		RootUrl: sql.NullString{
+			String: client.RootURL,
+			Valid:  client.RootURL != "",
+		},
+		AdminUrl: sql.NullString{
+			String: client.AdminURL,
+			Valid:  client.AdminURL != "",
+		},
 		PublicClient: client.PublicClient,
+		RedirectUris: client.RedirectUris,
+		WebOrigins:   client.WebOrigins,
 		Enabled:      client.Enabled,
 		Attributes:   attrsJSON,
 	}); err != nil {
@@ -254,9 +279,18 @@ func (r *sqlcClientRepository) DeleteClient(id uuid.UUID) error {
 }
 
 func (r *sqlcClientRepository) CreateClientRole(ctx context.Context, clientID uuid.UUID, payload *models.CreateClientRoleRequest) error {
+	dbClient, err := r.db.GetClientByID(ctx, clientID)
+	clientIdentifier := clientID.String()
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if err == nil && dbClient.ClientID != "" {
+		clientIdentifier = dbClient.ClientID
+	}
+
 	return r.keycloakClient.CreateClientRole(
-		context.Background(),
-		clientID.String(),
+		ctx,
+		clientIdentifier,
 		payload,
 	)
 }
@@ -265,10 +299,18 @@ func (r *sqlcClientRepository) ListClientRoles(
 	ctx context.Context,
 	clientID uuid.UUID,
 ) ([]keycloak.ClientRoleRep, error) {
+	dbClient, err := r.db.GetClientByID(ctx, clientID)
+	clientIdentifier := clientID.String()
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err == nil && dbClient.ClientID != "" {
+		clientIdentifier = dbClient.ClientID
+	}
 
 	roles, err := r.keycloakClient.ListClientRoles(
-		context.Background(),
-		clientID.String(),
+		ctx,
+		clientIdentifier,
 	)
 	if err != nil {
 		return nil, err
@@ -278,9 +320,18 @@ func (r *sqlcClientRepository) ListClientRoles(
 }
 
 func (r *sqlcClientRepository) DeleteClientRole(ctx context.Context, clientID uuid.UUID, role string) error {
+	dbClient, err := r.db.GetClientByID(ctx, clientID)
+	clientIdentifier := clientID.String()
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if err == nil && dbClient.ClientID != "" {
+		clientIdentifier = dbClient.ClientID
+	}
+
 	return r.keycloakClient.DeleteClientRole(
-		context.Background(),
-		clientID.String(),
+		ctx,
+		clientIdentifier,
 		role,
 	)
 }

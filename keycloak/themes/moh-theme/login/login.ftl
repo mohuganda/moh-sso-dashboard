@@ -42,8 +42,14 @@
                         class="moh-input"
                         autocomplete="current-password"
                     />
-                    <button type="button" class="moh-password-toggle" data-password-toggle aria-label="Toggle password visibility">
-                        Show
+                    <button
+                        type="button"
+                        class="moh-password-toggle"
+                        data-password-toggle
+                        data-password-target="password"
+                        aria-label="${msg("showPassword")}"
+                    >
+                        ${msg("showPassword")}
                     </button>
                 </div>
             </div>

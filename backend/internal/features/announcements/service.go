@@ -5,16 +5,20 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	emailutil "github.com/moh-sso-dashboard/internal/email"
 	userRepository "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	models "github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
+	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
 
@@ -22,13 +26,29 @@ type Service struct {
 	repo          Repository
 	userRepo      userRepository.UserRepository
 	notifications sharedservice.NotificationsService
+	storage       storage.Storage
 	cfg           *config.Config
+}
+
+type AnnouncementEmailOptions struct {
+	Attachments               []models.Attachment
+	AttachmentLinks           []AnnouncementEmailAttachmentLink
+	IncludeAttachmentsInEmail bool
+	ScheduledAt               *time.Time
+}
+
+type AnnouncementEmailAttachmentLink struct {
+	FileName    string
+	ContentType string
+	FileSize    int64
+	URL         string
 }
 
 func NewService(
 	repo Repository,
 	userRepo userRepository.UserRepository,
 	notifications sharedservice.NotificationsService,
+	fileStorage storage.Storage,
 	cfg ...*config.Config,
 ) *Service {
 	var appConfig *config.Config
@@ -40,6 +60,7 @@ func NewService(
 		repo:          repo,
 		userRepo:      userRepo,
 		notifications: notifications,
+		storage:       fileStorage,
 		cfg:           appConfig,
 	}
 }
@@ -82,6 +103,29 @@ func (s *Service) CreateAnnouncement(
 	})
 
 	return item, nil
+}
+
+func (s *Service) CreateAnnouncementFromInput(
+	ctx context.Context,
+	input CreateAnnouncementInput,
+) (db.Announcement, error) {
+	return s.CreateAnnouncement(ctx, db.CreateAnnouncementParams{
+		Title:         strings.TrimSpace(input.Title),
+		Message:       strings.TrimSpace(input.Message),
+		Summary:       input.Summary,
+		Level:         dbAnnouncementLevel(input.Level),
+		Tag:           input.Tag,
+		LinkUrl:       input.LinkURL,
+		LinkLabel:     input.LinkLabel,
+		Priority:      input.Priority,
+		IsPinned:      input.IsPinned,
+		Status:        dbAnnouncementStatus(input.Status),
+		PublishAt:     input.PublishAt,
+		ExpiresAt:     input.ExpiresAt,
+		AudienceType:  dbAnnouncementAudienceType(input.AudienceType),
+		NotifyByEmail: input.NotifyByEmail,
+		CreatedBy:     input.CreatedBy,
+	})
 }
 
 func (s *Service) GetAnnouncementByID(
@@ -142,6 +186,32 @@ func (s *Service) UpdateAnnouncement(
 	})
 
 	return item, nil
+}
+
+func (s *Service) UpdateAnnouncementFromInput(
+	ctx context.Context,
+	input UpdateAnnouncementInput,
+) (db.Announcement, error) {
+	return s.UpdateAnnouncement(ctx, db.UpdateAnnouncementParams{
+		ID:            input.ID,
+		Title:         strings.TrimSpace(input.Title),
+		Message:       strings.TrimSpace(input.Message),
+		Summary:       input.Summary,
+		Level:         dbAnnouncementLevel(input.Level),
+		Tag:           input.Tag,
+		LinkUrl:       input.LinkURL,
+		LinkLabel:     input.LinkLabel,
+		Priority:      input.Priority,
+		IsPinned:      input.IsPinned,
+		PublishAt:     input.PublishAt,
+		ExpiresAt:     input.ExpiresAt,
+		AudienceType:  dbAnnouncementAudienceType(input.AudienceType),
+		NotifyByEmail: input.NotifyByEmail,
+		UpdatedBy: uuid.NullUUID{
+			UUID:  input.UpdatedBy,
+			Valid: input.UpdatedBy != uuid.Nil,
+		},
+	})
 }
 
 func (s *Service) DeleteAnnouncement(
@@ -272,6 +342,17 @@ func (s *Service) ListAnnouncementsAdmin(
 	}
 
 	return items, nil
+}
+
+func (s *Service) ListAnnouncementsAdminPage(
+	ctx context.Context,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListAnnouncementsAdmin(ctx, db.ListAnnouncementsAdminParams{
+		Limit:  limit,
+		Offset: offset,
+	})
 }
 
 func (s *Service) CountAnnouncementsAdmin(
@@ -416,6 +497,17 @@ func (s *Service) ListActivePublishedAnnouncements(
 	return items, nil
 }
 
+func (s *Service) ListActivePublishedAnnouncementsPage(
+	ctx context.Context,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListActivePublishedAnnouncements(ctx, db.ListActivePublishedAnnouncementsParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+}
+
 func (s *Service) CountActivePublishedAnnouncements(
 	ctx context.Context,
 ) (int64, error) {
@@ -455,6 +547,19 @@ func (s *Service) ListAnnouncementsForClient(
 	return items, nil
 }
 
+func (s *Service) ListAnnouncementsForClientPage(
+	ctx context.Context,
+	clientID uuid.UUID,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListAnnouncementsForClient(ctx, db.ListAnnouncementsForClientParams{
+		ClientID: clientID,
+		Limit:    limit,
+		Offset:   offset,
+	})
+}
+
 func (s *Service) ListAnnouncementsForRole(
 	ctx context.Context,
 	params db.ListAnnouncementsForRoleParams,
@@ -475,6 +580,19 @@ func (s *Service) ListAnnouncementsForRole(
 	return items, nil
 }
 
+func (s *Service) ListAnnouncementsForRolePage(
+	ctx context.Context,
+	roleName string,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListAnnouncementsForRole(ctx, db.ListAnnouncementsForRoleParams{
+		RoleName:   strings.TrimSpace(roleName),
+		PageLimit:  limit,
+		PageOffset: offset,
+	})
+}
+
 func (s *Service) ListAnnouncementsForUser(
 	ctx context.Context,
 	params db.ListAnnouncementsForUserParams,
@@ -493,6 +611,19 @@ func (s *Service) ListAnnouncementsForUser(
 	}
 
 	return items, nil
+}
+
+func (s *Service) ListAnnouncementsForUserPage(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListAnnouncementsForUser(ctx, db.ListAnnouncementsForUserParams{
+		UserID: userID,
+		Limit:  limit,
+		Offset: offset,
+	})
 }
 
 func (s *Service) ListMyAnnouncements(
@@ -628,6 +759,7 @@ func (s *Service) PublishAnnouncementNow(
 	ctx context.Context,
 	id uuid.UUID,
 	publishedBy uuid.UUID,
+	options ...AnnouncementEmailOptions,
 ) (db.Announcement, error) {
 	if s == nil {
 		return db.Announcement{}, errors.New("announcement service is nil")
@@ -671,7 +803,15 @@ func (s *Service) PublishAnnouncementNow(
 		}
 
 		if len(recipients) > 0 {
-			s.attachAnnouncementEmailDelivery(&notification, item, recipients)
+			emailOptions, err := s.normalizeAnnouncementEmailOptions(options...)
+			if err != nil {
+				return item, err
+			}
+			emailOptions, err = s.withPersistedAnnouncementEmailAttachments(ctx, item.ID, emailOptions)
+			if err != nil {
+				return item, err
+			}
+			s.attachAnnouncementEmailDelivery(&notification, item, recipients, emailOptions)
 
 			markedItem, err := s.repo.MarkEmailNotificationSent(ctx, item.ID)
 			if err != nil {
@@ -721,9 +861,24 @@ func (s *Service) MoveAnnouncementToDraft(
 	return item, nil
 }
 
+func (s *Service) MoveAnnouncementToDraftByUser(
+	ctx context.Context,
+	id uuid.UUID,
+	updatedBy uuid.UUID,
+) (db.Announcement, error) {
+	return s.MoveAnnouncementToDraft(ctx, db.DraftAnnouncementParams{
+		ID: id,
+		UpdatedBy: uuid.NullUUID{
+			UUID:  updatedBy,
+			Valid: updatedBy != uuid.Nil,
+		},
+	})
+}
+
 func (s *Service) ScheduleAnnouncement(
 	ctx context.Context,
 	params db.ScheduleAnnouncementParams,
+	options ...AnnouncementEmailOptions,
 ) (db.Announcement, error) {
 	if s == nil {
 		return db.Announcement{}, errors.New("announcement service is nil")
@@ -739,7 +894,7 @@ func (s *Service) ScheduleAnnouncement(
 	}
 
 	nt := models.AnnouncementScheduled
-	s.notify(ctx, models.Notification{
+	notification := models.Notification{
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
@@ -750,9 +905,65 @@ func (s *Service) ScheduleAnnouncement(
 			"title":           item.Title,
 			"status":          announcementStatusString(item.Status),
 		}),
-	})
+	}
+
+	if s.shouldSendAnnouncementEmail(item) {
+		recipients, err := s.resolveAnnouncementEmailRecipients(ctx, item)
+		if err != nil {
+			return item, fmt.Errorf("resolve announcement email recipients: %w", err)
+		}
+
+		if len(recipients) > 0 {
+			emailOptions, err := s.normalizeAnnouncementEmailOptions(options...)
+			if err != nil {
+				return item, err
+			}
+			emailOptions, err = s.withPersistedAnnouncementEmailAttachments(ctx, item.ID, emailOptions)
+			if err != nil {
+				return item, err
+			}
+			if emailOptions.ScheduledAt == nil && item.PublishAt.Valid {
+				publishAt := item.PublishAt.Time
+				emailOptions.ScheduledAt = &publishAt
+			}
+			s.attachAnnouncementEmailDelivery(&notification, item, recipients, emailOptions)
+
+			markedItem, err := s.repo.MarkEmailNotificationSent(ctx, item.ID)
+			if err != nil {
+				return item, fmt.Errorf("mark announcement email notification scheduled: %w", err)
+			}
+
+			item = markedItem
+		}
+	}
+
+	s.notify(ctx, notification)
 
 	return item, nil
+}
+
+func (s *Service) ScheduleAnnouncementByUser(
+	ctx context.Context,
+	id uuid.UUID,
+	publishAt time.Time,
+	updatedBy uuid.UUID,
+	options ...AnnouncementEmailOptions,
+) (db.Announcement, error) {
+	return s.ScheduleAnnouncement(
+		ctx,
+		db.ScheduleAnnouncementParams{
+			ID: id,
+			PublishAt: sql.NullTime{
+				Time:  publishAt,
+				Valid: true,
+			},
+			UpdatedBy: uuid.NullUUID{
+				UUID:  updatedBy,
+				Valid: updatedBy != uuid.Nil,
+			},
+		},
+		options...,
+	)
 }
 
 func (s *Service) ArchiveAnnouncement(
@@ -1529,6 +1740,7 @@ func (s *Service) attachAnnouncementEmailDelivery(
 	notification *models.Notification,
 	item db.Announcement,
 	recipients []AnnouncementEmailRecipient,
+	options AnnouncementEmailOptions,
 ) {
 	if notification == nil {
 		return
@@ -1565,6 +1777,20 @@ func (s *Service) attachAnnouncementEmailDelivery(
 			name = email
 		}
 
+		attachments := []models.Attachment(nil)
+		if options.IncludeAttachmentsInEmail {
+			attachments = options.Attachments
+		}
+		attachmentNames := announcementEmailAttachmentNames(attachments)
+		attachmentLinks := options.AttachmentLinks
+		attachmentCount := len(attachments)
+		if len(attachmentLinks) > attachmentCount {
+			attachmentCount = len(attachmentLinks)
+		}
+		actionURL := s.announcementActionURL(item)
+		relatedLinkURL := s.announcementRelatedLinkURL(item)
+		relatedLinkLabel := s.announcementRelatedLinkLabel(item)
+
 		deliveries = append(deliveries, models.NotificationDeliveryRequest{
 			Channel: models.NotificationChannelEmail,
 			Recipient: map[string]any{
@@ -1574,15 +1800,21 @@ func (s *Service) attachAnnouncementEmailDelivery(
 			},
 			TemplateName: "announcement",
 			TemplateData: map[string]any{
-				"Name":           name,
-				"Platform":       s.platformName(),
-				"Title":          item.Title,
-				"Summary":        nullStringValue(item.Summary),
-				"Message":        item.Message,
-				"Level":          announcementLevelString(item.Level),
-				"Status":         announcementStatusString(item.Status),
-				"AnnouncementID": item.ID.String(),
-				"ActionURL":      announcementLinkOrDefault(item, s.portalAnnouncementsURL()),
+				"Name":                  name,
+				"Platform":              s.platformName(),
+				"Title":                 item.Title,
+				"Summary":               nullStringValue(item.Summary),
+				"Message":               item.Message,
+				"Level":                 announcementLevelString(item.Level),
+				"Status":                announcementStatusString(item.Status),
+				"AnnouncementID":        item.ID.String(),
+				"HasAttachments":        attachmentCount > 0,
+				"AttachmentCount":       attachmentCount,
+				"AttachmentNames":       attachmentNames,
+				"AttachmentLinks":       attachmentLinks,
+				"AnnouncementLinkURL":   relatedLinkURL,
+				"AnnouncementLinkLabel": relatedLinkLabel,
+				"ActionURL":             actionURL,
 				"Details": fmt.Sprintf(
 					"Title: %s\nLevel: %s\nStatus: %s\nMessage: %s",
 					item.Title,
@@ -1595,11 +1827,68 @@ func (s *Service) attachAnnouncementEmailDelivery(
 				"subject":   fmt.Sprintf("[Announcement] %s", item.Title),
 				"text_body": item.Message,
 			},
+			Attachments: attachments,
+			ScheduledAt: options.ScheduledAt,
 			MaxAttempts: 5,
 		})
 	}
 
 	notification.Deliveries = deliveries
+}
+
+func announcementEmailAttachmentNames(attachments []models.Attachment) []string {
+	names := make([]string, 0, len(attachments))
+	for _, attachment := range attachments {
+		name := strings.TrimSpace(attachment.FileName)
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func (s *Service) announcementAttachmentDownloadURL(
+	announcementID uuid.UUID,
+	attachmentID uuid.UUID,
+) string {
+	if announcementID == uuid.Nil || attachmentID == uuid.Nil {
+		return ""
+	}
+
+	base := ""
+	if s != nil && s.cfg != nil {
+		base = strings.TrimRight(strings.TrimSpace(s.cfg.AppBaseURL), "/")
+	}
+
+	if base == "" {
+		base = "http://localhost:9000"
+	}
+
+	return fmt.Sprintf(
+		"%s/api/v1/announcements/%s/attachments/%s/download",
+		base,
+		announcementID.String(),
+		attachmentID.String(),
+	)
+}
+
+func (s *Service) normalizeAnnouncementEmailOptions(options ...AnnouncementEmailOptions) (AnnouncementEmailOptions, error) {
+	out := AnnouncementEmailOptions{IncludeAttachmentsInEmail: true}
+	if len(options) > 0 {
+		out = options[0]
+		if len(out.Attachments) > 0 && !out.IncludeAttachmentsInEmail {
+			return out, nil
+		}
+	}
+	if len(out.Attachments) == 0 {
+		return out, nil
+	}
+	attachments, err := emailutil.NormalizeAttachments(s.cfg, out.Attachments)
+	if err != nil {
+		return AnnouncementEmailOptions{}, fmt.Errorf("validate announcement email attachments: %w", err)
+	}
+	out.Attachments = attachments
+	return out, nil
 }
 
 func (s *Service) attachAdminEmailDelivery(
@@ -1719,6 +2008,67 @@ func (s *Service) portalAnnouncementsURL() string {
 	}
 
 	return base + "/apps/news"
+}
+
+func (s *Service) announcementActionURL(item db.Announcement) string {
+	return s.absolutePortalURL(announcementLinkOrDefault(item, s.portalAnnouncementsURL()))
+}
+
+func (s *Service) announcementRelatedLinkURL(item db.Announcement) string {
+	if !item.LinkUrl.Valid || strings.TrimSpace(item.LinkUrl.String) == "" {
+		return ""
+	}
+
+	return s.absolutePortalURL(item.LinkUrl.String)
+}
+
+func (s *Service) announcementRelatedLinkLabel(item db.Announcement) string {
+	if item.LinkLabel.Valid && strings.TrimSpace(item.LinkLabel.String) != "" {
+		return strings.TrimSpace(item.LinkLabel.String)
+	}
+
+	return "Open related link"
+}
+
+func (s *Service) absolutePortalURL(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+
+	if parsed, err := url.Parse(value); err == nil && parsed.IsAbs() {
+		return value
+	}
+
+	base := ""
+	if s != nil && s.cfg != nil {
+		base = strings.TrimSpace(s.cfg.FrontendBaseURL)
+		if base == "" {
+			base = strings.TrimSpace(s.cfg.FrontendRedirectURI)
+		}
+	}
+	if base == "" {
+		base = s.adminDashboardURL()
+	}
+	if base == "" {
+		return value
+	}
+
+	parsedBase, err := url.Parse(base)
+	if err != nil || parsedBase.Scheme == "" || parsedBase.Host == "" {
+		return value
+	}
+
+	if strings.HasPrefix(value, "/") {
+		return parsedBase.Scheme + "://" + parsedBase.Host + value
+	}
+
+	basePath := strings.TrimRight(parsedBase.Path, "/")
+	if basePath == "" {
+		return parsedBase.Scheme + "://" + parsedBase.Host + "/" + strings.TrimLeft(value, "/")
+	}
+
+	return parsedBase.Scheme + "://" + parsedBase.Host + basePath + "/" + strings.TrimLeft(value, "/")
 }
 
 // ---------------------------------

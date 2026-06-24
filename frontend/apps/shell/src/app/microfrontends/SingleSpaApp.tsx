@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import {
@@ -8,7 +8,13 @@ import {
 } from "@moh-sso/microfrontend";
 import { MicrofrontendErrorBoundary } from "@moh-sso/ui";
 import { microfrontendContainerId } from "./containers";
-import { shouldUseSingleSpaOrchestration } from "./orchestrator";
+import {
+  isSingleSpaOrchestrationStarted,
+  isSingleSpaOrchestrationUnavailable,
+  MICROFRONTEND_ORCHESTRATION_EVENT,
+  shouldUseSingleSpaOrchestration,
+  startMicrofrontendOrchestration,
+} from "./orchestrator";
 
 type SingleSpaAppProps = MicrofrontendRuntimeProps & {
   appName: string;
@@ -19,7 +25,15 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
   const containerRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
   const { apiBaseUrl, auth, eventBus } = runtimeProps;
-  const orchestrated = shouldUseSingleSpaOrchestration();
+  const orchestrationRequested = shouldUseSingleSpaOrchestration();
+  const [orchestrationState, setOrchestrationState] = useState(() => ({
+    started: isSingleSpaOrchestrationStarted(),
+    unavailable: isSingleSpaOrchestrationUnavailable(),
+  }));
+  const [mountError, setMountError] = useState<Error | null>(null);
+  const orchestrated =
+    orchestrationRequested && orchestrationState.started && !orchestrationState.unavailable;
+  const shouldMountLocally = !orchestrationRequested || orchestrationState.unavailable;
 
   const basename = resolveRuntimeBasename(
     runtimeProps.basename || location.pathname.replace(/\/$/, ""),
@@ -27,7 +41,29 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
   );
 
   useEffect(() => {
-    if (orchestrated) {
+    const handleOrchestrationChange = () => {
+      setOrchestrationState({
+        started: isSingleSpaOrchestrationStarted(),
+        unavailable: isSingleSpaOrchestrationUnavailable(),
+      });
+    };
+
+    window.addEventListener(MICROFRONTEND_ORCHESTRATION_EVENT, handleOrchestrationChange);
+    handleOrchestrationChange();
+
+    return () => {
+      window.removeEventListener(MICROFRONTEND_ORCHESTRATION_EVENT, handleOrchestrationChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (orchestrationRequested && !orchestrationState.started && !orchestrationState.unavailable) {
+      void startMicrofrontendOrchestration();
+    }
+  }, [orchestrationRequested, orchestrationState.started, orchestrationState.unavailable]);
+
+  useEffect(() => {
+    if (!shouldMountLocally) {
       return;
     }
 
@@ -42,6 +78,7 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
 
     const loadAndMount = async () => {
       try {
+        setMountError(null);
         const resolvedLifecycles =
           typeof lifecycles === "function" ? await lifecycles() : lifecycles;
         mountedLifecycles = resolvedLifecycles;
@@ -52,11 +89,12 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
 
         if (disposed) return;
 
+        // Catch internal framework/rendering crashes (like Context/Hook mismatches)
         await resolvedLifecycles.mount(props);
       } catch (error: unknown) {
         console.error(`Failed to load or mount microfrontend ${appName}`, error);
         if (!disposed) {
-          throw error;
+          setMountError(error instanceof Error ? error : new Error(String(error)));
         }
       }
     };
@@ -66,15 +104,36 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
     return () => {
       disposed = true;
       if (mountedLifecycles) {
-        void Promise.resolve(mountedLifecycles.unmount(props));
+        // Safely unmount and trap errors to prevent unmount bubbles from crashing the host
+        Promise.resolve(mountedLifecycles.unmount(props)).catch((err) => {
+          console.error(`Clean unmount failed for microfrontend: ${appName}`, err);
+        });
+      }
+      // Hard wipe the DOM element to prevent unmounted/corrupted nodes from leaking
+      if (domElement) {
+        domElement.innerHTML = "";
       }
     };
-  }, [apiBaseUrl, appName, auth, basename, eventBus, lifecycles, orchestrated]);
+  }, [apiBaseUrl, appName, auth, basename, eventBus, lifecycles, shouldMountLocally]);
 
   return (
     <MicrofrontendErrorBoundary appName={appName}>
+      {mountError ? (
+        <div
+          role="alert"
+          className="microfrontend-mount-error"
+          style={{
+            padding: "1rem",
+            color: "#da1e28",
+            backgroundColor: "#fff1f1",
+            borderRadius: "4px",
+          }}
+        >
+          Unable to load {appName}. {mountError.message}
+        </div>
+      ) : null}
       <div
-        id={orchestrated ? microfrontendContainerId(appName) : undefined}
+        id={orchestrated || orchestrationRequested ? microfrontendContainerId(appName) : undefined}
         ref={containerRef}
         data-microfrontend={appName}
       />

@@ -11,6 +11,8 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 )
 
+type announcement = db.Announcement
+
 func nullStringPtr(ns sql.NullString) *string {
 	if !ns.Valid {
 		return nil
@@ -34,6 +36,7 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 		Level:                   normalizeLevel(model.AnnouncementLevel(interfaceToString(a.Level))),
 		Tag:                     nullStringPtr(a.Tag),
 		LinkURL:                 nullStringPtr(a.LinkUrl),
+		LinkLabel:               nullStringPtr(a.LinkLabel),
 		Priority:                a.Priority,
 		IsPinned:                a.IsPinned,
 		Status:                  normalizeAnnouncementStatus(model.AnnouncementStatus(interfaceToString(a.Status))),
@@ -54,6 +57,141 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 		DeletedBy:               nullableUUID(a.DeletedBy),
 		Version:                 a.Version,
 	}
+}
+
+func toAnnouncementResponseWithAttachments(
+	a db.Announcement,
+	attachments []db.AnnouncementAttachment,
+) AnnouncementResponse {
+	return toAnnouncementResponseWithAttachmentBase(a, attachments, "/api/v1/admin/announcements")
+}
+
+func toUserAnnouncementResponseWithAttachments(
+	a db.Announcement,
+	attachments []db.AnnouncementAttachment,
+) AnnouncementResponse {
+	return toAnnouncementResponseWithAttachmentBase(a, attachments, "/api/v1/announcements")
+}
+
+func toAnnouncementResponseWithAttachmentBase(
+	a db.Announcement,
+	attachments []db.AnnouncementAttachment,
+	downloadBasePath string,
+) AnnouncementResponse {
+	res := toAnnouncementResponse(a)
+	res.Attachments = toAnnouncementAttachmentResponses(a.ID, attachments, downloadBasePath)
+	res.AttachmentCount = len(res.Attachments)
+	return res
+}
+
+func toAnnouncementAttachmentResponse(
+	announcementID uuid.UUID,
+	attachment db.AnnouncementAttachment,
+) AnnouncementAttachmentResponse {
+	return toAnnouncementAttachmentResponseWithDownloadBase(announcementID, attachment, "/api/v1/admin/announcements")
+}
+
+func toUserAnnouncementAttachmentResponse(
+	announcementID uuid.UUID,
+	attachment db.AnnouncementAttachment,
+) AnnouncementAttachmentResponse {
+	return toAnnouncementAttachmentResponseWithDownloadBase(announcementID, attachment, "/api/v1/announcements")
+}
+
+func toAnnouncementAttachmentResponseWithDownloadBase(
+	announcementID uuid.UUID,
+	attachment db.AnnouncementAttachment,
+	downloadBasePath string,
+) AnnouncementAttachmentResponse {
+	downloadBasePath = strings.TrimRight(strings.TrimSpace(downloadBasePath), "/")
+	if downloadBasePath == "" {
+		downloadBasePath = "/api/v1/admin/announcements"
+	}
+
+	return AnnouncementAttachmentResponse{
+		ID:               attachment.ID.String(),
+		AnnouncementID:   attachment.AnnouncementID.String(),
+		FileName:         attachment.FileName,
+		OriginalFileName: attachment.OriginalFileName,
+		ContentType:      nullStringPtr(attachment.ContentType),
+		FileSize:         attachment.FileSize,
+		StorageProvider:  attachment.StorageProvider,
+		Checksum:         nullStringPtr(attachment.Checksum),
+		UploadedBy:       nullableUUID(attachment.UploadedBy),
+		IncludeInEmail:   attachment.IncludeInEmail,
+		Inline:           attachment.Inline,
+		ContentID:        nullStringPtr(attachment.ContentID),
+		SortOrder:        attachment.SortOrder,
+		CreatedAt:        attachment.CreatedAt,
+		DeletedAt:        nullTimePtr(attachment.DeletedAt),
+		DeletedBy:        nullableUUID(attachment.DeletedBy),
+		DownloadURL:      downloadBasePath + "/" + announcementID.String() + "/attachments/" + attachment.ID.String() + "/download",
+	}
+}
+
+func toAnnouncementAttachmentResponses(
+	announcementID uuid.UUID,
+	attachments []db.AnnouncementAttachment,
+	downloadBasePath ...string,
+) []AnnouncementAttachmentResponse {
+	basePath := "/api/v1/admin/announcements"
+	if len(downloadBasePath) > 0 && strings.TrimSpace(downloadBasePath[0]) != "" {
+		basePath = downloadBasePath[0]
+	}
+
+	out := make([]AnnouncementAttachmentResponse, 0, len(attachments))
+	for _, attachment := range attachments {
+		out = append(out, toAnnouncementAttachmentResponseWithDownloadBase(announcementID, attachment, basePath))
+	}
+	return out
+}
+
+func toAnnouncementStatsResponse(stats db.GetAnnouncementStatsRow) AnnouncementStatsResponse {
+	return AnnouncementStatsResponse{
+		Total:          stats.Total,
+		DraftCount:     stats.DraftCount,
+		ScheduledCount: stats.ScheduledCount,
+		PublishedCount: stats.PublishedCount,
+		ArchivedCount:  stats.ArchivedCount,
+		ActiveCount:    stats.ActiveCount,
+	}
+}
+
+func mapAnnouncementAttachments(in []announcementAttachmentRequest) []model.Attachment {
+	out := make([]model.Attachment, 0, len(in))
+	for _, attachment := range in {
+		out = append(out, model.Attachment{
+			FileName:    strings.TrimSpace(attachment.FileName),
+			ContentType: strings.TrimSpace(attachment.ContentType),
+			Path:        strings.TrimSpace(attachment.Path),
+			DataBase64:  strings.TrimSpace(attachment.DataBase64),
+			ContentID:   strings.TrimSpace(attachment.ContentID),
+			Inline:      attachment.Inline,
+		})
+	}
+	return out
+}
+
+func announcementEmailOptionsFromPublishRequest(req publishAnnouncementRequest) AnnouncementEmailOptions {
+	return AnnouncementEmailOptions{
+		Attachments:               mapAnnouncementAttachments(req.Attachments),
+		IncludeAttachmentsInEmail: includeAnnouncementAttachments(req.IncludeAttachmentsInEmail, len(req.Attachments) > 0),
+	}
+}
+
+func announcementEmailOptionsFromScheduleRequest(req scheduleAnnouncementRequest, publishAt time.Time) AnnouncementEmailOptions {
+	return AnnouncementEmailOptions{
+		Attachments:               mapAnnouncementAttachments(req.Attachments),
+		IncludeAttachmentsInEmail: includeAnnouncementAttachments(req.IncludeAttachmentsInEmail, len(req.Attachments) > 0),
+		ScheduledAt:               &publishAt,
+	}
+}
+
+func includeAnnouncementAttachments(value *bool, hasAttachments bool) bool {
+	if value != nil {
+		return *value
+	}
+	return true
 }
 
 func nullableString(s *string) sql.NullString {
@@ -135,15 +273,39 @@ func nullUUIDString(v uuid.NullUUID) string {
 }
 
 func normalizeLevel(v model.AnnouncementLevel) string {
-	return strings.ToLower(string(v))
+	return strings.ToUpper(strings.TrimSpace(string(v)))
 }
 
 func normalizeAnnouncementStatus(v model.AnnouncementStatus) string {
-	return strings.ToLower(string(v))
+	return strings.ToUpper(strings.TrimSpace(string(v)))
 }
 
 func normalizeAudienceType(v model.AnnouncementAudienceType) string {
-	return strings.ToLower(string(v))
+	return strings.ToUpper(strings.TrimSpace(string(v)))
+}
+
+func dbAnnouncementLevel(value string) model.AnnouncementLevel {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return model.AnnouncementLevelINFO
+	}
+	return model.AnnouncementLevel(value)
+}
+
+func dbAnnouncementStatus(value string) model.AnnouncementStatus {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return model.AnnouncementStatusDRAFT
+	}
+	return model.AnnouncementStatus(value)
+}
+
+func dbAnnouncementAudienceType(value string) model.AnnouncementAudienceType {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return model.AnnouncementAudienceTypeALLUSERS
+	}
+	return model.AnnouncementAudienceType(value)
 }
 
 func interfaceToString(v interface{}) string {

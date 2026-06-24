@@ -148,6 +148,7 @@ const AppGridContent: React.FC<AppGridContentProps> = ({
               clientId={client.clientId}
               onSelect={onSelect}
               onOpen={onOpenClient}
+              launchMode={(client.attributes?.["ui.launchMode"] as "internal" | "new_tab" | "same_tab") || "internal"}
             />
           </div>
         );

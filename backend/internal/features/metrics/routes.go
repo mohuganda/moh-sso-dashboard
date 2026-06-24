@@ -1,9 +1,15 @@
 package metrics
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/moh-sso-dashboard/internal/authz"
+	"github.com/moh-sso-dashboard/internal/middleware"
+)
 
 func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler) {
 	metrics := admin.Group("/metrics")
+	metrics.Use(middleware.RequirePermission(authz.PermissionMetricsRead))
 	{
 		metrics.GET("/overview", handler.Overview)
 		metrics.GET("/system/count-users", handler.CountUsers)

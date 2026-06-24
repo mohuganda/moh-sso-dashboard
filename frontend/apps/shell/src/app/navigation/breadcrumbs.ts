@@ -8,6 +8,7 @@ const LABEL_MAP: Record<string, string> = {
 
   dwh: "Data & Statistics",
   "data-visualizer": "Data Visualizer",
+  "data-validation": "Data Validation",
   dashboards: "Dashboards",
   reports: "Reports",
   exports: "Data Exports",

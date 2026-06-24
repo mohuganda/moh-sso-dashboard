@@ -40,7 +40,7 @@ export const API = {
       // WRITE (admin)
       create: (clientId: string) => `${API_BASE}/admin/clients/${clientId}/roles`,
       delete: (clientId: string, role: string) =>
-        `${API_BASE}/admin/clients/${clientId}/roles/${role}`,
+        `${API_BASE}/admin/clients/${clientId}/roles/${encodeURIComponent(role)}`,
     },
   },
 
@@ -65,6 +65,8 @@ export const API = {
     theme: () => `${API_BASE}/visualizer/dataelements/theme`,
     hierarchy: () => `${API_BASE}/visualizer/adminunits/hierarchy`,
     dataValues: () => `${API_BASE}/visualizer/datavalues`,
+    datasets: () => `${API_BASE}/visualizer/datasets`,
+    dataElements: () => `${API_BASE}/visualizer/dataelements`
   },
   // --------------------------------------------------
   // Visualizer
@@ -84,7 +86,11 @@ export const API = {
       list: () => `${API_BASE}/admin/users`,
       byId: (id: string) => `${API_BASE}/admin/users/${id}`,
       create: () => `${API_BASE}/admin/users`,
+      update: (id: string) => `${API_BASE}/admin/users/${id}`,
       delete: (id: string) => `${API_BASE}/admin/users/${id}`,
+      toggle: (id: string) => `${API_BASE}/admin/users/${id}/toggle`,
+      resetPassword: (id: string) => `${API_BASE}/admin/users/${id}/reset-password`,
+      passwordResetEmail: (id: string) => `${API_BASE}/admin/users/${id}/password-reset`,
 
       import: {
         preview: () => `${API_BASE}/admin/users/import/preview`,
@@ -175,6 +181,9 @@ export const API = {
       count: () => `${API_BASE}/admin/notifications/count`,
       countUnread: () => `${API_BASE}/admin/notifications/count/unread`,
       deleteOld: () => `${API_BASE}/admin/notifications/cleanup`,
+      deliveries: (id: string) => `${API_BASE}/admin/notifications/${id}/deliveries`,
+      retryDelivery: (deliveryId: string) =>
+        `${API_BASE}/admin/notifications/deliveries/${deliveryId}/retry`,
     },
   },
 

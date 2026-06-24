@@ -2,21 +2,21 @@ import { Modal, Select, SelectItem } from "@carbon/react";
 import { useEffect, useState } from "react";
 
 import {
-  type Theme,
+  type Dataset,
   type ThemeElement,
-  useGetThemesQuery,
-  useLazyGetThemeElementsQuery,
+  useGetDataSetsQuery,
+  useLazyGetDataSetElementsQuery,
 } from "./data-model.ts";
 
 export default function DataModal({ onClose, selected, onSave }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDataset, setSelectedDataset] = useState("");
-  const [datasets, setDatasets] = useState<Theme[] | undefined>([]);
+  const [datasets, setDatasets] = useState<Dataset[] | undefined>([]);
   const [selectedItems, setSelectedItems] = useState(selected);
   const [availableDataSetElements, setAvailableDataSetElements] = useState<ThemeElement[]>([]);
   const [dataSetElementsHolder, setDataSetElementsHolder] = useState<ThemeElement[]>([]);
-  const { data: themes, isLoading, error } = useGetThemesQuery();
-  const [triggerGetTheme] = useLazyGetThemeElementsQuery();
+  const { data: themes, isLoading, error } = useGetDataSetsQuery();
+  const [triggerGetTheme] = useLazyGetDataSetElementsQuery();
   // const toast = useToast();
 
   useEffect(() => {
@@ -118,10 +118,10 @@ export default function DataModal({ onClose, selected, onSave }) {
               <SelectItem text="" value="" />
               {datasets?.map((dataset: any) => (
                 <SelectItem
-                  key={dataset?.theme_id}
-                  id={dataset?.theme_id}
-                  value={dataset?.theme_id}
-                  text={dataset?.theme_name}
+                  key={dataset?.dataset_id}
+                  id={dataset?.dataset_id}
+                  value={dataset?.dataset_id}
+                  text={dataset?.display_name}
                 />
               ))}
             </Select>

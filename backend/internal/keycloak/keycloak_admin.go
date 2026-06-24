@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -160,6 +162,13 @@ type RoleRep struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+type compositeRoleRepresentation struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	ClientRole  bool   `json:"clientRole"`
+	ContainerID string `json:"containerId"`
 }
 
 type ClientScope struct {
@@ -655,6 +664,37 @@ func (c *KeyAdminClient) DeleteClient(id string) error {
 	return nil
 }
 
+func (c *KeyAdminClient) UpdateClientPortalAttributes(
+	ctx context.Context,
+	clientID string,
+	attributes map[string]string,
+) error {
+	client, err := c.GetClientByClientID(strings.TrimSpace(clientID))
+	if err != nil {
+		return err
+	}
+	if client == nil || strings.TrimSpace(client.ID) == "" {
+		return fmt.Errorf("client %q does not exist", clientID)
+	}
+	if client.Attributes == nil {
+		client.Attributes = map[string]string{}
+	}
+	for key, value := range attributes {
+		client.Attributes[key] = value
+	}
+
+	res, err := c.PutWithContext(ctx, "clients/"+url.PathEscape(client.ID), client)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("update client portal attributes failed [%d]: %s", res.StatusCode, string(body))
+	}
+	return nil
+}
+
 // ----------------------------------------------------
 // USER MANAGEMENT
 // ----------------------------------------------------
@@ -680,17 +720,19 @@ func (c *KeyAdminClient) CreateUser(user *model.User) (string, error) {
 		enabled = true
 	}
 
+	requiredActions := []string{"UPDATE_PASSWORD"}
+	if !user.EmailVerified {
+		requiredActions = append([]string{"VERIFY_EMAIL"}, requiredActions...)
+	}
+
 	payload := CreateUserRequest{
-		Username:      username,
-		Email:         email,
-		FirstName:     strings.TrimSpace(user.FirstName),
-		LastName:      strings.TrimSpace(user.LastName),
-		Enabled:       enabled,
-		EmailVerified: false,
-		RequiredActions: []string{
-			"VERIFY_EMAIL",
-			"UPDATE_PASSWORD",
-		},
+		Username:        username,
+		Email:           email,
+		FirstName:       strings.TrimSpace(user.FirstName),
+		LastName:        strings.TrimSpace(user.LastName),
+		Enabled:         enabled,
+		EmailVerified:   user.EmailVerified,
+		RequiredActions: requiredActions,
 		Attributes: map[string][]string{
 			"created_by": {"admin"},
 			"user_type":  {"human"},
@@ -844,7 +886,7 @@ func (c *KeyAdminClient) UpdateUser(user *model.User) error {
 		"firstName":       firstName,
 		"lastName":        lastName,
 		"enabled":         user.Enabled,
-		"emailVerified":   current.EmailVerified,
+		"emailVerified":   user.EmailVerified,
 		"requiredActions": current.RequiredActions,
 		"attributes":      current.Attributes,
 	}
@@ -1120,6 +1162,50 @@ func (c *KeyAdminClient) ListRealmRoles(ctx context.Context) ([]RoleRep, error) 
 	}
 
 	return roles, nil
+}
+
+func (c *KeyAdminClient) EnsureRealmRoleClientRoleComposite(
+	ctx context.Context,
+	realmRole string,
+	clientID string,
+	roleName string,
+) error {
+	realmRole = strings.TrimSpace(realmRole)
+	clientID = strings.TrimSpace(clientID)
+	roleName = strings.TrimSpace(roleName)
+	if realmRole == "" || clientID == "" || roleName == "" {
+		return fmt.Errorf("realmRole, clientID, and roleName are required")
+	}
+
+	client, err := c.GetClientByClientID(clientID)
+	if err != nil {
+		return err
+	}
+	if client == nil {
+		return fmt.Errorf("client %q does not exist", clientID)
+	}
+	role, err := c.GetClientRoleByName(ctx, clientID, client.ID, roleName)
+	if err != nil {
+		return err
+	}
+
+	payload := []compositeRoleRepresentation{{
+		ID:          role.ID,
+		Name:        role.Name,
+		ClientRole:  true,
+		ContainerID: client.ID,
+	}}
+	endpoint := fmt.Sprintf("roles/%s/composites", url.PathEscape(realmRole))
+	res, err := c.PostWithContext(ctx, endpoint, payload)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("add realm role composite failed [%d]: %s", res.StatusCode, string(body))
+	}
+	return nil
 }
 
 func (c *KeyAdminClient) GetRealmRoleByName(
@@ -1683,6 +1769,10 @@ func (c *KeyAdminClient) resolveClientUUID(
 	clientID = strings.TrimSpace(clientID)
 	if clientID == "" {
 		return "", fmt.Errorf("resolveClientUUID: clientID is required")
+	}
+
+	if _, err := uuid.Parse(clientID); err == nil {
+		return clientID, nil
 	}
 
 	path := "clients?clientId=" + url.QueryEscape(clientID)

@@ -1,7 +1,9 @@
 import { Stack, Tile, MultiSelect, InlineLoading, Button } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { useListClientRolesQuery , useListClientsQuery ,
+import {
+  useListClientRolesQuery,
+  useListClientsQuery,
   useGetUserClientRolesQuery,
   useUpdateUserClientRolesMutation,
 } from "@moh-sso/api";
@@ -32,9 +34,9 @@ export function UserClientRolesPanel({ userId }: Props) {
     [clients, selectedClientId],
   );
   const { data: clientRoles = [], isLoading: loadingRoles } = useListClientRolesQuery(
-    selectedClientId!,
+    selectedClientUuid!,
     {
-      skip: !selectedClientId,
+      skip: !selectedClientUuid,
     },
   );
 
@@ -141,7 +143,7 @@ export function UserClientRolesPanel({ userId }: Props) {
             <Button
               kind="primary"
               size="sm"
-              disabled={saving || !selectedClientId}
+              disabled={saving || !selectedClientId || !selectedClientUuid}
               onClick={handleSave}
             >
               {saving ? "Saving…" : "Save roles"}

@@ -4,12 +4,16 @@ import (
 	"context"
 
 	router "github.com/moh-sso-dashboard/internal/api"
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
+	"github.com/moh-sso-dashboard/internal/features/authsession"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/storage"
+	"github.com/moh-sso-dashboard/internal/version"
 
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func Run() {
@@ -29,7 +33,16 @@ func Run() {
 
 	appLogger := logger.NewLogger()
 	appLogger.SetLevel(zerolog.InfoLevel)
-	appLogger.Info("Starting MOH SSO Dashboard - Environment: " + cfg.Environment)
+	build := version.Get()
+	log.Info().
+		Str("service", build.Service).
+		Str("version", build.Version).
+		Str("commit", build.Commit).
+		Str("build_time", build.BuildTime).
+		Bool("dirty", build.Dirty).
+		Str("go_version", build.GoVersion).
+		Str("environment", cfg.Environment).
+		Msg("starting MOH SSO Dashboard")
 
 	appLogger.Info(
 		"notification config loaded",
@@ -54,6 +67,9 @@ func Run() {
 	if err != nil {
 		appLogger.Fatal("Failed to initialize databases: ", err)
 	}
+	if dbs.Primary == nil {
+		appLogger.Fatal("Failed to initialize databases: primary database connection is nil")
+	}
 	defer dbs.Close()
 
 	// ==================================================
@@ -63,6 +79,10 @@ func Run() {
 	rdb := cacheRuntime.Redis
 	cacheAdapter := cacheRuntime.Cache
 	rateLimiter := cacheRuntime.RateLimiter
+
+	// Server-side auth sessions: tokens live in Redis, browsers carry a
+	// single opaque cookie.
+	authSessions := authsession.NewStore(rdb)
 
 	// ==================================================
 	// KEYCLOAK
@@ -108,6 +128,18 @@ func Run() {
 		Logger:       appLogger,
 	})
 
+	if err := runStartupRBACSync(ctx, cfg, dbs.Primary, services, adminKC, appLogger); err != nil {
+		if cfg.RBACStartupSyncFailOnError {
+			appLogger.Fatal("RBAC startup sync failed: ", err)
+		}
+		appLogger.Warn("RBAC startup sync failed", "error", err)
+	}
+
+	authzResolver := authz.NewCompositeResolver(
+		authz.NewDBResolver(dbs.Primary),
+		authz.NewStaticResolver(),
+	)
+
 	// ==================================================
 	// HANDLERS
 	// ==================================================
@@ -118,10 +150,12 @@ func Run() {
 		Databases:      dbs,
 		Repositories:   repos,
 		Services:       services,
+		AuthSessions:   authSessions,
 		FileStorage:    fileStorage,
 		StorageFactory: storageFactory,
 		AdminKeycloak:  adminKC,
 		Redis:          rdb,
+		AuthzResolver:  authzResolver,
 	})
 
 	startBackgroundWorkers(ctx, workerDependencies{
@@ -144,7 +178,9 @@ func Run() {
 		KeycloakClient: webKC,
 		Limiter:        rateLimiter,
 		AuditService:   services.Audit,
+		AuthzResolver:  authzResolver,
 		Handlers:       handlers.Router,
+		AuthSessions:   authSessions,
 	})
 
 	router.RegisterHealthRoutes(r, handlers.Health)

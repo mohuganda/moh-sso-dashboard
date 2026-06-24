@@ -1,5 +1,5 @@
 import { API } from "@moh-sso/config";
-import type { Client, CreateClientPayload } from "@moh-sso/types";
+import type { Client, CreateClientPayload, UpdateClientPayload } from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 
@@ -8,9 +8,9 @@ type ApiEnvelope<T> = {
   data: T;
 };
 
-type UpdateClientPayload = {
+type UpdateClientRequest = {
   id: string;
-  data: Partial<CreateClientPayload>;
+  data: UpdateClientPayload;
 };
 
 export const clientsApi = baseApi.injectEndpoints({
@@ -65,7 +65,7 @@ export const clientsApi = baseApi.injectEndpoints({
     /* --------------------------------
      * Update client (general update)
      * -------------------------------- */
-    updateClient: builder.mutation<Client, UpdateClientPayload>({
+    updateClient: builder.mutation<Client, UpdateClientRequest>({
       query: ({ id, data }) => ({
         url: API.clients.update(id),
         method: "PUT",

@@ -1,31 +1,6 @@
-import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
-import { announcementsRoute } from "@moh-sso/announcements";
-import { auditRoute } from "@moh-sso/audit";
-import { clientsRoute } from "@moh-sso/clients";
-import { dataVisualizerRoute } from "@moh-sso/data-visualizer";
-import { documentsRoute } from "@moh-sso/documents";
-import { eServicesRoute } from "@moh-sso/e-services";
-import { emailRoute } from "@moh-sso/email";
-import { issueTrackerRoute } from "@moh-sso/issue-tracker";
-import { reportBrowserRoute } from "@moh-sso/report-browser";
-import { surveillanceRoute } from "@moh-sso/surveillance";
-import { usersRoute } from "@moh-sso/users";
-import { utilitiesRoute } from "@moh-sso/utilities";
+import { registeredMicrofrontends } from "./registry";
 
-export const registeredMicrofrontends: MicrofrontendRoute[] = [
-  announcementsRoute,
-  auditRoute,
-  clientsRoute,
-  dataVisualizerRoute,
-  documentsRoute,
-  eServicesRoute,
-  emailRoute,
-  issueTrackerRoute,
-  reportBrowserRoute,
-  surveillanceRoute,
-  usersRoute,
-  utilitiesRoute,
-];
+export { registeredMicrofrontends };
 
 export function registerMicrofrontends() {
   return registeredMicrofrontends;

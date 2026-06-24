@@ -181,6 +181,18 @@ func (s *AlertService) ListAlerts(
 	return items, nil
 }
 
+func (s *AlertService) ListAlertsFromParams(
+	ctx context.Context,
+	params AlertListParams,
+) ([]db.ListAlertsRow, error) {
+	return s.ListAlerts(ctx, db.ListAlertsParams{
+		EpiWeekID:  uuidNull(params.EpiWeekID),
+		DiseaseID:  uuidNull(params.DiseaseID),
+		DistrictID: uuidNull(params.DistrictID),
+		RegionID:   uuidNull(params.RegionID),
+	})
+}
+
 func (s *AlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) error {
 	if err := requireUUID("batch id", batchID); err != nil {
 		return err
@@ -214,7 +226,7 @@ func (s *AlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) err
 					)
 				}
 
-				if markErr := s.surveillanceImportRepo.MarkRawRowFailed(ctx, raw.ID, err.Error()); markErr != nil {
+				if markErr := s.surveillanceImportRepo.MarkRawRowFailed(ctx, raw.ID, "failed to process alert row"); markErr != nil {
 					return fmt.Errorf("mark raw row failed: %w", markErr)
 				}
 
@@ -251,7 +263,7 @@ func (s *AlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) err
 				"batch_id":     batchID.String(),
 				"success_rows": successRows,
 				"failed_rows":  failedRows,
-				"error":        err.Error(),
+				"error":        "surveillance alert batch processing failed",
 			}),
 		}
 
@@ -266,14 +278,14 @@ func (s *AlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) err
 				"BatchID":     batchID.String(),
 				"SuccessRows": successRows,
 				"FailedRows":  failedRows,
-				"Error":       err.Error(),
+				"Error":       "surveillance alert batch processing failed",
 				"ActionURL":   s.adminSurveillanceURL(),
 				"Details": fmt.Sprintf(
 					"Batch ID: %s\nSuccess Rows: %d\nFailed Rows: %d\nError: %s",
 					batchID.String(),
 					successRows,
 					failedRows,
-					err.Error(),
+					"surveillance alert batch processing failed",
 				),
 			},
 		)

@@ -1,5 +1,3 @@
-version: "3.9"
-
 name: moh-sso-dashboard
 
 x-logging: &default-logging
@@ -70,7 +68,7 @@ services:
   # Go Backend (Gin)
   # --------------------------------------------------
   backend:
-    image: ghcr.io/mohuganda/moh-sso-dashboard-backend:${BACKEND_TAG:-latest}
+    image: ghcr.io/mohuganda/moh-sso-dashboard-backend:${BACKEND_TAG:?BACKEND_TAG must be an immutable semantic or sha tag}
     container_name: sso-backend
     working_dir: /app
     restart: unless-stopped

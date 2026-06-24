@@ -7,6 +7,7 @@ export type EmailAttachment = {
   file_name: string;
   content_type?: string;
   path?: string;
+  data_base64?: string;
   content_id?: string;
   inline?: boolean;
 };

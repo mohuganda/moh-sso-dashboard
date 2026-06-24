@@ -36,6 +36,7 @@ type Querier interface {
 	CountAnnouncementsAdmin(ctx context.Context) (int64, error)
 	CountAnnouncementsByStatus(ctx context.Context, status interface{}) (int64, error)
 	CountAnnouncementsCreatedByUser(ctx context.Context, createdBy uuid.UUID) (int64, error)
+	CountAnnouncementAttachments(ctx context.Context, announcementID uuid.UUID) (int64, error)
 	CountClients(ctx context.Context) (int64, error)
 	CountDisabledClients(ctx context.Context) (int64, error)
 	CountDisabledUsers(ctx context.Context) (int64, error)
@@ -56,6 +57,7 @@ type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
 	CreateAlert(ctx context.Context, arg CreateAlertParams) (Alert, error)
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (Announcement, error)
+	CreateAnnouncementAttachment(ctx context.Context, arg CreateAnnouncementAttachmentParams) (AnnouncementAttachment, error)
 	// =====================================================
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
 	// =====================================================
@@ -136,6 +138,7 @@ type Querier interface {
 	GetAlertByID(ctx context.Context, id uuid.UUID) (Alert, error)
 	GetAnnouncementByID(ctx context.Context, id uuid.UUID) (Announcement, error)
 	GetAnnouncementByIDForUpdate(ctx context.Context, id uuid.UUID) (Announcement, error)
+	GetAnnouncementAttachmentByID(ctx context.Context, arg GetAnnouncementAttachmentByIDParams) (AnnouncementAttachment, error)
 	GetAnnouncementStats(ctx context.Context) (GetAnnouncementStatsRow, error)
 	GetAuditLog(ctx context.Context, id uuid.UUID) (GetAuditLogRow, error)
 	GetClientByClientID(ctx context.Context, clientID string) (Client, error)
@@ -204,6 +207,8 @@ type Querier interface {
 	ListAlertsByDistrict(ctx context.Context, districtID uuid.NullUUID) ([]ListAlertsByDistrictRow, error)
 	ListAlertsByWeek(ctx context.Context, epiWeekID uuid.NullUUID) ([]ListAlertsByWeekRow, error)
 	ListAnnouncementClients(ctx context.Context, announcementID uuid.UUID) ([]uuid.UUID, error)
+	ListAnnouncementAttachmentsByAnnouncementID(ctx context.Context, announcementID uuid.UUID) ([]AnnouncementAttachment, error)
+	ListAnnouncementEmailAttachments(ctx context.Context, announcementID uuid.UUID) ([]AnnouncementAttachment, error)
 	ListAnnouncementRoles(ctx context.Context, announcementID uuid.UUID) ([]string, error)
 	ListAnnouncementUsers(ctx context.Context, announcementID uuid.UUID) ([]uuid.UUID, error)
 	ListAnnouncementsAdmin(ctx context.Context, arg ListAnnouncementsAdminParams) ([]Announcement, error)
@@ -341,6 +346,7 @@ type Querier interface {
 	SetDiseaseActiveState(ctx context.Context, arg SetDiseaseActiveStateParams) (Disease, error)
 	SetIndicatorActiveState(ctx context.Context, arg SetIndicatorActiveStateParams) (Indicator, error)
 	SoftDeleteAnnouncement(ctx context.Context, arg SoftDeleteAnnouncementParams) error
+	SoftDeleteAnnouncementAttachment(ctx context.Context, arg SoftDeleteAnnouncementAttachmentParams) (AnnouncementAttachment, error)
 	SuspiciousLoginsInRange(ctx context.Context, arg SuspiciousLoginsInRangeParams) ([]SuspiciousLoginsInRangeRow, error)
 	TopFailureIPs(ctx context.Context, arg TopFailureIPsParams) ([]TopFailureIPsRow, error)
 	TopTenantsByLogins(ctx context.Context, arg TopTenantsByLoginsParams) ([]TopTenantsByLoginsRow, error)
@@ -348,6 +354,7 @@ type Querier interface {
 	UnarchiveAnnouncementToDraft(ctx context.Context, arg UnarchiveAnnouncementToDraftParams) (Announcement, error)
 	UpdateAlertStatus(ctx context.Context, arg UpdateAlertStatusParams) (Alert, error)
 	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (Announcement, error)
+	UpdateAnnouncementAttachment(ctx context.Context, arg UpdateAnnouncementAttachmentParams) (AnnouncementAttachment, error)
 	UpdateAnnouncementStatus(ctx context.Context, arg UpdateAnnouncementStatusParams) (Announcement, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientEnabled(ctx context.Context, arg UpdateClientEnabledParams) error

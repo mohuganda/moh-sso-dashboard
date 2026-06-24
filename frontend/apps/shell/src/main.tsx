@@ -7,9 +7,6 @@ import "leaflet/dist/leaflet.css";
 
 import "./index.scss";
 import { AuthBootstrap } from "@moh-sso/auth";
-import { startMicrofrontendOrchestration } from "./app/microfrontends/orchestrator";
-
-void startMicrofrontendOrchestration();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <Provider store={store}>

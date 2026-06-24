@@ -52,6 +52,14 @@ export default defineConfig({
     alias: [
       { find: "@/config", replacement: pathFromRoot("./packages/config/src") },
       { find: "@/types", replacement: pathFromRoot("./packages/types/src/global") },
+      {
+        find: "@moh-sso/data-validation/single-spa",
+        replacement: pathFromRoot("./apps/data-validation/src/single-spa.tsx"),
+      },
+      {
+        find: "@moh-sso/data-validation",
+        replacement: pathFromRoot("./apps/data-validation/src/index.ts"),
+      },
 
       ...dynamicAliases,
 
@@ -68,6 +76,7 @@ export default defineConfig({
     include: [
       "react",
       "react-dom",
+      "react-dom/client", // Prevents internal React bundle pollution
       "react/jsx-runtime",
       "react-redux",
       "react-router-dom",

@@ -1,23 +1,61 @@
 import { Add, UserFollow, Security, Notification, Need } from "@carbon/react/icons";
 import { Tile, Button, Tag, Stack, InlineLoading } from "@carbon/react";
+import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { useSelector } from "react-redux";
 import "./home.scss";
 
-import { EmptyState, ErrorState, useHeaderPanel, getSeverityTagType } from "@moh-sso/ui";
+import { EmptyState, useHeaderPanel, getSeverityTagType } from "@moh-sso/ui";
 import { ApplicationTile } from "@/app/home/components/app/ApplicationTile";
 import { QuickAction } from "@/app/home/components/quick-action/quick-action.component";
-import { ClientFormPanel, UserClientRolesPanel } from "@moh-sso/clients";
-import { UserFormPanel } from "@moh-sso/users";
 import {
-  useListClientsQuery,
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
 } from "@moh-sso/api";
-import { selectUser } from "@moh-sso/auth";
-import { ManageAnnouncementsPanel } from "@moh-sso/announcements";
+import { selectUser, useAuthorization } from "@moh-sso/auth";
+import { buildAccessibleClients } from "@/app/access/accessClients";
+
+const ClientFormPanel = lazy(() =>
+  import("@moh-sso/clients").then((module) => ({ default: module.ClientFormPanel })),
+);
+const UserClientRolesPanel = lazy(() =>
+  import("@moh-sso/clients").then((module) => ({ default: module.UserClientRolesPanel })),
+);
+const UserFormPanel = lazy(() =>
+  import("@moh-sso/users").then((module) => ({ default: module.UserFormPanel })),
+);
+const ManageAnnouncementsPanel = lazy(() =>
+  import("@moh-sso/announcements").then((module) => ({
+    default: module.ManageAnnouncementsPanel,
+  })),
+);
+
+function normalizePortalPath(href?: string): string | undefined {
+  if (!href || /^https?:\/\//i.test(href)) {
+    return href;
+  }
+
+  if (href === "/portal") {
+    return "/apps";
+  }
+
+  if (href.startsWith("/portal/")) {
+    return href.replace(/^\/portal/, "");
+  }
+
+  return href;
+}
+
+function LazyPanelFallback() {
+  return <InlineLoading description="Loading panel..." />;
+}
+
+function lazyPanel(content: ReactNode) {
+  return <Suspense fallback={<LazyPanelFallback />}>{content}</Suspense>;
+}
 
 export default function HomePage() {
   const { openPanel } = useHeaderPanel();
+  const { accessibleSystems } = useAuthorization();
 
   /* -----------------------------
    * Identity
@@ -27,12 +65,13 @@ export default function HomePage() {
   /* -----------------------------
    * Applications
    * ----------------------------- */
-  const {
-    data: clients = [],
-    isLoading: appsLoading,
-    isError: appsError,
-    refetch: refetchApps,
-  } = useListClientsQuery();
+  const visibleClients = useMemo(
+    () =>
+      buildAccessibleClients({
+        accessibleSystems,
+      }),
+    [accessibleSystems],
+  );
 
   const { data: notifications = [], isLoading: notificationsLoading } = useGetNotificationsQuery({
     unread: true,
@@ -80,37 +119,28 @@ export default function HomePage() {
         <h4>
           Your applications{" "}
           <Tag size="sm" type="cool-gray">
-            {clients.length}
+            {visibleClients.length}
           </Tag>
         </h4>
 
-        {appsLoading && <InlineLoading description="Loading applications…" />}
-
-        {appsError && (
-          <ErrorState
-            title="Failed to load applications"
-            description="Unable to fetch assigned applications."
-            primaryAction={{ label: "Retry", onClick: refetchApps }}
-          />
-        )}
-
-        {!appsLoading && !appsError && clients.length === 0 && (
+        {visibleClients.length === 0 && (
           <EmptyState
             title="No applications assigned"
             description="You do not have access to any applications yet."
           />
         )}
 
-        {!appsLoading && !appsError && clients.length > 0 && (
+        {visibleClients.length > 0 && (
           <div className="home-grid">
-            {clients.map((client) => (
+            {visibleClients.map((client) => (
               <ApplicationTile
                 key={client.clientId}
                 clientId={client.clientId}
                 name={client.name}
                 description={client.description}
                 enabled={client?.enabled}
-                rootUrl={client.baseUrl}
+                rootUrl={normalizePortalPath(client.baseUrl)}
+                launchMode={(client.attributes?.["ui.launchMode"] as "internal" | "new_tab" | "same_tab") || "internal"}
               />
             ))}
           </div>
@@ -138,7 +168,7 @@ export default function HomePage() {
             onClick={() => {
               openPanel({
                 title: "Create user",
-                content: <UserFormPanel mode="create" />,
+                content: lazyPanel(<UserFormPanel mode="create" />),
                 size: "md",
               });
             }}
@@ -153,7 +183,7 @@ export default function HomePage() {
             onClick={() => {
               openPanel({
                 title: "Create client",
-                content: <ClientFormPanel mode="create" />,
+                content: lazyPanel(<ClientFormPanel mode="create" />),
                 size: "md",
               });
             }}
@@ -171,14 +201,14 @@ export default function HomePage() {
               openPanel({
                 title: `Roles: ${user.username}`,
                 size: "lg",
-                content: (
+                content: lazyPanel(
                   <Stack gap={6}>
                     {/* User basic details */}
                     <UserFormPanel mode="edit" initialUser={user} />
 
                     {/* Client role assignment */}
                     <UserClientRolesPanel userId={user.id} />
-                  </Stack>
+                  </Stack>,
                 ),
               });
             }}
@@ -192,7 +222,7 @@ export default function HomePage() {
             onClick={() => {
               openPanel({
                 title: "Create Announcement",
-                content: <ManageAnnouncementsPanel mode={"create"} />,
+                content: lazyPanel(<ManageAnnouncementsPanel mode="create" />),
                 size: "lg",
               });
             }}

@@ -1,7 +1,8 @@
 package announcements
 
 import (
-	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,9 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
-	"github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -70,6 +69,22 @@ func getAnnouncementID(c *gin.Context) (uuid.UUID, bool) {
 	return announcementID, true
 }
 
+func getAnnouncementAttachmentID(c *gin.Context) (uuid.UUID, bool) {
+	idParam := c.Param("attachmentId")
+	if idParam == "" {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "attachment id is required")
+		return uuid.Nil, false
+	}
+
+	attachmentID, err := uuid.Parse(idParam)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "invalid attachment id")
+		return uuid.Nil, false
+	}
+
+	return attachmentID, true
+}
+
 func getCurrentUserID(c *gin.Context) (uuid.UUID, bool) {
 	userID := utils.ToNullUUID(c.GetString("user_id"))
 	if !userID.Valid {
@@ -80,28 +95,42 @@ func getCurrentUserID(c *gin.Context) (uuid.UUID, bool) {
 	return userID.UUID, true
 }
 
+func (h *Handler) announcementResponsesWithAttachments(
+	ctx *gin.Context,
+	items []announcement,
+	adminLinks bool,
+) []AnnouncementResponse {
+	res := make([]AnnouncementResponse, len(items))
+	for i, item := range items {
+		attachments, err := h.announcementService.ListAttachments(ctx.Request.Context(), item.ID)
+		if err != nil {
+			res[i] = toAnnouncementResponse(item)
+			continue
+		}
+		if adminLinks {
+			res[i] = toAnnouncementResponseWithAttachments(item, attachments)
+		} else {
+			res[i] = toUserAnnouncementResponseWithAttachments(item, attachments)
+		}
+	}
+	return res
+}
+
 func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListAnnouncementsAdmin(
+	items, err := h.announcementService.ListAnnouncementsAdminPage(
 		c.Request.Context(),
-		db.ListAnnouncementsAdminParams{
-			Limit:  limit,
-			Offset: offset,
-		},
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcements")
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, true))
 }
 
 func (h *Handler) GetAnnouncementByID(c *gin.Context) {
@@ -116,7 +145,8 @@ func (h *Handler) GetAnnouncementByID(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
+	attachments, _ := h.announcementService.ListAttachments(c.Request.Context(), item.ID)
+	response.OK(c, http.StatusOK, toAnnouncementResponseWithAttachments(item, attachments))
 }
 
 func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
@@ -124,13 +154,13 @@ func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 
 	limit, err := strconv.ParseInt(c.DefaultQuery("limit", "20"), 10, 32)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
 	offset, err := strconv.ParseInt(c.DefaultQuery("offset", "0"), 10, 32)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -144,18 +174,13 @@ func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(announcements))
-	for i, item := range announcements {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, announcements, false))
 }
 
 func (h *Handler) CreateAnnouncement(c *gin.Context) {
 	var req createAnnouncementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -176,32 +201,25 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		return
 	}
 
-	params := db.CreateAnnouncementParams{
+	input := CreateAnnouncementInput{
 		Title:         strings.TrimSpace(req.Title),
 		Message:       strings.TrimSpace(req.Message),
 		Summary:       nullableString(req.Summary),
-		Level:         model.AnnouncementLevel(req.Level),
+		Level:         req.Level,
 		Tag:           nullableString(req.Tag),
-		LinkUrl:       nullableString(req.LinkURL),
+		LinkURL:       nullableString(req.LinkURL),
+		LinkLabel:     nullableString(req.LinkLabel),
 		Priority:      req.Priority,
 		IsPinned:      req.IsPinned,
-		Status:        model.AnnouncementStatus(req.Status),
+		Status:        req.Status,
 		PublishAt:     publishAt,
 		ExpiresAt:     expiresAt,
-		AudienceType:  model.AnnouncementAudienceType(req.AudienceType),
+		AudienceType:  req.AudienceType,
 		NotifyByEmail: req.NotifyByEmail,
 		CreatedBy:     userID,
 	}
 
-	if strings.TrimSpace(req.Status) == "" {
-		params.Status = model.AnnouncementStatusDRAFT
-	}
-
-	if strings.TrimSpace(req.AudienceType) == "" {
-		params.AudienceType = model.AnnouncementAudienceTypeALLUSERS
-	}
-
-	item, err := h.announcementService.CreateAnnouncement(c.Request.Context(), params)
+	item, err := h.announcementService.CreateAnnouncementFromInput(c.Request.Context(), input)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create announcement")
 		return
@@ -268,7 +286,7 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 
 	var req updateAnnouncementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -289,31 +307,25 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
-	params := db.UpdateAnnouncementParams{
+	input := UpdateAnnouncementInput{
 		ID:            announcementID,
 		Title:         strings.TrimSpace(req.Title),
 		Message:       strings.TrimSpace(req.Message),
 		Summary:       nullableString(req.Summary),
-		Level:         model.AnnouncementLevel(req.Level),
+		Level:         req.Level,
 		Tag:           nullableString(req.Tag),
-		LinkUrl:       nullableString(req.LinkURL),
+		LinkURL:       nullableString(req.LinkURL),
+		LinkLabel:     nullableString(req.LinkLabel),
 		Priority:      req.Priority,
 		IsPinned:      req.IsPinned,
 		PublishAt:     publishAt,
 		ExpiresAt:     expiresAt,
-		AudienceType:  model.AnnouncementAudienceType(req.AudienceType),
+		AudienceType:  req.AudienceType,
 		NotifyByEmail: req.NotifyByEmail,
-		UpdatedBy: uuid.NullUUID{
-			UUID:  userID,
-			Valid: true,
-		},
+		UpdatedBy:     userID,
 	}
 
-	if strings.TrimSpace(req.AudienceType) == "" {
-		params.AudienceType = model.AnnouncementAudienceTypeALLUSERS
-	}
-
-	item, err := h.announcementService.UpdateAnnouncement(c.Request.Context(), params)
+	item, err := h.announcementService.UpdateAnnouncementFromInput(c.Request.Context(), input)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update announcement")
 		return
@@ -372,14 +384,27 @@ func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 		return
 	}
 
+	var req publishAnnouncementRequest
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
+			return
+		}
+	}
+
 	userID, ok := getCurrentUserID(c)
 	if !ok {
 		return
 	}
 
-	item, err := h.announcementService.PublishAnnouncementNow(c.Request.Context(), announcementID, userID)
+	item, err := h.announcementService.PublishAnnouncementNow(
+		c.Request.Context(),
+		announcementID,
+		userID,
+		announcementEmailOptionsFromPublishRequest(req),
+	)
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to publish announcement"+err.Error())
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to publish announcement"+"request failed")
 		return
 	}
 
@@ -411,15 +436,10 @@ func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
 		return
 	}
 
-	item, err := h.announcementService.MoveAnnouncementToDraft(
+	item, err := h.announcementService.MoveAnnouncementToDraftByUser(
 		c.Request.Context(),
-		db.DraftAnnouncementParams{
-			ID: announcementID,
-			UpdatedBy: uuid.NullUUID{
-				UUID:  userID,
-				Valid: true,
-			},
-		},
+		announcementID,
+		userID,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to draft announcement")
@@ -448,7 +468,7 @@ func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 
 	var req scheduleAnnouncementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -463,19 +483,12 @@ func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 		return
 	}
 
-	item, err := h.announcementService.ScheduleAnnouncement(
+	item, err := h.announcementService.ScheduleAnnouncementByUser(
 		c.Request.Context(),
-		db.ScheduleAnnouncementParams{
-			ID: announcementID,
-			PublishAt: sql.NullTime{
-				Time:  publishAt,
-				Valid: true,
-			},
-			UpdatedBy: uuid.NullUUID{
-				UUID:  userID,
-				Valid: true,
-			},
-		},
+		announcementID,
+		publishAt,
+		userID,
+		announcementEmailOptionsFromScheduleRequest(req, publishAt),
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to schedule announcement")
@@ -589,9 +602,224 @@ func (h *Handler) DeleteAnnouncement(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"message": "announcement deleted successfully",
-	})
+	response.OK(c, http.StatusOK, MessageResponse{Message: "announcement deleted successfully"})
+}
+
+func (h *Handler) UploadAnnouncementAttachment(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+
+	userID, ok := getCurrentUserID(c)
+	if !ok {
+		return
+	}
+
+	var input UploadAnnouncementAttachmentInput
+	includeInEmail := true
+
+	contentType := c.GetHeader("Content-Type")
+	if strings.HasPrefix(strings.ToLower(contentType), "multipart/form-data") {
+		file, err := c.FormFile("file")
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "file is required")
+			return
+		}
+
+		reader, err := file.Open()
+		if err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "failed to open uploaded file")
+			return
+		}
+		defer reader.Close()
+
+		if raw := strings.TrimSpace(c.PostForm("include_in_email")); raw != "" {
+			if parsed, err := strconv.ParseBool(raw); err == nil {
+				includeInEmail = parsed
+			}
+		}
+
+		sortOrder := int32(0)
+		if raw := strings.TrimSpace(c.PostForm("sort_order")); raw != "" {
+			if parsed, err := strconv.Atoi(raw); err == nil {
+				sortOrder = int32(parsed)
+			}
+		}
+
+		input = UploadAnnouncementAttachmentInput{
+			FileName:       file.Filename,
+			ContentType:    file.Header.Get("Content-Type"),
+			Reader:         reader,
+			Size:           file.Size,
+			IncludeInEmail: includeInEmail,
+			Inline:         strings.EqualFold(c.PostForm("inline"), "true"),
+			ContentID:      c.PostForm("content_id"),
+			SortOrder:      sortOrder,
+			UploadedBy:     userID,
+		}
+	} else {
+		var req createAnnouncementAttachmentRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
+			return
+		}
+		if req.IncludeInEmail != nil {
+			includeInEmail = *req.IncludeInEmail
+		}
+		input = UploadAnnouncementAttachmentInput{
+			FileName:       req.FileName,
+			ContentType:    req.ContentType,
+			DataBase64:     req.DataBase64,
+			IncludeInEmail: includeInEmail,
+			Inline:         req.Inline,
+			ContentID:      req.ContentID,
+			SortOrder:      req.SortOrder,
+			UploadedBy:     userID,
+		}
+	}
+
+	attachment, err := h.announcementService.UploadAttachment(c.Request.Context(), announcementID, input)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "request failed")
+		return
+	}
+
+	if h.auditService != nil {
+		_ = h.auditService.Log(
+			c.Request.Context(),
+			uuid.NullUUID{UUID: userID, Valid: true},
+			"ANNOUNCEMENT_ATTACHMENT_UPLOADED",
+			map[string]any{
+				"announcement_id": announcementID.String(),
+				"attachment_id":   attachment.ID.String(),
+				"file_name":       attachment.OriginalFileName,
+			},
+		)
+	}
+
+	response.OK(c, http.StatusCreated, toAnnouncementAttachmentResponse(announcementID, attachment))
+}
+
+func (h *Handler) ListAnnouncementAttachments(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+
+	attachments, err := h.announcementService.ListAttachments(c.Request.Context(), announcementID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to list announcement attachments")
+		return
+	}
+
+	response.OK(c, http.StatusOK, toAnnouncementAttachmentResponses(announcementID, attachments))
+}
+
+func (h *Handler) DownloadAnnouncementAttachment(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+
+	attachmentID, ok := getAnnouncementAttachmentID(c)
+	if !ok {
+		return
+	}
+
+	download, err := h.announcementService.OpenAttachmentDownload(c.Request.Context(), announcementID, attachmentID)
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "announcement attachment not found")
+		return
+	}
+	defer download.Reader.Close()
+
+	contentType := nullStringValue(download.Attachment.ContentType)
+	if strings.TrimSpace(contentType) == "" {
+		contentType = "application/octet-stream"
+	}
+
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, download.Attachment.OriginalFileName))
+	c.Header("Content-Type", contentType)
+	_, _ = io.Copy(c.Writer, download.Reader)
+}
+
+func (h *Handler) UpdateAnnouncementAttachment(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+	attachmentID, ok := getAnnouncementAttachmentID(c)
+	if !ok {
+		return
+	}
+
+	var req updateAnnouncementAttachmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
+		return
+	}
+
+	userID, ok := getCurrentUserID(c)
+	if !ok {
+		return
+	}
+
+	attachment, err := h.announcementService.UpdateAttachment(
+		c.Request.Context(),
+		announcementID,
+		attachmentID,
+		UpdateAnnouncementAttachmentInput{
+			IncludeInEmail: req.IncludeInEmail,
+			Inline:         req.Inline,
+			ContentID:      req.ContentID,
+			SortOrder:      req.SortOrder,
+			UpdatedBy:      userID,
+		},
+	)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "request failed")
+		return
+	}
+
+	response.OK(c, http.StatusOK, toAnnouncementAttachmentResponse(announcementID, attachment))
+}
+
+func (h *Handler) DeleteAnnouncementAttachment(c *gin.Context) {
+	announcementID, ok := getAnnouncementID(c)
+	if !ok {
+		return
+	}
+	attachmentID, ok := getAnnouncementAttachmentID(c)
+	if !ok {
+		return
+	}
+
+	userID, ok := getCurrentUserID(c)
+	if !ok {
+		return
+	}
+
+	attachment, err := h.announcementService.DeleteAttachment(c.Request.Context(), announcementID, attachmentID, userID)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "request failed")
+		return
+	}
+
+	if h.auditService != nil {
+		_ = h.auditService.Log(
+			c.Request.Context(),
+			uuid.NullUUID{UUID: userID, Valid: true},
+			"ANNOUNCEMENT_ATTACHMENT_DELETED",
+			map[string]any{
+				"announcement_id": announcementID.String(),
+				"attachment_id":   attachment.ID.String(),
+				"file_name":       attachment.OriginalFileName,
+			},
+		)
+	}
+
+	response.OK(c, http.StatusOK, MessageResponse{Message: "announcement attachment deleted successfully"})
 }
 
 func (h *Handler) SetAnnouncementPinned(c *gin.Context) {
@@ -602,7 +830,7 @@ func (h *Handler) SetAnnouncementPinned(c *gin.Context) {
 
 	var req setPinnedRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -645,7 +873,7 @@ func (h *Handler) SetAnnouncementPriority(c *gin.Context) {
 
 	var req setPriorityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "request failed")
 		return
 	}
 
@@ -687,31 +915,24 @@ func (h *Handler) GetAnnouncementStats(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, stats)
+	response.OK(c, http.StatusOK, toAnnouncementStatsResponse(stats))
 }
 
 func (h *Handler) ListActivePublishedAnnouncements(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListActivePublishedAnnouncements(
+	items, err := h.announcementService.ListActivePublishedAnnouncementsPage(
 		c.Request.Context(),
-		db.ListActivePublishedAnnouncementsParams{
-			Limit:  limit,
-			Offset: offset,
-		},
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch active announcements")
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
 
 func (h *Handler) ListAnnouncementsForClient(c *gin.Context) {
@@ -730,25 +951,18 @@ func (h *Handler) ListAnnouncementsForClient(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListAnnouncementsForClient(
+	items, err := h.announcementService.ListAnnouncementsForClientPage(
 		c.Request.Context(),
-		db.ListAnnouncementsForClientParams{
-			ClientID: clientID,
-			Limit:    limit,
-			Offset:   offset,
-		},
+		clientID,
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcements for client")
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
 
 func (h *Handler) ListAnnouncementsForRole(c *gin.Context) {
@@ -761,25 +975,18 @@ func (h *Handler) ListAnnouncementsForRole(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListAnnouncementsForRole(
+	items, err := h.announcementService.ListAnnouncementsForRolePage(
 		c.Request.Context(),
-		db.ListAnnouncementsForRoleParams{
-			RoleName:   roleName,
-			PageLimit:  limit,
-			PageOffset: offset,
-		},
+		roleName,
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcements for role")
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
 
 func (h *Handler) ListAnnouncementsForUser(c *gin.Context) {
@@ -791,25 +998,18 @@ func (h *Handler) ListAnnouncementsForUser(c *gin.Context) {
 	limit := getPageLimit(c, 20)
 	offset := getPageOffset(c)
 
-	items, err := h.announcementService.ListAnnouncementsForUser(
+	items, err := h.announcementService.ListAnnouncementsForUserPage(
 		c.Request.Context(),
-		db.ListAnnouncementsForUserParams{
-			UserID: userID,
-			Limit:  limit,
-			Offset: offset,
-		},
+		userID,
+		limit,
+		offset,
 	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch announcements for user")
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }
 
 func (h *Handler) ListMyAnnouncements(c *gin.Context) {
@@ -847,10 +1047,5 @@ func (h *Handler) ListMyAnnouncements(c *gin.Context) {
 		return
 	}
 
-	res := make([]AnnouncementResponse, len(items))
-	for i, item := range items {
-		res[i] = toAnnouncementResponse(item)
-	}
-
-	response.OK(c, http.StatusOK, res)
+	response.OK(c, http.StatusOK, h.announcementResponsesWithAttachments(c, items, false))
 }

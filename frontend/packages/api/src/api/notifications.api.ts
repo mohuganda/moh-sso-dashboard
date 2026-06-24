@@ -1,5 +1,9 @@
 import { API } from "@moh-sso/config";
-import type { GetNotificationsParams, Notification } from "@moh-sso/types";
+import type {
+  GetNotificationsParams,
+  Notification,
+  NotificationDelivery,
+} from "@moh-sso/types";
 
 import { baseApi } from "./baseApi";
 
@@ -149,6 +153,34 @@ export const notificationsApi = baseApi.injectEndpoints({
 
       providesTags: [{ type: "Notification", id: "COUNT" }],
     }),
+
+    getNotificationDeliveries: builder.query<NotificationDelivery[], string>({
+      query: (notificationId) => ({
+        url: API.admin.notifications.deliveries(notificationId),
+        credentials: "include",
+      }),
+
+      transformResponse: (res: ApiEnvelope<NotificationDelivery[]>) => res.data,
+
+      providesTags: (_result, _error, notificationId) => [
+        { type: "Notification", id: `DELIVERIES-${notificationId}` },
+      ],
+    }),
+
+    retryNotificationDelivery: builder.mutation<void, { deliveryId: string; notificationId: string }>({
+      query: ({ deliveryId }) => ({
+        url: API.admin.notifications.retryDelivery(deliveryId),
+        method: "POST",
+        credentials: "include",
+      }),
+
+      transformResponse: () => undefined,
+
+      invalidatesTags: (_result, _error, { notificationId }) => [
+        { type: "Notification", id: `DELIVERIES-${notificationId}` },
+        { type: "Notification", id: "LIST" },
+      ],
+    }),
   }),
 });
 
@@ -161,4 +193,6 @@ export const {
   useNotifyMutation,
   useGetNotificationQuery,
   useGetUnreadNotificationsCountQuery,
+  useGetNotificationDeliveriesQuery,
+  useRetryNotificationDeliveryMutation,
 } = notificationsApi;

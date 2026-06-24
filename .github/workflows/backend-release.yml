@@ -1,0 +1,134 @@
+name: Backend Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Backend semantic version without a prefix, for example 1.2.3"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  APP_NAME: moh-sso-dashboard
+  VERSION_PACKAGE: github.com/moh-sso-dashboard/internal/version
+
+jobs:
+  release:
+    name: Verify and release backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate semantic version
+        shell: bash
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid semantic version: $VERSION"
+            exit 1
+          fi
+          TAG="backend/v${VERSION}"
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists"
+            exit 1
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Verify formatting
+        shell: bash
+        run: |
+          UNFORMATTED="$(gofmt -l .)"
+          if [[ -n "$UNFORMATTED" ]]; then
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: Vet backend
+        run: go vet ./...
+
+      - name: Test backend
+        run: go test ./...
+
+      - name: Check architecture boundaries
+        run: go test ./internal/architecture
+
+      - name: Check version configuration consistency
+        run: ./scripts/check-version-consistency.sh
+
+      - name: Build release artifacts
+        shell: bash
+        run: |
+          VERSION="${{ inputs.version }}"
+          COMMIT="$(git rev-parse HEAD)"
+          BUILD_TIME="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          LDFLAGS="-s -w \
+            -X '${{ env.VERSION_PACKAGE }}.Version=${VERSION}' \
+            -X '${{ env.VERSION_PACKAGE }}.Commit=${COMMIT}' \
+            -X '${{ env.VERSION_PACKAGE }}.BuildTime=${BUILD_TIME}' \
+            -X '${{ env.VERSION_PACKAGE }}.Dirty=false'"
+
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            GOOS="${target%/*}"
+            GOARCH="${target#*/}"
+            OUTPUT="dist/${{ env.APP_NAME }}-${VERSION}-${GOOS}-${GOARCH}"
+            CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build \
+              -trimpath -ldflags="$LDFLAGS" -o "$OUTPUT" ./cmd/server
+          done
+
+          ./scripts/verify-version.sh \
+            "dist/${{ env.APP_NAME }}-${VERSION}-linux-amd64" \
+            "$VERSION" "$COMMIT" false
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum moh-sso-dashboard-* > checksums.txt
+
+      - name: Generate release SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./backend/dist
+          format: spdx-json
+          output-file: ./backend/dist/sbom.spdx.json
+
+      - name: Attest release artifacts
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: backend/dist/moh-sso-dashboard-*
+
+      - name: Create verified component tag
+        shell: bash
+        run: |
+          TAG="backend/v${{ inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Backend release ${{ inputs.version }}"
+          git push origin "$TAG"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: backend/v${{ inputs.version }}
+          name: Backend ${{ inputs.version }}
+          generate_release_notes: true
+          files: backend/dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

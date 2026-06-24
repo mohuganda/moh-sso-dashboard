@@ -14,7 +14,7 @@ import {
   Pagination,
   Button,
 } from "@carbon/react";
-import { Add } from "@carbon/react/icons";
+import { Add, Attachment, Link as LinkIcon } from "@carbon/react/icons";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -36,6 +36,27 @@ import { AnnouncementFilters } from "../components/announcement-filters.componen
 import { AnnouncementBulkActions } from "../components/announcement-bulk-actions.component";
 import { AnnouncementActionsMenu } from "../components/announcement-actions-menu.component";
 import { ManageAnnouncementsPanel } from "../components/manage-announcement-panel";
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== "object") {
+    return fallback;
+  }
+
+  const maybeError = error as {
+    data?: {
+      message?: unknown;
+      error?: {
+        message?: unknown;
+      };
+    };
+    error?: unknown;
+  };
+
+  if (typeof maybeError.data?.message === "string") return maybeError.data.message;
+  if (typeof maybeError.data?.error?.message === "string") return maybeError.data.error.message;
+  if (typeof maybeError.error === "string") return maybeError.error;
+  return fallback;
+}
 
 /* -----------------------------
  * Filters
@@ -83,6 +104,7 @@ const headers = [
   { key: "audience", header: "Audience" },
   { key: "status", header: "Status" },
   { key: "pinned", header: "Pinned" },
+  { key: "attachments", header: "Files" },
   { key: "active", header: "Active" },
   { key: "publishAt", header: "Publish at" },
   { key: "expiresAt", header: "Expires at" },
@@ -179,6 +201,14 @@ export function AnnouncementsPage() {
     return filteredAnnouncements.slice(start, start + pageSize);
   }, [filteredAnnouncements, page, pageSize]);
 
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filteredAnnouncements.length / pageSize));
+
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [filteredAnnouncements.length, page, pageSize]);
+
   /* -----------------------------
    * Rows
    * ----------------------------- */
@@ -189,6 +219,7 @@ export function AnnouncementsPage() {
     audience: item.audience_type,
     status: item.status,
     pinned: item.is_pinned ? "Yes" : "No",
+    attachments: String(item.attachment_count ?? item.attachments?.length ?? 0),
     active: isAnnouncementActive(item) ? "Yes" : "No",
     publishAt: formatDateTime(item.publish_at),
     expiresAt: formatDateTime(item.expires_at),
@@ -308,7 +339,7 @@ export function AnnouncementsPage() {
     return (
       <ErrorState
         title="Failed to load announcements"
-        description={(error as any)?.data?.message ?? "Failed to load announcements"}
+        description={getApiErrorMessage(error, "Failed to load announcements")}
         primaryAction={{ label: "Retry", onClick: refetch }}
       />
     );
@@ -528,9 +559,15 @@ export function AnnouncementsPage() {
 
                       {headers
                         .filter((header) => header.key !== "raw")
-                        .map((header) => (
-                          <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
-                        ))}
+                        .map((header) => {
+                          const { key, ...headerProps } = getHeaderProps({ header });
+
+                          return (
+                            <TableHeader key={key} {...headerProps}>
+                              {header.header}
+                            </TableHeader>
+                          );
+                        })}
                     </TableRow>
                   </TableHead>
 
@@ -539,14 +576,22 @@ export function AnnouncementsPage() {
                       const announcement = row.cells.find((cell) => cell.info.header === "raw")
                         ?.value as Announcement;
 
+                      const { key, ...rowProps } = getRowProps({ row });
+
                       return (
-                        <TableRow {...getRowProps({ row })}>
+                        <TableRow key={key} {...rowProps}>
                           <TableSelectRow {...getSelectionProps({ row })} />
 
                           {row.cells.map((cell) => {
                             if (cell.info.header === "raw") return null;
 
                             if (cell.info.header === "title") {
+                              const attachmentCount =
+                                announcement.attachment_count ??
+                                announcement.attachments?.length ??
+                                0;
+                              const hasLink = Boolean(announcement.link_url?.trim());
+
                               return (
                                 <TableCell key={cell.id}>
                                   <div style={{ display: "grid", gap: 4 }}>
@@ -574,7 +619,73 @@ export function AnnouncementsPage() {
                                         </Tag>
                                       </span>
                                     )}
+
+                                    {(hasLink || attachmentCount > 0) && (
+                                      <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                        {hasLink && (
+                                          <Tag size="sm" type="blue">
+                                            <span
+                                              style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                              }}
+                                            >
+                                              <LinkIcon size={12} />
+                                              Link
+                                            </span>
+                                          </Tag>
+                                        )}
+
+                                        {attachmentCount > 0 && (
+                                          <Tag size="sm" type="cyan">
+                                            <span
+                                              style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                              }}
+                                            >
+                                              <Attachment size={12} />
+                                              {attachmentCount === 1
+                                                ? "1 attachment"
+                                                : `${attachmentCount} attachments`}
+                                            </span>
+                                          </Tag>
+                                        )}
+                                      </span>
+                                    )}
                                   </div>
+                                </TableCell>
+                              );
+                            }
+
+                            if (cell.info.header === "attachments") {
+                              const attachmentCount =
+                                announcement.attachment_count ??
+                                announcement.attachments?.length ??
+                                0;
+
+                              return (
+                                <TableCell key={cell.id}>
+                                  {attachmentCount > 0 ? (
+                                    <Tag type="cyan" size="sm">
+                                      <span
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                        }}
+                                      >
+                                        <Attachment size={12} />
+                                        {attachmentCount}
+                                      </span>
+                                    </Tag>
+                                  ) : (
+                                    <Tag type="gray" size="sm">
+                                      None
+                                    </Tag>
+                                  )}
                                 </TableCell>
                               );
                             }

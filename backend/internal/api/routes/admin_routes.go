@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"time"
-
 	"github.com/gin-gonic/gin"
 
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
@@ -10,15 +8,12 @@ import (
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
+	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	userfeature "github.com/moh-sso-dashboard/internal/features/users"
-	"github.com/moh-sso-dashboard/internal/middleware"
-	"github.com/moh-sso-dashboard/internal/ratelimit"
 )
 
 func RegisterAdminRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	admin := protected.Group("/admin")
-	admin.Use(middleware.RequireAdmin())
-	admin.Use(ratelimit.Middleware(deps.Limiter, ratelimit.ByUser, deps.AdminRateLimitPerMin, time.Minute))
 
 	registerAdminUserRoutes(admin, deps)
 	registerAdminClientRoleRoutes(admin, deps)
@@ -26,10 +21,11 @@ func RegisterAdminRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	registerAdminAuditRoutes(admin, deps)
 	registerAdminNotificationRoutes(admin, deps)
 	registerAdminAnnouncementRoutes(admin, deps)
+	registerAdminRBACRoutes(admin, deps)
 }
 
 func registerAdminUserRoutes(admin *gin.RouterGroup, deps Dependencies) {
-	userfeature.RegisterAdminRoutes(admin, deps.Users)
+	userfeature.RegisterAdminRoutes(admin, deps.Users, deps.Limiter)
 }
 
 func registerAdminClientRoleRoutes(admin *gin.RouterGroup, deps Dependencies) {
@@ -45,14 +41,17 @@ func registerAdminAuditRoutes(admin *gin.RouterGroup, deps Dependencies) {
 		admin,
 		deps.Audit,
 		deps.Limiter,
-		deps.AuditLogRateLimitPerMin,
 	)
 }
 
 func registerAdminNotificationRoutes(admin *gin.RouterGroup, deps Dependencies) {
-	notificationsfeature.RegisterAdminRoutes(admin, deps.Notifications)
+	notificationsfeature.RegisterAdminRoutes(admin, deps.Notifications, deps.Limiter)
 }
 
 func registerAdminAnnouncementRoutes(admin *gin.RouterGroup, deps Dependencies) {
-	announcementfeature.RegisterAdminRoutes(admin, deps.Announcements)
+	announcementfeature.RegisterAdminRoutes(admin, deps.Announcements, deps.Limiter)
+}
+
+func registerAdminRBACRoutes(admin *gin.RouterGroup, deps Dependencies) {
+	rbacfeature.RegisterAdminRoutes(admin, deps.RBAC, deps.Limiter)
 }

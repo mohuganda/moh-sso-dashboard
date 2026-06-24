@@ -32,145 +32,115 @@ func (h *SheetHandler) CreateSheet(c *gin.Context) {
 	var req model.CreateSheetRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid request payload",
-		})
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "invalid request payload")
 		return
 	}
 
 	sheet, err := h.service.CreateSheet(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		response.Fail(c, http.StatusInternalServerError, "CREATE_FAILED", "request failed")
 		return
 	}
 
-	c.JSON(http.StatusCreated, sheet)
+	response.OK(c, http.StatusCreated, toSheetResponse(sheet))
 }
 
 func (h *SheetHandler) GetSheet(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid sheet id",
-		})
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "invalid sheet id")
 		return
 	}
 
 	sheet, err := h.service.GetSheet(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": ErrSheetNotFound.Error(),
-		})
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "sheet not found")
 		return
 	}
 
-	c.JSON(http.StatusOK, sheet)
+	response.OK(c, http.StatusOK, toSheetResponse(sheet))
 }
 
 func (h *SheetHandler) GetSheetByCode(c *gin.Context) {
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid template id",
-		})
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "invalid template id")
 		return
 	}
 
 	code := c.Param("code")
 	if code == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "sheet code required",
-		})
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "sheet code required")
 		return
 	}
 
 	sheet, err := h.service.GetSheetByCode(c.Request.Context(), templateID, code)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": ErrSheetNotFound.Error(),
-		})
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "sheet not found")
 		return
 	}
 
-	c.JSON(http.StatusOK, sheet)
+	response.OK(c, http.StatusOK, toSheetResponse(sheet))
 }
 
 func (h *SheetHandler) ListSheets(c *gin.Context) {
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid template id",
-		})
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "invalid template id")
 		return
 	}
 
 	sheets, err := h.service.ListSheets(c.Request.Context(), templateID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", "request failed")
 		return
 	}
 
-	c.JSON(http.StatusOK, sheets)
+	response.OK(c, http.StatusOK, toSheetResponses(sheets))
 }
 
 func (h *SheetHandler) ListRequiredSheets(c *gin.Context) {
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid template id",
-		})
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "invalid template id")
 		return
 	}
 
 	sheets, err := h.service.ListRequiredSheets(c.Request.Context(), templateID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", "request failed")
 		return
 	}
 
-	c.JSON(http.StatusOK, sheets)
+	response.OK(c, http.StatusOK, toSheetResponses(sheets))
 }
 
 func (h *SheetHandler) UpdateSheet(c *gin.Context) {
 	var req model.UpdateSheetRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid request payload",
-		})
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "invalid request payload")
 		return
 	}
 
 	sheet, err := h.service.UpdateSheet(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		response.Fail(c, http.StatusInternalServerError, "UPDATE_FAILED", "request failed")
 		return
 	}
 
-	c.JSON(http.StatusOK, sheet)
+	response.OK(c, http.StatusOK, toSheetResponse(sheet))
 }
 
 func (h *SheetHandler) DeleteSheet(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid sheet id",
-		})
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "invalid sheet id")
 		return
 	}
 
 	if err := h.service.DeleteSheet(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		response.Fail(c, http.StatusInternalServerError, "DELETE_FAILED", "request failed")
 		return
 	}
 
@@ -220,7 +190,7 @@ func (h *SheetHandler) GetSheetRuntime(c *gin.Context) {
 		response.Fail(c, http.StatusNotFound, "SHEET_NOT_FOUND", "Sheet not found in template")
 		return
 	}
-	response.OK(c, http.StatusOK, sheet)
+	response.OK(c, http.StatusOK, toSheetRuntimeResponse(sheet))
 
 }
 
@@ -240,6 +210,6 @@ func (h *SheetHandler) ValidateSheetExists(c *gin.Context) {
 		response.Fail(c, http.StatusNotFound, "SHEET_NOT_FOUND", "Sheet does not exist")
 		return
 	}
-	response.OK(c, http.StatusOK, gin.H{"exists": true})
+	response.OK(c, http.StatusOK, ExistsResponse{Exists: true})
 
 }

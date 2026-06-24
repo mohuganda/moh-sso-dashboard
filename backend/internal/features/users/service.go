@@ -22,6 +22,7 @@ type CreateUserRequest struct {
 	LastName         string              `json:"last_name,omitempty"`
 	FullName         string              `json:"full_name,omitempty"`
 	Enabled          *bool               `json:"enabled,omitempty"`
+	EmailVerified    *bool               `json:"email_verified,omitempty"`
 	RequirePwdChange *bool               `json:"require_pwd_change,omitempty"`
 	Password         string              `json:"password,omitempty"`
 	SendInvite       bool                `json:"send_invite,omitempty"`
@@ -30,12 +31,13 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	ID        string `json:"id"`
-	Username  string `json:"username,omitempty"`
-	Email     string `json:"email,omitempty"`
-	FirstName string `json:"first_name,omitempty"`
-	LastName  string `json:"last_name,omitempty"`
-	Enabled   *bool  `json:"enabled,omitempty"`
+	ID            string `json:"id"`
+	Username      string `json:"username,omitempty"`
+	Email         string `json:"email,omitempty"`
+	FirstName     string `json:"first_name,omitempty"`
+	LastName      string `json:"last_name,omitempty"`
+	Enabled       *bool  `json:"enabled,omitempty"`
+	EmailVerified *bool  `json:"email_verified,omitempty"`
 }
 
 type Service struct {
@@ -97,6 +99,11 @@ func (s *Service) CreateUser(
 		enabled = *req.Enabled
 	}
 
+	emailVerified := false
+	if req.EmailVerified != nil {
+		emailVerified = *req.EmailVerified
+	}
+
 	if req.FirstName == "" && req.LastName == "" && req.FullName != "" {
 		firstName, lastName := splitFullName(req.FullName)
 		req.FirstName = firstName
@@ -110,7 +117,7 @@ func (s *Service) CreateUser(
 		LastName:      req.LastName,
 		FullName:      fullName(req.FirstName, req.LastName),
 		Enabled:       enabled,
-		EmailVerified: false,
+		EmailVerified: emailVerified,
 	}
 
 	kcID, err := s.repo.CreateUser(user)
@@ -135,6 +142,7 @@ func (s *Service) CreateUser(
 			"first_name":         user.FirstName,
 			"last_name":          user.LastName,
 			"enabled":            user.Enabled,
+			"email_verified":     user.EmailVerified,
 			"send_invite":        req.SendInvite,
 			"require_pwd_change": req.RequirePwdChange != nil && *req.RequirePwdChange,
 			"realm_roles":        req.RealmRoles,
@@ -184,13 +192,19 @@ func (s *Service) UpdateUser(
 		enabled = *req.Enabled
 	}
 
+	emailVerified := current.EmailVerified
+	if req.EmailVerified != nil {
+		emailVerified = *req.EmailVerified
+	}
+
 	updated := &models.User{
-		ID:        req.ID,
-		Username:  firstNonEmpty(req.Username, current.Username),
-		Email:     firstNonEmpty(req.Email, current.Email),
-		FirstName: firstNonEmpty(req.FirstName, current.FirstName),
-		LastName:  firstNonEmpty(req.LastName, current.LastName),
-		Enabled:   enabled,
+		ID:            req.ID,
+		Username:      firstNonEmpty(req.Username, current.Username),
+		Email:         firstNonEmpty(req.Email, current.Email),
+		FirstName:     firstNonEmpty(req.FirstName, current.FirstName),
+		LastName:      firstNonEmpty(req.LastName, current.LastName),
+		Enabled:       enabled,
+		EmailVerified: emailVerified,
 	}
 
 	updated.FullName = fullName(updated.FirstName, updated.LastName)
@@ -213,6 +227,7 @@ func (s *Service) UpdateUser(
 			"email":            updated.Email,
 			"previous_enabled": current.Enabled,
 			"enabled":          updated.Enabled,
+			"email_verified":   updated.EmailVerified,
 			"admin_id":         adminID.String(),
 		}),
 	})
@@ -423,6 +438,18 @@ func (s *Service) ListUsers() ([]models.User, error) {
 	return users, nil
 }
 
+func (s *Service) SyncUsersFromKeycloak(ctx context.Context) (int, error) {
+	if s == nil {
+		return 0, errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return 0, errors.New("user repository is nil")
+	}
+
+	return s.repo.SyncUsersFromKeycloak(ctx)
+}
+
 // ----------------------------------------------------
 // USER EMAIL ACTIONS
 // ----------------------------------------------------
@@ -611,6 +638,94 @@ func (s *Service) GetUserClientRoles(
 	}
 
 	return s.repo.GetUserClientRoles(ctx, userID.String())
+}
+
+func (s *Service) UpdateUserRealmRoles(
+	ctx context.Context,
+	userID uuid.UUID,
+	roles []string,
+	adminID uuid.UUID,
+) error {
+	if s == nil {
+		return errors.New("user service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("user repository is nil")
+	}
+
+	if userID == uuid.Nil {
+		return errors.New("user id is required")
+	}
+
+	roles = normalizeRoleNames(roles)
+
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("get user before realm role update: %w", err)
+	}
+
+	currentSet := make(map[string]bool)
+	for _, role := range normalizeRoleNames(user.RealmRoles) {
+		currentSet[role] = true
+	}
+
+	desiredSet := make(map[string]bool)
+	for _, role := range roles {
+		desiredSet[role] = true
+	}
+
+	var toAdd []string
+	var toRemove []string
+
+	for role := range desiredSet {
+		if !currentSet[role] {
+			toAdd = append(toAdd, role)
+		}
+	}
+
+	for role := range currentSet {
+		if !desiredSet[role] {
+			toRemove = append(toRemove, role)
+		}
+	}
+
+	if len(toAdd) > 0 {
+		if err := s.repo.AddUserRealmRoles(ctx, userID.String(), toAdd); err != nil {
+			return fmt.Errorf("add user realm roles: %w", err)
+		}
+	}
+
+	if len(toRemove) > 0 {
+		if err := s.repo.RemoveUserRealmRoles(ctx, userID.String(), toRemove); err != nil {
+			return fmt.Errorf("remove user realm roles: %w", err)
+		}
+	}
+
+	if len(toAdd) == 0 && len(toRemove) == 0 {
+		return nil
+	}
+
+	nt := models.UserUpdated
+	s.notify(ctx, models.Notification{
+		Type:       string(nt),
+		Title:      nt.Title(),
+		Severity:   nt.Severity(),
+		Message:    "User realm roles updated",
+		TargetRole: "admin",
+		UserID:     userID.String(),
+		Metadata: utils.MustJSON(map[string]any{
+			"user_id":  userID.String(),
+			"username": user.Username,
+			"email":    user.Email,
+			"added":    toAdd,
+			"removed":  toRemove,
+			"roles":    roles,
+			"admin_id": adminID.String(),
+		}),
+	})
+
+	return nil
 }
 
 func (s *Service) GetUserClientRolesForClient(

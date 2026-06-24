@@ -2,6 +2,8 @@
 
 This frontend is a workspace-based React/Vite application prepared for single-spa microfrontends. The default development and deployment path still works as one shell application, while standalone apps can also build independently and be staged under `dist/mf`.
 
+The application launcher and user side navigation are registry-driven. Platform systems use internal routing and may contribute permission-filtered navigation. External systems are launcher-only and use either new-tab or same-tab navigation. If no authorized navigation remains, the shell removes the side navigation and its reserved width.
+
 ## Architecture
 
 ```text
@@ -11,11 +13,13 @@ frontend/
     announcements/
     audit/
     clients/
+    data-validation/
     data-visualizer/
     documents/
     e-services/
     email/
     issue-tracker/
+    rbac/
     report-browser/
     surveillance/
     users/
@@ -83,6 +87,8 @@ Local ports:
 - report-browser: `4110`
 - e-services: `4111`
 - utilities: `4112`
+- rbac: `4113`
+- data-validation: `4114`
 
 More detail: [docs/development.md](docs/development.md).
 

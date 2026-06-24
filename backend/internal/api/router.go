@@ -9,11 +9,13 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/api/handler"
 	"github.com/moh-sso-dashboard/internal/api/routes"
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/config"
 	adminunitsfeature "github.com/moh-sso-dashboard/internal/features/admin_units"
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
 	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
 	authfeature "github.com/moh-sso-dashboard/internal/features/auth"
+	"github.com/moh-sso-dashboard/internal/features/authsession"
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
 	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
 	documenttemplatesfeature "github.com/moh-sso-dashboard/internal/features/document_templates"
@@ -22,6 +24,7 @@ import (
 	geojsonfeature "github.com/moh-sso-dashboard/internal/features/geojson"
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
+	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -38,6 +41,8 @@ type RouterDependencies struct {
 	KeycloakClient *keycloak.Client
 	Limiter        *ratelimit.Limiter
 	AuditService   *service.AuditService
+	AuthSessions   *authsession.Store
+	AuthzResolver  authz.PermissionResolver
 	Handlers       HandlerSet
 	RateLimits     RateLimits
 }
@@ -62,12 +67,11 @@ type HandlerSet struct {
 	Surveillance            *surveillancefeature.Handler
 	GeoJSON                 *geojsonfeature.Handler
 	Email                   *emailfeature.Handler
+	RBAC                    *rbacfeature.Handler
 }
 
 type RateLimits struct {
 	AuthenticatedPerMinute int
-	AdminPerMinute         int
-	AuditLogPerMinute      int
 	AuthLoginPerMinute     int
 	AuthCallbackPerMinute  int
 	AuthSessionPerMinute   int
@@ -77,7 +81,8 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 	rateLimits := deps.RateLimits.withDefaults()
 
 	r := gin.New()
-	r.Use(gin.Logger())
+	r.Use(middleware.RequestContext())
+	r.Use(middleware.RequestLogger())
 	r.Use(gin.Recovery())
 	r.Use(cors.New(corsConfig(deps.Config)))
 
@@ -102,9 +107,8 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 		Surveillance:                  deps.Handlers.Surveillance,
 		GeoJSON:                       deps.Handlers.GeoJSON,
 		Email:                         deps.Handlers.Email,
+		RBAC:                          deps.Handlers.RBAC,
 		AuthenticatedRateLimitPerMin:  rateLimits.AuthenticatedPerMinute,
-		AdminRateLimitPerMin:          rateLimits.AdminPerMinute,
-		AuditLogRateLimitPerMin:       rateLimits.AuditLogPerMinute,
 		AuthLoginRateLimitPerMin:      rateLimits.AuthLoginPerMinute,
 		AuthCallbackRateLimitPerMin:   rateLimits.AuthCallbackPerMinute,
 		AuthSessionRateLimitPerMinute: rateLimits.AuthSessionPerMinute,
@@ -115,14 +119,16 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 	routes.RegisterPublicAnnouncementRoutes(api, routeDeps)
 
 	protected := api.Group("")
-	protected.Use(middleware.ExtractAuthContext(deps.KeycloakClient))
+	protected.Use(middleware.ExtractAuthContext(
+		deps.KeycloakClient,
+		deps.AuthSessions,
+		deps.AuthzResolver,
+	))
 	protected.Use(middleware.RequireAuth())
 	protected.Use(middleware.AuditMiddleware(deps.AuditService))
-	protected.Use(ratelimit.Middleware(
+	protected.Use(ratelimit.MiddlewareForPolicy(
 		deps.Limiter,
-		ratelimit.ByUser,
-		routeDeps.AuthenticatedRateLimitPerMin,
-		time.Minute,
+		ratelimit.AuthenticatedDefaultPolicy(routeDeps.AuthenticatedRateLimitPerMin),
 	))
 
 	routes.RegisterProtectedRoutes(protected, routeDeps)
@@ -135,17 +141,12 @@ func RegisterHealthRoutes(r *gin.Engine, healthHandler *handler.HealthHandler) {
 	r.GET("/health/live", healthHandler.HandleLive)
 	r.GET("/health/ready", healthHandler.HandleReady)
 	r.GET("/health", healthHandler.HandleHealth)
+	r.GET("/version", healthHandler.HandleVersion)
 }
 
 func (limits RateLimits) withDefaults() RateLimits {
 	if limits.AuthenticatedPerMinute == 0 {
-		limits.AuthenticatedPerMinute = 120
-	}
-	if limits.AdminPerMinute == 0 {
-		limits.AdminPerMinute = 60
-	}
-	if limits.AuditLogPerMinute == 0 {
-		limits.AuditLogPerMinute = 30
+		limits.AuthenticatedPerMinute = 300
 	}
 	if limits.AuthLoginPerMinute == 0 {
 		limits.AuthLoginPerMinute = 20
@@ -180,12 +181,16 @@ func corsConfig(cfg *config.Config) cors.Config {
 			"Authorization",
 			"X-Requested-With",
 			"X-CSRF-Token",
+			"X-Request-ID",
+			"X-Correlation-ID",
 			"Cache-Control",
 			"Pragma",
 		},
 		ExposeHeaders: []string{
 			"Content-Length",
 			"Content-Type",
+			"X-Request-ID",
+			"X-Correlation-ID",
 		},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,

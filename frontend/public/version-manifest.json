@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-07T09:07:43.326Z",
+  "generatedAt": "2026-06-19T13:58:49.528Z",
   "apps": {
     "announcements": {
       "name": "@moh-sso/announcements",
@@ -11,6 +11,10 @@
     },
     "clients": {
       "name": "@moh-sso/clients",
+      "version": "0.1.0"
+    },
+    "data-validation": {
+      "name": "@moh-sso/data-validation",
       "version": "0.1.0"
     },
     "data-visualizer": {
@@ -31,6 +35,10 @@
     },
     "issue-tracker": {
       "name": "@moh-sso/issue-tracker",
+      "version": "0.1.0"
+    },
+    "rbac": {
+      "name": "@moh-sso/rbac",
       "version": "0.1.0"
     },
     "report-browser": {

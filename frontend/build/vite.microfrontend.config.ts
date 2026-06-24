@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, type Alias } from "vite";
+import { visualizer } from "rollup-plugin-visualizer";
 
 type MicrofrontendConfigOptions = {
   appUrl: string;
@@ -18,14 +19,25 @@ export function defineMicrofrontendConfig({
   const pathFromApp = (path: string) => fileURLToPath(new URL(path, appUrl));
   const pathFromFrontend = (path: string) => fileURLToPath(new URL(`../../${path}`, appUrl));
 
-  return defineConfig({
-    plugins: [react()],
+  return defineConfig(({ mode }) => ({
+    plugins: [react(), visualizer({ open: true, filename: "bundle-analysis.html" })],
+
+    // Solves the esbuild vs rollup primitive evaluation conflicts
+    define: {
+      "process.env.NODE_ENV": JSON.stringify(mode),
+      "process.env": JSON.stringify({ NODE_ENV: mode }),
+      process: JSON.stringify({ env: { NODE_ENV: mode } }),
+    },
+
     resolve: {
       alias: [
         { find: "@moh-sso/api", replacement: pathFromFrontend("packages/api/src") },
         { find: "@moh-sso/auth", replacement: pathFromFrontend("packages/auth/src") },
         { find: "@moh-sso/config", replacement: pathFromFrontend("packages/config/src") },
-        { find: "@moh-sso/microfrontend", replacement: pathFromFrontend("packages/microfrontend/src") },
+        {
+          find: "@moh-sso/microfrontend",
+          replacement: pathFromFrontend("packages/microfrontend/src"),
+        },
         { find: "@moh-sso/state", replacement: pathFromFrontend("packages/state/src") },
         { find: "@moh-sso/types", replacement: pathFromFrontend("packages/types/src") },
         { find: "@moh-sso/ui", replacement: pathFromFrontend("packages/ui/src") },
@@ -33,12 +45,18 @@ export function defineMicrofrontendConfig({
         ...extraAliases,
       ],
     },
+
     build: {
+      target: "es2020",
       outDir: pathFromApp("./dist"),
       emptyOutDir: true,
+      sourcemap: true,
+
       commonjsOptions: {
         include: [/react-pivottable/, /node_modules/],
+        transformMixedEsModules: true,
       },
+
       lib: {
         entry: {
           index: pathFromApp("./src/index.ts"),
@@ -49,10 +67,21 @@ export function defineMicrofrontendConfig({
         formats: ["es"],
         fileName: (_format, entryName) => `${entryName}.js`,
       },
+
+      dedupe: [
+        "react",
+        "react-dom",
+        "react-router-dom",
+        "react-redux",
+        "@carbon/react",
+        "single-spa-react",
+      ],
+
       rollupOptions: {
         external: [
           "react",
           "react-dom",
+          "react-dom/client", // Prevents internal React bundle pollution
           "react-redux",
           "react-router-dom",
           "@reduxjs/toolkit",
@@ -61,7 +90,13 @@ export function defineMicrofrontendConfig({
           "single-spa",
           ...extraExternal,
         ],
+
+        output: {
+          entryFileNames: "[name].js",
+          chunkFileNames: "assets/[name]-[hash].js",
+          assetFileNames: "assets/[name]-[hash][extname]",
+        },
       },
     },
-  });
+  }));
 }

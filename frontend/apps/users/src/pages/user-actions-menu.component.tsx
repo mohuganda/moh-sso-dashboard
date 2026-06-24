@@ -1,4 +1,5 @@
 import { OverflowMenu, OverflowMenuItem } from "@carbon/react";
+import type { MouseEvent } from "react";
 
 import type { User } from "@moh-sso/types";
 
@@ -17,8 +18,12 @@ export function UserActionsMenu({
   onToggleStatus,
   onResetPassword,
 }: Props) {
+  const stopRowSelection = (event: MouseEvent) => {
+    event.stopPropagation();
+  };
+
   return (
-    <OverflowMenu size="sm" flipped>
+    <OverflowMenu size="sm" flipped onClick={stopRowSelection}>
       <OverflowMenuItem itemText="Edit user" hasDivider onClick={onEdit} />
 
       <OverflowMenuItem itemText="Manage roles" hasDivider onClick={onManageRoles} />

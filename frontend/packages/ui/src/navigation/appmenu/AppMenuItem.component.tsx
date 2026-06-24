@@ -11,6 +11,7 @@ interface AppTileProps {
   clientId?: string;
   onSelect?: () => void;
   onOpen?: (href: string, clientId?: string) => void;
+  launchMode?: "internal" | "new_tab" | "same_tab";
 }
 
 function isExternalUrl(url: string): boolean {
@@ -29,9 +30,10 @@ function getTileId(name: string) {
     .replace(/(^-|-$)/g, "")}`;
 }
 
-const AppTile: React.FC<AppTileProps> = ({ icon: Icon, name, href, clientId, onSelect, onOpen }) => {
+const AppTile: React.FC<AppTileProps> = ({ icon: Icon, name, href, clientId, onSelect, onOpen, launchMode = "internal" }) => {
   const disabled = !isValidHref(href);
   const external = isValidHref(href) && isExternalUrl(href);
+  const opensNewTab = external && launchMode === "new_tab";
 
   const handleClick = () => {
     if (disabled) {
@@ -51,7 +53,7 @@ const AppTile: React.FC<AppTileProps> = ({ icon: Icon, name, href, clientId, onS
         .join(" ")}
       onClick={handleClick}
       disabled={disabled}
-      aria-label={external ? `Open ${name} in a new tab` : `Open ${name}`}
+      aria-label={opensNewTab ? `Open ${name} in a new tab` : `Open ${name}`}
     >
       <span className="app-menu-tile__icon-wrap" aria-hidden="true">
         <Icon size={24} className="app-menu-tile__icon" />
@@ -59,7 +61,7 @@ const AppTile: React.FC<AppTileProps> = ({ icon: Icon, name, href, clientId, onS
 
       <span className="app-menu-tile__label">{name}</span>
 
-      {external && (
+      {opensNewTab && (
         <span className="app-menu-tile__external" aria-hidden="true">
           <Launch size={14} />
         </span>

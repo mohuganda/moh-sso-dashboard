@@ -372,6 +372,17 @@ func (s *LocationService) UpsertDistrict(
 	return item, nil
 }
 
+func (s *LocationService) UpsertDistrictFromRequest(
+	ctx context.Context,
+	req UpsertDistrictRequest,
+) (db.District, error) {
+	return s.UpsertDistrict(ctx, db.UpsertDistrictParams{
+		Name:     req.Name,
+		RegionID: uuidNullFromPtr(req.RegionID),
+		Code:     sqlNullStringFromPtr(req.Code),
+	})
+}
+
 // ============================================================
 // Sub-counties
 // ============================================================
@@ -489,6 +500,20 @@ func (s *LocationService) UpsertSubcounty(
 	})
 
 	return item, nil
+}
+
+func (s *LocationService) UpsertSubcountyFromRequest(
+	ctx context.Context,
+	req UpsertSubCountyRequest,
+) (db.SubCounty, error) {
+	if req.DistrictID == nil {
+		return db.SubCounty{}, errors.New("district id is required")
+	}
+	return s.UpsertSubcounty(ctx, db.UpsertSubCountyParams{
+		Name:       req.Name,
+		DistrictID: *req.DistrictID,
+		Code:       sqlNullStringFromPtr(req.Code),
+	})
 }
 
 func (s *LocationService) DeleteSubcounty(

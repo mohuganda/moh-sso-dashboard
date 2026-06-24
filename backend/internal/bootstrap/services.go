@@ -9,6 +9,7 @@ import (
 	documenttemplatefeature "github.com/moh-sso-dashboard/internal/features/document_templates"
 	documentfeature "github.com/moh-sso-dashboard/internal/features/documents"
 	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
+	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -47,6 +48,7 @@ type services struct {
 	DocumentTemplateSheets  documenttemplatefeature.SheetService
 	DocumentTemplateColumns documenttemplatefeature.ColumnService
 	Import                  *importsvc.Service
+	RBAC                    *rbacfeature.Service
 }
 
 type serviceDependencies struct {
@@ -82,7 +84,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.Logger.Fatal("Failed to initialize email queue service: ", err)
 	}
 
-	emailService, err := service.NewEmailService(smtpService, queueService, templateManager)
+	emailService, err := service.NewEmailService(smtpService, queueService, templateManager, deps.Config)
 	if err != nil {
 		deps.Logger.Fatal("Failed to initialize email application service: ", err)
 	}
@@ -138,6 +140,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.Repositories.Announcements,
 		deps.Repositories.Users,
 		notificationsService,
+		deps.FileStorage,
 		deps.Config,
 	)
 
@@ -226,6 +229,8 @@ func buildServices(deps serviceDependencies) services {
 		deps.Databases.Remote,
 	)
 
+	rbacService := rbacfeature.NewService(deps.Repositories.RBAC, userService)
+
 	return services{
 		Email:                   emailService,
 		EmailFeature:            emailFeatureService,
@@ -252,5 +257,6 @@ func buildServices(deps serviceDependencies) services {
 		DocumentTemplateSheets:  documentTemplateSheetService,
 		DocumentTemplateColumns: documentTemplateColumnService,
 		Import:                  importService,
+		RBAC:                    rbacService,
 	}
 }

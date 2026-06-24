@@ -23,7 +23,7 @@
 
 .issue-comment-textarea {
   margin-top: 4rem;
-  padding: 0.5rem;
+  padding: 0.5rem
 }
 .issue-p-top {
   margin-top: 0.5rem;
@@ -49,13 +49,11 @@
 
   &:focus {
     border-color: #197537 !important;
-    box-shadow:
-      0 0 0 2px #fff,
-      0 0 0 4px #197537 !important;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #197537 !important;
   }
 }
 
 .issue-history-container {
-  margin-top: 3rem;
-  padding: 0.5rem;
+  margin-top: 1rem;
+  padding: 1.5rem !important;
 }

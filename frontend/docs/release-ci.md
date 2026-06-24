@@ -9,8 +9,19 @@ npm ci
 npm run audit:packages
 npm run typecheck
 npm run lint
-npm run build:all
+npm run config:prod
+FRONTEND_ASSET_BASE_URL=/portal FRONTEND_BASE_PATH=/portal npm run build:docker
+npm run audit:import-map
+npm run runtime:verify
+npm run bundle:budget
 npm run audit:publishability
+npm run config:dev
+```
+
+The local equivalent is:
+
+```bash
+npm run release:check
 ```
 
 ## Version Job
@@ -38,6 +49,7 @@ docker build -f frontend/Dockerfile frontend
 ```
 
 This path remains the default production deployment.
+It builds all workspace packages/apps from source, stages microfrontend artifacts into `dist/mf` and `dist/packages`, inlines the production import map, and serves the shell as a static app.
 
 ## Optional NPM Module Docker Job
 
@@ -51,6 +63,7 @@ docker build \
 ```
 
 Use this only when package publishing and version pinning are stable.
+The npm-module path expects every selected `@moh-sso/*` app/package to have already been published with built `dist` artifacts.
 
 ## Deploy Job
 
@@ -80,6 +93,23 @@ Deploy:
 - import map
 - `version-manifest.json`
 - app/package bundles
+
+Standalone app bundles currently include:
+
+- `@moh-sso/announcements`
+- `@moh-sso/audit`
+- `@moh-sso/clients`
+- `@moh-sso/data-validation`
+- `@moh-sso/data-visualizer`
+- `@moh-sso/documents`
+- `@moh-sso/e-services`
+- `@moh-sso/email`
+- `@moh-sso/issue-tracker`
+- `@moh-sso/rbac`
+- `@moh-sso/report-browser`
+- `@moh-sso/surveillance`
+- `@moh-sso/users`
+- `@moh-sso/utilities`
 
 ## Rollback Job
 

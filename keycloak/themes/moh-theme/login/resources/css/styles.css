@@ -15,7 +15,7 @@
   --moh-warning-bg: #fff8e1;
   --moh-warning-text: #8a6a00;
   --moh-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --moh-radius: 16px;
+  --moh-radius: 8px;
 }
 
 * {
@@ -43,9 +43,7 @@ body.moh-login-body {
 }
 
 .moh-brand-panel {
-  background:
-    linear-gradient(180deg, rgba(15, 98, 254, 0.06), rgba(15, 98, 254, 0.02)),
-    #ffffff;
+  background: #ffffff;
   padding: 3rem;
   display: flex;
   flex-direction: column;
@@ -60,10 +58,9 @@ body.moh-login-body {
 }
 
 .moh-logo {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
-  border-radius: 12px;
   background: white;
 }
 
@@ -71,7 +68,7 @@ body.moh-login-body {
   font-size: 0.8rem;
   color: var(--moh-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
 .moh-brand-text h1 {
@@ -90,7 +87,7 @@ body.moh-login-body {
 
 .moh-brand-content h2 {
   margin: 0 0 1rem;
-  font-size: 2.2rem;
+  font-size: 2rem;
   line-height: 1.15;
 }
 
@@ -139,7 +136,7 @@ body.moh-login-body {
   color: var(--moh-primary);
   font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   margin-bottom: 0.4rem;
 }
 
@@ -156,6 +153,27 @@ body.moh-login-body {
 .moh-form {
   display: grid;
   gap: 1rem;
+}
+
+.moh-page-intro {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+}
+
+.moh-page-intro h3,
+.moh-state h3 {
+  margin: 0;
+  color: var(--moh-text);
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.moh-page-intro p,
+.moh-state p {
+  margin: 0;
+  color: var(--moh-text-secondary);
+  line-height: 1.55;
 }
 
 .moh-field {
@@ -190,7 +208,7 @@ body.moh-login-body {
   width: 100%;
   min-height: 48px;
   border: 1px solid var(--moh-border);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 0.8rem 0.95rem;
   font-size: 1rem;
   outline: none;
@@ -240,10 +258,16 @@ body.moh-login-body {
   margin-top: 0.5rem;
 }
 
+.moh-actions-split {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .moh-primary-btn,
+.moh-secondary-btn,
 .moh-idp-btn {
   min-height: 48px;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 1rem;
   font-weight: 600;
 }
@@ -258,6 +282,26 @@ body.moh-login-body {
 
 .moh-primary-btn:hover {
   background: var(--moh-primary-hover);
+}
+
+.moh-secondary-btn {
+  width: 100%;
+  border: 1px solid var(--moh-border);
+  background: #ffffff;
+  color: var(--moh-text);
+  cursor: pointer;
+}
+
+.moh-secondary-btn:hover {
+  border-color: var(--moh-primary);
+  color: var(--moh-primary);
+}
+
+.moh-button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .moh-divider {
@@ -297,10 +341,11 @@ body.moh-login-body {
 }
 
 .moh-alert {
-  border-radius: 12px;
+  border-radius: 0;
   padding: 0.9rem 1rem;
   margin-bottom: 1rem;
   font-size: 0.95rem;
+  border-left: 4px solid currentColor;
 }
 
 .moh-alert-error {
@@ -321,6 +366,35 @@ body.moh-login-body {
 .moh-alert-warning {
   background: var(--moh-warning-bg);
   color: var(--moh-warning-text);
+}
+
+.moh-state {
+  display: grid;
+  gap: 1rem;
+}
+
+.moh-state-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+.moh-state-icon-info {
+  background: var(--moh-info-bg);
+  color: var(--moh-info-text);
+}
+
+.moh-state-icon-error {
+  background: var(--moh-danger-bg);
+  color: var(--moh-danger-text);
+}
+
+.moh-required {
+  color: var(--moh-danger-text);
 }
 
 .moh-meta {

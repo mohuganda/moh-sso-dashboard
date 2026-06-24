@@ -1,6 +1,6 @@
 import { Checkbox, TreeNode } from "@carbon/react";
 
-export const OrgUnitNode = ({ node, searchTerm, selectedOrgUnit, onSelect, renderRecursive }) => {
+export const OrgUnitNode = ({ node, searchTerm, selectedOrgUnit, onSelect, renderRecursive, idPrefix = "check" }) => {
   return (
     <TreeNode
       key={node.id}
@@ -11,7 +11,7 @@ export const OrgUnitNode = ({ node, searchTerm, selectedOrgUnit, onSelect, rende
           onClick={(e) => e.stopPropagation()}
         >
           <Checkbox
-            id={`check-${node.id}`}
+            id={`${idPrefix}-${node.id}`}
             labelText={node.name}
             checked={selectedOrgUnit === node.name}
             onChange={() => onSelect(node.name)}
@@ -19,7 +19,7 @@ export const OrgUnitNode = ({ node, searchTerm, selectedOrgUnit, onSelect, rende
         </div>
       }
     >
-      {node.children && renderRecursive(node.children)}
+      {node.children && renderRecursive(node.children, idPrefix)}
     </TreeNode>
   );
 };

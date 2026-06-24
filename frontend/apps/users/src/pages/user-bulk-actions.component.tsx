@@ -2,14 +2,13 @@ import { Button, ButtonSet, InlineLoading } from "@carbon/react";
 
 import type { User } from "@moh-sso/types";
 
-type BulkAction = "enable" | "disable" | "roles" | null;
+type BulkAction = "enable" | "disable" | null;
 
 type Props = {
   users: User[];
   loadingAction: BulkAction;
   onEnable: () => Promise<void>;
   onDisable: () => Promise<void>;
-  onAssignRoles: () => Promise<void>;
 };
 
 export function UserBulkActions({
@@ -17,7 +16,6 @@ export function UserBulkActions({
   loadingAction,
   onEnable,
   onDisable,
-  onAssignRoles,
 }: Props) {
   if (users.length === 0) return null;
 
@@ -40,14 +38,6 @@ export function UserBulkActions({
           <InlineLoading description="Disabling…" />
         ) : (
           `Disable (${users.length})`
-        )}
-      </Button>
-
-      <Button kind="primary" disabled={busy} onClick={onAssignRoles}>
-        {loadingAction === "roles" ? (
-          <InlineLoading description="Opening…" />
-        ) : (
-          `Assign roles (${users.length})`
         )}
       </Button>
     </ButtonSet>

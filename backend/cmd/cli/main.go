@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -23,6 +24,9 @@ func main() {
 		Short: "MOH SSO Management CLI",
 		Long:  "CLI tool for managing Keycloak realms, clients, and users for the MOH SSO Dashboard",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if isLocalToolCommand(cmd) {
+				return nil
+			}
 			if baseURL == "" || realm == "" || adminID == "" || adminSecret == "" {
 				return fmt.Errorf(
 					"please provide all Keycloak admin connection details (base-url, realm, admin-client-id, admin-client-secret)",
@@ -71,6 +75,12 @@ func main() {
 	rootCmd.AddCommand(listClientsCmd)
 	rootCmd.AddCommand(createUserCmd)
 	rootCmd.AddCommand(listUsersCmd)
+	rootCmd.AddCommand(systemRBACCmd)
+	rootCmd.AddCommand(doctorCmd)
+	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(devCmd)
+	rootCmd.AddCommand(openAPICmd)
+	rootCmd.AddCommand(versionCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("❌", err)
@@ -81,6 +91,24 @@ func main() {
 // ------------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------------
+func isLocalToolCommand(cmd *cobra.Command) bool {
+	commandPath := cmd.CommandPath()
+	localPrefixes := []string{
+		"moh-sso system-rbac",
+		"moh-sso doctor",
+		"moh-sso config",
+		"moh-sso dev",
+		"moh-sso openapi",
+		"moh-sso version",
+	}
+	for _, prefix := range localPrefixes {
+		if strings.HasPrefix(commandPath, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func newAdminKC() *keycloak.KeyAdminClient {
 	kc := keycloak.NewAdminClient(
 		baseURL,

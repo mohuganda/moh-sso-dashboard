@@ -9,11 +9,12 @@ import {
   FormGroup,
   TextArea,
 } from "@carbon/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useCreateClientMutation, useUpdateClientMutation } from "@moh-sso/api";
 import { ClientRolesPanel } from "./roles/client-roles-panel";
-import { FormInlineAlert , useToast } from "@moh-sso/ui";
+import { FormInlineAlert, useToast } from "@moh-sso/ui";
+import type { Client, CreateClientPayload } from "@moh-sso/types";
 
 export type ClientFormMode = "create" | "edit";
 
@@ -33,42 +34,33 @@ type ClientFormState = {
 
 type Props = {
   mode: ClientFormMode;
-  initialClient?: {
-    id: string;
-    clientId: string;
-    name: string;
-    description?: string;
-    publicClient: boolean;
-    enabled: boolean;
-    rootUrl?: string;
-    baseUrl?: string;
-    redirectUris?: string[];
-    webOrigins?: string[];
-    icon?: string;
-  };
+  initialClient?: Client;
   onSuccess?: () => void;
 };
+
+const createFormState = (initialClient?: Client): ClientFormState => ({
+  id: initialClient?.id ?? "",
+  clientId: initialClient?.clientId ?? "",
+  name: initialClient?.name ?? "",
+  description: initialClient?.description ?? "",
+  publicClient: initialClient?.publicClient ?? false,
+  enabled: initialClient?.enabled ?? true,
+  rootUrl: initialClient?.rootUrl ?? "",
+  baseUrl: initialClient?.baseUrl ?? "",
+  redirectUrisText: (initialClient?.redirectUris ?? []).join("\n"),
+  webOriginsText: (initialClient?.webOrigins ?? []).join("\n"),
+  icon: initialClient?.icon ?? "",
+});
 
 export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
   const toast = useToast();
 
-  const [createdClientId, setCreatedClientId] = useState<string | null>(null);
+  const [createdClient, setCreatedClient] = useState<Client | null>(null);
 
-  const effectiveClientId = mode === "edit" ? initialClient?.clientId : createdClientId;
+  const effectiveClientUuid = mode === "edit" ? initialClient?.id : createdClient?.id;
+  const effectiveClientId = mode === "edit" ? initialClient?.clientId : createdClient?.clientId;
 
-  const [form, setForm] = useState<ClientFormState>({
-    id: initialClient?.id ?? "",
-    clientId: initialClient?.clientId ?? "",
-    name: initialClient?.name ?? "",
-    description: initialClient?.description ?? "",
-    publicClient: initialClient?.publicClient ?? false,
-    enabled: initialClient?.enabled ?? true,
-    rootUrl: initialClient?.rootUrl ?? "",
-    baseUrl: initialClient?.baseUrl ?? "",
-    redirectUrisText: (initialClient?.redirectUris ?? []).join("\n"),
-    webOriginsText: (initialClient?.webOrigins ?? []).join("\n"),
-    icon: initialClient?.icon ?? "",
-  });
+  const [form, setForm] = useState<ClientFormState>(() => createFormState(initialClient));
 
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +68,12 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
   const [updateClient, { isLoading: updating }] = useUpdateClientMutation();
 
   const submitting = creating || updating;
+
+  useEffect(() => {
+    setForm(createFormState(initialClient));
+    setCreatedClient(null);
+    setError(null);
+  }, [initialClient, mode]);
 
   /* -----------------------------
    * Helpers
@@ -86,7 +84,7 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
       .map((v) => v.trim())
       .filter(Boolean);
 
-  const buildPayload = () => ({
+  const buildPayload = (): Omit<CreateClientPayload, "clientId"> => ({
     name: form.name.trim(),
     description: form.description?.trim() || undefined,
     icon: form.icon?.trim() || undefined,
@@ -131,7 +129,7 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
           ...buildPayload(),
         }).unwrap();
 
-        setCreatedClientId(created.clientId);
+        setCreatedClient(created);
 
         toast.success("Client created", `Client "${form.name}" was created`);
       } else {
@@ -144,11 +142,11 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
       }
 
       onSuccess?.();
-    } catch (err: any) {
-      const message =
-        err?.data?.message ??
-        (mode === "create" ? "Failed to create client" : "Failed to update client");
-
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(
+        err,
+        mode === "create" ? "Failed to create client" : "Failed to update client",
+      );
       setError(message);
       toast.error("Operation failed", "Please review the form and try again");
     }
@@ -302,12 +300,32 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
         {/* -----------------------------
          * Client roles (post-create / edit)
          * ----------------------------- */}
-        {effectiveClientId && (
+        {effectiveClientUuid && effectiveClientId && (
           <FormGroup legendText="Client roles">
-            <ClientRolesPanel clientId={effectiveClientId} id={form.id} />
+            <ClientRolesPanel clientUuid={effectiveClientUuid} clientId={effectiveClientId} />
           </FormGroup>
         )}
       </Stack>
     </Form>
   );
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error !== "object" || error === null) {
+    return fallback;
+  }
+
+  const data = "data" in error ? error.data : undefined;
+  if (typeof data === "object" && data !== null && "message" in data) {
+    const message = data.message;
+    if (typeof message === "string" && message.trim() !== "") {
+      return message;
+    }
+  }
+
+  if ("message" in error && typeof error.message === "string" && error.message.trim() !== "") {
+    return error.message;
+  }
+
+  return fallback;
 }

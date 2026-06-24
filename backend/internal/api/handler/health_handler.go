@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/http/response"
+	"github.com/moh-sso-dashboard/internal/version"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -38,10 +39,17 @@ func NewHealthHandler(
 // Used by Kubernetes to check if process is alive
 // --------------------------------------------------
 func (h *HealthHandler) HandleLive(c *gin.Context) {
-	response.OK(c, http.StatusOK, gin.H{
-		"status":         "alive",
-		"uptime_seconds": int(time.Since(h.startedAt).Seconds()),
+	build := version.Get()
+	response.OK(c, http.StatusOK, HealthResponse{
+		Status:        "alive",
+		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
+		Version:       build.Version,
+		Build:         &build,
 	})
+}
+
+func (h *HealthHandler) HandleVersion(c *gin.Context) {
+	response.OK(c, http.StatusOK, version.Get())
 }
 
 // --------------------------------------------------
@@ -55,49 +63,33 @@ func (h *HealthHandler) HandleReady(c *gin.Context) {
 	// Check Redis (if enabled)
 	if h.Redis != nil {
 		if err := h.Redis.Ping(ctx).Err(); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"status":  "not ready",
-				"service": "redis",
-				"error":   err.Error(),
-			})
+			response.Fail(c, http.StatusServiceUnavailable, "UNAVAILABLE", "redis unavailable")
 			return
 		}
 	}
 
 	if err := h.RemoteDBCheck(ctx); err != nil {
-		response.OK(c, http.StatusServiceUnavailable, gin.H{
-			"status":         "not_ready",
-			"reason":         "database_unavailable",
-			"error":          err.Error(),
-			"uptime_seconds": int(time.Since(h.startedAt).Seconds()),
-		})
+		response.Fail(c, http.StatusServiceUnavailable, "UNAVAILABLE", "database unavailable")
 		return
 	}
 
 	if err := h.DBCheck(ctx); err != nil {
-		response.OK(c, http.StatusServiceUnavailable, gin.H{
-			"status":         "not_ready",
-			"reason":         "database_unavailable",
-			"error":          err.Error(),
-			"uptime_seconds": int(time.Since(h.startedAt).Seconds()),
-		})
+		response.Fail(c, http.StatusServiceUnavailable, "UNAVAILABLE", "database unavailable")
 		return
 	}
 
 	// Optional strict Keycloak check
 	if err := h.KeycloakCheck(ctx); err != nil {
-		response.OK(c, http.StatusServiceUnavailable, gin.H{
-			"status":         "not_ready",
-			"reason":         "keycloak_unavailable",
-			"error":          err.Error(),
-			"uptime_seconds": int(time.Since(h.startedAt).Seconds()),
-		})
+		response.Fail(c, http.StatusServiceUnavailable, "UNAVAILABLE", "keycloak unavailable")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{
-		"status":         "ready",
-		"uptime_seconds": int(time.Since(h.startedAt).Seconds()),
+	build := version.Get()
+	response.OK(c, http.StatusOK, HealthResponse{
+		Status:        "ready",
+		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
+		Version:       build.Version,
+		Build:         &build,
 	})
 }
 
@@ -140,14 +132,17 @@ func (h *HealthHandler) HandleHealth(c *gin.Context) {
 		httpStatus = http.StatusServiceUnavailable
 	}
 
-	response.OK(c, httpStatus, gin.H{
-		"status": status,
-		"components": gin.H{
-			"database": db,
-			"remoteDB": remoteDb,
-			"keycloak": keycloak,
-			"redis":    redis,
+	build := version.Get()
+	response.OK(c, httpStatus, HealthResponse{
+		Status:        status,
+		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
+		Components: &HealthComponentStatus{
+			Database: db,
+			RemoteDB: remoteDb,
+			Keycloak: keycloak,
+			Redis:    redis,
 		},
-		"uptime_seconds": int(time.Since(h.startedAt).Seconds()),
+		Version: build.Version,
+		Build:   &build,
 	})
 }

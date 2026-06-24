@@ -1,10 +1,7 @@
 package audit
 
 import (
-	"crypto/sha256"
-	"database/sql"
 	"encoding/csv"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,10 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 
 	"github.com/moh-sso-dashboard/internal/cache"
-	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
@@ -25,13 +20,15 @@ import (
  * ========================================================= */
 
 type Handler struct {
-	store db.Store
-	cache *cache.RedisCache
+	service Service
+	cache   *cache.RedisCache
 }
 
-func NewHandler(store db.Store, cache *cache.RedisCache) *Handler {
-	return &Handler{store: store,
-		cache: cache}
+func NewHandler(service Service, cache *cache.RedisCache) *Handler {
+	return &Handler{
+		service: service,
+		cache:   cache,
+	}
 }
 
 /* =========================================================
@@ -135,54 +132,21 @@ func (h *Handler) ListAuditLogs(c *gin.Context) {
 		limit = int32(n)
 	}
 
-	rows, err := h.store.ListAuditLogs(
-		c.Request.Context(),
-		db.ListAuditLogsParams{
-			StartTime: from,
-			EndTime:   to,
-
-			Action:   toNullString(action),
-			UserID:   toNullUUID(userID),
-			ClientID: toNullString(clientID),
-			Ip:       toNullString(ip),
-			Success:  toNullString(success),
-
-			CursorCreatedAt: toNullTime(cursorCreatedAt),
-			CursorID:        toNullUUID(cursorID),
-
-			RowLimit: limit + 1,
-		},
-	)
+	resp, err := h.service.ListAuditLogs(c.Request.Context(), ListAuditLogsInput{
+		StartTime:       from,
+		EndTime:         to,
+		Action:          action,
+		UserID:          userID,
+		ClientID:        clientID,
+		IP:              ip,
+		Success:         success,
+		CursorCreatedAt: cursorCreatedAt,
+		CursorID:        cursorID,
+		Limit:           limit,
+	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list audit logs")
 		return
-	}
-
-	hasMore := len(rows) > int(limit)
-	if hasMore {
-		rows = rows[:limit]
-	}
-
-	var nextCreatedAt *time.Time
-	var nextID *uuid.UUID
-
-	if hasMore && len(rows) > 0 {
-		last := rows[len(rows)-1]
-		if last.CreatedAt.Valid {
-			t := last.CreatedAt.Time
-			nextCreatedAt = &t
-		}
-		id := last.ID
-		nextID = &id
-	}
-
-	resp := gin.H{
-		"items": rows,
-		"next_cursor": gin.H{
-			"cursor_created_at": nextCreatedAt,
-			"cursor_id":         nextID,
-		},
-		"has_more": hasMore,
 	}
 
 	if h.cache != nil {
@@ -208,13 +172,13 @@ func (h *Handler) GetAuditLog(c *gin.Context) {
 		return
 	}
 
-	row, err := h.store.GetAuditLog(c.Request.Context(), id)
+	result, err := h.service.GetAuditLog(c.Request.Context(), id)
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, "AUDIT_LOG_NOT_FOUND", "Audit log not found")
 		return
 	}
 
-	response.OK(c, http.StatusOK, row)
+	response.OK(c, http.StatusOK, result)
 }
 
 /* =========================================================
@@ -222,13 +186,13 @@ func (h *Handler) GetAuditLog(c *gin.Context) {
  * ========================================================= */
 
 func (h *Handler) ListAuditActions(c *gin.Context) {
-	rows, err := h.store.ListAuditActions(c.Request.Context())
+	result, err := h.service.ListAuditActions(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list audit actions")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"actions": rows})
+	response.OK(c, http.StatusOK, result)
 }
 
 func (h *Handler) AuditMetricsOverview(c *gin.Context) {
@@ -241,19 +205,13 @@ func (h *Handler) AuditMetricsOverview(c *gin.Context) {
 		return
 	}
 
-	row, err := h.store.AuditMetricsOverview(
-		c.Request.Context(),
-		db.AuditMetricsOverviewParams{
-			StartTime: toNullTime(&from),
-			EndTime:   toNullTime(&to),
-		},
-	)
+	result, err := h.service.AuditMetricsOverview(c.Request.Context(), AuditWindowInput{StartTime: from, EndTime: to})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to compute audit metrics")
 		return
 	}
 
-	response.OK(c, http.StatusOK, row)
+	response.OK(c, http.StatusOK, result)
 }
 
 func (h *Handler) FailedLoginsByDay(c *gin.Context) {
@@ -266,19 +224,13 @@ func (h *Handler) FailedLoginsByDay(c *gin.Context) {
 		return
 	}
 
-	rows, err := h.store.FailedLoginsByDay(
-		c.Request.Context(),
-		db.FailedLoginsByDayParams{
-			StartTime: toNullTime(&from),
-			EndTime:   toNullTime(&to),
-		},
-	)
+	result, err := h.service.FailedLoginsByDay(c.Request.Context(), AuditWindowInput{StartTime: from, EndTime: to})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to compute failed logins series")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"series": rows})
+	response.OK(c, http.StatusOK, result)
 }
 
 func (h *Handler) TopFailureIPs(c *gin.Context) {
@@ -301,20 +253,17 @@ func (h *Handler) TopFailureIPs(c *gin.Context) {
 		limit = int32(n)
 	}
 
-	rows, err := h.store.TopFailureIPs(
-		c.Request.Context(),
-		db.TopFailureIPsParams{
-			StartTime: toNullTime(&from),
-			EndTime:   toNullTime(&to),
-			RowLimit:  limit,
-		},
-	)
+	result, err := h.service.TopFailureIPs(c.Request.Context(), TopFailureIPsInput{
+		StartTime: from,
+		EndTime:   to,
+		Limit:     limit,
+	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to compute top IPs")
 		return
 	}
 
-	response.OK(c, http.StatusOK, gin.H{"items": rows})
+	response.OK(c, http.StatusOK, result)
 }
 
 /* =========================================================
@@ -347,59 +296,41 @@ func (h *Handler) ExportAuditLogs(c *gin.Context) {
 		userID = id
 	}
 
-	rows, err := h.store.ExportAuditLogs(
-		c.Request.Context(),
-		db.ExportAuditLogsParams{
-			StartTime: toNullTime(&from),
-			EndTime:   toNullTime(&to),
-			Action:    toNullString(action),
-			UserID:    toNullUUID(userID),
-			ClientID:  toNullString(clientID),
-			Ip:        toNullString(ip),
-			Success:   toNullString(success),
-		},
-	)
+	items, err := h.service.ExportAuditLogs(c.Request.Context(), ExportAuditLogsInput{
+		StartTime: from,
+		EndTime:   to,
+		Action:    action,
+		UserID:    userID,
+		ClientID:  clientID,
+		IP:        ip,
+		Success:   success,
+	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Export failed")
 		return
 	}
 
-	manifest := buildAuditManifest(from, to, rows, c)
+	manifest := buildAuditManifest(from, to, items, len(items), c)
 
 	if format == "json" {
 		c.Header("Content-Type", "application/json")
 		c.Header("Content-Disposition", "attachment; filename=audit_logs_export.json")
-		c.JSON(http.StatusOK, gin.H{
-			"manifest": manifest,
-			"items":    rows,
-		})
+		response.OK(c, http.StatusOK, toAuditExportResponse(manifest, items))
 		return
 	}
 
-	writeAuditCSV(c, rows, manifest)
+	writeAuditCSV(c, items, manifest)
 }
 
 /* =========================================================
  * Helpers (export + sql nulls)
  * ========================================================= */
 
-func buildAuditManifest(from, to time.Time, rows any, c *gin.Context) map[string]any {
-	payload, _ := json.Marshal(rows)
-	sum := sha256.Sum256(payload)
-
-	return map[string]any{
-		"generated_at": time.Now().UTC().Format(time.RFC3339),
-		"range": map[string]string{
-			"from": from.UTC().Format(time.RFC3339),
-			"to":   to.UTC().Format(time.RFC3339),
-		},
-		"record_count":   len(payload),
-		"hash_algo":      "sha256",
-		"payload_sha256": hex.EncodeToString(sum[:]),
-	}
+func buildAuditManifest(from, to time.Time, rows any, recordCount int, c *gin.Context) AuditExportManifest {
+	return toAuditExportManifest(from, to, rows, recordCount)
 }
 
-func writeAuditCSV(c *gin.Context, rows []db.ExportAuditLogsRow, manifest map[string]any) {
+func writeAuditCSV(c *gin.Context, rows []AuditLogResponse, manifest AuditExportManifest) {
 	c.Header("Content-Type", "text/csv")
 	c.Header("Content-Disposition", "attachment; filename=audit_logs_export.csv")
 
@@ -412,83 +343,26 @@ func writeAuditCSV(c *gin.Context, rows []db.ExportAuditLogsRow, manifest map[st
 	})
 
 	for _, r := range rows {
-		meta := extractAuditMetadata(r.Metadata)
-		metaJSON, _ := json.Marshal(meta)
-
-		userID := ""
-		if r.UserID.Valid {
-			userID = r.UserID.UUID.String()
-		}
-
-		createdAt := ""
-		if r.CreatedAt.Valid {
-			createdAt = r.CreatedAt.Time.UTC().Format(time.RFC3339)
+		metaJSON, _ := json.Marshal(r.Metadata)
+		success := ""
+		if r.Success != nil {
+			success = strconv.FormatBool(*r.Success)
 		}
 
 		_ = w.Write([]string{
-			createdAt,
-			userID,
+			r.CreatedAt,
+			r.UserID,
 			r.Username,
 			r.Action,
-			stringify(meta["ip"]),
-			stringify(meta["client_id"]),
-			stringify(meta["success"]),
+			r.IP,
+			r.ClientID,
+			success,
 			string(metaJSON),
 		})
 	}
 
 	manifestBytes, _ := json.Marshal(manifest)
 	c.Header("X-Audit-Export-Manifest", string(manifestBytes))
-}
-
-/* ---- null helpers ---- */
-
-func toNullString(s string) sql.NullString {
-	if s == "" {
-		return sql.NullString{}
-	}
-	return sql.NullString{String: s, Valid: true}
-}
-
-func toNullUUID(id *uuid.UUID) uuid.NullUUID {
-	if id == nil {
-		return uuid.NullUUID{}
-	}
-	return uuid.NullUUID{UUID: *id, Valid: true}
-}
-
-func toNullTime(t *time.Time) sql.NullTime {
-	if t == nil {
-		return sql.NullTime{}
-	}
-	return sql.NullTime{Time: *t, Valid: true}
-}
-
-func stringify(v any) string {
-	switch x := v.(type) {
-	case bool:
-		if x {
-			return "true"
-		}
-		return "false"
-	case string:
-		return x
-	default:
-		b, _ := json.Marshal(x)
-		return string(b)
-	}
-}
-
-func extractAuditMetadata(r pqtype.NullRawMessage) map[string]any {
-	if !r.Valid || len(r.RawMessage) == 0 {
-		return nil
-	}
-
-	var meta map[string]any
-	if err := json.Unmarshal(r.RawMessage, &meta); err != nil {
-		return nil
-	}
-	return meta
 }
 
 func auditLogsCacheKey(c *gin.Context) string {

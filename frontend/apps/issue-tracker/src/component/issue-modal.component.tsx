@@ -1,520 +1,347 @@
+import {ComboBox, Modal, TextArea, Search, TreeView, NumberInput} from "@carbon/react";
 import {
-  ComboBox,
-  InlineLoading,
-  InlineNotification,
-  Modal,
-  NumberInput,
-  Search,
-  TextArea,
-  TreeView,
-} from "@carbon/react";
-import { ChevronDown, ChevronUp } from "@carbon/react/icons";
-import {
-  type Theme,
-  type ThemeElement,
-  getAvailablePeriods,
-  periodType,
-  useGetHierarchyQuery,
-  useGetThemesQuery,
-  useLazyGetThemeElementsQuery,
-} from "@moh-sso/data-visualizer";
-import { selectUser } from "@moh-sso/auth";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
-
-import { IssueTypes, Priority } from "../lib/constants";
-import { OrgUnitNode } from "./tree-node.component";
-import type { Issue } from "@moh-sso/types";
+  type Dataset, type ThemeElement,
+  useGetDataSetsQuery,
+  useLazyGetDataSetElementsQuery
+} from "../../../data-visualizer/src/pages/modals/data-model/data-model.ts";
+import {useCallback, useEffect, useState} from "react";
 import { useCreateIssueMutation, useUpdateIssueMutation } from "@moh-sso/api";
+import {IssueTypes, Priority} from "../lib/constants.ts";
+import {useSelector} from "react-redux";
+import type {Issue} from "../pages/issue-tracker.component.tsx";
+import { ChevronDown, ChevronUp } from "@carbon/react/icons";
+import {useGetHierarchyQuery} from "../../../data-visualizer/src/pages/modals/orgunit/org-unit.ts";
+import {OrgUnitNode} from "./tree-node.component.tsx";
+import {getAvailablePeriods, periodType} from "../../../data-visualizer/src/pages/Constants.tsx";
+import {selectUser} from "@moh-sso/auth";
 
-type IssueModalProps = {
-  onClose: () => void;
-  onSuccess?: () => void;
-  selectedIssue?: Issue | null;
-};
-
-type OrgUnitTreeNode = {
-  id: string;
-  name: string;
-  children?: OrgUnitTreeNode[];
-};
-
-type ComboBoxChange<T> = {
-  selectedItem?: T | null;
-};
-
-const CURRENT_YEAR = new Date().getFullYear();
-const DEFAULT_PERIOD_TYPE = "Quarterly";
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (!error) return fallback;
-
-  if (typeof error === "object" && error !== null) {
-    const err = error as {
-      data?: { message?: string };
-      error?: string;
-      message?: string;
-    };
-
-    return err.data?.message || err.error || err.message || fallback;
-  }
-
-  return fallback;
-}
-
-function nodeMatchesSearch(node: OrgUnitTreeNode, term: string): boolean {
-  const normalizedTerm = term.trim().toLowerCase();
-
-  if (!normalizedTerm) return true;
-
-  if (node.name.toLowerCase().includes(normalizedTerm)) {
-    return true;
-  }
-
-  return node.children?.some((child) => nodeMatchesSearch(child, term)) ?? false;
-}
-
-export function IssueModal({ onClose, onSuccess, selectedIssue }: IssueModalProps) {
-  const isEdit = Boolean(selectedIssue);
-  const user = useSelector(selectUser);
-
+export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, selectedIssue?: Issue | null }) => {
+  const CURRENT_YEAR = new Date().getFullYear();
+  const initialPeriodType =  "Quarterly";
+  const isEdit = !!selectedIssue;
+  const [datasets, setDatasets] = useState<Dataset[] | undefined>([]);
   const [selectedDataset, setSelectedDataset] = useState(selectedIssue?.dataset ?? "");
+  const [dataElement, setDataElement] = useState<ThemeElement[]>([]);
+  const [description, setDescription] = useState(selectedIssue?.issue ?? '');
+  const [selectedIssueType, setSelectedIssueType] = useState(selectedIssue?.issue_type ?? '');
   const [selectedDataElement, setSelectedDataElement] = useState(selectedIssue?.data_element ?? "");
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState(selectedIssue?.org_unit ?? "");
-  const [description, setDescription] = useState(selectedIssue?.issue ?? "");
-  const [selectedIssueType, setSelectedIssueType] = useState(selectedIssue?.issue_type ?? "");
   const [priority, setPriority] = useState(selectedIssue?.priority ?? "");
   const [severity, setSeverity] = useState(selectedIssue?.severity ?? "");
-
+  const { data: themes, isLoading: isLoadingThemes, error } = useGetDataSetsQuery();
+  const [ triggerGetDataset ] = useLazyGetDataSetElementsQuery();
+  const [updateIssue, { isLoading: isUpdating }] = useUpdateIssueMutation();
+  const [createIssue, { isLoading: isCreating }] = useCreateIssueMutation();
+  const user = useSelector(selectUser);
   const [isOrgExpanded, setIsOrgExpanded] = useState(false);
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState(selectedIssue?.org_unit ?? "");
+  const [orgUnits, setOrgUnits] = useState<any>({});
+  const { data: hierarchyData, isLoading, error:hierarchyDataError} = useGetHierarchyQuery();
   const [orgSearchTerm, setOrgSearchTerm] = useState("");
-
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
-  const [selectedPeriodType, setSelectedPeriodType] = useState(
-    selectedIssue ? "" : DEFAULT_PERIOD_TYPE,
-  );
-  const [selectedPeriod, setSelectedPeriod] = useState(
-    selectedIssue?.time_Period || selectedIssue?.time_period || "",
-  );
-
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const {
-    data: themes = [],
-    isLoading: isLoadingThemes,
-    isError: isThemesError,
-    error: themesError,
-  } = useGetThemesQuery();
-
-  const [
-    triggerGetThemeElements,
-    {
-      data: themeElements = [],
-      isFetching: isFetchingThemeElements,
-      isError: isThemeElementsError,
-      error: themeElementsError,
-    },
-  ] = useLazyGetThemeElementsQuery();
-
-  const {
-    data: hierarchyData,
-    isLoading: isLoadingHierarchy,
-    isError: isHierarchyError,
-    error: hierarchyError,
-  } = useGetHierarchyQuery();
-
-  const [createIssue, createState] = useCreateIssueMutation();
-  const [updateIssue, updateState] = useUpdateIssueMutation();
-
-  const isSubmitting = createState.isLoading || updateState.isLoading;
-
-  const datasets = useMemo(() => {
-    return themes.map((item: Theme) => item.theme_name).filter(Boolean);
-  }, [themes]);
-
-  const dataElements = useMemo(() => {
-    return themeElements.map((item: ThemeElement) => item.data_element_short_name).filter(Boolean);
-  }, [themeElements]);
-
-  const availablePeriods = useMemo(() => {
-    if (!selectedPeriodType) return [];
-
-    return getAvailablePeriods(selectedPeriodType, selectedYear);
-  }, [selectedPeriodType, selectedYear]);
-
-  const periodItems = useMemo(() => {
-    return availablePeriods.map((item) => item.label);
-  }, [availablePeriods]);
-
-  const orgUnits = useMemo<OrgUnitTreeNode[]>(() => {
-    if (Array.isArray(hierarchyData)) {
-      return hierarchyData;
-    }
-
-    if (hierarchyData && typeof hierarchyData === "object" && "children" in hierarchyData) {
-      return [hierarchyData as OrgUnitTreeNode];
-    }
-
-    return [];
-  }, [hierarchyData]);
-
-  const canSubmit = Boolean(
-    selectedDataset &&
-    selectedDataElement &&
-    selectedOrgUnit &&
-    selectedIssueType &&
-    selectedPeriod &&
-    description.trim(),
-  );
+  const [availablePeriods, setAvailablePeriods] = useState(getAvailablePeriods(initialPeriodType, CURRENT_YEAR));
+  const [selectedPeriodType, setSelectedPeriodType] = useState(!isEdit ? initialPeriodType : "");
+  const [selectedPeriod, setSelectedPeriod] = useState(selectedIssue?.time_Period ?? '')
 
   useEffect(() => {
-    if (!selectedDataset || !themes.length) return;
-
-    const themeId = themes.find((item: Theme) => item.theme_name === selectedDataset)?.theme_id;
-
-    if (!themeId) return;
-
-    triggerGetThemeElements(themeId);
-  }, [selectedDataset, themes, triggerGetThemeElements]);
-
-  const renderRecursive = useCallback(
-    (nodes: OrgUnitTreeNode[]) => {
-      if (!Array.isArray(nodes)) return [];
-
-      return nodes
-        .filter((node) => nodeMatchesSearch(node, orgSearchTerm))
-        .map((node) => (
-          <OrgUnitNode
-            key={node.id}
-            node={node}
-            searchTerm={orgSearchTerm}
-            selectedOrgUnit={selectedOrgUnit}
-            onSelect={(name: string) => {
-              setSelectedOrgUnit(name);
-              setOrgSearchTerm("");
-              setTimeout(() => setIsOrgExpanded(false), 150);
-            }}
-            renderRecursive={renderRecursive}
-          />
-        ));
-    },
-    [orgSearchTerm, selectedOrgUnit],
-  );
-
-  const handleDatasetChange = ({ selectedItem }: ComboBoxChange<string>) => {
-    setSelectedDataset(selectedItem ?? "");
-    setSelectedDataElement("");
-  };
-
-  const handleDataElementChange = ({ selectedItem }: ComboBoxChange<string>) => {
-    setSelectedDataElement(selectedItem ?? "");
-  };
-
-  const handleIssueTypeChange = ({ selectedItem }: ComboBoxChange<string>) => {
-    setSelectedIssueType(selectedItem ?? "");
-  };
-
-  const handlePriorityChange = ({ selectedItem }: ComboBoxChange<string>) => {
-    setPriority(selectedItem ?? "");
-  };
-
-  const handleSeverityChange = ({ selectedItem }: ComboBoxChange<string>) => {
-    setSeverity(selectedItem ?? "");
-  };
-
-  const handlePeriodTypeChange = ({ selectedItem }: ComboBoxChange<string>) => {
-    setSelectedPeriodType(selectedItem ?? "");
-    setSelectedPeriod("");
-  };
-
-  const handleSelectedPeriodChange = ({ selectedItem }: ComboBoxChange<string>) => {
-    setSelectedPeriod(selectedItem ?? "");
-  };
-
-  const handleYearChange = (_event: unknown, data: { value: number | string }) => {
-    const nextYear = Number(data.value);
-
-    if (Number.isNaN(nextYear)) return;
-
-    setSelectedYear(nextYear);
-    setSelectedPeriod("");
-  };
-
-  const handleSubmit = async () => {
-    setFormError(null);
-
-    if (!canSubmit) {
-      setFormError("Please fill all required fields before submitting.");
-      return;
+    if (!isLoadingThemes) {
+      setDatasets(themes);
     }
+    if (error) {
+      console.error("Error Encountered while fetching datasets:: " + error)
+    }
+  }, [error, isLoadingThemes, themes]);
 
-    const payload = {
-      dataset: selectedDataset,
-      data_element: selectedDataElement,
-      org_unit: selectedOrgUnit,
-      issue: description.trim(),
-      issue_type: selectedIssueType,
-      reported_by: selectedIssue?.reported_by || user?.username || "",
-      updated_by: isEdit ? user?.username || "" : "",
-      priority,
-      severity,
-      time_period: selectedPeriod,
-    };
+  useEffect(() => {
+    if(!isLoading) {
+      setOrgUnits(hierarchyData);
+    }
+    if (hierarchyDataError) {
+      console.error("Error Encountered while fetching org units:: " + hierarchyDataError)
+    }
+  },[error, hierarchyData, hierarchyDataError, isLoading]);
 
+  const onChangeSelectedDataSet = async (event) => {
+    const dataset = event?.selectedItem;
+    setSelectedDataset(dataset);
+    if (!dataset) return;
+
+    const dataset_id = themes?.find(item => item?.display_name === dataset)?.dataset_id;
+    if (dataset_id) {
+      try {
+        const data = await triggerGetDataset(dataset_id).unwrap();
+        setDataElement(data);
+      } catch (error) {
+        console.error("Error Encountered while fetching data elements:: " + error);
+      }
+    } else {
+      console.warn("No dataset_id found for the selected dataset name.");
+    }
+  };
+
+  const onChangeSelectedDataElement = (event) => {
+    setSelectedDataElement(event?.selectedItem);
+  }
+
+  const onChangeIssueType = (event) => {
+    setSelectedIssueType(event?.selectedItem);
+  }
+
+  const handleTextChange = (event) => {
+    setDescription(event.target.value);
+  };
+
+  const onChangePriority = (event) => {
+    setPriority(event?.selectedItem);
+  }
+
+  const onChangeSeverity = (event) => {
+    setSeverity(event?.selectedItem);
+  }
+
+  const handleSubmit = async (formData) => {
     try {
       if (isEdit) {
-        await updateIssue({
-          id: selectedIssue?.issue_code ?? "",
-          body: payload,
-        }).unwrap();
+        await updateIssue({ id: selectedIssue?.issue_code, body: formData }).unwrap();
       } else {
-        await createIssue(payload).unwrap();
+        await createIssue(formData).unwrap();
       }
-
-      onSuccess?.();
       onClose();
-    } catch (error) {
-      setFormError(
-        getErrorMessage(error, isEdit ? "Failed to update issue." : "Failed to create issue."),
-      );
+    } catch (err) {
+      console.error("Failed to save the issue: ", err);
     }
   };
 
-  return (
-    <Modal
-      aria-label="issue-modal"
-      open
-      modalHeading={
-        isEdit ? `Edit Issue: ${selectedIssue?.issue_code ?? ""}` : "Register a New Issue"
-      }
-      primaryButtonText={isSubmitting ? "Saving..." : "Submit Issue"}
-      secondaryButtonText="Cancel"
-      primaryButtonDisabled={isSubmitting || !canSubmit}
-      onRequestClose={onClose}
-      onRequestSubmit={handleSubmit}
-      size="lg"
-    >
-      <p style={{ marginBottom: "2rem" }}>
-        Register a new issue relating to data anomalies and their possible causes.
-      </p>
+  const nodeMatchesSearch = useCallback((node: any, term: string): boolean => {
+    if (node.name.toLowerCase().includes(term.toLowerCase())) {
+      return true;
+    }
+    if (node.children) {
+      return node.children.some((child: any) => nodeMatchesSearch(child, term));
+    }
+    return false;
+  },[]);
 
-      {formError && (
-        <InlineNotification
-          kind="error"
-          lowContrast
-          title="Unable to save issue"
-          subtitle={formError}
-          style={{ marginBottom: "1rem" }}
-        />
-      )}
+  const handleSelect = (name: string) => {
+    setSelectedOrgUnit(name);
+    setOrgSearchTerm("");
+    setTimeout(() => setIsOrgExpanded(false), 150);
+  };
 
-      {(isThemesError || isHierarchyError || isThemeElementsError) && (
-        <InlineNotification
-          kind="warning"
-          lowContrast
-          title="Some data could not be loaded"
-          subtitle={
-            getErrorMessage(themesError, "") ||
-            getErrorMessage(hierarchyError, "") ||
-            getErrorMessage(themeElementsError, "") ||
-            "Please refresh and try again."
-          }
-          style={{ marginBottom: "1rem" }}
-        />
-      )}
+  const renderRecursive = (nodes: any[], idPrefix: string = "modal-org") => {
+    if (!nodes || !Array.isArray(nodes)) return [];
 
-      <div style={{ marginBottom: "24px" }}>
-        <p className="cds--label">Organisation Unit</p>
-
-        <button
-          type="button"
-          onClick={() => setIsOrgExpanded((current) => !current)}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 1rem",
-            height: "40px",
-            background: "#f4f4f4",
-            border: 0,
-            borderBottom: "1px solid #8d8d8d",
-            cursor: "pointer",
-            textAlign: "left",
-          }}
-        >
-          <span style={{ color: selectedOrgUnit ? "#161616" : "#6f6f6f" }}>
-            {selectedOrgUnit || "Select Organisation Unit"}
-          </span>
-
-          {isOrgExpanded ? <ChevronUp /> : <ChevronDown />}
-        </button>
-
-        {isOrgExpanded && (
-          <div
-            style={{
-              border: "1px solid #e0e0e0",
-              background: "white",
-              maxHeight: "250px",
-              overflowY: "auto",
-              marginTop: "2px",
-              padding: "8px",
-            }}
-          >
-            <Search
-              labelText="Search organisation unit"
-              size="md"
-              id="org-unit-search"
-              placeholder="Search for org unit..."
-              value={orgSearchTerm}
-              onChange={(event) => setOrgSearchTerm(event.target.value)}
-              style={{ marginBottom: "8px" }}
+    return nodes
+        .filter(node => !orgSearchTerm || nodeMatchesSearch(node, orgSearchTerm))
+        .map(node => (
+            <OrgUnitNode
+                key={node.id}
+                node={node}
+                searchTerm={orgSearchTerm}
+                selectedOrgUnit={selectedOrgUnit}
+                onSelect={handleSelect}
+                renderRecursive={renderRecursive}
+                idPrefix={idPrefix}
             />
+        ));
+  };
 
-            {isLoadingHierarchy ? (
-              <InlineLoading description="Loading organisation units..." />
-            ) : (
-              <TreeView label="Org Units" hideLabel>
-                {renderRecursive(orgUnits)}
-              </TreeView>
-            )}
-          </div>
-        )}
-      </div>
+  const onChangeYear = (_event,{ value }) => {
+    const paramYear = value;
+    setSelectedYear(paramYear);
+    const newPeriods = getAvailablePeriods(selectedPeriodType, paramYear);
+    setAvailablePeriods(newPeriods);
+    setSelectedPeriod("");
+  };
 
-      <div style={{ marginBottom: "24px" }}>
-        <ComboBox
-          allowCustomValue
-          autoAlign
-          id="issue-dataset-combobox"
-          onChange={handleDatasetChange}
-          items={datasets}
-          titleText="Datasets"
-          selectedItem={selectedDataset}
-          disabled={isLoadingThemes}
-        />
+  const onChangePeriod = (event) => {
+    const paramPeriodType = event?.selectedItem;
+    setSelectedPeriodType(paramPeriodType);
+    const newPeriods = getAvailablePeriods(paramPeriodType, selectedYear);
+    setAvailablePeriods(newPeriods);
+    setSelectedPeriod("");
+  };
 
-        {isLoadingThemes && (
-          <div style={{ marginTop: "0.5rem" }}>
-            <InlineLoading description="Loading datasets..." />
-          </div>
-        )}
-      </div>
+  const onChangeSelectedPeriod= (event) => {
+    setSelectedPeriod(event?.selectedItem);
+  }
 
-      <div style={{ marginBottom: "24px" }}>
-        <ComboBox
-          allowCustomValue
-          autoAlign
-          id="issue-data-element-combobox"
-          onChange={handleDataElementChange}
-          items={dataElements}
-          titleText="Data Elements"
-          selectedItem={selectedDataElement}
-          disabled={!selectedDataset || isFetchingThemeElements}
-        />
+  return (
+      <Modal
+          aria-label="issue-modal"
+          open
+          modalHeading={isEdit ? `Edit Issue: ${selectedIssue.issue_code}` : "Register a New Issue"}
+          primaryButtonText={(isCreating || isUpdating) ? "Saving..." : "Submit Issue"}
+          secondaryButtonText="Cancel"
+          onRequestClose={onClose}
+          onRequestSubmit={() => handleSubmit({
+            dataset: selectedDataset,
+            data_element: selectedDataElement,
+            org_unit: selectedOrgUnit,
+            issue: description,
+            issue_type: selectedIssueType,
+            reported_by: user?.username,
+            updated_by: isEdit ? user?.username : "",
+            priority: isEdit ? priority : "",
+            severity: isEdit ? severity : "",
+            time_period: selectedPeriod
 
-        {isFetchingThemeElements && (
-          <div style={{ marginTop: "0.5rem" }}>
-            <InlineLoading description="Loading data elements..." />
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          marginBottom: "24px",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "1rem",
-        }}
+          })}
       >
-        <ComboBox
-          allowCustomValue
-          autoAlign
-          id="issue-period-type-combobox"
-          onChange={handlePeriodTypeChange}
-          items={periodType.map((item) => item.label)}
-          titleText="Period Type"
-          selectedItem={selectedPeriodType}
-        />
+        <p style={{ marginBottom: '2rem' }}>
+          Register a new issue relating to any data anomalies, the causes to it if they are known.
+        </p>
+        <div style={{ marginBottom: '24px' }}>
+          <p className="cds--label">Organisation Unit</p>
+          <div
+              onClick={() => setIsOrgExpanded(!isOrgExpanded)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 1rem',
+                height: '40px',
+                background: '#f4f4f4',
+                borderBottom: '1px solid #8d8d8d',
+                cursor: 'pointer'
+              }}
+          >
+                <span style={{ color: selectedOrgUnit ? '#161616' : '#6f6f6f' }}>
+                    {selectedOrgUnit || "Select Organisation Unit"}
+                </span>
+            {isOrgExpanded ? <ChevronUp /> : <ChevronDown />}
+          </div>
 
-        <NumberInput
-          id="issue-period-year-input"
-          invalidText="Input is not a valid year"
-          label="Year"
-          locale="en"
-          max={CURRENT_YEAR}
-          min={1900}
-          size="md"
-          step={1}
-          type="number"
-          value={selectedYear}
-          onChange={handleYearChange}
+          {isOrgExpanded && (
+              <div style={{
+                border: '1px solid #e0e0e0',
+                background: 'white',
+                marginTop: '2px',
+                padding: '8px'
+              }}>
+                <Search
+                    labelText=""
+                    size="md"
+                    id="org-search-stable"
+                    placeholder="Search for org unit..."
+                    value={orgSearchTerm}
+                    onChange={(e) => setOrgSearchTerm(e.target.value)}
+                    style={{ marginBottom: '8px' }}
+                />
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <TreeView label="Org Units" hideLabel>
+                    {renderRecursive(orgUnits, "modal-org")}
+                  </TreeView>
+                </div>
+              </div>
+          )}
+        </div>
+        <div style={{ marginBottom: '24px' }}>
+          <ComboBox
+              allowCustomValue
+              autoAlign
+              id="data-set-combobox"
+              onChange={onChangeSelectedDataSet}
+              items={datasets?.map(item => item?.display_name) ?? []}
+              titleText="Datasets"
+              selectedItem={selectedDataset}
+          />
+        </div>
+        <div style={{ marginBottom: '24px' }}>
+          <ComboBox
+              allowCustomValue
+              autoAlign
+              id="data-element-combobox"
+              onChange={onChangeSelectedDataElement}
+              items={dataElement?.map(item => item?.data_element_short_name)}
+              titleText="Data Elements"
+              selectedItem={selectedDataElement}
+          />
+        </div>
+        <div style={{ marginBottom: '24px', display: 'flex' }}>
+          <div className="col-md-6 pe-4">
+            <ComboBox
+                allowCustomValue
+                autoAlign
+                id="period-type-combobox"
+                onChange={onChangePeriod}
+                items={periodType?.map(item => item?.label)}
+                titleText="Period Type"
+                selectedItem={selectedPeriodType}
+            />
+          </div>
+          <div className="col-md-6">
+            <NumberInput
+                defaultValue={CURRENT_YEAR}
+                id="period-year-input"
+                invalidText="Input is not a valid year"
+                label="Year"
+                locale="en"
+                max={CURRENT_YEAR}
+                min={1900}
+                size="md"
+                step={1}
+                type="number"
+                value={selectedYear}
+                onChange={onChangeYear}
+            />
+          </div>
+        </div>
+        <div style={{ marginBottom: '24px' }}>
+          <ComboBox
+              allowCustomValue
+              autoAlign
+              id="period-element-combobox"
+              onChange={onChangeSelectedPeriod}
+              items={availablePeriods?.map(item => item?.label)}
+              titleText="Reporting Periods"
+              selectedItem={selectedPeriod}
+          />
+        </div>
+        <div style={{ marginBottom: '24px' }}>
+          <ComboBox
+              allowCustomValue
+              autoAlign
+              id="data-element-combobox"
+              onChange={onChangeIssueType}
+              items={IssueTypes}
+              titleText="Issue Type"
+              selectedItem={selectedIssueType}
+          />
+        </div>
+        {isEdit ? (
+            <>
+              <div style={{ marginBottom: '24px' }}>
+                <ComboBox
+                    allowCustomValue
+                    autoAlign
+                    id="priority-combobox"
+                    onChange={onChangePriority}
+                    items={Priority}
+                    titleText="Priority"
+                    selectedItem={priority}
+                />
+              </div>
+              <div style={{ marginBottom: '24px' }}>
+                <ComboBox
+                    allowCustomValue
+                    autoAlign
+                    id="severity-combobox"
+                    onChange={onChangeSeverity}
+                    items={Priority}
+                    titleText="Severity"
+                    selectedItem={severity}
+                />
+              </div>
+            </>
+        ) : null }
+        <TextArea
+            id="issue-text-area"
+            labelText="Issue Description"
+            style={{ marginBottom: '24px' }}
+            value={description}
+            onChange={handleTextChange}
+            rows={7}
         />
-      </div>
-
-      <div style={{ marginBottom: "24px" }}>
-        <ComboBox
-          allowCustomValue
-          autoAlign
-          id="issue-period-combobox"
-          onChange={handleSelectedPeriodChange}
-          items={periodItems}
-          titleText="Available Periods"
-          selectedItem={selectedPeriod}
-          disabled={!selectedPeriodType}
-        />
-      </div>
-
-      <div style={{ marginBottom: "24px" }}>
-        <ComboBox
-          allowCustomValue
-          autoAlign
-          id="issue-type-combobox"
-          onChange={handleIssueTypeChange}
-          items={IssueTypes}
-          titleText="Issue Type"
-          selectedItem={selectedIssueType}
-        />
-      </div>
-
-      <div
-        style={{
-          marginBottom: "24px",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "1rem",
-        }}
-      >
-        <ComboBox
-          allowCustomValue
-          autoAlign
-          id="issue-priority-combobox"
-          onChange={handlePriorityChange}
-          items={Priority}
-          titleText="Priority"
-          selectedItem={priority}
-        />
-
-        <ComboBox
-          allowCustomValue
-          autoAlign
-          id="issue-severity-combobox"
-          onChange={handleSeverityChange}
-          items={Priority}
-          titleText="Severity"
-          selectedItem={severity}
-        />
-      </div>
-
-      <TextArea
-        id="issue-description-textarea"
-        labelText="Issue Description"
-        style={{ marginBottom: "24px" }}
-        value={description}
-        onChange={(event) => setDescription(event.target.value)}
-        rows={7}
-      />
-    </Modal>
-  );
+      </Modal>
+  )
 }

@@ -6,6 +6,7 @@ INSERT INTO announcements (
     level,
     tag,
     link_url,
+    link_label,
     priority,
     is_pinned,
     status,
@@ -16,7 +17,7 @@ INSERT INTO announcements (
     created_by,
     updated_by
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15
 )
 RETURNING *;
 
@@ -49,6 +50,85 @@ LIMIT $1 OFFSET $2;
 SELECT COUNT(*)::bigint
 FROM announcements
 WHERE deleted_at IS NULL;
+
+
+-- name: CreateAnnouncementAttachment :one
+INSERT INTO announcement_attachments (
+    id,
+    announcement_id,
+    file_name,
+    original_file_name,
+    content_type,
+    file_size,
+    storage_provider,
+    storage_key,
+    checksum,
+    uploaded_by,
+    include_in_email,
+    inline,
+    content_id,
+    sort_order
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+)
+RETURNING *;
+
+
+-- name: ListAnnouncementAttachmentsByAnnouncementID :many
+SELECT *
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+ORDER BY sort_order ASC, created_at ASC;
+
+
+-- name: ListAnnouncementEmailAttachments :many
+SELECT *
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL
+  AND include_in_email = TRUE
+ORDER BY sort_order ASC, created_at ASC;
+
+
+-- name: CountAnnouncementAttachments :one
+SELECT COUNT(*)::bigint
+FROM announcement_attachments
+WHERE announcement_id = $1
+  AND deleted_at IS NULL;
+
+
+-- name: GetAnnouncementAttachmentByID :one
+SELECT *
+FROM announcement_attachments
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+LIMIT 1;
+
+
+-- name: UpdateAnnouncementAttachment :one
+UPDATE announcement_attachments
+SET
+    include_in_email = $3,
+    inline = $4,
+    content_id = $5,
+    sort_order = $6
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+RETURNING *;
+
+
+-- name: SoftDeleteAnnouncementAttachment :one
+UPDATE announcement_attachments
+SET
+    deleted_at = now(),
+    deleted_by = $3
+WHERE id = $1
+  AND announcement_id = $2
+  AND deleted_at IS NULL
+RETURNING *;
 
 
 -- name: ListAnnouncementsByStatus :many
@@ -122,13 +202,14 @@ SET
     level = $5,
     tag = $6,
     link_url = $7,
-    priority = $8,
-    is_pinned = $9,
-    publish_at = $10,
-    expires_at = $11,
-    audience_type = $12,
-    notify_by_email = $13,
-    updated_by = $14
+    link_label = $8,
+    priority = $9,
+    is_pinned = $10,
+    publish_at = $11,
+    expires_at = $12,
+    audience_type = $13,
+    notify_by_email = $14,
+    updated_by = $15
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;

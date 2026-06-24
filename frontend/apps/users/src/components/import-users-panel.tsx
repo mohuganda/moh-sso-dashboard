@@ -3,11 +3,12 @@ import {
   FileUploaderDropContainer,
   FileUploaderItem,
   Button,
-  InlineLoading,
   Checkbox,
   Tag,
 } from "@carbon/react";
 import { useState } from "react";
+
+import { FormInlineAlert } from "@moh-sso/ui";
 
 type ImportOptions = {
   enabled: boolean;
@@ -17,38 +18,15 @@ type ImportOptions = {
 
 export function ImportUsersPanel() {
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const [options] = useState<ImportOptions>({
+  const [options, setOptions] = useState<ImportOptions>({
     enabled: true,
     emailVerified: true,
     sendResetEmail: true,
   });
 
-  const handleUpload = async () => {
-    if (!file) return;
-
-    setUploading(true);
-    setError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("enabled", String(options.enabled));
-      formData.append("emailVerified", String(options.emailVerified));
-      formData.append("sendResetEmail", String(options.sendResetEmail));
-
-      await fetch("/api/v1/admin/users/import", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-    } catch (err: any) {
-      setError("Failed to start import job");
-    } finally {
-      setUploading(false);
-    }
+  const updateOption = (field: keyof ImportOptions, checked: boolean) => {
+    setOptions((current) => ({ ...current, [field]: checked }));
   };
 
   return (
@@ -108,34 +86,40 @@ export function ImportUsersPanel() {
           id="enabled"
           labelText="Enable users after import"
           checked={options.enabled}
-          onChange={() => {}}
+          onChange={(_, { checked }) => {
+            updateOption("enabled", checked);
+          }}
         />
 
         <Checkbox
           id="emailVerified"
           labelText="Mark email as verified"
           checked={options.emailVerified}
-          onChange={() => {}}
+          onChange={(_, { checked }) => {
+            updateOption("emailVerified", checked);
+          }}
         />
 
         <Checkbox
           id="sendResetEmail"
           labelText="Send password reset email"
           checked={options.sendResetEmail}
-          onChange={() => {}}
+          onChange={(_, { checked }) => {
+            updateOption("sendResetEmail", checked);
+          }}
         />
       </Stack>
 
-      {/* -----------------------------
-       * Error
-       * ----------------------------- */}
-      {error && <p style={{ color: "var(--cds-text-error)" }}>{error}</p>}
+      <FormInlineAlert
+        title="User import is not connected yet"
+        subtitle="The frontend no longer posts to the old hardcoded import URL because the matching backend users import route is not registered."
+      />
 
       {/* -----------------------------
        * Actions
        * ----------------------------- */}
-      <Button kind="primary" disabled={!file || uploading} onClick={handleUpload}>
-        {uploading ? <InlineLoading description="Starting import…" /> : "Start import"}
+      <Button kind="primary" disabled>
+        Start import
       </Button>
     </Stack>
   );
