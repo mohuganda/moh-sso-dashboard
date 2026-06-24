@@ -16,7 +16,6 @@ export function defineMicrofrontendConfig({
   extraExternal = [],
 }: MicrofrontendConfigOptions) {
   const pathFromApp = (path: string) => fileURLToPath(new URL(path, appUrl));
-
   const pathFromFrontend = (path: string) => fileURLToPath(new URL(`../../${path}`, appUrl));
 
   return defineConfig(({ mode }) => ({
@@ -24,45 +23,23 @@ export function defineMicrofrontendConfig({
 
     define: {
       "process.env.NODE_ENV": JSON.stringify(mode),
-      "process.env": JSON.stringify({
-        NODE_ENV: mode,
-      }),
+      "process.env": "({ NODE_ENV: '" + mode + "' })",
+      process: "({ env: { NODE_ENV: '" + mode + "' } })",
     },
 
     resolve: {
       alias: [
-        {
-          find: "@moh-sso/api",
-          replacement: pathFromFrontend("packages/api/src"),
-        },
-        {
-          find: "@moh-sso/auth",
-          replacement: pathFromFrontend("packages/auth/src"),
-        },
-        {
-          find: "@moh-sso/config",
-          replacement: pathFromFrontend("packages/config/src"),
-        },
+        { find: "@moh-sso/api", replacement: pathFromFrontend("packages/api/src") },
+        { find: "@moh-sso/auth", replacement: pathFromFrontend("packages/auth/src") },
+        { find: "@moh-sso/config", replacement: pathFromFrontend("packages/config/src") },
         {
           find: "@moh-sso/microfrontend",
           replacement: pathFromFrontend("packages/microfrontend/src"),
         },
-        {
-          find: "@moh-sso/state",
-          replacement: pathFromFrontend("packages/state/src"),
-        },
-        {
-          find: "@moh-sso/types",
-          replacement: pathFromFrontend("packages/types/src"),
-        },
-        {
-          find: "@moh-sso/ui",
-          replacement: pathFromFrontend("packages/ui/src"),
-        },
-        {
-          find: "@moh-sso/utils",
-          replacement: pathFromFrontend("packages/utils/src"),
-        },
+        { find: "@moh-sso/state", replacement: pathFromFrontend("packages/state/src") },
+        { find: "@moh-sso/types", replacement: pathFromFrontend("packages/types/src") },
+        { find: "@moh-sso/ui", replacement: pathFromFrontend("packages/ui/src") },
+        { find: "@moh-sso/utils", replacement: pathFromFrontend("packages/utils/src") },
         ...extraAliases,
       ],
     },
@@ -93,6 +70,7 @@ export function defineMicrofrontendConfig({
         external: [
           "react",
           "react-dom",
+          "react-dom/client", // <-- CRITICAL: Added to prevent internal chunk bundle pollution
           "react-redux",
           "react-router-dom",
           "@reduxjs/toolkit",
