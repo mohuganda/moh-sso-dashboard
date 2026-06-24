@@ -57,11 +57,7 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
   }, []);
 
   useEffect(() => {
-    if (
-      orchestrationRequested &&
-      !orchestrationState.started &&
-      !orchestrationState.unavailable
-    ) {
+    if (orchestrationRequested && !orchestrationState.started && !orchestrationState.unavailable) {
       void startMicrofrontendOrchestration();
     }
   }, [orchestrationRequested, orchestrationState.started, orchestrationState.unavailable]);
@@ -93,6 +89,7 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
 
         if (disposed) return;
 
+        // Catch internal framework/rendering crashes (like Context/Hook mismatches)
         await resolvedLifecycles.mount(props);
       } catch (error: unknown) {
         console.error(`Failed to load or mount microfrontend ${appName}`, error);
@@ -107,7 +104,14 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
     return () => {
       disposed = true;
       if (mountedLifecycles) {
-        void Promise.resolve(mountedLifecycles.unmount(props));
+        // Safely unmount and trap errors to prevent unmount bubbles from crashing the host
+        Promise.resolve(mountedLifecycles.unmount(props)).catch((err) => {
+          console.error(`Clean unmount failed for microfrontend: ${appName}`, err);
+        });
+      }
+      // Hard wipe the DOM element to prevent unmounted/corrupted nodes from leaking
+      if (domElement) {
+        domElement.innerHTML = "";
       }
     };
   }, [apiBaseUrl, appName, auth, basename, eventBus, lifecycles, shouldMountLocally]);
@@ -115,7 +119,16 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
   return (
     <MicrofrontendErrorBoundary appName={appName}>
       {mountError ? (
-        <div role="alert" className="microfrontend-mount-error">
+        <div
+          role="alert"
+          className="microfrontend-mount-error"
+          style={{
+            padding: "1rem",
+            color: "#da1e28",
+            backgroundColor: "#fff1f1",
+            borderRadius: "4px",
+          }}
+        >
           Unable to load {appName}. {mountError.message}
         </div>
       ) : null}
