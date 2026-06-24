@@ -1,0 +1,1378 @@
+openapi: 3.0.3
+info:
+  title: MOH Integrated Health Portal API
+  version: 0.2.0
+  description: >
+    API contract for the MOH Integrated Health Portal backend. Responses use a
+    standard envelope with success, data/meta, or error/meta.
+servers:
+  - url: /
+tags:
+  - name: platform
+  - name: auth
+  - name: announcements
+  - name: admin-announcements
+  - name: notifications
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags:
+        - platform
+      responses:
+        "200":
+          description: Backend health status.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /health/live:
+    get:
+      summary: Liveness check
+      tags:
+        - platform
+      responses:
+        "200":
+          description: Backend is alive.
+  /health/ready:
+    get:
+      summary: Readiness check
+      tags:
+        - platform
+      responses:
+        "200":
+          description: Backend is ready.
+  /version:
+    get:
+      summary: Backend build information
+      description: Returns safe build metadata without checking external dependencies.
+      tags:
+        - platform
+      responses:
+        "200":
+          description: Backend build information.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/BuildInfo"
+  /api/v1/auth/me:
+    get:
+      summary: Current authenticated user
+      tags:
+        - auth
+      responses:
+        "200":
+          description: Current user profile, roles, permissions, and accessible systems.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: "#/components/schemas/AuthUser"
+  /api/v1/announcements/public:
+    get:
+      summary: List public announcements
+      tags:
+        - announcements
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Public published announcements.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementListEnvelope"
+  /api/v1/announcements/active:
+    get:
+      summary: List active published announcements
+      tags:
+        - announcements
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Active published announcements.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementListEnvelope"
+  /api/v1/announcements/me:
+    get:
+      summary: List announcements for current user
+      tags:
+        - announcements
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Announcements targeted to the current user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementListEnvelope"
+  /api/v1/announcements/user:
+    get:
+      summary: List user-targeted announcements
+      tags:
+        - announcements
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: User-targeted announcements.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementListEnvelope"
+  /api/v1/announcements/role/{roleName}:
+    get:
+      summary: List announcements for a role
+      tags:
+        - announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Role-targeted announcements.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementListEnvelope"
+  /api/v1/announcements/client/{clientId}:
+    get:
+      summary: List announcements for a client/system
+      tags:
+        - announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Client-targeted announcements.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementListEnvelope"
+  /api/v1/announcements/{id}/attachments/{attachmentId}/download:
+    get:
+      summary: Download announcement attachment
+      tags:
+        - announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+        - $ref: "#/components/parameters/AttachmentID"
+      responses:
+        "200":
+          description: Attachment file stream.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/admin/announcements:
+    get:
+      summary: List announcements for administrators
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: level
+          in: query
+          schema:
+            type: string
+        - name: audience_type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Administrator announcement list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementListEnvelope"
+    post:
+      summary: Create announcement
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementCreateRequest"
+      responses:
+        "201":
+          description: Announcement created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+  /api/v1/admin/announcements/stats:
+    get:
+      summary: Announcement statistics
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Announcement status counts.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AnnouncementStats"
+  /api/v1/admin/announcements/{id}:
+    get:
+      summary: Get announcement detail
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      responses:
+        "200":
+          description: Announcement detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update announcement
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementUpdateRequest"
+      responses:
+        "200":
+          description: Announcement updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+    delete:
+      summary: Soft delete announcement
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      responses:
+        "200":
+          description: Announcement deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageEnvelope"
+  /api/v1/admin/announcements/{id}/publish:
+    post:
+      summary: Publish announcement
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementPublishRequest"
+      responses:
+        "200":
+          description: Announcement published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+  /api/v1/admin/announcements/{id}/schedule:
+    post:
+      summary: Schedule announcement
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementScheduleRequest"
+      responses:
+        "200":
+          description: Announcement scheduled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+  /api/v1/admin/announcements/{id}/restore:
+    post:
+      summary: Restore deleted announcement
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      responses:
+        "200":
+          description: Announcement restored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+  /api/v1/admin/announcements/{id}/draft:
+    post:
+      summary: Move announcement to draft
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      responses:
+        "200":
+          description: Announcement moved to draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+  /api/v1/admin/announcements/{id}/archive:
+    post:
+      summary: Archive announcement
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      responses:
+        "200":
+          description: Announcement archived.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+  /api/v1/admin/announcements/{id}/pin:
+    patch:
+      summary: Pin or unpin announcement
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - is_pinned
+              properties:
+                is_pinned:
+                  type: boolean
+      responses:
+        "200":
+          description: Announcement pin state updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+  /api/v1/admin/announcements/{id}/priority:
+    patch:
+      summary: Update announcement priority
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - priority
+              properties:
+                priority:
+                  type: integer
+                  format: int32
+      responses:
+        "200":
+          description: Announcement priority updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementEnvelope"
+  /api/v1/admin/announcements/{id}/attachments:
+    get:
+      summary: List announcement attachments
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      responses:
+        "200":
+          description: Attachment list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/AnnouncementAttachment"
+    post:
+      summary: Upload announcement attachment
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementAttachmentUploadRequest"
+      responses:
+        "201":
+          description: Attachment uploaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementAttachmentEnvelope"
+  /api/v1/admin/announcements/{id}/attachments/{attachmentId}:
+    patch:
+      summary: Update announcement attachment metadata
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+        - $ref: "#/components/parameters/AttachmentID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementAttachmentUpdateRequest"
+      responses:
+        "200":
+          description: Attachment metadata updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnouncementAttachmentEnvelope"
+    delete:
+      summary: Delete announcement attachment
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+        - $ref: "#/components/parameters/AttachmentID"
+      responses:
+        "200":
+          description: Attachment deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageEnvelope"
+  /api/v1/admin/announcements/{id}/attachments/{attachmentId}/download:
+    get:
+      summary: Download announcement attachment as administrator
+      tags:
+        - admin-announcements
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AnnouncementID"
+        - $ref: "#/components/parameters/AttachmentID"
+      responses:
+        "200":
+          description: Attachment file stream.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /api/v1/admin/notifications:
+    get:
+      summary: List notifications
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Notification list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListEnvelope"
+    post:
+      summary: Create notification
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      responses:
+        "201":
+          description: Notification created.
+  /api/v1/admin/notifications/count:
+    get:
+      summary: Count notifications
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Notification count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountEnvelope"
+  /api/v1/admin/notifications/count/unread:
+    get:
+      summary: Count unread notifications
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Unread notification count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountEnvelope"
+  /api/v1/admin/notifications/{notificationId}:
+    get:
+      summary: Get notification
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationID"
+      responses:
+        "200":
+          description: Notification detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationEnvelope"
+    delete:
+      summary: Delete notification
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationID"
+      responses:
+        "204":
+          description: Notification deleted.
+  /api/v1/admin/notifications/{notificationId}/read:
+    patch:
+      summary: Mark notification as read
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationID"
+      responses:
+        "204":
+          description: Notification marked read.
+  /api/v1/admin/notifications/{notificationId}/deliveries:
+    get:
+      summary: List notification deliveries
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationID"
+      responses:
+        "200":
+          description: Delivery history for a notification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDeliveryListEnvelope"
+  /api/v1/admin/notifications/deliveries/{deliveryId}/retry:
+    post:
+      summary: Retry notification delivery
+      tags:
+        - notifications
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/DeliveryID"
+      responses:
+        "200":
+          description: Delivery queued for retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryRetryEnvelope"
+        "409":
+          description: Delivery cannot be retried in its current state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: access_token
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    AnnouncementID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AttachmentID:
+      name: attachmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    NotificationID:
+      name: notificationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DeliveryID:
+      name: deliveryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    InvalidInput:
+      description: Invalid input.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    BuildInfo:
+      type: object
+      required:
+        - service
+        - version
+        - commit
+        - buildTime
+        - dirty
+        - goVersion
+      properties:
+        service:
+          type: string
+          example: moh-sso-dashboard-backend
+        version:
+          type: string
+          example: 1.2.3
+        commit:
+          type: string
+          example: d3062e2
+        buildTime:
+          type: string
+          example: 2026-06-19T12:00:00Z
+        dirty:
+          type: boolean
+        goVersion:
+          type: string
+          example: go1.25.4
+    SuccessEnvelope:
+      type: object
+      required:
+        - success
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        data:
+          nullable: true
+        meta:
+          type: object
+          additionalProperties: true
+    ErrorEnvelope:
+      type: object
+      required:
+        - success
+        - error
+        - meta
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: INVALID_INPUT
+            message:
+              type: string
+        meta:
+          type: object
+          additionalProperties: true
+    MessageEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                message:
+                  type: string
+    CountEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  format: int64
+    DeliveryRetryEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  example: RETRY
+    NotificationEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Notification"
+    NotificationListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Notification"
+    NotificationDeliveryListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/NotificationDelivery"
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+        target_role:
+          type: string
+        client_id:
+          type: string
+        user_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    NotificationDelivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        notification_id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          example: email
+        status:
+          type: string
+          enum:
+            - PENDING
+            - PROCESSING
+            - SENT
+            - FAILED
+            - RETRY
+            - CANCELLED
+        recipient:
+          type: object
+          additionalProperties: true
+        template_name:
+          type: string
+        template_data:
+          type: object
+          additionalProperties: true
+        payload:
+          type: object
+          additionalProperties: true
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        locked_at:
+          type: string
+          format: date-time
+          nullable: true
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        attempts:
+          type: integer
+          format: int32
+        max_attempts:
+          type: integer
+          format: int32
+        last_error:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AuthUser:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        isAdmin:
+          type: boolean
+        isUser:
+          type: boolean
+        realmRoles:
+          type: array
+          items:
+            type: string
+        clientRoles:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        systems:
+          type: array
+          items:
+            type: string
+        accessibleSystems:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccessibleSystem"
+    AccessibleSystem:
+      type: object
+      properties:
+        clientId:
+          type: string
+        displayName:
+          type: string
+        launchUrl:
+          type: string
+        icon:
+          type: string
+        category:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+    AnnouncementCreateRequest:
+      type: object
+      required:
+        - title
+        - message
+        - level
+      properties:
+        title:
+          type: string
+        message:
+          type: string
+        summary:
+          type: string
+          nullable: true
+        level:
+          type: string
+          description: Announcement level. Backend normalizes accepted aliases.
+          example: INFO
+        tag:
+          type: string
+          nullable: true
+        link_url:
+          type: string
+          nullable: true
+          description: Related internal /portal path or absolute URL.
+        link_label:
+          type: string
+          nullable: true
+          description: Optional display text for link_url in UI and email templates.
+        priority:
+          type: integer
+          format: int32
+          default: 0
+        is_pinned:
+          type: boolean
+          default: false
+        status:
+          type: string
+          default: DRAFT
+        publish_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        audience_type:
+          type: string
+          example: ALL_USERS
+        client_ids:
+          type: array
+          items:
+            type: string
+        role_names:
+          type: array
+          items:
+            type: string
+        user_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        notify_by_email:
+          type: boolean
+    AnnouncementUpdateRequest:
+      allOf:
+        - $ref: "#/components/schemas/AnnouncementCreateRequest"
+    AnnouncementPublishRequest:
+      type: object
+      properties:
+        include_attachments_in_email:
+          type: boolean
+          description: Include persisted announcement attachments marked for email.
+        attachments:
+          type: array
+          description: Transient email-only attachments. Provide exactly one of path or data_base64.
+          items:
+            $ref: "#/components/schemas/TransientEmailAttachment"
+    AnnouncementScheduleRequest:
+      allOf:
+        - $ref: "#/components/schemas/AnnouncementPublishRequest"
+        - type: object
+          required:
+            - publish_at
+          properties:
+            publish_at:
+              type: string
+              format: date-time
+    TransientEmailAttachment:
+      type: object
+      required:
+        - file_name
+      properties:
+        file_name:
+          type: string
+        content_type:
+          type: string
+        path:
+          type: string
+          description: Server-readable file path. Mutually exclusive with data_base64.
+        data_base64:
+          type: string
+          description: Base64 encoded file contents. Mutually exclusive with path.
+        content_id:
+          type: string
+        inline:
+          type: boolean
+          default: false
+    AnnouncementEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Announcement"
+    AnnouncementListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Announcement"
+    Announcement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        message:
+          type: string
+        summary:
+          type: string
+          nullable: true
+        level:
+          type: string
+          example: INFO
+        tag:
+          type: string
+          nullable: true
+        link_url:
+          type: string
+          nullable: true
+        link_label:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+          format: int32
+        is_pinned:
+          type: boolean
+        status:
+          type: string
+          example: PUBLISHED
+        publish_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        audience_type:
+          type: string
+        notify_by_email:
+          type: boolean
+        email_notification_sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+        updated_by:
+          type: string
+          format: uuid
+        published_by:
+          type: string
+          format: uuid
+          nullable: true
+        archived_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        deleted_by:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          format: int32
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnnouncementAttachment"
+        attachment_count:
+          type: integer
+    AnnouncementStats:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        draft_count:
+          type: integer
+          format: int64
+        scheduled_count:
+          type: integer
+          format: int64
+        published_count:
+          type: integer
+          format: int64
+        archived_count:
+          type: integer
+          format: int64
+        active_count:
+          type: integer
+          format: int64
+    AnnouncementAttachmentUploadRequest:
+      type: object
+      required:
+        - file_name
+        - data_base64
+      properties:
+        file_name:
+          type: string
+        content_type:
+          type: string
+        data_base64:
+          type: string
+        include_in_email:
+          type: boolean
+          default: true
+        inline:
+          type: boolean
+          default: false
+        content_id:
+          type: string
+        sort_order:
+          type: integer
+          format: int32
+    AnnouncementAttachmentUpdateRequest:
+      type: object
+      properties:
+        include_in_email:
+          type: boolean
+        inline:
+          type: boolean
+        content_id:
+          type: string
+        sort_order:
+          type: integer
+          format: int32
+    AnnouncementAttachmentEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AnnouncementAttachment"
+    AnnouncementAttachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        announcement_id:
+          type: string
+          format: uuid
+        file_name:
+          type: string
+        original_file_name:
+          type: string
+        content_type:
+          type: string
+          nullable: true
+        file_size:
+          type: integer
+          format: int64
+        storage_provider:
+          type: string
+          example: local
+        checksum:
+          type: string
+          nullable: true
+        uploaded_by:
+          type: string
+          format: uuid
+          nullable: true
+        include_in_email:
+          type: boolean
+        inline:
+          type: boolean
+        content_id:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        deleted_by:
+          type: string
+          format: uuid
+          nullable: true
+        download_url:
+          type: string
