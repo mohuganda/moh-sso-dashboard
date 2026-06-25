@@ -8,7 +8,7 @@ import {
   useGetIssuesQuery,
   useGetTransactionsQuery,
 } from "@moh-sso/api";
-import { PERMISSIONS, PermissionGuard, selectUser } from "@moh-sso/auth";
+import { selectUser } from "@moh-sso/auth";
 
 import "./issue-detail.scss";
 import type { Issue } from "../issue-tracker.component.tsx";
@@ -186,19 +186,13 @@ const IssueDetail = ({
 
     switch (modalMode) {
       case "comment":
-        return (
-          <PermissionGuard permission={PERMISSIONS.issueTrackerComment}>{modal}</PermissionGuard>
-        );
+        return modal;
 
       case "resolve":
-        return (
-          <PermissionGuard permission={PERMISSIONS.issueTrackerManage}>{modal}</PermissionGuard>
-        );
+        return modal;
 
       case "close":
-        return (
-          <PermissionGuard permission={PERMISSIONS.issueTrackerClose}>{modal}</PermissionGuard>
-        );
+        return modal;
 
       default:
         return null;
@@ -206,8 +200,7 @@ const IssueDetail = ({
   };
 
   return (
-    <PermissionGuard permission={PERMISSIONS.issueTrackerRead}>
-      <>
+    <>
         {showBack && (
           <div style={{ marginBottom: "1rem" }}>
             <Button kind="tertiary" size="lg" renderIcon={ArrowLeft} onClick={goToBack}>
@@ -323,7 +316,6 @@ const IssueDetail = ({
 
             <Tile className="issue-tile issue-actions-container">
               {!isFinalStatus && (
-                <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
                   <Button
                     className="btn-issue btn-full-width"
                     size="md"
@@ -332,10 +324,8 @@ const IssueDetail = ({
                   >
                     Edit Issue
                   </Button>
-                </PermissionGuard>
               )}
 
-              <PermissionGuard permission={PERMISSIONS.issueTrackerComment}>
                 <Button
                   className="btn-issue btn-full-width"
                   kind="secondary"
@@ -343,21 +333,17 @@ const IssueDetail = ({
                 >
                   Add Comment
                 </Button>
-              </PermissionGuard>
 
               {!isFinalStatus && (
-                <PermissionGuard permission={PERMISSIONS.issueTrackerManage}>
                   <Button
                     className="btn-issue custom-btn-success btn-full-width"
                     onClick={() => openActionModal("resolve")}
                   >
                     Resolve Issue
                   </Button>
-                </PermissionGuard>
               )}
 
               {selectedIssue?.status !== "CLOSED" && (
-                <PermissionGuard permission={PERMISSIONS.issueTrackerClose}>
                   <Button
                     className="btn-issue btn-full-width"
                     kind="danger--tertiary"
@@ -365,7 +351,6 @@ const IssueDetail = ({
                   >
                     Close Issue
                   </Button>
-                </PermissionGuard>
               )}
             </Tile>
           </div>
@@ -373,13 +358,10 @@ const IssueDetail = ({
 
         {renderActionModal()}
 
-        <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
           {isEditModalOpen && (
             <IssueModal onClose={() => setIsEditModalOpen(false)} selectedIssue={selectedIssue} />
           )}
-        </PermissionGuard>
       </>
-    </PermissionGuard>
   );
 };
 

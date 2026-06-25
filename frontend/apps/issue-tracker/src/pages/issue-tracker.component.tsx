@@ -12,7 +12,6 @@ import { Add, ChevronDown, Download, Filter, Upload } from "@carbon/react/icons"
 import * as XLSX from "xlsx";
 
 import { useGetIssuesQuery } from "@moh-sso/api";
-import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 
 import DataList from "../../../data-visualizer/src/pages/components/data-table/data-table.component.tsx";
 import { getAvailablePeriods, periodType } from "../../../data-visualizer/src/pages/Constants.tsx";
@@ -484,7 +483,6 @@ const IssueTracker = () => {
 
   if (isViewIssueDetail && selectedIssue) {
     return (
-      <PermissionGuard permission={PERMISSIONS.issueTrackerRead}>
         <IssueDetail
           selectedIssue={selectedIssue}
           goToBack={() => {
@@ -492,12 +490,10 @@ const IssueTracker = () => {
             setIsViewIssueDetail(false);
           }}
         />
-      </PermissionGuard>
     );
   }
 
   return (
-    <PermissionGuard permission={PERMISSIONS.issueTrackerRead}>
       <>
         <div className="dv-toolbar issue-label-container">
           <div>
@@ -505,13 +501,9 @@ const IssueTracker = () => {
           </div>
 
           <div className="issue-toolbar-actions">
-            <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
               <Button size="md" kind="ghost" renderIcon={Download} onClick={downloadTemplate}>
                 Template
               </Button>
-            </PermissionGuard>
-
-            <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
               <Button
                 size="md"
                 kind="secondary"
@@ -520,9 +512,6 @@ const IssueTracker = () => {
               >
                 Import Issues
               </Button>
-            </PermissionGuard>
-
-            <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
               <Button
                 size="md"
                 kind="primary"
@@ -532,7 +521,6 @@ const IssueTracker = () => {
               >
                 New Issue
               </Button>
-            </PermissionGuard>
           </div>
         </div>
 
@@ -751,11 +739,9 @@ const IssueTracker = () => {
               size="lg"
               closeButtonLabelText="Clear search"
             />
-            <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
               <Button size="md" kind="ghost" renderIcon={Download} onClick={downloadIssues}>
                 Download
               </Button>
-            </PermissionGuard>
           </div>
         </div>
 
@@ -770,18 +756,13 @@ const IssueTracker = () => {
         />
 
         {showModal && (
-          <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
             <IssueModal onClose={closeIssueModal} />
-          </PermissionGuard>
         )}
 
         {showImportModal && (
-          <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
             <ImportIssuesModal onClose={closeImportModal} />
-          </PermissionGuard>
         )}
       </>
-    </PermissionGuard>
   );
 };
 

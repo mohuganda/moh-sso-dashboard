@@ -197,8 +197,7 @@ export const userRoutes = (
             appName="@moh-sso/issue-tracker"
             lifecycles={issueTrackerLifecycles}
             basename="/apps/dwh/issue-tracker"
-          />,
-          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(issueTrackerRoute)),
+          />
         )}
       />
     </Route>
