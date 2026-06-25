@@ -30,6 +30,15 @@ export function defineMicrofrontendConfig({
     },
 
     resolve: {
+      // FIXED: Moved from build to resolve where Vite expects it
+      dedupe: [
+        "react",
+        "react-dom",
+        "react-router-dom",
+        "react-redux",
+        "@carbon/react",
+        "single-spa-react",
+      ],
       alias: [
         { find: "@moh-sso/api", replacement: pathFromFrontend("packages/api/src") },
         { find: "@moh-sso/auth", replacement: pathFromFrontend("packages/auth/src") },
@@ -68,21 +77,12 @@ export function defineMicrofrontendConfig({
         fileName: (_format, entryName) => `${entryName}.js`,
       },
 
-      dedupe: [
-        "react",
-        "react-dom",
-        "react-router-dom",
-        "react-redux",
-        "@carbon/react",
-        "single-spa-react",
-      ],
-
       rollupOptions: {
         external: [
           "react",
           "react-dom",
-          "react-dom/client", // Prevents internal React bundle pollution
-          "react/jsx-runtime", // Automatic JSX runtime — resolved via import map
+          "react-dom/client",
+          "react/jsx-runtime",
           "react/jsx-dev-runtime",
           "react-redux",
           "react-router-dom",
