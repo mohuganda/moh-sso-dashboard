@@ -21,7 +21,7 @@ export function defineMicrofrontendConfig({
   const pathFromFrontend = (path: string) => fileURLToPath(new URL(`../../${path}`, appUrl));
 
   return defineConfig(({ mode }) => ({
-    plugins: [react(),, cssInjectedByJsPlugin(), visualizer({ open: true, filename: "bundle-analysis.html" })],
+    plugins: [react(), cssInjectedByJsPlugin(), visualizer({ open: true, filename: "bundle-analysis.html" })],
 
     // Solves the esbuild vs rollup primitive evaluation conflicts
     define: {
