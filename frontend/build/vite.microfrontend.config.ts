@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+import cssInjectedByJsPlugin from "vite-plugin-css-injected-by-js";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, type Alias } from "vite";
 import { visualizer } from "rollup-plugin-visualizer";
@@ -20,7 +21,7 @@ export function defineMicrofrontendConfig({
   const pathFromFrontend = (path: string) => fileURLToPath(new URL(`../../${path}`, appUrl));
 
   return defineConfig(({ mode }) => ({
-    plugins: [react(), visualizer({ open: true, filename: "bundle-analysis.html" })],
+    plugins: [react(),, cssInjectedByJsPlugin(), visualizer({ open: true, filename: "bundle-analysis.html" })],
 
     // Solves the esbuild vs rollup primitive evaluation conflicts
     define: {
