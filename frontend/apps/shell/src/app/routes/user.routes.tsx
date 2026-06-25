@@ -13,7 +13,6 @@ import {
   dataVisualizerRoute,
   documentsRoute,
   eServicesRoute,
-  issueTrackerRoute,
   reportBrowserRoute,
   surveillanceRoute,
   utilitiesRoute,
@@ -198,7 +197,6 @@ export const userRoutes = (
             lifecycles={issueTrackerLifecycles}
             basename="/apps/dwh/issue-tracker"
           />,
-          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(issueTrackerRoute)),
         )}
       />
     </Route>
@@ -225,11 +223,17 @@ export const userRoutes = (
       <Route index element={<Navigate to="studies" replace />} />
       <Route
         path="studies"
-        element={userPage(<ComingSoon title="Studies" />, withSystemAccess(SYSTEMS.researchStudies))}
+        element={userPage(
+          <ComingSoon title="Studies" />,
+          withSystemAccess(SYSTEMS.researchStudies),
+        )}
       />
       <Route
         path="datasets"
-        element={userPage(<ComingSoon title="Datasets" />, withSystemAccess(SYSTEMS.researchStudies))}
+        element={userPage(
+          <ComingSoon title="Datasets" />,
+          withSystemAccess(SYSTEMS.researchStudies),
+        )}
       />
       <Route
         path="ethics"
@@ -420,7 +424,10 @@ export const userRoutes = (
        ========================= */}
     <Route path="settings">
       <Route index element={<Navigate to="profile" replace />} />
-      <Route path="profile" element={userPage(<MyProfilePage />, withSystemAccess(SYSTEMS.settings))} />
+      <Route
+        path="profile"
+        element={userPage(<MyProfilePage />, withSystemAccess(SYSTEMS.settings))}
+      />
       <Route
         path="sessions"
         element={userPage(<ActiveSessionsPage />, withSystemAccess(SYSTEMS.settings))}

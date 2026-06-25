@@ -717,7 +717,8 @@
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
-        "ui.launchUrl": "/portal/apps/dwh"
+        "ui.launchUrl": "/portal/apps/dwh",
+        "ui.navigation": "[{\"id\":\"overview\",\"label\":\"Overview\",\"path\":\"/apps/dwh\"},{\"id\":\"data-validation\",\"label\":\"Data Validation\",\"path\":\"/apps/dwh/data-validation\",\"permission\":\"data_quality:read\"},{\"id\":\"documents\",\"label\":\"Documents\",\"path\":\"/apps/dwh/documents\",\"permission\":\"documents:read\"},{\"id\":\"report-browser\",\"label\":\"Reports\",\"path\":\"/apps/dwh/reports\",\"permission\":\"report_browser:read\"},{\"id\":\"surveillance\",\"label\":\"Surveillance\",\"path\":\"/apps/dwh/surveillance\",\"permission\":\"surveillance:read\"},{\"id\":\"issue-tracker\",\"label\":\"Issue Tracker\",\"path\":\"/apps/dwh/issues\",\"permission\":\"issue_tracker:read\"}]"
       }
     },
     {
@@ -742,7 +743,8 @@
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
-        "ui.launchUrl": "/portal/apps/utilities"
+        "ui.launchUrl": "/portal/apps/utilities",
+        "ui.navigation": "[{\"id\":\"timesheet\",\"label\":\"My Timesheet\",\"path\":\"/apps/utilities/self-service/timesheet\"},{\"id\":\"elearning\",\"label\":\"eLearning\",\"path\":\"/apps/utilities/self-service/elearning\"},{\"id\":\"leave-plan\",\"label\":\"Leave Plan\",\"path\":\"/apps/utilities/self-service/leave-plan\"},{\"id\":\"absence-requests\",\"label\":\"Absence Requests\",\"path\":\"/apps/utilities/self-service/absence-requests\"},{\"id\":\"absence-dashboard\",\"label\":\"My Absence Dashboard\",\"path\":\"/apps/utilities/self-service/absence-dashboard\"},{\"id\":\"document-upload\",\"label\":\"Document Upload\",\"path\":\"/apps/utilities/self-service/eservice/document-upload\",\"permission\":\"documents:write\"},{\"id\":\"service-access\",\"label\":\"Service Access\",\"path\":\"/apps/utilities/self-service/eservice/service-access\"},{\"id\":\"equipment-request\",\"label\":\"Equipment Request\",\"path\":\"/apps/utilities/self-service/eservice/equipment-request\"}]"
       }
     },
     {
@@ -767,7 +769,8 @@
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
-        "ui.launchUrl": "/portal/apps/settings"
+        "ui.launchUrl": "/portal/apps/settings",
+        "ui.navigation": "[{\"id\":\"profile\",\"label\":\"My Profile\",\"path\":\"/apps/settings/profile\"},{\"id\":\"sessions\",\"label\":\"Active Sessions\",\"path\":\"/apps/settings/sessions\"},{\"id\":\"security\",\"label\":\"Security\",\"path\":\"/apps/settings/security\"}]"
       }
     },
     {
@@ -801,7 +804,8 @@
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
-        "ui.launchUrl": "/portal/apps/outbreak-management"
+        "ui.launchUrl": "/portal/apps/outbreak-management",
+        "ui.navigation": "[{\"id\":\"signals-alerts\",\"label\":\"Signals & Alerts\",\"path\":\"/apps/outbreak-management/signals-alerts\"},{\"id\":\"poe-management\",\"label\":\"PoE Management\",\"path\":\"/apps/outbreak-management/poe-management\"},{\"id\":\"case-management\",\"label\":\"Case Management\",\"path\":\"/apps/outbreak-management/case-management\"}]"
       },
       "defaultClientScopes": [
         "openid",

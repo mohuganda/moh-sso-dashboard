@@ -84,10 +84,23 @@ function parseSideNav(client: Client): SideNavItem[] {
 }
 
 function isPlatformSideNavClient(client: Client): boolean {
-  return (
-    client.attributes?.["ui.systemType"] === "platform" &&
-    client.attributes?.["ui.displayInSideNav"] === "true"
-  );
+  const systemType = client.attributes?.["ui.systemType"];
+  const displayInSideNav = client.attributes?.["ui.displayInSideNav"];
+  const navigation = parseSideNav(client);
+
+  if (systemType === "external") {
+    return false;
+  }
+
+  if (displayInSideNav === "true") {
+    return navigation.length > 0;
+  }
+
+  if (displayInSideNav === "false") {
+    return false;
+  }
+
+  return navigation.length > 0;
 }
 
 function hasActiveChild(item: SideNavItem, currentPath: string): boolean {

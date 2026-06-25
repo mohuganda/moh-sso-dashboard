@@ -27,10 +27,10 @@ export interface SystemAccess {
   icon?: string;
   category?: string;
   navigation?: string;
-  systemType: "platform" | "external";
-  displayInLauncher: boolean;
-  displayInSideNav: boolean;
-  launchMode: "internal" | "new_tab" | "same_tab";
+  systemType?: "platform" | "external";
+  displayInLauncher?: boolean;
+  displayInSideNav?: boolean;
+  launchMode?: "internal" | "new_tab" | "same_tab";
   roles: string[];
 }
 

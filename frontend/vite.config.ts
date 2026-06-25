@@ -7,8 +7,8 @@ const pathFromRoot = (path: string) => fileURLToPath(new URL(path, import.meta.u
 
 const getDirectories = (source: string) =>
   readdirSync(pathFromRoot(source), { withFileTypes: true })
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
 
 const apps = getDirectories("./apps");
 const packages = getDirectories("./packages");
@@ -40,30 +40,43 @@ const dynamicAliases = [
   })),
 ];
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: "/portal/",
   root: pathFromRoot("./apps/shell"),
   publicDir: pathFromRoot("./public"),
 
   plugins: [react()],
 
+  define: {
+    "process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),
+  },
+
   resolve: {
-    dedupe: ["react", "react-dom", "react-router-dom", "react-redux"],
+    dedupe: [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "react-redux",
+      "@reduxjs/toolkit",
+      "@carbon/react",
+      "single-spa",
+      "single-spa-react",
+    ],
+
     alias: [
-      { find: "@/config", replacement: pathFromRoot("./packages/config/src") },
-      { find: "@/types", replacement: pathFromRoot("./packages/types/src/global") },
       {
-        find: "@moh-sso/data-validation/single-spa",
-        replacement: pathFromRoot("./apps/data-validation/src/single-spa.tsx"),
+        find: "@/config",
+        replacement: pathFromRoot("./packages/config/src"),
       },
       {
-        find: "@moh-sso/data-validation",
-        replacement: pathFromRoot("./apps/data-validation/src/index.ts"),
+        find: "@/types",
+        replacement: pathFromRoot("./packages/types/src/global"),
       },
-
       ...dynamicAliases,
-
-      { find: "@", replacement: pathFromRoot("./apps/shell/src") },
+      {
+        find: "@",
+        replacement: pathFromRoot("./apps/shell/src"),
+      },
     ],
   },
 
@@ -76,8 +89,9 @@ export default defineConfig({
     include: [
       "react",
       "react-dom",
-      "react-dom/client", // Prevents internal React bundle pollution
+      "react-dom/client",
       "react/jsx-runtime",
+      "react/jsx-dev-runtime",
       "react-redux",
       "react-router-dom",
       "@reduxjs/toolkit",
@@ -90,8 +104,13 @@ export default defineConfig({
   },
 
   build: {
+    outDir: pathFromRoot("./apps/shell/dist"),
+    emptyOutDir: true,
+    sourcemap: true,
+
     commonjsOptions: {
       include: [/react-pivottable/, /node_modules/],
+      transformMixedEsModules: true,
     },
   },
-});
+}));
