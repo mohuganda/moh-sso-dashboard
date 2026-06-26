@@ -108,7 +108,7 @@ dev
 
 {{- define "moh-sso.ginMode" -}}
 {{- $env := include "moh-sso.environment" . -}}
-{{- if eq $env "development" -}}
+{{- if or (eq $env "development") (eq $env "dev") (eq $env "local") -}}
 debug
 {{- else -}}
 release

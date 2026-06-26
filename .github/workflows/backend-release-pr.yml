@@ -1,15 +1,9 @@
-name: Backend Release
+name: Backend Release From PR
 
 on:
-  push:
-    tags:
-      - "backend/v*.*.*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Backend semantic version without a prefix, for example 1.2.3"
-        required: true
-        type: string
+  pull_request:
+    branches: [main]
+    types: [closed]
 
 permissions:
   contents: write
@@ -22,45 +16,37 @@ env:
 
 jobs:
   release:
-    name: Verify and release backend
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/backend-v')
+    name: Verify and release backend from PR
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
 
     steps:
-      - name: Checkout repository
+      - name: Checkout merge commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
 
-      - name: Validate semantic version
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          VERSION="${{ inputs.version }}"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid semantic version: $VERSION"
-            exit 1
-          fi
-          TAG="backend/v${VERSION}"
-          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Tag ${TAG} already exists"
-            exit 1
-          fi
-
-      - name: Resolve release version from tag
+      - name: Resolve release version from branch
         id: version
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION="${GITHUB_REF_NAME#backend/v}"
-          fi
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          VERSION="${BRANCH#release/backend-v}"
 
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid semantic version: $VERSION"
+            exit 1
+          fi
+
+          TAG="backend/v${VERSION}"
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists"
             exit 1
           fi
 
@@ -136,7 +122,6 @@ jobs:
           subject-path: backend/dist/moh-sso-dashboard-*
 
       - name: Create verified component tag
-        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           TAG="backend/v${{ steps.version.outputs.version }}"

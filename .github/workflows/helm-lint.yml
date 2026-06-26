@@ -27,4 +27,4 @@ jobs:
         run: helm template test charts/moh-sso -f charts/moh-sso/values-dev.yaml
 
       - name: Helm Template (Prod)
-        run: helm template test charts/moh-sso -f charts/moh-sso/values-prod.yaml
+        run: helm template test charts/moh-sso -f charts/moh-sso/values-prod.yaml --set backend.image.tag=1.2.3 --set frontend.image.tag=1.2.3

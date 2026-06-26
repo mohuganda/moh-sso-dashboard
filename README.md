@@ -212,6 +212,48 @@ Run these from `frontend/`.
 | `npm run audit:publishability` | Check npm publish readiness for apps/packages. |
 | `npm run release:check` | Full release readiness check. |
 
+### Helm Chart Checks
+
+Run these from the repository root to validate chart changes:
+
+```bash
+make helm-lint
+make helm-check
+make helm-check-prod BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
+make helm-template-prod BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
+```
+
+These commands keep Helm changes easy to track locally and mirror the checks used in CI.
+
+### Local M1 Helm Smoke Test
+
+On Apple Silicon, you can validate the chart and local stack in the same order you would during a real deployment:
+
+```bash
+make helm-lint
+make helm-check
+make helm-check-prod BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
+make local-build
+make local-up
+make local-forward
+curl -fsS http://localhost:9000/version
+curl -fsS http://localhost:9000/health/live
+```
+
+If Docker Buildx needs a refresh on your machine, bootstrap it first:
+****
+```bash
+docker buildx inspect --bootstrap
+```
+
+This path is useful for confirming that:
+
+- Helm templates render correctly
+- immutable prod tags are required
+- arm64 local images build on M1
+- the full local stack starts cleanly
+- backend runtime metadata is reachable after deployment
+
 ## Backend Documentation
 
 Backend-specific development, architecture, and operations notes live in:

@@ -15,8 +15,8 @@ An empty tag or `latest` is not accepted for production. Frontend tags remain in
 
 The deployment workflow supports:
 
-- successful default-branch builds using the immutable SHA image tag
-- manual deployment of an explicitly supplied semantic/SHA tag
+- merged backend release PRs and backend release workflow runs using the published backend release tag
+- manual deployment of an explicitly supplied immutable backend image tag or `backend/v<version>` tag, which is normalized to the image tag
 
 The remote deployment:
 
@@ -26,6 +26,8 @@ The remote deployment:
 4. Calls `/health/live`.
 5. Records the image digest, actor, timestamp, version, and commit.
 6. Restores the previous tags when verification fails.
+
+The deploy workflow now reads the release metadata artifact emitted by the backend release workflow, so production follows the exact published backend release instead of a generic build output. The artifact carries both the Git release tag and the Docker image tag, and deployment uses the immutable image tag while recording the matching release tag in the deployment history.
 
 The server-side `restart` script must honor exported `BACKEND_TAG` and `FRONTEND_TAG` values and use the production Compose configuration.
 
