@@ -1,5 +1,5 @@
 import { API } from "@moh-sso/config";
-import type { AuditActionsResponse, AuditFilters, AuditListResponse } from "@moh-sso/types";
+import type { AuditActionsResponse, AuditFilters, AuditListResponse } from "../types";
 
 import { baseApi } from "@moh-sso/api";
 

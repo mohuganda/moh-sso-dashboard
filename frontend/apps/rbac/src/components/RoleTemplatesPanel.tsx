@@ -9,7 +9,7 @@ import {
   useListSystemRolesQuery,
 } from "../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
-import type { RbacRoleTemplate } from "@moh-sso/types";
+import type { RbacRoleTemplate } from "../types";
 
 type RoleTemplatesPanelProps = {
   templates: RbacRoleTemplate[];

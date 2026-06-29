@@ -5,7 +5,7 @@ import type {
   Announcement,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
-} from "@moh-sso/types";
+} from "../types";
 
 import { useCreateAnnouncementMutation, useUpdateAnnouncementMutation } from "../api";
 

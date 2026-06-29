@@ -26,7 +26,7 @@ import {
   useDraftAnnouncementMutation,
 } from "../api";
 
-import type { Announcement, AnnouncementLevel } from "@moh-sso/types";
+import type { Announcement, AnnouncementLevel } from "../types";
 
 import { ErrorState, useHeaderPanel, useToast } from "@moh-sso/ui";
 

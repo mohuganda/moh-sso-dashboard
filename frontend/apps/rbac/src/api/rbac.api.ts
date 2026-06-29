@@ -37,7 +37,7 @@ import type {
   RbacAssignableUserAccess,
   RbacUpdateUserAccessPayload,
   RbacUserAccessProfile,
-} from "@moh-sso/types";
+} from "../types";
 
 import { baseApi } from "@moh-sso/api";
 

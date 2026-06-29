@@ -14,7 +14,7 @@ import {
   useSimulateRbacAccessMutation,
   useUpdateRbacPermissionMetadataMutation,
 } from "../api";
-import type { RbacSimulationResult } from "@moh-sso/types";
+import type { RbacSimulationResult } from "../types";
 
 import { AccessRequestsPanel } from "./AccessRequestsPanel";
 import { AuditTrailPanel } from "./AuditTrailPanel";

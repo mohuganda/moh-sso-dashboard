@@ -20,7 +20,7 @@ import type {
   AnnouncementStatus,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
-} from "@moh-sso/types";
+} from "../types";
 import { useToast } from "@moh-sso/ui";
 
 export interface AnnouncementFormValues {

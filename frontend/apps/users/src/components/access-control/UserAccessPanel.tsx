@@ -5,7 +5,7 @@ import {
   useGetUserAccessProfileQuery,
   useUpdateUserAccessMutation,
 } from "@moh-sso/rbac";
-import type { RbacAssignableSystemAccess, RbacPermission } from "@moh-sso/types";
+import type { RbacAssignableSystemAccess, RbacPermission } from "@moh-sso/rbac";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
 
 type Props = {

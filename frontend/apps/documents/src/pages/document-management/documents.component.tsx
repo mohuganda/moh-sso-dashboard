@@ -21,7 +21,7 @@ import { Upload } from "@carbon/react/icons";
 
 import { useListDocumentsQuery } from "../../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
-import type { DocumentResponse } from "@moh-sso/types";
+import type { DocumentResponse } from "../../types";
 import { EmptyState, useHeaderPanel } from "@moh-sso/ui";
 
 import { UploadDocumentModal } from "../../components/UploadDocumentModal";

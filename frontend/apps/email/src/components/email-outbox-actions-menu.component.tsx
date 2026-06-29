@@ -1,6 +1,6 @@
 import { OverflowMenu, OverflowMenuItem } from "@carbon/react";
 
-import type { EmailOutboxItem } from "@moh-sso/types";
+import type { EmailOutboxItem } from "../types";
 
 type EmailOutboxActionsMenuProps = {
   email: EmailOutboxItem;

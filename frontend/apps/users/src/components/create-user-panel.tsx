@@ -16,7 +16,7 @@ import {
   useUpdateUserMutation,
 } from "../api";
 import { useGetAssignableUserAccessQuery } from "@moh-sso/rbac";
-import type { User } from "@moh-sso/types";
+import type { User } from "../types";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
 
 export type UserFormMode = "create" | "edit";

@@ -30,7 +30,7 @@ import {
   useResetUserPasswordMutation,
   useToggleUserMutation,
 } from "../api";
-import type { User } from "@moh-sso/types";
+import type { User } from "../types";
 
 import { UserActionsMenu } from "./user-actions-menu.component";
 import { UserBulkActions } from "./user-bulk-actions.component";

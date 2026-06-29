@@ -29,7 +29,7 @@ import {
   useListRbacSystemsQuery,
   useUpdateRbacSystemMutation,
 } from "@moh-sso/rbac";
-import type { RbacSystem, UpsertRbacSystemPayload } from "@moh-sso/types";
+import type { RbacSystem, UpsertRbacSystemPayload } from "@moh-sso/rbac";
 import {
   DataTableShell,
   ErrorState,

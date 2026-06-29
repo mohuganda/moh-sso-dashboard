@@ -27,7 +27,7 @@ import {
   useUpdateRbacSystemMutation,
 } from "../api";
 import { PERMISSIONS, PermissionGuard, useAuthorization } from "@moh-sso/auth";
-import type { RbacPermission, RbacSystem, RbacSystemRole } from "@moh-sso/types";
+import type { RbacPermission, RbacSystem, RbacSystemRole } from "../types";
 
 import { EffectiveAccessPanel } from "../components/EffectiveAccessPanel";
 import { GovernanceToolsPanel } from "../components/GovernanceToolsPanel";

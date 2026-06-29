@@ -20,7 +20,7 @@ import {
   buildUserAnnouncementAttachmentDownloadUrl,
   useListPublicAnnouncementsQuery,
 } from "@moh-sso/announcements";
-import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/types";
+import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/announcements";
 import "./news-feed.scss";
 
 const CASE_REPORTING = [

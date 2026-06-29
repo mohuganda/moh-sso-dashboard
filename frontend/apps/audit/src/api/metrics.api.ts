@@ -5,7 +5,7 @@ import type {
   AuditOverview,
   AuditTopFailureIpsFilters,
   AuditTopFailureIpsResponse,
-} from "@moh-sso/types";
+} from "../types";
 
 import { baseApi } from "@moh-sso/api";
 

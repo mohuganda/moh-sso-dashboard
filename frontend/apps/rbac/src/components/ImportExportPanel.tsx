@@ -1,7 +1,7 @@
 import { Button, FileUploaderButton, TextArea } from "@carbon/react";
 
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
-import type { RbacImportPreview } from "@moh-sso/types";
+import type { RbacImportPreview } from "../types";
 
 type ImportExportPanelProps = {
   seedText: string;

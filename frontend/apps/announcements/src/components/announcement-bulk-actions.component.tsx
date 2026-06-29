@@ -1,6 +1,6 @@
 import { Button, InlineLoading } from "@carbon/react";
 
-import type { Announcement } from "@moh-sso/types";
+import type { Announcement } from "../types";
 
 type BulkAction = "publish" | "draft" | "archive" | "pin" | "unpin" | "delete" | null;
 

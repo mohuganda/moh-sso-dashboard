@@ -37,7 +37,6 @@
     "@moh-sso/api": "0.1.0",
     "@moh-sso/auth": "0.1.0",
     "@moh-sso/config": "0.1.0",
-    "@moh-sso/types": "0.1.0",
     "@moh-sso/data-visualizer": "0.1.0",
     "@moh-sso/microfrontend": "0.1.0"
   },

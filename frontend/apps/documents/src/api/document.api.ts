@@ -5,7 +5,7 @@ import type {
   DocumentResponse,
   StorageLocation,
   UpdateDocumentPayload,
-} from "@moh-sso/types";
+} from "../types";
 import { baseApi } from "@moh-sso/api";
 
 type ApiEnvelope<T> = {

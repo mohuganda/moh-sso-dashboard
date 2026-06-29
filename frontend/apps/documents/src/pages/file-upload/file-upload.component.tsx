@@ -26,7 +26,7 @@ import {
   isAcceptedFile,
   validateProcessTypeAgainstFile,
 } from "@moh-sso/utils";
-import { DOCUMENT_PROCESS_TYPE_OPTIONS, type DocumentProcessType } from "@moh-sso/types";
+import { DOCUMENT_PROCESS_TYPE_OPTIONS, type DocumentProcessType } from "../../types";
 
 import "./file-upload.scss";
 

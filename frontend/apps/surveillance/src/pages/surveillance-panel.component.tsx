@@ -3,7 +3,7 @@ import type {
   Alert,
   FacilityWeeklyMetric,
   WeeklyStatusDetailed,
-} from "@moh-sso/types";
+} from "../types";
 
 type SurveillanceRankItem = {
   label: string;
