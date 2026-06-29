@@ -14,7 +14,7 @@ import {
   useListAnnouncementAttachmentsQuery,
   useUpdateAnnouncementAttachmentMutation,
   useUploadAnnouncementAttachmentMutation,
-} from "@moh-sso/api";
+} from "../api";
 import { useToast } from "@moh-sso/ui";
 
 type AnnouncementAttachmentsProps = {

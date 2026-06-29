@@ -11,7 +11,7 @@ import {
   InlineLoading,
 } from "@carbon/react";
 import { useMemo, useState, type SyntheticEvent } from "react";
-import { useCreateImportBatchMutation } from "@moh-sso/api";
+import { useCreateImportBatchMutation } from "../api";
 
 type UploadCSVModalProps = {
   onClose: () => void;

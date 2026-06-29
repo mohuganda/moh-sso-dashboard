@@ -12,7 +12,7 @@ import {
   useLazyDownloadDocumentQuery,
   useLazyViewDocumentQuery,
   useReprocessDocumentMutation,
-} from "@moh-sso/api";
+} from "../api";
 import type { DocumentProcess, DocumentResponse } from "@moh-sso/types";
 
 function StatusTag({ status }: { status: string }) {

@@ -26,7 +26,15 @@ check(existsSync(htmlPath), "dist/index.html is missing", failures);
 
 if (existsSync(htmlPath)) {
   const html = readFileSync(htmlPath, "utf8");
-  check(html.includes('<script src="/portal/config.js"></script>'), "dist/index.html should load /portal/config.js", failures);
+  check(html.includes('configFile = isLocal ? "config.development.js" : "config.js"') ||
+    html.includes("configFile = isLocal ? 'config.development.js' : 'config.js'"),
+    "dist/index.html should select config.development.js locally and config.js otherwise",
+    failures,
+  );
+  check(html.includes('/portal/\' + configFile') || html.includes('/portal/" + configFile'),
+    "dist/index.html should load runtime config from /portal",
+    failures,
+  );
   check(html.includes('type="importmap"'), "dist/index.html should inline an import map", failures);
   check(html.includes("/portal/assets/"), "dist/index.html should reference /portal assets", failures);
 }

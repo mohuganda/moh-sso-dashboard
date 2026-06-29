@@ -16,7 +16,7 @@ import {
   TableCell,
 } from "@carbon/react";
 import { Download } from "@carbon/react/icons";
-import { useCreateIssueMutation } from "@moh-sso/api";
+import { useCreateIssueMutation } from "../api";
 import { IMPORT_TEMPLATE_HEADERS } from "../lib/constants.ts";
 import type { IssuePayload } from "@moh-sso/types";
 

@@ -75,12 +75,32 @@ function notifyOrchestrationState() {
   );
 }
 
-export function shouldUseSingleSpaOrchestration() {
+function getRuntimeConfig() {
   const runtimeConfig = (
     window as Window & {
       __APP_CONFIG__?: RuntimeMicrofrontendConfig;
     }
   ).__APP_CONFIG__;
+
+  const isLocalDevelopmentHost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "::1";
+
+  if (!isLocalDevelopmentHost) {
+    return runtimeConfig;
+  }
+
+  return {
+    ...runtimeConfig,
+    singleSpaOrchestration: false,
+    microfrontendMode: "local",
+    microfrontendMountMode: "hybrid",
+  };
+}
+
+export function shouldUseSingleSpaOrchestration() {
+  const runtimeConfig = getRuntimeConfig();
   const orchestrationEnabled =
     import.meta.env.VITE_SINGLE_SPA_ORCHESTRATION === "true" || runtimeConfig?.singleSpaOrchestration === true;
 
@@ -100,20 +120,12 @@ export function isSingleSpaOrchestrationUnavailable() {
 }
 
 function getMicrofrontendMode() {
-  const runtimeConfig = (
-    window as Window & {
-      __APP_CONFIG__?: RuntimeMicrofrontendConfig;
-    }
-  ).__APP_CONFIG__;
+  const runtimeConfig = getRuntimeConfig();
   return runtimeConfig?.microfrontendMode ?? import.meta.env.VITE_MICROFRONTEND_MODE ?? "local";
 }
 
 function getMicrofrontendMountMode(): MicrofrontendMountMode {
-  const runtimeConfig = (
-    window as Window & {
-      __APP_CONFIG__?: RuntimeMicrofrontendConfig;
-    }
-  ).__APP_CONFIG__;
+  const runtimeConfig = getRuntimeConfig();
   return runtimeConfig?.microfrontendMountMode ?? import.meta.env.VITE_MICROFRONTEND_MOUNT_MODE ?? "hybrid";
 }
 

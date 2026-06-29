@@ -40,7 +40,7 @@ import {
   useGetNotificationsQuery,
   useGetUnreadNotificationsCountQuery,
   useMarkNotificationAsReadMutation,
-} from "@moh-sso/api";
+} from "../../api";
 import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
 import type { Permission } from "@moh-sso/auth";
 

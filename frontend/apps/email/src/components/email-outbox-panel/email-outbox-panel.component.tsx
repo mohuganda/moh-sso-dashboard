@@ -12,7 +12,7 @@ import {
   Tile,
 } from "@carbon/react";
 
-import { useQueueEmailMutation, useSendEmailMutation } from "@moh-sso/api";
+import { useQueueEmailMutation, useSendEmailMutation } from "../../api";
 import { useToast } from "@moh-sso/ui";
 import "./email-outbox-panel.scss";
 

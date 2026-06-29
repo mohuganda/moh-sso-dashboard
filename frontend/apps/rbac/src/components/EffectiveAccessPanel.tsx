@@ -10,7 +10,7 @@ import {
 } from "@carbon/react";
 import { Search } from "@carbon/react/icons";
 
-import { useGetRbacEffectiveAccessQuery } from "@moh-sso/api";
+import { useGetRbacEffectiveAccessQuery } from "../api";
 import type { RbacEffectiveAccess } from "@moh-sso/types";
 
 type LookupMode = "userId" | "username" | "email";

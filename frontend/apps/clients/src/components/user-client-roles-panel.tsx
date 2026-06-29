@@ -2,11 +2,9 @@ import { Stack, Tile, MultiSelect, InlineLoading, Button } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
-  useListClientRolesQuery,
-  useListClientsQuery,
-  useGetUserClientRolesQuery,
-  useUpdateUserClientRolesMutation,
-} from "@moh-sso/api";
+  useGetUserAccessProfileQuery,
+  useUpdateUserAccessMutation,
+} from "@moh-sso/rbac";
 import { useToast } from "@moh-sso/ui";
 
 type Props = {
@@ -16,61 +14,50 @@ type Props = {
 export function UserClientRolesPanel({ userId }: Props) {
   const toast = useToast();
 
-  const { data: clients = [], isLoading: loadingClients } = useListClientsQuery();
+  const { data: profile, isLoading: loadingProfile } = useGetUserAccessProfileQuery(userId);
 
-  const { data: assignments = [], isLoading: loadingAssignments } =
-    useGetUserClientRolesQuery(userId);
-
-  const [updateRoles, { isLoading: saving }] = useUpdateUserClientRolesMutation();
+  const [updateAccess, { isLoading: saving }] = useUpdateUserAccessMutation();
 
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-
-  const [selectedClientUuid, setSelectedClientUuid] = useState<string | null>(null);
 
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 
   const selectedClient = useMemo(
-    () => clients.find((c) => c.clientId === selectedClientId),
-    [clients, selectedClientId],
-  );
-  const { data: clientRoles = [], isLoading: loadingRoles } = useListClientRolesQuery(
-    selectedClientUuid!,
-    {
-      skip: !selectedClientUuid,
-    },
+    () => profile?.assignable.systems.find((system) => system.clientId === selectedClientId),
+    [profile?.assignable.systems, selectedClientId],
   );
 
   useEffect(() => {
-    if (!selectedClientId) return;
+    if (!selectedClientId || !profile) return;
 
-    const assignment = assignments.find((a) => a.clientId === selectedClientId);
-
-    const client = clients.find((c) => c.clientId === selectedClientId);
-    setSelectedClientUuid(assignment?.id ?? client?.id ?? null);
-    setSelectedRoles(assignment?.roles ?? []);
-  }, [selectedClientId, assignments, clients]);
+    setSelectedRoles(profile.effectiveAccess.clientRoles[selectedClientId] ?? []);
+  }, [selectedClientId, profile]);
 
   const roleItems = useMemo(
     () =>
-      clientRoles.map((r) => ({
-        id: r.name,
-        text: r.name,
+      (selectedClient?.roles ?? []).map((role) => ({
+        id: role.name,
+        text: role.displayName || role.name,
       })),
-    [clientRoles],
+    [selectedClient?.roles],
   );
 
   /* ------------------------------------------------
    * Save (FULL REPLACEMENT)
    * ------------------------------------------------ */
   const handleSave = async () => {
-    if (!selectedClientId || !selectedClientUuid) return;
+    if (!selectedClientId || !profile) return;
 
     try {
-      await updateRoles({
+      await updateAccess({
         userId,
-        clientId: selectedClientId,
-        clientUuid: selectedClientUuid,
-        roles: selectedRoles,
+        data: {
+          realmRoles: profile.effectiveAccess.realmRoles,
+          clientRoles: {
+            ...profile.effectiveAccess.clientRoles,
+            [selectedClientId]: selectedRoles,
+          },
+        },
       }).unwrap();
 
       toast.success("Roles updated", "User client roles were updated successfully");
@@ -82,7 +69,7 @@ export function UserClientRolesPanel({ userId }: Props) {
   /* ------------------------------------------------
    * Loading
    * ------------------------------------------------ */
-  if (loadingClients || loadingAssignments) {
+  if (loadingProfile) {
     return <InlineLoading description="Loading client roles…" />;
   }
 
@@ -100,13 +87,20 @@ export function UserClientRolesPanel({ userId }: Props) {
             label=""
             hideLabel
             titleText="Application"
-            items={clients.map((c) => ({
-              id: c.clientId,
-              text: c.name,
+            items={(profile?.assignable.systems ?? []).map((system) => ({
+              id: system.clientId,
+              text: system.displayName || system.clientId,
             }))}
             itemToString={(item) => item?.text ?? ""}
             selectedItems={
-              selectedClient ? [{ id: selectedClient.clientId, text: selectedClient.name }] : []
+              selectedClient
+                ? [
+                    {
+                      id: selectedClient.clientId,
+                      text: selectedClient.displayName || selectedClient.clientId,
+                    },
+                  ]
+                : []
             }
             onChange={({ selectedItems }) => {
               setSelectedClientId((selectedItems ?? [])[0]?.id ?? null);
@@ -121,29 +115,25 @@ export function UserClientRolesPanel({ userId }: Props) {
       {selectedClientId && (
         <Tile>
           <Stack gap={4}>
-            <strong>Roles for {selectedClient?.name}</strong>
+            <strong>Roles for {selectedClient?.displayName || selectedClient?.clientId}</strong>
 
-            {loadingRoles ? (
-              <InlineLoading description="Loading roles…" />
-            ) : (
-              <MultiSelect
-                id="client-roles"
-                label=""
-                hideLabel
-                titleText="Client roles"
-                items={roleItems}
-                itemToString={(item) => item?.text ?? ""}
-                selectedItems={roleItems.filter((r) => selectedRoles.includes(r.id))}
-                onChange={({ selectedItems }) => {
-                  setSelectedRoles((selectedItems ?? []).map((r) => r.id));
-                }}
-              />
-            )}
+            <MultiSelect
+              id="client-roles"
+              label=""
+              hideLabel
+              titleText="Client roles"
+              items={roleItems}
+              itemToString={(item) => item?.text ?? ""}
+              selectedItems={roleItems.filter((r) => selectedRoles.includes(r.id))}
+              onChange={({ selectedItems }) => {
+                setSelectedRoles((selectedItems ?? []).map((r) => r.id));
+              }}
+            />
 
             <Button
               kind="primary"
               size="sm"
-              disabled={saving || !selectedClientId || !selectedClientUuid}
+              disabled={saving || !selectedClientId}
               onClick={handleSave}
             >
               {saving ? "Saving…" : "Save roles"}

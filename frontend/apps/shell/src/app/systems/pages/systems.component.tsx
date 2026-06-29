@@ -28,7 +28,7 @@ import {
   useGetRbacSystemQuery,
   useListRbacSystemsQuery,
   useUpdateRbacSystemMutation,
-} from "@moh-sso/api";
+} from "@moh-sso/rbac";
 import type { RbacSystem, UpsertRbacSystemPayload } from "@moh-sso/types";
 import {
   DataTableShell,

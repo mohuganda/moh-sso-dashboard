@@ -24,7 +24,7 @@ import {
   useDeleteAnnouncementMutation,
   useSetAnnouncementPinnedMutation,
   useDraftAnnouncementMutation,
-} from "@moh-sso/api";
+} from "../api";
 
 import type { Announcement, AnnouncementLevel } from "@moh-sso/types";
 

@@ -10,7 +10,7 @@ import { QuickAction } from "@/app/home/components/quick-action/quick-action.com
 import {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
-} from "@moh-sso/api";
+} from "../../api";
 import { selectUser, useAuthorization } from "@moh-sso/auth";
 import { buildAccessibleClients } from "@/app/access/accessClients";
 

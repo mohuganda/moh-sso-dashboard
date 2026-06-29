@@ -25,7 +25,7 @@ import {
   useRemoveSystemAccessRoleMutation,
   useRemoveSystemRolePermissionMutation,
   useUpdateRbacSystemMutation,
-} from "@moh-sso/api";
+} from "../api";
 import { PERMISSIONS, PermissionGuard, useAuthorization } from "@moh-sso/auth";
 import type { RbacPermission, RbacSystem, RbacSystemRole } from "@moh-sso/types";
 

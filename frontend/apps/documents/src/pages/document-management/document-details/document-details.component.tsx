@@ -25,7 +25,7 @@ import {
   useLazyDownloadDocumentQuery,
   useLazyViewDocumentQuery,
   useReprocessDocumentMutation,
-} from "@moh-sso/api";
+} from "../../../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import type { DocumentProcess, DocumentResponse } from "@moh-sso/types";
 import { useToast } from "@moh-sso/ui";

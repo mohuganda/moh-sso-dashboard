@@ -13,9 +13,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   useCreateUserMutation,
-  useGetAssignableUserAccessQuery,
   useUpdateUserMutation,
-} from "@moh-sso/api";
+} from "../api";
+import { useGetAssignableUserAccessQuery } from "@moh-sso/rbac";
 import type { User } from "@moh-sso/types";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
 

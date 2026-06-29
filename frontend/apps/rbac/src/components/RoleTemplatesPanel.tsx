@@ -7,7 +7,7 @@ import {
   useCopyRolePermissionsMutation,
   useCreateRoleFromTemplateMutation,
   useListSystemRolesQuery,
-} from "@moh-sso/api";
+} from "../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import type { RbacRoleTemplate } from "@moh-sso/types";
 

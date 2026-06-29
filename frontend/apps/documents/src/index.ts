@@ -1,4 +1,5 @@
 export { DocumentsRoot } from "./root.component";
+export * from "./api";
 export { documentsRoutes } from "./routes";
 export { default as DocumentPage } from "./pages/document-management/documents.component";
 export { default as DocumentDetailsPage } from "./pages/document-management/document-details/document-details.component";

@@ -16,7 +16,7 @@ import {
 } from "@carbon/react";
 import type { FileUploaderItemProps } from "@carbon/react";
 
-import { useCreateDocumentMutation, useListStorageLocationsQuery } from "@moh-sso/api";
+import { useCreateDocumentMutation, useListStorageLocationsQuery } from "../../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import {
   ACCEPTED_EXTENSIONS,

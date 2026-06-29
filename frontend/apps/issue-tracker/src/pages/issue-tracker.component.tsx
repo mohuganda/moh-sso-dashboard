@@ -11,7 +11,7 @@ import {
 import { Add, ChevronDown, Download, Filter, Upload } from "@carbon/react/icons";
 import * as XLSX from "xlsx";
 
-import { useGetIssuesQuery } from "@moh-sso/api";
+import { useGetIssuesQuery } from "../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 
 import DataList from "../../../data-visualizer/src/pages/components/data-table/data-table.component.tsx";

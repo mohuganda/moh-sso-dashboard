@@ -19,7 +19,7 @@ import { EmptyState, ErrorState } from "@moh-sso/ui";
 import {
   buildUserAnnouncementAttachmentDownloadUrl,
   useListPublicAnnouncementsQuery,
-} from "@moh-sso/api";
+} from "@moh-sso/announcements";
 import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/types";
 import "./news-feed.scss";
 

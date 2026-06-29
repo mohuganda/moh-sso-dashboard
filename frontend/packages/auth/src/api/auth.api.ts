@@ -1,8 +1,8 @@
 import { API } from "@moh-sso/config";
-import { loginSuccess, logout as logoutAction, authLoaded } from "@moh-sso/auth";
-import type { AuthUser } from "@moh-sso/auth";
+import { authLoaded, loginSuccess, logout as logoutAction } from "../auth/auth.slice";
+import type { AuthUser } from "../auth/auth.types";
 
-import { baseApi } from "./baseApi";
+import { baseApi } from "@moh-sso/api";
 
 type ApiEnvelope<T> = {
   success: boolean;

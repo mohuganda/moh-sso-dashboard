@@ -1,6 +1,6 @@
 import { Button, Tag } from "@carbon/react";
 
-import { useDecideChangeRequestMutation } from "@moh-sso/api";
+import { useDecideChangeRequestMutation } from "../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import type { RbacChangePreview, RbacChangeRequest } from "@moh-sso/types";
 

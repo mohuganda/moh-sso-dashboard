@@ -20,7 +20,7 @@ import {
   useListWeeklyStatusesDetailedQuery,
   useListWeeklyStatusesQuery,
   useGetGeoJsonQuery,
-} from "@moh-sso/api";
+} from "../api";
 
 type FilterOption = {
   value: string;

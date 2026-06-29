@@ -29,7 +29,7 @@ import {
   useListUsersQuery,
   useResetUserPasswordMutation,
   useToggleUserMutation,
-} from "@moh-sso/api";
+} from "../api";
 import type { User } from "@moh-sso/types";
 
 import { UserActionsMenu } from "./user-actions-menu.component";

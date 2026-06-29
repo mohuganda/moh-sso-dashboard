@@ -15,7 +15,7 @@ import {
 } from "@carbon/react";
 import { useState } from "react";
 
-import { useListClientRolesQuery, useDeleteClientRoleMutation } from "@moh-sso/api";
+import { useListClientRolesQuery, useDeleteClientRoleMutation } from "../../api";
 import { useToast } from "@moh-sso/ui";
 
 import { CreateClientRoleForm } from "./create-client-role-form";

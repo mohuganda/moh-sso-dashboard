@@ -13,7 +13,7 @@ import type {
   SetAnnouncementPriorityRequest,
 } from "@moh-sso/types";
 import { API } from "@moh-sso/config";
-import { baseApi } from "./baseApi";
+import { baseApi } from "@moh-sso/api";
 
 type ApiEnvelope<T> = {
   success: boolean;

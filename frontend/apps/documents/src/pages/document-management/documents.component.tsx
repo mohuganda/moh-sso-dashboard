@@ -19,7 +19,7 @@ import {
 } from "@carbon/react";
 import { Upload } from "@carbon/react/icons";
 
-import { useListDocumentsQuery } from "@moh-sso/api";
+import { useListDocumentsQuery } from "../../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import type { DocumentResponse } from "@moh-sso/types";
 import { EmptyState, useHeaderPanel } from "@moh-sso/ui";

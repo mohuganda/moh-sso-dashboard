@@ -20,7 +20,7 @@ import Papa from "papaparse";
 import { useCreateDocumentMutation, useListStorageLocationsQuery ,
   useCreateTemplateStructureMutation,
   useListActiveTemplatesQuery,
-} from "@moh-sso/api";
+} from "../api";
 
 
 import {

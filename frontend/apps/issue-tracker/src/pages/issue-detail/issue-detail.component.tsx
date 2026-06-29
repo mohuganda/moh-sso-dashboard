@@ -7,7 +7,7 @@ import {
   useCreateTransactionMutation,
   useGetIssuesQuery,
   useGetTransactionsQuery,
-} from "@moh-sso/api";
+} from "../../api";
 import { PERMISSIONS, PermissionGuard, selectUser } from "@moh-sso/auth";
 
 import "./issue-detail.scss";

@@ -39,7 +39,7 @@ import type {
   RbacUserAccessProfile,
 } from "@moh-sso/types";
 
-import { baseApi } from "./baseApi";
+import { baseApi } from "@moh-sso/api";
 
 type ApiEnvelope<T> = {
   success: boolean;

@@ -13,7 +13,7 @@ import {
   usePreviewRbacImportMutation,
   useSimulateRbacAccessMutation,
   useUpdateRbacPermissionMetadataMutation,
-} from "@moh-sso/api";
+} from "../api";
 import type { RbacSimulationResult } from "@moh-sso/types";
 
 import { AccessRequestsPanel } from "./AccessRequestsPanel";

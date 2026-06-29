@@ -15,7 +15,7 @@ import {
 import { View } from "@carbon/react/icons";
 import { useMemo, useState } from "react";
 
-import { useListRbacAuditEventsQuery } from "@moh-sso/api";
+import { useListRbacAuditEventsQuery } from "../api";
 import type { RbacAuditEvent } from "@moh-sso/types";
 import { DataTableShell } from "@moh-sso/ui";
 

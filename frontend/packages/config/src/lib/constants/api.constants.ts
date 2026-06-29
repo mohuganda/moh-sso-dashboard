@@ -1,4 +1,20 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://dashboards.health.go.ug/ssobackend";
+type RuntimeAppConfig = {
+  API_BASE_URL?: string;
+};
+
+function getRuntimeApiBaseUrl() {
+  if (typeof globalThis === "undefined" || !("window" in globalThis)) {
+    return undefined;
+  }
+
+  return (globalThis.window as Window & { __APP_CONFIG__?: RuntimeAppConfig }).__APP_CONFIG__
+    ?.API_BASE_URL;
+}
+
+const API_BASE_URL =
+  getRuntimeApiBaseUrl() ||
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://dashboards.health.go.ug/ssobackend";
 
 const API_ROOT = `${API_BASE_URL}/api`;
 const API_VERSION = "v1";
