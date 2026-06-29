@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+import { existsSync, readdirSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, type Alias } from "vite";
 import { visualizer } from "rollup-plugin-visualizer";
@@ -20,6 +21,27 @@ export function defineMicrofrontendConfig({
   const pathFromApp = (path: string) => fileURLToPath(new URL(path, appUrl));
 
   const pathFromFrontend = (path: string) => fileURLToPath(new URL(`../../${path}`, appUrl));
+  const getDirectories = (path: string) =>
+    readdirSync(pathFromFrontend(path), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+
+  const apps = getDirectories("apps");
+  const packages = getDirectories("packages");
+
+  const appEntries: Record<string, string> = {
+    index: pathFromApp("./src/index.ts"),
+    routes: pathFromApp("./src/routes.tsx"),
+    "single-spa": pathFromApp("./src/single-spa.tsx"),
+  };
+
+  if (existsSync(pathFromApp("./src/api/index.ts"))) {
+    appEntries.api = pathFromApp("./src/api/index.ts");
+  }
+
+  if (existsSync(pathFromApp("./src/types/index.ts"))) {
+    appEntries.types = pathFromApp("./src/types/index.ts");
+  }
 
   return defineConfig(({ mode }) => {
     const isProduction = mode === "production";
@@ -60,38 +82,26 @@ export function defineMicrofrontendConfig({
         ],
 
         alias: [
-          {
-            find: "@moh-sso/api",
-            replacement: pathFromFrontend("packages/api/src"),
-          },
-          {
-            find: "@moh-sso/auth",
-            replacement: pathFromFrontend("packages/auth/src"),
-          },
-          {
-            find: "@moh-sso/config",
-            replacement: pathFromFrontend("packages/config/src"),
-          },
-          {
-            find: "@moh-sso/microfrontend",
-            replacement: pathFromFrontend("packages/microfrontend/src"),
-          },
-          {
-            find: "@moh-sso/state",
-            replacement: pathFromFrontend("packages/state/src"),
-          },
-          {
-            find: "@moh-sso/types",
-            replacement: pathFromFrontend("packages/types/src"),
-          },
-          {
-            find: "@moh-sso/ui",
-            replacement: pathFromFrontend("packages/ui/src"),
-          },
-          {
-            find: "@moh-sso/utils",
-            replacement: pathFromFrontend("packages/utils/src"),
-          },
+          ...packages.map((pkg) => ({
+            find: new RegExp(`^@moh-sso/${pkg}/(.+)$`),
+            replacement: pathFromFrontend(`packages/${pkg}/src/$1`),
+          })),
+          ...packages.map((pkg) => ({
+            find: `@moh-sso/${pkg}`,
+            replacement: pathFromFrontend(`packages/${pkg}/src/index.ts`),
+          })),
+          ...apps.map((app) => ({
+            find: `@moh-sso/${app}/single-spa`,
+            replacement: pathFromFrontend(`apps/${app}/src/single-spa.tsx`),
+          })),
+          ...apps.map((app) => ({
+            find: new RegExp(`^@moh-sso/${app}/(.+)$`),
+            replacement: pathFromFrontend(`apps/${app}/src/$1`),
+          })),
+          ...apps.map((app) => ({
+            find: `@moh-sso/${app}`,
+            replacement: pathFromFrontend(`apps/${app}/src/index.ts`),
+          })),
           ...extraAliases,
         ],
       },
@@ -108,11 +118,7 @@ export function defineMicrofrontendConfig({
         },
 
         lib: {
-          entry: {
-            index: pathFromApp("./src/index.ts"),
-            routes: pathFromApp("./src/routes.tsx"),
-            "single-spa": pathFromApp("./src/single-spa.tsx"),
-          },
+          entry: appEntries,
           name,
           formats: ["es"],
           fileName: (_format, entryName) => `${entryName}.js`,

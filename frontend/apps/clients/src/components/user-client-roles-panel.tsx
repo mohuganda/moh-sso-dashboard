@@ -1,10 +1,7 @@
 import { Stack, Tile, MultiSelect, InlineLoading, Button } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  useGetUserAccessProfileQuery,
-  useUpdateUserAccessMutation,
-} from "@moh-sso/rbac";
+import { useGetUserAccessProfileQuery, useUpdateUserAccessMutation } from "@moh-sso/rbac/api";
 import { useToast } from "@moh-sso/ui";
 
 type Props = {

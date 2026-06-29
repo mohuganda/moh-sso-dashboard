@@ -15,7 +15,7 @@ import {
   useCreateUserMutation,
   useUpdateUserMutation,
 } from "../api";
-import { useGetAssignableUserAccessQuery } from "@moh-sso/rbac";
+import { useGetAssignableUserAccessQuery } from "@moh-sso/rbac/api";
 import type { User } from "../types";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
 

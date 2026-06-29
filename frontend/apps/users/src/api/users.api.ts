@@ -1,5 +1,5 @@
 import { API } from "@moh-sso/config";
-import type { ClientRole, UserClientRoleAssignment } from "@moh-sso/clients";
+import type { ClientRole, UserClientRoleAssignment } from "@moh-sso/clients/types";
 import type {
   CreateUserPayload,
   User,

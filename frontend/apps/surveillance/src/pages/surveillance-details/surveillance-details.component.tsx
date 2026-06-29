@@ -25,7 +25,8 @@ import {
   useListRegionsQuery,
   useListWeeklyStatusesDetailedQuery,
 } from "../../api";
-import { type DocumentResponse, useListDocumentsQuery } from "@moh-sso/documents";
+import { useListDocumentsQuery } from "@moh-sso/documents/api";
+import type { DocumentResponse } from "@moh-sso/documents/types";
 import WeeklyCasesChart from "./surveillance-weekly-cases.component";
 import "./surveillance-details.css";
 

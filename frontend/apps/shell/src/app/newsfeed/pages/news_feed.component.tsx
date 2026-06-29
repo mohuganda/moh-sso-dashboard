@@ -19,8 +19,12 @@ import { EmptyState, ErrorState } from "@moh-sso/ui";
 import {
   buildUserAnnouncementAttachmentDownloadUrl,
   useListPublicAnnouncementsQuery,
-} from "@moh-sso/announcements";
-import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/announcements";
+} from "@moh-sso/announcements/api";
+import type {
+  Announcement,
+  AnnouncementLevel,
+  AnnouncementStatus,
+} from "@moh-sso/announcements/types";
 import "./news-feed.scss";
 
 const CASE_REPORTING = [

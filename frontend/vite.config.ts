@@ -15,13 +15,13 @@ const packages = getDirectories("./packages");
 
 const dynamicAliases = [
   ...packages.map((pkg) => ({
-    find: `@moh-sso/${pkg}`,
-    replacement: pathFromRoot(`./packages/${pkg}/src/index.ts`),
+    find: new RegExp(`^@moh-sso/${pkg}/(.+)$`),
+    replacement: pathFromRoot(`./packages/${pkg}/src/$1`),
   })),
 
   ...packages.map((pkg) => ({
-    find: new RegExp(`^@moh-sso/${pkg}/(.+)$`),
-    replacement: pathFromRoot(`./packages/${pkg}/src/$1`),
+    find: `@moh-sso/${pkg}`,
+    replacement: pathFromRoot(`./packages/${pkg}/src/index.ts`),
   })),
 
   ...apps.map((app) => ({
@@ -30,13 +30,13 @@ const dynamicAliases = [
   })),
 
   ...apps.map((app) => ({
-    find: `@moh-sso/${app}`,
-    replacement: pathFromRoot(`./apps/${app}/src/index.ts`),
+    find: new RegExp(`^@moh-sso/${app}/(.+)$`),
+    replacement: pathFromRoot(`./apps/${app}/src/$1`),
   })),
 
   ...apps.map((app) => ({
-    find: new RegExp(`^@moh-sso/${app}/(.+)$`),
-    replacement: pathFromRoot(`./apps/${app}/src/$1`),
+    find: `@moh-sso/${app}`,
+    replacement: pathFromRoot(`./apps/${app}/src/index.ts`),
   })),
 ];
 
