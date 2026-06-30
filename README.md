@@ -566,17 +566,52 @@ npm run build:docker:npm-modules
 
 ### Production Compose
 
-`docker-compose.yml` defines:
+`docker-compose.yml` defines the direct-host production stack:
 
 - `redis`
 - `backend-db`
 - `backend`
 - `frontend`
 
-The production compose expects app secrets in `./secrets/*` and environment in `./app.env`.
+`docker-compose-nginx.yml` adds an Nginx reverse proxy in front of the frontend and backend. Use this file when the server should expose the portal on port `80` and proxy `/api/*` to the backend.
+
+Production compose expects:
+
+- immutable image tags in `BACKEND_TAG` and `FRONTEND_TAG`
+- runtime environment in `./app.env`
+- secret files in `./secrets/*`
+- persistent named volumes for Postgres, Redis, and local uploads
+
+Prepare the server once:
 
 ```bash
-docker compose up -d
+cp app.env.example app.env
+mkdir -p secrets
+printf '%s' 'replace-db-password' > secrets/db_password.txt
+printf '%s' 'replace-admin-client-secret' > secrets/keycloak_admin_client_secret.txt
+printf '%s' 'replace-web-client-secret' > secrets/keycloak_web_client_secret.txt
+chmod 600 app.env secrets/*.txt
+```
+
+Validate the compose file without real production values:
+
+```bash
+APP_ENV_FILE=./app.env.example BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
+  docker compose -f docker-compose-nginx.yml config --quiet
+```
+
+Start production with the reverse proxy:
+
+```bash
+BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
+  docker compose -f docker-compose-nginx.yml up -d
+```
+
+Or start the direct-host compose:
+
+```bash
+BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
+  docker compose up -d
 ```
 
 ## API Reference
