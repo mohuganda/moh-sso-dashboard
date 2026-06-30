@@ -62,6 +62,7 @@ type AdminNavItem = {
   label: string;
   path: string;
   icon: CarbonIconComponent;
+  group: "main" | "identity" | "communications" | "governance";
   exact?: boolean;
   requiredPermission?: Permission;
   requiredAnyPermissions?: Permission[];
@@ -73,6 +74,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Home",
     path: "/admin",
     icon: Dashboard,
+    group: "main",
     exact: true,
     requiredPermission: PERMISSIONS.portalAccess,
   },
@@ -81,6 +83,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Users",
     path: "/admin/users",
     icon: UserMultiple,
+    group: "identity",
     requiredPermission: PERMISSIONS.usersRead,
   },
   {
@@ -88,6 +91,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Clients",
     path: "/admin/clients",
     icon: Api,
+    group: "identity",
     requiredPermission: PERMISSIONS.clientsRead,
   },
   {
@@ -95,6 +99,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Systems",
     path: "/admin/systems",
     icon: Application,
+    group: "identity",
     requiredAnyPermissions: [PERMISSIONS.systemsRead, PERMISSIONS.rbacRead],
   },
   {
@@ -102,6 +107,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Announcements",
     path: "/admin/announcements",
     icon: Bullhorn,
+    group: "communications",
     requiredPermission: PERMISSIONS.announcementsRead,
   },
   {
@@ -109,6 +115,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Emails",
     path: "/admin/emails",
     icon: Email,
+    group: "communications",
     requiredAnyPermissions: [PERMISSIONS.emailRead, PERMISSIONS.emailManage],
   },
   {
@@ -116,6 +123,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "Audits",
     path: "/admin/audit-logs",
     icon: Activity,
+    group: "governance",
     requiredPermission: PERMISSIONS.auditRead,
   },
   {
@@ -123,8 +131,19 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: "RBAC",
     path: "/admin/rbac",
     icon: UserRole,
+    group: "governance",
     requiredAnyPermissions: [PERMISSIONS.rbacRead, PERMISSIONS.rbacRolesWrite],
   },
+];
+
+const ADMIN_NAV_GROUPS: Array<{
+  id: AdminNavItem["group"];
+  label: string;
+}> = [
+  { id: "main", label: "Overview" },
+  { id: "identity", label: "Access" },
+  { id: "communications", label: "Messaging" },
+  { id: "governance", label: "Governance" },
 ];
 
 function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
@@ -258,23 +277,42 @@ function AdminSideNav() {
   return (
     <SideNav isFixedNav expanded aria-label="Admin navigation" className="admin-layout__sidenav">
       <SideNavItems>
-        {navItems.map((item) => {
-          const active = isActiveRoute(location.pathname, item);
+        <div className="admin-layout__sidenav-header">
+          <span className="admin-layout__sidenav-kicker">Administration</span>
+          <span className="admin-layout__sidenav-title">Portal Console</span>
+        </div>
+
+        {ADMIN_NAV_GROUPS.map((group) => {
+          const groupItems = navItems.filter((item) => item.group === group.id);
+
+          if (groupItems.length === 0) {
+            return null;
+          }
 
           return (
-            <SideNavLink
-              key={item.id}
-              isActive={active}
-              aria-current={active ? "page" : undefined}
-              renderIcon={item.icon}
-              onClick={() => {
-                if (location.pathname !== item.path) {
-                  navigate(item.path);
-                }
-              }}
-            >
-              {item.label}
-            </SideNavLink>
+            <div key={group.id} className="admin-layout__sidenav-group">
+              <div className="admin-layout__sidenav-group-label">{group.label}</div>
+
+              {groupItems.map((item) => {
+                const active = isActiveRoute(location.pathname, item);
+
+                return (
+                  <SideNavLink
+                    key={item.id}
+                    isActive={active}
+                    aria-current={active ? "page" : undefined}
+                    renderIcon={item.icon}
+                    onClick={() => {
+                      if (location.pathname !== item.path) {
+                        navigate(item.path);
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </SideNavLink>
+                );
+              })}
+            </div>
           );
         })}
       </SideNavItems>

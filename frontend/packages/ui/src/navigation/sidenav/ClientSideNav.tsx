@@ -238,8 +238,13 @@ export function ClientSideNav({
   };
 
   return (
-    <SideNav isFixedNav expanded aria-label="Application navigation">
+    <SideNav isFixedNav expanded aria-label="Application navigation" className="moh-client-sidenav">
       <SideNavItems>
+        <div className="moh-client-sidenav__header">
+          <span className="moh-client-sidenav__kicker">Applications</span>
+          <span className="moh-client-sidenav__title">Workspace</span>
+        </div>
+
         {navClients.map(({ client, items }) => {
           const clientActive =
             client.clientId === activeClient?.clientId ||
