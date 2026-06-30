@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: {{ .Values.postgresKeycloak.image.repository }}:{{ .Values.postgresKeycloak.image.tag }}
+          image: "{{ .Values.postgresKeycloak.image.repository }}:{{ .Values.postgresKeycloak.image.tag }}"
           ports:
             - containerPort: 5432
           env:
