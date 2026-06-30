@@ -125,11 +125,16 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		conditions = append(conditions, fmt.Sprintf("hs.tperiod <= $%d", paramCounter))
 	}
 
-	levelOfCareClause := ""
+	orgUnitFilterClause := ""
 	if len(req.LevelOfCare) > 0 {
 		paramCounter++
 		values = append(values, pq.Array(req.LevelOfCare))
-		levelOfCareClause = fmt.Sprintf(" AND h.level_of_care = ANY($%d)", paramCounter)
+		orgUnitFilterClause += fmt.Sprintf(" AND h.level_of_care = ANY($%d)", paramCounter)
+	}
+	if len(req.Ownership) > 0 {
+		paramCounter++
+		values = append(values, pq.Array(req.Ownership))
+		orgUnitFilterClause += fmt.Sprintf(" AND h.ownership = ANY($%d)", paramCounter)
 	}
 
 	whereClause := ""
@@ -145,14 +150,14 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 			values = append(values, *requestedLevel)
 			selectedLevelClause = fmt.Sprintf("WHERE su.selected_level = $%d", paramCounter)
 		}
-		countryLevelOfCareJoin := ""
-		if len(req.LevelOfCare) > 0 {
-			countryLevelOfCareJoin = `
+		countryOrgUnitFilterJoin := ""
+		if orgUnitFilterClause != "" {
+			countryOrgUnitFilterJoin = `
 		     JOIN (
 		       SELECT DISTINCT COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid
 		       FROM hiv.organisation_unit h
 		       WHERE COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
-		         ` + levelOfCareClause + `
+		         ` + orgUnitFilterClause + `
 		     ) ou_filter
 		       ON ou_filter.facility_uid = hs.org_unit_id
 		     `
@@ -255,7 +260,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		      )
 		     WHERE su.selected_level IN ('2', '3', '5', '6')
 		       AND COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
-		       ` + levelOfCareClause + `
+		       ` + orgUnitFilterClause + `
 		   )
 		   SELECT
 		     x.org_unit_id,
@@ -334,7 +339,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		     FROM report.hmis_summary hs
 		     JOIN selected_units su
 		       ON su.selected_level = '1'
-		     ` + countryLevelOfCareJoin + `
+		     ` + countryOrgUnitFilterJoin + `
 		     ` + whereClause + `
 		     GROUP BY
 		       su.selected_uid,
@@ -355,14 +360,14 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 	} else {
 		aggregationLevel := r.resolveAggregationLevel(ctx, requestedLevel, req.OU)
 		orgUnitExpr, facilityExpr, levelExpr, regionExpr, districtExpr, subCountyExpr := aggregationExpressions(aggregationLevel)
-		levelOfCareJoin := ""
-		if len(req.LevelOfCare) > 0 {
-			levelOfCareJoin = `
+		orgUnitFilterJoin := ""
+		if orgUnitFilterClause != "" {
+			orgUnitFilterJoin = `
 	       JOIN (
 	         SELECT DISTINCT COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid
 	         FROM hiv.organisation_unit h
 	         WHERE COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
-	           ` + levelOfCareClause + `
+	           ` + orgUnitFilterClause + `
 	       ) ou_filter
 	         ON ou_filter.facility_uid = hs.org_unit_id
 	       `
@@ -387,7 +392,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 	          ` + subCountyExpr + ` AS sub_county,
 	          hs.dataelement
 	       FROM report.hmis_summary hs
-	       ` + levelOfCareJoin + `
+	       ` + orgUnitFilterJoin + `
 	       ` + whereClause + `
 	       GROUP BY 1, 2, 3, 4, 6, 7, 8, 9, 10, 11
 	       ORDER BY 
