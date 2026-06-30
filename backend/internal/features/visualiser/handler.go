@@ -62,11 +62,12 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 	results, err := h.service.ListDataValues(c.Request.Context(), req)
 	if err != nil {
 		log.Printf(
-			"[VISUALIZER DATAVALUES] request_id=%s dx=%v pe=%v ou=%v startDate=%q endDate=%q orgunitLevel=%v error=%v",
+			"[VISUALIZER DATAVALUES] request_id=%s dx=%v pe=%v ou=%v levelOfCare=%v startDate=%q endDate=%q orgunitLevel=%v error=%v",
 			c.GetString("request_id"),
 			req.DX,
 			req.PE,
 			req.OU,
+			req.LevelOfCare,
 			req.StartDate,
 			req.EndDate,
 			req.OrgunitLevel,
