@@ -14,19 +14,19 @@ type ApiEnvelope<T> = {
 
 function normalizeEmailOutboxItem(item: EmailOutboxItemResponse): EmailOutboxItem {
   return {
-    id: item.ID,
-    tenant_id: item.TenantID,
-    message_id: item.MessageID,
-    message: item.Message,
-    status: item.Status,
-    attempts: item.Attempts,
-    max_attempts: item.MaxAttempts,
-    last_error: item.LastError,
-    scheduled_at: item.ScheduledAt,
-    locked_at: item.LockedAt,
-    sent_at: item.SentAt,
-    created_at: item.CreatedAt,
-    updated_at: item.UpdatedAt,
+    id: item.id,
+    tenant_id: item.tenant_id,
+    message_id: item.message_id,
+    message: item.message,
+    status: item.status,
+    attempts: item.attempts,
+    max_attempts: item.max_attempts,
+    last_error: item.last_error,
+    scheduled_at: item.scheduled_at,
+    locked_at: item.locked_at,
+    sent_at: item.sent_at,
+    created_at: item.created_at,
+    updated_at: item.updated_at,
   };
 }
 

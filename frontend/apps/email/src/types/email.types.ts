@@ -47,22 +47,24 @@ export type EmailMessage = {
   attachments?: EmailAttachment[];
   headers?: Record<string, string>;
   metadata?: Record<string, string>;
+  scheduled_at?: string | null;
+  attachment_count?: number;
 };
 
 export type EmailOutboxItemResponse = {
-  ID: string;
-  TenantID?: string | null;
-  MessageID?: string | null;
-  Message: EmailMessage;
-  Status: EmailStatus | string;
-  Attempts: number;
-  MaxAttempts: number;
-  LastError?: string | null;
-  ScheduledAt?: string | null;
-  LockedAt?: string | null;
-  SentAt?: string | null;
-  CreatedAt: string;
-  UpdatedAt: string;
+  id: string;
+  tenant_id?: string | null;
+  message_id?: string | null;
+  message: EmailMessage;
+  status: EmailStatus | string;
+  attempts: number;
+  max_attempts: number;
+  last_error?: string | null;
+  scheduled_at?: string | null;
+  locked_at?: string | null;
+  sent_at?: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type EmailOutboxItem = {
