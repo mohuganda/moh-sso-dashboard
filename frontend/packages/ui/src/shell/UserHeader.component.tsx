@@ -17,14 +17,23 @@ import imagePath from "../assets/logo.png";
 type UserHeaderProps = {
   username?: string | null;
   appMenu?: ReactNode;
+  navigationToggle?: ReactNode;
   onNavigateHome?: () => void;
   onLogout?: () => void;
 };
 
-const UserHeader: React.FC<UserHeaderProps> = ({ username, appMenu, onNavigateHome, onLogout }) => {
+const UserHeader: React.FC<UserHeaderProps> = ({
+  username,
+  appMenu,
+  navigationToggle,
+  onNavigateHome,
+  onLogout,
+}) => {
   return (
     <Header aria-label="MOH Integrated Health Portal">
       <SkipToContent />
+
+      {navigationToggle}
 
       <img src={imagePath} className={`moh-image-style`} />
       <HeaderName prefix="MOH" onClick={onNavigateHome} className="moh-header-name">

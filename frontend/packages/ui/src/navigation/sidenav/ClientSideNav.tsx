@@ -238,7 +238,13 @@ export function ClientSideNav({
   };
 
   return (
-    <SideNav isFixedNav expanded aria-label="Application navigation" className="moh-client-sidenav">
+    <SideNav
+      id="user-sidenav"
+      isFixedNav
+      expanded
+      aria-label="Application navigation"
+      className="moh-client-sidenav"
+    >
       <SideNavItems>
         <div className="moh-client-sidenav__header">
           <span className="moh-client-sidenav__kicker">Applications</span>

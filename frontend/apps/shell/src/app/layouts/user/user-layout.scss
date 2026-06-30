@@ -35,6 +35,14 @@
   --moh-sidenav-width: 0rem;
 }
 
+.user-layout--sidenav-hidden {
+  --moh-sidenav-width: 0rem;
+}
+
+.user-layout__sidenav-toggle {
+  border-right: 1px solid var(--cds-border-subtle-01, #393939);
+}
+
 .user-layout__content {
   min-width: 0;
   flex: 1;
@@ -65,6 +73,14 @@
   border-right: 1px solid var(--cds-border-subtle-01, #e0e0e0);
   background: var(--cds-layer-01, #f4f4f4);
   box-shadow: 1px 0 0 rgba(0, 0, 0, 0.02);
+  transition:
+    transform 160ms ease,
+    width 160ms ease;
+}
+
+.user-layout--sidenav-hidden .moh-client-sidenav {
+  pointer-events: none;
+  transform: translateX(-100%);
 }
 
 .user-layout .cds--side-nav__items {

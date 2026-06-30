@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import {
   Content,
@@ -18,6 +18,7 @@ import {
   Dashboard,
   Email,
   Logout,
+  Menu,
   Notification,
   UserAvatarFilled,
   UserMultiple,
@@ -146,6 +147,16 @@ const ADMIN_NAV_GROUPS: Array<{
   { id: "governance", label: "Governance" },
 ];
 
+const ADMIN_SIDENAV_STORAGE_KEY = "moh.adminLayout.sideNavVisible";
+
+function readStoredSideNavVisible(): boolean {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(ADMIN_SIDENAV_STORAGE_KEY) !== "false";
+}
+
 function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
   if (item.exact) {
     return pathname === item.path || pathname === "portal/admin/home";
@@ -228,7 +239,7 @@ function HeaderActions() {
   };
 
   return (
-    <HeaderGlobalBar>
+    <>
       <HeaderGlobalAction
         aria-label={
           safeUnreadCount > 0 ? `Notifications, ${safeUnreadCount} unread` : "Notifications"
@@ -255,11 +266,11 @@ function HeaderActions() {
       <HeaderGlobalAction aria-label="Logout" tooltipAlignment="end" onClick={handleLogout}>
         <Logout size={20} />
       </HeaderGlobalAction>
-    </HeaderGlobalBar>
+    </>
   );
 }
 
-function AdminSideNav() {
+function AdminSideNav({ visible }: { visible: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { can, canAny } = useAuthorization();
@@ -275,7 +286,14 @@ function AdminSideNav() {
   );
 
   return (
-    <SideNav isFixedNav expanded aria-label="Admin navigation" className="admin-layout__sidenav">
+    <SideNav
+      id="admin-sidenav"
+      isFixedNav
+      expanded
+      aria-hidden={!visible}
+      aria-label="Admin navigation"
+      className={`admin-layout__sidenav${visible ? "" : " admin-layout__sidenav--hidden"}`}
+    >
       <SideNavItems>
         <div className="admin-layout__sidenav-header">
           <span className="admin-layout__sidenav-kicker">Administration</span>
@@ -322,12 +340,30 @@ function AdminSideNav() {
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const [isSideNavVisible, setIsSideNavVisible] = useState(readStoredSideNavVisible);
+
+  useEffect(() => {
+    window.localStorage.setItem(ADMIN_SIDENAV_STORAGE_KEY, String(isSideNavVisible));
+  }, [isSideNavVisible]);
 
   return (
     <ToastProvider>
       <HeaderPanelProvider>
-        <div className="admin-layout">
+        <div
+          className={`admin-layout${isSideNavVisible ? "" : " admin-layout--sidenav-hidden"}`}
+        >
           <Header aria-label="MOH Integrated Health Portal" className="admin-layout__header">
+            <HeaderGlobalAction
+              aria-label={isSideNavVisible ? "Hide navigation" : "Show navigation"}
+              aria-controls="admin-sidenav"
+              aria-expanded={isSideNavVisible}
+              className="admin-layout__sidenav-toggle"
+              tooltipAlignment="start"
+              onClick={() => setIsSideNavVisible((visible) => !visible)}
+            >
+              <Menu size={22} />
+            </HeaderGlobalAction>
+
             <div className="admin-layout__brand">
               <button
                 type="button"
@@ -352,10 +388,12 @@ export default function AdminLayout() {
               </HeaderName>
             </div>
 
-            <HeaderActions />
+            <HeaderGlobalBar>
+              <HeaderActions />
+            </HeaderGlobalBar>
           </Header>
 
-          <AdminSideNav />
+          <AdminSideNav visible={isSideNavVisible} />
 
           <div className="admin-layout__content-shell">
             <RouteBreadcrumbBar />
