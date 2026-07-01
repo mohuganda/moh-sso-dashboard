@@ -32,7 +32,7 @@ let cachedError: string | undefined;
 let backendVersionRequest: Promise<VersionBuildInfo | undefined> | undefined;
 
 async function fetchBackendVersion() {
-  const response = await fetch(`${API.base}/version`, {
+  const response = await fetch(API.build.version(), {
     credentials: "include",
     headers: {
       Accept: "application/json",

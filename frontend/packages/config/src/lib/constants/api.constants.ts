@@ -21,9 +21,13 @@ const API_VERSION = "v1";
 const API_BASE = `${API_ROOT}/${API_VERSION}`;
 
 export const API = {
+  serviceBase: API_BASE_URL,
   root: API_ROOT,
   version: API_VERSION,
   base: API_BASE,
+  build: {
+    version: () => `${API_BASE_URL}/version`,
+  },
 
   // --------------------------------------------------
   // Auth
