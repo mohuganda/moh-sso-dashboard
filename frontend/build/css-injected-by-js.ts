@@ -40,22 +40,26 @@ export default function cssInjectedByJsPlugin(
 
   return {
     name: "moh-css-injected-by-js",
-    generateBundle(_outputOptions, bundle) {
-      const cssFiles = Object.values(bundle)
-        .filter((entry) => entry.type === "asset" && entry.fileName.endsWith(".css"))
-        .map((entry) => entry.fileName);
+    enforce: "post",
+    generateBundle: {
+      order: "post",
+      handler(_outputOptions, bundle) {
+        const cssFiles = Object.values(bundle)
+          .filter((entry) => entry.type === "asset" && entry.fileName.endsWith(".css"))
+          .map((entry) => entry.fileName);
 
-      if (cssFiles.length === 0) {
-        return;
-      }
-
-      for (const entry of Object.values(bundle)) {
-        if (entry.type !== "chunk" || !entry.isEntry) {
-          continue;
+        if (cssFiles.length === 0) {
+          return;
         }
 
-        entry.code = `${buildInjectionRuntime(cssFiles, topExecutionPriority)}\n${entry.code}`;
-      }
+        for (const entry of Object.values(bundle)) {
+          if (entry.type !== "chunk" || !entry.isEntry) {
+            continue;
+          }
+
+          entry.code = `${buildInjectionRuntime(cssFiles, topExecutionPriority)}\n${entry.code}`;
+        }
+      },
     },
   };
 }
