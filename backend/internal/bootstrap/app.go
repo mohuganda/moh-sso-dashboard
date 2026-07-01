@@ -166,6 +166,7 @@ func Run() {
 		SMTPService:                    services.SMTP,
 		NotificationDeliveryRepository: repos.NotificationDelivery,
 		EmailService:                   services.Email,
+		SMSService:                     services.SMS,
 		Logger:                         appLogger,
 	})
 

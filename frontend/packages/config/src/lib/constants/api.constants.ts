@@ -202,8 +202,14 @@ export const API = {
       countUnread: () => `${API_BASE}/admin/notifications/count/unread`,
       deleteOld: () => `${API_BASE}/admin/notifications/cleanup`,
       deliveries: (id: string) => `${API_BASE}/admin/notifications/${id}/deliveries`,
+      deliveryList: () => `${API_BASE}/admin/notifications/deliveries`,
+      deliveryById: (deliveryId: string) =>
+        `${API_BASE}/admin/notifications/deliveries/${deliveryId}`,
       retryDelivery: (deliveryId: string) =>
         `${API_BASE}/admin/notifications/deliveries/${deliveryId}/retry`,
+      cancelDelivery: (deliveryId: string) =>
+        `${API_BASE}/admin/notifications/deliveries/${deliveryId}/cancel`,
+      testSms: () => `${API_BASE}/admin/notifications/test-sms`,
     },
   },
 

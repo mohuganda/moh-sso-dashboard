@@ -23,6 +23,7 @@ type workerDependencies struct {
 	SMTPService                    worker.EmailSender
 	NotificationDeliveryRepository notificationDeliveryRepo.NotificationDeliveryRepository
 	EmailService                   service.EmailService
+	SMSService                     service.SMSService
 	Logger                         *logger.Logger
 }
 
@@ -86,4 +87,29 @@ func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
 			deps.Logger.Error("Notification email delivery worker stopped with error: ", err)
 		}
 	}()
+
+	if deps.SMSService != nil && deps.SMSService.Enabled() {
+		notificationSMSDeliveryWorker, err := worker.NewNotificationSMSDeliveryWorker(
+			deps.NotificationDeliveryRepository,
+			deps.SMSService,
+			3*time.Second,
+			20,
+			3,
+			deps.Logger,
+		)
+		if err != nil {
+			deps.Logger.Fatal("Failed to initialize notification SMS delivery worker: ", err)
+		}
+
+		go func() {
+			deps.Logger.Info("Background notification SMS delivery worker started")
+
+			if err := notificationSMSDeliveryWorker.Start(ctx); err != nil &&
+				!errors.Is(err, context.Canceled) {
+				deps.Logger.Error("Notification SMS delivery worker stopped with error: ", err)
+			}
+		}()
+	} else {
+		deps.Logger.Info("Notification SMS delivery worker disabled")
+	}
 }

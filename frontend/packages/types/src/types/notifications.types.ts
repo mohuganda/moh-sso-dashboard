@@ -46,3 +46,27 @@ export type NotificationDelivery = {
   created_at: string;
   updated_at: string;
 };
+
+export type NotificationDeliveryListParams = {
+  channel?: "in_app" | "email" | "sms" | "webhook" | string;
+  status?: NotificationDeliveryStatus | string;
+  limit?: number;
+  offset?: number;
+};
+
+export type NotificationDeliveryList = {
+  items: NotificationDelivery[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type TestSMSRequest = {
+  to: string;
+  message: string;
+};
+
+export type TestSMSResponse = {
+  notification_id: string;
+  status: string;
+};

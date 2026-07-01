@@ -3,6 +3,10 @@ import type {
   GetNotificationsParams,
   Notification,
   NotificationDelivery,
+  NotificationDeliveryList,
+  NotificationDeliveryListParams,
+  TestSMSRequest,
+  TestSMSResponse,
 } from "@moh-sso/types";
 
 import { baseApi } from "@moh-sso/api";
@@ -167,6 +171,45 @@ export const notificationsApi = baseApi.injectEndpoints({
       ],
     }),
 
+    getAllNotificationDeliveries: builder.query<
+      NotificationDeliveryList,
+      NotificationDeliveryListParams | void
+    >({
+      query: (filters) => {
+        const params = new URLSearchParams();
+        if (filters?.channel) {
+          params.set("channel", filters.channel);
+        }
+        if (filters?.status) {
+          params.set("status", filters.status);
+        }
+        params.set("limit", String(filters?.limit ?? 20));
+        params.set("offset", String(filters?.offset ?? 0));
+
+        return {
+          url: `${API.admin.notifications.deliveryList()}?${params.toString()}`,
+          credentials: "include",
+        };
+      },
+
+      transformResponse: (res: ApiEnvelope<NotificationDeliveryList>) => res.data,
+
+      providesTags: [{ type: "Notification", id: "DELIVERY-LIST" }],
+    }),
+
+    getNotificationDelivery: builder.query<NotificationDelivery, string>({
+      query: (deliveryId) => ({
+        url: API.admin.notifications.deliveryById(deliveryId),
+        credentials: "include",
+      }),
+
+      transformResponse: (res: ApiEnvelope<NotificationDelivery>) => res.data,
+
+      providesTags: (_result, _error, deliveryId) => [
+        { type: "Notification", id: `DELIVERY-${deliveryId}` },
+      ],
+    }),
+
     retryNotificationDelivery: builder.mutation<void, { deliveryId: string; notificationId: string }>({
       query: ({ deliveryId }) => ({
         url: API.admin.notifications.retryDelivery(deliveryId),
@@ -178,6 +221,44 @@ export const notificationsApi = baseApi.injectEndpoints({
 
       invalidatesTags: (_result, _error, { notificationId }) => [
         { type: "Notification", id: `DELIVERIES-${notificationId}` },
+        { type: "Notification", id: "DELIVERY-LIST" },
+        { type: "Notification", id: "LIST" },
+      ],
+    }),
+
+    cancelNotificationDelivery: builder.mutation<
+      void,
+      { deliveryId: string; notificationId?: string }
+    >({
+      query: ({ deliveryId }) => ({
+        url: API.admin.notifications.cancelDelivery(deliveryId),
+        method: "POST",
+        credentials: "include",
+      }),
+
+      transformResponse: () => undefined,
+
+      invalidatesTags: (_result, _error, { deliveryId, notificationId }) => [
+        { type: "Notification", id: `DELIVERY-${deliveryId}` },
+        { type: "Notification", id: "DELIVERY-LIST" },
+        ...(notificationId
+          ? [{ type: "Notification" as const, id: `DELIVERIES-${notificationId}` }]
+          : []),
+      ],
+    }),
+
+    sendTestSMS: builder.mutation<TestSMSResponse, TestSMSRequest>({
+      query: (body) => ({
+        url: API.admin.notifications.testSms(),
+        method: "POST",
+        body,
+        credentials: "include",
+      }),
+
+      transformResponse: (res: ApiEnvelope<TestSMSResponse>) => res.data,
+
+      invalidatesTags: [
+        { type: "Notification", id: "DELIVERY-LIST" },
         { type: "Notification", id: "LIST" },
       ],
     }),
@@ -194,5 +275,9 @@ export const {
   useGetNotificationQuery,
   useGetUnreadNotificationsCountQuery,
   useGetNotificationDeliveriesQuery,
+  useGetAllNotificationDeliveriesQuery,
+  useGetNotificationDeliveryQuery,
   useRetryNotificationDeliveryMutation,
+  useCancelNotificationDeliveryMutation,
+  useSendTestSMSMutation,
 } = notificationsApi;

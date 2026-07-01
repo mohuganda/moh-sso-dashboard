@@ -309,6 +309,74 @@ func (h *Handler) ListNotificationDeliveries(c *gin.Context) {
 	response.OK(c, http.StatusOK, toNotificationDeliveryResponses(deliveries))
 }
 
+func (h *Handler) ListAllNotificationDeliveries(c *gin.Context) {
+	limit := int32(20)
+	if v := c.Query("limit"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			limit = int32(parsed)
+		}
+	}
+
+	offset := int32(0)
+	if v := c.Query("offset"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+			offset = int32(parsed)
+		}
+	}
+
+	deliveries, total, err := h.NotificationsSvc.ListAllNotificationDeliveries(
+		c.Request.Context(),
+		service.NotificationDeliveryListFilter{
+			Channel: c.Query("channel"),
+			Status:  c.Query("status"),
+			Limit:   limit,
+			Offset:  offset,
+		},
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"INTERNAL_ERROR",
+			"Failed to list notification deliveries",
+		)
+		return
+	}
+
+	response.OK(c, http.StatusOK, NotificationDeliveryListResponse{
+		Items:  toNotificationDeliveryResponses(deliveries),
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	})
+}
+
+func (h *Handler) GetNotificationDelivery(c *gin.Context) {
+	deliveryID, err := uuid.Parse(c.Param("deliveryID"))
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Valid notification delivery ID is required",
+		)
+		return
+	}
+
+	delivery, err := h.NotificationsSvc.GetNotificationDelivery(c.Request.Context(), deliveryID)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"INTERNAL_ERROR",
+			"Failed to fetch notification delivery",
+		)
+		return
+	}
+
+	response.OK(c, http.StatusOK, toNotificationDeliveryResponse(delivery))
+}
+
 func (h *Handler) RetryNotificationDelivery(c *gin.Context) {
 	deliveryID, err := uuid.Parse(c.Param("deliveryID"))
 	if err != nil {
@@ -347,6 +415,76 @@ func (h *Handler) RetryNotificationDelivery(c *gin.Context) {
 			Status: "RETRY",
 		},
 	)
+}
+
+func (h *Handler) CancelNotificationDelivery(c *gin.Context) {
+	deliveryID, err := uuid.Parse(c.Param("deliveryID"))
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Valid notification delivery ID is required",
+		)
+		return
+	}
+
+	if err := h.NotificationsSvc.CancelNotificationDelivery(c.Request.Context(), deliveryID); err != nil {
+		status := http.StatusInternalServerError
+		code := "INTERNAL_ERROR"
+		message := "Failed to cancel notification delivery"
+
+		if err.Error() == "sent notification deliveries cannot be cancelled" {
+			status = http.StatusConflict
+			code = "INVALID_DELIVERY_STATE"
+			message = "Sent notification deliveries cannot be cancelled"
+		}
+
+		response.Fail(c, status, code, message)
+		return
+	}
+
+	response.OK(c, http.StatusOK, DeliveryActionResponse{
+		ID:     deliveryID.String(),
+		Status: "CANCELLED",
+	})
+}
+
+func (h *Handler) TestSMS(c *gin.Context) {
+	var input TestSMSRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"SMS recipient and message are required",
+		)
+		return
+	}
+
+	notificationID, err := h.NotificationsSvc.QueueTestSMS(
+		c.Request.Context(),
+		input.To,
+		input.Message,
+	)
+	if err != nil {
+		status := http.StatusInternalServerError
+		code := "INTERNAL_ERROR"
+		message := "Failed to queue test SMS"
+		if err.Error() == "sms delivery is disabled" {
+			status = http.StatusServiceUnavailable
+			code = "SMS_DISABLED"
+			message = "SMS delivery is disabled"
+		}
+
+		response.Fail(c, status, code, message)
+		return
+	}
+
+	response.OK(c, http.StatusAccepted, TestSMSResponse{
+		NotificationID: notificationID.String(),
+		Status:         "PENDING",
+	})
 }
 
 /* =========================================================

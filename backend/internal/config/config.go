@@ -148,6 +148,7 @@ type Config struct {
 	Announcement AnnouncementConfig `mapstructure:",squash"`
 	Retry        RetryConfig        `mapstructure:",squash"`
 	Notification NotificationConfig `mapstructure:",squash"`
+	SMS          SMSConfig          `mapstructure:",squash"`
 }
 
 type SMTPConfig struct {
@@ -183,6 +184,23 @@ type NotificationConfig struct {
 	SystemAdminName   string `mapstructure:"SYSTEM_ADMIN_NAME"`
 	SystemAdminEmail  string `mapstructure:"SYSTEM_ADMIN_EMAIL"`
 	AdminDashboardURL string `mapstructure:"ADMIN_DASHBOARD_URL"`
+}
+
+type SMSConfig struct {
+	Enabled            bool          `mapstructure:"SMS_ENABLED"`
+	Provider           string        `mapstructure:"SMS_PROVIDER"`
+	DefaultCountryCode string        `mapstructure:"SMS_DEFAULT_COUNTRY_CODE"`
+	FromName           string        `mapstructure:"SMS_FROM_NAME"`
+	MaxLength          int           `mapstructure:"SMS_MAX_LENGTH"`
+	SendTimeout        time.Duration `mapstructure:"SMS_SEND_TIMEOUT"`
+
+	AfricasTalkingUsername string `mapstructure:"AFRICASTALKING_USERNAME"`
+	AfricasTalkingAPIKey   string `mapstructure:"AFRICASTALKING_API_KEY"`
+	AfricasTalkingSenderID string `mapstructure:"AFRICASTALKING_SENDER_ID"`
+
+	TwilioAccountSID string `mapstructure:"TWILIO_ACCOUNT_SID"`
+	TwilioAuthToken  string `mapstructure:"TWILIO_AUTH_TOKEN"`
+	TwilioFromNumber string `mapstructure:"TWILIO_FROM_NUMBER"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -290,6 +308,16 @@ func setDefaults() {
 	viper.SetDefault("SYSTEM_ADMIN_NAME", "System Administrator")
 	viper.SetDefault("SYSTEM_ADMIN_EMAIL", "admin@example.com")
 	viper.SetDefault("ADMIN_DASHBOARD_URL", "http://localhost:3000/admin/home")
+
+	// ==================================================
+	// SMS defaults
+	// ==================================================
+	viper.SetDefault("SMS_ENABLED", false)
+	viper.SetDefault("SMS_PROVIDER", "mock")
+	viper.SetDefault("SMS_DEFAULT_COUNTRY_CODE", "+256")
+	viper.SetDefault("SMS_FROM_NAME", "MOH")
+	viper.SetDefault("SMS_MAX_LENGTH", 160)
+	viper.SetDefault("SMS_SEND_TIMEOUT", "10s")
 }
 
 func envBindings() map[string]string {
@@ -387,6 +415,18 @@ func envBindings() map[string]string {
 		"SYSTEM_ADMIN_NAME":                     "SYSTEM_ADMIN_NAME",
 		"SYSTEM_ADMIN_EMAIL":                    "SYSTEM_ADMIN_EMAIL",
 		"ADMIN_DASHBOARD_URL":                   "ADMIN_DASHBOARD_URL",
+		"SMS_ENABLED":                           "SMS_ENABLED",
+		"SMS_PROVIDER":                          "SMS_PROVIDER",
+		"SMS_DEFAULT_COUNTRY_CODE":              "SMS_DEFAULT_COUNTRY_CODE",
+		"SMS_FROM_NAME":                         "SMS_FROM_NAME",
+		"SMS_MAX_LENGTH":                        "SMS_MAX_LENGTH",
+		"SMS_SEND_TIMEOUT":                      "SMS_SEND_TIMEOUT",
+		"AFRICASTALKING_USERNAME":               "AFRICASTALKING_USERNAME",
+		"AFRICASTALKING_API_KEY":                "AFRICASTALKING_API_KEY",
+		"AFRICASTALKING_SENDER_ID":              "AFRICASTALKING_SENDER_ID",
+		"TWILIO_ACCOUNT_SID":                    "TWILIO_ACCOUNT_SID",
+		"TWILIO_AUTH_TOKEN":                     "TWILIO_AUTH_TOKEN",
+		"TWILIO_FROM_NUMBER":                    "TWILIO_FROM_NUMBER",
 	}
 }
 
@@ -531,6 +571,31 @@ func normalizeConfig(c *Config) {
 			c.Notification.AdminDashboardURL = "http://localhost:3000/admin/home"
 		}
 	}
+
+	c.SMS.Provider = strings.ToLower(strings.TrimSpace(c.SMS.Provider))
+	if c.SMS.Provider == "" {
+		c.SMS.Provider = "mock"
+	}
+	c.SMS.DefaultCountryCode = normalizeCountryCode(c.SMS.DefaultCountryCode)
+	if c.SMS.DefaultCountryCode == "" {
+		c.SMS.DefaultCountryCode = "+256"
+	}
+	c.SMS.FromName = strings.TrimSpace(c.SMS.FromName)
+	if c.SMS.FromName == "" {
+		c.SMS.FromName = "MOH"
+	}
+	if c.SMS.MaxLength <= 0 {
+		c.SMS.MaxLength = 160
+	}
+	if c.SMS.SendTimeout <= 0 {
+		c.SMS.SendTimeout = 10 * time.Second
+	}
+	c.SMS.AfricasTalkingUsername = strings.TrimSpace(c.SMS.AfricasTalkingUsername)
+	c.SMS.AfricasTalkingAPIKey = strings.TrimSpace(c.SMS.AfricasTalkingAPIKey)
+	c.SMS.AfricasTalkingSenderID = strings.TrimSpace(c.SMS.AfricasTalkingSenderID)
+	c.SMS.TwilioAccountSID = strings.TrimSpace(c.SMS.TwilioAccountSID)
+	c.SMS.TwilioAuthToken = strings.TrimSpace(c.SMS.TwilioAuthToken)
+	c.SMS.TwilioFromNumber = strings.TrimSpace(c.SMS.TwilioFromNumber)
 }
 
 // ==================================================
@@ -690,6 +755,10 @@ func validateConfig(c *Config) error {
 	}
 
 	if err := validateNotificationConfig(c); err != nil {
+		return err
+	}
+
+	if err := validateSMSConfig(c); err != nil {
 		return err
 	}
 
@@ -896,6 +965,41 @@ func validateNotificationConfig(c *Config) error {
 	return nil
 }
 
+func validateSMSConfig(c *Config) error {
+	if !c.SMS.Enabled {
+		return nil
+	}
+
+	switch c.SMS.Provider {
+	case "mock", "noop":
+	case "africastalking":
+		if strings.TrimSpace(c.SMS.AfricasTalkingUsername) == "" {
+			return errors.New("AFRICASTALKING_USERNAME is required when SMS_PROVIDER=africastalking")
+		}
+		if strings.TrimSpace(c.SMS.AfricasTalkingAPIKey) == "" {
+			return errors.New("AFRICASTALKING_API_KEY is required when SMS_PROVIDER=africastalking")
+		}
+	case "twilio":
+		if strings.TrimSpace(c.SMS.TwilioAccountSID) == "" {
+			return errors.New("TWILIO_ACCOUNT_SID is required when SMS_PROVIDER=twilio")
+		}
+		if strings.TrimSpace(c.SMS.TwilioAuthToken) == "" {
+			return errors.New("TWILIO_AUTH_TOKEN is required when SMS_PROVIDER=twilio")
+		}
+		if strings.TrimSpace(c.SMS.TwilioFromNumber) == "" {
+			return errors.New("TWILIO_FROM_NUMBER is required when SMS_PROVIDER=twilio")
+		}
+	default:
+		return fmt.Errorf("unsupported SMS_PROVIDER: %s", c.SMS.Provider)
+	}
+
+	if c.SMS.MaxLength <= 0 {
+		return errors.New("SMS_MAX_LENGTH must be greater than 0")
+	}
+
+	return nil
+}
+
 // ==================================================
 // Normalization helpers
 // ==================================================
@@ -912,6 +1016,17 @@ func normalizeEnvironment(env string) string {
 
 func trimURL(value string) string {
 	return strings.TrimRight(strings.TrimSpace(value), "/")
+}
+
+func normalizeCountryCode(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if strings.HasPrefix(value, "+") {
+		return value
+	}
+	return "+" + strings.TrimLeft(value, "+")
 }
 
 func normalizeCookieDomain(domain string, environment string) string {

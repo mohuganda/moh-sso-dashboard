@@ -56,7 +56,18 @@ type NotificationsService interface {
 	CountNotifications(ctx context.Context, targetRole string) (int64, error)
 	CountUnreadNotificationsCount(ctx context.Context, targetRole string) (int64, error)
 	ListNotificationDeliveries(ctx context.Context, notificationID uuid.UUID) ([]db.NotificationDelivery, error)
+	ListAllNotificationDeliveries(ctx context.Context, filter NotificationDeliveryListFilter) ([]db.NotificationDelivery, int64, error)
+	GetNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) (db.NotificationDelivery, error)
 	RetryNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) error
+	CancelNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) error
+	QueueTestSMS(ctx context.Context, to string, message string) (uuid.UUID, error)
+}
+
+type NotificationDeliveryListFilter struct {
+	Channel string
+	Status  string
+	Limit   int32
+	Offset  int32
 }
 
 type notificationsService struct {
@@ -149,6 +160,67 @@ func (s *notificationsService) ListNotificationDeliveries(
 	return s.notificationDeliveryRepo.ListByNotificationID(ctx, notificationID)
 }
 
+func (s *notificationsService) ListAllNotificationDeliveries(
+	ctx context.Context,
+	filter NotificationDeliveryListFilter,
+) ([]db.NotificationDelivery, int64, error) {
+	if s == nil {
+		return nil, 0, errors.New("notifications service is nil")
+	}
+	if s.notificationDeliveryRepo == nil {
+		return nil, 0, errors.New("notification delivery repository is nil")
+	}
+
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Limit > 100 {
+		filter.Limit = 100
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+
+	channel := sql.NullString{String: strings.TrimSpace(filter.Channel), Valid: strings.TrimSpace(filter.Channel) != ""}
+	status := sql.NullString{String: strings.ToUpper(strings.TrimSpace(filter.Status)), Valid: strings.TrimSpace(filter.Status) != ""}
+	params := db.ListNotificationDeliveriesParams{
+		Limit:         filter.Limit,
+		Offset:        filter.Offset,
+		FilterChannel: channel,
+		FilterStatus:  status,
+	}
+	countParams := db.CountNotificationDeliveriesParams{
+		FilterChannel: channel,
+		FilterStatus:  status,
+	}
+
+	items, err := s.notificationDeliveryRepo.List(ctx, params)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := s.notificationDeliveryRepo.Count(ctx, countParams)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
+}
+
+func (s *notificationsService) GetNotificationDelivery(
+	ctx context.Context,
+	deliveryID uuid.UUID,
+) (db.NotificationDelivery, error) {
+	if s == nil {
+		return db.NotificationDelivery{}, errors.New("notifications service is nil")
+	}
+	if s.notificationDeliveryRepo == nil {
+		return db.NotificationDelivery{}, errors.New("notification delivery repository is nil")
+	}
+
+	return s.notificationDeliveryRepo.GetByID(ctx, deliveryID)
+}
+
 func (s *notificationsService) RetryNotificationDelivery(
 	ctx context.Context,
 	deliveryID uuid.UUID,
@@ -181,6 +253,73 @@ func (s *notificationsService) RetryNotificationDelivery(
 			Column3: "0 seconds",
 		},
 	)
+}
+
+func (s *notificationsService) CancelNotificationDelivery(
+	ctx context.Context,
+	deliveryID uuid.UUID,
+) error {
+	if s == nil {
+		return errors.New("notifications service is nil")
+	}
+	if s.notificationDeliveryRepo == nil {
+		return errors.New("notification delivery repository is nil")
+	}
+
+	delivery, err := s.notificationDeliveryRepo.GetByID(ctx, deliveryID)
+	if err != nil {
+		return err
+	}
+
+	if strings.EqualFold(delivery.Status, string(model.NotificationDeliverySent)) {
+		return errors.New("sent notification deliveries cannot be cancelled")
+	}
+
+	return s.notificationDeliveryRepo.Cancel(ctx, deliveryID)
+}
+
+func (s *notificationsService) QueueTestSMS(ctx context.Context, to string, message string) (uuid.UUID, error) {
+	to = strings.TrimSpace(to)
+	message = strings.TrimSpace(message)
+	if to == "" {
+		return uuid.Nil, errors.New("sms recipient is required")
+	}
+	if message == "" {
+		return uuid.Nil, errors.New("sms message is required")
+	}
+	if s == nil || s.cfg == nil || !s.cfg.SMS.Enabled {
+		return uuid.Nil, errors.New("sms delivery is disabled")
+	}
+
+	notification, err := s.Notify(ctx, model.Notification{
+		Type:       "SMS_TEST",
+		Title:      "Test SMS",
+		Message:    "A test SMS was queued from the notification admin console.",
+		Severity:   "INFO",
+		TargetRole: defaultNotificationTargetRole,
+		Metadata: utils.MustJSON(map[string]any{
+			"channel": "sms",
+			"to":      to,
+		}),
+		Deliveries: []model.NotificationDeliveryRequest{
+			buildInAppDelivery(defaultNotificationTargetRole, "SMS_TEST", "Test SMS", message, "INFO"),
+			{
+				Channel: model.NotificationChannelSMS,
+				Recipient: map[string]any{
+					"phone": to,
+				},
+				Payload: map[string]any{
+					"body": message,
+				},
+				MaxAttempts: 3,
+			},
+		},
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return notification.ID, nil
 }
 
 func (s *notificationsService) NotifyLoginFailed(

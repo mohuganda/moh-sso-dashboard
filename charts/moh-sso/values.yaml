@@ -61,6 +61,20 @@ backend:
     PORT: "9000"
     ALLOWED_ORIGINS: ""
 
+  sms:
+    enabled: false
+    provider: mock
+    defaultCountryCode: "+256"
+    fromName: MOH
+    maxLength: 160
+    sendTimeout: 10s
+    africasTalkingUsername: ""
+    africasTalkingApiKey: ""
+    africasTalkingSenderId: ""
+    twilioAccountSid: ""
+    twilioAuthToken: ""
+    twilioFromNumber: ""
+
   baseUrl: "" # optional override (used for redirect URI)
 
   probes:

@@ -9,6 +9,28 @@ type DeliveryRetryResponse struct {
 	Status string `json:"status"`
 }
 
+type DeliveryActionResponse struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+type NotificationDeliveryListResponse struct {
+	Items  []NotificationDeliveryResponse `json:"items"`
+	Total  int64                          `json:"total"`
+	Limit  int32                          `json:"limit"`
+	Offset int32                          `json:"offset"`
+}
+
+type TestSMSRequest struct {
+	To      string `json:"to" binding:"required"`
+	Message string `json:"message" binding:"required"`
+}
+
+type TestSMSResponse struct {
+	NotificationID string `json:"notification_id"`
+	Status         string `json:"status"`
+}
+
 type NotificationDeliveryResponse struct {
 	ID             string         `json:"id"`
 	NotificationID string         `json:"notification_id"`
