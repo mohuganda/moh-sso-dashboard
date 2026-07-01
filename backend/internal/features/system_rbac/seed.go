@@ -73,7 +73,7 @@ const utilitiesNavigation = `[
     {"id":"absence-requests","label":"Absence Requests","path":"/apps/utilities/self-service/absence-requests"},
     {"id":"absence-dashboard","label":"My Absence Dashboard","path":"/apps/utilities/self-service/absence-dashboard"},
     {"id":"eservice-requests","label":"eService Requests","children":[
-      {"id":"document-upload","label":"Document Upload","path":"/apps/utilities/self-service/eservice/document-upload"},
+      {"id":"document-upload","label":"Document Upload","path":"/apps/utilities/self-service/eservice/document-upload","permission":"documents:write"},
       {"id":"service-access","label":"Service Access","path":"/apps/utilities/self-service/eservice/service-access"},
       {"id":"equipment-request","label":"Equipment Request","path":"/apps/utilities/self-service/eservice/equipment-request"}
     ]}
@@ -511,7 +511,7 @@ func DefaultSeed() SeedFile {
 			defaultPortalSystem("reference-registers", "Reference Registers", "Facility, terminology, and reference data registers.", "catalog", "/portal/apps/reference-registers", "registry", referenceRegistersNavigation, []string{
 				string(authz.PermissionSystemsRead),
 			}, enabled),
-			defaultPortalSystem("utilities", "Utilities", "Self-service utilities and staff tools.", "tools", "/portal/apps/utilities", "utilities", utilitiesNavigation, nil, enabled),
+			defaultPortalSystem("utilities", "Utilities", "Self-service utilities and staff tools.", "tools", "/portal/apps/utilities/self-service", "utilities", utilitiesNavigation, nil, enabled),
 			defaultPortalSystem("settings", "Settings", "User profile, session, and security settings.", "settings", "/portal/apps/settings", "platform", settingsNavigation, nil, enabled),
 		},
 		RealmRoles: []SeedRealmRole{

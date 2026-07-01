@@ -35,7 +35,7 @@ type SingleSpaModule = {
   registerApplication: (config: {
     name: string;
     app: () => Promise<MicrofrontendLifecycle>;
-    activeWhen: string[];
+    activeWhen: Array<(location: Location) => boolean>;
     customProps: Record<string, unknown>;
   }) => void;
   start: () => void;
@@ -129,6 +129,16 @@ function getMicrofrontendMountMode(): MicrofrontendMountMode {
   return runtimeConfig?.microfrontendMountMode ?? import.meta.env.VITE_MICROFRONTEND_MOUNT_MODE ?? "hybrid";
 }
 
+function pathMatches(pathname: string, basePath: string) {
+  const normalizedPathname = pathname.replace(/\/+$/, "") || "/";
+  const normalizedBasePath = basePath.replace(/\/+$/, "") || "/";
+
+  return (
+    normalizedPathname === normalizedBasePath ||
+    normalizedPathname.startsWith(`${normalizedBasePath}/`)
+  );
+}
+
 async function loadSingleSpa(): Promise<SingleSpaModule | null> {
   try {
     return await runtimeImport("single-spa");
@@ -140,9 +150,18 @@ async function loadSingleSpa(): Promise<SingleSpaModule | null> {
 function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
   const mode = getMicrofrontendMode();
   const routeBasename = resolveRuntimeBasename(route.path, import.meta.env.BASE_URL);
-  const activeWhen = (route.paths ?? [route.path]).map((path) =>
+  const excludedPaths = (route.excludedPaths ?? []).map((path) =>
     resolveRuntimeBasename(path, import.meta.env.BASE_URL),
   );
+  const activeWhen = (route.paths ?? [route.path])
+    .map((path) => resolveRuntimeBasename(path, import.meta.env.BASE_URL))
+    .map((activePath) => (location: Location) => {
+      if (!pathMatches(location.pathname, activePath)) {
+        return false;
+      }
+
+      return !excludedPaths.some((excludedPath) => pathMatches(location.pathname, excludedPath));
+    });
   const loader =
     mode === "remote"
       ? () => runtimeImport<MicrofrontendLifecycle>(route.appName)

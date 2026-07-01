@@ -11,5 +11,5 @@ export const microfrontendRoutes = {
   reportBrowser: "/apps/dwh/reports",
   surveillance: "/apps/dwh/surveillance",
   users: "/admin/users",
-  utilities: "/apps/utilities",
+  utilities: "/apps/utilities/self-service",
 } as const;

@@ -388,21 +388,6 @@ export const userRoutes = (
           )}
         />
 
-        <Route
-          path="service-access"
-          element={userPage(
-            <ComingSoon title="Service Access" />,
-            withSystemAccess(SYSTEMS.utilities),
-          )}
-        />
-
-        <Route
-          path="equipment-request"
-          element={userPage(
-            <ComingSoon title="Equipment Request" />,
-            withSystemAccess(SYSTEMS.utilities),
-          )}
-        />
       </Route>
 
       {/* Mount utilities once here */}

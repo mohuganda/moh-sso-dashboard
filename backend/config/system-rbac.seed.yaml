@@ -436,7 +436,7 @@ systems:
     displayName: Utilities
     description: Self-service utilities and staff tools.
     icon: tools
-    launchUrl: /portal/apps/utilities
+    launchUrl: /portal/apps/utilities/self-service
     category: utilities
     systemType: platform
     displayInLauncher: false

@@ -725,8 +725,8 @@
       "clientId": "utilities",
       "name": "Utilities",
       "description": "Self-service utilities and staff tools",
-      "rootUrl": "http://localhost:3000/portal/apps/utilities",
-      "baseUrl": "http://localhost:3000/portal/apps/utilities",
+      "rootUrl": "http://localhost:3000/portal/apps/utilities/self-service",
+      "baseUrl": "http://localhost:3000/portal/apps/utilities/self-service",
       "enabled": true,
       "publicClient": true,
       "protocol": "openid-connect",
@@ -735,7 +735,7 @@
       "serviceAccountsEnabled": false,
       "attributes": {
         "ui.icon": "tools",
-        "ui.home": "/portal/apps/utilities",
+        "ui.home": "/portal/apps/utilities/self-service",
         "ui.category": "utilities",
         "portal.system": "true",
         "portal.accessRoles": "utilities_access",
@@ -743,7 +743,7 @@
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
-        "ui.launchUrl": "/portal/apps/utilities",
+        "ui.launchUrl": "/portal/apps/utilities/self-service",
         "ui.navigation": "[{\"id\":\"timesheet\",\"label\":\"My Timesheet\",\"path\":\"/apps/utilities/self-service/timesheet\"},{\"id\":\"elearning\",\"label\":\"eLearning\",\"path\":\"/apps/utilities/self-service/elearning\"},{\"id\":\"leave-plan\",\"label\":\"Leave Plan\",\"path\":\"/apps/utilities/self-service/leave-plan\"},{\"id\":\"absence-requests\",\"label\":\"Absence Requests\",\"path\":\"/apps/utilities/self-service/absence-requests\"},{\"id\":\"absence-dashboard\",\"label\":\"My Absence Dashboard\",\"path\":\"/apps/utilities/self-service/absence-dashboard\"},{\"id\":\"document-upload\",\"label\":\"Document Upload\",\"path\":\"/apps/utilities/self-service/eservice/document-upload\",\"permission\":\"documents:write\"},{\"id\":\"service-access\",\"label\":\"Service Access\",\"path\":\"/apps/utilities/self-service/eservice/service-access\"},{\"id\":\"equipment-request\",\"label\":\"Equipment Request\",\"path\":\"/apps/utilities/self-service/eservice/equipment-request\"}]"
       }
     },
