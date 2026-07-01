@@ -7,6 +7,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  --moh-footer-left-offset: var(--moh-sidenav-width);
   background: var(--cds-background, #ffffff);
 }
 
@@ -52,15 +53,6 @@
 
 .user-layout__content.cds--content {
   margin: 0;
-}
-
-/*
- * Footer should also align with main content,
- * not start under the fixed sidebar.
- */
-.user-layout>footer,
-.user-layout .public-footer {
-  margin-left: var(--moh-sidenav-width);
 }
 
 /*
@@ -183,9 +175,8 @@
     width: 100%;
   }
 
-  .user-layout>footer,
-  .user-layout .public-footer {
-    margin-left: 0;
+  .user-layout {
+    --moh-footer-left-offset: 0rem;
   }
 }
 

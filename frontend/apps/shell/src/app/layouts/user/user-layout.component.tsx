@@ -9,6 +9,7 @@ import { mapAccessibleSystemToClient } from "@/app/access/accessClients";
 
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
 import { ConnectedClientSideNav, ConnectedUserHeader } from "@/app/ui-containers";
+import { useVersionInfo } from "@/app/version/useVersionInfo";
 
 import "./user-layout.scss";
 
@@ -25,6 +26,7 @@ function readStoredSideNavVisible(): boolean {
 export default function UserLayout() {
   const { accessibleSystems, can } = useAuthorization();
   const [isSideNavVisible, setIsSideNavVisible] = useState(readStoredSideNavVisible);
+  const versionInfo = useVersionInfo();
   const clients = useMemo(
     () => accessibleSystems.map(mapAccessibleSystemToClient),
     [accessibleSystems],
@@ -73,7 +75,11 @@ export default function UserLayout() {
             </div>
           </div>
 
-          <PublicFooter />
+          <PublicFooter
+            frontendVersion={versionInfo.frontend.version}
+            backendVersion={versionInfo.backend?.version}
+            backendUnavailable={!versionInfo.isLoading && !versionInfo.backend}
+          />
         </div>
       </HeaderPanelProvider>
     </ToastProvider>

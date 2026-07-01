@@ -46,6 +46,7 @@ import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
 import type { Permission } from "@moh-sso/auth";
 
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
+import { useVersionInfo } from "@/app/version/useVersionInfo";
 import { NotificationDetailPanel } from "./NotificationDetailPanel";
 
 import "./admin-layout.scss";
@@ -341,6 +342,7 @@ function AdminSideNav({ visible }: { visible: boolean }) {
 export default function AdminLayout() {
   const navigate = useNavigate();
   const [isSideNavVisible, setIsSideNavVisible] = useState(readStoredSideNavVisible);
+  const versionInfo = useVersionInfo();
 
   useEffect(() => {
     window.localStorage.setItem(ADMIN_SIDENAV_STORAGE_KEY, String(isSideNavVisible));
@@ -402,7 +404,11 @@ export default function AdminLayout() {
               <Outlet />
             </Content>
           </div>
-          <PublicFooter />
+          <PublicFooter
+            frontendVersion={versionInfo.frontend.version}
+            backendVersion={versionInfo.backend?.version}
+            backendUnavailable={!versionInfo.isLoading && !versionInfo.backend}
+          />
         </div>
       </HeaderPanelProvider>
     </ToastProvider>
