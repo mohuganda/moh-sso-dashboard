@@ -210,3 +210,14 @@ func (r *notificationDeliveryRepository) Count(
 
 	return count, nil
 }
+
+func (r *notificationDeliveryRepository) ListMetrics(
+	ctx context.Context,
+) ([]db.ListNotificationDeliveryMetricsRow, error) {
+	metrics, err := r.store.ListNotificationDeliveryMetrics(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list notification delivery metrics: %w", err)
+	}
+
+	return metrics, nil
+}

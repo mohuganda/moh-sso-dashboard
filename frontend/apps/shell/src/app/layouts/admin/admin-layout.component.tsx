@@ -121,6 +121,14 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     requiredAnyPermissions: [PERMISSIONS.emailRead, PERMISSIONS.emailManage],
   },
   {
+    id: "notification-deliveries",
+    label: "Deliveries",
+    path: "/admin/notifications/deliveries",
+    icon: Notification,
+    group: "communications",
+    requiredPermission: PERMISSIONS.notificationsRead,
+  },
+  {
     id: "audit-logs",
     label: "Audits",
     path: "/admin/audit-logs",

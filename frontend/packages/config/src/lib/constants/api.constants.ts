@@ -86,7 +86,7 @@ export const API = {
     hierarchy: () => `${API_BASE}/visualizer/adminunits/hierarchy`,
     dataValues: () => `${API_BASE}/visualizer/datavalues`,
     datasets: () => `${API_BASE}/visualizer/datasets`,
-    dataElements: () => `${API_BASE}/visualizer/dataelements`
+    dataElements: () => `${API_BASE}/visualizer/dataelements`,
   },
   // --------------------------------------------------
   // Visualizer
@@ -203,6 +203,7 @@ export const API = {
       deleteOld: () => `${API_BASE}/admin/notifications/cleanup`,
       deliveries: (id: string) => `${API_BASE}/admin/notifications/${id}/deliveries`,
       deliveryList: () => `${API_BASE}/admin/notifications/deliveries`,
+      deliveryMetrics: () => `${API_BASE}/admin/notifications/deliveries/metrics`,
       deliveryById: (deliveryId: string) =>
         `${API_BASE}/admin/notifications/deliveries/${deliveryId}`,
       retryDelivery: (deliveryId: string) =>

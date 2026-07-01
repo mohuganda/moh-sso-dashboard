@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -14,6 +15,10 @@ import (
 type announcementsRepository struct {
 	db     db.Store
 	logger *logger.Logger
+}
+
+type rawDBStore interface {
+	DB() *sql.DB
 }
 
 func NewAnnouncementRepository(
@@ -82,6 +87,95 @@ func (r *announcementsRepository) Update(
 	}
 
 	return item, nil
+}
+
+func (r *announcementsRepository) rawDB() (*sql.DB, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("announcement repository database is nil")
+	}
+	store, ok := r.db.(rawDBStore)
+	if !ok || store.DB() == nil {
+		return nil, fmt.Errorf("announcement repository store does not expose raw database")
+	}
+	return store.DB(), nil
+}
+
+func (r *announcementsRepository) MarkSMSNotificationQueued(
+	ctx context.Context,
+	id uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.MarkAnnouncementSMSNotificationQueued(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to mark announcement SMS notification queued", err)
+		return db.Announcement{}, fmt.Errorf("mark announcement sms notification queued: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) ListSMSRecipientsForUsers(
+	ctx context.Context,
+	userIDs []uuid.UUID,
+) ([]AnnouncementSMSRecipient, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+
+	rawDB, err := r.rawDB()
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(userIDs))
+	for _, userID := range userIDs {
+		if userID != uuid.Nil {
+			ids = append(ids, userID.String())
+		}
+	}
+
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	rows, err := rawDB.QueryContext(ctx, `
+		SELECT user_id, phone_number
+		FROM notification_preferences
+		WHERE sms_enabled = TRUE
+		  AND phone_number IS NOT NULL
+		  AND trim(phone_number) <> ''
+		  AND user_id = ANY($1)
+		ORDER BY updated_at DESC
+	`, pq.Array(ids))
+	if err != nil {
+		r.logger.Error("failed to list announcement SMS recipients", err)
+		return nil, fmt.Errorf("list announcement sms recipients: %w", err)
+	}
+	defer rows.Close()
+
+	recipients := make([]AnnouncementSMSRecipient, 0)
+	for rows.Next() {
+		var userIDRaw string
+		var phoneNumber string
+		if err := rows.Scan(&userIDRaw, &phoneNumber); err != nil {
+			return nil, err
+		}
+
+		userID, err := uuid.Parse(userIDRaw)
+		if err != nil {
+			continue
+		}
+
+		recipients = append(recipients, AnnouncementSMSRecipient{
+			ID:          userID,
+			PhoneNumber: phoneNumber,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return recipients, nil
 }
 
 func (r *announcementsRepository) CreateAttachment(

@@ -34,4 +34,5 @@ type NotificationDeliveryRepository interface {
 	CountPendingByChannel(ctx context.Context, channel string) (int64, error)
 	List(ctx context.Context, arg db.ListNotificationDeliveriesParams) ([]db.NotificationDelivery, error)
 	Count(ctx context.Context, arg db.CountNotificationDeliveriesParams) (int64, error)
+	ListMetrics(ctx context.Context) ([]db.ListNotificationDeliveryMetricsRow, error)
 }

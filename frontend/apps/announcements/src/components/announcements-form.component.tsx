@@ -50,6 +50,8 @@ export interface AnnouncementFormValues {
    * If true, email notifications will be queued when this announcement is published.
    */
   notify_by_email: boolean;
+  notify_by_sms: boolean;
+  sms_message: string;
 }
 
 interface AnnouncementFormProps {
@@ -81,6 +83,8 @@ const initialForm: AnnouncementFormValues = {
   publish_at: "",
   expires_at: "",
   notify_by_email: false,
+  notify_by_sms: false,
+  sms_message: "",
 };
 
 function toIsoString(value?: string | null) {
@@ -114,6 +118,8 @@ function normalizeInitialValues(
     publish_at: toIsoString(values.publish_at),
     expires_at: toIsoString(values.expires_at),
     notify_by_email: Boolean(values.notify_by_email),
+    notify_by_sms: Boolean("notify_by_sms" in values ? values.notify_by_sms : false),
+    sms_message: "sms_message" in values && values.sms_message ? values.sms_message : "",
   };
 }
 
@@ -212,6 +218,7 @@ export function AnnouncementForm({
       status: form.status,
       audience_type: form.audience_type,
       notify_by_email: form.notify_by_email,
+      notify_by_sms: form.notify_by_sms,
     };
 
     if (form.audience_type === "SPECIFIC_CLIENTS") {
@@ -248,6 +255,10 @@ export function AnnouncementForm({
 
     if (form.expires_at.trim()) {
       payload.expires_at = form.expires_at;
+    }
+
+    if (form.sms_message.trim()) {
+      payload.sms_message = form.sms_message.trim();
     }
 
     return payload;
@@ -544,6 +555,27 @@ export function AnnouncementForm({
             onChange={(_, { checked }) => updateForm("notify_by_email", Boolean(checked))}
           />
 
+          <Checkbox
+            id="announcement-notify-by-sms"
+            labelText="Send SMS notification when this announcement is published"
+            checked={form.notify_by_sms}
+            onChange={(_, { checked }) => updateForm("notify_by_sms", Boolean(checked))}
+          />
+
+          {form.notify_by_sms ? (
+            <TextArea
+              id="announcement-sms-message"
+              labelText="SMS message"
+              helperText="Optional. Leave blank to use the announcement summary or message."
+              placeholder="Short SMS message"
+              rows={3}
+              value={form.sms_message}
+              onChange={(e) => updateForm("sms_message", e.target.value)}
+              maxCount={160}
+              enableCounter
+            />
+          ) : null}
+
           <p
             style={{
               margin: 0,
@@ -552,9 +584,9 @@ export function AnnouncementForm({
               lineHeight: 1.4,
             }}
           >
-            Email notifications are only queued when the announcement is published and this option
-            is enabled. Drafts and scheduled announcements will not send email until they are
-            published.
+            Email and SMS notifications are only queued when the announcement is published and the
+            matching option is enabled. Drafts and scheduled announcements will not notify users
+            until they are published.
           </p>
         </div>
 

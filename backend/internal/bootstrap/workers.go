@@ -26,6 +26,7 @@ type workerDependencies struct {
 	NotificationDeliveryRepository notificationDeliveryRepo.NotificationDeliveryRepository
 	EmailService                   service.EmailService
 	SMSService                     service.SMSService
+	AuditService                   *service.AuditService
 	Logger                         *logger.Logger
 }
 
@@ -110,6 +111,7 @@ func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
 			notificationWorkerBatchSize,
 			3,
 			deps.Logger,
+			deps.AuditService,
 		)
 		if err != nil {
 			deps.Logger.Fatal("Failed to initialize notification SMS delivery worker: ", err)

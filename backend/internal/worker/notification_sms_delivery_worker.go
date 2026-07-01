@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -24,6 +25,7 @@ type NotificationSMSDeliveryWorker struct {
 	batchSize            int32
 	maxRetries           int32
 	logger               *logger.Logger
+	auditService         *service.AuditService
 }
 
 func NewNotificationSMSDeliveryWorker(
@@ -33,6 +35,7 @@ func NewNotificationSMSDeliveryWorker(
 	batchSize int32,
 	maxRetries int32,
 	logger *logger.Logger,
+	auditService ...*service.AuditService,
 ) (*NotificationSMSDeliveryWorker, error) {
 	if notificationDelivery == nil {
 		return nil, errors.New("notification delivery repository is required")
@@ -53,6 +56,11 @@ func NewNotificationSMSDeliveryWorker(
 		maxRetries = 3
 	}
 
+	var audit *service.AuditService
+	if len(auditService) > 0 {
+		audit = auditService[0]
+	}
+
 	return &NotificationSMSDeliveryWorker{
 		notificationDelivery: notificationDelivery,
 		smsSvc:               smsSvc,
@@ -60,6 +68,7 @@ func NewNotificationSMSDeliveryWorker(
 		batchSize:            batchSize,
 		maxRetries:           maxRetries,
 		logger:               logger,
+		auditService:         audit,
 	}, nil
 }
 
@@ -147,6 +156,10 @@ func (w *NotificationSMSDeliveryWorker) processOne(ctx context.Context, item db.
 		"message_id", result.MessageID,
 		"status", result.Status,
 	)
+	w.auditSMSDelivery(ctx, "notification_delivery.sms_sent", item, map[string]any{
+		"status":   "SENT",
+		"provider": result.Provider,
+	})
 
 	return nil
 }
@@ -170,6 +183,9 @@ func (w *NotificationSMSDeliveryWorker) failOrRetry(
 		); err != nil {
 			return fmt.Errorf("mark notification sms delivery failed: %w", err)
 		}
+		w.auditSMSDelivery(ctx, "notification_delivery.sms_failed", item, map[string]any{
+			"status": "FAILED",
+		})
 
 		return cause
 	}
@@ -188,8 +204,36 @@ func (w *NotificationSMSDeliveryWorker) failOrRetry(
 	); err != nil {
 		return fmt.Errorf("mark notification sms delivery retry: %w", err)
 	}
+	w.auditSMSDelivery(ctx, "notification_delivery.sms_retry", item, map[string]any{
+		"status":        "RETRY",
+		"next_attempt":  nextAttempts,
+		"retry_delay_s": int64(delay.Seconds()),
+	})
 
 	return cause
+}
+
+func (w *NotificationSMSDeliveryWorker) auditSMSDelivery(
+	ctx context.Context,
+	action string,
+	item db.NotificationDelivery,
+	metadata map[string]any,
+) {
+	if w == nil || w.auditService == nil {
+		return
+	}
+
+	event := map[string]any{
+		"delivery_id":     item.ID.String(),
+		"notification_id": item.NotificationID.String(),
+		"channel":         item.Channel,
+		"previous_status": item.Status,
+	}
+	for key, value := range metadata {
+		event[key] = value
+	}
+
+	_ = w.auditService.Log(ctx, uuid.NullUUID{}, action, event)
 }
 
 type smsRecipient struct {

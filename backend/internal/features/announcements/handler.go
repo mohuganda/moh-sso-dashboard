@@ -246,6 +246,8 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		ExpiresAt:     expiresAt,
 		AudienceType:  req.AudienceType,
 		NotifyByEmail: req.NotifyByEmail,
+		NotifyBySMS:   req.NotifyBySMS,
+		SMSMessage:    nullableString(req.SMSMessage),
 		CreatedBy:     userID,
 	}
 
@@ -301,6 +303,7 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 				"status":          item.Status,
 				"is_pinned":       item.IsPinned,
 				"notify_by_email": item.NotifyByEmail,
+				"notify_by_sms":   req.NotifyBySMS,
 			},
 		)
 	}
@@ -354,6 +357,8 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		ExpiresAt:     expiresAt,
 		AudienceType:  req.AudienceType,
 		NotifyByEmail: req.NotifyByEmail,
+		NotifyBySMS:   req.NotifyBySMS,
+		SMSMessage:    nullableString(req.SMSMessage),
 		UpdatedBy:     userID,
 	}
 
@@ -403,6 +408,7 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 				"status":          item.Status,
 				"is_pinned":       item.IsPinned,
 				"notify_by_email": item.NotifyByEmail,
+				"notify_by_sms":   req.NotifyBySMS,
 			},
 		)
 	}
@@ -452,11 +458,14 @@ func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 				"title":                              item.Title,
 				"notify_by_email":                    item.NotifyByEmail,
 				"email_notification_sent_at_present": item.EmailNotificationSentAt.Valid,
+				"notify_by_sms":                      item.NotifyBySms,
+				"sms_notification_queued_at_present": item.SmsNotificationQueuedAt.Valid,
 			},
 		)
 	}
 
-	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
+	res := toAnnouncementResponse(item)
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
@@ -491,7 +500,8 @@ func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
+	res := toAnnouncementResponse(item)
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
@@ -538,6 +548,7 @@ func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 				"announcement_id": item.ID.String(),
 				"title":           item.Title,
 				"publish_at":      item.PublishAt,
+				"notify_by_sms":   item.NotifyBySms,
 			},
 		)
 	}

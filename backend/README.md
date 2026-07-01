@@ -180,8 +180,20 @@ Notifications support:
 - delivery status history
 - manual retry for failed/retry/cancelled deliveries
 - background email delivery worker
+- background SMS delivery worker
+- admin delivery dashboard at `/portal/admin/notifications/deliveries`
+- delivery metrics grouped by channel/provider
+- safe audit logging for retry, cancel, test SMS, and SMS worker outcomes
 
 Delivery records are stored separately from notification records so operations can inspect channel-level failures without changing the notification message.
+
+SMS delivery is controlled by `SMS_*`, `AFRICASTALKING_*`, and `TWILIO_*` environment variables. Local development should use `SMS_PROVIDER=mock`; production Africa's Talking deployments must provide username/API key and should verify delivery through the admin test SMS flow.
+
+See:
+
+- [`../docs/notifications.md`](../docs/notifications.md)
+- [`../docs/sms-delivery.md`](../docs/sms-delivery.md)
+- [`../docs/operations/notification-delivery-runbook.md`](../docs/operations/notification-delivery-runbook.md)
 
 ## Local Development
 

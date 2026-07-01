@@ -5,6 +5,7 @@ import type {
   NotificationDelivery,
   NotificationDeliveryList,
   NotificationDeliveryListParams,
+  NotificationDeliveryMetrics,
   NotificationPreferences,
   TestSMSRequest,
   TestSMSResponse,
@@ -185,6 +186,9 @@ export const notificationsApi = baseApi.injectEndpoints({
         if (filters?.status) {
           params.set("status", filters.status);
         }
+        if (filters?.search) {
+          params.set("search", filters.search);
+        }
         params.set("limit", String(filters?.limit ?? 20));
         params.set("offset", String(filters?.offset ?? 0));
 
@@ -197,6 +201,17 @@ export const notificationsApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiEnvelope<NotificationDeliveryList>) => res.data,
 
       providesTags: [{ type: "Notification", id: "DELIVERY-LIST" }],
+    }),
+
+    getNotificationDeliveryMetrics: builder.query<NotificationDeliveryMetrics, void>({
+      query: () => ({
+        url: API.admin.notifications.deliveryMetrics(),
+        credentials: "include",
+      }),
+
+      transformResponse: (res: ApiEnvelope<NotificationDeliveryMetrics>) => res.data,
+
+      providesTags: [{ type: "Notification", id: "DELIVERY-METRICS" }],
     }),
 
     getNotificationDelivery: builder.query<NotificationDelivery, string>({
@@ -224,6 +239,7 @@ export const notificationsApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { notificationId }) => [
         { type: "Notification", id: `DELIVERIES-${notificationId}` },
         { type: "Notification", id: "DELIVERY-LIST" },
+        { type: "Notification", id: "DELIVERY-METRICS" },
         { type: "Notification", id: "LIST" },
       ],
     }),
@@ -243,6 +259,7 @@ export const notificationsApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { deliveryId, notificationId }) => [
         { type: "Notification", id: `DELIVERY-${deliveryId}` },
         { type: "Notification", id: "DELIVERY-LIST" },
+        { type: "Notification", id: "DELIVERY-METRICS" },
         ...(notificationId
           ? [{ type: "Notification" as const, id: `DELIVERIES-${notificationId}` }]
           : []),
@@ -261,6 +278,7 @@ export const notificationsApi = baseApi.injectEndpoints({
 
       invalidatesTags: [
         { type: "Notification", id: "DELIVERY-LIST" },
+        { type: "Notification", id: "DELIVERY-METRICS" },
         { type: "Notification", id: "LIST" },
       ],
     }),
@@ -306,6 +324,7 @@ export const {
   useGetNotificationDeliveriesQuery,
   useGetAllNotificationDeliveriesQuery,
   useGetNotificationDeliveryQuery,
+  useGetNotificationDeliveryMetricsQuery,
   useRetryNotificationDeliveryMutation,
   useCancelNotificationDeliveryMutation,
   useSendTestSMSMutation,

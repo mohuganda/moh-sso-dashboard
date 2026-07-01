@@ -29,6 +29,9 @@ export interface Announcement {
   user_ids?: string[];
   notify_by_email: boolean;
   email_notification_sent_at: string | null;
+  notify_by_sms: boolean;
+  sms_message: string | null;
+  sms_notification_queued_at: string | null;
   created_by: string | null;
   updated_by: string | null;
   published_by: string | null;
@@ -69,6 +72,8 @@ export interface CreateAnnouncementRequest {
   role_names?: string[];
   user_ids?: string[];
   notify_by_email?: boolean;
+  notify_by_sms?: boolean;
+  sms_message?: string | null;
 }
 
 export interface AnnouncementEmailAttachment {
@@ -146,6 +151,8 @@ export interface UpdateAnnouncementRequest {
    * Email is only sent/queued on publish if this is true.
    */
   notify_by_email?: boolean;
+  notify_by_sms?: boolean;
+  sms_message?: string | null;
 }
 
 export interface ScheduleAnnouncementRequest {

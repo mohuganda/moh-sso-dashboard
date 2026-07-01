@@ -14,10 +14,12 @@ INSERT INTO announcements (
     expires_at,
     audience_type,
     notify_by_email,
+    notify_by_sms,
+    sms_message,
     created_by,
     updated_by
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17
 )
 RETURNING *;
 
@@ -209,7 +211,9 @@ SET
     expires_at = $12,
     audience_type = $13,
     notify_by_email = $14,
-    updated_by = $15
+    notify_by_sms = $15,
+    sms_message = $16,
+    updated_by = $17
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
@@ -342,6 +346,14 @@ WHERE deleted_at IS NULL
 -- name: MarkAnnouncementEmailNotificationSent :one
 UPDATE announcements
 SET email_notification_sent_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING *;
+
+
+-- name: MarkAnnouncementSMSNotificationQueued :one
+UPDATE announcements
+SET sms_notification_queued_at = now()
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
@@ -536,7 +548,7 @@ SELECT DISTINCT
         u.email
     ) AS full_name
 FROM announcement_clients ac
-JOIN user_clients uc
+JOIN user_client_access uc
     ON uc.client_id = ac.client_id
 JOIN users u
     ON u.id = uc.user_id

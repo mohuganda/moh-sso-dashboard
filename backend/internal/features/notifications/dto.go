@@ -21,6 +21,23 @@ type NotificationDeliveryListResponse struct {
 	Offset int32                          `json:"offset"`
 }
 
+type NotificationDeliveryMetricsResponse struct {
+	Items []NotificationDeliveryMetricResponse `json:"items"`
+}
+
+type NotificationDeliveryMetricResponse struct {
+	Channel              string  `json:"channel"`
+	Provider             string  `json:"provider,omitempty"`
+	Total                int64   `json:"total"`
+	Pending              int64   `json:"pending"`
+	Processing           int64   `json:"processing"`
+	Sent                 int64   `json:"sent"`
+	Failed               int64   `json:"failed"`
+	Retry                int64   `json:"retry"`
+	Cancelled            int64   `json:"cancelled"`
+	AvgProcessingSeconds float64 `json:"avg_processing_seconds"`
+}
+
 type TestSMSRequest struct {
 	To      string `json:"to" binding:"required"`
 	Message string `json:"message" binding:"required"`
@@ -66,6 +83,10 @@ type NotificationDeliveryResponse struct {
 	Attempts       int32          `json:"attempts"`
 	MaxAttempts    int32          `json:"max_attempts"`
 	LastError      string         `json:"last_error,omitempty"`
+	Provider       string         `json:"provider,omitempty"`
+	ProviderMsgID  string         `json:"provider_message_id,omitempty"`
+	ProviderStatus string         `json:"provider_status,omitempty"`
+	ProviderMeta   map[string]any `json:"provider_metadata,omitempty"`
 	CreatedAt      string         `json:"created_at"`
 	UpdatedAt      string         `json:"updated_at"`
 }

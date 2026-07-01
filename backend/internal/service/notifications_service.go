@@ -58,6 +58,7 @@ type NotificationsService interface {
 	CountUnreadNotificationsCount(ctx context.Context, targetRole string) (int64, error)
 	ListNotificationDeliveries(ctx context.Context, notificationID uuid.UUID) ([]db.NotificationDelivery, error)
 	ListAllNotificationDeliveries(ctx context.Context, filter NotificationDeliveryListFilter) ([]db.NotificationDelivery, int64, error)
+	ListNotificationDeliveryMetrics(ctx context.Context) ([]db.ListNotificationDeliveryMetricsRow, error)
 	GetNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) (db.NotificationDelivery, error)
 	RetryNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) error
 	CancelNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) error
@@ -69,6 +70,7 @@ type NotificationsService interface {
 type NotificationDeliveryListFilter struct {
 	Channel string
 	Status  string
+	Search  string
 	Limit   int32
 	Offset  int32
 }
@@ -209,15 +211,18 @@ func (s *notificationsService) ListAllNotificationDeliveries(
 
 	channel := sql.NullString{String: strings.TrimSpace(filter.Channel), Valid: strings.TrimSpace(filter.Channel) != ""}
 	status := sql.NullString{String: strings.ToUpper(strings.TrimSpace(filter.Status)), Valid: strings.TrimSpace(filter.Status) != ""}
+	search := sql.NullString{String: strings.TrimSpace(filter.Search), Valid: strings.TrimSpace(filter.Search) != ""}
 	params := db.ListNotificationDeliveriesParams{
 		Limit:         filter.Limit,
 		Offset:        filter.Offset,
 		FilterChannel: channel,
 		FilterStatus:  status,
+		FilterSearch:  search,
 	}
 	countParams := db.CountNotificationDeliveriesParams{
 		FilterChannel: channel,
 		FilterStatus:  status,
+		FilterSearch:  search,
 	}
 
 	items, err := s.notificationDeliveryRepo.List(ctx, params)
@@ -231,6 +236,19 @@ func (s *notificationsService) ListAllNotificationDeliveries(
 	}
 
 	return items, total, nil
+}
+
+func (s *notificationsService) ListNotificationDeliveryMetrics(
+	ctx context.Context,
+) ([]db.ListNotificationDeliveryMetricsRow, error) {
+	if s == nil {
+		return nil, errors.New("notifications service is nil")
+	}
+	if s.notificationDeliveryRepo == nil {
+		return nil, errors.New("notification delivery repository is nil")
+	}
+
+	return s.notificationDeliveryRepo.ListMetrics(ctx)
 }
 
 func (s *notificationsService) GetNotificationDelivery(
