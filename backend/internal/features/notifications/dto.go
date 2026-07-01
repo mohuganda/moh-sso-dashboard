@@ -31,6 +31,26 @@ type TestSMSResponse struct {
 	Status         string `json:"status"`
 }
 
+type NotificationPreferencesResponse struct {
+	UserID          string `json:"user_id"`
+	EmailEnabled    bool   `json:"email_enabled"`
+	SMSEnabled      bool   `json:"sms_enabled"`
+	PhoneNumber     string `json:"phone_number,omitempty"`
+	PhoneVerified   bool   `json:"phone_verified"`
+	QuietHoursStart string `json:"quiet_hours_start,omitempty"`
+	QuietHoursEnd   string `json:"quiet_hours_end,omitempty"`
+	CreatedAt       string `json:"created_at,omitempty"`
+	UpdatedAt       string `json:"updated_at,omitempty"`
+}
+
+type UpdateNotificationPreferencesRequest struct {
+	EmailEnabled    *bool   `json:"email_enabled"`
+	SMSEnabled      *bool   `json:"sms_enabled"`
+	PhoneNumber     *string `json:"phone_number"`
+	QuietHoursStart *string `json:"quiet_hours_start"`
+	QuietHoursEnd   *string `json:"quiet_hours_end"`
+}
+
 type NotificationDeliveryResponse struct {
 	ID             string         `json:"id"`
 	NotificationID string         `json:"notification_id"`

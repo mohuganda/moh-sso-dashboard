@@ -28,3 +28,11 @@ func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler, limiter *rate
 		notifications.DELETE("/:id", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.DeleteNotification)
 	}
 }
+
+func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
+	notifications := protected.Group("/notifications")
+	{
+		notifications.GET("/preferences", handler.GetNotificationPreferences)
+		notifications.PUT("/preferences", handler.UpdateNotificationPreferences)
+	}
+}

@@ -75,6 +75,11 @@ backend:
     twilioAuthToken: ""
     twilioFromNumber: ""
 
+  notificationDelivery:
+    workerEnabled: true
+    workerInterval: 3s
+    batchSize: 20
+
   baseUrl: "" # optional override (used for redirect URI)
 
   probes:

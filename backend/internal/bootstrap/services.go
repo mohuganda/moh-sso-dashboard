@@ -110,6 +110,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.Config,
 		deps.Repositories.Notifications,
 		deps.Repositories.NotificationDelivery,
+		deps.Repositories.NotificationPreferences,
 		publisher,
 	)
 

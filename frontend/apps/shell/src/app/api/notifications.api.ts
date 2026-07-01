@@ -5,8 +5,10 @@ import type {
   NotificationDelivery,
   NotificationDeliveryList,
   NotificationDeliveryListParams,
+  NotificationPreferences,
   TestSMSRequest,
   TestSMSResponse,
+  UpdateNotificationPreferencesRequest,
 } from "@moh-sso/types";
 
 import { baseApi } from "@moh-sso/api";
@@ -262,6 +264,33 @@ export const notificationsApi = baseApi.injectEndpoints({
         { type: "Notification", id: "LIST" },
       ],
     }),
+
+    getNotificationPreferences: builder.query<NotificationPreferences, void>({
+      query: () => ({
+        url: API.notifications.preferences(),
+        credentials: "include",
+      }),
+
+      transformResponse: (res: ApiEnvelope<NotificationPreferences>) => res.data,
+
+      providesTags: [{ type: "Notification", id: "PREFERENCES" }],
+    }),
+
+    updateNotificationPreferences: builder.mutation<
+      NotificationPreferences,
+      UpdateNotificationPreferencesRequest
+    >({
+      query: (body) => ({
+        url: API.notifications.preferences(),
+        method: "PUT",
+        body,
+        credentials: "include",
+      }),
+
+      transformResponse: (res: ApiEnvelope<NotificationPreferences>) => res.data,
+
+      invalidatesTags: [{ type: "Notification", id: "PREFERENCES" }],
+    }),
   }),
 });
 
@@ -280,4 +309,6 @@ export const {
   useRetryNotificationDeliveryMutation,
   useCancelNotificationDeliveryMutation,
   useSendTestSMSMutation,
+  useGetNotificationPreferencesQuery,
+  useUpdateNotificationPreferencesMutation,
 } = notificationsApi;

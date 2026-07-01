@@ -2,6 +2,7 @@ package notification_delivery
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 
 type notificationDeliveryRepository struct {
 	store  db.Store
+	db     *sql.DB
 	logger *logger.Logger
 }
 
@@ -18,9 +20,14 @@ func NewNotificationDeliveryRepository(
 	store db.Store,
 	logger logger.Logger,
 ) NotificationDeliveryRepository {
+	var primaryDB *sql.DB
+	if sqlStore, ok := store.(*db.SQLStore); ok && sqlStore != nil {
+		primaryDB = sqlStore.DB()
+	}
 
 	return &notificationDeliveryRepository{
 		store:  store,
+		db:     primaryDB,
 		logger: &logger,
 	}
 }
@@ -101,6 +108,35 @@ func (r *notificationDeliveryRepository) MarkSent(
 ) error {
 	if err := r.store.MarkNotificationDeliverySent(ctx, id); err != nil {
 		return fmt.Errorf("mark notification delivery sent: %w", err)
+	}
+
+	return nil
+}
+
+func (r *notificationDeliveryRepository) MarkSentWithProvider(
+	ctx context.Context,
+	arg MarkSentWithProviderParams,
+) error {
+	if r.db == nil {
+		return r.MarkSent(ctx, arg.ID)
+	}
+
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE notification_deliveries
+		SET
+			status = 'SENT',
+			sent_at = now(),
+			locked_at = NULL,
+			last_error = NULL,
+			provider = $2,
+			provider_message_id = $3,
+			provider_status = $4,
+			provider_response = $5,
+			updated_at = now()
+		WHERE id = $1
+	`, arg.ID, arg.Provider, arg.ProviderMessageID, arg.ProviderStatus, arg.ProviderResponse)
+	if err != nil {
+		return fmt.Errorf("mark notification delivery sent with provider: %w", err)
 	}
 
 	return nil

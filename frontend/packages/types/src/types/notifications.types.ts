@@ -70,3 +70,23 @@ export type TestSMSResponse = {
   notification_id: string;
   status: string;
 };
+
+export type NotificationPreferences = {
+  user_id: string;
+  email_enabled: boolean;
+  sms_enabled: boolean;
+  phone_number?: string;
+  phone_verified: boolean;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type UpdateNotificationPreferencesRequest = {
+  email_enabled?: boolean;
+  sms_enabled?: boolean;
+  phone_number?: string;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+};

@@ -18,6 +18,7 @@ import (
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
 	notificationDeliveryRepository "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
+	notificationPreferencesRepository "github.com/moh-sso-dashboard/internal/repository/notification_preferences"
 	repository "github.com/moh-sso-dashboard/internal/repository/notifications"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -61,6 +62,8 @@ type NotificationsService interface {
 	RetryNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) error
 	CancelNotificationDelivery(ctx context.Context, deliveryID uuid.UUID) error
 	QueueTestSMS(ctx context.Context, to string, message string) (uuid.UUID, error)
+	GetNotificationPreferences(ctx context.Context, userID string) (NotificationPreferences, error)
+	UpdateNotificationPreferences(ctx context.Context, userID string, input UpdateNotificationPreferencesInput) (NotificationPreferences, error)
 }
 
 type NotificationDeliveryListFilter struct {
@@ -70,24 +73,47 @@ type NotificationDeliveryListFilter struct {
 	Offset  int32
 }
 
+type NotificationPreferences struct {
+	UserID          string
+	EmailEnabled    bool
+	SMSEnabled      bool
+	PhoneNumber     string
+	PhoneVerified   bool
+	QuietHoursStart string
+	QuietHoursEnd   string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type UpdateNotificationPreferencesInput struct {
+	EmailEnabled    *bool
+	SMSEnabled      *bool
+	PhoneNumber     *string
+	QuietHoursStart *string
+	QuietHoursEnd   *string
+}
+
 type notificationsService struct {
-	cfg                      *config.Config
-	notificationsRepo        repository.NotificationsRepository
-	notificationDeliveryRepo notificationDeliveryRepository.NotificationDeliveryRepository
-	publisher                *cache.NotificationPublisher
+	cfg                         *config.Config
+	notificationsRepo           repository.NotificationsRepository
+	notificationDeliveryRepo    notificationDeliveryRepository.NotificationDeliveryRepository
+	notificationPreferencesRepo notificationPreferencesRepository.NotificationPreferencesRepository
+	publisher                   *cache.NotificationPublisher
 }
 
 func NewNotificationsService(
 	cfg *config.Config,
 	notificationsRepo repository.NotificationsRepository,
 	notificationDeliveryRepo notificationDeliveryRepository.NotificationDeliveryRepository,
+	notificationPreferencesRepo notificationPreferencesRepository.NotificationPreferencesRepository,
 	publisher *cache.NotificationPublisher,
 ) NotificationsService {
 	return &notificationsService{
-		cfg:                      cfg,
-		notificationsRepo:        notificationsRepo,
-		notificationDeliveryRepo: notificationDeliveryRepo,
-		publisher:                publisher,
+		cfg:                         cfg,
+		notificationsRepo:           notificationsRepo,
+		notificationDeliveryRepo:    notificationDeliveryRepo,
+		notificationPreferencesRepo: notificationPreferencesRepo,
+		publisher:                   publisher,
 	}
 }
 
@@ -320,6 +346,121 @@ func (s *notificationsService) QueueTestSMS(ctx context.Context, to string, mess
 	}
 
 	return notification.ID, nil
+}
+
+func (s *notificationsService) GetNotificationPreferences(
+	ctx context.Context,
+	userID string,
+) (NotificationPreferences, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return NotificationPreferences{}, errors.New("user id is required")
+	}
+	if s == nil {
+		return NotificationPreferences{}, errors.New("notifications service is nil")
+	}
+	if s.notificationPreferencesRepo == nil {
+		return defaultNotificationPreferences(userID), nil
+	}
+
+	preference, err := s.notificationPreferencesRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return defaultNotificationPreferences(userID), nil
+		}
+
+		return NotificationPreferences{}, err
+	}
+
+	return toNotificationPreferences(preference), nil
+}
+
+func (s *notificationsService) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID string,
+	input UpdateNotificationPreferencesInput,
+) (NotificationPreferences, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return NotificationPreferences{}, errors.New("user id is required")
+	}
+	if s == nil {
+		return NotificationPreferences{}, errors.New("notifications service is nil")
+	}
+	if s.notificationPreferencesRepo == nil {
+		return NotificationPreferences{}, errors.New("notification preferences repository is nil")
+	}
+
+	current, err := s.GetNotificationPreferences(ctx, userID)
+	if err != nil {
+		return NotificationPreferences{}, err
+	}
+
+	emailEnabled := current.EmailEnabled
+	if input.EmailEnabled != nil {
+		emailEnabled = *input.EmailEnabled
+	}
+
+	smsEnabled := current.SMSEnabled
+	if input.SMSEnabled != nil {
+		smsEnabled = *input.SMSEnabled
+	}
+
+	phoneNumber := strings.TrimSpace(current.PhoneNumber)
+	if input.PhoneNumber != nil {
+		phoneNumber = strings.TrimSpace(*input.PhoneNumber)
+	}
+
+	if phoneNumber != "" {
+		defaultCountryCode := "+256"
+		if s.cfg != nil {
+			defaultCountryCode = s.cfg.SMS.DefaultCountryCode
+		}
+
+		normalized, err := NormalizePhoneNumber(phoneNumber, defaultCountryCode)
+		if err != nil {
+			return NotificationPreferences{}, err
+		}
+		phoneNumber = normalized
+	}
+
+	if smsEnabled && phoneNumber == "" {
+		return NotificationPreferences{}, errors.New("phone number is required when SMS notifications are enabled")
+	}
+
+	quietHoursStart := strings.TrimSpace(current.QuietHoursStart)
+	if input.QuietHoursStart != nil {
+		quietHoursStart = strings.TrimSpace(*input.QuietHoursStart)
+	}
+	if err := validateQuietHour("quiet_hours_start", quietHoursStart); err != nil {
+		return NotificationPreferences{}, err
+	}
+
+	quietHoursEnd := strings.TrimSpace(current.QuietHoursEnd)
+	if input.QuietHoursEnd != nil {
+		quietHoursEnd = strings.TrimSpace(*input.QuietHoursEnd)
+	}
+	if err := validateQuietHour("quiet_hours_end", quietHoursEnd); err != nil {
+		return NotificationPreferences{}, err
+	}
+
+	preference, err := s.notificationPreferencesRepo.Upsert(
+		ctx,
+		notificationPreferencesRepository.UpsertNotificationPreferencesParams{
+			UserID:          userID,
+			EmailEnabled:    emailEnabled,
+			SMSEnabled:      smsEnabled,
+			PhoneNumber:     sqlNullString(phoneNumber),
+			PhoneVerified:   current.PhoneVerified,
+			QuietHoursStart: sqlNullString(quietHoursStart),
+			QuietHoursEnd:   sqlNullString(quietHoursEnd),
+		},
+	)
+	if err != nil {
+		return NotificationPreferences{}, err
+	}
+
+	return toNotificationPreferences(preference), nil
 }
 
 func (s *notificationsService) NotifyLoginFailed(
@@ -944,4 +1085,61 @@ func derefTime(value *time.Time) time.Time {
 	}
 
 	return *value
+}
+
+func defaultNotificationPreferences(userID string) NotificationPreferences {
+	now := time.Now().UTC()
+
+	return NotificationPreferences{
+		UserID:       userID,
+		EmailEnabled: true,
+		SMSEnabled:   false,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+}
+
+func toNotificationPreferences(
+	preference notificationPreferencesRepository.NotificationPreference,
+) NotificationPreferences {
+	return NotificationPreferences{
+		UserID:          preference.UserID,
+		EmailEnabled:    preference.EmailEnabled,
+		SMSEnabled:      preference.SMSEnabled,
+		PhoneNumber:     nullStringToString(preference.PhoneNumber),
+		PhoneVerified:   preference.PhoneVerified,
+		QuietHoursStart: nullStringToString(preference.QuietHoursStart),
+		QuietHoursEnd:   nullStringToString(preference.QuietHoursEnd),
+		CreatedAt:       preference.CreatedAt,
+		UpdatedAt:       preference.UpdatedAt,
+	}
+}
+
+func validateQuietHour(name string, value string) error {
+	if value == "" {
+		return nil
+	}
+
+	if _, err := time.Parse("15:04", value); err != nil {
+		return fmt.Errorf("%s must use HH:MM format", name)
+	}
+
+	return nil
+}
+
+func sqlNullString(value string) sql.NullString {
+	value = strings.TrimSpace(value)
+
+	return sql.NullString{
+		String: value,
+		Valid:  value != "",
+	}
+}
+
+func nullStringToString(value sql.NullString) string {
+	if !value.Valid {
+		return ""
+	}
+
+	return value.String
 }

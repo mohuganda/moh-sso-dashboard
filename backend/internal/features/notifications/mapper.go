@@ -7,6 +7,7 @@ import (
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
+	"github.com/moh-sso-dashboard/internal/service"
 	"github.com/sqlc-dev/pqtype"
 )
 
@@ -75,6 +76,22 @@ func toNotificationDeliveryResponses(deliveries []db.NotificationDelivery) []Not
 	return out
 }
 
+func toNotificationPreferencesResponse(
+	preferences service.NotificationPreferences,
+) NotificationPreferencesResponse {
+	return NotificationPreferencesResponse{
+		UserID:          preferences.UserID,
+		EmailEnabled:    preferences.EmailEnabled,
+		SMSEnabled:      preferences.SMSEnabled,
+		PhoneNumber:     preferences.PhoneNumber,
+		PhoneVerified:   preferences.PhoneVerified,
+		QuietHoursStart: preferences.QuietHoursStart,
+		QuietHoursEnd:   preferences.QuietHoursEnd,
+		CreatedAt:       timeValue(preferences.CreatedAt),
+		UpdatedAt:       timeValue(preferences.UpdatedAt),
+	}
+}
+
 func toNullRawMessageMap(raw pqtype.NullRawMessage) map[string]any {
 	if !raw.Valid || len(raw.RawMessage) == 0 {
 		return nil
@@ -100,4 +117,12 @@ func nullTimeValue(value sql.NullTime) string {
 		return ""
 	}
 	return value.Time.UTC().Format(time.RFC3339)
+}
+
+func timeValue(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+
+	return value.UTC().Format(time.RFC3339)
 }

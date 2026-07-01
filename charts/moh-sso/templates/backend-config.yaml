@@ -63,6 +63,9 @@ data:
   SMS_FROM_NAME: {{ .Values.backend.sms.fromName | quote }}
   SMS_MAX_LENGTH: {{ .Values.backend.sms.maxLength | quote }}
   SMS_SEND_TIMEOUT: {{ .Values.backend.sms.sendTimeout | quote }}
+  NOTIFICATION_DELIVERY_WORKER_ENABLED: {{ .Values.backend.notificationDelivery.workerEnabled | quote }}
+  NOTIFICATION_DELIVERY_WORKER_INTERVAL: {{ .Values.backend.notificationDelivery.workerInterval | quote }}
+  NOTIFICATION_DELIVERY_BATCH_SIZE: {{ .Values.backend.notificationDelivery.batchSize | quote }}
   AFRICASTALKING_USERNAME: {{ .Values.backend.sms.africasTalkingUsername | quote }}
   AFRICASTALKING_API_KEY: {{ .Values.backend.sms.africasTalkingApiKey | quote }}
   AFRICASTALKING_SENDER_ID: {{ .Values.backend.sms.africasTalkingSenderId | quote }}
@@ -114,6 +117,9 @@ data:
     SMS_FROM_NAME={{ .Values.backend.sms.fromName }}
     SMS_MAX_LENGTH={{ .Values.backend.sms.maxLength }}
     SMS_SEND_TIMEOUT={{ .Values.backend.sms.sendTimeout }}
+    NOTIFICATION_DELIVERY_WORKER_ENABLED={{ .Values.backend.notificationDelivery.workerEnabled }}
+    NOTIFICATION_DELIVERY_WORKER_INTERVAL={{ .Values.backend.notificationDelivery.workerInterval }}
+    NOTIFICATION_DELIVERY_BATCH_SIZE={{ .Values.backend.notificationDelivery.batchSize }}
     AFRICASTALKING_USERNAME={{ .Values.backend.sms.africasTalkingUsername }}
     AFRICASTALKING_API_KEY={{ .Values.backend.sms.africasTalkingApiKey }}
     AFRICASTALKING_SENDER_ID={{ .Values.backend.sms.africasTalkingSenderId }}

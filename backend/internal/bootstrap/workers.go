@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	emailRepo "github.com/moh-sso-dashboard/internal/repository/email"
 	notificationDeliveryRepo "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
@@ -16,6 +17,7 @@ import (
 )
 
 type workerDependencies struct {
+	Config                         *config.Config
 	ProcessRepository              processRepo.ProcessRepository
 	ImportService                  *importSvc.Service
 	FileStorage                    storage.Storage
@@ -67,11 +69,23 @@ func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
 		}
 	}()
 
+	if deps.Config != nil && !deps.Config.NotificationDelivery.WorkerEnabled {
+		deps.Logger.Info("Notification delivery workers disabled")
+		return
+	}
+
+	notificationWorkerInterval := 3 * time.Second
+	notificationWorkerBatchSize := int32(20)
+	if deps.Config != nil {
+		notificationWorkerInterval = deps.Config.NotificationDelivery.WorkerInterval
+		notificationWorkerBatchSize = deps.Config.NotificationDelivery.BatchSize
+	}
+
 	notificationEmailDeliveryWorker, err := worker.NewNotificationEmailDeliveryWorker(
 		deps.NotificationDeliveryRepository,
 		deps.EmailService,
-		3*time.Second,
-		20,
+		notificationWorkerInterval,
+		notificationWorkerBatchSize,
 		3,
 		deps.Logger,
 	)
@@ -92,8 +106,8 @@ func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
 		notificationSMSDeliveryWorker, err := worker.NewNotificationSMSDeliveryWorker(
 			deps.NotificationDeliveryRepository,
 			deps.SMSService,
-			3*time.Second,
-			20,
+			notificationWorkerInterval,
+			notificationWorkerBatchSize,
 			3,
 			deps.Logger,
 		)

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 	notificationDeliveryRepo "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
 	"github.com/moh-sso-dashboard/internal/service"
+	"github.com/sqlc-dev/pqtype"
 )
 
 type NotificationSMSDeliveryWorker struct {
@@ -124,7 +126,16 @@ func (w *NotificationSMSDeliveryWorker) processOne(ctx context.Context, item db.
 		return w.failOrRetry(ctx, item, err)
 	}
 
-	if err := w.notificationDelivery.MarkSent(ctx, item.ID); err != nil {
+	if err := w.notificationDelivery.MarkSentWithProvider(
+		ctx,
+		notificationDeliveryRepo.MarkSentWithProviderParams{
+			ID:                item.ID,
+			Provider:          sqlNullString(result.Provider),
+			ProviderMessageID: sqlNullString(result.MessageID),
+			ProviderStatus:    sqlNullString(result.Status),
+			ProviderResponse:  smsProviderResponse(result),
+		},
+	); err != nil {
 		return fmt.Errorf("mark notification sms delivery sent: %w", err)
 	}
 
@@ -233,4 +244,31 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func smsProviderResponse(result service.SMSResult) pqtype.NullRawMessage {
+	value := map[string]any{
+		"provider":   result.Provider,
+		"message_id": result.MessageID,
+		"status":     result.Status,
+	}
+
+	b, err := json.Marshal(value)
+	if err != nil {
+		return pqtype.NullRawMessage{Valid: false}
+	}
+
+	return pqtype.NullRawMessage{
+		RawMessage: b,
+		Valid:      true,
+	}
+}
+
+func sqlNullString(value string) sql.NullString {
+	value = strings.TrimSpace(value)
+
+	return sql.NullString{
+		String: value,
+		Valid:  value != "",
+	}
 }

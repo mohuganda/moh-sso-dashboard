@@ -214,6 +214,13 @@ export const API = {
   },
 
   // --------------------------------------------------
+  // Notifications (authenticated user)
+  // --------------------------------------------------
+  notifications: {
+    preferences: () => `${API_BASE}/notifications/preferences`,
+  },
+
+  // --------------------------------------------------
   // Health (not versioned)
   // --------------------------------------------------
   health: () => `/health`,

@@ -2,8 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -57,8 +61,10 @@ func NewSMSService(cfg *config.Config, log *logger.Logger) (SMSService, error) {
 		provider = &mockSMSProvider{logger: log}
 	case "noop":
 		provider = noopSMSProvider{}
-	case "africastalking", "twilio":
-		// Real provider adapters can be added without changing callers or the worker.
+	case "africastalking":
+		provider = newAfricasTalkingSMSProvider(cfg.SMS)
+	case "twilio":
+		// Twilio can be added as a provider adapter without changing callers or the worker.
 		provider = &mockSMSProvider{logger: log, provider: cfg.SMS.Provider}
 	default:
 		return nil, fmt.Errorf("unsupported SMS provider: %s", cfg.SMS.Provider)
@@ -184,4 +190,111 @@ type noopSMSProvider struct{}
 
 func (noopSMSProvider) Send(context.Context, SMSMessage) (SMSResult, error) {
 	return SMSResult{}, errors.New("sms provider is disabled")
+}
+
+type africasTalkingSMSProvider struct {
+	username string
+	apiKey   string
+	senderID string
+	client   *http.Client
+	endpoint string
+}
+
+func newAfricasTalkingSMSProvider(cfg config.SMSConfig) SMSProvider {
+	timeout := cfg.SendTimeout
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+
+	return &africasTalkingSMSProvider{
+		username: strings.TrimSpace(cfg.AfricasTalkingUsername),
+		apiKey:   strings.TrimSpace(cfg.AfricasTalkingAPIKey),
+		senderID: strings.TrimSpace(cfg.AfricasTalkingSenderID),
+		client: &http.Client{
+			Timeout: timeout,
+		},
+		endpoint: "https://api.africastalking.com/version1/messaging",
+	}
+}
+
+func (p *africasTalkingSMSProvider) Send(ctx context.Context, message SMSMessage) (SMSResult, error) {
+	if p == nil {
+		return SMSResult{}, errors.New("africas talking sms provider is nil")
+	}
+	if p.username == "" {
+		return SMSResult{}, errors.New("africas talking username is required")
+	}
+	if p.apiKey == "" {
+		return SMSResult{}, errors.New("africas talking api key is required")
+	}
+
+	form := url.Values{}
+	form.Set("username", p.username)
+	form.Set("to", message.To)
+	form.Set("message", message.Body)
+	if p.senderID != "" {
+		form.Set("from", p.senderID)
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		p.endpoint,
+		strings.NewReader(form.Encode()),
+	)
+	if err != nil {
+		return SMSResult{}, fmt.Errorf("create africas talking request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("apiKey", p.apiKey)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return SMSResult{}, fmt.Errorf("send africas talking sms: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return SMSResult{}, fmt.Errorf("read africas talking response: %w", err)
+	}
+
+	var parsed africasTalkingSMSResponse
+	if len(body) > 0 {
+		_ = json.Unmarshal(body, &parsed)
+	}
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return SMSResult{}, fmt.Errorf("africas talking sms failed with status %d", resp.StatusCode)
+	}
+
+	result := SMSResult{
+		Provider: "africastalking",
+		Status:   "SENT",
+	}
+
+	if len(parsed.SMSMessageData.Recipients) > 0 {
+		recipient := parsed.SMSMessageData.Recipients[0]
+		result.MessageID = recipient.MessageID
+		if strings.TrimSpace(recipient.Status) != "" {
+			result.Status = recipient.Status
+		}
+	}
+
+	return result, nil
+}
+
+type africasTalkingSMSResponse struct {
+	SMSMessageData struct {
+		Message    string `json:"Message"`
+		Recipients []struct {
+			Number     string `json:"number"`
+			Status     string `json:"status"`
+			StatusCode int    `json:"statusCode"`
+			MessageID  string `json:"messageId"`
+			Cost       string `json:"cost"`
+		} `json:"Recipients"`
+	} `json:"SMSMessageData"`
 }

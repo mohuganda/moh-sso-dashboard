@@ -488,6 +488,95 @@ func (h *Handler) TestSMS(c *gin.Context) {
 }
 
 /* =========================================================
+ * User notification preferences
+ * ========================================================= */
+
+func (h *Handler) GetNotificationPreferences(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Fail(
+			c,
+			http.StatusUnauthorized,
+			"UNAUTHENTICATED",
+			"Authenticated user is required",
+		)
+		return
+	}
+
+	preferences, err := h.NotificationsSvc.GetNotificationPreferences(
+		c.Request.Context(),
+		userID,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"INTERNAL_ERROR",
+			"Failed to fetch notification preferences",
+		)
+		return
+	}
+
+	response.OK(c, http.StatusOK, toNotificationPreferencesResponse(preferences))
+}
+
+func (h *Handler) UpdateNotificationPreferences(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		response.Fail(
+			c,
+			http.StatusUnauthorized,
+			"UNAUTHENTICATED",
+			"Authenticated user is required",
+		)
+		return
+	}
+
+	var input UpdateNotificationPreferencesRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Invalid notification preferences payload",
+		)
+		return
+	}
+
+	preferences, err := h.NotificationsSvc.UpdateNotificationPreferences(
+		c.Request.Context(),
+		userID,
+		service.UpdateNotificationPreferencesInput{
+			EmailEnabled:    input.EmailEnabled,
+			SMSEnabled:      input.SMSEnabled,
+			PhoneNumber:     input.PhoneNumber,
+			QuietHoursStart: input.QuietHoursStart,
+			QuietHoursEnd:   input.QuietHoursEnd,
+		},
+	)
+	if err != nil {
+		status := http.StatusInternalServerError
+		code := "INTERNAL_ERROR"
+		message := "Failed to update notification preferences"
+		if isNotificationPreferencesValidationError(err) {
+			status = http.StatusBadRequest
+			code = "VALIDATION_FAILED"
+			message = err.Error()
+		}
+
+		response.Fail(
+			c,
+			status,
+			code,
+			message,
+		)
+		return
+	}
+
+	response.OK(c, http.StatusOK, toNotificationPreferencesResponse(preferences))
+}
+
+/* =========================================================
  * Helpers
  * ========================================================= */
 
@@ -503,4 +592,22 @@ func getTargetRole(c *gin.Context) string {
 	}
 
 	return "user"
+}
+
+func isNotificationPreferencesValidationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	switch err.Error() {
+	case "phone number is required",
+		"phone number must include country code",
+		"phone number must be 8 to 15 digits",
+		"phone number is required when SMS notifications are enabled",
+		"quiet_hours_start must use HH:MM format",
+		"quiet_hours_end must use HH:MM format":
+		return true
+	default:
+		return false
+	}
 }

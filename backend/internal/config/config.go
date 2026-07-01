@@ -143,12 +143,13 @@ type Config struct {
 	// ==================================================
 	// SMTP / Retry / Notifications
 	// ==================================================
-	SMTP         SMTPConfig         `mapstructure:",squash"`
-	Email        EmailConfig        `mapstructure:",squash"`
-	Announcement AnnouncementConfig `mapstructure:",squash"`
-	Retry        RetryConfig        `mapstructure:",squash"`
-	Notification NotificationConfig `mapstructure:",squash"`
-	SMS          SMSConfig          `mapstructure:",squash"`
+	SMTP                 SMTPConfig                 `mapstructure:",squash"`
+	Email                EmailConfig                `mapstructure:",squash"`
+	Announcement         AnnouncementConfig         `mapstructure:",squash"`
+	Retry                RetryConfig                `mapstructure:",squash"`
+	Notification         NotificationConfig         `mapstructure:",squash"`
+	NotificationDelivery NotificationDeliveryConfig `mapstructure:",squash"`
+	SMS                  SMSConfig                  `mapstructure:",squash"`
 }
 
 type SMTPConfig struct {
@@ -184,6 +185,12 @@ type NotificationConfig struct {
 	SystemAdminName   string `mapstructure:"SYSTEM_ADMIN_NAME"`
 	SystemAdminEmail  string `mapstructure:"SYSTEM_ADMIN_EMAIL"`
 	AdminDashboardURL string `mapstructure:"ADMIN_DASHBOARD_URL"`
+}
+
+type NotificationDeliveryConfig struct {
+	WorkerEnabled  bool          `mapstructure:"NOTIFICATION_DELIVERY_WORKER_ENABLED"`
+	WorkerInterval time.Duration `mapstructure:"NOTIFICATION_DELIVERY_WORKER_INTERVAL"`
+	BatchSize      int32         `mapstructure:"NOTIFICATION_DELIVERY_BATCH_SIZE"`
 }
 
 type SMSConfig struct {
@@ -308,6 +315,9 @@ func setDefaults() {
 	viper.SetDefault("SYSTEM_ADMIN_NAME", "System Administrator")
 	viper.SetDefault("SYSTEM_ADMIN_EMAIL", "admin@example.com")
 	viper.SetDefault("ADMIN_DASHBOARD_URL", "http://localhost:3000/admin/home")
+	viper.SetDefault("NOTIFICATION_DELIVERY_WORKER_ENABLED", true)
+	viper.SetDefault("NOTIFICATION_DELIVERY_WORKER_INTERVAL", "3s")
+	viper.SetDefault("NOTIFICATION_DELIVERY_BATCH_SIZE", 20)
 
 	// ==================================================
 	// SMS defaults
@@ -415,6 +425,9 @@ func envBindings() map[string]string {
 		"SYSTEM_ADMIN_NAME":                     "SYSTEM_ADMIN_NAME",
 		"SYSTEM_ADMIN_EMAIL":                    "SYSTEM_ADMIN_EMAIL",
 		"ADMIN_DASHBOARD_URL":                   "ADMIN_DASHBOARD_URL",
+		"NOTIFICATION_DELIVERY_WORKER_ENABLED":  "NOTIFICATION_DELIVERY_WORKER_ENABLED",
+		"NOTIFICATION_DELIVERY_WORKER_INTERVAL": "NOTIFICATION_DELIVERY_WORKER_INTERVAL",
+		"NOTIFICATION_DELIVERY_BATCH_SIZE":      "NOTIFICATION_DELIVERY_BATCH_SIZE",
 		"SMS_ENABLED":                           "SMS_ENABLED",
 		"SMS_PROVIDER":                          "SMS_PROVIDER",
 		"SMS_DEFAULT_COUNTRY_CODE":              "SMS_DEFAULT_COUNTRY_CODE",
@@ -557,6 +570,12 @@ func normalizeConfig(c *Config) {
 	c.Notification.SystemAdminName = strings.TrimSpace(c.Notification.SystemAdminName)
 	c.Notification.SystemAdminEmail = strings.TrimSpace(c.Notification.SystemAdminEmail)
 	c.Notification.AdminDashboardURL = strings.TrimSpace(c.Notification.AdminDashboardURL)
+	if c.NotificationDelivery.WorkerInterval <= 0 {
+		c.NotificationDelivery.WorkerInterval = 3 * time.Second
+	}
+	if c.NotificationDelivery.BatchSize <= 0 {
+		c.NotificationDelivery.BatchSize = 20
+	}
 
 	if c.Notification.PlatformName == "" {
 		c.Notification.PlatformName = "MOH Integrated Health Portal"
@@ -755,6 +774,10 @@ func validateConfig(c *Config) error {
 	}
 
 	if err := validateNotificationConfig(c); err != nil {
+		return err
+	}
+
+	if err := validateNotificationDeliveryConfig(c); err != nil {
 		return err
 	}
 
@@ -960,6 +983,17 @@ func validateNotificationConfig(c *Config) error {
 	}
 	if strings.TrimSpace(c.Notification.AdminDashboardURL) == "" {
 		return errors.New("ADMIN_DASHBOARD_URL is required")
+	}
+
+	return nil
+}
+
+func validateNotificationDeliveryConfig(c *Config) error {
+	if c.NotificationDelivery.WorkerInterval <= 0 {
+		return errors.New("NOTIFICATION_DELIVERY_WORKER_INTERVAL must be greater than 0")
+	}
+	if c.NotificationDelivery.BatchSize <= 0 {
+		return errors.New("NOTIFICATION_DELIVERY_BATCH_SIZE must be greater than 0")
 	}
 
 	return nil
