@@ -123,6 +123,8 @@ export function EmailDetailsModal({ email, open, onClose }: Props) {
                   <li key={`${attachment.file_name}-${index}`}>
                     <strong>{attachment.file_name || "Attachment"}</strong>
                     {attachment.content_type ? <span> · {attachment.content_type}</span> : null}
+                    {attachment.inline ? <span> · inline</span> : null}
+                    {attachment.content_id ? <span> · cid:{attachment.content_id}</span> : null}
                     {attachment.path ? <div>{attachment.path}</div> : null}
                   </li>
                 ))}

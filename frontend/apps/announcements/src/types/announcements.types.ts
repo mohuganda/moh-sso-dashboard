@@ -24,6 +24,9 @@ export interface Announcement {
   publish_at: string | null;
   expires_at: string | null;
   audience_type: AnnouncementAudienceType;
+  client_ids?: string[];
+  role_names?: string[];
+  user_ids?: string[];
   notify_by_email: boolean;
   email_notification_sent_at: string | null;
   created_by: string | null;

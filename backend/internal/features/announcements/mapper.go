@@ -84,6 +84,33 @@ func toAnnouncementResponseWithAttachmentBase(
 	return res
 }
 
+func withAnnouncementAudience(
+	res AnnouncementResponse,
+	clientIDs []uuid.UUID,
+	roleNames []string,
+	userIDs []uuid.UUID,
+) AnnouncementResponse {
+	res.ClientIDs = uuidStrings(clientIDs)
+	res.RoleNames = roleNames
+	res.UserIDs = uuidStrings(userIDs)
+	return res
+}
+
+func uuidStrings(values []uuid.UUID) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if value != uuid.Nil {
+			out = append(out, value.String())
+		}
+	}
+
+	return out
+}
+
 func toAnnouncementAttachmentResponse(
 	announcementID uuid.UUID,
 	attachment db.AnnouncementAttachment,

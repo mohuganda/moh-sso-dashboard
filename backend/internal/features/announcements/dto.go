@@ -97,6 +97,9 @@ type AnnouncementResponse struct {
 	PublishAt               *time.Time                       `json:"publish_at,omitempty"`
 	ExpiresAt               *time.Time                       `json:"expires_at,omitempty"`
 	AudienceType            string                           `json:"audience_type"`
+	ClientIDs               []string                         `json:"client_ids,omitempty"`
+	RoleNames               []string                         `json:"role_names,omitempty"`
+	UserIDs                 []string                         `json:"user_ids,omitempty"`
 	NotifyByEmail           bool                             `json:"notify_by_email"`
 	EmailNotificationSentAt *time.Time                       `json:"email_notification_sent_at,omitempty"`
 	CreatedBy               string                           `json:"created_by"`
