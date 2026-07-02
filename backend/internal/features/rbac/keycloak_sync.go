@@ -130,6 +130,7 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 			"ui.displayInLauncher": fmt.Sprintf("%t", system.DisplayInLauncher),
 			"ui.displayInSideNav":  fmt.Sprintf("%t", system.DisplayInSideNav),
 			"ui.launchMode":        system.LaunchMode,
+			"ui.order":             fmt.Sprintf("%d", system.SortOrder),
 			"portal.system":        "true",
 			"portal.accessRoles":   strings.Join(detail.AccessRoles, ","),
 		}
@@ -272,6 +273,7 @@ func (s *Service) applyDiscoveredSync(ctx context.Context, preview SyncPreviewRe
 			DisplayInLauncher: boolPointer(system.DisplayInLauncher),
 			DisplayInSideNav:  boolPointer(system.DisplayInSideNav),
 			LaunchMode:        system.LaunchMode,
+			SortOrder:         system.SortOrder,
 			Enabled:           &enabled,
 		}); err != nil {
 			return SyncApplyResponse{}, err
@@ -377,6 +379,7 @@ func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource, kn
 			DisplayInLauncher: *behavior.DisplayInLauncher,
 			DisplayInSideNav:  *behavior.DisplayInSideNav,
 			LaunchMode:        behavior.LaunchMode,
+			SortOrder:         int32Attribute(client.Attributes, "ui.order"),
 			AccessRoles:       splitAttributeList(client.Attributes["portal.accessRoles"]),
 			Enabled:           client.Enabled,
 			Roles:             make([]KeycloakDiscoveredRole, 0, len(roles)),
@@ -393,6 +396,9 @@ func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource, kn
 
 	sort.Strings(discovered.RealmRoles)
 	sort.Slice(discovered.Systems, func(i, j int) bool {
+		if discovered.Systems[i].SortOrder != discovered.Systems[j].SortOrder {
+			return discovered.Systems[i].SortOrder < discovered.Systems[j].SortOrder
+		}
 		return discovered.Systems[i].ClientID < discovered.Systems[j].ClientID
 	})
 	for i := range discovered.Systems {

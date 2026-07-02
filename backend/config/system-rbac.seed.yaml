@@ -9,6 +9,7 @@ systems:
     displayInLauncher: true
     displayInSideNav: false
     launchMode: internal
+    sortOrder: 0
     enabled: true
     accessRoles:
       - dashboard-web_access
@@ -61,6 +62,7 @@ systems:
     displayInLauncher: false
     displayInSideNav: true
     launchMode: internal
+    sortOrder: 10
     navigation: |-
       [
         {"id":"signals-alerts","label":"Signals & Alerts","path":"/apps/outbreak-management/signals-alerts"},
@@ -175,14 +177,13 @@ systems:
     displayInLauncher: false
     displayInSideNav: true
     launchMode: internal
+    sortOrder: 20
     navigation: |-
       [
-        {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
+        {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"report_browser:read"},
         {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
-        {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"data_quality:read"},
-        {"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"},
-        {"id":"data-exports","label":"Data Exports","path":"/apps/dwh/exports","permission":"data_quality:read"},
-        {"id":"file-svr","label":"Document Management","path":"/apps/dwh/filesvr","permission":"documents:read"},
+        {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
+        {"id":"documents","label":"Document Management","path":"/apps/dwh/documents","permission":"documents:read"},
         {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
         {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read"}
       ]
@@ -318,6 +319,7 @@ systems:
     displayInLauncher: false
     displayInSideNav: true
     launchMode: internal
+    sortOrder: 30
     navigation: |-
       [
         {"id":"ihris","label":"iHRIS","path":"/apps/eservices/ihris"},
@@ -353,6 +355,7 @@ systems:
     displayInLauncher: false
     displayInSideNav: true
     launchMode: internal
+    sortOrder: 40
     navigation: |-
       [
         {"id":"studies","label":"Studies","path":"/apps/research-studies/studies"},
@@ -382,6 +385,7 @@ systems:
     displayInLauncher: false
     displayInSideNav: true
     launchMode: internal
+    sortOrder: 50
     navigation: |-
       [
         {"id":"external-referrals","label":"External Referrals","path":"/apps/case-registers/external-referrals"},
@@ -410,6 +414,7 @@ systems:
     displayInLauncher: false
     displayInSideNav: true
     launchMode: internal
+    sortOrder: 60
     navigation: |-
       [
         {"id":"facility-register","label":"Facility Register","path":"/apps/reference-registers/facility-register"},
@@ -442,6 +447,7 @@ systems:
     displayInLauncher: false
     displayInSideNav: true
     launchMode: internal
+    sortOrder: 90
     navigation: |-
       [
         {"id":"self-service","label":"Self Service","children":[
@@ -488,14 +494,10 @@ systems:
     category: platform
     systemType: platform
     displayInLauncher: false
-    displayInSideNav: true
+    displayInSideNav: false
     launchMode: internal
-    navigation: |-
-      [
-        {"id":"profile","label":"My Profile","path":"/apps/settings/profile"},
-        {"id":"sessions","label":"Active Sessions","path":"/apps/settings/sessions"},
-        {"id":"security","label":"Security","path":"/apps/settings/security"}
-      ]
+    sortOrder: 100
+    navigation: "[]"
     enabled: true
     accessRoles:
       - settings_access
@@ -518,6 +520,7 @@ systems:
     displayInLauncher: true
     displayInSideNav: false
     launchMode: internal
+    sortOrder: 900
     navigation: |-
       [
         {"id":"overview","label":"Overview","path":"/apps/dwh"},
@@ -545,6 +548,7 @@ systems:
     displayInLauncher: true
     displayInSideNav: false
     launchMode: new_tab
+    sortOrder: 910
     enabled: true
     accessRoles:
       - demo-external-new-tab_access
@@ -567,6 +571,7 @@ systems:
     displayInLauncher: true
     displayInSideNav: false
     launchMode: same_tab
+    sortOrder: 920
     enabled: true
     accessRoles:
       - demo-external-same-tab_access

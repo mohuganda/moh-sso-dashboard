@@ -31,6 +31,7 @@ export interface SystemAccess {
   displayInLauncher?: boolean;
   displayInSideNav?: boolean;
   launchMode?: "internal" | "new_tab" | "same_tab";
+  sortOrder?: number;
   roles: string[];
 }
 

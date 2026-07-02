@@ -43,15 +43,27 @@ function isActivePath(currentPath: string, itemPath?: string): boolean {
 
 function sortItems(items: SideNavItem[]): SideNavItem[] {
   return [...items].sort((a, b) => {
-    const aOrder = typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER;
-    const bOrder = typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER;
+    const aHasOrder = typeof a.order === "number";
+    const bHasOrder = typeof b.order === "number";
+    const aOrder = aHasOrder ? a.order! : Number.MAX_SAFE_INTEGER;
+    const bOrder = bHasOrder ? b.order! : Number.MAX_SAFE_INTEGER;
 
     if (aOrder !== bOrder) {
       return aOrder - bOrder;
     }
 
+    if (!aHasOrder && !bHasOrder) {
+      return 0;
+    }
+
     return a.label.localeCompare(b.label);
   });
+}
+
+function getClientOrder(client: Client): number {
+  const order = Number(client.attributes?.["ui.order"]);
+
+  return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
 }
 
 function isValidSideNavItem(value: unknown): value is SideNavItem {
@@ -274,7 +286,16 @@ export function ClientSideNav({
           items: sortItems(items),
         };
       })
-      .filter(({ items }) => items.length > 0);
+      .filter(({ items }) => items.length > 0)
+      .sort((a, b) => {
+        const orderDiff = getClientOrder(a.client) - getClientOrder(b.client);
+
+        if (orderDiff !== 0) {
+          return orderDiff;
+        }
+
+        return getClientLabel(a.client).localeCompare(getClientLabel(b.client));
+      });
   }, [clients, hasPermission]);
 
   if (navClients.length === 0) {

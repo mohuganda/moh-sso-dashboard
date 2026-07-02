@@ -120,6 +120,7 @@ type KeycloakDiscoveredSystem struct {
 	DisplayInLauncher bool                     `json:"displayInLauncher"`
 	DisplayInSideNav  bool                     `json:"displayInSideNav"`
 	LaunchMode        string                   `json:"launchMode"`
+	SortOrder         int32                    `json:"sortOrder"`
 	AccessRoles       []string                 `json:"accessRoles,omitempty"`
 	Enabled           bool                     `json:"enabled"`
 	Roles             []KeycloakDiscoveredRole `json:"roles"`
@@ -274,6 +275,7 @@ type SystemAccessSummary struct {
 	DisplayInLauncher bool     `json:"displayInLauncher"`
 	DisplayInSideNav  bool     `json:"displayInSideNav"`
 	LaunchMode        string   `json:"launchMode"`
+	SortOrder         int32    `json:"sortOrder"`
 	Roles             []string `json:"roles"`
 }
 

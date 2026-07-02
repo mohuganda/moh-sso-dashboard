@@ -480,6 +480,7 @@ func (s *Service) GetEffectiveAccess(ctx context.Context, userID string, usernam
 				DisplayInLauncher: detail.DisplayInLauncher,
 				DisplayInSideNav:  detail.DisplayInSideNav,
 				LaunchMode:        detail.LaunchMode,
+				SortOrder:         detail.SortOrder,
 				Roles:             accessRoles,
 			})
 		}
@@ -513,7 +514,7 @@ func (s *Service) GetEffectiveAccess(ctx context.Context, userID string, usernam
 		}
 		return sources[i].PermissionKey < sources[j].PermissionKey
 	})
-	sort.Slice(accessible, func(i, j int) bool { return accessible[i].ClientID < accessible[j].ClientID })
+	sortSystemAccessSummaries(accessible)
 
 	return EffectiveAccessResponse{
 		User: EffectiveAccessUser{
@@ -665,6 +666,7 @@ func (s *Service) ExportSeed(ctx context.Context) (systemrbac.SeedFile, error) {
 			DisplayInSideNav:  boolPointer(system.DisplayInSideNav),
 			LaunchMode:        system.LaunchMode,
 			Enabled:           &enabled,
+			SortOrder:         system.SortOrder,
 			AccessRoles:       detail.AccessRoles,
 			Roles:             make([]systemrbac.SeedRole, 0, len(detail.Roles)),
 		}
@@ -763,6 +765,7 @@ func (s *Service) ApplyImport(ctx context.Context, input ImportPreviewRequest) (
 			DisplayInSideNav:  system.DisplayInSideNav,
 			LaunchMode:        system.LaunchMode,
 			Enabled:           system.Enabled,
+			SortOrder:         system.SortOrder,
 		})
 		if err != nil {
 			return ImportApplyResponse{}, err
@@ -1253,6 +1256,7 @@ func (s *Service) resolveAccessForRoles(ctx context.Context, realmRoles []string
 				DisplayInLauncher: detail.DisplayInLauncher,
 				DisplayInSideNav:  detail.DisplayInSideNav,
 				LaunchMode:        detail.LaunchMode,
+				SortOrder:         detail.SortOrder,
 				Roles:             accessRoles,
 			})
 		}
@@ -1285,7 +1289,7 @@ func (s *Service) resolveAccessForRoles(ctx context.Context, realmRoles []string
 		}
 		return sources[i].PermissionKey < sources[j].PermissionKey
 	})
-	sort.Slice(accessible, func(i, j int) bool { return accessible[i].ClientID < accessible[j].ClientID })
+	sortSystemAccessSummaries(accessible)
 
 	return EffectiveAccessResponse{
 		RealmRoles:        sortedStrings(realmRoles),
@@ -1294,6 +1298,18 @@ func (s *Service) resolveAccessForRoles(ctx context.Context, realmRoles []string
 		AccessibleSystems: accessible,
 		GrantSources:      sources,
 	}, nil
+}
+
+func sortSystemAccessSummaries(accessible []SystemAccessSummary) {
+	sort.Slice(accessible, func(i, j int) bool {
+		if accessible[i].SortOrder != accessible[j].SortOrder {
+			return accessible[i].SortOrder < accessible[j].SortOrder
+		}
+		if accessible[i].DisplayName != accessible[j].DisplayName {
+			return accessible[i].DisplayName < accessible[j].DisplayName
+		}
+		return accessible[i].ClientID < accessible[j].ClientID
+	})
 }
 
 func parseImportSeed(payload json.RawMessage) (systemrbac.SeedFile, error) {

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthorization } from "@moh-sso/auth";
 import { selectActiveClient } from "@moh-sso/state";
 import { ClientSideNav } from "@moh-sso/ui";
-import { mapAccessibleSystemToClient } from "@/app/access/accessClients";
+import { buildAccessibleSideNavClients } from "@/app/access/accessClients";
 
 type ConnectedClientSideNavProps = {
   hasPermission?: (permission: string) => boolean;
@@ -21,7 +21,7 @@ export function ConnectedClientSideNav({
   const location = useLocation();
   const navigate = useNavigate();
   const { accessibleSystems, can } = useAuthorization();
-  const visibleClients = accessibleSystems.map(mapAccessibleSystemToClient);
+  const visibleClients = buildAccessibleSideNavClients({ accessibleSystems });
   const checkPermission = hasPermission ?? ((permission: string) => can(permission as never));
 
   return (

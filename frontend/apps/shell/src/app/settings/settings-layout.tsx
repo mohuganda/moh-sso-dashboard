@@ -1,7 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Tile } from "@carbon/react";
 import {
-  Accessibility,
   Application,
   Information,
   Notification,
@@ -14,6 +13,20 @@ import {
 import "./settings.scss";
 
 const settingsSections = [
+  {
+    id: "profile",
+    label: "My Profile",
+    description: "Personal details and account identity.",
+    path: "/apps/settings/profile",
+    icon: UserAvatar,
+  },
+  {
+    id: "security",
+    label: "Security",
+    description: "Password and account protection.",
+    path: "/apps/settings/security",
+    icon: Security,
+  },
   {
     id: "notifications",
     label: "Notifications",
@@ -29,6 +42,13 @@ const settingsSections = [
     icon: SettingsAdjust,
   },
 
+  {
+    id: "sessions",
+    label: "Sessions",
+    description: "Review and end active sessions.",
+    path: "/apps/settings/sessions",
+    icon: Time,
+  },
   {
     id: "apps",
     label: "Applications",

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAuthorization } from "@moh-sso/auth";
 import { HeaderPanelProvider, PublicFooter, ToastProvider, hasVisibleClientSideNav } from "@moh-sso/ui";
-import { mapAccessibleSystemToClient } from "@/app/access/accessClients";
+import { buildAccessibleSideNavClients } from "@/app/access/accessClients";
 
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
 import { ConnectedClientSideNav, ConnectedUserHeader } from "@/app/ui-containers";
@@ -26,10 +26,7 @@ export default function UserLayout() {
   const { accessibleSystems, can } = useAuthorization();
   const [isSideNavVisible, setIsSideNavVisible] = useState(readStoredSideNavVisible);
   const versionInfo = useVersionInfo();
-  const clients = useMemo(
-    () => accessibleSystems.map(mapAccessibleSystemToClient),
-    [accessibleSystems],
-  );
+  const clients = useMemo(() => buildAccessibleSideNavClients({ accessibleSystems }), [accessibleSystems]);
   const hasSideNav = hasVisibleClientSideNav(clients, (permission) => can(permission as never));
   const layoutClassName = [
     "user-layout",

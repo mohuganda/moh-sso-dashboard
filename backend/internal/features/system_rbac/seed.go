@@ -37,6 +37,7 @@ type SeedSystem struct {
 	DisplayInSideNav  *bool      `json:"displayInSideNav,omitempty" yaml:"displayInSideNav,omitempty"`
 	LaunchMode        string     `json:"launchMode,omitempty" yaml:"launchMode,omitempty"`
 	Enabled           *bool      `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	SortOrder         int32      `json:"sortOrder,omitempty" yaml:"sortOrder,omitempty"`
 	AccessRoles       []string   `json:"accessRoles,omitempty" yaml:"accessRoles,omitempty"`
 	Roles             []SeedRole `json:"roles,omitempty" yaml:"roles,omitempty"`
 }
@@ -55,12 +56,12 @@ type SeedRealmRole struct {
 }
 
 const dataStatisticsNavigation = `[
-  {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
-  {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
   {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"report_browser:read"},
-  {"id":"documents","label":"Documents","path":"/apps/dwh/documents","permission":"documents:read"},
+  {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
+  {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
+  {"id":"documents","label":"Document Management","path":"/apps/dwh/documents","permission":"documents:read"},
   {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
-  {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"data_quality:read"}
+  {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read"}
 ]`
 
 const utilitiesNavigation = `[
@@ -76,12 +77,6 @@ const utilitiesNavigation = `[
       {"id":"equipment-request","label":"Equipment Request","path":"/apps/utilities/self-service/eservice/equipment-request"}
     ]}
   ]}
-]`
-
-const settingsNavigation = `[
-  {"id":"profile","label":"My Profile","path":"/apps/settings/profile"},
-  {"id":"sessions","label":"Active Sessions","path":"/apps/settings/sessions"},
-  {"id":"security","label":"Security","path":"/apps/settings/security"}
 ]`
 
 const caseRegistersNavigation = `[
@@ -510,7 +505,7 @@ func DefaultSeed() SeedFile {
 				string(authz.PermissionSystemsRead),
 			}, enabled),
 			defaultPortalSystem("utilities", "Utilities", "Self-service utilities and staff tools.", "tools", "/portal/apps/utilities/self-service", "utilities", utilitiesNavigation, nil, enabled),
-			defaultPortalSystem("settings", "Settings", "User profile, session, and security settings.", "settings", "/portal/apps/settings", "platform", settingsNavigation, nil, enabled),
+			defaultSettingsSystem(enabled),
 		},
 		RealmRoles: []SeedRealmRole{
 			{Name: authz.RoleAdmin, Permissions: []string{"*"}},
@@ -549,10 +544,37 @@ func DefaultSeed() SeedFile {
 			},
 		},
 	}
+	applyDefaultSortOrder(seed.Systems)
 	for index := range seed.Systems {
 		seed.Systems[index] = NormalizeSystemBehavior(seed.Systems[index])
 	}
 	return seed
+}
+
+func applyDefaultSortOrder(systems []SeedSystem) {
+	sortOrders := map[string]int32{
+		authz.SystemDashboardWeb:    0,
+		"outbreak-management":       10,
+		authz.SystemDataStatistics:  20,
+		"eservices":                 30,
+		"research-studies":          40,
+		"case-registers":            50,
+		"reference-registers":       60,
+		"utilities":                 90,
+		"settings":                  100,
+		"demo-platform-system":      900,
+		"external-knowledge-system": 910,
+		"external-lab-portal":       920,
+	}
+
+	for index := range systems {
+		if systems[index].SortOrder != 0 {
+			continue
+		}
+		if sortOrder, ok := sortOrders[systems[index].ClientID]; ok {
+			systems[index].SortOrder = sortOrder
+		}
+	}
 }
 
 func defaultPortalSystem(
@@ -592,6 +614,25 @@ func defaultPortalSystem(
 			},
 		},
 	}
+}
+
+func defaultSettingsSystem(enabled bool) SeedSystem {
+	system := defaultPortalSystem(
+		"settings",
+		"Settings",
+		"User profile, session, and security settings.",
+		"settings",
+		"/portal/apps/settings",
+		"platform",
+		"[]",
+		nil,
+		enabled,
+	)
+	displayInLauncher := false
+	displayInSideNav := false
+	system.DisplayInLauncher = &displayInLauncher
+	system.DisplayInSideNav = &displayInSideNav
+	return system
 }
 
 func defaultDataStatisticsSystem(enabled bool) SeedSystem {

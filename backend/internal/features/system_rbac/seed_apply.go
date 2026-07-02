@@ -171,11 +171,11 @@ func upsertSystem(ctx context.Context, tx *sql.Tx, system SeedSystem) (string, e
 		INSERT INTO ihp_systems (
 			client_id, display_name, description, icon, launch_url, category, owner_team, owner_name,
 			owner_email, support_url, documentation_url, environment, criticality,
-			system_type, display_in_launcher, display_in_sidenav, launch_mode, enabled, metadata
+			system_type, display_in_launcher, display_in_sidenav, launch_mode, enabled, sort_order, metadata
 		) VALUES (
 			$1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''),
 			NULLIF($8, ''), NULLIF($9, ''), NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''),
-			NULLIF($13, ''), $14, $15, $16, $17, $18, $19
+			NULLIF($13, ''), $14, $15, $16, $17, $18, $19, $20
 		)
 		ON CONFLICT (client_id) DO UPDATE SET
 			display_name = EXCLUDED.display_name,
@@ -195,13 +195,14 @@ func upsertSystem(ctx context.Context, tx *sql.Tx, system SeedSystem) (string, e
 			display_in_sidenav = EXCLUDED.display_in_sidenav,
 			launch_mode = EXCLUDED.launch_mode,
 			enabled = EXCLUDED.enabled,
+			sort_order = EXCLUDED.sort_order,
 			metadata = CASE
 				WHEN NULLIF(EXCLUDED.metadata->>'navigation', '') IS NULL THEN ihp_systems.metadata
 				ELSE COALESCE(ihp_systems.metadata, '{}'::jsonb) || EXCLUDED.metadata
 			END,
 			updated_at = now()
 		RETURNING id::text
-	`, system.ClientID, system.DisplayName, system.Description, system.Icon, system.LaunchURL, system.Category, system.OwnerTeam, system.OwnerName, system.OwnerEmail, system.SupportURL, system.DocumentationURL, system.Environment, system.Criticality, system.SystemType, *system.DisplayInLauncher, *system.DisplayInSideNav, system.LaunchMode, enabled, metadata).Scan(&id)
+	`, system.ClientID, system.DisplayName, system.Description, system.Icon, system.LaunchURL, system.Category, system.OwnerTeam, system.OwnerName, system.OwnerEmail, system.SupportURL, system.DocumentationURL, system.Environment, system.Criticality, system.SystemType, *system.DisplayInLauncher, *system.DisplayInSideNav, system.LaunchMode, enabled, system.SortOrder, metadata).Scan(&id)
 
 	return id, err
 }

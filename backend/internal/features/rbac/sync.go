@@ -302,6 +302,7 @@ func parseRealmExport(payload []byte, knownSystems ...map[string]bool) (discover
 			DisplayInLauncher: *behavior.DisplayInLauncher,
 			DisplayInSideNav:  *behavior.DisplayInSideNav,
 			LaunchMode:        behavior.LaunchMode,
+			SortOrder:         int32Attribute(client.Attributes, "ui.order"),
 			AccessRoles:       splitAttributeList(client.Attributes["portal.accessRoles"]),
 			Enabled:           client.Enabled,
 			Roles:             make([]KeycloakDiscoveredRole, 0, len(roles)),
@@ -377,6 +378,17 @@ func boolAttributePointer(attributes map[string]string, key string) *bool {
 	}
 	value := attributeBool(attributes, key, false)
 	return &value
+}
+
+func int32Attribute(attributes map[string]string, key string) int32 {
+	if attributes == nil {
+		return 0
+	}
+	value, err := strconv.ParseInt(strings.TrimSpace(attributes[key]), 10, 32)
+	if err != nil {
+		return 0
+	}
+	return int32(value)
 }
 
 func splitAttributeList(value string) []string {

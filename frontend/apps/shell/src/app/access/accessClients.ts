@@ -48,11 +48,34 @@ function inferDisplayInSideNav(system: SystemAccess, systemType: "platform" | "e
   return normalizePath(system.navigation) !== "";
 }
 
+function getSystemSortOrder(system: SystemAccess): number {
+  const order = Number(system.sortOrder);
+
+  return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
+}
+
+export function compareAccessibleSystems(a: SystemAccess, b: SystemAccess): number {
+  const orderDiff = getSystemSortOrder(a) - getSystemSortOrder(b);
+
+  if (orderDiff !== 0) {
+    return orderDiff;
+  }
+
+  const nameDiff = (a.displayName || a.clientId).localeCompare(b.displayName || b.clientId);
+
+  if (nameDiff !== 0) {
+    return nameDiff;
+  }
+
+  return a.clientId.localeCompare(b.clientId);
+}
+
 export function mapAccessibleSystemToClient(system: SystemAccess): Client {
   const systemType = inferSystemType(system);
   const displayInLauncher = inferDisplayInLauncher(system);
   const displayInSideNav = inferDisplayInSideNav(system, systemType);
   const launchMode = inferLaunchMode(system, systemType);
+  const sortOrder = getSystemSortOrder(system);
 
   return {
     id: system.clientId,
@@ -75,6 +98,7 @@ export function mapAccessibleSystemToClient(system: SystemAccess): Client {
       "ui.displayInLauncher": String(displayInLauncher),
       "ui.displayInSideNav": String(displayInSideNav),
       "ui.launchMode": launchMode,
+      "ui.order": String(sortOrder),
     },
   };
 }
@@ -84,12 +108,24 @@ export function buildAccessibleClients({
 }: {
   accessibleSystems: SystemAccess[];
 }): Client[] {
-  return accessibleSystems
+  return [...accessibleSystems]
+    .sort(compareAccessibleSystems)
     .filter(
       (system) =>
         system.clientId &&
         system.launchUrl &&
         (system.displayInLauncher ?? true),
     )
+    .map(mapAccessibleSystemToClient);
+}
+
+export function buildAccessibleSideNavClients({
+  accessibleSystems,
+}: {
+  accessibleSystems: SystemAccess[];
+}): Client[] {
+  return [...accessibleSystems]
+    .sort(compareAccessibleSystems)
+    .filter((system) => system.clientId)
     .map(mapAccessibleSystemToClient);
 }
