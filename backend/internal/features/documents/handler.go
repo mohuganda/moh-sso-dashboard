@@ -15,13 +15,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/xuri/excelize/v2"
-	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/storage"
+	"github.com/xuri/excelize/v2"
 )
 
 type Handler struct {
@@ -562,7 +561,6 @@ func (h *Handler) ReprocessDocument(c *gin.Context) {
 		Message string `json:"message"`
 	}{Message: "reprocessing started"})
 }
-
 
 // ── Data Preview ──────────────────────────────────────────────────────────────
 
