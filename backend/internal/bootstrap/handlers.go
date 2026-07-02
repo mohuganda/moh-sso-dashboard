@@ -82,7 +82,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.Audit,
 	)
 	sessionHandler := sessionfeature.NewHandler(deps.Services.Sessions)
-	dataQualityHandler := dataqualityfeature.NewHandler(deps.Databases.DWH)
+	dataQualityHandler := dataqualityfeature.NewHandler(deps.Databases.DWH, deps.Databases.Primary)
 	announcementHandler := announcementfeature.NewHandler(
 		deps.Services.Announcements,
 		deps.Services.Audit,

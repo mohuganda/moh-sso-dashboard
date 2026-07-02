@@ -200,6 +200,7 @@ export const baseApi = createApi({
     "RbacAudit",
     "Datasets",
     "DataElements",
+    "DataValidationRules",
   ],
 
   endpoints: () => ({}),

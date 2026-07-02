@@ -16,7 +16,8 @@ type ValidationRulePanelProps = {
   mode?: "create" | "edit";
   initialCode?: string;
   initialRule?: ValidationRule;
-  onSubmit: (rule: ValidationRule) => void;
+  isSubmitting?: boolean;
+  onSubmit: (rule: ValidationRule) => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -79,6 +80,7 @@ export function ValidationRulePanel({
   mode = "create",
   initialCode,
   initialRule,
+  isSubmitting = false,
   onSubmit,
   onClose,
 }: ValidationRulePanelProps) {
@@ -93,12 +95,11 @@ export function ValidationRulePanel({
   };
 
   const handleSubmit = () => {
-    if (!isValid) {
+    if (!isValid || isSubmitting) {
       return;
     }
 
-    onSubmit(createRule(form, initialRule));
-    onClose();
+    void onSubmit(createRule(form, initialRule));
   };
 
   return (
@@ -205,10 +206,10 @@ export function ValidationRulePanel({
         </FormGroup>
 
         <Stack orientation="horizontal" gap={3}>
-          <Button type="button" disabled={!isValid} onClick={handleSubmit}>
+          <Button type="button" disabled={!isValid || isSubmitting} onClick={handleSubmit}>
             {mode === "edit" ? "Save changes" : "Add rule"}
           </Button>
-          <Button kind="secondary" type="button" onClick={onClose}>
+          <Button kind="secondary" type="button" disabled={isSubmitting} onClick={onClose}>
             Cancel
           </Button>
         </Stack>

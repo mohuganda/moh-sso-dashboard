@@ -7,7 +7,7 @@ type ValidationRuleActionsMenuProps = {
   rule: ValidationRule;
   onView: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 };
 
 export function ValidationRuleActionsMenu({
@@ -24,11 +24,13 @@ export function ValidationRuleActionsMenu({
     <OverflowMenu size="sm" flipped onClick={stopRowSelection}>
       <OverflowMenuItem itemText="View rule" hasDivider onClick={onView} />
       <OverflowMenuItem itemText="Edit rule" hasDivider onClick={onEdit} />
-      <OverflowMenuItem
-        itemText={rule.type === "builtin" ? "Remove built-in rule" : "Delete rule"}
-        isDelete
-        onClick={onDelete}
-      />
+      {onDelete && (
+        <OverflowMenuItem
+          itemText={rule.type === "builtin" ? "Remove built-in rule" : "Delete rule"}
+          isDelete
+          onClick={onDelete}
+        />
+      )}
     </OverflowMenu>
   );
 }

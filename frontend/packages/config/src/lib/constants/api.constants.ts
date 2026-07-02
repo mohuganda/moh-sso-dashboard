@@ -96,6 +96,16 @@ export const API = {
   },
 
   // --------------------------------------------------
+  // Data validation
+  // --------------------------------------------------
+  dataValidation: {
+    rules: {
+      list: () => `${API_BASE}/data-validation/rules`,
+      import: () => `${API_BASE}/data-validation/rules/import`,
+    },
+  },
+
+  // --------------------------------------------------
   // Admin
   // --------------------------------------------------
   admin: {
