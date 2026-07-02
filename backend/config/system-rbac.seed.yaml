@@ -600,8 +600,6 @@ realmRoles:
     systemRoles:
       data-statistics:
         - data-statistics_access
-      utilities:
-        - utilities_access
       settings:
         - settings_access
 

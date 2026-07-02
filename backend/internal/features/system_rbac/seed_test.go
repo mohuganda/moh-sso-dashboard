@@ -50,7 +50,7 @@ func TestValidateSystemBehaviorSupportsAllLaunchModes(t *testing.T) {
 		{
 			SystemType: "platform", LaunchMode: "internal", LaunchURL: "/portal/apps/dwh",
 			DisplayInLauncher: &trueValue, DisplayInSideNav: &trueValue,
-			Navigation: `[{"id":"reports","label":"Reports","path":"/apps/dwh/reports"}]`,
+			Navigation: `[{"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards"}]`,
 		},
 		{
 			SystemType: "external", LaunchMode: "new_tab", LaunchURL: "https://example.org/health",

@@ -32,8 +32,9 @@ export const dataVisualizerRoute: MicrofrontendRoute = {
 
 export const documentsRoute: MicrofrontendRoute = {
   appName: "@moh-sso/documents",
-  path: "/apps/dwh/filesvr",
+  path: "/apps/dwh/documents",
   paths: [
+    "/apps/dwh/documents",
     "/apps/dwh/filesvr",
     "/apps/utilities/self-service/eservice/document-upload",
   ],
@@ -60,7 +61,8 @@ export const issueTrackerRoute: MicrofrontendRoute = {
 
 export const reportBrowserRoute: MicrofrontendRoute = {
   appName: "@moh-sso/report-browser",
-  path: "/apps/dwh/reports",
+  path: "/apps/dwh/dashboards",
+  paths: ["/apps/dwh/dashboards"],
   requiredPermissions: ["report_browser:read"],
   requiredSystems: ["data-statistics"],
 };
@@ -75,7 +77,7 @@ export const surveillanceRoute: MicrofrontendRoute = {
   appName: "@moh-sso/surveillance",
   path: "/apps/dwh/surveillance",
   requiredAnyPermissions: ["surveillance:read", "outbreak:access"],
-  requiredSystems: ["outbreak-management"],
+  requiredSystems: ["data-statistics"],
 };
 
 export const usersRoute: MicrofrontendRoute = {

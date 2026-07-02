@@ -213,9 +213,6 @@
             "data-statistics": [
               "data-statistics_access"
             ],
-            "utilities": [
-              "utilities_access"
-            ],
             "settings": [
               "settings_access"
             ]
@@ -718,7 +715,7 @@
         "ui.displayInSideNav": "true",
         "ui.launchMode": "internal",
         "ui.launchUrl": "/portal/apps/dwh",
-        "ui.navigation": "[{\"id\":\"overview\",\"label\":\"Overview\",\"path\":\"/apps/dwh\"},{\"id\":\"data-validation\",\"label\":\"Data Validation\",\"path\":\"/apps/dwh/data-validation\",\"permission\":\"data_quality:read\"},{\"id\":\"documents\",\"label\":\"Documents\",\"path\":\"/apps/dwh/documents\",\"permission\":\"documents:read\"},{\"id\":\"report-browser\",\"label\":\"Reports\",\"path\":\"/apps/dwh/reports\",\"permission\":\"report_browser:read\"},{\"id\":\"surveillance\",\"label\":\"Surveillance\",\"path\":\"/apps/dwh/surveillance\",\"permission\":\"surveillance:read\"},{\"id\":\"issue-tracker\",\"label\":\"Issue Tracker\",\"path\":\"/apps/dwh/issues\",\"permission\":\"issue_tracker:read\"}]"
+        "ui.navigation": "[{\"id\":\"dashboards\",\"label\":\"Dashboards\",\"path\":\"/apps/dwh/dashboards\",\"permission\":\"report_browser:read\"},{\"id\":\"data-validation\",\"label\":\"Data Validation\",\"path\":\"/apps/dwh/data-validation\",\"permission\":\"data_quality:read\"},{\"id\":\"documents\",\"label\":\"Documents\",\"path\":\"/apps/dwh/documents\",\"permission\":\"documents:read\"},{\"id\":\"surveillance\",\"label\":\"Surveillance\",\"path\":\"/apps/dwh/surveillance\",\"permission\":\"surveillance:read\"},{\"id\":\"issue-tracker\",\"label\":\"Issue Tracker\",\"path\":\"/apps/dwh/issue-tracker\",\"permission\":\"issue_tracker:read\"}]"
       }
     },
     {
@@ -836,7 +833,7 @@
         "ui.home": "/portal/apps/dwh",
         "ui.icon": "dashboard",
         "ui.category": "platform",
-        "ui.navigation": "[{\"id\":\"overview\",\"label\":\"Overview\",\"path\":\"/apps/dwh\"},{\"id\":\"reports\",\"label\":\"Reports\",\"path\":\"/apps/dwh/reports\",\"permission\":\"report_browser:read\"}]",
+        "ui.navigation": "[{\"id\":\"dashboards\",\"label\":\"Dashboards\",\"path\":\"/apps/dwh/dashboards\",\"permission\":\"report_browser:read\"}]",
         "portal.accessRoles": "demo-platform-system_access"
       }
     },
@@ -958,7 +955,6 @@
         "accessible_systems": [
           "dashboard-web",
           "data-statistics",
-          "utilities",
           "settings"
         ]
       },
@@ -1052,7 +1048,6 @@
           "dashboard-web",
           "outbreak-management",
           "data-statistics",
-          "utilities",
           "settings"
         ]
       },
@@ -1102,7 +1097,6 @@
           "dashboard-web",
           "outbreak-management",
           "data-statistics",
-          "utilities",
           "settings"
         ]
       },

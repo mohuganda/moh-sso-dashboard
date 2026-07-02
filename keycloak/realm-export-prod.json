@@ -443,7 +443,7 @@
         "ui.displayInSideNav": "false",
         "ui.launchMode": "internal",
         "ui.launchUrl": "/portal/apps/dwh",
-        "ui.navigation": "[{\"id\":\"overview\",\"label\":\"Overview\",\"path\":\"/apps/dwh\"},{\"id\":\"data-validation\",\"label\":\"Data Validation\",\"path\":\"/apps/dwh/data-validation\",\"permission\":\"data_quality:read\"},{\"id\":\"documents\",\"label\":\"Documents\",\"path\":\"/apps/dwh/documents\",\"permission\":\"documents:read\"},{\"id\":\"report-browser\",\"label\":\"Reports\",\"path\":\"/apps/dwh/reports\",\"permission\":\"report_browser:read\"},{\"id\":\"surveillance\",\"label\":\"Surveillance\",\"path\":\"/apps/dwh/surveillance\",\"permission\":\"surveillance:read\"},{\"id\":\"issue-tracker\",\"label\":\"Issue Tracker\",\"path\":\"/apps/dwh/issues\",\"permission\":\"issue_tracker:read\"}]"
+        "ui.navigation": "[{\"id\":\"dashboards\",\"label\":\"Dashboards\",\"path\":\"/apps/dwh/dashboards\",\"permission\":\"report_browser:read\"},{\"id\":\"data-validation\",\"label\":\"Data Validation\",\"path\":\"/apps/dwh/data-validation\",\"permission\":\"data_quality:read\"},{\"id\":\"documents\",\"label\":\"Documents\",\"path\":\"/apps/dwh/documents\",\"permission\":\"documents:read\"},{\"id\":\"surveillance\",\"label\":\"Surveillance\",\"path\":\"/apps/dwh/surveillance\",\"permission\":\"surveillance:read\"},{\"id\":\"issue-tracker\",\"label\":\"Issue Tracker\",\"path\":\"/apps/dwh/issue-tracker\",\"permission\":\"issue_tracker:read\"}]"
       }
     }
   ],

@@ -13,6 +13,7 @@ import {
   dataVisualizerRoute,
   documentsRoute,
   eServicesRoute,
+  issueTrackerRoute,
   reportBrowserRoute,
   surveillanceRoute,
   utilitiesRoute,
@@ -113,7 +114,7 @@ export const userRoutes = (
         DWH
        ========================= */}
     <Route path="dwh">
-      <Route index element={<Navigate to="data-visualizer" replace />} />
+      <Route index element={<Navigate to="dashboards" replace />} />
 
       <Route
         path="data-visualizer/*"
@@ -140,42 +141,29 @@ export const userRoutes = (
       />
 
       <Route
-        path="dashboards"
-        element={userPage(
-          <ComingSoon title="Dashboards" />,
-          withSystemAccess(SYSTEMS.dataStatistics, PERMISSIONS.dataQualityRead),
-        )}
-      />
-      <Route
-        path="reports/*"
+        path="dashboards/*"
         element={userPage(
           <SingleSpaApp
             appName="@moh-sso/report-browser"
             lifecycles={reportBrowserLifecycles}
-            basename="/apps/dwh/reports"
+            basename="/apps/dwh/dashboards"
           />,
-          accessFromRoute(reportBrowserRoute),
-        )}
-      />
-      <Route
-        path="exports"
-        element={userPage(
-          <ComingSoon title="Data Exports" />,
-          withSystemAccess(SYSTEMS.dataStatistics, PERMISSIONS.dataQualityRead),
+          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(reportBrowserRoute)),
         )}
       />
 
       <Route
-        path="filesvr/*"
+        path="documents/*"
         element={userPage(
           <SingleSpaApp
             appName="@moh-sso/documents"
             lifecycles={documentsLifecycles}
-            basename="/apps/dwh/filesvr"
+            basename="/apps/dwh/documents"
           />,
           withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(documentsRoute)),
         )}
       />
+      <Route path="filesvr/*" element={<Navigate to="/apps/dwh/documents" replace />} />
 
       <Route
         path="surveillance/*"
@@ -185,7 +173,7 @@ export const userRoutes = (
             lifecycles={surveillanceLifecycles}
             basename="/apps/dwh/surveillance"
           />,
-          accessFromRoute(surveillanceRoute),
+          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(surveillanceRoute)),
         )}
       />
 
@@ -197,6 +185,7 @@ export const userRoutes = (
             lifecycles={issueTrackerLifecycles}
             basename="/apps/dwh/issue-tracker"
           />,
+          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(issueTrackerRoute)),
         )}
       />
     </Route>
@@ -387,7 +376,6 @@ export const userRoutes = (
             },
           )}
         />
-
       </Route>
 
       {/* Mount utilities once here */}

@@ -63,6 +63,53 @@ function isValidSideNavItem(value: unknown): value is SideNavItem {
   return typeof item.id === "string" && typeof item.label === "string";
 }
 
+function normalizeLegacySideNavItems(items: SideNavItem[]): SideNavItem[] {
+  const normalizedItems = items
+    .filter((item) => item.id !== "data-exports" && normalizePath(item.path) !== "/apps/dwh/exports")
+    .map((item) => {
+      const children = item.children ? normalizeLegacySideNavItems(item.children) : undefined;
+      const itemPath = normalizePath(item.path);
+
+      if (itemPath === "/apps/dwh" || itemPath === "/apps/dwh/reports" || itemPath === "/apps/dwh/dashboards") {
+        return {
+          ...item,
+          id: "dashboards",
+          label: "Dashboards",
+          path: "/apps/dwh/dashboards",
+          children,
+        };
+      }
+
+      if (itemPath === "/apps/dwh/filesvr") {
+        return {
+          ...item,
+          id: item.id === "file-svr" ? "documents" : item.id,
+          label: item.label === "File Upload" ? "Documents" : item.label,
+          path: "/apps/dwh/documents",
+          children,
+        };
+      }
+
+      return {
+        ...item,
+        children,
+      };
+    });
+
+  const seen = new Set<string>();
+
+  return normalizedItems.filter((item) => {
+    const key = normalizePath(item.path) || item.id;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
 function parseSideNav(client: Client): SideNavItem[] {
   const rawSideNav = client.attributes?.["ui.sidenav"];
 
@@ -77,7 +124,7 @@ function parseSideNav(client: Client): SideNavItem[] {
       return [];
     }
 
-    return parsed.filter(isValidSideNavItem);
+    return normalizeLegacySideNavItems(parsed.filter(isValidSideNavItem));
   } catch {
     return [];
   }

@@ -3,8 +3,8 @@ import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
 export const documentsRoutes: MicrofrontendRoute[] = [
   {
     appName: "@moh-sso/documents",
-    path: "/apps/dwh/filesvr",
-    paths: ["/apps/dwh/filesvr", "/apps/dwh/filesvr/*"],
+    path: "/apps/dwh/documents",
+    paths: ["/apps/dwh/documents", "/apps/dwh/documents/*", "/apps/dwh/filesvr", "/apps/dwh/filesvr/*"],
     requiredAnyPermissions: ["documents:read"],
   },
   {

@@ -57,10 +57,8 @@ type SeedRealmRole struct {
 const dataStatisticsNavigation = `[
   {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
   {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
-  {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"data_quality:read"},
-  {"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"},
-  {"id":"data-exports","label":"Data Exports","path":"/apps/dwh/exports","permission":"data_quality:read"},
-  {"id":"file-svr","label":"File Upload","path":"/apps/dwh/filesvr","permission":"documents:read"},
+  {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"report_browser:read"},
+  {"id":"documents","label":"Documents","path":"/apps/dwh/documents","permission":"documents:read"},
   {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
   {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"data_quality:read"}
 ]`
