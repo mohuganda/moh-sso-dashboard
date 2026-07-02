@@ -217,7 +217,7 @@ func buildServices(deps serviceDependencies) services {
 
 	importService := importsvc.NewService(
 		deps.Repositories.Documents,
-		deps.Repositories.DocumentStockImports,
+		deps.Repositories.DocumentTemplateImports,
 		deps.Repositories.Processes,
 		deps.Repositories.DocumentFiles,
 		deps.Repositories.Surveillance.Imports,

@@ -21,10 +21,10 @@ import {
   useLazyDownloadDocumentQuery,
   useDeleteDocumentMutation,
   useReprocessDocumentMutation,
-} from "../../../../store/api/document.api";
-import { useGetUserQuery } from "../../../../store/api/users.api";
-import { selectUser } from "../../../../store/auth/auth.selectors";
-import type { DocumentProcess, DocumentResponse } from "../../../../store/types/documents.types";
+  useGetUserQuery,
+} from "@moh-sso/api";
+import { selectUser } from "@moh-sso/auth";
+import type { DocumentProcess, DocumentResponse } from "@moh-sso/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

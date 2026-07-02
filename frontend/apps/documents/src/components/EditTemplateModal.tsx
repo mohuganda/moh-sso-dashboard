@@ -24,12 +24,12 @@ import {
   useUpdateTemplateMutation,
   useUpdateColumnMutation,
   useReplaceStructureMutation,
-} from "../../../../store/api/document_template.api";
-import { useScanDocumentStructureMutation } from "../../../../store/api/document.api";
+  useScanDocumentStructureMutation,
+} from "@moh-sso/api";
 import type {
   DocumentTemplate,
   TemplateColumnStructure,
-} from "../../../../store/types/document_template.types";
+} from "@moh-sso/types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

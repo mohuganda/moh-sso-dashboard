@@ -22,7 +22,7 @@ import {
 } from "@carbon/react/icons";
 import ExcelJS from "exceljs";
 
-import { useHeaderPanel } from "../../../../components/header-panel/header-panel.context";
+import { useHeaderPanel } from "@moh-sso/ui";
 import { UploadTemplateModal } from "./UploadTemplateModal";
 import { EditTemplateModal } from "./EditTemplateModal";
 import {
@@ -32,10 +32,10 @@ import {
   usePublishTemplateMutation,
   useArchiveTemplateMutation,
   useDeleteTemplateMutation,
-} from "../../../../store/api/document_template.api";
-import { useGetUserQuery } from "../../../../store/api/users.api";
-import { selectUser } from "../../../../store/auth/auth.selectors";
-import type { DocumentTemplate } from "../../../../store/types/document_template.types";
+  useGetUserQuery,
+} from "@moh-sso/api";
+import { selectUser } from "@moh-sso/auth";
+import type { DocumentTemplate, TemplateStructure } from "@moh-sso/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ function formatDateTime(iso?: string): string {
   });
 }
 
-async function downloadTemplateFile(template: DocumentTemplate, structure: import("../../../../store/types/document_template.types").TemplateStructure) {
+async function downloadTemplateFile(template: DocumentTemplate, structure: TemplateStructure) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "MOH SSO Dashboard";
   workbook.created = new Date();

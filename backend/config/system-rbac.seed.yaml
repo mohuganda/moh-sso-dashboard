@@ -155,9 +155,7 @@ realmRoles:
         - '*'
     - name: user
       permissions:
-        - portal:access
-        - systems:read
-        - systems:launch
+        - '*'
     - name: manager
       permissions:
         - portal:access

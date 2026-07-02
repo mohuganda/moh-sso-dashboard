@@ -32,7 +32,7 @@ type repositories struct {
 	Notifications           notificationsRepo.NotificationsRepository
 	NotificationDelivery    notificationDeliveryRepo.NotificationDeliveryRepository
 	Documents               documentRepo.DocumentRepository
-	DocumentStockImports    documentRepo.StockImportRepository
+	DocumentTemplateImports documentRepo.TemplateImportRepository
 	DocumentFiles           documentRepo.FileRepository
 	DocumentTemplates       documentTemplateRepo.DocumentTemplateRepository
 	DocumentTemplateColumns documentTemplateRepo.DocumentTemplateColumnRepository
@@ -66,7 +66,7 @@ func buildRepositories(
 		Notifications:           notificationsRepo.NewNotificationsRepository(store, *appLogger),
 		NotificationDelivery:    notificationDeliveryRepo.NewNotificationDeliveryRepository(store, *appLogger),
 		Documents:               documentRepo.NewDocumentRepository(cfg, store, *appLogger),
-		DocumentStockImports:    documentRepo.NewStockImportRepository(),
+		DocumentTemplateImports: documentRepo.NewTemplateImportRepository(),
 		DocumentFiles:           documentRepo.NewFileRepository(),
 		DocumentTemplates:       documentTemplateRepo.NewDocumentTemplateRepository(store),
 		DocumentTemplateColumns: documentTemplateRepo.NewDocumentTemplateColumnRepository(store),

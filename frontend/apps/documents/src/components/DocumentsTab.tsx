@@ -17,11 +17,10 @@ import {
 } from "@carbon/react";
 import { Upload } from "@carbon/react/icons";
 
-import { EmptyState } from "../../../../components/emptystate/EmptyState";
-import { useHeaderPanel } from "../../../../components/header-panel/header-panel.context";
+import { EmptyState, useHeaderPanel } from "@moh-sso/ui";
 import { UploadDocumentModal } from "./UploadDocumentModal";
-import { useListDocumentsQuery, useGetDocumentStatsQuery } from "../../../../store/api/document.api";
-import type { DocumentResponse } from "../../../../store/types/documents.types";
+import { useListDocumentsQuery, useGetDocumentStatsQuery } from "@moh-sso/api";
+import type { DocumentResponse } from "@moh-sso/types";
 import { DocumentRow } from "./document-row.component";
 
 const TABLE_HEADERS = [

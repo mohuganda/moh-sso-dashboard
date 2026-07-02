@@ -2,8 +2,8 @@ import { Component, type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Breadcrumb, BreadcrumbItem, Tab, TabList, TabPanel, TabPanels, Tabs } from "@carbon/react";
 
-import { TemplatesTab } from "./TemplatesTab";
-import { DocumentsTab } from "./DocumentsTab";
+import { TemplatesTab } from "../../components/TemplatesTab";
+import { DocumentsTab } from "../../components/DocumentsTab";
 
 class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };

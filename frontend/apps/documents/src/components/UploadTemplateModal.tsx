@@ -22,10 +22,10 @@ import {
   useCreateDocumentMutation,
   useListStorageLocationsQuery,
   useLazyParseDocumentStructureQuery,
-} from "../../../../store/api/document.api";
-import { useCreateTemplateStructureMutation } from "../../../../store/api/document_template.api";
-import { selectUser } from "../../../../store/auth/auth.selectors";
-import { formatFileSize } from "../../../../utils/utils";
+  useCreateTemplateStructureMutation,
+} from "@moh-sso/api";
+import { selectUser } from "@moh-sso/auth";
+import { formatFileSize } from "@moh-sso/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
