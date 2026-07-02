@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { SideNav, SideNavItems, SideNavLink, SideNavMenu } from "@carbon/react";
+import { Menu } from "@carbon/react/icons";
 
 import type { Client } from "@moh-sso/types";
 
@@ -249,6 +250,8 @@ type ClientSideNavProps = {
   currentPath: string;
   onNavigate: (path: string) => void;
   hasPermission?: (permission: string) => boolean;
+  visible?: boolean;
+  onToggleVisibility?: () => void;
 };
 
 export function ClientSideNav({
@@ -257,6 +260,8 @@ export function ClientSideNav({
   currentPath,
   onNavigate,
   hasPermission,
+  visible = true,
+  onToggleVisibility,
 }: ClientSideNavProps) {
   const navClients = useMemo(() => {
     return clients
@@ -285,44 +290,75 @@ export function ClientSideNav({
   };
 
   return (
-    <SideNav
-      id="user-sidenav"
-      isFixedNav
-      expanded
-      aria-label="Application navigation"
-      className="moh-client-sidenav"
-    >
-      <SideNavItems>
-        <div className="moh-client-sidenav__header">
-          <span className="moh-client-sidenav__kicker">Applications</span>
-          <span className="moh-client-sidenav__title">Workspace</span>
-        </div>
+    <>
+      {!visible && onToggleVisibility ? (
+        <button
+          type="button"
+          className="moh-client-sidenav__toggle moh-client-sidenav__toggle--rail"
+          aria-label="Show navigation"
+          aria-controls="user-sidenav"
+          aria-expanded={false}
+          onClick={onToggleVisibility}
+        >
+          <Menu size={22} />
+        </button>
+      ) : null}
 
-        {navClients.map(({ client, items }) => {
-          const clientActive =
-            client.clientId === activeClient?.clientId ||
-            items.some((item) => hasActiveChild(item, currentPath));
+      <SideNav
+        id="user-sidenav"
+        isFixedNav
+        expanded
+        aria-hidden={!visible}
+        aria-label="Application navigation"
+        className="moh-client-sidenav"
+      >
+        <SideNavItems>
+          <div className="moh-client-sidenav__header">
+            <div className="moh-client-sidenav__heading">
+              <span className="moh-client-sidenav__kicker">Applications</span>
+              <span className="moh-client-sidenav__title">Workspace</span>
+            </div>
 
-          return (
-            <SideNavMenu
-              key={client.clientId}
-              title={getClientLabel(client)}
-              defaultExpanded={clientActive}
-              isActive={clientActive}
-            >
-              {items.map((item) => (
-                <RenderSideNavItem
-                  key={item.id}
-                  item={item}
-                  currentPath={currentPath}
-                  onNavigate={handleNavigate}
-                />
-              ))}
-            </SideNavMenu>
-          );
-        })}
-      </SideNavItems>
-    </SideNav>
+            {onToggleVisibility ? (
+              <button
+                type="button"
+                className="moh-client-sidenav__toggle"
+                aria-label="Hide navigation"
+                aria-controls="user-sidenav"
+                aria-expanded={visible}
+                onClick={onToggleVisibility}
+              >
+                <Menu size={22} />
+              </button>
+            ) : null}
+          </div>
+
+          {navClients.map(({ client, items }) => {
+            const clientActive =
+              client.clientId === activeClient?.clientId ||
+              items.some((item) => hasActiveChild(item, currentPath));
+
+            return (
+              <SideNavMenu
+                key={client.clientId}
+                title={getClientLabel(client)}
+                defaultExpanded={clientActive}
+                isActive={clientActive}
+              >
+                {items.map((item) => (
+                  <RenderSideNavItem
+                    key={item.id}
+                    item={item}
+                    currentPath={currentPath}
+                    onNavigate={handleNavigate}
+                  />
+                ))}
+              </SideNavMenu>
+            );
+          })}
+        </SideNavItems>
+      </SideNav>
+    </>
   );
 }
 

@@ -279,7 +279,12 @@ function HeaderActions() {
   );
 }
 
-function AdminSideNav({ visible }: { visible: boolean }) {
+type AdminSideNavProps = {
+  visible: boolean;
+  onToggleVisibility: () => void;
+};
+
+function AdminSideNav({ visible, onToggleVisibility }: AdminSideNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { can, canAny } = useAuthorization();
@@ -295,55 +300,83 @@ function AdminSideNav({ visible }: { visible: boolean }) {
   );
 
   return (
-    <SideNav
-      id="admin-sidenav"
-      isFixedNav
-      expanded
-      aria-hidden={!visible}
-      aria-label="Admin navigation"
-      className={`admin-layout__sidenav${visible ? "" : " admin-layout__sidenav--hidden"}`}
-    >
-      <SideNavItems>
-        <div className="admin-layout__sidenav-header">
-          <span className="admin-layout__sidenav-kicker">Administration</span>
-          <span className="admin-layout__sidenav-title">Portal Console</span>
-        </div>
+    <>
+      {!visible ? (
+        <button
+          type="button"
+          className="admin-layout__sidenav-toggle admin-layout__sidenav-toggle--rail"
+          aria-label="Show navigation"
+          aria-controls="admin-sidenav"
+          aria-expanded={false}
+          onClick={onToggleVisibility}
+        >
+          <Menu size={22} />
+        </button>
+      ) : null}
 
-        {ADMIN_NAV_GROUPS.map((group) => {
-          const groupItems = navItems.filter((item) => item.group === group.id);
-
-          if (groupItems.length === 0) {
-            return null;
-          }
-
-          return (
-            <div key={group.id} className="admin-layout__sidenav-group">
-              <div className="admin-layout__sidenav-group-label">{group.label}</div>
-
-              {groupItems.map((item) => {
-                const active = isActiveRoute(location.pathname, item);
-
-                return (
-                  <SideNavLink
-                    key={item.id}
-                    isActive={active}
-                    aria-current={active ? "page" : undefined}
-                    renderIcon={item.icon}
-                    onClick={() => {
-                      if (location.pathname !== item.path) {
-                        navigate(item.path);
-                      }
-                    }}
-                  >
-                    {item.label}
-                  </SideNavLink>
-                );
-              })}
+      <SideNav
+        id="admin-sidenav"
+        isFixedNav
+        expanded
+        aria-hidden={!visible}
+        aria-label="Admin navigation"
+        className={`admin-layout__sidenav${visible ? "" : " admin-layout__sidenav--hidden"}`}
+      >
+        <SideNavItems>
+          <div className="admin-layout__sidenav-header">
+            <div className="admin-layout__sidenav-heading">
+              <span className="admin-layout__sidenav-kicker">Administration</span>
+              <span className="admin-layout__sidenav-title">Portal Console</span>
             </div>
-          );
-        })}
-      </SideNavItems>
-    </SideNav>
+
+            <button
+              type="button"
+              className="admin-layout__sidenav-toggle"
+              aria-label="Hide navigation"
+              aria-controls="admin-sidenav"
+              aria-expanded={visible}
+              onClick={onToggleVisibility}
+            >
+              <Menu size={22} />
+            </button>
+          </div>
+
+          {ADMIN_NAV_GROUPS.map((group) => {
+            const groupItems = navItems.filter((item) => item.group === group.id);
+
+            if (groupItems.length === 0) {
+              return null;
+            }
+
+            return (
+              <div key={group.id} className="admin-layout__sidenav-group">
+                <div className="admin-layout__sidenav-group-label">{group.label}</div>
+
+                {groupItems.map((item) => {
+                  const active = isActiveRoute(location.pathname, item);
+
+                  return (
+                    <SideNavLink
+                      key={item.id}
+                      isActive={active}
+                      aria-current={active ? "page" : undefined}
+                      renderIcon={item.icon}
+                      onClick={() => {
+                        if (location.pathname !== item.path) {
+                          navigate(item.path);
+                        }
+                      }}
+                    >
+                      {item.label}
+                    </SideNavLink>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </SideNavItems>
+      </SideNav>
+    </>
   );
 }
 
@@ -363,17 +396,6 @@ export default function AdminLayout() {
           className={`admin-layout${isSideNavVisible ? "" : " admin-layout--sidenav-hidden"}`}
         >
           <Header aria-label="MOH Integrated Health Portal" className="admin-layout__header">
-            <HeaderGlobalAction
-              aria-label={isSideNavVisible ? "Hide navigation" : "Show navigation"}
-              aria-controls="admin-sidenav"
-              aria-expanded={isSideNavVisible}
-              className="admin-layout__sidenav-toggle"
-              tooltipAlignment="start"
-              onClick={() => setIsSideNavVisible((visible) => !visible)}
-            >
-              <Menu size={22} />
-            </HeaderGlobalAction>
-
             <div className="admin-layout__brand">
               <button
                 type="button"
@@ -403,7 +425,10 @@ export default function AdminLayout() {
             </HeaderGlobalBar>
           </Header>
 
-          <AdminSideNav visible={isSideNavVisible} />
+          <AdminSideNav
+            visible={isSideNavVisible}
+            onToggleVisibility={() => setIsSideNavVisible((visible) => !visible)}
+          />
 
           <div className="admin-layout__content-shell">
             <RouteBreadcrumbBar />

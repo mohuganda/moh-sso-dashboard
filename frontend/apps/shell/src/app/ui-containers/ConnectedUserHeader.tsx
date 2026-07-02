@@ -1,6 +1,5 @@
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import type { ReactNode } from "react";
 
 import { selectUser } from "@moh-sso/auth";
 import { API } from "@moh-sso/config";
@@ -8,11 +7,7 @@ import { UserHeader } from "@moh-sso/ui";
 
 import { ConnectedAppMenu } from "./ConnectedAppMenu";
 
-type ConnectedUserHeaderProps = {
-  navigationToggle?: ReactNode;
-};
-
-export function ConnectedUserHeader({ navigationToggle }: ConnectedUserHeaderProps) {
+export function ConnectedUserHeader() {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
 
@@ -24,7 +19,6 @@ export function ConnectedUserHeader({ navigationToggle }: ConnectedUserHeaderPro
     <UserHeader
       username={user?.username}
       appMenu={<ConnectedAppMenu />}
-      navigationToggle={navigationToggle}
       onNavigateHome={() => navigate("/apps")}
       onLogout={handleLogout}
     />

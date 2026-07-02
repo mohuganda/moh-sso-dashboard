@@ -8,9 +8,15 @@ import { mapAccessibleSystemToClient } from "@/app/access/accessClients";
 
 type ConnectedClientSideNavProps = {
   hasPermission?: (permission: string) => boolean;
+  visible?: boolean;
+  onToggleVisibility?: () => void;
 };
 
-export function ConnectedClientSideNav({ hasPermission }: ConnectedClientSideNavProps) {
+export function ConnectedClientSideNav({
+  hasPermission,
+  visible,
+  onToggleVisibility,
+}: ConnectedClientSideNavProps) {
   const activeClient = useSelector(selectActiveClient);
   const location = useLocation();
   const navigate = useNavigate();
@@ -24,6 +30,8 @@ export function ConnectedClientSideNav({ hasPermission }: ConnectedClientSideNav
       activeClient={activeClient}
       currentPath={location.pathname}
       hasPermission={checkPermission}
+      visible={visible}
+      onToggleVisibility={onToggleVisibility}
       onNavigate={navigate}
     />
   );

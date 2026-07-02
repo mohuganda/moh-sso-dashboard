@@ -1,5 +1,4 @@
-import { Content, HeaderGlobalAction } from "@carbon/react";
-import { Menu } from "@carbon/react/icons";
+import { Content } from "@carbon/react";
 import { Outlet } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 
@@ -44,27 +43,19 @@ export default function UserLayout() {
     window.localStorage.setItem(USER_SIDENAV_STORAGE_KEY, String(isSideNavVisible));
   }, [isSideNavVisible]);
 
-  const navigationToggle = hasSideNav ? (
-    <HeaderGlobalAction
-      aria-label={isSideNavVisible ? "Hide navigation" : "Show navigation"}
-      aria-controls="user-sidenav"
-      aria-expanded={isSideNavVisible}
-      className="user-layout__sidenav-toggle"
-      tooltipAlignment="start"
-      onClick={() => setIsSideNavVisible((visible) => !visible)}
-    >
-      <Menu size={22} />
-    </HeaderGlobalAction>
-  ) : undefined;
-
   return (
     <ToastProvider>
       <HeaderPanelProvider>
         <div className={layoutClassName}>
-          <ConnectedUserHeader navigationToggle={navigationToggle} />
+          <ConnectedUserHeader />
 
           <div className="user-layout__body">
-            {hasSideNav && <ConnectedClientSideNav />}
+            {hasSideNav && (
+              <ConnectedClientSideNav
+                visible={isSideNavVisible}
+                onToggleVisibility={() => setIsSideNavVisible((visible) => !visible)}
+              />
+            )}
 
             <div className="user-layout__content-shell">
               <RouteBreadcrumbBar />
