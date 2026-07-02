@@ -1,12 +1,13 @@
-import { Tile, Stack } from "@carbon/react";
+import { Link, Stack, Tag, Tile } from "@carbon/react";
+import { Attachment, Link as LinkIcon } from "@carbon/react/icons";
 
 import type {
   Announcement,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
-} from "@moh-sso/types";
+} from "../types";
 
-import { useCreateAnnouncementMutation, useUpdateAnnouncementMutation } from "@moh-sso/api";
+import { useCreateAnnouncementMutation, useUpdateAnnouncementMutation } from "../api";
 
 import { AnnouncementForm } from "./announcements-form.component";
 import { AnnouncementAttachments } from "./announcement-attachments.component";
@@ -31,6 +32,9 @@ export function ManageAnnouncementsPanel({
   const [updateAnnouncement, updateState] = useUpdateAnnouncementMutation();
 
   const isSubmitting = createState.isLoading || updateState.isLoading;
+  const attachmentCount = announcement?.attachment_count ?? announcement?.attachments?.length ?? 0;
+  const linkUrl = announcement?.link_url?.trim();
+  const linkLabel = announcement?.link_label?.trim() || "Open related link";
 
   const handleSubmit = async (payload: CreateAnnouncementRequest | UpdateAnnouncementRequest) => {
     try {
@@ -87,6 +91,47 @@ export function ManageAnnouncementsPanel({
           onSubmit={handleSubmit}
           onCancel={onCancel}
         />
+
+        {mode === "edit" && (linkUrl || attachmentCount > 0) ? (
+          <section
+            aria-label="Announcement publishing assets"
+            style={{
+              display: "grid",
+              gap: "0.75rem",
+              padding: "1rem",
+              border: "1px solid var(--cds-border-subtle-01, #e0e0e0)",
+              background: "var(--cds-layer, #ffffff)",
+            }}
+          >
+            <h4 style={{ margin: 0 }}>Publishing assets</h4>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              {linkUrl && (
+                <Tag type="blue" size="sm">
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <LinkIcon size={12} />
+                    Related link
+                  </span>
+                </Tag>
+              )}
+
+              {attachmentCount > 0 && (
+                <Tag type="cyan" size="sm">
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <Attachment size={12} />
+                    {attachmentCount === 1 ? "1 attachment" : `${attachmentCount} attachments`}
+                  </span>
+                </Tag>
+              )}
+            </div>
+
+            {linkUrl && (
+              <Link href={linkUrl} target="_blank" rel="noopener noreferrer">
+                {linkLabel}
+              </Link>
+            )}
+          </section>
+        ) : null}
 
         {mode === "edit" && announcement?.id ? (
           <AnnouncementAttachments announcementId={announcement.id} />

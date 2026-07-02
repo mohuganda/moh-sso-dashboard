@@ -1,6 +1,6 @@
 import { Button } from "@carbon/react";
 
-import type { AuditLog } from "@moh-sso/types";
+import type { AuditLog } from "../types";
 
 type AuditLogBulkActionsProps = {
   logs: AuditLog[];

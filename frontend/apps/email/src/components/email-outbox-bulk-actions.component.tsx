@@ -1,6 +1,6 @@
 import { Button, InlineLoading } from "@carbon/react";
 
-import type { EmailOutboxItem } from "@moh-sso/types";
+import type { EmailOutboxItem } from "../types";
 
 type BulkAction = "retry" | "delete" | null;
 

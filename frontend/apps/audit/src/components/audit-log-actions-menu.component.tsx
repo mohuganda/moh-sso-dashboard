@@ -1,6 +1,6 @@
 import { OverflowMenu, OverflowMenuItem } from "@carbon/react";
 
-import type { AuditLog } from "@moh-sso/types";
+import type { AuditLog } from "../types";
 
 type AuditLogActionsMenuProps = {
   log: AuditLog;

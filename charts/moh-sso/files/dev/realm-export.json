@@ -183,14 +183,14 @@
           "description": "Access MOH Dashboard"
         },
         {
-          "name": "integrated-outbreak-system_access",
+          "name": "outbreak-management_access",
           "description": "Can open IOS from the dashboard"
         }
       ],
-      "integrated-outbreak-system": [
+      "outbreak-management": [
         {
-          "name": "integrated-outbreak-system_access",
-          "description": "Base access to Integrated Outbreak System"
+          "name": "outbreak-management_access",
+          "description": "Base access to Outbreak Management"
         },
         {
           "name": "super_admin",
@@ -221,10 +221,100 @@
           "description": "Surveillance officer with monitoring access"
         }
       ],
-      "report-browser": [
+      "data-statistics": [
         {
-          "name": "report-browser_access",
-          "description": "Access MOH Report browser"
+          "name": "data-statistics_access",
+          "description": "Default access to Data & Statistics",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "data_quality:read",
+              "documents:read",
+              "surveillance:read",
+              "report_browser:read"
+            ]
+          }
+        },
+        {
+          "name": "report_admin",
+          "description": "Report Browser administrator access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read",
+              "audit:read"
+            ]
+          }
+        },
+        {
+          "name": "report_manager",
+          "description": "Report Browser manager access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read"
+            ]
+          }
+        },
+        {
+          "name": "report_analyst",
+          "description": "Report Browser analyst access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "data_quality:read"
+            ]
+          }
+        },
+        {
+          "name": "report_viewer",
+          "description": "Report Browser read-only access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read"
+            ]
+          }
+        }
+      ],
+      "demo-platform-system": [
+        {
+          "name": "demo-platform-system_access",
+          "description": "Development access role for Demo Platform System",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
+        }
+      ],
+      "demo-external-new-tab": [
+        {
+          "name": "demo-external-new-tab_access",
+          "description": "Development access role for External Health System",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
+        }
+      ],
+      "demo-external-same-tab": [
+        {
+          "name": "demo-external-same-tab_access",
+          "description": "Development access role for External Support Portal",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch"
+            ]
+          }
         }
       ]
     }
@@ -244,9 +334,9 @@
       "authorizationServicesEnabled": false
     },
     {
-      "clientId": "integrated-outbreak-system-admin",
-      "name": "Integrated Outbreak System Admin Client",
-      "description": "Admin client for managing Integrated Outbreak System",
+      "clientId": "outbreak-management-admin",
+      "name": "Outbreak Management Admin Client",
+      "description": "Admin client for managing Outbreak Management",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -293,44 +383,21 @@
             "access.token.claim": "true"
           }
         }
-      ]
-    },
-    {
-      "clientId": "report-browser",
-      "name": "Report Browser",
-      "description": "Report Browser Dashboard",
-      "rootUrl": "https://dashboards.health.go.ug/report-browser/",
-      "baseUrl": "https://dashboards.health.go.ug/report-browser/",
-      "enabled": true,
-      "publicClient": false,
-      "protocol": "openid-connect",
-      "secret": "report-browser-secret",
-      "serviceAccountsEnabled": true,
-      "authorizationServicesEnabled": true,
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
-      "redirectUris": [
-        "http://localhost:3001/auth/callback"
-      ],
-      "webOrigins": [
-        "https://dashboards.health.go.ug/report-browser/"
       ],
       "attributes": {
-        "access.token.lifespan": "1800",
-        "ui.icon": "reporting",
-        "ui.home": "/dashboard"
-      },
-      "defaultClientScopes": [
-        "openid",
-        "profile",
-        "email",
-        "roles"
-      ]
+        "portal.system": "true",
+        "portal.accessRoles": "dashboard-web_access",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "http://localhost:3000"
+      }
     },
     {
-      "clientId": "integrated-outbreak-system",
-      "name": "IOS",
-      "description": "Integrated Outbreak System Backend API",
+      "clientId": "outbreak-management",
+      "name": "Outbreak Management",
+      "description": "Outbreak Management Backend API",
       "rootUrl": "http://localhost:3001",
       "baseUrl": "http://localhost:3001",
       "enabled": true,
@@ -349,8 +416,16 @@
       ],
       "attributes": {
         "access.token.lifespan": "1800",
-        "ui.icon": "user",
-        "ui.home": "/dashboard"
+        "ui.icon": "warning-alt",
+        "ui.home": "/portal/apps/outbreak-management",
+        "ui.category": "surveillance",
+        "portal.system": "true",
+        "portal.accessRoles": "outbreak-management_access,viewer,data_entry,surveillance_officer,manager,admin,super_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/outbreak-management"
       },
       "defaultClientScopes": [
         "openid",
@@ -358,6 +433,107 @@
         "email",
         "roles"
       ]
+    },
+    {
+      "clientId": "data-statistics",
+      "name": "Data & Statistics",
+      "description": "Data quality, document upload, reports, and surveillance tools",
+      "rootUrl": "http://localhost:3000/portal/apps/dwh",
+      "baseUrl": "http://localhost:3000/portal/apps/dwh",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "ui.icon": "home",
+        "ui.home": "/portal/apps/dwh",
+        "ui.category": "platform",
+        "portal.system": "true",
+        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/dwh"
+      }
+    },
+    {
+      "clientId": "demo-platform-system",
+      "name": "Demo Platform System",
+      "description": "Development example of an internal platform system with side navigation",
+      "rootUrl": "http://localhost:3000/portal/apps/dwh",
+      "baseUrl": "http://localhost:3000/portal/apps/dwh",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "portal.system": "true",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "true",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/dwh",
+        "ui.home": "/portal/apps/dwh",
+        "ui.icon": "dashboard",
+        "ui.category": "platform",
+        "ui.navigation": "[{\"id\":\"overview\",\"label\":\"Overview\",\"path\":\"/apps/dwh\"},{\"id\":\"reports\",\"label\":\"Reports\",\"path\":\"/apps/dwh/reports\",\"permission\":\"report_browser:read\"}]",
+        "portal.accessRoles": "demo-platform-system_access"
+      }
+    },
+    {
+      "clientId": "demo-external-new-tab",
+      "name": "External Health System",
+      "description": "Development example of a launcher-only external system opening in a new tab",
+      "rootUrl": "https://example.org/external-health-system",
+      "baseUrl": "https://example.org/external-health-system",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "portal.system": "true",
+        "ui.systemType": "external",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "new_tab",
+        "ui.launchUrl": "https://example.org/external-health-system",
+        "ui.home": "https://example.org/external-health-system",
+        "ui.icon": "application",
+        "ui.category": "external",
+        "portal.accessRoles": "demo-external-new-tab_access"
+      }
+    },
+    {
+      "clientId": "demo-external-same-tab",
+      "name": "External Support Portal",
+      "description": "Development example of a launcher-only external system opening in the current tab",
+      "rootUrl": "https://example.org/support",
+      "baseUrl": "https://example.org/support",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "portal.system": "true",
+        "ui.systemType": "external",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "same_tab",
+        "ui.launchUrl": "https://example.org/support",
+        "ui.home": "https://example.org/support",
+        "ui.icon": "help",
+        "ui.category": "support",
+        "portal.accessRoles": "demo-external-same-tab_access"
+      }
     }
   ],
   "users": [
@@ -381,11 +557,11 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access",
+          "outbreak-management_access",
           "report-browser_access"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "super_admin"
         ]
       }
@@ -410,15 +586,17 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access",
+          "outbreak-management_access",
           "report-browser_access"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "viewer"
-        ],
-        "report-browser" : [
-          "report-browser_access"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -442,12 +620,17 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "outbreak-management_access"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "super_admin",
           "admin"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -471,12 +654,17 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "outbreak-management_access"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "super_admin",
           "admin"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -500,10 +688,15 @@
       "clientRoles": {
         "dashboard-web": [
           "dashboard-web_access",
-          "integrated-outbreak-system_access"
+          "outbreak-management_access"
         ],
-        "integrated-outbreak-system": [
+        "outbreak-management": [
           "viewer"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -522,9 +715,9 @@
       }
     },
     {
-      "username": "service-account-integrated-outbreak-system-admin",
+      "username": "service-account-outbreak-management-admin",
       "enabled": true,
-      "serviceAccountClientId": "integrated-outbreak-system-admin",
+      "serviceAccountClientId": "outbreak-management-admin",
       "clientRoles": {
         "realm-management": [
           "realm-admin",
@@ -533,6 +726,48 @@
           "view-clients",
           "manage-clients",
           "view-realm"
+        ]
+      }
+    },
+    {
+      "username": "demo.registry.user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Registry",
+      "lastName": "Demo",
+      "email": "registry.demo@example.org",
+      "attributes": {
+        "access_profile": [
+          "registry-launch-demo"
+        ],
+        "primary_system": [
+          "demo-platform-system"
+        ],
+        "accessible_systems": [
+          "demo-platform-system",
+          "demo-external-new-tab",
+          "demo-external-same-tab"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "demo-platform-system": [
+          "demo-platform-system_access"
+        ],
+        "demo-external-new-tab": [
+          "demo-external-new-tab_access"
+        ],
+        "demo-external-same-tab": [
+          "demo-external-same-tab_access"
         ]
       }
     }

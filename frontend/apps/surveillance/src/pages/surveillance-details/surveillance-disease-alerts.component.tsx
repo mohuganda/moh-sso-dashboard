@@ -9,7 +9,7 @@ import {
   TableCell,
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
-import type { Alert } from "@moh-sso/types";
+import type { Alert } from "../../types";
 
 interface DiseaseAlertsTableProps {
   alerts?: Alert[];

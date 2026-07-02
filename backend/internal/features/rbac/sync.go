@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
+
+	systemrbac "github.com/moh-sso-dashboard/internal/features/system_rbac"
 )
 
 type realmExportFile struct {
@@ -62,7 +65,7 @@ func (s *Service) DriftFromDefaultRealmExport(ctx context.Context) (RbacDriftRep
 }
 
 func (s *Service) DriftFromRealmExport(ctx context.Context, payload []byte) (RbacDriftReport, error) {
-	discovered, err := parseRealmExport(payload)
+	discovered, err := parseRealmExport(payload, s.knownSystemIDs(ctx))
 	if err != nil {
 		return RbacDriftReport{}, err
 	}
@@ -70,7 +73,7 @@ func (s *Service) DriftFromRealmExport(ctx context.Context, payload []byte) (Rba
 }
 
 func (s *Service) PreviewRealmExportSync(ctx context.Context, payload []byte) (SyncPreviewResponse, discoveredRBAC, error) {
-	discovered, err := parseRealmExport(payload)
+	discovered, err := parseRealmExport(payload, s.knownSystemIDs(ctx))
 	if err != nil {
 		return SyncPreviewResponse{}, discoveredRBAC{}, err
 	}
@@ -107,13 +110,18 @@ func (s *Service) ApplyRealmExportSync(ctx context.Context, payload []byte) (Syn
 	for _, system := range discovered.Systems {
 		enabled := system.Enabled
 		if _, err := s.UpsertSystem(ctx, UpsertSystemInput{
-			ClientID:    system.ClientID,
-			DisplayName: system.DisplayName,
-			Description: system.Description,
-			Icon:        system.Icon,
-			LaunchURL:   system.LaunchURL,
-			Category:    system.Category,
-			Enabled:     &enabled,
+			ClientID:          system.ClientID,
+			DisplayName:       system.DisplayName,
+			Description:       system.Description,
+			Icon:              system.Icon,
+			LaunchURL:         system.LaunchURL,
+			Category:          system.Category,
+			Navigation:        system.Navigation,
+			SystemType:        system.SystemType,
+			DisplayInLauncher: boolPointer(system.DisplayInLauncher),
+			DisplayInSideNav:  boolPointer(system.DisplayInSideNav),
+			LaunchMode:        system.LaunchMode,
+			Enabled:           &enabled,
 		}); err != nil {
 			return SyncApplyResponse{}, err
 		}
@@ -132,13 +140,15 @@ func (s *Service) ApplyRealmExportSync(ctx context.Context, payload []byte) (Syn
 				return SyncApplyResponse{}, err
 			}
 			response.RolesSynced++
-			if err := s.repository.AddSystemAccessRole(ctx, system.ClientID, role.Name); err != nil {
-				return SyncApplyResponse{}, err
+			if containsNormalized(system.AccessRoles, role.Name) {
+				if err := s.repository.AddSystemAccessRole(ctx, system.ClientID, role.Name); err != nil {
+					return SyncApplyResponse{}, err
+				}
+				if err := s.recordAudit(ctx, "system.access_role_synced", "system", system.ClientID, system.ClientID, role.Name, "", nil); err != nil {
+					return SyncApplyResponse{}, err
+				}
+				response.AccessRoles++
 			}
-			if err := s.recordAudit(ctx, "system.access_role_synced", "system", system.ClientID, system.ClientID, role.Name, "", nil); err != nil {
-				return SyncApplyResponse{}, err
-			}
-			response.AccessRoles++
 		}
 	}
 
@@ -191,11 +201,12 @@ func (s *Service) buildDriftReport(ctx context.Context, source string, discovere
 			}
 			drift.MissingRolesInRBAC = missingRoleNames(discoveredSystem.Roles, detail.Roles)
 			drift.StaleRolesInRBAC = staleRoleNames(discoveredSystem.Roles, detail.Roles)
-			drift.MissingAccessRoles = missingAccessRoleNames(discoveredSystem.Roles, detail.AccessRoles)
+			drift.MissingAccessRoles = missingConfiguredAccessRoles(discoveredSystem.AccessRoles, detail.AccessRoles)
+			drift.ConfigurationDifferences = systemConfigurationDifferences(discoveredSystem, current)
 			drift.DiscoveredRoleDetails = roleDriftDetails(discoveredSystem.Roles, detail.Roles)
 		} else {
 			drift.MissingRolesInRBAC = discoveredRoleNames(discoveredSystem.Roles)
-			drift.MissingAccessRoles = discoveredRoleNames(discoveredSystem.Roles)
+			drift.MissingAccessRoles = sortedStrings(discoveredSystem.AccessRoles)
 			drift.DiscoveredRoleDetails = roleDriftDetails(discoveredSystem.Roles, nil)
 		}
 		updateSummary(&report.Summary, drift)
@@ -238,7 +249,7 @@ func (s *Service) buildDriftReport(ctx context.Context, source string, discovere
 	return report, nil
 }
 
-func parseRealmExport(payload []byte) (discoveredRBAC, error) {
+func parseRealmExport(payload []byte, knownSystems ...map[string]bool) (discoveredRBAC, error) {
 	var export realmExportFile
 	if err := json.Unmarshal(payload, &export); err != nil {
 		return discoveredRBAC{}, fmt.Errorf("%w: invalid realm export JSON", ErrInvalidInput)
@@ -262,20 +273,38 @@ func parseRealmExport(payload []byte) (discoveredRBAC, error) {
 		if shouldSkipClientID(clientID) {
 			continue
 		}
+		known := len(knownSystems) > 0 && knownSystems[0][clientID]
+		if !attributeBool(client.Attributes, "portal.system", false) && !known {
+			continue
+		}
 		roles := export.Roles.Client[clientID]
 		if len(roles) == 0 && client.ServiceAccountsEnabled && !client.StandardFlowEnabled {
 			continue
 		}
 
+		behavior := systemrbac.NormalizeSystemBehavior(systemrbac.SeedSystem{
+			LaunchURL:         firstNonEmpty(client.Attributes["ui.launchUrl"], client.Attributes["ui.home"], client.BaseURL, client.RootURL),
+			Navigation:        firstNonEmpty(client.Attributes["ui.navigation"], client.Attributes["ui.sidenav"]),
+			SystemType:        client.Attributes["ui.systemType"],
+			DisplayInLauncher: boolAttributePointer(client.Attributes, "ui.displayInLauncher"),
+			DisplayInSideNav:  boolAttributePointer(client.Attributes, "ui.displayInSideNav"),
+			LaunchMode:        client.Attributes["ui.launchMode"],
+		})
 		system := KeycloakDiscoveredSystem{
-			ClientID:    clientID,
-			DisplayName: firstNonEmpty(client.Name, client.Description, clientID),
-			Description: client.Description,
-			Icon:        client.Attributes["ui.icon"],
-			LaunchURL:   firstNonEmpty(client.Attributes["ui.launchUrl"], client.Attributes["ui.home"], client.BaseURL, client.RootURL),
-			Category:    client.Attributes["ui.category"],
-			Enabled:     client.Enabled,
-			Roles:       make([]KeycloakDiscoveredRole, 0, len(roles)),
+			ClientID:          clientID,
+			DisplayName:       firstNonEmpty(client.Name, client.Description, clientID),
+			Description:       client.Description,
+			Icon:              client.Attributes["ui.icon"],
+			LaunchURL:         behavior.LaunchURL,
+			Category:          client.Attributes["ui.category"],
+			Navigation:        behavior.Navigation,
+			SystemType:        behavior.SystemType,
+			DisplayInLauncher: *behavior.DisplayInLauncher,
+			DisplayInSideNav:  *behavior.DisplayInSideNav,
+			LaunchMode:        behavior.LaunchMode,
+			AccessRoles:       splitAttributeList(client.Attributes["portal.accessRoles"]),
+			Enabled:           client.Enabled,
+			Roles:             make([]KeycloakDiscoveredRole, 0, len(roles)),
 		}
 		for _, role := range roles {
 			roleName := normalize(role.Name)
@@ -310,6 +339,60 @@ func shouldSkipClientID(clientID string) bool {
 	}
 	for _, prefix := range []string{"account", "realm-management", "security-admin-console", "admin-cli"} {
 		if strings.HasPrefix(clientID, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) knownSystemIDs(ctx context.Context) map[string]bool {
+	known := map[string]bool{}
+	if s == nil || s.repository == nil {
+		return known
+	}
+	systems, err := s.repository.ListSystems(ctx)
+	if err != nil {
+		return known
+	}
+	for _, system := range systems {
+		known[system.ClientID] = true
+	}
+	return known
+}
+
+func attributeBool(attributes map[string]string, key string, fallback bool) bool {
+	if attributes == nil {
+		return fallback
+	}
+	value, err := strconv.ParseBool(strings.TrimSpace(attributes[key]))
+	if err != nil {
+		return fallback
+	}
+	return value
+}
+
+func boolAttributePointer(attributes map[string]string, key string) *bool {
+	if attributes == nil || strings.TrimSpace(attributes[key]) == "" {
+		return nil
+	}
+	value := attributeBool(attributes, key, false)
+	return &value
+}
+
+func splitAttributeList(value string) []string {
+	values := make([]string, 0)
+	for _, item := range strings.Split(value, ",") {
+		if item = normalize(item); item != "" {
+			values = append(values, item)
+		}
+	}
+	return values
+}
+
+func containsNormalized(values []string, expected string) bool {
+	expected = normalize(expected)
+	for _, value := range values {
+		if normalize(value) == expected {
 			return true
 		}
 	}
@@ -396,6 +479,45 @@ func missingAccessRoleNames(discovered []KeycloakDiscoveredRole, accessRoles []s
 	return missing
 }
 
+func missingConfiguredAccessRoles(discovered []string, accessRoles []string) []string {
+	configured := map[string]bool{}
+	for _, role := range accessRoles {
+		configured[normalize(role)] = true
+	}
+	missing := make([]string, 0)
+	for _, role := range discovered {
+		role = normalize(role)
+		if role != "" && !configured[role] {
+			missing = append(missing, role)
+		}
+	}
+	sort.Strings(missing)
+	return missing
+}
+
+func systemConfigurationDifferences(discovered KeycloakDiscoveredSystem, current System) []string {
+	differences := make([]string, 0)
+	if discovered.SystemType != current.SystemType {
+		differences = append(differences, "systemType")
+	}
+	if discovered.DisplayInLauncher != current.DisplayInLauncher {
+		differences = append(differences, "displayInLauncher")
+	}
+	if discovered.DisplayInSideNav != current.DisplayInSideNav {
+		differences = append(differences, "displayInSideNav")
+	}
+	if discovered.LaunchMode != current.LaunchMode {
+		differences = append(differences, "launchMode")
+	}
+	if strings.TrimSpace(discovered.LaunchURL) != strings.TrimSpace(current.LaunchURL) {
+		differences = append(differences, "launchUrl")
+	}
+	if strings.TrimSpace(discovered.Navigation) != strings.TrimSpace(current.Navigation) {
+		differences = append(differences, "navigation")
+	}
+	return differences
+}
+
 func roleDriftDetails(discovered []KeycloakDiscoveredRole, current []SystemRole) []RbacDriftRole {
 	currentSet := map[string]bool{}
 	for _, role := range current {
@@ -411,7 +533,7 @@ func roleDriftDetails(discovered []KeycloakDiscoveredRole, current []SystemRole)
 
 func updateSummary(summary *RbacDriftSummary, drift RbacDriftSystem) {
 	if drift.KeycloakStatus == "present" && drift.RBACStatus == "present" &&
-		len(drift.MissingRolesInRBAC) == 0 && len(drift.StaleRolesInRBAC) == 0 && len(drift.MissingAccessRoles) == 0 {
+		len(drift.MissingRolesInRBAC) == 0 && len(drift.StaleRolesInRBAC) == 0 && len(drift.MissingAccessRoles) == 0 && len(drift.ConfigurationDifferences) == 0 {
 		summary.SystemsInSync++
 	}
 	if drift.RBACStatus == "missing" {

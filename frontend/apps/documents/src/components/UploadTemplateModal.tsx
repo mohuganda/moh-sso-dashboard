@@ -23,7 +23,7 @@ import {
   useListStorageLocationsQuery,
   useLazyParseDocumentStructureQuery,
   useCreateTemplateStructureMutation,
-} from "@moh-sso/api";
+} from "../api";
 import { selectUser } from "@moh-sso/auth";
 import { formatFileSize } from "@moh-sso/utils";
 

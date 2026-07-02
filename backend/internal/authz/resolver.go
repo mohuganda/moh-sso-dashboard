@@ -15,12 +15,17 @@ type ResolvedAccess struct {
 }
 
 type SystemAccess struct {
-	ClientID    string   `json:"clientId"`
-	DisplayName string   `json:"displayName"`
-	LaunchURL   string   `json:"launchUrl,omitempty"`
-	Icon        string   `json:"icon,omitempty"`
-	Category    string   `json:"category,omitempty"`
-	Roles       []string `json:"roles"`
+	ClientID          string   `json:"clientId"`
+	DisplayName       string   `json:"displayName"`
+	LaunchURL         string   `json:"launchUrl,omitempty"`
+	Icon              string   `json:"icon,omitempty"`
+	Category          string   `json:"category,omitempty"`
+	Navigation        string   `json:"navigation,omitempty"`
+	SystemType        string   `json:"systemType"`
+	DisplayInLauncher bool     `json:"displayInLauncher"`
+	DisplayInSideNav  bool     `json:"displayInSideNav"`
+	LaunchMode        string   `json:"launchMode"`
+	Roles             []string `json:"roles"`
 }
 
 type StaticResolver struct{}
@@ -34,9 +39,10 @@ func (StaticResolver) Resolve(
 	realmRoles []string,
 	clientRoles map[string][]string,
 ) (ResolvedAccess, error) {
+	effectiveClientRoles := clientRolesWithRealmDefaults(realmRoles, clientRoles)
 	return ResolvedAccess{
-		Permissions: PermissionsForContext(realmRoles, clientRoles),
-		Systems:     AccessibleSystemDetailsForContext(clientRoles),
+		Permissions: PermissionsForContext(realmRoles, effectiveClientRoles),
+		Systems:     AccessibleSystemDetailsForContext(effectiveClientRoles),
 	}, nil
 }
 
@@ -89,7 +95,9 @@ func ResolveAccess(
 	if err != nil {
 		return ResolvedAccess{
 			Permissions: PermissionsForContext(realmRoles, clientRoles),
-			Systems:     AccessibleSystemDetailsForContext(clientRoles),
+			Systems: AccessibleSystemDetailsForContext(
+				clientRolesWithRealmDefaults(realmRoles, clientRoles),
+			),
 		}
 	}
 

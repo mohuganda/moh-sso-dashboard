@@ -28,6 +28,21 @@ func TestUserRoleGetsReadOnlyPortalPermissions(t *testing.T) {
 	if ctx.HasPermission(PermissionDocumentsWrite) {
 		t.Fatal("did not expect user to have documents:write permission")
 	}
+	for _, system := range []string{SystemDataStatistics, SystemUtilities, SystemSettings} {
+		if !ctx.HasSystem(system) {
+			t.Fatalf("expected user realm role to have default access to %s", system)
+		}
+	}
+	for _, permission := range []Permission{
+		PermissionDataQualityRead,
+		PermissionDocumentsRead,
+		PermissionSurveillanceRead,
+		PermissionReportBrowserRead,
+	} {
+		if !ctx.HasPermission(permission) {
+			t.Fatalf("expected user realm role to have %s", permission)
+		}
+	}
 }
 
 func TestSpecializedRolesGetScopedPermissions(t *testing.T) {
@@ -54,25 +69,25 @@ func TestDashboardWebAccessGetsPortalPermissions(t *testing.T) {
 	}
 }
 
-func TestIntegratedOutbreakViewerGetsReadOnlyPermissions(t *testing.T) {
+func TestOutbreakManagementViewerGetsReadOnlyPermissions(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
-		SystemIntegratedOutbreak: {IntegratedOutbreakViewer},
+		SystemOutbreakManagement: {OutbreakManagementViewer},
 	})
 
 	if !ctx.HasPermission(PermissionSurveillanceRead) {
-		t.Fatal("expected IOS viewer to have surveillance read")
+		t.Fatal("expected Outbreak Management viewer to have surveillance read")
 	}
 	if ctx.HasPermission(PermissionSurveillanceImport) {
-		t.Fatal("did not expect IOS viewer to have surveillance import")
+		t.Fatal("did not expect Outbreak Management viewer to have surveillance import")
 	}
-	if !ctx.HasSystem(SystemIntegratedOutbreak) {
-		t.Fatal("expected integrated outbreak system to be accessible")
+	if !ctx.HasSystem(SystemOutbreakManagement) {
+		t.Fatal("expected outbreak management to be accessible")
 	}
 }
 
-func TestIntegratedOutbreakSuperAdminGetsElevatedPermissions(t *testing.T) {
+func TestOutbreakManagementSuperAdminGetsElevatedPermissions(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
-		SystemIntegratedOutbreak: {IntegratedOutbreakSuperAdmin},
+		SystemOutbreakManagement: {OutbreakManagementSuperAdmin},
 	})
 
 	for _, permission := range []Permission{
@@ -82,21 +97,21 @@ func TestIntegratedOutbreakSuperAdminGetsElevatedPermissions(t *testing.T) {
 		PermissionDocumentsProcess,
 	} {
 		if !ctx.HasPermission(permission) {
-			t.Fatalf("expected IOS super admin to have %s", permission)
+			t.Fatalf("expected Outbreak Management super admin to have %s", permission)
 		}
 	}
 }
 
-func TestReportBrowserAccessGetsReportBrowserPermission(t *testing.T) {
+func TestDataStatisticsAccessGetsReportBrowserPermission(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
-		SystemReportBrowser: {ReportBrowserAccess},
+		SystemDataStatistics: {DataStatisticsAccess},
 	})
 
 	if !ctx.HasPermission(PermissionReportBrowserRead) {
-		t.Fatal("expected report browser access to grant report browser read")
+		t.Fatal("expected Data & Statistics access to grant report browser read")
 	}
-	if !ctx.HasSystem(SystemReportBrowser) {
-		t.Fatal("expected report browser to be accessible")
+	if !ctx.HasSystem(SystemDataStatistics) {
+		t.Fatal("expected Data & Statistics to be accessible")
 	}
 }
 
@@ -108,19 +123,19 @@ func TestDashboardRoleDoesNotExposeOtherSystems(t *testing.T) {
 	if !ctx.HasSystem(SystemDashboardWeb) {
 		t.Fatal("expected dashboard web to be accessible")
 	}
-	if ctx.HasSystem(SystemIntegratedOutbreak) {
-		t.Fatal("did not expect dashboard web role to expose integrated outbreak system")
+	if ctx.HasSystem(SystemOutbreakManagement) {
+		t.Fatal("did not expect dashboard web role to expose outbreak management")
 	}
 }
 
 func TestSystemClientRolesExposeEachSystemDifferently(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
 		SystemDashboardWeb:       {DashboardWebManager},
-		SystemIntegratedOutbreak: {IntegratedOutbreakSurveillanceOfficer},
-		SystemReportBrowser:      {ReportBrowserAnalyst},
+		SystemOutbreakManagement: {OutbreakManagementSurveillanceOfficer},
+		SystemDataStatistics:     {ReportBrowserAnalyst},
 	})
 
-	for _, system := range []string{SystemDashboardWeb, SystemIntegratedOutbreak, SystemReportBrowser} {
+	for _, system := range []string{SystemDashboardWeb, SystemOutbreakManagement, SystemDataStatistics} {
 		if !ctx.HasSystem(system) {
 			t.Fatalf("expected %s to be accessible", system)
 		}

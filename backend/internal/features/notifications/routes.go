@@ -17,8 +17,23 @@ func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler, limiter *rate
 		notifications.GET("/count", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.CountNotifications)
 		notifications.GET("/count/unread", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.CountUnreadNotificationsCount)
 		notifications.DELETE("/cleanup", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.DeleteOldNotifications)
+		notifications.GET("/deliveries", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.ListAllNotificationDeliveries)
+		notifications.GET("/deliveries/metrics", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.ListNotificationDeliveryMetrics)
+		notifications.GET("/deliveries/:deliveryID", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.GetNotificationDelivery)
+		notifications.POST("/deliveries/:deliveryID/retry", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.RetryNotificationDelivery)
+		notifications.POST("/deliveries/:deliveryID/cancel", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.CancelNotificationDelivery)
+		notifications.POST("/test-sms", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.TestSMS)
+		notifications.GET("/:id/deliveries", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.ListNotificationDeliveries)
 		notifications.GET("/:id", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.GetNotificationByID)
 		notifications.PATCH("/:id/read", middleware.RequirePermission(authz.PermissionNotificationsRead), handler.MarkNotificationAsRead)
 		notifications.DELETE("/:id", middleware.RequirePermission(authz.PermissionNotificationsWrite), writeLimit, handler.DeleteNotification)
+	}
+}
+
+func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
+	notifications := protected.Group("/notifications")
+	{
+		notifications.GET("/preferences", handler.GetNotificationPreferences)
+		notifications.PUT("/preferences", handler.UpdateNotificationPreferences)
 	}
 }

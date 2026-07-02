@@ -25,8 +25,8 @@ import {
   useToast,
 } from "@moh-sso/ui";
 
-import { buildAuditExportUrl, useListAuditLogsQuery } from "@moh-sso/api";
-import type { AuditFilters, AuditLog, Cursor } from "@moh-sso/types";
+import { buildAuditExportUrl, useListAuditActionsQuery, useListAuditLogsQuery } from "../api";
+import type { AuditFilters, AuditLog, Cursor } from "../types";
 import { AuditLogBulkActions } from "../components/audit-log-bulk-actions.component";
 import { AuditLogActionsMenu } from "../components/audit-log-actions-menu.component";
 
@@ -78,6 +78,16 @@ function getAuditClient(log: AuditLog) {
   return log.clientId || (typeof log.metadata?.client_id === "string" ? log.metadata.client_id : "—");
 }
 
+function getAuditModule(log: AuditLog) {
+  const metadataModule = log.metadata?.module;
+  if (typeof metadataModule === "string" && metadataModule.trim()) {
+    return metadataModule.trim();
+  }
+
+  const [module] = log.action.split(/[.:_]/);
+  return module || "platform";
+}
+
 function getAuditIp(log: AuditLog) {
   return log.ip || (typeof log.metadata?.ip === "string" ? log.metadata.ip : "—");
 }
@@ -122,6 +132,27 @@ function exportAuditLogsJson(logs: AuditLog[]) {
   downloadFile("audit-logs.json", JSON.stringify(logs, null, 2), "application/json;charset=utf-8");
 }
 
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== "object") {
+    return fallback;
+  }
+
+  const maybeError = error as {
+    data?: {
+      message?: unknown;
+      error?: {
+        message?: unknown;
+      };
+    };
+    error?: unknown;
+  };
+
+  if (typeof maybeError.data?.message === "string") return maybeError.data.message;
+  if (typeof maybeError.data?.error?.message === "string") return maybeError.data.error.message;
+  if (typeof maybeError.error === "string") return maybeError.error;
+  return fallback;
+}
+
 export default function AuditLogs() {
   const now = new Date();
   const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -135,6 +166,8 @@ export default function AuditLogs() {
   const [from, setFrom] = useState(toRFC3339(start));
   const [to, setTo] = useState(toRFC3339(now));
   const [action, setAction] = useState<string>();
+  const [actor, setActor] = useState<string>();
+  const [module, setModule] = useState<string>();
   const [clientId, setClientId] = useState<string>();
   const [success, setSuccess] = useState<SuccessFilter>();
   const [userId, setUserId] = useState<string>();
@@ -177,6 +210,7 @@ export default function AuditLogs() {
       skip: !from || !to,
     },
   );
+  const { data: actionCatalog } = useListAuditActionsQuery();
 
   /* -----------------------------
    * Append cursor data
@@ -208,12 +242,42 @@ export default function AuditLogs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, action, clientId, userId, ip, success]);
 
+  const actionOptions = useMemo(
+    () => Array.from(new Set([...(actionCatalog?.actions ?? []), ...items.map((log) => log.action)])).sort(),
+    [actionCatalog?.actions, items],
+  );
+
+  const moduleOptions = useMemo(
+    () => Array.from(new Set(items.map(getAuditModule))).filter(Boolean).sort(),
+    [items],
+  );
+
+  const visibleItems = useMemo(() => {
+    const actorQuery = actor?.trim().toLowerCase();
+    const moduleQuery = module?.trim().toLowerCase();
+
+    return items.filter((log) => {
+      if (actorQuery) {
+        const actorText = `${log.username ?? ""} ${log.userId ?? ""}`.toLowerCase();
+        if (!actorText.includes(actorQuery)) {
+          return false;
+        }
+      }
+
+      if (moduleQuery && !getAuditModule(log).toLowerCase().includes(moduleQuery)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [actor, items, module]);
+
   /* -----------------------------
    * Rows
    * ----------------------------- */
   const rows = useMemo(
     () =>
-      items.map((log) => ({
+      visibleItems.map((log) => ({
         id: log.id,
         shortId: log.id.slice(0, 8),
         time: getAuditLogTime(log),
@@ -225,11 +289,13 @@ export default function AuditLogs() {
         actions: "",
         raw: log,
       })),
-    [items],
+    [visibleItems],
   );
 
   function clearFilters() {
     setAction(undefined);
+    setActor(undefined);
+    setModule(undefined);
     setClientId(undefined);
     setUserId(undefined);
     setIp(undefined);
@@ -294,7 +360,7 @@ export default function AuditLogs() {
         isError ? (
           <ErrorState
             title="Failed to load audit logs"
-            description={(error as any)?.data?.message ?? "Failed to load audit logs"}
+            description={getApiErrorMessage(error, "Failed to load audit logs")}
             primaryAction={{
               label: "Retry",
               onClick: refetch,
@@ -306,13 +372,19 @@ export default function AuditLogs() {
       filters={
         <AuditLogFilters
           action={action}
+          actor={actor}
+          module={module}
           clientId={clientId}
           userId={userId}
           ip={ip}
           success={success}
+          actionOptions={actionOptions}
+          moduleOptions={moduleOptions}
           onFromChange={setFrom}
           onToChange={setTo}
           onActionChange={setAction}
+          onActorChange={setActor}
+          onModuleChange={setModule}
           onClientChange={setClientId}
           onUserChange={setUserId}
           onIpChange={setIp}
@@ -327,108 +399,114 @@ export default function AuditLogs() {
     >
       {({ rows, headers }) => (
         <>
-            <DataTable rows={rows} headers={headers}>
-              {({
-                rows,
-                headers,
-                getHeaderProps,
-                getRowProps,
-                getSelectionProps,
-                selectedRows,
-              }) => {
-                const selectedLogs = selectedRows.map(
-                  (row) => row.cells.find((cell) => cell.info.header === "raw")?.value as AuditLog,
-                );
+          <DataTable rows={rows} headers={headers}>
+            {({
+              rows,
+              headers,
+              getHeaderProps,
+              getRowProps,
+              getSelectionProps,
+              selectedRows,
+            }) => {
+              const selectedLogs = selectedRows.map(
+                (row) => row.cells.find((cell) => cell.info.header === "raw")?.value as AuditLog,
+              );
 
-                return (
-                  <>
-                    <AuditLogBulkActions
-                      logs={selectedLogs}
-                      onExportCsv={() => handleExportCsv(selectedLogs)}
-                      onExportJson={() => handleExportJson(selectedLogs)}
-                    />
+              return (
+                <>
+                  <AuditLogBulkActions
+                    logs={selectedLogs}
+                    onExportCsv={() => handleExportCsv(selectedLogs)}
+                    onExportJson={() => handleExportJson(selectedLogs)}
+                  />
 
-                    <Table size="lg">
-                      <TableHead>
-                        <TableRow>
-                          <TableSelectAll {...getSelectionProps()} />
+                  <Table size="lg">
+                    <TableHead>
+                      <TableRow>
+                        <TableSelectAll {...getSelectionProps()} />
 
-                          {headers
-                            .filter((header) => header.key !== "raw")
-                            .map((header) => (
-                              <TableHeader {...getHeaderProps({ header })}>
+                        {headers
+                          .filter((header) => header.key !== "raw")
+                          .map((header) => {
+                            const { key, ...headerProps } = getHeaderProps({ header });
+
+                            return (
+                              <TableHeader key={key} {...headerProps}>
                                 {header.header}
                               </TableHeader>
-                            ))}
-                        </TableRow>
-                      </TableHead>
+                            );
+                          })}
+                      </TableRow>
+                    </TableHead>
 
-                      <TableBody>
-                        {rows.map((row) => {
-                          const raw = row.cells.find((cell) => cell.info.header === "raw")
-                            ?.value as AuditLog;
+                    <TableBody>
+                      {rows.map((row) => {
+                        const raw = row.cells.find((cell) => cell.info.header === "raw")
+                          ?.value as AuditLog;
 
-                          return (
-                            <TableRow {...getRowProps({ row })}>
-                              <TableSelectRow {...getSelectionProps({ row })} />
+                        const { key, ...rowProps } = getRowProps({ row });
 
-                              {row.cells.map((cell) => {
-                                if (cell.info.header === "raw") return null;
+                        return (
+                          <TableRow key={key} {...rowProps}>
+                            <TableSelectRow {...getSelectionProps({ row })} />
 
-                                if (cell.info.header === "result") {
-                                  return (
-                                    <TableCell key={cell.id}>
-                                      <TableStatusTag
-                                        status={String(cell.value)}
-                                        kind={
-                                          cell.value === "success"
-                                            ? "green"
-                                            : cell.value === "failure"
-                                              ? "red"
-                                              : "gray"
-                                        }
+                            {row.cells.map((cell) => {
+                              if (cell.info.header === "raw") return null;
+
+                              if (cell.info.header === "result") {
+                                return (
+                                  <TableCell key={cell.id}>
+                                    <TableStatusTag
+                                      status={String(cell.value)}
+                                      kind={
+                                        cell.value === "success"
+                                          ? "green"
+                                          : cell.value === "failure"
+                                            ? "red"
+                                            : "gray"
+                                      }
+                                    />
+                                  </TableCell>
+                                );
+                              }
+
+                              if (cell.info.header === "actions") {
+                                return (
+                                  <RowActionsCell key={cell.id}>
+                                    {row.isSelected && (
+                                      <AuditLogActionsMenu
+                                        log={raw}
+                                        onView={() => handleView(raw)}
                                       />
-                                    </TableCell>
-                                  );
-                                }
+                                    )}
+                                  </RowActionsCell>
+                                );
+                              }
 
-                                if (cell.info.header === "actions") {
-                                  return (
-                                    <RowActionsCell key={cell.id}>
-                                      {row.isSelected && (
-                                        <AuditLogActionsMenu
-                                          log={raw}
-                                          onView={() => handleView(raw)}
-                                        />
-                                      )}
-                                    </RowActionsCell>
-                                  );
-                                }
+                              return <TableCell key={cell.id}>{cell.value || "—"}</TableCell>;
+                            })}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </>
+              );
+            }}
+          </DataTable>
 
-                                return <TableCell key={cell.id}>{cell.value || "—"}</TableCell>;
-                              })}
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </>
-                );
-              }}
-            </DataTable>
-
-            {hasMore && (
-              <div style={{ textAlign: "center", padding: 16 }}>
-                <Button
-                  kind="secondary"
-                  disabled={isFetching || !nextCursor?.cursor_id || !nextCursor?.cursor_created_at}
-                  onClick={() => setActiveCursor(nextCursor)}
-                >
-                  {isFetching ? "Loading…" : "Load more"}
-                </Button>
-              </div>
-            )}
-          </>
+          {hasMore && (
+            <div style={{ textAlign: "center", padding: 16 }}>
+              <Button
+                kind="secondary"
+                disabled={isFetching || !nextCursor?.cursor_id || !nextCursor?.cursor_created_at}
+                onClick={() => setActiveCursor(nextCursor)}
+              >
+                {isFetching ? "Loading…" : "Load more"}
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </DataTableShell>
   );

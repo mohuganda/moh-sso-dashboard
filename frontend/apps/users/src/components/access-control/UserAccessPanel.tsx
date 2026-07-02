@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   useGetUserAccessProfileQuery,
   useUpdateUserAccessMutation,
-} from "@moh-sso/api";
-import type { RbacAssignableSystemAccess, RbacPermission } from "@moh-sso/types";
+} from "@moh-sso/rbac/api";
+import type { RbacAssignableSystemAccess, RbacPermission } from "@moh-sso/rbac/types";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
 
 type Props = {

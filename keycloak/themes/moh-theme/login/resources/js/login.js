@@ -1,12 +1,21 @@
-document.addEventListener("DOMContentLoaded", function () {
-  const toggle = document.querySelector("[data-password-toggle]");
-  const password = document.getElementById("password");
+document.addEventListener("click", function (event) {
+  const toggle = event.target.closest("[data-password-toggle]");
 
-  if (toggle && password) {
-    toggle.addEventListener("click", function () {
-      const isPassword = password.getAttribute("type") === "password";
-      password.setAttribute("type", isPassword ? "text" : "password");
-      toggle.textContent = isPassword ? "Hide" : "Show";
-    });
+  if (!toggle) {
+    return;
   }
+
+  event.preventDefault();
+
+  const targetId = toggle.getAttribute("data-password-target") || "password";
+  const password = document.getElementById(targetId);
+
+  if (!password) {
+    return;
+  }
+
+  const isPassword = password.getAttribute("type") === "password";
+  password.setAttribute("type", isPassword ? "text" : "password");
+  toggle.textContent = isPassword ? "Hide" : "Show";
+  toggle.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
 });

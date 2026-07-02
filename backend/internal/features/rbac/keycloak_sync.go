@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	systemrbac "github.com/moh-sso-dashboard/internal/features/system_rbac"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	"github.com/moh-sso-dashboard/internal/model"
 )
@@ -15,14 +16,22 @@ type KeycloakSyncSource interface {
 	ListClients() ([]keycloak.ClientInfo, error)
 	ListRealmRoles(ctx context.Context) ([]keycloak.RoleRep, error)
 	ListClientRoles(ctx context.Context, clientID string) ([]keycloak.ClientRoleRep, error)
+	CreateClient(opts keycloak.CreateClientParams) (string, error)
 	CreateRealmRole(ctx context.Context, roleName string, description string) error
 	CreateClientRole(ctx context.Context, clientID string, req *model.CreateClientRoleRequest) error
+	EnsureRealmRoleClientRoleComposite(ctx context.Context, realmRole string, clientID string, roleName string) error
 }
 
 type KeycloakPushResult struct {
+	ClientsCreated     int      `json:"clientsCreated"`
 	RealmRolesCreated  int      `json:"realmRolesCreated"`
 	ClientRolesCreated int      `json:"clientRolesCreated"`
+	CompositesSynced   int      `json:"compositesSynced"`
 	Warnings           []string `json:"warnings,omitempty"`
+}
+
+type keycloakPortalAttributeUpdater interface {
+	UpdateClientPortalAttributes(ctx context.Context, clientID string, attributes map[string]string) error
 }
 
 func (s *Service) ApplyRealmExportFileSync(ctx context.Context, path string) (SyncApplyResponse, error) {
@@ -60,7 +69,7 @@ func (s *Service) ApplyLiveKeycloakSync(ctx context.Context, source KeycloakSync
 		return SyncApplyResponse{}, fmt.Errorf("%w: keycloak source is required", ErrInvalidInput)
 	}
 
-	discovered, warnings, err := discoverLiveKeycloakRBAC(ctx, source)
+	discovered, warnings, err := discoverLiveKeycloakRBAC(ctx, source, s.knownSystemIDs(ctx))
 	if err != nil {
 		return SyncApplyResponse{}, err
 	}
@@ -84,7 +93,7 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 		return KeycloakPushResult{}, fmt.Errorf("%w: keycloak source is required", ErrInvalidInput)
 	}
 
-	discovered, warnings, err := discoverLiveKeycloakRBAC(ctx, source)
+	discovered, warnings, err := discoverLiveKeycloakRBAC(ctx, source, s.knownSystemIDs(ctx))
 	if err != nil {
 		return KeycloakPushResult{}, err
 	}
@@ -105,16 +114,45 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 		if clientID == "" {
 			continue
 		}
-
-		discoveredSystem, ok := discoveredSystems[clientID]
-		if !ok {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("system %q exists in RBAC but not Keycloak; client creation is intentionally not automatic", clientID))
-			continue
-		}
-
 		detail, err := s.repository.GetSystem(ctx, clientID)
 		if err != nil {
 			return KeycloakPushResult{}, err
+		}
+
+		attributes := map[string]string{
+			"ui.icon":              system.Icon,
+			"ui.home":              system.LaunchURL,
+			"ui.launchUrl":         system.LaunchURL,
+			"ui.category":          system.Category,
+			"ui.navigation":        system.Navigation,
+			"ui.sidenav":           system.Navigation,
+			"ui.systemType":        system.SystemType,
+			"ui.displayInLauncher": fmt.Sprintf("%t", system.DisplayInLauncher),
+			"ui.displayInSideNav":  fmt.Sprintf("%t", system.DisplayInSideNav),
+			"ui.launchMode":        system.LaunchMode,
+			"portal.system":        "true",
+			"portal.accessRoles":   strings.Join(detail.AccessRoles, ","),
+		}
+		discoveredSystem, ok := discoveredSystems[clientID]
+		if !ok {
+			if _, err := source.CreateClient(keycloak.CreateClientParams{
+				ClientID:    clientID,
+				Name:        system.DisplayName,
+				Description: system.Description,
+				BaseURL:     system.LaunchURL,
+				RootURL:     system.LaunchURL,
+				Enabled:     system.Enabled,
+				Attributes:  attributes,
+			}); err != nil {
+				return KeycloakPushResult{}, fmt.Errorf("create keycloak client %q: %w", clientID, err)
+			}
+			result.ClientsCreated++
+			discoveredSystem = KeycloakDiscoveredSystem{ClientID: clientID}
+		}
+		if updater, ok := source.(keycloakPortalAttributeUpdater); ok {
+			if err := updater.UpdateClientPortalAttributes(ctx, clientID, attributes); err != nil {
+				return KeycloakPushResult{}, fmt.Errorf("update keycloak client %q portal attributes: %w", clientID, err)
+			}
 		}
 
 		keycloakRoles := map[string]bool{}
@@ -158,10 +196,34 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 		result.RealmRolesCreated++
 	}
 
+	realmSystemRoles, err := s.repository.ListRealmRoleSystemRoles(ctx)
+	if err != nil {
+		return KeycloakPushResult{}, err
+	}
+	for _, mapping := range realmSystemRoles {
+		if err := source.EnsureRealmRoleClientRoleComposite(
+			ctx,
+			mapping.RealmRole,
+			mapping.ClientID,
+			mapping.RoleName,
+		); err != nil {
+			return KeycloakPushResult{}, fmt.Errorf(
+				"sync realm role %q composite %q/%q: %w",
+				mapping.RealmRole,
+				mapping.ClientID,
+				mapping.RoleName,
+				err,
+			)
+		}
+		result.CompositesSynced++
+	}
+
 	sort.Strings(result.Warnings)
 	if err := s.recordAudit(ctx, "rbac.keycloak_push_applied", "sync", "live-keycloak", "", "", "", map[string]any{
+		"clients_created":      result.ClientsCreated,
 		"realm_roles_created":  result.RealmRolesCreated,
 		"client_roles_created": result.ClientRolesCreated,
+		"composites_synced":    result.CompositesSynced,
 		"warnings":             result.Warnings,
 	}); err != nil {
 		return KeycloakPushResult{}, err
@@ -199,13 +261,18 @@ func (s *Service) applyDiscoveredSync(ctx context.Context, preview SyncPreviewRe
 	for _, system := range discovered.Systems {
 		enabled := system.Enabled
 		if _, err := s.UpsertSystem(ctx, UpsertSystemInput{
-			ClientID:    system.ClientID,
-			DisplayName: system.DisplayName,
-			Description: system.Description,
-			Icon:        system.Icon,
-			LaunchURL:   system.LaunchURL,
-			Category:    system.Category,
-			Enabled:     &enabled,
+			ClientID:          system.ClientID,
+			DisplayName:       system.DisplayName,
+			Description:       system.Description,
+			Icon:              system.Icon,
+			LaunchURL:         system.LaunchURL,
+			Category:          system.Category,
+			Navigation:        system.Navigation,
+			SystemType:        system.SystemType,
+			DisplayInLauncher: boolPointer(system.DisplayInLauncher),
+			DisplayInSideNav:  boolPointer(system.DisplayInSideNav),
+			LaunchMode:        system.LaunchMode,
+			Enabled:           &enabled,
 		}); err != nil {
 			return SyncApplyResponse{}, err
 		}
@@ -224,13 +291,15 @@ func (s *Service) applyDiscoveredSync(ctx context.Context, preview SyncPreviewRe
 				return SyncApplyResponse{}, err
 			}
 			response.RolesSynced++
-			if err := s.repository.AddSystemAccessRole(ctx, system.ClientID, role.Name); err != nil {
-				return SyncApplyResponse{}, err
+			if containsNormalized(system.AccessRoles, role.Name) {
+				if err := s.repository.AddSystemAccessRole(ctx, system.ClientID, role.Name); err != nil {
+					return SyncApplyResponse{}, err
+				}
+				if err := s.recordAudit(ctx, "system.access_role_synced", "system", system.ClientID, system.ClientID, role.Name, "", map[string]any{"source": source}); err != nil {
+					return SyncApplyResponse{}, err
+				}
+				response.AccessRoles++
 			}
-			if err := s.recordAudit(ctx, "system.access_role_synced", "system", system.ClientID, system.ClientID, role.Name, "", map[string]any{"source": source}); err != nil {
-				return SyncApplyResponse{}, err
-			}
-			response.AccessRoles++
 		}
 	}
 
@@ -240,7 +309,11 @@ func (s *Service) applyDiscoveredSync(ctx context.Context, preview SyncPreviewRe
 	return response, nil
 }
 
-func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource) (discoveredRBAC, []string, error) {
+func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource, knownSystemSets ...map[string]bool) (discoveredRBAC, []string, error) {
+	knownSystems := map[string]bool{}
+	if len(knownSystemSets) > 0 {
+		knownSystems = knownSystemSets[0]
+	}
 	clients, err := source.ListClients()
 	if err != nil {
 		return discoveredRBAC{}, nil, fmt.Errorf("list keycloak clients: %w", err)
@@ -270,6 +343,9 @@ func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource) (d
 		if shouldSkipClientID(clientID) {
 			continue
 		}
+		if !attributeBool(client.Attributes, "portal.system", false) && !knownSystems[clientID] {
+			continue
+		}
 
 		roles, err := source.ListClientRoles(ctx, clientID)
 		if err != nil {
@@ -281,15 +357,29 @@ func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource) (d
 			continue
 		}
 
+		behavior := systemrbac.NormalizeSystemBehavior(systemrbac.SeedSystem{
+			LaunchURL:         firstNonEmpty(client.Attributes["ui.launchUrl"], client.Attributes["ui.home"], client.BaseURL, client.RootURL),
+			Navigation:        firstNonEmpty(client.Attributes["ui.navigation"], client.Attributes["ui.sidenav"]),
+			SystemType:        client.Attributes["ui.systemType"],
+			DisplayInLauncher: boolAttributePointer(client.Attributes, "ui.displayInLauncher"),
+			DisplayInSideNav:  boolAttributePointer(client.Attributes, "ui.displayInSideNav"),
+			LaunchMode:        client.Attributes["ui.launchMode"],
+		})
 		system := KeycloakDiscoveredSystem{
-			ClientID:    clientID,
-			DisplayName: firstNonEmpty(client.Name, client.Description, clientID),
-			Description: client.Description,
-			Icon:        client.Attributes["ui.icon"],
-			LaunchURL:   firstNonEmpty(client.Attributes["ui.launchUrl"], client.Attributes["ui.home"], client.BaseURL, client.RootURL),
-			Category:    client.Attributes["ui.category"],
-			Enabled:     client.Enabled,
-			Roles:       make([]KeycloakDiscoveredRole, 0, len(roles)),
+			ClientID:          clientID,
+			DisplayName:       firstNonEmpty(client.Name, client.Description, clientID),
+			Description:       client.Description,
+			Icon:              client.Attributes["ui.icon"],
+			LaunchURL:         behavior.LaunchURL,
+			Category:          client.Attributes["ui.category"],
+			Navigation:        behavior.Navigation,
+			SystemType:        behavior.SystemType,
+			DisplayInLauncher: *behavior.DisplayInLauncher,
+			DisplayInSideNav:  *behavior.DisplayInSideNav,
+			LaunchMode:        behavior.LaunchMode,
+			AccessRoles:       splitAttributeList(client.Attributes["portal.accessRoles"]),
+			Enabled:           client.Enabled,
+			Roles:             make([]KeycloakDiscoveredRole, 0, len(roles)),
 		}
 		for _, role := range roles {
 			roleName := normalize(role.Name)

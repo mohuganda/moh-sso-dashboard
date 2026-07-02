@@ -81,7 +81,8 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 	rateLimits := deps.RateLimits.withDefaults()
 
 	r := gin.New()
-	r.Use(gin.Logger())
+	r.Use(middleware.RequestContext())
+	r.Use(middleware.RequestLogger())
 	r.Use(gin.Recovery())
 	r.Use(cors.New(corsConfig(deps.Config)))
 
@@ -140,6 +141,7 @@ func RegisterHealthRoutes(r *gin.Engine, healthHandler *handler.HealthHandler) {
 	r.GET("/health/live", healthHandler.HandleLive)
 	r.GET("/health/ready", healthHandler.HandleReady)
 	r.GET("/health", healthHandler.HandleHealth)
+	r.GET("/version", healthHandler.HandleVersion)
 }
 
 func (limits RateLimits) withDefaults() RateLimits {
@@ -179,12 +181,16 @@ func corsConfig(cfg *config.Config) cors.Config {
 			"Authorization",
 			"X-Requested-With",
 			"X-CSRF-Token",
+			"X-Request-ID",
+			"X-Correlation-ID",
 			"Cache-Control",
 			"Pragma",
 		},
 		ExposeHeaders: []string{
 			"Content-Length",
 			"Content-Type",
+			"X-Request-ID",
+			"X-Correlation-ID",
 		},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,

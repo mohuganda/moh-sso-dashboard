@@ -64,7 +64,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 	if err != nil {
 		h.audit(c, "client.create_failed", map[string]any{
 			"client_id": req.ClientID,
-			"reason":    err.Error(),
+			"reason":    "request failed",
 		})
 
 		var apiErr *apierror.APIError
@@ -87,7 +87,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 	})
 	h.invalidateClientsCache(c.Request.Context())
 
-	response.OK(c, http.StatusCreated, client)
+	response.OK(c, http.StatusCreated, toClientResponse(client))
 }
 
 /* =========================================================
@@ -146,7 +146,7 @@ func (h *Handler) GetClient(c *gin.Context) {
 		"client_id": id,
 	})
 
-	response.OK(c, http.StatusOK, client)
+	response.OK(c, http.StatusOK, toClientResponse(client))
 }
 
 /* =========================================================
@@ -195,7 +195,7 @@ func (h *Handler) UpdateClient(c *gin.Context) {
 	if err != nil {
 		h.audit(c, "client.update_failed", map[string]any{
 			"client_id": clientID,
-			"reason":    err.Error(),
+			"reason":    "request failed",
 		})
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update client")
 		return
@@ -206,7 +206,7 @@ func (h *Handler) UpdateClient(c *gin.Context) {
 	})
 	h.invalidateClientsCache(c.Request.Context())
 
-	response.OK(c, http.StatusOK, client)
+	response.OK(c, http.StatusOK, toClientResponse(client))
 }
 
 /* =========================================================
@@ -256,7 +256,7 @@ func (h *Handler) ListClients(c *gin.Context) {
 	filtered := filterAccessibleClients(clients, clientRoles, isAdmin)
 
 	h.audit(c, "client.list", nil)
-	response.OK(c, http.StatusOK, filtered)
+	response.OK(c, http.StatusOK, toClientResponses(filtered))
 }
 
 /* =========================================================
@@ -415,7 +415,7 @@ func (h *Handler) ListClientRoles(c *gin.Context) {
 		"client_id": clientID.String(),
 	})
 
-	response.OK(c, http.StatusOK, roles)
+	response.OK(c, http.StatusOK, toClientRoleResponses(roles))
 }
 
 // DELETE /admin/clients/:id/roles/:role

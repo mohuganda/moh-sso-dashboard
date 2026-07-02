@@ -29,8 +29,28 @@ func (s *ImportService) CreateImportBatch(ctx context.Context, arg db.CreateImpo
 	return s.importRepo.CreateImportBatch(ctx, arg)
 }
 
+func (s *ImportService) CreateImportBatchFromInput(ctx context.Context, input CreateImportBatchInput) (db.SurveillanceImportBatch, error) {
+	return s.CreateImportBatch(ctx, db.CreateImportBatchParams{
+		SourceName:  input.SourceName,
+		FileName:    sqlNullStringFromPtr(input.FileName),
+		DatasetType: input.DatasetType,
+		ImportedBy:  sqlNullStringFromPtr(input.ImportedBy),
+		Status:      input.Status,
+		Notes:       sqlNullStringFromPtr(input.Notes),
+		DocumentID:  uuidNullFromPtr(input.DocumentID),
+	})
+}
+
 func (s *ImportService) UpdateImportBatchStatus(ctx context.Context, arg db.UpdateImportBatchStatusParams) (db.SurveillanceImportBatch, error) {
 	return s.importRepo.UpdateImportBatchStatus(ctx, arg)
+}
+
+func (s *ImportService) UpdateImportBatchStatusFromInput(ctx context.Context, input UpdateImportBatchStatusInput) (db.SurveillanceImportBatch, error) {
+	return s.UpdateImportBatchStatus(ctx, db.UpdateImportBatchStatusParams{
+		ID:     input.ID,
+		Status: input.Status,
+		Notes:  sqlNullStringFromPtr(input.Notes),
+	})
 }
 
 func (s *ImportService) ListImportRawRowsByBatch(ctx context.Context, batchID uuid.UUID) ([]db.SurveillanceImportRawRow, error) {

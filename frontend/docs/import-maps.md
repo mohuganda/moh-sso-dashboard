@@ -131,9 +131,8 @@ The shell `index.html` loads the import map before the shell module. To enable r
 3. Set `window.__APP_CONFIG__.microfrontendMountMode = "orchestrated"`.
 4. Make sure the import map script is present before the shell module:
 
-```html
-<script type="importmap" src="/import-map.json"></script>
-```
+Production builds keep `import-map.json` on disk and inline the same map into `dist/index.html`.
+This avoids relying on external import-map loading, which is not consistently supported by browsers.
 
 Production Docker uses `public/config.production.js`, which sets these runtime flags.
 

@@ -19,8 +19,8 @@ import { Upload } from "@carbon/react/icons";
 
 import { EmptyState, useHeaderPanel } from "@moh-sso/ui";
 import { UploadDocumentModal } from "./UploadDocumentModal";
-import { useListDocumentsQuery, useGetDocumentStatsQuery } from "@moh-sso/api";
-import type { DocumentResponse } from "@moh-sso/types";
+import { useListDocumentsQuery, useGetDocumentStatsQuery } from "../api";
+import type { DocumentResponse } from "../types";
 import { DocumentRow } from "./document-row.component";
 
 const TABLE_HEADERS = [

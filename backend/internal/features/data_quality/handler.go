@@ -2,24 +2,21 @@ package data_quality
 
 import (
 	"database/sql"
-	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lib/pq"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type Handler struct {
-	db *sql.DB
+	service Service
 }
 
 func NewHandler(db *sql.DB) *Handler {
 	return &Handler{
-		db: db,
+		service: NewService(NewRepository(db)),
 	}
 }
 
@@ -55,31 +52,13 @@ func issueDBErrorMessage(err error, fallback string) string {
 	if err == nil {
 		return fallback
 	}
-
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) {
-		if pqErr.Detail != "" {
-			return fmt.Sprintf("%s (sqlstate=%s, detail=%s)", pqErr.Message, string(pqErr.Code), pqErr.Detail)
-		}
-		return fmt.Sprintf("%s (sqlstate=%s)", pqErr.Message, string(pqErr.Code))
-	}
-
-	return err.Error()
-}
-
-func isUniqueViolation(err error) bool {
-	var pqErr *pq.Error
-	if !errors.As(err, &pqErr) {
-		return false
-	}
-
-	return string(pqErr.Code) == "23505"
+	return fallback
 }
 
 func (h *Handler) CreateIssue(c *gin.Context) {
 	var req createIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid request payload")
 		return
 	}
 
@@ -105,83 +84,34 @@ func (h *Handler) CreateIssue(c *gin.Context) {
 		}
 	}
 
-	row := h.db.QueryRowContext(
-		c.Request.Context(),
-		`WITH next_issue AS (
-			SELECT nextval(pg_get_serial_sequence('hiv.issue', 'issue_id'))::bigint AS issue_id
-		)
-		INSERT INTO hiv.issue (
-			issue_id,
-			issue_code,
-			dataset,
-			data_element,
-			org_unit,
-			issue,
-			issue_type,
-			date_reported,
-			reported_by,
-			status,
-			time_period
-		)
-		SELECT
-			n.issue_id,
-			'HMIS-' || LPAD(n.issue_id::text, 4, '0'),
-			$1, $2, $3, $4, $5, CURRENT_DATE, $6, 'OPEN', $7
-		FROM next_issue n
-		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type,time_period`,
-		dqNullableString(req.Dataset),
-		dqNullableString(req.DataElement),
-		dqNullableString(req.OrgUnit),
-		issueText,
-		dqNullableString(req.IssueType),
-		reportedBy,
-		dqNullableString(req.TimePeriod),
-	)
-
-	issue, err := scanIssue(row)
+	issue, err := h.service.CreateIssue(c.Request.Context(), createIssueInput{
+		Dataset:     dqNullableString(req.Dataset),
+		DataElement: dqNullableString(req.DataElement),
+		OrgUnit:     dqNullableString(req.OrgUnit),
+		Issue:       issueText,
+		IssueType:   dqNullableString(req.IssueType),
+		ReportedBy:  reportedBy,
+		TimePeriod:  dqNullableString(req.TimePeriod),
+	})
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_FAILED", issueDBErrorMessage(err, "failed to create issue"))
 		return
 	}
 
-	response.OK(c, http.StatusCreated, issue)
+	response.OK(c, http.StatusCreated, toIssueResponse(issue))
 }
 
 func (h *Handler) ListIssues(c *gin.Context) {
 	limit := parseListLimit(c, 20, 100)
 	offset := parseListOffset(c)
 
-	rows, err := h.db.QueryContext(
-		c.Request.Context(),
-		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type,time_period
-		FROM hiv.issue
-		ORDER BY date_reported DESC, issue_id DESC
-		LIMIT $1 OFFSET $2`,
-		limit,
-		offset,
-	)
+	issues, err := h.service.ListIssues(c.Request.Context(), limit, offset)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUES_FAILED", issueDBErrorMessage(err, "failed to list issues"))
 		return
 	}
-	defer rows.Close()
 
-	issues := make([]issueResponse, 0)
-	for rows.Next() {
-		issue, scanErr := scanIssue(rows)
-		if scanErr != nil {
-			response.Fail(c, http.StatusInternalServerError, "LIST_ISSUES_FAILED", issueDBErrorMessage(scanErr, "failed to list issues"))
-			return
-		}
-		issues = append(issues, issue)
-	}
-
-	if err = rows.Err(); err != nil {
-		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUES_FAILED", issueDBErrorMessage(err, "failed to list issues"))
-		return
-	}
-
-	response.OK(c, http.StatusOK, issues)
+	response.OK(c, http.StatusOK, toIssueResponses(issues))
 }
 
 func (h *Handler) UpdateIssue(c *gin.Context) {
@@ -193,7 +123,7 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 
 	var req updateIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid request payload")
 		return
 	}
 
@@ -281,43 +211,23 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 		}
 	}
 
-	row := h.db.QueryRowContext(
-		c.Request.Context(),
-		`UPDATE hiv.issue
-		SET
-			dataset = COALESCE($2, dataset),
-			data_element = COALESCE($3, data_element),
-			org_unit = COALESCE($4, org_unit),
-			issue = COALESCE($5, issue),
-			date_reported = COALESCE($6, date_reported),
-			reported_by = COALESCE($7, reported_by),
-			status = COALESCE($8, status),
-			priority = COALESCE($9, priority),
-			severity = COALESCE($10, severity),
-			updated_date = CURRENT_DATE,
-			updated_by = COALESCE($11, updated_by),
-			issue_type = COALESCE($12, issue_type),
-			time_period = COALESCE($13, time_period)
-		WHERE issue_code = $1
-		RETURNING issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type, time_period`,
-		issueCode,
-		optionalTrimmedParam(req.Dataset, false),
-		optionalTrimmedParam(req.DataElement, false),
-		optionalTrimmedParam(req.OrgUnit, false),
-		issueParam,
-		dateReportedParam,
-		optionalTrimmedParam(req.ReportedBy, false),
-		statusParam,
-		priorityParam,
-		severityParam,
-		updatedByParam,
-		issueTypeParam,
-		optionalTrimmedParam(req.TimePeriod, false),
-	)
-
-	issue, err := scanIssue(row)
+	issue, err := h.service.UpdateIssue(c.Request.Context(), updateIssueInput{
+		IssueCode:    issueCode,
+		Dataset:      optionalTrimmedParam(req.Dataset, false),
+		DataElement:  optionalTrimmedParam(req.DataElement, false),
+		OrgUnit:      optionalTrimmedParam(req.OrgUnit, false),
+		Issue:        issueParam,
+		DateReported: dateReportedParam,
+		ReportedBy:   optionalTrimmedParam(req.ReportedBy, false),
+		Status:       statusParam,
+		Priority:     priorityParam,
+		Severity:     severityParam,
+		UpdatedBy:    updatedByParam,
+		IssueType:    issueTypeParam,
+		TimePeriod:   optionalTrimmedParam(req.TimePeriod, false),
+	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return
 		}
@@ -325,7 +235,7 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, issue)
+	response.OK(c, http.StatusOK, toIssueResponse(issue))
 }
 
 func (h *Handler) ResolveIssue(c *gin.Context) {
@@ -337,7 +247,7 @@ func (h *Handler) ResolveIssue(c *gin.Context) {
 
 	var req createIssueResolutionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid request payload")
 		return
 	}
 
@@ -391,188 +301,30 @@ func (h *Handler) ResolveIssue(c *gin.Context) {
 		}
 	}
 
-	ctx := c.Request.Context()
-	tx, err := h.db.BeginTx(ctx, nil)
+	stageRow, err := h.service.ResolveIssue(c.Request.Context(), resolveIssueInput{
+		IssueCode:          issueCode,
+		Status:             status,
+		ResolutionAction:   optionalTrimmedParam(req.ResolutionAction, true),
+		ResolvedBy:         resolvedBy,
+		ResolutionDate:     resolutionDateParam,
+		VerificationStatus: optionalTrimmedParam(req.VerificationStatus, true),
+		VerifiedBy:         optionalTrimmedParam(req.VerifiedBy, true),
+		VerificationDate:   verificationDateParam,
+		PreventiveAction:   optionalTrimmedParam(req.PreventiveAction, true),
+		ProcessChange:      optionalTrimmedParam(req.ProcessChange, true),
+		PreventiveOwner:    optionalTrimmedParam(req.PreventiveOwner, true),
+		DueDate:            dueDateParam,
+	})
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to begin transaction"))
-		return
-	}
-	defer tx.Rollback()
-
-	var existingCode string
-	err = tx.QueryRowContext(ctx, `SELECT issue_code FROM hiv.issue WHERE issue_code = $1`, issueCode).Scan(&existingCode)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return
 		}
-		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to validate issue"))
+		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to create issue resolution"))
 		return
 	}
 
-	if _, err = tx.ExecContext(
-		ctx,
-		`UPDATE hiv.issue_resolution
-		SET is_current = FALSE
-		WHERE issue_code = $1 AND is_current = TRUE`,
-		issueCode,
-	); err != nil {
-		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to update previous resolution status"))
-		return
-	}
-
-	var stageRow issueStageResponse
-	var statusOut sql.NullString
-	var resolutionAction sql.NullString
-	var resolvedByOut sql.NullString
-	var resolutionDate sql.NullTime
-	var verificationStatus sql.NullString
-	var verifiedBy sql.NullString
-	var verificationDate sql.NullTime
-	var preventiveAction sql.NullString
-	var processChange sql.NullString
-	var preventiveOwner sql.NullString
-	var dueDate sql.NullTime
-
-	err = tx.QueryRowContext(
-		ctx,
-		`INSERT INTO hiv.issue_resolution (
-			issue_code,
-			status,
-			is_current,
-			resolution_action,
-			resolved_by,
-			resolution_date,
-			verification_status,
-			verified_by,
-			verification_date,
-			preventive_action,
-			process_change,
-			preventive_owner,
-			due_date
-		) VALUES (
-			$1, $2, TRUE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-		)
-		RETURNING id, issue_code, status, is_current, resolution_action, resolved_by, resolution_date,
-			verification_status, verified_by, verification_date, preventive_action, process_change, preventive_owner, due_date`,
-		issueCode,
-		status,
-		optionalTrimmedParam(req.ResolutionAction, true),
-		resolvedBy,
-		resolutionDateParam,
-		optionalTrimmedParam(req.VerificationStatus, true),
-		optionalTrimmedParam(req.VerifiedBy, true),
-		verificationDateParam,
-		optionalTrimmedParam(req.PreventiveAction, true),
-		optionalTrimmedParam(req.ProcessChange, true),
-		optionalTrimmedParam(req.PreventiveOwner, true),
-		dueDateParam,
-	).Scan(
-		&stageRow.ID,
-		&stageRow.IssueCode,
-		&statusOut,
-		&stageRow.IsCurrent,
-		&resolutionAction,
-		&resolvedByOut,
-		&resolutionDate,
-		&verificationStatus,
-		&verifiedBy,
-		&verificationDate,
-		&preventiveAction,
-		&processChange,
-		&preventiveOwner,
-		&dueDate,
-	)
-	if err != nil {
-		if isUniqueViolation(err) {
-			err = tx.QueryRowContext(
-				ctx,
-				`UPDATE hiv.issue_resolution
-				SET
-					status = $2,
-					is_current = TRUE,
-					resolution_action = $3,
-					resolved_by = $4,
-					resolution_date = $5,
-					verification_status = $6,
-					verified_by = $7,
-					verification_date = $8,
-					preventive_action = $9,
-					process_change = $10,
-					preventive_owner = $11,
-					due_date = $12
-				WHERE issue_code = $1
-				RETURNING id, issue_code, status, is_current, resolution_action, resolved_by, resolution_date,
-					verification_status, verified_by, verification_date, preventive_action, process_change, preventive_owner, due_date`,
-				issueCode,
-				status,
-				optionalTrimmedParam(req.ResolutionAction, true),
-				resolvedBy,
-				resolutionDateParam,
-				optionalTrimmedParam(req.VerificationStatus, true),
-				optionalTrimmedParam(req.VerifiedBy, true),
-				verificationDateParam,
-				optionalTrimmedParam(req.PreventiveAction, true),
-				optionalTrimmedParam(req.ProcessChange, true),
-				optionalTrimmedParam(req.PreventiveOwner, true),
-				dueDateParam,
-			).Scan(
-				&stageRow.ID,
-				&stageRow.IssueCode,
-				&statusOut,
-				&stageRow.IsCurrent,
-				&resolutionAction,
-				&resolvedByOut,
-				&resolutionDate,
-				&verificationStatus,
-				&verifiedBy,
-				&verificationDate,
-				&preventiveAction,
-				&processChange,
-				&preventiveOwner,
-				&dueDate,
-			)
-		}
-		if err != nil {
-			response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to create issue resolution"))
-			return
-		}
-	}
-	stageRow.Status = dqNullStringPtr(statusOut)
-	stageRow.Stage = stageRow.Status
-	stageRow.ResolutionAction = dqNullStringPtr(resolutionAction)
-	stageRow.ResolvedBy = dqNullStringPtr(resolvedByOut)
-	stageRow.ResolutionDate = dqNullDatePtr(resolutionDate)
-	stageRow.VerificationStatus = dqNullStringPtr(verificationStatus)
-	stageRow.VerifiedBy = dqNullStringPtr(verifiedBy)
-	stageRow.VerificationDate = dqNullDatePtr(verificationDate)
-	stageRow.PreventiveAction = dqNullStringPtr(preventiveAction)
-	stageRow.ProcessChange = dqNullStringPtr(processChange)
-	stageRow.PreventiveOwner = dqNullStringPtr(preventiveOwner)
-	stageRow.DueDate = dqNullDatePtr(dueDate)
-
-	if _, err = tx.ExecContext(
-		ctx,
-		`UPDATE hiv.issue
-		SET
-			status = $2,
-			updated_date = CURRENT_DATE,
-			updated_by = COALESCE($3, updated_by)
-		WHERE issue_code = $1`,
-		issueCode,
-		status,
-		resolvedBy,
-	); err != nil {
-		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to sync issue status"))
-		return
-	}
-
-	if err = tx.Commit(); err != nil {
-		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_STAGE_FAILED", issueDBErrorMessage(err, "failed to commit transaction"))
-		return
-	}
-
-	response.OK(c, http.StatusCreated, stageRow)
+	response.OK(c, http.StatusCreated, toIssueStageResponse(stageRow))
 }
 
 func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
@@ -585,108 +337,15 @@ func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
 	limit := parseListLimit(c, 20, 100)
 	offset := parseListOffset(c)
 
-	var existingCode string
-	err := h.db.QueryRowContext(
-		c.Request.Context(),
-		`SELECT issue_code FROM hiv.issue WHERE issue_code = $1`,
-		issueCode,
-	).Scan(&existingCode)
+	transactions, err := h.service.ListIssueResolutionTransactions(c.Request.Context(), issueCode, limit, offset)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return
 		}
-		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_TRANSACTIONS_FAILED", issueDBErrorMessage(err, "failed to validate issue"))
-		return
-	}
-
-	rows, err := h.db.QueryContext(
-		c.Request.Context(),
-		`SELECT
-			id,
-			issue_code,
-			status,
-			is_current,
-			resolution_action,
-			resolved_by,
-			resolution_date,
-			verification_status,
-			verified_by,
-			verification_date,
-			preventive_action,
-			process_change,
-			preventive_owner,
-			due_date
-		FROM hiv.issue_resolution
-		WHERE issue_code = $1
-		ORDER BY id DESC
-		LIMIT $2 OFFSET $3`,
-		issueCode,
-		limit,
-		offset,
-	)
-	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_TRANSACTIONS_FAILED", issueDBErrorMessage(err, "failed to list issue transactions"))
-		return
-	}
-	defer rows.Close()
-
-	transactions := make([]issueStageResponse, 0)
-	for rows.Next() {
-		var row issueStageResponse
-		var statusOut sql.NullString
-		var resolutionAction sql.NullString
-		var resolvedBy sql.NullString
-		var resolutionDate sql.NullTime
-		var verificationStatus sql.NullString
-		var verifiedBy sql.NullString
-		var verificationDate sql.NullTime
-		var preventiveAction sql.NullString
-		var processChange sql.NullString
-		var preventiveOwner sql.NullString
-		var dueDate sql.NullTime
-
-		scanErr := rows.Scan(
-			&row.ID,
-			&row.IssueCode,
-			&statusOut,
-			&row.IsCurrent,
-			&resolutionAction,
-			&resolvedBy,
-			&resolutionDate,
-			&verificationStatus,
-			&verifiedBy,
-			&verificationDate,
-			&preventiveAction,
-			&processChange,
-			&preventiveOwner,
-			&dueDate,
-		)
-		if scanErr != nil {
-			response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_TRANSACTIONS_FAILED", issueDBErrorMessage(scanErr, "failed to list issue transactions"))
-			return
-		}
-
-		row.Status = dqNullStringPtr(statusOut)
-		row.Stage = row.Status
-		row.ResolutionAction = dqNullStringPtr(resolutionAction)
-		row.ResolvedBy = dqNullStringPtr(resolvedBy)
-		row.ResolutionDate = dqNullDatePtr(resolutionDate)
-		row.VerificationStatus = dqNullStringPtr(verificationStatus)
-		row.VerifiedBy = dqNullStringPtr(verifiedBy)
-		row.VerificationDate = dqNullDatePtr(verificationDate)
-		row.PreventiveAction = dqNullStringPtr(preventiveAction)
-		row.ProcessChange = dqNullStringPtr(processChange)
-		row.PreventiveOwner = dqNullStringPtr(preventiveOwner)
-		row.DueDate = dqNullDatePtr(dueDate)
-
-		transactions = append(transactions, row)
-	}
-
-	if err = rows.Err(); err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_TRANSACTIONS_FAILED", issueDBErrorMessage(err, "failed to list issue transactions"))
 		return
 	}
 
-	response.OK(c, http.StatusOK, transactions)
+	response.OK(c, http.StatusOK, toIssueStageResponses(transactions))
 }

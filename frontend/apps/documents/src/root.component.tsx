@@ -5,7 +5,8 @@ import FileUpload from "./pages/file-upload/file-upload.component";
 import { MohThemeProvider } from "@moh-sso/ui";
 import DocumentPage from "./pages/document-management/documents.component";
 
-const DEFAULT_FILESVR_BASE = "/apps/dwh/filesvr";
+const DEFAULT_DOCUMENTS_BASE = "/apps/dwh/documents";
+const LEGACY_FILESVR_BASE = "/apps/dwh/filesvr";
 const DEFAULT_DOCUMENT_UPLOAD_BASE = "/apps/utilities/self-service/eservice/document-upload";
 function normalizePath(value?: string) {
   if (!value) return "";
@@ -20,7 +21,10 @@ function resolveDocumentsBasename(props: MicrofrontendRuntimeProps) {
   if (pathname.includes(DEFAULT_DOCUMENT_UPLOAD_BASE)) {
     return resolveRuntimeBasename(DEFAULT_DOCUMENT_UPLOAD_BASE);
   }
-  return resolveRuntimeBasename(DEFAULT_FILESVR_BASE);
+  if (pathname.includes(LEGACY_FILESVR_BASE)) {
+    return resolveRuntimeBasename(LEGACY_FILESVR_BASE);
+  }
+  return resolveRuntimeBasename(DEFAULT_DOCUMENTS_BASE);
 }
 export function DocumentsRoot(props: MicrofrontendRuntimeProps) {
   const basename = resolveDocumentsBasename(props);
@@ -29,15 +33,15 @@ export function DocumentsRoot(props: MicrofrontendRuntimeProps) {
     <MohThemeProvider theme="white">
       <BrowserRouter basename={basename}>
         <Routes>
-          {isDocumentUpload ? (
-            <>
-              <Route index element={<DocumentPage />} />
-              <Route path=":id" element={<DocumentDetailsPage />} />
-            </>
-          ) : (
+          {!isDocumentUpload ? (
             <>
               <Route index element={<FileUpload />} />
               <Route path="*" element={<FileUpload />} />
+            </>
+          ) : (
+            <>
+              <Route index element={<DocumentPage />} />
+              <Route path=":id" element={<DocumentDetailsPage />} />
             </>
           )}
         </Routes>

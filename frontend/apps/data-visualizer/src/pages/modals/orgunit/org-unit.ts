@@ -13,6 +13,7 @@ export const hierarchyApi = baseApi.injectEndpoints({
         method: "GET",
         credentials: "include",
       }),
+      transformResponse: (response: any) => response?.data,
     }),
   }),
 });

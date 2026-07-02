@@ -16,6 +16,11 @@ type SuccessOption = {
   label: string;
 };
 
+type TextOption = {
+  id: string;
+  label: string;
+};
+
 const SUCCESS_OPTIONS: SuccessOption[] = [
   { id: "true", label: "Success" },
   { id: "false", label: "Failure" },
@@ -23,14 +28,20 @@ const SUCCESS_OPTIONS: SuccessOption[] = [
 
 interface AuditLogFiltersProps {
   action?: string;
+  actor?: string;
+  module?: string;
   clientId?: string;
   userId?: string;
   ip?: string;
   success?: SuccessFilter;
+  actionOptions: string[];
+  moduleOptions: string[];
 
   onFromChange: (v: string) => void;
   onToChange: (v: string) => void;
   onActionChange: (v?: string) => void;
+  onActorChange: (v?: string) => void;
+  onModuleChange: (v?: string) => void;
   onClientChange: (v?: string) => void;
   onUserChange: (v?: string) => void;
   onIpChange: (v?: string) => void;
@@ -48,13 +59,19 @@ function toRFC3339(d: Date) {
 
 export function AuditLogFilters({
   action,
+  actor,
+  module,
   clientId,
   userId,
   ip,
   success,
+  actionOptions,
+  moduleOptions,
   onFromChange,
   onToChange,
   onActionChange,
+  onActorChange,
+  onModuleChange,
   onClientChange,
   onUserChange,
   onIpChange,
@@ -65,6 +82,9 @@ export function AuditLogFilters({
   onExportFilteredCsv,
   onExportFilteredJson,
 }: AuditLogFiltersProps) {
+  const actions = actionOptions.map(toTextOption);
+  const modules = moduleOptions.map(toTextOption);
+
   return (
     <Stack
       orientation="horizontal"
@@ -95,21 +115,49 @@ export function AuditLogFilters({
         <DatePickerInput id="audit-to" labelText="To date" hideLabel placeholder="To" />
       </DatePicker>
 
-      <Search
+      <ComboBox
         id="audit-action"
-        labelText="Action"
+        titleText="Action"
         placeholder="Action"
-        value={action ?? ""}
         style={{ width: 180 }}
+        items={actions}
+        itemToString={(item) => item?.label ?? ""}
+        selectedItem={actions.find((item) => item.id === action) ?? null}
+        onInputChange={(value) => onActionChange(value || undefined)}
+        onChange={({ selectedItem }) => {
+          onActionChange(selectedItem?.id);
+        }}
+      />
+
+      <ComboBox
+        id="audit-module"
+        titleText="Module"
+        placeholder="Module"
+        style={{ width: 170 }}
+        items={modules}
+        itemToString={(item) => item?.label ?? ""}
+        selectedItem={modules.find((item) => item.id === module) ?? null}
+        onInputChange={(value) => onModuleChange(value || undefined)}
+        onChange={({ selectedItem }) => {
+          onModuleChange(selectedItem?.id);
+        }}
+      />
+
+      <Search
+        id="audit-actor"
+        labelText="Actor"
+        placeholder="Actor"
+        value={actor ?? ""}
+        style={{ width: 170 }}
         onChange={(event) => {
-          onActionChange(event.target.value || undefined);
+          onActorChange(event.target.value || undefined);
         }}
       />
 
       <Search
         id="audit-client"
-        labelText="Client"
-        placeholder="Client ID"
+        labelText="System"
+        placeholder="System/client"
         value={clientId ?? ""}
         style={{ width: 180 }}
         onChange={(event) => {
@@ -141,8 +189,8 @@ export function AuditLogFilters({
 
       <ComboBox
         id="audit-result"
-        titleText="Result"
-        placeholder="Result"
+        titleText="Outcome"
+        placeholder="Outcome"
         style={{ width: 160 }}
         items={SUCCESS_OPTIONS}
         itemToString={(item) => item?.label ?? ""}
@@ -166,4 +214,11 @@ export function AuditLogFilters({
       </Stack>
     </Stack>
   );
+}
+
+function toTextOption(value: string): TextOption {
+  return {
+    id: value,
+    label: value,
+  };
 }

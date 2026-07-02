@@ -22,11 +22,12 @@ import {
   useListActiveTemplatesQuery,
   useGetTemplateStructureQuery,
   useGetTemplateHasDataQuery,
-} from "@moh-sso/api";
+} from "../api";
+
 import {
   DOCUMENT_PROCESS_TYPE_OPTIONS,
   type DocumentProcessType,
-} from "@moh-sso/types";
+} from "../types";
 import {
   formatFileSize,
   getSuggestedProcessType,

@@ -1,7 +1,7 @@
 import { OverflowMenu, OverflowMenuItem } from "@carbon/react";
 import type { MouseEvent } from "react";
 
-import type { User } from "@moh-sso/types";
+import type { User } from "../types";
 
 type Props = {
   user: User;

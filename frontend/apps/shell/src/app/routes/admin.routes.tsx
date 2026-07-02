@@ -6,15 +6,19 @@ import { PermissionRoute } from "./guards/PermissionRoute";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import AdminLayout from "../layouts/admin/admin-layout.component";
 import HomePage from "@/app/home/pages/home.component";
+import NotificationDeliveriesPage from "@/app/notifications/pages/notification-deliveries.component";
+import SystemsPage from "@/app/systems/pages/systems.component";
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
-import { announcementsRoute } from "@moh-sso/announcements";
-import { auditRoute } from "@moh-sso/audit";
-import { clientsRoute } from "@moh-sso/clients";
-import { emailRoute } from "@moh-sso/email";
 import { PERMISSIONS, type Permission, type System } from "@moh-sso/auth";
 import type { MicrofrontendRoute } from "@moh-sso/microfrontend";
-import { rbacRoute } from "@moh-sso/rbac";
-import { usersRoute } from "@moh-sso/users";
+import {
+  announcementsRoute,
+  auditRoute,
+  clientsRoute,
+  emailRoute,
+  rbacRoute,
+  usersRoute,
+} from "@/app/microfrontends/registry";
 
 import {
   announcementsLifecycles,
@@ -62,6 +66,16 @@ export const adminRoutes = (
         <AdminRoute>
           <PermissionRoute permission={PERMISSIONS.portalAccess}>
             <HomePage />
+          </PermissionRoute>
+        </AdminRoute>
+      }
+    />
+    <Route
+      path="systems"
+      element={
+        <AdminRoute>
+          <PermissionRoute anyOf={[PERMISSIONS.systemsRead, PERMISSIONS.rbacRead]}>
+            <SystemsPage />
           </PermissionRoute>
         </AdminRoute>
       }
@@ -120,6 +134,16 @@ export const adminRoutes = (
           basename="/admin/emails"
         />,
       )}
+    />
+    <Route
+      path="notifications/deliveries"
+      element={
+        <AdminRoute>
+          <PermissionRoute permission={PERMISSIONS.notificationsRead}>
+            <NotificationDeliveriesPage />
+          </PermissionRoute>
+        </AdminRoute>
+      }
     />
     <Route
       path="rbac"

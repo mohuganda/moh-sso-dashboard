@@ -18,6 +18,8 @@ npm run build:docker
 
 ## Manual Direct Commands
 
+These are the commands used by CI-style checks and are useful when debugging workspace script issues.
+
 ```bash
 ./node_modules/.bin/tsc --noEmit -p tsconfig.app.json
 ```

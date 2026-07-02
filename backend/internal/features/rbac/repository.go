@@ -21,6 +21,7 @@ type Repository interface {
 	ListRealmRolePermissions(ctx context.Context) ([]RealmRolePermissionGroup, error)
 	AssignRealmRolePermission(ctx context.Context, realmRole string, permissionKey string) error
 	RemoveRealmRolePermission(ctx context.Context, realmRole string, permissionKey string) error
+	ListRealmRoleSystemRoles(ctx context.Context) ([]RealmRoleSystemRole, error)
 
 	AddSystemAccessRole(ctx context.Context, clientID string, roleName string) error
 	RemoveSystemAccessRole(ctx context.Context, clientID string, roleName string) error

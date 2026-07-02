@@ -1,6 +1,7 @@
 package announcements
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ type createAnnouncementRequest struct {
 	Level         string   `json:"level" binding:"required"`
 	Tag           *string  `json:"tag"`
 	LinkURL       *string  `json:"link_url"`
+	LinkLabel     *string  `json:"link_label"`
 	Priority      int32    `json:"priority"`
 	IsPinned      bool     `json:"is_pinned"`
 	Status        string   `json:"status"`
@@ -23,6 +25,8 @@ type createAnnouncementRequest struct {
 	RoleNames     []string `json:"role_names"`
 	UserIDs       []string `json:"user_ids"`
 	NotifyByEmail bool     `json:"notify_by_email"`
+	NotifyBySMS   bool     `json:"notify_by_sms"`
+	SMSMessage    *string  `json:"sms_message"`
 }
 
 type updateAnnouncementRequest struct {
@@ -32,6 +36,7 @@ type updateAnnouncementRequest struct {
 	Level         string   `json:"level" binding:"required"`
 	Tag           *string  `json:"tag"`
 	LinkURL       *string  `json:"link_url"`
+	LinkLabel     *string  `json:"link_label"`
 	Priority      int32    `json:"priority"`
 	IsPinned      bool     `json:"is_pinned"`
 	PublishAt     *string  `json:"publish_at"`
@@ -41,6 +46,48 @@ type updateAnnouncementRequest struct {
 	RoleNames     []string `json:"role_names"`
 	UserIDs       []string `json:"user_ids"`
 	NotifyByEmail bool     `json:"notify_by_email"`
+	NotifyBySMS   bool     `json:"notify_by_sms"`
+	SMSMessage    *string  `json:"sms_message"`
+}
+
+type CreateAnnouncementInput struct {
+	Title         string
+	Message       string
+	Summary       sql.NullString
+	Level         string
+	Tag           sql.NullString
+	LinkURL       sql.NullString
+	LinkLabel     sql.NullString
+	Priority      int32
+	IsPinned      bool
+	Status        string
+	PublishAt     sql.NullTime
+	ExpiresAt     sql.NullTime
+	AudienceType  string
+	NotifyByEmail bool
+	NotifyBySMS   bool
+	SMSMessage    sql.NullString
+	CreatedBy     uuid.UUID
+}
+
+type UpdateAnnouncementInput struct {
+	ID            uuid.UUID
+	Title         string
+	Message       string
+	Summary       sql.NullString
+	Level         string
+	Tag           sql.NullString
+	LinkURL       sql.NullString
+	LinkLabel     sql.NullString
+	Priority      int32
+	IsPinned      bool
+	PublishAt     sql.NullTime
+	ExpiresAt     sql.NullTime
+	AudienceType  string
+	NotifyByEmail bool
+	NotifyBySMS   bool
+	SMSMessage    sql.NullString
+	UpdatedBy     uuid.UUID
 }
 
 type AnnouncementResponse struct {
@@ -51,14 +98,21 @@ type AnnouncementResponse struct {
 	Level                   string                           `json:"level"`
 	Tag                     *string                          `json:"tag,omitempty"`
 	LinkURL                 *string                          `json:"link_url,omitempty"`
+	LinkLabel               *string                          `json:"link_label,omitempty"`
 	Priority                int32                            `json:"priority"`
 	IsPinned                bool                             `json:"is_pinned"`
 	Status                  string                           `json:"status"`
 	PublishAt               *time.Time                       `json:"publish_at,omitempty"`
 	ExpiresAt               *time.Time                       `json:"expires_at,omitempty"`
 	AudienceType            string                           `json:"audience_type"`
+	ClientIDs               []string                         `json:"client_ids,omitempty"`
+	RoleNames               []string                         `json:"role_names,omitempty"`
+	UserIDs                 []string                         `json:"user_ids,omitempty"`
 	NotifyByEmail           bool                             `json:"notify_by_email"`
 	EmailNotificationSentAt *time.Time                       `json:"email_notification_sent_at,omitempty"`
+	NotifyBySMS             bool                             `json:"notify_by_sms"`
+	SMSMessage              *string                          `json:"sms_message,omitempty"`
+	SMSNotificationQueuedAt *time.Time                       `json:"sms_notification_queued_at,omitempty"`
 	CreatedBy               string                           `json:"created_by"`
 	UpdatedBy               string                           `json:"updated_by"`
 	PublishedBy             *string                          `json:"published_by,omitempty"`
@@ -92,6 +146,19 @@ type AnnouncementAttachmentResponse struct {
 	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 	DeletedBy        *string    `json:"deleted_by,omitempty"`
 	DownloadURL      string     `json:"download_url,omitempty"`
+}
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+type AnnouncementStatsResponse struct {
+	Total          int64 `json:"total"`
+	DraftCount     int64 `json:"draft_count"`
+	ScheduledCount int64 `json:"scheduled_count"`
+	PublishedCount int64 `json:"published_count"`
+	ArchivedCount  int64 `json:"archived_count"`
+	ActiveCount    int64 `json:"active_count"`
 }
 
 type createAnnouncementAttachmentRequest struct {
@@ -144,4 +211,11 @@ type AnnouncementEmailRecipient struct {
 	Email    string
 	Username string
 	FullName string
+}
+
+type AnnouncementSMSRecipient struct {
+	ID          uuid.UUID
+	PhoneNumber string
+	Username    string
+	FullName    string
 }

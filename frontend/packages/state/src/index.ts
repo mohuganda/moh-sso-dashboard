@@ -1,7 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import { baseApi } from "@moh-sso/api";
-import { authReducer } from "@moh-sso/auth";
+import authReducer from "../../auth/src/auth/auth.slice";
 import clientsReducer from "./clients/clients.slice";
 
 export const store = configureStore({
@@ -18,6 +18,5 @@ export type AppDispatch = typeof store.dispatch;
 
 export * from "./clients/clients.selectors";
 export * from "./clients/clients.slice";
-export { DEFAULT_CLIENT_ID } from "./clients/defaultClient";
 export * from "./document/documents.selectors";
 export * from "./ui/ui.state";

@@ -80,6 +80,7 @@ func main() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(devCmd)
 	rootCmd.AddCommand(openAPICmd)
+	rootCmd.AddCommand(versionCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("❌", err)
@@ -98,6 +99,7 @@ func isLocalToolCommand(cmd *cobra.Command) bool {
 		"moh-sso config",
 		"moh-sso dev",
 		"moh-sso openapi",
+		"moh-sso version",
 	}
 	for _, prefix := range localPrefixes {
 		if strings.HasPrefix(commandPath, prefix) {

@@ -4,7 +4,13 @@ import ReactDOMClient, { type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 
 import { store } from "@moh-sso/state";
-import { HeaderPanelProvider, ModalProvider, MohThemeProvider, ToastProvider } from "@moh-sso/ui";
+import {
+  HeaderPanelProvider,
+  MicrofrontendErrorBoundary,
+  ModalProvider,
+  MohThemeProvider,
+  ToastProvider,
+} from "@moh-sso/ui";
 
 import type { MicrofrontendLifecycle } from "./lifecycle";
 import type { MicrofrontendMountProps, MicrofrontendRuntimeProps } from "./props";
@@ -28,7 +34,16 @@ type SingleSpaReactFactory = (options: {
   ReactDOMClient: typeof ReactDOMClient;
   rootComponent: ComponentType<MicrofrontendMountProps>;
   domElementGetter: (props: MicrofrontendMountProps) => HTMLElement;
+  errorBoundary: (
+    error: Error,
+    errorInfo: React.ErrorInfo,
+    props: MicrofrontendMountProps,
+  ) => ReactNode;
 }) => MicrofrontendLifecycle;
+
+function getAppName(RootComponent: ComponentType<MicrofrontendRuntimeProps>) {
+  return RootComponent.displayName || RootComponent.name || "microfrontend";
+}
 
 function withProviders(children: ReactNode, options: Required<ReactLifecycleOptions>) {
   let tree = children;
@@ -58,7 +73,28 @@ function renderRoot(
   options: Required<ReactLifecycleOptions>,
 ) {
   const { domElement: _domElement, ...runtimeProps } = props;
-  return withProviders(<RootComponent {...runtimeProps} />, options);
+  return withProviders(
+    <MicrofrontendErrorBoundary appName={getAppName(RootComponent)}>
+      <RootComponent {...runtimeProps} />
+    </MicrofrontendErrorBoundary>,
+    options,
+  );
+}
+
+function renderLifecycleError(
+  RootComponent: ComponentType<MicrofrontendRuntimeProps>,
+  error: Error,
+  errorInfo: React.ErrorInfo,
+  props: MicrofrontendMountProps,
+) {
+  void errorInfo;
+  void props;
+
+  return (
+    <div className="moh-microfrontend-error-boundary" role="alert">
+      Unable to load {getAppName(RootComponent)}. {error.message}
+    </div>
+  );
 }
 
 function createManualLifecycle(
@@ -114,6 +150,8 @@ export function createReactMicrofrontendLifecycle(
           ReactDOMClient,
           rootComponent: (props) => renderRoot(RootComponent, props, options),
           domElementGetter: ({ domElement }) => domElement,
+          errorBoundary: (error, errorInfo, props) =>
+            renderLifecycleError(RootComponent, error, errorInfo, props),
         })
       : manualLifecycle;
 

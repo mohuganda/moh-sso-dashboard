@@ -1,11 +1,11 @@
 import {ComboBox, Modal, TextArea, Search, TreeView, NumberInput} from "@carbon/react";
 import {
-  type Theme, type ThemeElement,
-  useGetThemesQuery,
-  useLazyGetThemeElementsQuery
+  type Dataset, type ThemeElement,
+  useGetDataSetsQuery,
+  useLazyGetDataSetElementsQuery
 } from "../../../data-visualizer/src/pages/modals/data-model/data-model.ts";
 import {useCallback, useEffect, useState} from "react";
-import {useCreateIssueMutation, useUpdateIssueMutation} from "./issuetracker.api.ts";
+import { useCreateIssueMutation, useUpdateIssueMutation } from "../api";
 import {IssueTypes, Priority} from "../lib/constants.ts";
 import {useSelector} from "react-redux";
 import type {Issue} from "../pages/issue-tracker.component.tsx";
@@ -19,7 +19,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
   const CURRENT_YEAR = new Date().getFullYear();
   const initialPeriodType =  "Quarterly";
   const isEdit = !!selectedIssue;
-  const [datasets, setDatasets] = useState<Theme[] | undefined>([]);
+  const [datasets, setDatasets] = useState<Dataset[] | undefined>([]);
   const [selectedDataset, setSelectedDataset] = useState(selectedIssue?.dataset ?? "");
   const [dataElement, setDataElement] = useState<ThemeElement[]>([]);
   const [description, setDescription] = useState(selectedIssue?.issue ?? '');
@@ -27,8 +27,8 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
   const [selectedDataElement, setSelectedDataElement] = useState(selectedIssue?.data_element ?? "");
   const [priority, setPriority] = useState(selectedIssue?.priority ?? "");
   const [severity, setSeverity] = useState(selectedIssue?.severity ?? "");
-  const { data: themes, isLoading: isLoadingThemes, error } = useGetThemesQuery();
-  const [ triggerGetTheme ] = useLazyGetThemeElementsQuery();
+  const { data: themes, isLoading: isLoadingThemes, error } = useGetDataSetsQuery();
+  const [ triggerGetDataset ] = useLazyGetDataSetElementsQuery();
   const [updateIssue, { isLoading: isUpdating }] = useUpdateIssueMutation();
   const [createIssue, { isLoading: isCreating }] = useCreateIssueMutation();
   const user = useSelector(selectUser);
@@ -61,20 +61,20 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
   },[error, hierarchyData, hierarchyDataError, isLoading]);
 
   const onChangeSelectedDataSet = async (event) => {
-    const theme = event?.selectedItem;
-    setSelectedDataset(theme);
-    if (!theme) return;
+    const dataset = event?.selectedItem;
+    setSelectedDataset(dataset);
+    if (!dataset) return;
 
-    const theme_id = themes?.find(item => item?.theme_name === theme)?.theme_id;
-    if (theme_id) {
+    const dataset_id = themes?.find(item => item?.display_name === dataset)?.dataset_id;
+    if (dataset_id) {
       try {
-        const data = await triggerGetTheme(theme_id).unwrap();
+        const data = await triggerGetDataset(dataset_id).unwrap();
         setDataElement(data);
       } catch (error) {
         console.error("Error Encountered while fetching data elements:: " + error);
       }
     } else {
-      console.warn("No theme_id found for the selected theme name.");
+      console.warn("No dataset_id found for the selected dataset name.");
     }
   };
 
@@ -127,7 +127,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
     setTimeout(() => setIsOrgExpanded(false), 150);
   };
 
-  const renderRecursive = (nodes: any[]) => {
+  const renderRecursive = (nodes: any[], idPrefix: string = "modal-org") => {
     if (!nodes || !Array.isArray(nodes)) return [];
 
     return nodes
@@ -140,6 +140,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                 selectedOrgUnit={selectedOrgUnit}
                 onSelect={handleSelect}
                 renderRecursive={renderRecursive}
+                idPrefix={idPrefix}
             />
         ));
   };
@@ -228,7 +229,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                 />
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                   <TreeView label="Org Units" hideLabel>
-                    {renderRecursive(orgUnits)}
+                    {renderRecursive(orgUnits, "modal-org")}
                   </TreeView>
                 </div>
               </div>
@@ -240,7 +241,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
               autoAlign
               id="data-set-combobox"
               onChange={onChangeSelectedDataSet}
-              items={datasets?.map(item => item?.theme_name) ?? []}
+              items={datasets?.map(item => item?.display_name) ?? []}
               titleText="Datasets"
               selectedItem={selectedDataset}
           />

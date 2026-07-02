@@ -17,6 +17,8 @@ type AnnouncementRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (db.Announcement, error)
 	Update(ctx context.Context, params db.UpdateAnnouncementParams) (db.Announcement, error)
 	MarkEmailNotificationSent(ctx context.Context, id uuid.UUID) (db.Announcement, error)
+	MarkSMSNotificationQueued(ctx context.Context, id uuid.UUID) (db.Announcement, error)
+	ListSMSRecipientsForUsers(ctx context.Context, userIDs []uuid.UUID) ([]AnnouncementSMSRecipient, error)
 	CreateAttachment(ctx context.Context, params db.CreateAnnouncementAttachmentParams) (db.AnnouncementAttachment, error)
 	ListAttachmentsByAnnouncementID(ctx context.Context, announcementID uuid.UUID) ([]db.AnnouncementAttachment, error)
 	ListEmailAttachments(ctx context.Context, announcementID uuid.UUID) ([]db.AnnouncementAttachment, error)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
@@ -28,10 +28,10 @@ import {
   useLazyDownloadDocumentQuery,
   useReprocessDocumentMutation,
   useGetTemplateStructureQuery,
-  useGetUserQuery,
-} from "@moh-sso/api";
+} from "../../../api";
+import { useGetUserQuery } from "@moh-sso/users/api";
 import { selectUser } from "@moh-sso/auth";
-import type { DataPreviewSheet, DocumentProcess, DocumentResponse } from "@moh-sso/types";
+import type { DataPreviewSheet, DocumentProcess, DocumentResponse } from "../../../types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

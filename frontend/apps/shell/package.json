@@ -17,6 +17,7 @@
     "@moh-sso/auth": "0.1.0",
     "@moh-sso/clients": "0.1.0",
     "@moh-sso/config": "0.1.0",
+    "@moh-sso/data-validation": "0.1.0",
     "@moh-sso/data-visualizer": "0.1.0",
     "@moh-sso/documents": "0.1.0",
     "@moh-sso/e-services": "0.1.0",

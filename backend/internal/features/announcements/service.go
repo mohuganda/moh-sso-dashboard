@@ -105,6 +105,40 @@ func (s *Service) CreateAnnouncement(
 	return item, nil
 }
 
+func (s *Service) CreateAnnouncementFromInput(
+	ctx context.Context,
+	input CreateAnnouncementInput,
+) (db.Announcement, error) {
+	if err := s.validateAnnouncementSMSInput(input.NotifyBySMS, input.SMSMessage); err != nil {
+		return db.Announcement{}, err
+	}
+
+	item, err := s.CreateAnnouncement(ctx, db.CreateAnnouncementParams{
+		Title:         strings.TrimSpace(input.Title),
+		Message:       strings.TrimSpace(input.Message),
+		Summary:       input.Summary,
+		Level:         dbAnnouncementLevel(input.Level),
+		Tag:           input.Tag,
+		LinkUrl:       input.LinkURL,
+		LinkLabel:     input.LinkLabel,
+		Priority:      input.Priority,
+		IsPinned:      input.IsPinned,
+		Status:        dbAnnouncementStatus(input.Status),
+		PublishAt:     input.PublishAt,
+		ExpiresAt:     input.ExpiresAt,
+		AudienceType:  dbAnnouncementAudienceType(input.AudienceType),
+		NotifyByEmail: input.NotifyByEmail,
+		NotifyBySms:   input.NotifyBySMS,
+		SmsMessage:    normalizeSMSMessage(input.SMSMessage),
+		CreatedBy:     input.CreatedBy,
+	})
+	if err != nil {
+		return db.Announcement{}, err
+	}
+
+	return item, nil
+}
+
 func (s *Service) GetAnnouncementByID(
 	ctx context.Context,
 	id uuid.UUID,
@@ -161,6 +195,43 @@ func (s *Service) UpdateAnnouncement(
 			"notify_by_email": item.NotifyByEmail,
 		}),
 	})
+
+	return item, nil
+}
+
+func (s *Service) UpdateAnnouncementFromInput(
+	ctx context.Context,
+	input UpdateAnnouncementInput,
+) (db.Announcement, error) {
+	if err := s.validateAnnouncementSMSInput(input.NotifyBySMS, input.SMSMessage); err != nil {
+		return db.Announcement{}, err
+	}
+
+	item, err := s.UpdateAnnouncement(ctx, db.UpdateAnnouncementParams{
+		ID:            input.ID,
+		Title:         strings.TrimSpace(input.Title),
+		Message:       strings.TrimSpace(input.Message),
+		Summary:       input.Summary,
+		Level:         dbAnnouncementLevel(input.Level),
+		Tag:           input.Tag,
+		LinkUrl:       input.LinkURL,
+		LinkLabel:     input.LinkLabel,
+		Priority:      input.Priority,
+		IsPinned:      input.IsPinned,
+		PublishAt:     input.PublishAt,
+		ExpiresAt:     input.ExpiresAt,
+		AudienceType:  dbAnnouncementAudienceType(input.AudienceType),
+		NotifyByEmail: input.NotifyByEmail,
+		NotifyBySms:   input.NotifyBySMS,
+		SmsMessage:    normalizeSMSMessage(input.SMSMessage),
+		UpdatedBy: uuid.NullUUID{
+			UUID:  input.UpdatedBy,
+			Valid: input.UpdatedBy != uuid.Nil,
+		},
+	})
+	if err != nil {
+		return db.Announcement{}, err
+	}
 
 	return item, nil
 }
@@ -293,6 +364,17 @@ func (s *Service) ListAnnouncementsAdmin(
 	}
 
 	return items, nil
+}
+
+func (s *Service) ListAnnouncementsAdminPage(
+	ctx context.Context,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListAnnouncementsAdmin(ctx, db.ListAnnouncementsAdminParams{
+		Limit:  limit,
+		Offset: offset,
+	})
 }
 
 func (s *Service) CountAnnouncementsAdmin(
@@ -437,6 +519,17 @@ func (s *Service) ListActivePublishedAnnouncements(
 	return items, nil
 }
 
+func (s *Service) ListActivePublishedAnnouncementsPage(
+	ctx context.Context,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListActivePublishedAnnouncements(ctx, db.ListActivePublishedAnnouncementsParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+}
+
 func (s *Service) CountActivePublishedAnnouncements(
 	ctx context.Context,
 ) (int64, error) {
@@ -476,6 +569,19 @@ func (s *Service) ListAnnouncementsForClient(
 	return items, nil
 }
 
+func (s *Service) ListAnnouncementsForClientPage(
+	ctx context.Context,
+	clientID uuid.UUID,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListAnnouncementsForClient(ctx, db.ListAnnouncementsForClientParams{
+		ClientID: clientID,
+		Limit:    limit,
+		Offset:   offset,
+	})
+}
+
 func (s *Service) ListAnnouncementsForRole(
 	ctx context.Context,
 	params db.ListAnnouncementsForRoleParams,
@@ -496,6 +602,19 @@ func (s *Service) ListAnnouncementsForRole(
 	return items, nil
 }
 
+func (s *Service) ListAnnouncementsForRolePage(
+	ctx context.Context,
+	roleName string,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListAnnouncementsForRole(ctx, db.ListAnnouncementsForRoleParams{
+		RoleName:   strings.TrimSpace(roleName),
+		PageLimit:  limit,
+		PageOffset: offset,
+	})
+}
+
 func (s *Service) ListAnnouncementsForUser(
 	ctx context.Context,
 	params db.ListAnnouncementsForUserParams,
@@ -514,6 +633,19 @@ func (s *Service) ListAnnouncementsForUser(
 	}
 
 	return items, nil
+}
+
+func (s *Service) ListAnnouncementsForUserPage(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int32,
+	offset int32,
+) ([]db.Announcement, error) {
+	return s.ListAnnouncementsForUser(ctx, db.ListAnnouncementsForUserParams{
+		UserID: userID,
+		Limit:  limit,
+		Offset: offset,
+	})
 }
 
 func (s *Service) ListMyAnnouncements(
@@ -686,6 +818,10 @@ func (s *Service) PublishAnnouncementNow(
 		}),
 	}
 
+	if err := s.attachAnnouncementSMSDelivery(ctx, &notification, item, nil); err != nil {
+		return item, err
+	}
+
 	if s.shouldSendAnnouncementEmail(item) {
 		recipients, err := s.resolveAnnouncementEmailRecipients(ctx, item)
 		if err != nil {
@@ -751,6 +887,20 @@ func (s *Service) MoveAnnouncementToDraft(
 	return item, nil
 }
 
+func (s *Service) MoveAnnouncementToDraftByUser(
+	ctx context.Context,
+	id uuid.UUID,
+	updatedBy uuid.UUID,
+) (db.Announcement, error) {
+	return s.MoveAnnouncementToDraft(ctx, db.DraftAnnouncementParams{
+		ID: id,
+		UpdatedBy: uuid.NullUUID{
+			UUID:  updatedBy,
+			Valid: updatedBy != uuid.Nil,
+		},
+	})
+}
+
 func (s *Service) ScheduleAnnouncement(
 	ctx context.Context,
 	params db.ScheduleAnnouncementParams,
@@ -781,6 +931,15 @@ func (s *Service) ScheduleAnnouncement(
 			"title":           item.Title,
 			"status":          announcementStatusString(item.Status),
 		}),
+	}
+
+	var scheduledAt *time.Time
+	if item.PublishAt.Valid {
+		publishAt := item.PublishAt.Time
+		scheduledAt = &publishAt
+	}
+	if err := s.attachAnnouncementSMSDelivery(ctx, &notification, item, scheduledAt); err != nil {
+		return item, err
 	}
 
 	if s.shouldSendAnnouncementEmail(item) {
@@ -816,6 +975,30 @@ func (s *Service) ScheduleAnnouncement(
 	s.notify(ctx, notification)
 
 	return item, nil
+}
+
+func (s *Service) ScheduleAnnouncementByUser(
+	ctx context.Context,
+	id uuid.UUID,
+	publishAt time.Time,
+	updatedBy uuid.UUID,
+	options ...AnnouncementEmailOptions,
+) (db.Announcement, error) {
+	return s.ScheduleAnnouncement(
+		ctx,
+		db.ScheduleAnnouncementParams{
+			ID: id,
+			PublishAt: sql.NullTime{
+				Time:  publishAt,
+				Valid: true,
+			},
+			UpdatedBy: uuid.NullUUID{
+				UUID:  updatedBy,
+				Valid: updatedBy != uuid.Nil,
+			},
+		},
+		options...,
+	)
 }
 
 func (s *Service) ArchiveAnnouncement(
@@ -1588,18 +1771,81 @@ func (s *Service) shouldSendAnnouncementEmail(item db.Announcement) bool {
 	return item.NotifyByEmail && !item.EmailNotificationSentAt.Valid
 }
 
-func (s *Service) attachAnnouncementEmailDelivery(
-	notification *models.Notification,
-	item db.Announcement,
-	recipients []AnnouncementEmailRecipient,
-	options AnnouncementEmailOptions,
-) {
-	if notification == nil {
-		return
+func (s *Service) shouldSendAnnouncementSMS(item db.Announcement) bool {
+	if !item.NotifyBySms || item.SmsNotificationQueuedAt.Valid {
+		return false
 	}
 
-	deliveries := []models.NotificationDeliveryRequest{
-		{
+	if s == nil || s.cfg == nil {
+		return false
+	}
+
+	return s.cfg.SMS.Enabled
+}
+
+func (s *Service) validateAnnouncementSMSInput(
+	notifyBySMS bool,
+	smsMessage sql.NullString,
+) error {
+	if !notifyBySMS {
+		return nil
+	}
+
+	message := strings.TrimSpace(smsMessage.String)
+	if message == "" {
+		return nil
+	}
+
+	maxLength := 160
+	if s != nil && s.cfg != nil && s.cfg.SMS.MaxLength > 0 {
+		maxLength = s.cfg.SMS.MaxLength
+	}
+
+	if len([]rune(message)) > maxLength {
+		return fmt.Errorf("sms message exceeds max length of %d characters", maxLength)
+	}
+
+	return nil
+}
+
+func normalizeSMSMessage(value sql.NullString) sql.NullString {
+	message := strings.TrimSpace(value.String)
+	if message == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: message, Valid: true}
+}
+
+func (s *Service) attachAnnouncementSMSDelivery(
+	ctx context.Context,
+	notification *models.Notification,
+	item db.Announcement,
+	scheduledAt *time.Time,
+) error {
+	if notification == nil {
+		return nil
+	}
+
+	if !s.shouldSendAnnouncementSMS(item) {
+		return nil
+	}
+
+	emailRecipients, err := s.resolveAnnouncementEmailRecipients(ctx, item)
+	if err != nil {
+		return fmt.Errorf("resolve announcement sms audience: %w", err)
+	}
+
+	recipients, err := s.resolveAnnouncementSMSRecipients(ctx, emailRecipients)
+	if err != nil {
+		return fmt.Errorf("resolve announcement sms recipients: %w", err)
+	}
+
+	if len(recipients) == 0 {
+		return nil
+	}
+
+	if len(notification.Deliveries) == 0 {
+		notification.Deliveries = append(notification.Deliveries, models.NotificationDeliveryRequest{
 			Channel: models.NotificationChannelInApp,
 			Recipient: map[string]any{
 				"target_role": notification.TargetRole,
@@ -1611,7 +1857,135 @@ func (s *Service) attachAnnouncementEmailDelivery(
 				"severity": notification.Severity,
 			},
 			MaxAttempts: 1,
-		},
+		})
+	}
+
+	body := s.announcementSMSMessage(item)
+	for _, recipient := range recipients {
+		phone := strings.TrimSpace(recipient.PhoneNumber)
+		if phone == "" {
+			continue
+		}
+
+		notification.Deliveries = append(notification.Deliveries, models.NotificationDeliveryRequest{
+			Channel: models.NotificationChannelSMS,
+			Recipient: map[string]any{
+				"user_id": recipient.ID.String(),
+				"phone":   phone,
+			},
+			Payload: map[string]any{
+				"body":            body,
+				"announcement_id": item.ID.String(),
+				"title":           item.Title,
+			},
+			ScheduledAt: scheduledAt,
+			MaxAttempts: 3,
+		})
+	}
+
+	if _, err := s.repo.MarkSMSNotificationQueued(ctx, item.ID); err != nil {
+		return fmt.Errorf("mark announcement sms notification queued: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) resolveAnnouncementSMSRecipients(
+	ctx context.Context,
+	emailRecipients []AnnouncementEmailRecipient,
+) ([]AnnouncementSMSRecipient, error) {
+	if len(emailRecipients) == 0 {
+		return nil, nil
+	}
+
+	userIDs := make([]uuid.UUID, 0, len(emailRecipients))
+	recipientByID := make(map[uuid.UUID]AnnouncementEmailRecipient, len(emailRecipients))
+	for _, recipient := range emailRecipients {
+		if recipient.ID == uuid.Nil {
+			continue
+		}
+		userIDs = append(userIDs, recipient.ID)
+		recipientByID[recipient.ID] = recipient
+	}
+
+	items, err := s.repo.ListSMSRecipientsForUsers(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range items {
+		if base, ok := recipientByID[items[i].ID]; ok {
+			items[i].Username = base.Username
+			items[i].FullName = base.FullName
+		}
+	}
+
+	return items, nil
+}
+
+func (s *Service) announcementSMSMessage(
+	item db.Announcement,
+) string {
+	if item.SmsMessage.Valid && strings.TrimSpace(item.SmsMessage.String) != "" {
+		return strings.TrimSpace(item.SmsMessage.String)
+	}
+
+	message := strings.TrimSpace(item.Summary.String)
+	if message == "" {
+		message = strings.TrimSpace(item.Message)
+	}
+	if message == "" {
+		message = strings.TrimSpace(item.Title)
+	}
+
+	prefix := strings.TrimSpace(s.platformName())
+	if prefix == "" {
+		prefix = "MOH"
+	}
+
+	body := fmt.Sprintf("%s: %s", prefix, message)
+	maxLength := 160
+	if s != nil && s.cfg != nil && s.cfg.SMS.MaxLength > 0 {
+		maxLength = s.cfg.SMS.MaxLength
+	}
+
+	runes := []rune(body)
+	if len(runes) <= maxLength {
+		return body
+	}
+
+	if maxLength <= 1 {
+		return string(runes[:maxLength])
+	}
+
+	return string(runes[:maxLength-1]) + "…"
+}
+
+func (s *Service) attachAnnouncementEmailDelivery(
+	notification *models.Notification,
+	item db.Announcement,
+	recipients []AnnouncementEmailRecipient,
+	options AnnouncementEmailOptions,
+) {
+	if notification == nil {
+		return
+	}
+
+	deliveries := notification.Deliveries
+	if len(deliveries) == 0 {
+		deliveries = append(deliveries, models.NotificationDeliveryRequest{
+			Channel: models.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		})
 	}
 
 	for _, recipient := range recipients {
@@ -1635,8 +2009,13 @@ func (s *Service) attachAnnouncementEmailDelivery(
 		}
 		attachmentNames := announcementEmailAttachmentNames(attachments)
 		attachmentLinks := options.AttachmentLinks
+		attachmentCount := len(attachments)
+		if len(attachmentLinks) > attachmentCount {
+			attachmentCount = len(attachmentLinks)
+		}
 		actionURL := s.announcementActionURL(item)
 		relatedLinkURL := s.announcementRelatedLinkURL(item)
+		relatedLinkLabel := s.announcementRelatedLinkLabel(item)
 
 		deliveries = append(deliveries, models.NotificationDeliveryRequest{
 			Channel: models.NotificationChannelEmail,
@@ -1655,12 +2034,12 @@ func (s *Service) attachAnnouncementEmailDelivery(
 				"Level":                 announcementLevelString(item.Level),
 				"Status":                announcementStatusString(item.Status),
 				"AnnouncementID":        item.ID.String(),
-				"HasAttachments":        len(attachments) > 0,
-				"AttachmentCount":       len(attachments),
+				"HasAttachments":        attachmentCount > 0,
+				"AttachmentCount":       attachmentCount,
 				"AttachmentNames":       attachmentNames,
 				"AttachmentLinks":       attachmentLinks,
 				"AnnouncementLinkURL":   relatedLinkURL,
-				"AnnouncementLinkLabel": "Open related link",
+				"AnnouncementLinkLabel": relatedLinkLabel,
 				"ActionURL":             actionURL,
 				"Details": fmt.Sprintf(
 					"Title: %s\nLevel: %s\nStatus: %s\nMessage: %s",
@@ -1867,6 +2246,14 @@ func (s *Service) announcementRelatedLinkURL(item db.Announcement) string {
 	}
 
 	return s.absolutePortalURL(item.LinkUrl.String)
+}
+
+func (s *Service) announcementRelatedLinkLabel(item db.Announcement) string {
+	if item.LinkLabel.Valid && strings.TrimSpace(item.LinkLabel.String) != "" {
+		return strings.TrimSpace(item.LinkLabel.String)
+	}
+
+	return "Open related link"
 }
 
 func (s *Service) absolutePortalURL(raw string) string {

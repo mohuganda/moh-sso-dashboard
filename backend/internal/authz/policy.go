@@ -97,12 +97,12 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionSystemsLaunch,
 		},
 	},
-	SystemIntegratedOutbreak: {
-		IntegratedOutbreakAccess: {
+	SystemOutbreakManagement: {
+		OutbreakManagementAccess: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 		},
-		IntegratedOutbreakSuperAdmin: {
+		OutbreakManagementSuperAdmin: {
 			PermissionOutbreakAccess,
 			PermissionOutbreakManage,
 			PermissionSurveillanceRead,
@@ -116,7 +116,7 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionDocumentsWrite,
 			PermissionDocumentsProcess,
 		},
-		IntegratedOutbreakAdmin: {
+		OutbreakManagementAdmin: {
 			PermissionOutbreakAccess,
 			PermissionOutbreakManage,
 			PermissionSurveillanceRead,
@@ -127,41 +127,47 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionDataQualityWrite,
 			PermissionDataQualityResolve,
 		},
-		IntegratedOutbreakManager: {
+		OutbreakManagementManager: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionDataQualityRead,
 			PermissionDataQualityWrite,
 			PermissionDocumentsRead,
 		},
-		IntegratedOutbreakViewer: {
+		OutbreakManagementViewer: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionDataQualityRead,
 			PermissionDocumentsRead,
 		},
-		IntegratedOutbreakDataEntry: {
+		OutbreakManagementDataEntry: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionSurveillanceImport,
 			PermissionDataQualityRead,
 			PermissionDataQualityWrite,
 		},
-		IntegratedOutbreakLabTechnician: {
+		OutbreakManagementLabTechnician: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionDataQualityRead,
 			PermissionDataQualityWrite,
 		},
-		IntegratedOutbreakSurveillanceOfficer: {
+		OutbreakManagementSurveillanceOfficer: {
 			PermissionOutbreakAccess,
 			PermissionSurveillanceRead,
 			PermissionSurveillanceImport,
 			PermissionSurveillanceManageAlerts,
 		},
 	},
-	SystemReportBrowser: {
-		ReportBrowserAccess: {
+	SystemDataStatistics: {
+		DataStatisticsAccess: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
+			PermissionDataQualityRead,
+			PermissionDocumentsRead,
+			PermissionSurveillanceRead,
 			PermissionReportBrowserRead,
 		},
 		ReportBrowserAdmin: {
@@ -180,6 +186,28 @@ var systemRolePermissions = map[string]map[string][]Permission{
 		ReportBrowserViewer: {
 			PermissionReportBrowserRead,
 		},
+	},
+	SystemUtilities: {
+		UtilitiesAccess: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
+		},
+	},
+	SystemSettings: {
+		SettingsAccess: {
+			PermissionPortalAccess,
+			PermissionSystemsRead,
+			PermissionSystemsLaunch,
+		},
+	},
+}
+
+var defaultSystemRolesForRealmRole = map[string]map[string][]string{
+	RoleUser: {
+		SystemDataStatistics: {DataStatisticsAccess},
+		SystemUtilities:      {UtilitiesAccess},
+		SystemSettings:       {SettingsAccess},
 	},
 }
 
@@ -201,7 +229,7 @@ func PermissionsForContext(realmRoles []string, clientRoles map[string][]string)
 		add(rolePermissions[role])
 	}
 
-	for system, roles := range normalizeClientRoles(clientRoles) {
+	for system, roles := range clientRolesWithRealmDefaults(realmRoles, clientRoles) {
 		roleMap := systemRolePermissions[system]
 		for _, role := range roles {
 			add(roleMap[role])
@@ -232,12 +260,16 @@ func AccessibleSystemDetailsForContext(clientRoles map[string][]string) []System
 		system = strings.TrimSpace(system)
 		metadata := staticSystemMetadata[system]
 		return SystemAccess{
-			ClientID:    system,
-			DisplayName: metadata.DisplayName,
-			LaunchURL:   metadata.LaunchURL,
-			Icon:        metadata.Icon,
-			Category:    metadata.Category,
-			Roles:       roles,
+			ClientID:          system,
+			DisplayName:       metadata.DisplayName,
+			LaunchURL:         metadata.LaunchURL,
+			Icon:              metadata.Icon,
+			Category:          metadata.Category,
+			SystemType:        "platform",
+			DisplayInLauncher: true,
+			DisplayInSideNav:  false,
+			LaunchMode:        "internal",
+			Roles:             roles,
 		}
 	}
 
@@ -249,7 +281,7 @@ func AccessibleSystemDetailsForContext(clientRoles map[string][]string) []System
 		switch system {
 		case SystemDashboardWeb:
 			add(systemAccess(system, roles))
-		case SystemIntegratedOutbreak, SystemReportBrowser:
+		case SystemOutbreakManagement, SystemDataStatistics, SystemUtilities, SystemSettings:
 			add(systemAccess(system, roles))
 		}
 	}
@@ -271,18 +303,43 @@ var staticSystemMetadata = map[string]systemMetadata{
 		Icon:        "dashboard",
 		Category:    "platform",
 	},
-	SystemIntegratedOutbreak: {
-		DisplayName: "Integrated Outbreak System",
+	SystemOutbreakManagement: {
+		DisplayName: "Outbreak Management",
 		LaunchURL:   "/portal/apps/dwh/surveillance",
 		Icon:        "outbreak",
 		Category:    "surveillance",
 	},
-	SystemReportBrowser: {
-		DisplayName: "Report Browser",
-		LaunchURL:   "/portal/apps/dwh/reports",
-		Icon:        "reporting",
-		Category:    "reports",
+	SystemDataStatistics: {
+		DisplayName: "Data & Statistics",
+		LaunchURL:   "/portal/apps/dwh",
+		Icon:        "home",
+		Category:    "platform",
 	},
+	SystemUtilities: {
+		DisplayName: "Utilities",
+		LaunchURL:   "/portal/apps/utilities",
+		Icon:        "tools",
+		Category:    "utilities",
+	},
+	SystemSettings: {
+		DisplayName: "Settings",
+		LaunchURL:   "/portal/apps/settings",
+		Icon:        "settings",
+		Category:    "platform",
+	},
+}
+
+func clientRolesWithRealmDefaults(
+	realmRoles []string,
+	clientRoles map[string][]string,
+) map[string][]string {
+	merged := normalizeClientRoles(clientRoles)
+	for _, realmRole := range NormalizeRoles(realmRoles) {
+		for clientID, roles := range defaultSystemRolesForRealmRole[realmRole] {
+			merged[clientID] = NormalizeRoles(append(merged[clientID], roles...))
+		}
+	}
+	return merged
 }
 
 func PermissionsForRoles(roles []string) []Permission {

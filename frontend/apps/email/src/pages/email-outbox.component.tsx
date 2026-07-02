@@ -22,9 +22,9 @@ import {
   useListEmailsByStatusQuery,
   useRetryEmailMutation,
   useDeleteEmailMutation,
-} from "@moh-sso/api";
+} from "../api";
 
-import type { EmailStatus, EmailOutboxItem } from "@moh-sso/types";
+import type { EmailStatus, EmailOutboxItem } from "../types";
 
 import { ErrorState, useHeaderPanel, useToast } from "@moh-sso/ui";
 

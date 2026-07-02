@@ -2,6 +2,9 @@
   "realm": "moh-realm",
   "enabled": true,
   "sslRequired": "external",
+  "loginTheme": "moh-theme",
+  "accountTheme": "moh-theme",
+  "adminTheme": "moh-theme",
   "registrationAllowed": false,
   "rememberMe": true,
   "loginWithEmailAllowed": true,
@@ -224,10 +227,10 @@
           "description": "Standard portal user access"
         }
       ],
-      "integrated-outbreak-system": [
+      "outbreak-management": [
         {
-          "name": "integrated-outbreak-system_access",
-          "description": "Base access to Integrated Outbreak System"
+          "name": "outbreak-management_access",
+          "description": "Base access to Outbreak Management"
         },
         {
           "name": "super_admin",
@@ -258,10 +261,21 @@
           "description": "Surveillance officer with monitoring access"
         }
       ],
-      "report-browser": [
+      "data-statistics": [
         {
-          "name": "report-browser_access",
-          "description": "Access MOH Report browser"
+          "name": "data-statistics_access",
+          "description": "Default access to Data & Statistics",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "data_quality:read",
+              "documents:read",
+              "surveillance:read",
+              "report_browser:read"
+            ]
+          }
         },
         {
           "name": "report_admin",
@@ -297,9 +311,9 @@
       "authorizationServicesEnabled": false
     },
     {
-      "clientId": "integrated-outbreak-system-admin",
-      "name": "Integrated Outbreak System Admin Client",
-      "description": "Admin client for managing Integrated Outbreak System",
+      "clientId": "outbreak-management-admin",
+      "name": "Outbreak Management Admin Client",
+      "description": "Admin client for managing Outbreak Management",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -313,8 +327,8 @@
       "clientId": "dashboard-web",
       "name": "MOH SSO Dashboard Web",
       "description": "MOH SSO Dashboard Web",
-      "rootUrl": "http://localhost:3000",
-      "baseUrl": "http://localhost:3000",
+      "rootUrl": "http://localhost:3000/portal",
+      "baseUrl": "http://localhost:3000/portal",
       "enabled": true,
       "secret": "dashboard-web-secret",
       "publicClient": false,
@@ -323,12 +337,11 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "http://localhost:9000/api/v1/auth/callback",
-        "http://localhost:3000/*"
+        "http://localhost:3000/portal/*",
+        "http://localhost:9000/api/v1/auth/callback"
       ],
       "webOrigins": [
-        "http://localhost:3000",
-        "http://localhost:9000"
+        "http://localhost:3000"
       ],
       "defaultClientScopes": [
         "openid",
@@ -352,48 +365,21 @@
             "access.token.claim": "true"
           }
         }
-      ]
-    },
-    {
-      "clientId": "report-browser",
-      "name": "Report Browser",
-      "description": "Report Browser Dashboard",
-      "rootUrl": "https://dashboards.health.go.ug/report-browser/",
-      "baseUrl": "https://dashboards.health.go.ug/report-browser/",
-      "enabled": true,
-      "publicClient": false,
-      "protocol": "openid-connect",
-      "secret": "report-browser-secret",
-      "serviceAccountsEnabled": true,
-      "authorizationServicesEnabled": true,
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
-      "redirectUris": [
-        "http://localhost:3001/auth/callback"
-      ],
-      "webOrigins": [
-        "https://dashboards.health.go.ug/report-browser/"
       ],
       "attributes": {
-        "access.token.lifespan": "1800",
-        "ui.icon": "reporting",
-        "ui.home": "/dashboard"
-      },
-      "defaultClientScopes": [
-        "openid",
-        "profile",
-        "email",
-        "roles"
-      ],
-      "optionalClientScopes": [
-        "health-context",
-        "user_id"
-      ]
+        "portal.system": "true",
+        "portal.accessRoles": "dashboard-web_access",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "http://localhost:3000/portal"
+      }
     },
     {
-      "clientId": "integrated-outbreak-system",
-      "name": "Integrated Outbreak System",
-      "description": "Integrated Outbreak System Backend API",
+      "clientId": "outbreak-management",
+      "name": "Outbreak Management",
+      "description": "Outbreak Management Backend API",
       "rootUrl": "http://localhost:3001",
       "baseUrl": "http://localhost:3001",
       "enabled": true,
@@ -412,8 +398,16 @@
       ],
       "attributes": {
         "access.token.lifespan": "1800",
-        "ui.icon": "user",
-        "ui.home": "/dashboard"
+        "ui.icon": "warning-alt",
+        "ui.home": "/portal/apps/outbreak-management",
+        "ui.category": "surveillance",
+        "portal.system": "true",
+        "portal.accessRoles": "outbreak-management_access,viewer,data_entry,surveillance_officer,manager,admin,super_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/outbreak-management"
       },
       "defaultClientScopes": [
         "openid",
@@ -425,6 +419,32 @@
         "health-context",
         "user_id"
       ]
+    },
+    {
+      "clientId": "data-statistics",
+      "name": "Data & Statistics",
+      "description": "Data quality, document upload, reports, and surveillance tools",
+      "rootUrl": "http://localhost:3000/portal/apps/dwh",
+      "baseUrl": "http://localhost:3000/portal/apps/dwh",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "ui.icon": "home",
+        "ui.home": "/portal/apps/dwh",
+        "ui.category": "platform",
+        "portal.system": "true",
+        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/dwh",
+        "ui.navigation": "[{\"id\":\"dashboards\",\"label\":\"Dashboards\",\"path\":\"/apps/dwh/dashboards\",\"permission\":\"report_browser:read\"},{\"id\":\"data-validation\",\"label\":\"Data Validation\",\"path\":\"/apps/dwh/data-validation\",\"permission\":\"data_quality:read\"},{\"id\":\"documents\",\"label\":\"Documents\",\"path\":\"/apps/dwh/documents\",\"permission\":\"documents:read\"},{\"id\":\"surveillance\",\"label\":\"Surveillance\",\"path\":\"/apps/dwh/surveillance\",\"permission\":\"surveillance:read\"},{\"id\":\"issue-tracker\",\"label\":\"Issue Tracker\",\"path\":\"/apps/dwh/issue-tracker\",\"permission\":\"issue_tracker:read\"}]"
+      }
     }
   ],
   "users": [
@@ -450,15 +470,19 @@
           "dashboard-web_access",
           "portal_admin"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "super_admin",
           "admin"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_admin",
           "report_manager"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -484,13 +508,17 @@
           "dashboard-web_access",
           "portal_user"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "viewer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_viewer"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -516,15 +544,19 @@
           "dashboard-web_access",
           "portal_manager"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "manager",
           "surveillance_officer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_manager",
           "report_analyst"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -550,14 +582,18 @@
           "dashboard-web_access",
           "portal_user"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "data_entry",
           "surveillance_officer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_analyst"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -583,13 +619,17 @@
           "dashboard-web_access",
           "portal_user"
         ],
-        "integrated-outbreak-system": [
-          "integrated-outbreak-system_access",
+        "outbreak-management": [
+          "outbreak-management_access",
           "viewer"
         ],
-        "report-browser": [
-          "report-browser_access",
+        "data-statistics": [
           "report_viewer"
+        ]
+      },
+      "attributes": {
+        "accessible_systems": [
+          "data-statistics"
         ]
       }
     },
@@ -608,9 +648,9 @@
       }
     },
     {
-      "username": "service-account-integrated-outbreak-system-admin",
+      "username": "service-account-outbreak-management-admin",
       "enabled": true,
-      "serviceAccountClientId": "integrated-outbreak-system-admin",
+      "serviceAccountClientId": "outbreak-management-admin",
       "clientRoles": {
         "realm-management": [
           "realm-admin",

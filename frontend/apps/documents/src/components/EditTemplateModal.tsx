@@ -25,11 +25,11 @@ import {
   useUpdateColumnMutation,
   useReplaceStructureMutation,
   useScanDocumentStructureMutation,
-} from "@moh-sso/api";
+} from "../api";
 import type {
   DocumentTemplate,
   TemplateColumnStructure,
-} from "@moh-sso/types";
+} from "../types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

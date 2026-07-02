@@ -12,9 +12,9 @@ import {
   useApplyRbacSyncMutation,
   useGetRbacDriftQuery,
   usePreviewRbacSyncMutation,
-} from "@moh-sso/api";
+} from "../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
-import type { RbacDriftReport, RbacSyncPayload, RbacSyncPreview } from "@moh-sso/types";
+import type { RbacDriftReport, RbacSyncPayload, RbacSyncPreview } from "../types";
 
 type SyncDriftPanelProps = {
   onSynced?: () => void;

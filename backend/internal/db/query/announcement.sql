@@ -6,6 +6,7 @@ INSERT INTO announcements (
     level,
     tag,
     link_url,
+    link_label,
     priority,
     is_pinned,
     status,
@@ -13,10 +14,12 @@ INSERT INTO announcements (
     expires_at,
     audience_type,
     notify_by_email,
+    notify_by_sms,
+    sms_message,
     created_by,
     updated_by
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17
 )
 RETURNING *;
 
@@ -201,13 +204,16 @@ SET
     level = $5,
     tag = $6,
     link_url = $7,
-    priority = $8,
-    is_pinned = $9,
-    publish_at = $10,
-    expires_at = $11,
-    audience_type = $12,
-    notify_by_email = $13,
-    updated_by = $14
+    link_label = $8,
+    priority = $9,
+    is_pinned = $10,
+    publish_at = $11,
+    expires_at = $12,
+    audience_type = $13,
+    notify_by_email = $14,
+    notify_by_sms = $15,
+    sms_message = $16,
+    updated_by = $17
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
@@ -340,6 +346,14 @@ WHERE deleted_at IS NULL
 -- name: MarkAnnouncementEmailNotificationSent :one
 UPDATE announcements
 SET email_notification_sent_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING *;
+
+
+-- name: MarkAnnouncementSMSNotificationQueued :one
+UPDATE announcements
+SET sms_notification_queued_at = now()
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
@@ -534,7 +548,7 @@ SELECT DISTINCT
         u.email
     ) AS full_name
 FROM announcement_clients ac
-JOIN user_clients uc
+JOIN user_client_access uc
     ON uc.client_id = ac.client_id
 JOIN users u
     ON u.id = uc.user_id

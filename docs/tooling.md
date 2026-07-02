@@ -11,7 +11,7 @@ go run ./cmd/cli doctor
 go run ./cmd/cli config validate
 go run ./cmd/cli system-rbac validate --file config/system-rbac.seed.yaml
 go run ./cmd/cli system-rbac doctor --file config/system-rbac.seed.yaml
-go run ./cmd/cli system-rbac explain --realm-role admin --client-role integrated-outbreak-system:viewer
+go run ./cmd/cli system-rbac explain --realm-role admin --client-role outbreak-management:viewer
 go run ./cmd/cli system-rbac sync-keycloak --draft-file /tmp/system-rbac.seed.yaml
 go run ./cmd/cli dev seed --system-rbac
 go run ./cmd/cli openapi validate
@@ -54,6 +54,20 @@ Backend:
 
 ```sh
 GOCACHE=/private/tmp/moh-sso-go-build go test ./...
+```
+
+Backend architecture boundary check only:
+
+```sh
+cd backend
+GOCACHE=/private/tmp/moh-sso-go-build go test ./internal/architecture
+```
+
+Backend observability/event checks:
+
+```sh
+cd backend
+GOCACHE=/private/tmp/moh-sso-go-build go test ./internal/middleware ./internal/events
 ```
 
 Frontend:

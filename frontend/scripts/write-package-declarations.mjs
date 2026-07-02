@@ -149,6 +149,8 @@ function writeDeclaration(entryName) {
 if (kind === "app") {
   writeDeclaration("index");
   writeDeclaration("routes");
+  writeDeclaration("api");
+  writeDeclaration("types");
   writeFileSync(
     join(distDir, "single-spa.d.ts"),
     [

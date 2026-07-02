@@ -88,7 +88,7 @@ export const surveillanceRoute = {
   appName: "@moh-sso/surveillance",
   path: "/apps/dwh/surveillance",
   requiredAnyPermissions: ["surveillance:read", "outbreak:access"],
-  requiredSystems: ["integrated-outbreak-system"],
+  requiredSystems: ["outbreak-management"],
 };
 ```
 
@@ -111,7 +111,7 @@ Use the backend CLI to explain expected access:
 cd backend
 GOCACHE=/private/tmp/moh-sso-go-build go run ./cmd/cli system-rbac explain \
   --realm-role user \
-  --client-role integrated-outbreak-system:viewer
+  --client-role outbreak-management:viewer
 ```
 
 Use frontend checks:

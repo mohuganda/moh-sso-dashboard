@@ -26,12 +26,17 @@ export interface SystemAccess {
   launchUrl?: string;
   icon?: string;
   category?: string;
+  navigation?: string;
+  systemType?: "platform" | "external";
+  displayInLauncher?: boolean;
+  displayInSideNav?: boolean;
+  launchMode?: "internal" | "new_tab" | "same_tab";
   roles: string[];
 }
 
-export type Role = "admin" | "user" | "manager";
+export type Role = string;
 
-export type System = "dashboard-web" | "integrated-outbreak-system" | "report-browser";
+export type System = string;
 
 export type Permission =
   | "portal:access"
@@ -64,6 +69,7 @@ export type Permission =
   | "data_quality:read"
   | "data_quality:write"
   | "data_quality:resolve"
+  | "issue_tracker:resolve"
   | "report_browser:read"
   | "outbreak:access"
   | "outbreak:manage"
@@ -74,4 +80,11 @@ export type Permission =
   | "rbac:read"
   | "rbac:write"
   | "rbac:roles:write"
-  | "rbac:permissions:write";
+  | "rbac:permissions:write"
+  | "issue_tracker:read"
+  | "issue_tracker:write"
+  | "issue_tracker:manage"
+  | "issue_tracker:assign"
+  | "issue_tracker:close"
+  | "issue_tracker:reopen"
+  | "issue_tracker:comment";

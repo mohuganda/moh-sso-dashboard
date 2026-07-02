@@ -11,31 +11,31 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 		{
 			ClientID:   "dashboard-web",
 			Name:       "Portal",
-			Attributes: map[string]string{"ui.icon": "dashboard"},
+			Attributes: map[string]string{"ui.icon": "dashboard", "portal.system": "true"},
 		},
 		{
-			ClientID:   "integrated-outbreak-system",
-			Name:       "IOS",
-			Attributes: map[string]string{"ui.icon": "outbreak"},
+			ClientID:   "outbreak-management",
+			Name:       "Outbreak Management",
+			Attributes: map[string]string{"ui.icon": "outbreak", "portal.system": "true"},
 		},
 		{
-			ClientID:   "report-browser",
-			Name:       "Reports",
-			Attributes: map[string]string{"ui.icon": "reporting"},
+			ClientID:   "data-statistics",
+			Name:       "Data & Statistics",
+			Attributes: map[string]string{"ui.icon": "reporting", "portal.system": "true"},
 		},
 		{
 			ClientID:   "dashboard-admin",
 			Name:       "Technical admin client",
-			Attributes: map[string]string{"ui.icon": "settings"},
+			Attributes: map[string]string{"ui.icon": "settings", "portal.system": "true"},
 		},
 	}
 
 	filtered := filterAccessibleClients(
 		clients,
 		map[string][]string{
-			"dashboard-web":              {"dashboard-web_access", "portal_user"},
-			"integrated-outbreak-system": {"integrated-outbreak-system_access", "viewer"},
-			"report-browser":             {"report-browser_access", "report_viewer"},
+			"dashboard-web":       {"dashboard-web_access", "portal_user"},
+			"outbreak-management": {"outbreak-management_access", "viewer"},
+			"data-statistics":     {"data-statistics_access", "report_viewer"},
 		},
 		false,
 	)
@@ -45,7 +45,7 @@ func TestFilterAccessibleClientsReturnsAssignedApplicationClients(t *testing.T) 
 		got = append(got, client.ClientID)
 	}
 
-	want := []string{"dashboard-web", "integrated-outbreak-system", "report-browser"}
+	want := []string{"dashboard-web", "outbreak-management", "data-statistics"}
 	if len(got) != len(want) {
 		t.Fatalf("expected %v, got %v", want, got)
 	}
@@ -60,9 +60,9 @@ func TestFilterAccessibleClientsSkipsClientsWithoutUiMetadata(t *testing.T) {
 	filtered := filterAccessibleClients(
 		[]model.Client{
 			{
-				ClientID:   "integrated-outbreak-system",
-				Name:       "IOS",
-				Attributes: map[string]string{"ui.icon": "outbreak"},
+				ClientID:   "outbreak-management",
+				Name:       "Outbreak Management",
+				Attributes: map[string]string{"ui.icon": "outbreak", "portal.system": "true"},
 			},
 			{
 				ClientID: "technical-client",
@@ -70,13 +70,13 @@ func TestFilterAccessibleClientsSkipsClientsWithoutUiMetadata(t *testing.T) {
 			},
 		},
 		map[string][]string{
-			"integrated-outbreak-system": {"integrated-outbreak-system_access"},
-			"technical-client":           {"technical-client_access"},
+			"outbreak-management": {"outbreak-management_access"},
+			"technical-client":    {"technical-client_access"},
 		},
 		false,
 	)
 
-	if len(filtered) != 1 || filtered[0].ClientID != "integrated-outbreak-system" {
-		t.Fatalf("expected only IOS client, got %v", filtered)
+	if len(filtered) != 1 || filtered[0].ClientID != "outbreak-management" {
+		t.Fatalf("expected only Outbreak Management client, got %v", filtered)
 	}
 }

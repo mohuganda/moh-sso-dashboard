@@ -58,6 +58,42 @@
   padding-top: 0.5rem;
 }
 
+.email-form__path-attachment {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.email-form__attachments {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.email-form__attachment {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+  background: var(--cds-layer-02, #f4f4f4);
+}
+
+.email-form__attachment-main,
+.email-form__attachment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.email-form__attachment-main span,
+.email-form__attachment-empty {
+  color: var(--cds-text-secondary, #525252);
+}
+
 .email-form .cds--inline-notification {
   max-width: 100%;
 }

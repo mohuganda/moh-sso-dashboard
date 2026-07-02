@@ -2,8 +2,10 @@ package authz
 
 const (
 	SystemDashboardWeb       = "dashboard-web"
-	SystemIntegratedOutbreak = "integrated-outbreak-system"
-	SystemReportBrowser      = "report-browser"
+	SystemOutbreakManagement = "outbreak-management"
+	SystemDataStatistics     = "data-statistics"
+	SystemUtilities          = "utilities"
+	SystemSettings           = "settings"
 )
 
 const (
@@ -12,18 +14,21 @@ const (
 	DashboardWebManager = "portal_manager"
 	DashboardWebUser    = "portal_user"
 
-	IntegratedOutbreakAccess              = "integrated-outbreak-system_access"
-	IntegratedOutbreakSuperAdmin          = "super_admin"
-	IntegratedOutbreakAdmin               = "admin"
-	IntegratedOutbreakManager             = "manager"
-	IntegratedOutbreakViewer              = "viewer"
-	IntegratedOutbreakDataEntry           = "data_entry"
-	IntegratedOutbreakLabTechnician       = "lab_technician"
-	IntegratedOutbreakSurveillanceOfficer = "surveillance_officer"
+	OutbreakManagementAccess              = "outbreak-management_access"
+	OutbreakManagementSuperAdmin          = "super_admin"
+	OutbreakManagementAdmin               = "admin"
+	OutbreakManagementManager             = "manager"
+	OutbreakManagementViewer              = "viewer"
+	OutbreakManagementDataEntry           = "data_entry"
+	OutbreakManagementLabTechnician       = "lab_technician"
+	OutbreakManagementSurveillanceOfficer = "surveillance_officer"
 
-	ReportBrowserAccess  = "report-browser_access"
 	ReportBrowserAdmin   = "report_admin"
 	ReportBrowserManager = "report_manager"
 	ReportBrowserAnalyst = "report_analyst"
 	ReportBrowserViewer  = "report_viewer"
+
+	DataStatisticsAccess = "data-statistics_access"
+	UtilitiesAccess      = "utilities_access"
+	SettingsAccess       = "settings_access"
 )

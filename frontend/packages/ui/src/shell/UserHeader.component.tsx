@@ -21,7 +21,12 @@ type UserHeaderProps = {
   onLogout?: () => void;
 };
 
-const UserHeader: React.FC<UserHeaderProps> = ({ username, appMenu, onNavigateHome, onLogout }) => {
+const UserHeader: React.FC<UserHeaderProps> = ({
+  username,
+  appMenu,
+  onNavigateHome,
+  onLogout,
+}) => {
   return (
     <Header aria-label="MOH Integrated Health Portal">
       <SkipToContent />

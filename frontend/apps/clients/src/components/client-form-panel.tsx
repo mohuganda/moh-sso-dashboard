@@ -11,7 +11,7 @@ import {
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { useCreateClientMutation, useUpdateClientMutation } from "@moh-sso/api";
+import { useCreateClientMutation, useUpdateClientMutation } from "../api";
 import { ClientRolesPanel } from "./roles/client-roles-panel";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
 import type { Client, CreateClientPayload } from "@moh-sso/types";

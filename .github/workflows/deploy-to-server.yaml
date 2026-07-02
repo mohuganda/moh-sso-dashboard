@@ -2,30 +2,165 @@ name: Deploy Integrated Health Portal to Server
 
 on:
   workflow_run:
-    workflows: ["Build and Push UgandaEMR Docker Images"]
-    types:
-      - completed
+    workflows: ["Backend Release", "Backend Release From PR"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      backend_tag:
+        description: "Immutable backend release tag, for example 1.2.3 or backend/v1.2.3"
+        required: true
+        type: string
+      frontend_tag:
+        description: "Immutable frontend image tag"
+        required: true
+        type: string
+      expected_version:
+        description: "Expected backend runtime version"
+        required: true
+        type: string
+      expected_commit:
+        description: "Expected full backend Git commit"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
-      # Step 1: Set up SSH Key for secure communication 
-      - name: Set up SSH Key 
+      - name: Download release metadata
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: backend-release-metadata
+          path: ./release-metadata
+
+      - name: Resolve immutable deployment metadata
+        id: metadata
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_BACKEND_TAG: ${{ inputs.backend_tag }}
+          INPUT_FRONTEND_TAG: ${{ inputs.frontend_tag }}
+          INPUT_VERSION: ${{ inputs.expected_version }}
+          INPUT_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            BACKEND_TAG="$INPUT_BACKEND_TAG"
+            FRONTEND_TAG="$INPUT_FRONTEND_TAG"
+            EXPECTED_VERSION="${INPUT_VERSION#v}"
+            EXPECTED_COMMIT="$INPUT_COMMIT"
+            if [[ "$BACKEND_TAG" =~ ^backend/v([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+              BACKEND_TAG="${BASH_REMATCH[1]}"
+            fi
+          else
+            if [[ ! -f release-metadata/release-metadata.json ]]; then
+              echo "Release metadata artifact was not found"
+              exit 1
+            fi
+
+            BACKEND_TAG="$(jq -r '.image_tag' release-metadata/release-metadata.json)"
+            BACKEND_RELEASE_TAG="$(jq -r '.release_tag' release-metadata/release-metadata.json)"
+            EXPECTED_VERSION="$(jq -r '.version' release-metadata/release-metadata.json)"
+            EXPECTED_COMMIT="$(jq -r '.commit' release-metadata/release-metadata.json)"
+            FRONTEND_TAG="sha-${WORKFLOW_SHA:0:7}"
+          fi
+          if [[ "$BACKEND_TAG" == "latest" || -z "$BACKEND_TAG" ]]; then
+            echo "Mutable or empty backend tag is forbidden"
+            exit 1
+          fi
+          if [[ ! "$BACKEND_TAG" =~ ^([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|sha-[0-9a-f]{7,40})$ ]]; then
+            echo "Backend deployment must use an immutable image tag"
+            exit 1
+          fi
+          echo "backend_tag=$BACKEND_TAG" >> "$GITHUB_OUTPUT"
+          echo "backend_release_tag=${BACKEND_RELEASE_TAG:-backend/v${EXPECTED_VERSION}}" >> "$GITHUB_OUTPUT"
+          echo "frontend_tag=$FRONTEND_TAG" >> "$GITHUB_OUTPUT"
+          echo "expected_version=$EXPECTED_VERSION" >> "$GITHUB_OUTPUT"
+          echo "expected_commit=$EXPECTED_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Set up SSH key
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
 
-      # Step 2: SSH into the server, pull the latest image, and restart services
-      - name: Update and Restart Services on Server
+      - name: Deploy and verify immutable images
+        shell: bash
+        env:
+          SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}
+          DEPLOY_FOLDER: ${{ secrets.DEPLOY_FOLDER }}
+          BACKEND_TAG: ${{ steps.metadata.outputs.backend_tag }}
+          BACKEND_RELEASE_TAG: ${{ steps.metadata.outputs.backend_release_tag }}
+          FRONTEND_TAG: ${{ steps.metadata.outputs.frontend_tag }}
+          EXPECTED_VERSION: ${{ steps.metadata.outputs.expected_version }}
+          EXPECTED_COMMIT: ${{ steps.metadata.outputs.expected_commit }}
+          ACTOR: ${{ github.actor }}
         run: |
-          echo "Testing SSH connectivity..."
-          ssh -o StrictHostKeyChecking=no "${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}" "echo Connected"
-          
-          echo "Updating and restarting services..."
-          ssh "${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}" << 'EOF'
-            cd "${{ secrets.DEPLOY_FOLDER }}"
-            ./restart
-          EOF
+          ssh "$SSH_TARGET" \
+            "DEPLOY_FOLDER='$DEPLOY_FOLDER' BACKEND_TAG='$BACKEND_TAG' BACKEND_RELEASE_TAG='$BACKEND_RELEASE_TAG' FRONTEND_TAG='$FRONTEND_TAG' EXPECTED_VERSION='$EXPECTED_VERSION' EXPECTED_COMMIT='$EXPECTED_COMMIT' DEPLOY_ACTOR='$ACTOR' sh -s" <<'REMOTE'
+          set -eu
+          cd "$DEPLOY_FOLDER"
+
+          previous_backend_tag="$(cat .previous-backend-tag 2>/dev/null || true)"
+          previous_frontend_tag="$(cat .previous-frontend-tag 2>/dev/null || true)"
+
+          rollback() {
+            if [ -n "$previous_backend_tag" ]; then
+              echo "Deployment verification failed; rolling back to $previous_backend_tag"
+              BACKEND_TAG="$previous_backend_tag" FRONTEND_TAG="$previous_frontend_tag" ./restart
+            fi
+          }
+          trap rollback INT TERM HUP
+
+          export BACKEND_TAG FRONTEND_TAG
+          ./restart
+
+          backend_get() {
+            path=$1
+            wget -qO- "http://localhost:9000$path" 2>/dev/null || \
+              docker compose exec -T backend wget -qO- "http://localhost:9000$path"
+          }
+
+          response="$(backend_get /version)" || {
+            rollback
+            exit 1
+          }
+          echo "$response" | grep -F "\"version\":\"$EXPECTED_VERSION\"" >/dev/null || {
+            rollback
+            exit 1
+          }
+          echo "$response" | grep -F "\"commit\":\"$EXPECTED_COMMIT\"" >/dev/null || {
+            rollback
+            exit 1
+          }
+          backend_get /health/live >/dev/null || {
+            rollback
+            exit 1
+          }
+
+          backend_image="ghcr.io/mohuganda/moh-sso-dashboard-backend:$BACKEND_TAG"
+          digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$backend_image" 2>/dev/null || true)"
+          printf '%s\n' "$BACKEND_TAG" > .previous-backend-tag
+          printf '%s\n' "$FRONTEND_TAG" > .previous-frontend-tag
+          printf '%s release=%s version=%s commit=%s digest=%s actor=%s\n' \
+            "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$BACKEND_RELEASE_TAG" "$EXPECTED_VERSION" "$EXPECTED_COMMIT" "$digest" "$DEPLOY_ACTOR" \
+            >> deployment-history.log
+          trap - INT TERM HUP
+          echo "Deployment verified: release=$BACKEND_RELEASE_TAG version=$EXPECTED_VERSION commit=$EXPECTED_COMMIT digest=$digest"
+          REMOTE

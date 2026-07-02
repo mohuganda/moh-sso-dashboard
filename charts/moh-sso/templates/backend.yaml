@@ -38,33 +38,22 @@ spec:
 
         # 2. Wait for Keycloak (checking the Management Port 9000)
         - name: wait-for-keycloak
-          image: postgres:15-alpine
+          image: curlimages/curl:8.10.1
           command:
-            - /bin/sh
+            - sh
             - -c
             - |
-              echo "Waiting for Keycloak on application port 8080..."
-              
-              # 1. Check if the main application port is open
-              until nc -z -v -w5 {{ .Release.Name }}-keycloak 8080; do
-                echo "Keycloak port 8080 not reachable yet - sleeping 5s"
+              echo "Waiting for Keycloak health endpoint..."
+              until curl -fsS "http://{{ .Release.Name }}-keycloak:{{ .Values.keycloak.service.port }}/health/live" >/dev/null; do
+                echo "Keycloak not ready yet - sleeping 5s"
                 sleep 5
               done
-              
-              echo "Port 8080 is open! Verifying if Keycloak is responding..."
-              
-              # 2. Ping the base health path on 8080. 
-              # Even if management is on 9000, 8080 will return a response once the engine is up.
-              until printf "GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" | nc -w 2 {{ .Release.Name }}-keycloak 8080 | grep -q "HTTP/1.1"; do
-                echo "Keycloak port 8080 is open, but not serving traffic yet - sleeping 5s"
-                sleep 5
-              done
-              
-              echo "Keycloak is RESPONDING! Handing off to backend..."
+
+              echo "Keycloak is responding! Handing off to backend..."
 
       containers:
         - name: api
-          image: {{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.backend.service.port }}
@@ -84,14 +73,14 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: {{ .Values.backend.probes.readinessPath | default "/health" }}
+              path: {{ .Values.backend.probes.readinessPath | default "/health/ready" }}
               port: {{ .Values.backend.service.port }}
             initialDelaySeconds: 8
             periodSeconds: 10
 
           livenessProbe:
             httpGet:
-              path: {{ .Values.backend.probes.livenessPath | default "/health" }}
+              path: {{ .Values.backend.probes.livenessPath | default "/health/live" }}
               port: {{ .Values.backend.service.port }}
             initialDelaySeconds: 15
             periodSeconds: 15

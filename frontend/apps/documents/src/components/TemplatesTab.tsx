@@ -32,10 +32,10 @@ import {
   usePublishTemplateMutation,
   useArchiveTemplateMutation,
   useDeleteTemplateMutation,
-  useGetUserQuery,
-} from "@moh-sso/api";
+} from "../api";
+import { useGetUserQuery } from "@moh-sso/users/api";
 import { selectUser } from "@moh-sso/auth";
-import type { DocumentTemplate, TemplateStructure } from "@moh-sso/types";
+import type { DocumentTemplate, TemplateStructure } from "../types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

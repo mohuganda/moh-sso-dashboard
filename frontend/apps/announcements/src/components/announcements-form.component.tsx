@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Checkbox,
   DatePicker,
   DatePickerInput,
   Form,
+  FormGroup,
+  InlineLoading,
+  MultiSelect,
   Select,
   SelectItem,
   Stack,
@@ -20,8 +23,10 @@ import type {
   AnnouncementStatus,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
-} from "@moh-sso/types";
+} from "../types";
 import { useToast } from "@moh-sso/ui";
+import { useListRbacSystemsQuery, useListRealmRolePermissionsQuery } from "@moh-sso/rbac";
+import { useListUsersQuery } from "@moh-sso/users";
 
 export interface AnnouncementFormValues {
   title: string;
@@ -35,6 +40,9 @@ export interface AnnouncementFormValues {
   is_pinned: boolean;
   status: AnnouncementStatus;
   audience_type: AnnouncementAudienceType;
+  client_ids: string[];
+  role_names: string[];
+  user_ids: string[];
   publish_at: string;
   expires_at: string;
 
@@ -42,6 +50,8 @@ export interface AnnouncementFormValues {
    * If true, email notifications will be queued when this announcement is published.
    */
   notify_by_email: boolean;
+  notify_by_sms: boolean;
+  sms_message: string;
 }
 
 interface AnnouncementFormProps {
@@ -67,9 +77,14 @@ const initialForm: AnnouncementFormValues = {
   is_pinned: false,
   status: "DRAFT",
   audience_type: "ALL_USERS",
+  client_ids: [],
+  role_names: [],
+  user_ids: [],
   publish_at: "",
   expires_at: "",
   notify_by_email: false,
+  notify_by_sms: false,
+  sms_message: "",
 };
 
 function toIsoString(value?: string | null) {
@@ -97,9 +112,14 @@ function normalizeInitialValues(
     is_pinned: Boolean(values.is_pinned),
     status: (values.status as AnnouncementStatus) ?? "DRAFT",
     audience_type: (values.audience_type as AnnouncementAudienceType) ?? "ALL_USERS",
+    client_ids: "client_ids" in values && Array.isArray(values.client_ids) ? values.client_ids : [],
+    role_names: "role_names" in values && Array.isArray(values.role_names) ? values.role_names : [],
+    user_ids: "user_ids" in values && Array.isArray(values.user_ids) ? values.user_ids : [],
     publish_at: toIsoString(values.publish_at),
     expires_at: toIsoString(values.expires_at),
     notify_by_email: Boolean(values.notify_by_email),
+    notify_by_sms: Boolean("notify_by_sms" in values ? values.notify_by_sms : false),
+    sms_message: "sms_message" in values && values.sms_message ? values.sms_message : "",
   };
 }
 
@@ -112,12 +132,67 @@ export function AnnouncementForm({
   submitLabel,
 }: AnnouncementFormProps) {
   const toast = useToast();
-
   const [form, setForm] = useState<AnnouncementFormValues>(normalizeInitialValues(initialValues));
+  const { data: systems = [], isLoading: systemsLoading, isError: systemsError } = useListRbacSystemsQuery();
+  const {
+    data: realmRoles = [],
+    isLoading: rolesLoading,
+    isError: rolesError,
+  } = useListRealmRolePermissionsQuery();
+  const { data: users = [], isLoading: usersLoading, isError: usersError } = useListUsersQuery();
+
+  useEffect(() => {
+    setForm(normalizeInitialValues(initialValues));
+  }, [initialValues]);
+
+  const systemItems = useMemo(
+    () =>
+      systems.map((system) => ({
+        id: system.id,
+        text: system.displayName || system.clientId,
+      })),
+    [systems],
+  );
+
+  const roleItems = useMemo(
+    () =>
+      realmRoles.map((role) => ({
+        id: role.realmRole,
+        text: role.realmRole,
+      })),
+    [realmRoles],
+  );
+
+  const userItems = useMemo(
+    () =>
+      users.map((user) => ({
+        id: user.id,
+        text: user.email
+          ? `${user.username} (${user.email})`
+          : user.username,
+      })),
+    [users],
+  );
 
   const isValid = useMemo(() => {
-    return form.title.trim().length > 0 && form.message.trim().length > 0;
-  }, [form.title, form.message]);
+    if (form.title.trim().length === 0 || form.message.trim().length === 0) {
+      return false;
+    }
+
+    if (form.audience_type === "SPECIFIC_CLIENTS") {
+      return form.client_ids.length > 0;
+    }
+
+    if (form.audience_type === "SPECIFIC_ROLES") {
+      return form.role_names.length > 0;
+    }
+
+    if (form.audience_type === "SPECIFIC_USERS") {
+      return form.user_ids.length > 0;
+    }
+
+    return true;
+  }, [form]);
 
   const updateForm = <K extends keyof AnnouncementFormValues>(
     key: K,
@@ -143,7 +218,20 @@ export function AnnouncementForm({
       status: form.status,
       audience_type: form.audience_type,
       notify_by_email: form.notify_by_email,
+      notify_by_sms: form.notify_by_sms,
     };
+
+    if (form.audience_type === "SPECIFIC_CLIENTS") {
+      payload.client_ids = form.client_ids;
+    }
+
+    if (form.audience_type === "SPECIFIC_ROLES") {
+      payload.role_names = form.role_names;
+    }
+
+    if (form.audience_type === "SPECIFIC_USERS") {
+      payload.user_ids = form.user_ids;
+    }
 
     if (form.summary.trim()) {
       payload.summary = form.summary.trim();
@@ -169,6 +257,10 @@ export function AnnouncementForm({
       payload.expires_at = form.expires_at;
     }
 
+    if (form.sms_message.trim()) {
+      payload.sms_message = form.sms_message.trim();
+    }
+
     return payload;
   };
 
@@ -176,7 +268,10 @@ export function AnnouncementForm({
     e.preventDefault();
 
     if (!isValid) {
-      toast.error("Invalid", "Please provide both a title and message.");
+      toast.error(
+        "Invalid",
+        "Please provide a title, message, and the required audience selection.",
+      );
       return;
     }
 
@@ -355,6 +450,91 @@ export function AnnouncementForm({
           </div>
         </div>
 
+        <FormGroup legendText="Audience targeting">
+          <Stack gap={4}>
+            {form.audience_type === "ALL_USERS" && (
+              <p style={{ margin: 0, color: "#6f6f6f" }}>
+                This announcement will be visible to all portal users.
+              </p>
+            )}
+
+            {form.audience_type === "ADMINS_ONLY" && (
+              <p style={{ margin: 0, color: "#6f6f6f" }}>
+                This announcement will be visible to users with the admin realm role.
+              </p>
+            )}
+
+            {form.audience_type === "SPECIFIC_CLIENTS" && (
+              <>
+                {systemsLoading && <InlineLoading description="Loading systems..." />}
+                <MultiSelect
+                  id="announcement-client-audience"
+                  titleText="Systems"
+                  label={systemsError ? "Unable to load systems" : "Select systems"}
+                  items={systemItems}
+                  itemToString={(item) => item?.text ?? ""}
+                  selectedItems={systemItems.filter((item) => form.client_ids.includes(item.id))}
+                  disabled={systemsLoading || systemsError}
+                  invalid={form.client_ids.length === 0}
+                  invalidText="Select at least one system."
+                  onChange={({ selectedItems }) =>
+                    updateForm(
+                      "client_ids",
+                      (selectedItems ?? []).map((item) => item.id),
+                    )
+                  }
+                />
+              </>
+            )}
+
+            {form.audience_type === "SPECIFIC_ROLES" && (
+              <>
+                {rolesLoading && <InlineLoading description="Loading roles..." />}
+                <MultiSelect
+                  id="announcement-role-audience"
+                  titleText="Realm roles"
+                  label={rolesError ? "Unable to load roles" : "Select realm roles"}
+                  items={roleItems}
+                  itemToString={(item) => item?.text ?? ""}
+                  selectedItems={roleItems.filter((item) => form.role_names.includes(item.id))}
+                  disabled={rolesLoading || rolesError}
+                  invalid={form.role_names.length === 0}
+                  invalidText="Select at least one role."
+                  onChange={({ selectedItems }) =>
+                    updateForm(
+                      "role_names",
+                      (selectedItems ?? []).map((item) => item.id),
+                    )
+                  }
+                />
+              </>
+            )}
+
+            {form.audience_type === "SPECIFIC_USERS" && (
+              <>
+                {usersLoading && <InlineLoading description="Loading users..." />}
+                <MultiSelect
+                  id="announcement-user-audience"
+                  titleText="Users"
+                  label={usersError ? "Unable to load users" : "Select users"}
+                  items={userItems}
+                  itemToString={(item) => item?.text ?? ""}
+                  selectedItems={userItems.filter((item) => form.user_ids.includes(item.id))}
+                  disabled={usersLoading || usersError}
+                  invalid={form.user_ids.length === 0}
+                  invalidText="Select at least one user."
+                  onChange={({ selectedItems }) =>
+                    updateForm(
+                      "user_ids",
+                      (selectedItems ?? []).map((item) => item.id),
+                    )
+                  }
+                />
+              </>
+            )}
+          </Stack>
+        </FormGroup>
+
         <div
           style={{
             display: "grid",
@@ -375,6 +555,27 @@ export function AnnouncementForm({
             onChange={(_, { checked }) => updateForm("notify_by_email", Boolean(checked))}
           />
 
+          <Checkbox
+            id="announcement-notify-by-sms"
+            labelText="Send SMS notification when this announcement is published"
+            checked={form.notify_by_sms}
+            onChange={(_, { checked }) => updateForm("notify_by_sms", Boolean(checked))}
+          />
+
+          {form.notify_by_sms ? (
+            <TextArea
+              id="announcement-sms-message"
+              labelText="SMS message"
+              helperText="Optional. Leave blank to use the announcement summary or message."
+              placeholder="Short SMS message"
+              rows={3}
+              value={form.sms_message}
+              onChange={(e) => updateForm("sms_message", e.target.value)}
+              maxCount={160}
+              enableCounter
+            />
+          ) : null}
+
           <p
             style={{
               margin: 0,
@@ -383,9 +584,9 @@ export function AnnouncementForm({
               lineHeight: 1.4,
             }}
           >
-            Email notifications are only queued when the announcement is published and this option
-            is enabled. Drafts and scheduled announcements will not send email until they are
-            published.
+            Email and SMS notifications are only queued when the announcement is published and the
+            matching option is enabled. Drafts and scheduled announcements will not notify users
+            until they are published.
           </p>
         </div>
 

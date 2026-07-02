@@ -8,6 +8,7 @@ import (
 	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
 	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
 	geojsonfeature "github.com/moh-sso-dashboard/internal/features/geojson"
+	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
@@ -24,6 +25,7 @@ func RegisterProtectedRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	registerStorageLocationRoutes(protected, deps)
 	registerSessionRoutes(protected, deps)
 	registerDataQualityRoutes(protected, deps)
+	registerNotificationRoutes(protected, deps)
 	registerVisualiserRoutes(protected, deps)
 	registerSurveillanceRoutes(protected, deps)
 	registerRBACProtectedRoutes(protected, deps)
@@ -63,4 +65,8 @@ func registerDataQualityRoutes(protected *gin.RouterGroup, deps Dependencies) {
 
 func registerRBACProtectedRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	rbacfeature.RegisterProtectedRoutes(protected, deps.RBAC)
+}
+
+func registerNotificationRoutes(protected *gin.RouterGroup, deps Dependencies) {
+	notificationsfeature.RegisterProtectedRoutes(protected, deps.Notifications)
 }

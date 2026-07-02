@@ -63,7 +63,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		h.audit(c, "user.create_failed", map[string]interface{}{
 			"username": req.Username,
 			"email":    req.Email,
-			"reason":   err.Error(),
+			"reason":   "request failed",
 		})
 
 		var apiErr *apierror.APIError
@@ -167,7 +167,7 @@ func (h *Handler) ListUsers(c *gin.Context) {
 			)
 		}
 	}
-	out := make([]models.UserResponse, len(users))
+	out := make([]UserResponse, len(users))
 	for i := range users {
 		out[i] = toUserResponse(&users[i])
 	}
@@ -206,7 +206,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 
 		h.audit(c, "user.delete_failed", map[string]interface{}{
 			"user_id": id,
-			"reason":  err.Error(),
+			"reason":  "request failed",
 		})
 
 		var apiErr *apierror.APIError
@@ -257,7 +257,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	if err != nil {
 		h.audit(c, "user.update_failed", map[string]interface{}{
 			"user_id": userID.String(),
-			"reason":  err.Error(),
+			"reason":  "request failed",
 		})
 
 		var apiErr *apierror.APIError
@@ -297,7 +297,7 @@ func (h *Handler) GetUserClientRoles(c *gin.Context) {
 	if err != nil {
 		h.audit(c, "user.client_roles_failed", map[string]interface{}{
 			"user_id": userID.String(),
-			"reason":  err.Error(),
+			"reason":  "request failed",
 		})
 
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch user client roles")
@@ -308,7 +308,7 @@ func (h *Handler) GetUserClientRoles(c *gin.Context) {
 		"user_id": userID.String(),
 	})
 
-	response.OK(c, http.StatusOK, roles)
+	response.OK(c, http.StatusOK, toUserClientRoleAssignmentResponses(roles))
 }
 
 /* =========================================================
@@ -387,7 +387,7 @@ func (h *Handler) GetUserClientRolesForClient(c *gin.Context) {
 				"user_id":     userID.String(),
 				"client_id":   body.ClientID,
 				"client_uuid": body.ClientUUID,
-				"reason":      err.Error(),
+				"reason":      "request failed",
 			},
 		)
 
@@ -414,7 +414,7 @@ func (h *Handler) GetUserClientRolesForClient(c *gin.Context) {
 		},
 	)
 
-	response.OK(c, http.StatusOK, roles)
+	response.OK(c, http.StatusOK, toClientRoleResponses(roles))
 }
 
 /* =========================================================
@@ -475,7 +475,7 @@ func (h *Handler) UpdateUserClientRoles(c *gin.Context) {
 			"client_id":   body.ClientID,
 			"client_uuid": clientUUID.String(),
 			"roles":       body.Roles,
-			"reason":      err.Error(),
+			"reason":      "request failed",
 		})
 
 		response.Fail(
@@ -540,7 +540,7 @@ func (h *Handler) AddUserClientRoles(c *gin.Context) {
 			"client_id":   body.ClientID,
 			"client_uuid": clientUUID.String(),
 			"roles":       body.Roles,
-			"reason":      err.Error(),
+			"reason":      "request failed",
 		})
 
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to add user client roles")
@@ -593,7 +593,7 @@ func (h *Handler) RemoveUserClientRoles(c *gin.Context) {
 			"client_id":   body.ClientID,
 			"client_uuid": clientUUID.String(),
 			"roles":       body.Roles,
-			"reason":      err.Error(),
+			"reason":      "request failed",
 		})
 
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to remove user client roles")
@@ -626,7 +626,7 @@ func (h *Handler) ResetUserPassword(c *gin.Context) {
 
 		h.audit(c, "user.password_reset_failed", map[string]interface{}{
 			"user_id": userID.String(),
-			"reason":  err.Error(),
+			"reason":  "request failed",
 		})
 
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to reset user password")
@@ -668,7 +668,7 @@ func (h *Handler) sendUserEmailAction(
 	if err := action(c.Request.Context(), userID, adminID); err != nil {
 		h.audit(c, auditPrefix+"_failed", map[string]interface{}{
 			"user_id": userID.String(),
-			"reason":  err.Error(),
+			"reason":  "request failed",
 		})
 
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to send user email action")
@@ -722,7 +722,7 @@ func (h *Handler) SetUserEnabled(c *gin.Context) {
 		h.audit(c, "user.toggle_failed", map[string]interface{}{
 			"user_id": userID.String(),
 			"enabled": body.Enabled,
-			"reason":  err.Error(),
+			"reason":  "request failed",
 		})
 
 		response.Fail(

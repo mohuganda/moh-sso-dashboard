@@ -104,7 +104,7 @@ func (h *Handler) CreateTemplate(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusCreated, template)
+	response.OK(c, http.StatusCreated, toTemplateResponse(template))
 }
 
 /* =========================================================
@@ -143,7 +143,7 @@ func (h *Handler) GetTemplate(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, template)
+	response.OK(c, http.StatusOK, toTemplateRuntimeResponse(template))
 }
 
 /* =========================================================
@@ -182,7 +182,7 @@ func (h *Handler) GetTemplateStructure(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, structure)
+	response.OK(c, http.StatusOK, toTemplateStructureResponse(structure))
 }
 
 /* =========================================================
@@ -275,7 +275,7 @@ func (h *Handler) UpdateTemplate(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, template)
+	response.OK(c, http.StatusOK, toTemplateResponse(template))
 }
 
 /* =========================================================
@@ -424,7 +424,7 @@ func (h *Handler) ListSheets(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, sheets)
+	response.OK(c, http.StatusOK, toSheetResponses(sheets))
 }
 
 /* =========================================================
@@ -525,7 +525,7 @@ func (h *Handler) ListColumns(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, columns)
+	response.OK(c, http.StatusOK, toColumnResponses(columns))
 }
 
 /* =========================================================
@@ -650,11 +650,11 @@ func (h *Handler) CreateTemplateWithStructure(c *gin.Context) {
 			c,
 			http.StatusInternalServerError,
 			"CREATE_TEMPLATE_FAILED",
-			err.Error(),
+			"request failed",
 		)
 
 		return
 	}
 
-	response.OK(c, http.StatusCreated, template)
+	response.OK(c, http.StatusCreated, toTemplateStructureResponse(template))
 }

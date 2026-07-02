@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
   Document,
+  Attachment,
   Help,
   Information,
   Pin,
@@ -18,8 +19,12 @@ import { EmptyState, ErrorState } from "@moh-sso/ui";
 import {
   buildUserAnnouncementAttachmentDownloadUrl,
   useListPublicAnnouncementsQuery,
-} from "@moh-sso/api";
-import type { Announcement, AnnouncementLevel, AnnouncementStatus } from "@moh-sso/types";
+} from "@moh-sso/announcements/api";
+import type {
+  Announcement,
+  AnnouncementLevel,
+  AnnouncementStatus,
+} from "@moh-sso/announcements/types";
 import "./news-feed.scss";
 
 const CASE_REPORTING = [
@@ -278,6 +283,7 @@ function AppLink({ href, className, children }: AppLinkProps) {
 
 function AnnouncementLink({ item }: { item: Announcement }) {
   const href = item.link_url?.trim();
+  const label = item.link_label?.trim() || "Read more";
 
   if (!href) {
     return null;
@@ -285,8 +291,9 @@ function AnnouncementLink({ item }: { item: Announcement }) {
 
   return (
     <div className="feed-link-row">
+      <span className="feed-link-row__label">Related link</span>
       <AppLink href={href} className="feed-link">
-        Read more
+        {label}
         <ChevronRight size={16} />
       </AppLink>
     </div>
@@ -314,6 +321,7 @@ function AnnouncementCard({ item }: { item: Announcement }) {
   const statusTag = mapStatusTag(item.status);
   const timestampSource = getAnnouncementDate(item);
   const attachmentCount = item.attachment_count ?? item.attachments?.length ?? 0;
+  const hasAttachmentList = Boolean(item.attachments && item.attachments.length > 0);
 
   return (
     <Tile
@@ -369,7 +377,7 @@ function AnnouncementCard({ item }: { item: Announcement }) {
               {attachmentCount > 0 && (
                 <Tag type="cyan" size="sm">
                   <span className="feed-tag-with-icon">
-                    <Document size={12} />
+                    <Attachment size={12} />
                     {attachmentCount === 1 ? "1 file" : `${attachmentCount} files`}
                   </span>
                 </Tag>
@@ -382,35 +390,44 @@ function AnnouncementCard({ item }: { item: Announcement }) {
 
             <AnnouncementLink item={item} />
 
-            {item.attachments && item.attachments.length > 0 && (
+            {attachmentCount > 0 && (
               <div className="feed-attachments">
                 <div className="feed-attachments__title">
-                  <Document size={14} />
-                  <span>Attachments</span>
+                  <Attachment size={14} />
+                  <span>
+                    {attachmentCount === 1 ? "Attachment" : `Attachments (${attachmentCount})`}
+                  </span>
                 </div>
 
-                <div className="feed-attachments__list">
-                  {item.attachments.map((attachment) => {
-                    const href =
-                      attachment.download_url ||
-                      buildUserAnnouncementAttachmentDownloadUrl(item.id, attachment.id);
-                    const sizeLabel = formatFileSize(attachment.file_size);
+                {hasAttachmentList ? (
+                  <div className="feed-attachments__list">
+                    {item.attachments?.map((attachment) => {
+                      const href =
+                        attachment.download_url ||
+                        buildUserAnnouncementAttachmentDownloadUrl(item.id, attachment.id);
+                      const sizeLabel = formatFileSize(attachment.file_size);
 
-                    return (
-                      <Link
-                        key={attachment.id}
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="feed-attachment-link"
-                      >
-                        <Document size={14} />
-                        <span>{attachment.original_file_name || attachment.file_name}</span>
-                        {sizeLabel && <small>{sizeLabel}</small>}
-                      </Link>
-                    );
-                  })}
-                </div>
+                      return (
+                        <Link
+                          key={attachment.id}
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="feed-attachment-link"
+                        >
+                          <Document size={14} />
+                          <span>{attachment.original_file_name || attachment.file_name}</span>
+                          {sizeLabel && <small>{sizeLabel}</small>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="feed-attachments__empty">
+                    This announcement has {attachmentCount} attachment
+                    {attachmentCount === 1 ? "" : "s"}.
+                  </p>
+                )}
               </div>
             )}
           </div>

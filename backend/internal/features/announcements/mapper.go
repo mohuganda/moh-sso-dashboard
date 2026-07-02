@@ -11,6 +11,8 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 )
 
+type announcement = db.Announcement
+
 func nullStringPtr(ns sql.NullString) *string {
 	if !ns.Valid {
 		return nil
@@ -34,6 +36,7 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 		Level:                   normalizeLevel(model.AnnouncementLevel(interfaceToString(a.Level))),
 		Tag:                     nullStringPtr(a.Tag),
 		LinkURL:                 nullStringPtr(a.LinkUrl),
+		LinkLabel:               nullStringPtr(a.LinkLabel),
 		Priority:                a.Priority,
 		IsPinned:                a.IsPinned,
 		Status:                  normalizeAnnouncementStatus(model.AnnouncementStatus(interfaceToString(a.Status))),
@@ -42,6 +45,9 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 		AudienceType:            normalizeAudienceType(model.AnnouncementAudienceType(interfaceToString(a.AudienceType))),
 		NotifyByEmail:           a.NotifyByEmail,
 		EmailNotificationSentAt: nullTimePtr(a.EmailNotificationSentAt),
+		NotifyBySMS:             a.NotifyBySms,
+		SMSMessage:              nullStringPtr(a.SmsMessage),
+		SMSNotificationQueuedAt: nullTimePtr(a.SmsNotificationQueuedAt),
 		CreatedBy:               a.CreatedBy.String(),
 		UpdatedBy:               nullUUIDString(a.UpdatedBy),
 		PublishedBy:             nullableUUID(a.PublishedBy),
@@ -79,6 +85,33 @@ func toAnnouncementResponseWithAttachmentBase(
 	res.Attachments = toAnnouncementAttachmentResponses(a.ID, attachments, downloadBasePath)
 	res.AttachmentCount = len(res.Attachments)
 	return res
+}
+
+func withAnnouncementAudience(
+	res AnnouncementResponse,
+	clientIDs []uuid.UUID,
+	roleNames []string,
+	userIDs []uuid.UUID,
+) AnnouncementResponse {
+	res.ClientIDs = uuidStrings(clientIDs)
+	res.RoleNames = roleNames
+	res.UserIDs = uuidStrings(userIDs)
+	return res
+}
+
+func uuidStrings(values []uuid.UUID) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if value != uuid.Nil {
+			out = append(out, value.String())
+		}
+	}
+
+	return out
 }
 
 func toAnnouncementAttachmentResponse(
@@ -141,6 +174,17 @@ func toAnnouncementAttachmentResponses(
 		out = append(out, toAnnouncementAttachmentResponseWithDownloadBase(announcementID, attachment, basePath))
 	}
 	return out
+}
+
+func toAnnouncementStatsResponse(stats db.GetAnnouncementStatsRow) AnnouncementStatsResponse {
+	return AnnouncementStatsResponse{
+		Total:          stats.Total,
+		DraftCount:     stats.DraftCount,
+		ScheduledCount: stats.ScheduledCount,
+		PublishedCount: stats.PublishedCount,
+		ArchivedCount:  stats.ArchivedCount,
+		ActiveCount:    stats.ActiveCount,
+	}
 }
 
 func mapAnnouncementAttachments(in []announcementAttachmentRequest) []model.Attachment {

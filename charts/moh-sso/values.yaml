@@ -3,7 +3,7 @@
 # ==================================================
 
 global:
-  environment: dev
+  environment: development
   namespace: default
 
 imagePullSecrets: []
@@ -47,7 +47,7 @@ backend:
 
   image:
     repository: "ghcr.io/mohuganda/moh-sso-dashboard-backend" # injected by CI
-    tag: "latest" # injected by CI
+    tag: "" # injected by CI; production must supply an immutable tag
     pullPolicy: Always
 
   service:
@@ -60,6 +60,25 @@ backend:
   env:
     PORT: "9000"
     ALLOWED_ORIGINS: ""
+
+  sms:
+    enabled: false
+    provider: mock
+    defaultCountryCode: "+256"
+    fromName: MOH
+    maxLength: 160
+    sendTimeout: 10s
+    africasTalkingUsername: ""
+    africasTalkingApiKey: ""
+    africasTalkingSenderId: ""
+    twilioAccountSid: ""
+    twilioAuthToken: ""
+    twilioFromNumber: ""
+
+  notificationDelivery:
+    workerEnabled: true
+    workerInterval: 3s
+    batchSize: 20
 
   baseUrl: "" # optional override (used for redirect URI)
 
@@ -95,7 +114,7 @@ frontend:
 
   image:
     repository: "ghcr.io/mohuganda/moh-sso-dashboard-frontend" # injected by CI
-    tag: "latest" # injected by CI
+    tag: "" # injected by CI; production must supply an immutable tag
     pullPolicy: Always
 
   service:

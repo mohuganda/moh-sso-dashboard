@@ -52,3 +52,7 @@ jobs:
       - name: Backend test
         working-directory: backend
         run: go test ./...
+
+      - name: Backend version consistency
+        working-directory: backend
+        run: ./scripts/check-version-consistency.sh

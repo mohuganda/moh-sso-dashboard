@@ -1,4 +1,6 @@
 export { ClientsRoot } from "./root.component";
+export * from "./api";
+export * from "./types";
 export { clientsRoute } from "./routes";
 export { default as ClientsPage } from "./pages/client.component";
 export { ClientFormPanel } from "./components/client-form-panel";

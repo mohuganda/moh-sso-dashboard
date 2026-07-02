@@ -107,6 +107,8 @@ K8S_NAMESPACE = sso-local
 HELM_RELEASE = moh-sso-dashboard
 HELM_CHART = ./charts/moh-sso
 VALUES_LOCAL = charts/moh-sso/values-local.yaml
+VALUES_DEV = charts/moh-sso/values-dev.yaml
+VALUES_PROD = charts/moh-sso/values-prod.yaml
 
 BACKEND_IMAGE = moh-sso-dashboard-backend:local
 FRONTEND_IMAGE = moh-sso-dashboard-frontend:local
@@ -181,13 +183,43 @@ local: local-build local-up
 	@echo "🎉 Local stack deployed!"
 	@echo "Run 'make local-forward' to access services."
 
+.PHONY: helm-lint
+helm-lint:
+	@echo "🔎 Linting Helm chart..."
+	helm lint $(HELM_CHART)
+
+.PHONY: helm-template-local
+helm-template-local:
+	@echo "🧾 Rendering local Helm values..."
+	helm template $(HELM_RELEASE) $(HELM_CHART) -f $(VALUES_LOCAL)
+
+.PHONY: helm-template-dev
+helm-template-dev:
+	@echo "🧾 Rendering dev Helm values..."
+	helm template $(HELM_RELEASE) $(HELM_CHART) -f $(VALUES_DEV)
+
+.PHONY: helm-template-prod
+helm-template-prod:
+	@test -n "$(BACKEND_TAG)" || (echo "BACKEND_TAG is required for helm-template-prod" && exit 1)
+	@test -n "$(FRONTEND_TAG)" || (echo "FRONTEND_TAG is required for helm-template-prod" && exit 1)
+	@echo "🧾 Rendering prod Helm values..."
+	helm template $(HELM_RELEASE) $(HELM_CHART) -f $(VALUES_PROD) \
+		--set backend.image.tag=$(BACKEND_TAG) \
+		--set frontend.image.tag=$(FRONTEND_TAG)
+
+.PHONY: helm-check
+helm-check: helm-lint helm-template-local helm-template-dev
+	@echo "✅ Helm chart checks passed"
+
+.PHONY: helm-check-prod
+helm-check-prod: helm-lint helm-template-prod
+	@echo "✅ Helm production chart checks passed"
+
 # -----------------------------
 # Kubernetes DEV (Cluster)
 # -----------------------------
 
 DEV_NAMESPACE = sso-dev
-DEV_VALUES = charts/moh-sso/values-dev.yaml
-
 .PHONY: dev-up
 dev-up:
 	@echo "🚀 Deploying DEV environment..."
@@ -227,14 +259,16 @@ dev-frontend-logs:
 # -----------------------------
 
 PROD_NAMESPACE = sso-prod
-PROD_VALUES = charts/moh-sso/values-prod.yaml
-
 .PHONY: prod-up
 prod-up:
 	@echo "🚀 Deploying PROD environment..."
+	@test -n "$(BACKEND_TAG)" || (echo "BACKEND_TAG is required for prod-up" && exit 1)
+	@test -n "$(FRONTEND_TAG)" || (echo "FRONTEND_TAG is required for prod-up" && exit 1)
 	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
 		-n $(PROD_NAMESPACE) \
-		-f $(PROD_VALUES)
+		-f $(VALUES_PROD) \
+		--set backend.image.tag=$(BACKEND_TAG) \
+		--set frontend.image.tag=$(FRONTEND_TAG)
 
 .PHONY: prod-down
 prod-down:
@@ -258,4 +292,4 @@ prod-backend-logs:
 
 .PHONY: prod-frontend-logs
 prod-frontend-logs:
-	kubectl logs -f deployment/$(HELM_RELEASE)-frontend -n $(DEV_NAMESPACE)
+	kubectl logs -f deployment/$(HELM_RELEASE)-frontend -n $(PROD_NAMESPACE)

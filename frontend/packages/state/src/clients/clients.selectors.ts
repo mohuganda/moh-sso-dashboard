@@ -2,8 +2,6 @@ import { createSelector } from "@reduxjs/toolkit";
 
 import type { RootState } from "..";
 
-import { DEFAULT_CLIENTS } from "./defaultClient";
-
 /* -----------------------------
  * Base selectors
  * ----------------------------- */
@@ -11,14 +9,10 @@ import { DEFAULT_CLIENTS } from "./defaultClient";
 export const selectClientsState = (state: RootState) => state.clients;
 
 /**
- * All clients visible to the UI:
- * - System defaults (Utilities, Settings, etc.)
- * - Keycloak-managed clients
+ * Clients visible to the UI are populated from the authenticated user's
+ * RBAC-resolved accessible systems.
  */
-export const selectClients = createSelector(selectClientsState, (s) => [
-  ...DEFAULT_CLIENTS,
-  ...s.items,
-]);
+export const selectClients = createSelector(selectClientsState, (s) => s.items);
 
 export const selectActiveClientId = createSelector(selectClientsState, (s) => s.activeClientId);
 

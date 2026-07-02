@@ -1,6 +1,6 @@
 import { Button, ButtonSet, InlineLoading } from "@carbon/react";
 
-import type { User } from "@moh-sso/types";
+import type { User } from "../types";
 
 type BulkAction = "enable" | "disable" | null;
 

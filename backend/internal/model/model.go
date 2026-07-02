@@ -82,21 +82,6 @@ type User struct {
 	UpdatedBy        string              `json:"updatedBy"`
 }
 
-type UserResponse struct {
-	ID               string              `json:"id"`
-	Username         string              `json:"username"`
-	Email            string              `json:"email"`
-	FullName         string              `json:"fullName"`
-	IsAdmin          bool                `json:"isAdmin"`
-	RealmRoles       []string            `json:"realmRoles"`
-	ClientRoles      map[string][]string `json:"clientRoles"`
-	IsActive         bool                `json:"isActive"`
-	EmailVerified    bool                `json:"emailVerified"`
-	RequirePwdChange bool                `json:"requirePwdChange"`
-	LastLoginAt      *time.Time          `json:"lastLoginAt"`
-	CreatedAt        *time.Time          `json:"createdAt"`
-}
-
 type ImportUserRow struct {
 	RowNumber int      `json:"rowNumber"`
 	Username  string   `json:"username"`

@@ -296,7 +296,19 @@
 }
 
 .feed-link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
   margin-top: 0.75rem;
+}
+
+.feed-link-row__label {
+  color: #697077;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .feed-link {
@@ -347,6 +359,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.feed-attachments__empty {
+  margin: 0;
+  color: #697077;
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }
 
 .feed-attachment-link {

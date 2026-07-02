@@ -112,6 +112,19 @@
   margin-top: 0.375rem;
 }
 
+.notification-preferences {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  max-width: 46rem;
+}
+
+.notification-preferences__quiet-hours {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 @media (max-width: 1056px) {
   .security-grid {
     grid-template-columns: 1fr;
@@ -130,5 +143,9 @@
 
   .security-hero__title {
     font-size: 1.15rem;
+  }
+
+  .notification-preferences__quiet-hours {
+    grid-template-columns: 1fr;
   }
 }

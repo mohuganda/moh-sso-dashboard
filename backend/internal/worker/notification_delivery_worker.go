@@ -140,7 +140,14 @@ func (w *NotificationEmailDeliveryWorker) processOne(
 		return w.failOrRetry(ctx, item, err)
 	}
 
-	if err := w.notificationDelivery.MarkSent(ctx, item.ID); err != nil {
+	if err := w.notificationDelivery.MarkSentWithProvider(
+		ctx,
+		notificationDeliveryRepo.MarkSentWithProviderParams{
+			ID:             item.ID,
+			Provider:       sqlNullString("email_queue"),
+			ProviderStatus: sqlNullString("QUEUED"),
+		},
+	); err != nil {
 		return fmt.Errorf("mark notification email delivery sent: %w", err)
 	}
 

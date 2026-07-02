@@ -101,3 +101,37 @@ func TestValidateOptionalURLAcceptsRootRelativeSupportLinks(t *testing.T) {
 		}
 	}
 }
+
+func TestParseRealmExportRequiresExplicitPortalEnrollment(t *testing.T) {
+	payload := []byte(`{
+		"roles":{"realm":[],"client":{"portal-app":[{"name":"portal-app_access"}],"technical-app":[{"name":"technical-app_access"}]}},
+		"clients":[
+			{"clientId":"portal-app","name":"Portal App","enabled":true,"attributes":{"portal.system":"true","ui.systemType":"external","ui.launchMode":"new_tab","ui.launchUrl":"https://example.org/app"}},
+			{"clientId":"technical-app","name":"Technical App","enabled":true,"attributes":{"ui.icon":"application"}}
+		]
+	}`)
+	discovered, err := parseRealmExport(payload)
+	if err != nil {
+		t.Fatalf("parseRealmExport returned error: %v", err)
+	}
+	if len(discovered.Systems) != 1 || discovered.Systems[0].ClientID != "portal-app" {
+		t.Fatalf("expected only explicitly enrolled portal app, got %+v", discovered.Systems)
+	}
+	if discovered.Systems[0].LaunchMode != "new_tab" || discovered.Systems[0].SystemType != "external" {
+		t.Fatalf("expected explicit external behavior, got %+v", discovered.Systems[0])
+	}
+}
+
+func TestParseRealmExportKeepsKnownLegacySystem(t *testing.T) {
+	payload := []byte(`{
+		"roles":{"realm":[],"client":{"legacy-app":[{"name":"legacy-app_access"}]}},
+		"clients":[{"clientId":"legacy-app","name":"Legacy App","enabled":true,"attributes":{"ui.home":"/portal/apps/legacy"}}]
+	}`)
+	discovered, err := parseRealmExport(payload, map[string]bool{"legacy-app": true})
+	if err != nil {
+		t.Fatalf("parseRealmExport returned error: %v", err)
+	}
+	if len(discovered.Systems) != 1 || discovered.Systems[0].ClientID != "legacy-app" {
+		t.Fatalf("expected known legacy app, got %+v", discovered.Systems)
+	}
+}

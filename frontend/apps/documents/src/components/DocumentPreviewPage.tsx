@@ -22,8 +22,8 @@ import {
   useGetDocumentDataPreviewQuery,
   useLazyDownloadDocumentQuery,
   useGetTemplateStructureQuery,
-} from "@moh-sso/api";
-import type { DataPreviewSheet } from "@moh-sso/types";
+} from "../api";
+import type { DataPreviewSheet } from "../types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
