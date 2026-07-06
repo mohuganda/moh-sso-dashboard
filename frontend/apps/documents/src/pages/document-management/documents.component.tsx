@@ -1,17 +1,25 @@
 import { Component, type ReactNode } from "react";
-import { Link as RouterLink } from "react-router-dom";
-import { Breadcrumb, BreadcrumbItem, Tab, TabList, TabPanel, TabPanels, Tabs } from "@carbon/react";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "@carbon/react";
 
 import { TemplatesTab } from "../../components/TemplatesTab";
 import { DocumentsTab } from "../../components/DocumentsTab";
 
 class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
-  static getDerivedStateFromError(error: Error) { return { error }; }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: "2rem", background: "#fff1f1", border: "1px solid #ffd7d9", borderRadius: 4 }}>
+        <div
+          style={{
+            padding: "2rem",
+            background: "#fff1f1",
+            border: "1px solid #ffd7d9",
+            borderRadius: 4,
+          }}
+        >
           <strong>Page crashed:</strong>
           <pre style={{ marginTop: "0.5rem", fontSize: "0.8rem", whiteSpace: "pre-wrap" }}>
             {(this.state.error as Error).message}
@@ -29,16 +37,6 @@ export default function DocumentPage() {
   return (
     <PageErrorBoundary>
       <div>
-        {/* Breadcrumb */}
-        <div style={{ marginBottom: "1rem" }}>
-          <Breadcrumb noTrailingSlash>
-            <BreadcrumbItem>
-              <RouterLink to="/">Home</RouterLink>
-            </BreadcrumbItem>
-            <BreadcrumbItem isCurrentPage>Documents</BreadcrumbItem>
-          </Breadcrumb>
-        </div>
-
         {/* Page heading */}
         <div style={{ marginBottom: "1.5rem" }}>
           <h2 style={{ margin: 0, marginBottom: "0.25rem" }}>Document Management</h2>

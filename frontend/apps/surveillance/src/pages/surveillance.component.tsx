@@ -513,10 +513,6 @@ export default function SurveillanceDashboardPage() {
         <div className="surveillance-dashboard-page__hero">
           <div className="surveillance-dashboard-page__hero-main">
             <div className="surveillance-dashboard-page__hero-copy">
-              <p className="surveillance-dashboard-page__eyebrow">
-                Epi Week: {currentEpiWeekLabel}
-              </p>
-
               <h1 className="surveillance-dashboard-page__title">
                 National Surveillance Reporting Dashboard
               </h1>
