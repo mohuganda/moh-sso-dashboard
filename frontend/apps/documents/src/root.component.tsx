@@ -1,7 +1,6 @@
 import { resolveRuntimeBasename, type MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import DocumentDetailsPage from "./pages/document-management/document-details/document-details.component";
-import FileUpload from "./pages/file-upload/file-upload.component";
 import { MohThemeProvider } from "@moh-sso/ui";
 import DocumentPage from "./pages/document-management/documents.component";
 
@@ -28,22 +27,12 @@ function resolveDocumentsBasename(props: MicrofrontendRuntimeProps) {
 }
 export function DocumentsRoot(props: MicrofrontendRuntimeProps) {
   const basename = resolveDocumentsBasename(props);
-  const isDocumentUpload = basename.endsWith("/utilities/self-service/eservice/document-upload");
   return (
     <MohThemeProvider theme="white">
       <BrowserRouter basename={basename}>
         <Routes>
-          {!isDocumentUpload ? (
-            <>
-              <Route index element={<FileUpload />} />
-              <Route path="*" element={<FileUpload />} />
-            </>
-          ) : (
-            <>
-              <Route index element={<DocumentPage />} />
-              <Route path=":id" element={<DocumentDetailsPage />} />
-            </>
-          )}
+          <Route index element={<DocumentPage />} />
+          <Route path=":id" element={<DocumentDetailsPage />} />
         </Routes>
       </BrowserRouter>
     </MohThemeProvider>

@@ -33,12 +33,8 @@ export const dataVisualizerRoute: MicrofrontendRoute = {
 export const documentsRoute: MicrofrontendRoute = {
   appName: "@moh-sso/documents",
   path: "/apps/dwh/documents",
-  paths: [
-    "/apps/dwh/documents",
-    "/apps/dwh/filesvr",
-    "/apps/utilities/self-service/eservice/document-upload",
-  ],
-  requiredAnyPermissions: ["documents:read", "documents:write"],
+  requiredSystems: ["data-statistics"],
+  requiredAnyPermissions: ["documents:read"],
 };
 
 export const eServicesRoute: MicrofrontendRoute = {
@@ -90,7 +86,6 @@ export const utilitiesRoute: MicrofrontendRoute = {
   appName: "@moh-sso/utilities",
   path: "/apps/utilities/self-service",
   paths: ["/apps/utilities/self-service"],
-  excludedPaths: ["/apps/utilities/self-service/eservice/document-upload"],
   requiredPermissions: ["portal:access"],
 };
 

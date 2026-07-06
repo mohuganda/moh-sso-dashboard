@@ -47,7 +47,13 @@ type SortDir = "asc" | "desc" | null;
 
 // ── Sheet view ────────────────────────────────────────────────────────────────
 
-function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filterableKeys: string[] }) {
+function SheetView({
+  sheet,
+  filterableKeys,
+}: {
+  sheet: DataPreviewSheet;
+  filterableKeys: string[];
+}) {
   const [search, setSearch] = useState("");
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -104,9 +110,14 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
   const pageRows = filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
 
   function handleSort(col: string) {
-    if (sortCol !== col) { setSortCol(col); setSortDir("asc"); }
-    else if (sortDir === "asc") setSortDir("desc");
-    else { setSortCol(null); setSortDir(null); }
+    if (sortCol !== col) {
+      setSortCol(col);
+      setSortDir("asc");
+    } else if (sortDir === "asc") setSortDir("desc");
+    else {
+      setSortCol(null);
+      setSortDir(null);
+    }
     setPage(0);
   }
 
@@ -118,22 +129,35 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
     setPage(0);
   }
 
-  const hasActiveFilters = !!(search || Object.values(selections).some((s) => s.length > 0) || sortCol);
+  const hasActiveFilters = !!(
+    search ||
+    Object.values(selections).some((s) => s.length > 0) ||
+    sortCol
+  );
 
   return (
     <div>
       {/* ── Toolbar ── */}
-      <div style={{
-        display: "flex", gap: "0.75rem", flexWrap: "wrap",
-        alignItems: "flex-end", marginBottom: "0.75rem",
-        padding: "0.75rem", background: "#f4f4f4",
-      }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.75rem",
+          flexWrap: "wrap",
+          alignItems: "flex-end",
+          marginBottom: "0.75rem",
+          padding: "0.75rem",
+          background: "#f4f4f4",
+        }}
+      >
         <div style={{ flex: "1 1 220px", minWidth: 200 }}>
           <TableToolbarSearch
             persistent
             value={search}
             placeholder="Search all columns…"
-            onChange={(_, v) => { setSearch(v ?? ""); setPage(0); }}
+            onChange={(_, v) => {
+              setSearch(v ?? "");
+              setPage(0);
+            }}
             labelText="Search"
           />
         </div>
@@ -153,7 +177,10 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
                 itemToString={(item) => item?.label ?? ""}
                 selectedItems={selected}
                 onChange={({ selectedItems }) => {
-                  setSelections((prev) => ({ ...prev, [key]: (selectedItems ?? []).map((i) => i.id) }));
+                  setSelections((prev) => ({
+                    ...prev,
+                    [key]: (selectedItems ?? []).map((i) => i.id),
+                  }));
                   setPage(0);
                 }}
                 size="sm"
@@ -168,7 +195,14 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
           </Button>
         )}
 
-        <div style={{ marginLeft: "auto", fontSize: "0.875rem", color: "#525252", alignSelf: "center" }}>
+        <div
+          style={{
+            marginLeft: "auto",
+            fontSize: "0.875rem",
+            color: "#525252",
+            alignSelf: "center",
+          }}
+        >
           {filtered.length.toLocaleString()} / {sheet.row_count.toLocaleString()} rows
           {sheet.rows.length < sheet.row_count && (
             <span style={{ color: "#e78c21", marginLeft: "0.5rem" }}>
@@ -180,9 +214,23 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
 
       {/* ── Table ── */}
       <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", fontSize: "0.8125rem", width: "100%", minWidth: 600 }}>
+        <table
+          style={{
+            borderCollapse: "collapse",
+            fontSize: "0.8125rem",
+            width: "100%",
+            minWidth: 600,
+          }}
+        >
           <thead>
-            <tr style={{ background: "#e8e8e8", borderBottom: "2px solid #c6c6c6", position: "sticky", top: 0 }}>
+            <tr
+              style={{
+                background: "#e8e8e8",
+                borderBottom: "2px solid #c6c6c6",
+                position: "sticky",
+                top: 0,
+              }}
+            >
               {sheet.columns.map((col) => {
                 const isActive = sortCol === col;
                 const arrow = isActive ? (sortDir === "asc" ? " ▲" : " ▼") : "";
@@ -191,15 +239,20 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
                     key={col}
                     onClick={() => handleSort(col)}
                     style={{
-                      textAlign: "left", padding: "0.5rem 0.75rem",
-                      fontWeight: 600, color: "#161616", whiteSpace: "nowrap",
-                      cursor: "pointer", userSelect: "none",
+                      textAlign: "left",
+                      padding: "0.5rem 0.75rem",
+                      fontWeight: 600,
+                      color: "#161616",
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                      userSelect: "none",
                       background: isActive ? "#d0e2ff" : undefined,
                       borderBottom: isActive ? "2px solid #0f62fe" : undefined,
                     }}
                     title={`Sort by ${col}`}
                   >
-                    {col.replace(/_/g, " ")}{arrow}
+                    {col.replace(/_/g, " ")}
+                    {arrow}
                   </th>
                 );
               })}
@@ -219,7 +272,10 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
               pageRows.map((row, idx) => (
                 <tr
                   key={idx}
-                  style={{ borderBottom: "1px solid #e8e8e8", background: idx % 2 ? "#fafafa" : "#fff" }}
+                  style={{
+                    borderBottom: "1px solid #e8e8e8",
+                    background: idx % 2 ? "#fafafa" : "#fff",
+                  }}
                 >
                   {sheet.columns.map((col) => {
                     const val = formatCell(row[col]);
@@ -227,8 +283,11 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
                       <td
                         key={col}
                         style={{
-                          padding: "0.4rem 0.75rem", whiteSpace: "nowrap",
-                          maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis",
+                          padding: "0.4rem 0.75rem",
+                          whiteSpace: "nowrap",
+                          maxWidth: 260,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                           color: val ? "#161616" : "#a8a8a8",
                         }}
                         title={val || "—"}
@@ -246,17 +305,46 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
 
       {/* ── Pagination ── */}
       {totalPages > 1 && (
-        <div style={{
-          display: "flex", gap: "0.5rem", alignItems: "center",
-          padding: "0.75rem 0", justifyContent: "center", flexWrap: "wrap",
-        }}>
-          <Button kind="ghost" size="sm" disabled={page === 0} onClick={() => setPage(0)}>«</Button>
-          <Button kind="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>‹ Prev</Button>
+        <div
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "center",
+            padding: "0.75rem 0",
+            justifyContent: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <Button kind="ghost" size="sm" disabled={page === 0} onClick={() => setPage(0)}>
+            «
+          </Button>
+          <Button
+            kind="ghost"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ‹ Prev
+          </Button>
           <span style={{ fontSize: "0.875rem", color: "#525252" }}>
             Page {page + 1} of {totalPages}
           </span>
-          <Button kind="ghost" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>Next ›</Button>
-          <Button kind="ghost" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</Button>
+          <Button
+            kind="ghost"
+            size="sm"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next ›
+          </Button>
+          <Button
+            kind="ghost"
+            size="sm"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage(totalPages - 1)}
+          >
+            »
+          </Button>
         </div>
       )}
     </div>
@@ -271,9 +359,11 @@ export default function DocumentPreviewPage() {
   const [triggerDownload] = useLazyDownloadDocumentQuery();
 
   const { data: document, isLoading: isLoadingDoc } = useGetDocumentQuery(id!, { skip: !id });
-  const { data: preview, isLoading: isLoadingPreview, isError } = useGetDocumentDataPreviewQuery(
-    id!, { skip: !id },
-  );
+  const {
+    data: preview,
+    isLoading: isLoadingPreview,
+    isError,
+  } = useGetDocumentDataPreviewQuery(id!, { skip: !id });
 
   const templateCode = (document?.metadata?.template_code as string | undefined) ?? "";
   const { data: structure } = useGetTemplateStructureQuery(templateCode, { skip: !templateCode });
@@ -301,22 +391,15 @@ export default function DocumentPreviewPage() {
       link.download = document.original_filename;
       link.click();
       window.URL.revokeObjectURL(url);
-    } catch (e) { console.error("Download failed", e); }
+    } catch (e) {
+      console.error("Download failed", e);
+    }
   };
 
   const isLoading = isLoadingDoc || isLoadingPreview;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      {/* Breadcrumb */}
-      <Breadcrumb noTrailingSlash>
-        <BreadcrumbItem><RouterLink to="/">Home</RouterLink></BreadcrumbItem>
-        <BreadcrumbItem>
-          <RouterLink to="/apps/utilities/self-service/eservice/document-upload">Documents</RouterLink>
-        </BreadcrumbItem>
-        <BreadcrumbItem isCurrentPage>Data Preview</BreadcrumbItem>
-      </Breadcrumb>
-
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
         <div style={{ flex: 1 }}>
@@ -335,13 +418,21 @@ export default function DocumentPreviewPage() {
             </h2>
           </div>
           {document && (
-            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "0.5rem",
+                marginTop: "0.5rem",
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
               {preview?.template_code && (
-                <Tag type="cyan" style={{ fontFamily: "monospace" }}>{preview.template_code}</Tag>
+                <Tag type="cyan" style={{ fontFamily: "monospace" }}>
+                  {preview.template_code}
+                </Tag>
               )}
-              {preview?.report_date && (
-                <Tag type="teal">Report: {preview.report_date}</Tag>
-              )}
+              {preview?.report_date && <Tag type="teal">Report: {preview.report_date}</Tag>}
               <span style={{ fontSize: "0.8rem", color: "#6f6f6f" }}>
                 Uploaded {formatDateTime(document.created_at)}
               </span>

@@ -169,7 +169,6 @@ export const userRoutes = (
           withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(documentsRoute)),
         )}
       />
-      <Route path="filesvr/*" element={<Navigate to="/apps/dwh/documents" replace />} />
 
       <Route
         path="surveillance/*"
@@ -401,20 +400,14 @@ export const userRoutes = (
     {/* =========================
         SETTINGS
        ========================= */}
-    <Route path="settings" element={userPage(<SettingsLayout />, withSystemAccess(SYSTEMS.settings))}>
+    <Route
+      path="settings"
+      element={userPage(<SettingsLayout />, withSystemAccess(SYSTEMS.settings))}
+    >
       <Route index element={<SettingsHomePage />} />
-      <Route
-        path="profile"
-        element={<MyProfilePage />}
-      />
-      <Route
-        path="sessions"
-        element={<ActiveSessionsPage />}
-      />
-      <Route
-        path="security"
-        element={<SecurityPage />}
-      />
+      <Route path="profile" element={<MyProfilePage />} />
+      <Route path="sessions" element={<ActiveSessionsPage />} />
+      <Route path="security" element={<SecurityPage />} />
       <Route path="notifications" element={<NotificationSettingsPage />} />
       <Route path="preferences" element={<PreferenceSettingsPage />} />
       <Route path="apps" element={<AppSettingsPage />} />
