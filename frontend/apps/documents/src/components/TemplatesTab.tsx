@@ -532,7 +532,7 @@ export function TemplatesTab() {
                         </IconButton>
                         <IconButton
                           label="Delete"
-                          kind="danger--ghost"
+                          kind="ghost"
                           size="sm"
                           onClick={() => setDeleteTarget(t)}
                           disabled={isMutating}

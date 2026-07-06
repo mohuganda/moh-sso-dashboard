@@ -146,14 +146,13 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
   const { data: templateStructure, isFetching: isFetchingStructure } =
     useGetTemplateStructureQuery(selectedTemplate, { skip: !selectedTemplate });
 
-  const { data: hasDataResult } = useGetTemplateHasDataQuery(selectedTemplate, {
+  useGetTemplateHasDataQuery(selectedTemplate, {
     skip: !selectedTemplate || !processType,
   });
 
   const {
     data: locations = [],
     isLoading: isLocationsLoading,
-    isError: isLocationsError,
   } = useListStorageLocationsQuery();
 
   const activeLocations = useMemo(() => locations.filter((l) => l.is_active), [locations]);

@@ -200,7 +200,7 @@ export function DocumentRow({ document }: Props) {
           </IconButton>
           <IconButton
             label="Delete"
-            kind="danger--ghost"
+            kind="ghost"
             size="sm"
             onClick={() => void handleDelete()}
             disabled={isBusy}

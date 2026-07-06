@@ -149,7 +149,6 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
                 id={`filter-${sheet.name}-${key}`}
                 titleText={label}
                 placeholder="Type to search…"
-                label={selected.length > 0 ? `${selected.length} selected` : `All ${label.toLowerCase()}`}
                 items={opts}
                 itemToString={(item) => item?.label ?? ""}
                 selectedItems={selected}

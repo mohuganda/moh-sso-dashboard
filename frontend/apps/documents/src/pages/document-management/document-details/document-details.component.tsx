@@ -105,15 +105,6 @@ function requiresProcessing(doc?: Partial<DocumentResponse>) {
     f.endsWith(".csv") || f.endsWith(".xls") || f.endsWith(".xlsx");
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div style={{ display: "flex", gap: "0.5rem", padding: "0.5rem 0", borderBottom: "1px solid #f4f4f4" }}>
-      <span style={{ width: 180, minWidth: 180, color: "#6f6f6f", fontSize: "0.875rem" }}>{label}</span>
-      <span style={{ fontSize: "0.875rem", color: "#161616", wordBreak: "break-all" }}>{value || "—"}</span>
-    </div>
-  );
-}
-
 // ── CSV export ────────────────────────────────────────────────────────────────
 
 function exportCSV(columns: string[], rows: Record<string, unknown>[], filename: string) {
@@ -243,7 +234,6 @@ function SheetView({ sheet, reportDate: docReportDate, filterableKeys }: {
                 id={`filter-${sheet.name}-${key}`}
                 titleText={label}
                 placeholder="Type to search…"
-                label={selected.length > 0 ? `${selected.length} selected` : `All ${label.toLowerCase()}`}
                 items={opts}
                 itemToString={(item) => item?.label ?? ""}
                 selectedItems={selected}

@@ -92,58 +92,6 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-// ── Data preview table ────────────────────────────────────────────────────────
-
-function PreviewTable({ columns, rows }: { columns: string[]; rows: Record<string, unknown>[] }) {
-  if (rows.length === 0) {
-    return <p style={{ color: "#6f6f6f", padding: "1rem 0", margin: 0 }}>No rows found for this document.</p>;
-  }
-
-  const formatCell = (v: unknown): string => {
-    if (v === null || v === undefined) return "—";
-    if (typeof v === "string") return v || "—";
-    return String(v);
-  };
-
-  return (
-    <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
-      <table style={{ borderCollapse: "collapse", fontSize: "0.8125rem", width: "100%", minWidth: 600 }}>
-        <thead>
-          <tr style={{ background: "#f4f4f4", borderBottom: "2px solid #e0e0e0" }}>
-            {columns.map((col) => (
-              <th
-                key={col}
-                style={{
-                  textAlign: "left", padding: "0.4rem 0.75rem",
-                  fontWeight: 600, color: "#525252", whiteSpace: "nowrap",
-                  textTransform: col.includes("_") ? "none" : undefined,
-                }}
-              >
-                {col.replace(/_/g, " ")}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx} style={{ borderBottom: "1px solid #e8e8e8", background: idx % 2 ? "#fafafa" : "#fff" }}>
-              {columns.map((col) => (
-                <td
-                  key={col}
-                  style={{ padding: "0.4rem 0.75rem", whiteSpace: "nowrap", color: "#161616", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}
-                  title={formatCell(row[col])}
-                >
-                  {formatCell(row[col])}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 type Props = {
@@ -257,7 +205,7 @@ export function DocumentDetailPanel({ document, onClose }: Props) {
               <span style={{ fontSize: "0.8rem", color: "#525252" }}>Processing progress</span>
               <span style={{ fontSize: "0.8rem", color: "#525252" }}>{progress}%</span>
             </div>
-            <ProgressBar value={progress} max={100} label="" size="md" />
+            <ProgressBar value={progress} max={100} label="" size="small" />
           </div>
         )}
 
@@ -298,7 +246,7 @@ export function DocumentDetailPanel({ document, onClose }: Props) {
           )}
           <Button
             renderIcon={TrashCan}
-            kind="danger--ghost"
+            kind="ghost"
             size="sm"
             disabled={isBusy}
             onClick={() => setConfirmDelete(true)}
