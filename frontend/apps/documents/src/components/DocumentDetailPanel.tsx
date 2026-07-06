@@ -14,7 +14,7 @@ import {
   Tag,
 } from "@carbon/react";
 
-import { ChartBar, Download, Renew, TrashCan } from "@carbon/icons-react";
+import { ChartBar, Download, Renew, TrashCan } from "@carbon/react/icons";
 
 import {
   useGetDocumentProcessesQuery,

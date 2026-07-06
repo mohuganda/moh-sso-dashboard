@@ -13,7 +13,7 @@ import {
   Stack,
   Tag,
 } from "@carbon/react";
-import { TrashCan } from "@carbon/icons-react";
+import { TrashCan } from "@carbon/react/icons";
 
 import {
   useCreateDocumentMutation,
@@ -187,7 +187,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
     } else if (!previousUpload) {
       setReuploadMode(null);
     }
-  }, [previousUpload?.id, previousReportDate]);
+  }, [previousUpload, previousReportDate]);
 
   const fileNeedsProcessing = useMemo(() => (file ? requiresProcessing(file) : false), [file]);
   const isPdf = useMemo(() => (file ? isPdfFile(file) : false), [file]);

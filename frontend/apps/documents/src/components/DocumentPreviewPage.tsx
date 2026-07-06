@@ -15,7 +15,7 @@ import {
   Tabs,
   Tag,
 } from "@carbon/react";
-import { ArrowLeft, Download } from "@carbon/icons-react";
+import { ArrowLeft, Download } from "@carbon/react/icons";
 
 import {
   useGetDocumentQuery,
@@ -98,7 +98,7 @@ function SheetView({ sheet, filterableKeys }: { sheet: DataPreviewSheet; filtera
     }
 
     return rows;
-  }, [sheet.rows, search, selections, activeFilterKeys, sortCol, sortDir]);
+  }, [sheet.rows, sheet.columns, search, selections, activeFilterKeys, sortCol, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
   const pageRows = filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);

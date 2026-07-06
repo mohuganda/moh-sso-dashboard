@@ -1,5 +1,5 @@
 import { TableRow, TableCell, Tag, IconButton } from "@carbon/react";
-import { DataVis_1, Download, TrashCan, Renew } from "@carbon/icons-react";
+import { DataVis_1, Download, TrashCan, Renew } from "@carbon/react/icons";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {

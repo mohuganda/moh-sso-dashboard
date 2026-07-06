@@ -17,7 +17,7 @@ import {
   Tabs,
   Tag,
 } from "@carbon/react";
-import { ArrowLeft, Download, Renew, TrashCan } from "@carbon/icons-react";
+import { ArrowLeft, Download, Renew, TrashCan } from "@carbon/react/icons";
 
 import { useToast } from "@moh-sso/ui";
 import {
@@ -189,7 +189,7 @@ function SheetView({ sheet, reportDate: docReportDate, filterableKeys }: {
     }
 
     return rows;
-  }, [sheet.rows, search, selections, activeFilterKeys, sortCol, sortDir]);
+  }, [sheet.rows, sheet.columns, search, selections, activeFilterKeys, sortCol, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
   const safePageIdx = Math.min(page, totalPages - 1);
