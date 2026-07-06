@@ -178,6 +178,20 @@
       {
         "name": "manager",
         "description": "Can manage applications and operational workflows",
+        "composite": true,
+        "composites": {
+          "client": {
+            "data-statistics": [
+              "data-statistics_access",
+              "report_manager",
+              "issue_tracker_manager",
+              "document_manager"
+            ],
+            "utilities": [
+              "utilities_access"
+            ]
+          }
+        },
         "attributes": {
           "portal.permissions": [
             "portal:access",
@@ -189,6 +203,9 @@
             "documents:read",
             "documents:write",
             "documents:process",
+            "document_templates:read",
+            "document_templates:write",
+            "document_templates:publish",
             "storage_locations:read",
             "surveillance:read",
             "data_quality:read",
@@ -206,12 +223,13 @@
       },
       {
         "name": "user",
-        "description": "Standard user role",
+        "description": "Standard user role with read-only access to common platform services",
         "composite": true,
         "composites": {
           "client": {
             "data-statistics": [
-              "data-statistics_access"
+              "data-statistics_access",
+              "document_viewer"
             ],
             "settings": [
               "settings_access"
@@ -226,6 +244,7 @@
             "data_quality:read",
             "issue_tracker:read",
             "documents:read",
+            "document_templates:read",
             "storage_locations:read",
             "surveillance:read",
             "report_browser:read"
@@ -299,6 +318,7 @@
               "data_quality:read",
               "issue_tracker:read",
               "documents:read",
+              "document_templates:read",
               "storage_locations:read",
               "surveillance:read",
               "report_browser:read"
@@ -392,10 +412,11 @@
         },
         {
           "name": "document_viewer",
-          "description": "Read-only access to documents",
+          "description": "Read-only access to documents and document templates",
           "attributes": {
             "portal.permissions": [
               "documents:read",
+              "document_templates:read",
               "storage_locations:read"
             ]
           }
@@ -407,29 +428,70 @@
             "portal.permissions": [
               "documents:read",
               "documents:write",
+              "document_templates:read",
               "storage_locations:read"
             ]
           }
         },
         {
           "name": "document_processor",
-          "description": "Can view and process documents",
+          "description": "Can view, process, and reprocess documents",
           "attributes": {
             "portal.permissions": [
               "documents:read",
               "documents:process",
+              "document_templates:read",
               "storage_locations:read"
             ]
           }
         },
         {
           "name": "document_manager",
-          "description": "Full document management access",
+          "description": "Full document and document-template management access",
           "attributes": {
             "portal.permissions": [
               "documents:read",
               "documents:write",
               "documents:process",
+              "document_templates:read",
+              "document_templates:write",
+              "document_templates:publish",
+              "storage_locations:read"
+            ]
+          }
+        },
+        {
+          "name": "document_template_viewer",
+          "description": "Read-only access to document templates",
+          "attributes": {
+            "portal.permissions": [
+              "documents:read",
+              "document_templates:read",
+              "storage_locations:read"
+            ]
+          }
+        },
+        {
+          "name": "document_template_editor",
+          "description": "Can create and edit document templates and their structures",
+          "attributes": {
+            "portal.permissions": [
+              "documents:read",
+              "document_templates:read",
+              "document_templates:write",
+              "storage_locations:read"
+            ]
+          }
+        },
+        {
+          "name": "document_template_publisher",
+          "description": "Can create, edit, publish, archive, and republish document templates",
+          "attributes": {
+            "portal.permissions": [
+              "documents:read",
+              "document_templates:read",
+              "document_templates:write",
+              "document_templates:publish",
               "storage_locations:read"
             ]
           }
@@ -467,6 +529,9 @@
           "description": "Base access to Outbreak Management",
           "attributes": {
             "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
               "outbreak:access",
               "surveillance:read"
             ]
@@ -488,7 +553,11 @@
               "data_quality:resolve",
               "documents:read",
               "documents:write",
-              "documents:process"
+              "documents:process",
+              "document_templates:read",
+              "document_templates:write",
+              "document_templates:publish",
+              "storage_locations:read"
             ]
           }
         },
@@ -669,14 +738,14 @@
       "attributes": {
         "access.token.lifespan": "1800",
         "ui.icon": "reporting",
-        "ui.home": "/dashboard",
+        "ui.home": "/portal",
         "portal.system": "true",
         "portal.accessRoles": "dashboard-web_access",
         "ui.systemType": "platform",
         "ui.displayInLauncher": "true",
         "ui.displayInSideNav": "false",
         "ui.launchMode": "internal",
-        "ui.launchUrl": "/dashboard"
+        "ui.launchUrl": "/portal"
       },
       "protocolMappers": [
         {
@@ -709,7 +778,7 @@
         "ui.home": "/portal/apps/dwh",
         "ui.category": "platform",
         "portal.system": "true",
-        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin,issue_tracker_viewer,issue_tracker_contributor,issue_tracker_editor,issue_tracker_manager,document_viewer,document_editor,document_processor,document_manager",
+        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin,issue_tracker_viewer,issue_tracker_contributor,issue_tracker_editor,issue_tracker_manager,document_viewer,document_editor,document_processor,document_manager,document_template_viewer,document_template_editor,document_template_publisher",
         "ui.systemType": "platform",
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
@@ -743,7 +812,7 @@
         "ui.launchMode": "internal",
         "ui.order": "90",
         "ui.launchUrl": "/portal/apps/utilities/self-service",
-        "ui.navigation": "[{\"id\":\"timesheet\",\"label\":\"My Timesheet\",\"path\":\"/apps/utilities/self-service/timesheet\"},{\"id\":\"elearning\",\"label\":\"eLearning\",\"path\":\"/apps/utilities/self-service/elearning\"},{\"id\":\"leave-plan\",\"label\":\"Leave Plan\",\"path\":\"/apps/utilities/self-service/leave-plan\"},{\"id\":\"absence-requests\",\"label\":\"Absence Requests\",\"path\":\"/apps/utilities/self-service/absence-requests\"},{\"id\":\"absence-dashboard\",\"label\":\"My Absence Dashboard\",\"path\":\"/apps/utilities/self-service/absence-dashboard\"},{\"id\":\"document-upload\",\"label\":\"Document Upload\",\"path\":\"/apps/utilities/self-service/eservice/document-upload\",\"permission\":\"documents:write\"},{\"id\":\"service-access\",\"label\":\"Service Access\",\"path\":\"/apps/utilities/self-service/eservice/service-access\"},{\"id\":\"equipment-request\",\"label\":\"Equipment Request\",\"path\":\"/apps/utilities/self-service/eservice/equipment-request\"}]"
+        "ui.navigation": "[{\"id\":\"timesheet\",\"label\":\"My Timesheet\",\"path\":\"/apps/utilities/self-service/timesheet\"},{\"id\":\"elearning\",\"label\":\"eLearning\",\"path\":\"/apps/utilities/self-service/elearning\"},{\"id\":\"leave-plan\",\"label\":\"Leave Plan\",\"path\":\"/apps/utilities/self-service/leave-plan\"},{\"id\":\"absence-requests\",\"label\":\"Absence Requests\",\"path\":\"/apps/utilities/self-service/absence-requests\"},{\"id\":\"absence-dashboard\",\"label\":\"My Absence Dashboard\",\"path\":\"/apps/utilities/self-service/absence-dashboard\"},{\"id\":\"service-access\",\"label\":\"Service Access\",\"path\":\"/apps/utilities/self-service/eservice/service-access\"},{\"id\":\"equipment-request\",\"label\":\"Equipment Request\",\"path\":\"/apps/utilities/self-service/eservice/equipment-request\"}]"
       }
     },
     {
