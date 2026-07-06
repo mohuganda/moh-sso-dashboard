@@ -2,8 +2,6 @@
 import { useSelector } from "react-redux";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
   Button,
   FilterableMultiSelect,
   InlineLoading,
@@ -17,7 +15,7 @@ import {
   Tabs,
   Tag,
 } from "@carbon/react";
-import { ArrowLeft, Download, Renew, TrashCan } from "@carbon/react/icons";
+import { Download, Renew, TrashCan } from "@carbon/react/icons";
 
 import { PermissionGuard, PERMISSIONS, selectUser } from "@moh-sso/auth";
 import { useToast } from "@moh-sso/ui";

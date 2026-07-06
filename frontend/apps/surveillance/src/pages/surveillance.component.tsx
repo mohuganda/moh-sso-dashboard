@@ -243,16 +243,6 @@ export default function SurveillanceDashboardPage() {
     [weeks, selectedWeekId],
   );
 
-  const currentEpiWeekLabel = useMemo(() => {
-    if (!selectedWeek) {
-      return "--";
-    }
-
-    return selectedWeek.epi_year && selectedWeek.epi_week
-      ? `${selectedWeek.epi_year} / Week ${selectedWeek.epi_week}`
-      : `Week ${selectedWeek.epi_week ?? "--"}`;
-  }, [selectedWeek]);
-
   const epiWeekOptions: FilterOption[] = useMemo(
     () => [
       {
