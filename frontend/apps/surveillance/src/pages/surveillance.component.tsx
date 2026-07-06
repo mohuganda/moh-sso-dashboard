@@ -503,9 +503,7 @@ export default function SurveillanceDashboardPage() {
         <div className="surveillance-dashboard-page__hero">
           <div className="surveillance-dashboard-page__hero-main">
             <div className="surveillance-dashboard-page__hero-copy">
-              <h1 className="surveillance-dashboard-page__title">
-                National Surveillance Reporting Dashboard
-              </h1>
+              <h1 className="surveillance-dashboard-page__title">Surveillance Dashboard</h1>
 
               <p className="surveillance-dashboard-page__subtitle">
                 Monitor surveillance signals, reporting trends, alerts, and priority conditions
