@@ -36,13 +36,21 @@ func (h *Handler) GetGeoJSON(c *gin.Context) {
 
 	fullPath := filepath.Join(h.basePath, filename)
 
-	data, err := os.ReadFile(fullPath)
+	file, err := os.Open(fullPath)
 	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "GEOJSON_LOAD_FAILED", "failed to load geojson file")
+		return
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil || stat.IsDir() {
 		response.Fail(c, http.StatusInternalServerError, "GEOJSON_LOAD_FAILED", "failed to load geojson file")
 		return
 	}
 
 	c.Header("Content-Type", "application/geo+json")
 	c.Header("Cache-Control", "public, max-age=86400")
-	c.Data(http.StatusOK, "application/geo+json", data)
+	c.Header("X-Content-Type-Options", "nosniff")
+	http.ServeContent(c.Writer, c.Request, filename, stat.ModTime(), file)
 }
