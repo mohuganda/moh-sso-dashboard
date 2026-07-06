@@ -2,6 +2,9 @@ package data_quality
 
 import (
 	"database/sql"
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,9 +17,9 @@ type Handler struct {
 	service Service
 }
 
-func NewHandler(db *sql.DB) *Handler {
+func NewHandler(dwhDB *sql.DB, primaryDB *sql.DB) *Handler {
 	return &Handler{
-		service: NewService(NewRepository(db)),
+		service: NewService(NewRepository(dwhDB, primaryDB)),
 	}
 }
 
@@ -348,4 +351,96 @@ func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusOK, toIssueStageResponses(transactions))
+}
+
+func (h *Handler) ImportValidationRules(c *gin.Context) {
+	requests, err := readValidationRuleImportPayload(c)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		return
+	}
+
+	createdBy := optionalRequestUserID(c)
+	inputs := make([]validationRuleInput, 0, len(requests))
+	result := validationRuleImportResult{
+		Errors: []validationRuleRowError{},
+		Rules:  []validationRuleResponse{},
+	}
+
+	for index, req := range requests {
+		input, validationMessage := normalizeValidationRuleRequest(req, createdBy)
+		if validationMessage != "" {
+			result.Skipped++
+			result.Errors = append(result.Errors, validationRuleRowError{
+				Index:   index,
+				Code:    strings.TrimSpace(req.Code),
+				Message: validationMessage,
+			})
+			continue
+		}
+
+		inputs = append(inputs, input)
+	}
+
+	imported, err := h.service.ImportValidationRules(c.Request.Context(), inputs)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "IMPORT_VALIDATION_RULES_FAILED", "failed to import validation rules")
+		return
+	}
+
+	result.Imported = imported.Imported
+	result.Created = imported.Created
+	result.Updated = imported.Updated
+	result.Rules = imported.Rules
+
+	response.OK(c, http.StatusCreated, result)
+}
+
+func (h *Handler) ListValidationRules(c *gin.Context) {
+	limit := parseListLimit(c, 50, 500)
+	offset := parseListOffset(c)
+
+	rules, err := h.service.ListValidationRules(c.Request.Context(), limit, offset)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "LIST_VALIDATION_RULES_FAILED", "failed to list validation rules")
+		return
+	}
+
+	response.OK(c, http.StatusOK, toValidationRuleResponses(rules))
+}
+
+func readValidationRuleImportPayload(c *gin.Context) ([]validationRuleImportRequest, error) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return nil, errors.New("invalid request payload")
+	}
+	if len(strings.TrimSpace(string(body))) == 0 {
+		return nil, errors.New("request body is required")
+	}
+
+	var direct []validationRuleImportRequest
+	if err := json.Unmarshal(body, &direct); err == nil {
+		if len(direct) == 0 {
+			return nil, errors.New("at least one rule is required")
+		}
+		return direct, nil
+	}
+
+	var envelope validationRuleImportEnvelope
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, errors.New("payload must be an array of rules or an object with a rules array")
+	}
+	if len(envelope.Rules) == 0 {
+		return nil, errors.New("at least one rule is required")
+	}
+
+	return envelope.Rules, nil
+}
+
+func optionalRequestUserID(c *gin.Context) interface{} {
+	userID := strings.TrimSpace(c.GetString("user_id"))
+	if userID == "" {
+		return nil
+	}
+	return userID
 }
