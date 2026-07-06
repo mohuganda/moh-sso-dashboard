@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   Button,
   DataTable,
+  InlineNotification,
   Loading,
   Select,
   SelectItem,
@@ -17,11 +18,13 @@ import {
 } from "@carbon/react";
 import { Upload } from "@carbon/react/icons";
 
+import { PermissionGuard, PERMISSIONS } from "@moh-sso/auth";
 import { EmptyState, useHeaderPanel } from "@moh-sso/ui";
+
 import { UploadDocumentModal } from "./UploadDocumentModal";
-import { useListDocumentsQuery, useGetDocumentStatsQuery } from "../api";
-import type { DocumentResponse } from "../types";
 import { DocumentRow } from "./document-row.component";
+import { useGetDocumentStatsQuery, useListDocumentsQuery } from "../api";
+import type { DocumentResponse } from "../types";
 
 const TABLE_HEADERS = [
   { key: "filename", header: "Filename" },
@@ -33,45 +36,64 @@ const TABLE_HEADERS = [
 ];
 
 const STATUS_OPTIONS = ["ALL", "PENDING", "PROCESSING", "COMPLETED", "FAILED"] as const;
+
 type StatusFilter = (typeof STATUS_OPTIONS)[number];
 
-function getDocumentSearchText(doc: DocumentResponse) {
-  return [doc.original_filename, doc.content_type, doc.status, doc.object_key]
+function getDocumentSearchText(document: DocumentResponse) {
+  return [document.original_filename, document.content_type, document.status, document.object_key]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
 }
 
-function getDocumentStatus(doc: Partial<DocumentResponse>) {
-  return String(doc.status ?? "UNKNOWN").toUpperCase();
+function getDocumentStatus(document: Partial<DocumentResponse>) {
+  return String(document.status ?? "UNKNOWN").toUpperCase();
 }
 
-
-export function DocumentsTab() {
+function DocumentsTabContent() {
   const { openPanel, closePanel } = useHeaderPanel();
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: documents = [], isLoading, isFetching } = useListDocumentsQuery();
+
   const { data: serverStats } = useGetDocumentStatsQuery();
 
   const filteredDocs = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return documents.filter((doc) => {
-      const matchesSearch = !q || getDocumentSearchText(doc).includes(q);
-      const matchesStatus =
-        statusFilter === "ALL" || getDocumentStatus(doc) === statusFilter;
+    const query = searchTerm.trim().toLowerCase();
+
+    return documents.filter((document) => {
+      const matchesSearch = !query || getDocumentSearchText(document).includes(query);
+
+      const matchesStatus = statusFilter === "ALL" || getDocumentStatus(document) === statusFilter;
+
       return matchesSearch && matchesStatus;
     });
   }, [documents, searchTerm, statusFilter]);
 
   const stats = {
-    total:      serverStats?.total      ?? documents.length,
-    pending:    serverStats?.pending    ?? documents.filter((d) => getDocumentStatus(d) === "PENDING").length,
-    processing: serverStats?.processing ?? documents.filter((d) => getDocumentStatus(d) === "PROCESSING").length,
-    completed:  serverStats?.completed  ?? documents.filter((d) => getDocumentStatus(d) === "COMPLETED").length,
-    failed:     serverStats?.failed     ?? documents.filter((d) => getDocumentStatus(d) === "FAILED").length,
-    totalSize:  serverStats?.total_size ?? documents.reduce((sum, d) => sum + (d.size_bytes ?? 0), 0),
+    total: serverStats?.total ?? documents.length,
+
+    pending:
+      serverStats?.pending ??
+      documents.filter((document) => getDocumentStatus(document) === "PENDING").length,
+
+    processing:
+      serverStats?.processing ??
+      documents.filter((document) => getDocumentStatus(document) === "PROCESSING").length,
+
+    completed:
+      serverStats?.completed ??
+      documents.filter((document) => getDocumentStatus(document) === "COMPLETED").length,
+
+    failed:
+      serverStats?.failed ??
+      documents.filter((document) => getDocumentStatus(document) === "FAILED").length,
+
+    totalSize:
+      serverStats?.total_size ??
+      documents.reduce((sum, document) => sum + (document.size_bytes ?? 0), 0),
   };
 
   function handleOpenUpload() {
@@ -88,47 +110,99 @@ export function DocumentsTab() {
 
   return (
     <div>
-      {/* Upload button — above tiles, compact */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
-        <Button renderIcon={Upload} onClick={handleOpenUpload} size="sm" kind="primary"
-          style={{ width: "auto", minWidth: 0 }}>
-          Upload Document
-        </Button>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: "1rem",
+        }}
+      >
+        <PermissionGuard permission={PERMISSIONS.documentsWrite}>
+          <Button
+            renderIcon={Upload}
+            onClick={handleOpenUpload}
+            size="sm"
+            kind="primary"
+            style={{
+              width: "auto",
+              minWidth: 0,
+            }}
+          >
+            Upload Document
+          </Button>
+        </PermissionGuard>
       </div>
 
-      {/* Stats */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(5, 1fr)",
-        gap: "1px",
-        background: "#e0e0e0",
-        border: "1px solid #e0e0e0",
-        borderRadius: 4,
-        overflow: "hidden",
-        marginBottom: "1.5rem",
-      }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: "1px",
+          background: "#e0e0e0",
+          border: "1px solid #e0e0e0",
+          borderRadius: 4,
+          overflow: "hidden",
+          marginBottom: "1.5rem",
+        }}
+      >
         {[
-          { label: "Total uploads", value: stats.total,                      accent: "#0f62fe" },
-          { label: "Completed",     value: stats.completed,                   accent: "#198038" },
-          { label: "In progress",   value: stats.pending + stats.processing,  accent: "#f1c21b" },
-          { label: "Failed",        value: stats.failed,                      accent: "#da1e28" },
+          {
+            label: "Total uploads",
+            value: stats.total,
+            accent: "#0f62fe",
+          },
+          {
+            label: "Completed",
+            value: stats.completed,
+            accent: "#198038",
+          },
+          {
+            label: "In progress",
+            value: stats.pending + stats.processing,
+            accent: "#f1c21b",
+          },
+          {
+            label: "Failed",
+            value: stats.failed,
+            accent: "#da1e28",
+          },
         ].map(({ label, value, accent }) => (
-          <div key={label} style={{ background: "#fff", padding: "1rem 1.25rem" }}>
-            <div style={{ fontSize: "0.75rem", color: "#6f6f6f", marginBottom: "0.35rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          <div
+            key={label}
+            style={{
+              background: "#fff",
+              padding: "1rem 1.25rem",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "#6f6f6f",
+                marginBottom: "0.35rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
               {label}
             </div>
-            <div style={{ fontSize: "1.5rem", fontWeight: 700, color: accent }}>
+
+            <div
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 700,
+                color: accent,
+              }}
+            >
               {value}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Document list */}
       {documents.length === 0 ? (
         <EmptyState
           title="No documents yet"
-          description="Upload a document to begin processing."
+          description={"No uploaded documents are currently available."}
         />
       ) : (
         <DataTable rows={filteredDocs} headers={TABLE_HEADERS}>
@@ -143,18 +217,24 @@ export function DocumentsTab() {
                     persistent
                     value={searchTerm}
                     placeholder="Search by filename, type, status…"
-                    onChange={(_, v) => setSearchTerm(v ?? "")}
+                    onChange={(_, value) => setSearchTerm(value ?? "")}
                   />
+
                   <Select
                     id="doc-status-filter"
                     size="sm"
-                    labelText=""
+                    labelText="Filter by document status"
+                    hideLabel
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                    onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
                     style={{ width: 180 }}
                   >
-                    {STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s} text={s === "ALL" ? "All statuses" : s} />
+                    {STATUS_OPTIONS.map((status) => (
+                      <SelectItem
+                        key={status}
+                        value={status}
+                        text={status === "ALL" ? "All statuses" : status}
+                      />
                     ))}
                   </Select>
                 </TableToolbarContent>
@@ -178,9 +258,10 @@ export function DocumentsTab() {
                       ))}
                     </TableRow>
                   </TableHead>
+
                   <TableBody>
-                    {filteredDocs.map((doc) => (
-                      <DocumentRow key={doc.id} document={doc} />
+                    {filteredDocs.map((document) => (
+                      <DocumentRow key={document.id} document={document} />
                     ))}
                   </TableBody>
                 </Table>
@@ -190,5 +271,23 @@ export function DocumentsTab() {
         </DataTable>
       )}
     </div>
+  );
+}
+
+export function DocumentsTab() {
+  return (
+    <PermissionGuard
+      permission={PERMISSIONS.documentsRead}
+      fallback={
+        <InlineNotification
+          kind="warning"
+          title="Access denied"
+          subtitle="You do not have permission to view uploaded documents."
+          lowContrast
+        />
+      }
+    >
+      <DocumentsTabContent />
+    </PermissionGuard>
   );
 }

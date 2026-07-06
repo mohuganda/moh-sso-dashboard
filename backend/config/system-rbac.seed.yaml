@@ -105,6 +105,10 @@ systems:
           - documents:read
           - documents:write
           - documents:process
+          - document_templates:read
+          - document_templates:write
+          - document_templates:publish
+          - storage_locations:read
 
       - name: admin
         displayName: Administrator
@@ -202,6 +206,9 @@ systems:
       - document_editor
       - document_processor
       - document_manager
+      - document_template_viewer
+      - document_template_editor
+      - document_template_publisher
     roles:
       - name: data-statistics_access
         displayName: Data & Statistics Access
@@ -213,6 +220,7 @@ systems:
           - data_quality:read
           - issue_tracker:read
           - documents:read
+          - document_templates:read
           - surveillance:read
           - report_browser:read
 
@@ -279,9 +287,10 @@ systems:
 
       - name: document_viewer
         displayName: Document Viewer
-        description: Read-only access to documents
+        description: Read-only access to documents and document templates
         permissions:
           - documents:read
+          - document_templates:read
           - storage_locations:read
 
       - name: document_editor
@@ -289,25 +298,57 @@ systems:
         description: Can view, upload, update, and delete documents
         permissions:
           - documents:read
-          - storage_locations:read
           - documents:write
+          - document_templates:read
+          - storage_locations:read
 
       - name: document_processor
         displayName: Document Processor
-        description: Can view and process documents
+        description: Can view, process, and reprocess documents
         permissions:
           - documents:read
-          - storage_locations:read
           - documents:process
+          - document_templates:read
+          - storage_locations:read
 
       - name: document_manager
         displayName: Document Manager
-        description: Full document management access
+        description: Full document and document-template management access
         permissions:
           - documents:read
-          - storage_locations:read
           - documents:write
           - documents:process
+          - document_templates:read
+          - document_templates:write
+          - document_templates:publish
+          - storage_locations:read
+
+      - name: document_template_viewer
+        displayName: Document Template Viewer
+        description: Read-only access to document templates
+        permissions:
+          - documents:read
+          - document_templates:read
+          - storage_locations:read
+
+      - name: document_template_editor
+        displayName: Document Template Editor
+        description: Can create and edit document templates and their structures
+        permissions:
+          - documents:read
+          - document_templates:read
+          - document_templates:write
+          - storage_locations:read
+
+      - name: document_template_publisher
+        displayName: Document Template Publisher
+        description: Can create, edit, publish, archive, and republish document templates
+        permissions:
+          - documents:read
+          - document_templates:read
+          - document_templates:write
+          - document_templates:publish
+          - storage_locations:read
 
   - clientId: eservices
     displayName: eServices
@@ -457,7 +498,6 @@ systems:
           {"id":"absence-requests","label":"Absence Requests","path":"/apps/utilities/self-service/absence-requests"},
           {"id":"absence-dashboard","label":"My Absence Dashboard","path":"/apps/utilities/self-service/absence-dashboard"},
           {"id":"eservice-requests","label":"eService Requests","children":[
-            {"id":"document-upload","label":"Document Upload","path":"/apps/utilities/self-service/eservice/document-upload","permission":"documents:write"},
             {"id":"service-access","label":"Service Access","path":"/apps/utilities/self-service/eservice/service-access"},
             {"id":"equipment-request","label":"Equipment Request","path":"/apps/utilities/self-service/eservice/equipment-request"}
           ]}
@@ -466,7 +506,6 @@ systems:
     enabled: true
     accessRoles:
       - utilities_access
-      - utilities_document_uploader
     roles:
       - name: utilities_access
         displayName: Utilities Access
@@ -475,16 +514,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
-      - name: utilities_document_uploader
-        displayName: Utilities Document Uploader
-        description: Can upload documents through the self-service document upload utility
-        permissions:
-          - portal:access
-          - systems:read
-          - systems:launch
-          - documents:read
-          - documents:write
 
   - clientId: settings
     displayName: Settings
@@ -599,12 +628,14 @@ realmRoles:
       - data_quality:read
       - issue_tracker:read
       - documents:read
+      - document_templates:read
       - storage_locations:read
       - surveillance:read
       - report_browser:read
     systemRoles:
       data-statistics:
         - data-statistics_access
+        - document_viewer
       settings:
         - settings_access
 
@@ -620,6 +651,10 @@ realmRoles:
       - documents:read
       - documents:write
       - documents:process
+      - document_templates:read
+      - document_templates:write
+      - document_templates:publish
+      - storage_locations:read
       - surveillance:read
       - data_quality:read
       - data_quality:write
@@ -639,4 +674,3 @@ realmRoles:
         - document_manager
       utilities:
         - utilities_access
-        - utilities_document_uploader

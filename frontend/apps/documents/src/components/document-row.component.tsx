@@ -32,7 +32,8 @@ function requiresProcessing(document: DocumentResponse) {
     type === "text/csv" ||
     type === "application/vnd.ms-excel" ||
     type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  ) return true;
+  )
+    return true;
   return filename.endsWith(".csv") || filename.endsWith(".xls") || filename.endsWith(".xlsx");
 }
 
@@ -41,16 +42,23 @@ function formatFileSize(bytes?: number) {
   const units = ["B", "KB", "MB", "GB"];
   let value = bytes;
   let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) { value /= 1024; unitIndex++; }
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
   return `${value < 10 && unitIndex > 0 ? value.toFixed(1) : value.toFixed(0)} ${units[unitIndex]}`;
 }
 
 function formatFileType(contentType: string, filename?: string): string {
   switch (contentType) {
-    case "application/pdf": return "pdf";
-    case "text/csv": return "csv";
-    case "application/vnd.ms-excel": return "xls";
-    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": return "xlsx";
+    case "application/pdf":
+      return "pdf";
+    case "text/csv":
+      return "csv";
+    case "application/vnd.ms-excel":
+      return "xls";
+    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+      return "xlsx";
   }
   if (filename) {
     const ext = filename.split(".").pop()?.toLowerCase();
@@ -66,7 +74,6 @@ function formatDateTime(iso?: string): string {
   const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   return `${date} at ${time}`;
 }
-
 
 function getLatestProcess(processes: DocumentProcess[]): DocumentProcess | undefined {
   if (!processes.length) return undefined;
@@ -110,11 +117,13 @@ export function DocumentRow({ document }: Props) {
   const uploaderName = !document.uploaded_by
     ? "—"
     : isOwnUpload
-      ? [currentUser!.firstName, currentUser!.lastName].filter(Boolean).join(" ") || currentUser!.username
+      ? [currentUser!.firstName, currentUser!.lastName].filter(Boolean).join(" ") ||
+        currentUser!.username
       : isLoadingUploader
         ? "Loading…"
         : uploaderUser
-          ? [uploaderUser.firstName, uploaderUser.lastName].filter(Boolean).join(" ") || uploaderUser.username
+          ? [uploaderUser.firstName, uploaderUser.lastName].filter(Boolean).join(" ") ||
+            uploaderUser.username
           : "—";
 
   const handleDownload = async () => {
@@ -158,12 +167,12 @@ export function DocumentRow({ document }: Props) {
           {formatFileSize(document.size_bytes)}
         </div>
       </TableCell>
-      <TableCell style={{ fontSize: "0.875rem", color: reportDate === "—" ? "#8d8d8d" : "#161616" }}>
+      <TableCell
+        style={{ fontSize: "0.875rem", color: reportDate === "—" ? "#8d8d8d" : "#161616" }}
+      >
         {reportDate}
       </TableCell>
-      <TableCell style={{ fontSize: "0.875rem", color: "#525252" }}>
-        {uploaderName}
-      </TableCell>
+      <TableCell style={{ fontSize: "0.875rem", color: "#525252" }}>{uploaderName}</TableCell>
       <TableCell style={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}>
         {formatDateTime(document.created_at)}
       </TableCell>
@@ -176,7 +185,7 @@ export function DocumentRow({ document }: Props) {
             label="View Details"
             kind="ghost"
             size="sm"
-            onClick={() => navigate(`/apps/utilities/self-service/eservice/document-upload/${document.id}`)}
+            onClick={() => navigate(`./${document.id}`)}
           >
             <DataVis_1 />
           </IconButton>

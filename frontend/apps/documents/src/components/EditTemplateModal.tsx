@@ -26,10 +26,8 @@ import {
   useReplaceStructureMutation,
   useScanDocumentStructureMutation,
 } from "../api";
-import type {
-  DocumentTemplate,
-  TemplateColumnStructure,
-} from "../types";
+import type { DocumentTemplate, TemplateColumnStructure } from "../types";
+import { PermissionGuard, PERMISSIONS } from "@moh-sso/auth";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -93,7 +91,9 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
   const [description, setDescription] = useState(template.description ?? "");
   const [error, setError] = useState<string | null>(null);
 
-  const { data: structure, isLoading: isLoadingStructure } = useGetTemplateStructureQuery(template.code);
+  const { data: structure, isLoading: isLoadingStructure } = useGetTemplateStructureQuery(
+    template.code,
+  );
   const [columnDrafts, setColumnDrafts] = useState<Record<string, ColumnDraft>>({});
 
   const allColumns: ColumnDraft[] = useMemo(() => {
@@ -110,19 +110,25 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
     return columnDrafts[col.id] ?? col;
   }
 
-  const updateDraft = useCallback((colId: string, patch: Partial<ColumnDraft>) => {
-    setColumnDrafts((prev) => ({
-      ...prev,
-      [colId]: { ...(prev[colId] ?? allColumns.find((c) => c.id === colId)!), ...patch },
-    }));
-  }, [allColumns]);
+  const updateDraft = useCallback(
+    (colId: string, patch: Partial<ColumnDraft>) => {
+      setColumnDrafts((prev) => ({
+        ...prev,
+        [colId]: { ...(prev[colId] ?? allColumns.find((c) => c.id === colId)!), ...patch },
+      }));
+    },
+    [allColumns],
+  );
 
   const [updateTemplate, { isLoading: isSavingMeta }] = useUpdateTemplateMutation();
   const [updateColumn, { isLoading: isSavingColumn }] = useUpdateColumnMutation();
   const isSaving = isSavingMeta || isSavingColumn;
 
   async function handleSave() {
-    if (!name.trim()) { setError("Template name is required."); return; }
+    if (!name.trim()) {
+      setError("Template name is required.");
+      return;
+    }
     setError(null);
     try {
       await updateTemplate({
@@ -165,7 +171,13 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
   return (
     <Stack gap={6}>
       {error && (
-        <InlineNotification kind="error" title="Error" subtitle={error} lowContrast onCloseButtonClick={() => setError(null)} />
+        <InlineNotification
+          kind="error"
+          title="Error"
+          subtitle={error}
+          lowContrast
+          onCloseButtonClick={() => setError(null)}
+        />
       )}
 
       <TextInput
@@ -189,79 +201,208 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
       />
 
       <div>
-        <p style={{ margin: "0 0 0.75rem", fontWeight: 600, fontSize: "0.9375rem" }}>Column structure</p>
+        <p style={{ margin: "0 0 0.75rem", fontWeight: 600, fontSize: "0.9375rem" }}>
+          Column structure
+        </p>
 
         {isLoadingStructure && <InlineLoading description="Loading columns..." />}
 
         {!isLoadingStructure && !hasSheets && (
-          <p style={{ color: "#6f6f6f", fontSize: "0.875rem", margin: 0 }}>No columns defined for this template.</p>
+          <p style={{ color: "#6f6f6f", fontSize: "0.875rem", margin: 0 }}>
+            No columns defined for this template.
+          </p>
         )}
 
-        {!isLoadingStructure && hasSheets && structure.sheets.map((sheet) => (
-          <div key={sheet.id} style={{ marginBottom: "1.25rem" }}>
-            {multiSheet && (
-              <p style={{ margin: "0 0 0.5rem", fontSize: "0.875rem", color: "#525252", fontWeight: 600 }}>
-                Sheet: {sheet.name}
-              </p>
-            )}
-            {sheet.columns.length === 0 ? (
-              <p style={{ color: "#6f6f6f", fontSize: "0.875rem", margin: 0 }}>No columns.</p>
-            ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
-                    <th style={{ textAlign: "left", padding: "0.4rem 0.75rem", fontWeight: 600, width: "25%", verticalAlign: "middle" }}>Column name</th>
-                    <th style={{ textAlign: "left", padding: "0.4rem 0.75rem", fontWeight: 600, width: "27%", verticalAlign: "middle" }}>
-                      Column key <span style={{ fontWeight: 400, color: "#6f6f6f", fontSize: "0.75rem" }}>(editable)</span>
-                    </th>
-                    <th style={{ textAlign: "left", padding: "0.4rem 0.75rem", fontWeight: 600, width: "22%", verticalAlign: "middle" }}>Data type</th>
-                    <th style={{ textAlign: "left", padding: "0.4rem 0.75rem", fontWeight: 600, width: "13%", verticalAlign: "middle" }}>Required</th>
-                    <th style={{ textAlign: "left", padding: "0.4rem 0.75rem", fontWeight: 600, width: "13%", verticalAlign: "middle" }}>Filterable</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sheet.columns.slice().sort((a, b) => (a.column_order ?? 0) - (b.column_order ?? 0)).map((col) => {
-                    const base = allColumns.find((c) => c.id === col.id)!;
-                    const draft = getDraft(base);
-                    return (
-                      <tr key={col.id} style={{ borderBottom: "1px solid #f4f4f4", background: draft.required ? "#f0f7ff" : undefined }}>
-                        <td style={{ padding: "0.4rem 0.75rem", fontWeight: draft.required ? 600 : 400, verticalAlign: "middle" }}>{col.column_name}</td>
-                        <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
-                          <TextInput id={`key-${col.id}`} labelText="" hideLabel size="sm"
-                            value={draft.column_key ?? ""}
-                            onChange={(e) => updateDraft(col.id, { column_key: e.target.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "") })}
-                            disabled={isSaving} style={{ fontFamily: "monospace" }} />
-                        </td>
-                        <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
-                          <Select id={`dtype-${col.id}`} labelText="" hideLabel size="sm"
-                            value={draft.data_type} onChange={(e) => updateDraft(col.id, { data_type: e.target.value })} disabled={isSaving}>
-                            {DATA_TYPE_OPTIONS.map((opt) => <SelectItem key={opt.value} value={opt.value} text={opt.label} />)}
-                          </Select>
-                        </td>
-                        <td style={{ padding: "0.4rem 0.75rem", verticalAlign: "middle" }}>
-                          <Toggle id={`req-${col.id}`} labelText="Required" hideLabel size="sm"
-                            toggled={draft.required} onToggle={(checked) => updateDraft(col.id, { required: checked })} disabled={isSaving} />
-                        </td>
-                        <td style={{ padding: "0.4rem 0.75rem", verticalAlign: "middle" }}>
-                          <Toggle id={`filter-${col.id}`} labelText="Filterable" hideLabel size="sm"
-                            toggled={!!(draft.configuration?.filterable)}
-                            onToggle={(checked) => updateDraft(col.id, { configuration: { ...(draft.configuration ?? {}), filterable: checked } })}
-                            disabled={isSaving} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        ))}
+        {!isLoadingStructure &&
+          hasSheets &&
+          structure.sheets.map((sheet) => (
+            <div key={sheet.id} style={{ marginBottom: "1.25rem" }}>
+              {multiSheet && (
+                <p
+                  style={{
+                    margin: "0 0 0.5rem",
+                    fontSize: "0.875rem",
+                    color: "#525252",
+                    fontWeight: 600,
+                  }}
+                >
+                  Sheet: {sheet.name}
+                </p>
+              )}
+              {sheet.columns.length === 0 ? (
+                <p style={{ color: "#6f6f6f", fontSize: "0.875rem", margin: 0 }}>No columns.</p>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "0.4rem 0.75rem",
+                          fontWeight: 600,
+                          width: "25%",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Column name
+                      </th>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "0.4rem 0.75rem",
+                          fontWeight: 600,
+                          width: "27%",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Column key{" "}
+                        <span style={{ fontWeight: 400, color: "#6f6f6f", fontSize: "0.75rem" }}>
+                          (editable)
+                        </span>
+                      </th>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "0.4rem 0.75rem",
+                          fontWeight: 600,
+                          width: "22%",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Data type
+                      </th>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "0.4rem 0.75rem",
+                          fontWeight: 600,
+                          width: "13%",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Required
+                      </th>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "0.4rem 0.75rem",
+                          fontWeight: 600,
+                          width: "13%",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Filterable
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sheet.columns
+                      .slice()
+                      .sort((a, b) => (a.column_order ?? 0) - (b.column_order ?? 0))
+                      .map((col) => {
+                        const base = allColumns.find((c) => c.id === col.id)!;
+                        const draft = getDraft(base);
+                        return (
+                          <tr
+                            key={col.id}
+                            style={{
+                              borderBottom: "1px solid #f4f4f4",
+                              background: draft.required ? "#f0f7ff" : undefined,
+                            }}
+                          >
+                            <td
+                              style={{
+                                padding: "0.4rem 0.75rem",
+                                fontWeight: draft.required ? 600 : 400,
+                                verticalAlign: "middle",
+                              }}
+                            >
+                              {col.column_name}
+                            </td>
+                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                              <TextInput
+                                id={`key-${col.id}`}
+                                labelText=""
+                                hideLabel
+                                size="sm"
+                                value={draft.column_key ?? ""}
+                                onChange={(e) =>
+                                  updateDraft(col.id, {
+                                    column_key: e.target.value
+                                      .trim()
+                                      .toLowerCase()
+                                      .replace(/[^a-z0-9_]/g, ""),
+                                  })
+                                }
+                                disabled={isSaving}
+                                style={{ fontFamily: "monospace" }}
+                              />
+                            </td>
+                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                              <Select
+                                id={`dtype-${col.id}`}
+                                labelText=""
+                                hideLabel
+                                size="sm"
+                                value={draft.data_type}
+                                onChange={(e) => updateDraft(col.id, { data_type: e.target.value })}
+                                disabled={isSaving}
+                              >
+                                {DATA_TYPE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value} text={opt.label} />
+                                ))}
+                              </Select>
+                            </td>
+                            <td style={{ padding: "0.4rem 0.75rem", verticalAlign: "middle" }}>
+                              <Toggle
+                                id={`req-${col.id}`}
+                                labelText="Required"
+                                hideLabel
+                                size="sm"
+                                toggled={draft.required}
+                                onToggle={(checked) => updateDraft(col.id, { required: checked })}
+                                disabled={isSaving}
+                              />
+                            </td>
+                            <td style={{ padding: "0.4rem 0.75rem", verticalAlign: "middle" }}>
+                              <Toggle
+                                id={`filter-${col.id}`}
+                                labelText="Filterable"
+                                hideLabel
+                                size="sm"
+                                toggled={!!draft.configuration?.filterable}
+                                onToggle={(checked) =>
+                                  updateDraft(col.id, {
+                                    configuration: {
+                                      ...(draft.configuration ?? {}),
+                                      filterable: checked,
+                                    },
+                                  })
+                                }
+                                disabled={isSaving}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "1rem" }}>
+      <div
+        style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "1rem" }}
+      >
         {isSaving && <InlineLoading description="Saving changes..." />}
-        <Button kind="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
-        <Button onClick={() => void handleSave()} disabled={isSaving || !name.trim() || isLoadingStructure}>
+        <Button kind="secondary" onClick={onClose} disabled={isSaving}>
+          Cancel
+        </Button>
+        <Button
+          onClick={() => void handleSave()}
+          disabled={isSaving || !name.trim() || isLoadingStructure}
+        >
           Save Changes
         </Button>
       </div>
@@ -282,7 +423,10 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
   const isProcessing = isScanning || isReplacing;
   const includedSheets = sheets.filter((s) => !s.excluded);
   const totalColumns = includedSheets.reduce((sum, s) => sum + s.columns.length, 0);
-  const requiredCount = includedSheets.reduce((sum, s) => sum + s.columns.filter((c) => c.required).length, 0);
+  const requiredCount = includedSheets.reduce(
+    (sum, s) => sum + s.columns.filter((c) => c.required).length,
+    0,
+  );
 
   const handleFileChange = useCallback(
     async (_event: SyntheticEvent<HTMLElement, Event>, { addedFiles }: { addedFiles: File[] }) => {
@@ -299,7 +443,9 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
       try {
         const result = await scanStructure(selected).unwrap();
         if (result.sheets.length === 0) {
-          setError("No usable sheets found. Make sure visible sheets have at least 4 column headers.");
+          setError(
+            "No usable sheets found. Make sure visible sheets have at least 4 column headers.",
+          );
           setFile(null);
           return;
         }
@@ -328,22 +474,21 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
   );
 
   const toggleSheetExcluded = useCallback((si: number) => {
-    setSheets((prev) => prev.map((s, i) => i !== si ? s : { ...s, excluded: !s.excluded }));
+    setSheets((prev) => prev.map((s, i) => (i !== si ? s : { ...s, excluded: !s.excluded })));
   }, []);
 
-  const updateColumn = useCallback(
-    (si: number, ci: number, patch: Partial<NewColumnDraft>) => {
-      setSheets((prev) =>
-        prev.map((sheet, s) =>
-          s !== si ? sheet : {
-            ...sheet,
-            columns: sheet.columns.map((col, c) => c !== ci ? col : { ...col, ...patch }),
-          },
-        ),
-      );
-    },
-    [],
-  );
+  const updateColumn = useCallback((si: number, ci: number, patch: Partial<NewColumnDraft>) => {
+    setSheets((prev) =>
+      prev.map((sheet, s) =>
+        s !== si
+          ? sheet
+          : {
+              ...sheet,
+              columns: sheet.columns.map((col, c) => (c !== ci ? col : { ...col, ...patch })),
+            },
+      ),
+    );
+  }, []);
 
   async function handleReplace() {
     if (!file || includedSheets.length === 0) return;
@@ -396,7 +541,13 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
       />
 
       {error && (
-        <InlineNotification kind="error" title="Error" subtitle={error} lowContrast onCloseButtonClick={() => setError(null)} />
+        <InlineNotification
+          kind="error"
+          title="Error"
+          subtitle={error}
+          lowContrast
+          onCloseButtonClick={() => setError(null)}
+        />
       )}
 
       <Form>
@@ -413,10 +564,22 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
           </div>
 
           {file && !isScanning && (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}
+            >
               <Tag type="cyan">New file</Tag>
               <span style={{ fontWeight: 500 }}>{file.name}</span>
-              <Button kind="ghost" size="sm" renderIcon={TrashCan} iconDescription="Remove" onClick={() => { setFile(null); setSheets([]); }} disabled={isProcessing}>
+              <Button
+                kind="ghost"
+                size="sm"
+                renderIcon={TrashCan}
+                iconDescription="Remove"
+                onClick={() => {
+                  setFile(null);
+                  setSheets([]);
+                }}
+                disabled={isProcessing}
+              >
                 Remove
               </Button>
             </div>
@@ -426,19 +589,46 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
 
           {!isScanning && sheets.length > 0 && (
             <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: "0.75rem",
+                }}
+              >
                 <p style={{ margin: 0, fontWeight: 600 }}>
                   New columns —{" "}
                   <span style={{ color: "#6f6f6f", fontWeight: 400 }}>review before replacing</span>
                 </p>
-                <span style={{ color: "#6f6f6f", fontSize: "0.875rem" }}>{requiredCount} of {totalColumns} required</span>
+                <span style={{ color: "#6f6f6f", fontSize: "0.875rem" }}>
+                  {requiredCount} of {totalColumns} required
+                </span>
               </div>
 
               {sheets.map((sheet, si) => (
-                <div key={sheet.name} style={{ marginBottom: "1.5rem", opacity: sheet.excluded ? 0.6 : 1 }}>
+                <div
+                  key={sheet.name}
+                  style={{ marginBottom: "1.5rem", opacity: sheet.excluded ? 0.6 : 1 }}
+                >
                   {sheets.length > 1 && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
-                      <p style={{ margin: 0, fontSize: "0.875rem", color: sheet.excluded ? "#a8a8a8" : "#6f6f6f", fontWeight: 600 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        marginBottom: "0.5rem",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.875rem",
+                          color: sheet.excluded ? "#a8a8a8" : "#6f6f6f",
+                          fontWeight: 600,
+                        }}
+                      >
                         Sheet: {sheet.name}
                       </p>
                       <Toggle
@@ -454,56 +644,178 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
                     </div>
                   )}
                   {!sheet.excluded && (
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-                    <thead>
-                      <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "25%", verticalAlign: "middle" }}>Column name</th>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "27%", verticalAlign: "middle" }}>
-                          Column key <span style={{ fontWeight: 400, color: "#6f6f6f", fontSize: "0.75rem" }}>(editable)</span>
-                        </th>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "20%", verticalAlign: "middle" }}>Data type</th>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "14%", verticalAlign: "middle" }}>Required</th>
-                        <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600, width: "14%", verticalAlign: "middle" }}>Filterable</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sheet.columns.map((col, ci) => (
-                        <tr key={ci} style={{ borderBottom: "1px solid #f4f4f4", backgroundColor: col.required ? "#f0f7ff" : undefined }}>
-                          <td style={{ padding: "0.5rem 0.75rem", fontWeight: col.required ? 600 : 400, verticalAlign: "middle" }}>{col.column_name}</td>
-                          <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
-                            <TextInput id={`nkey-${si}-${ci}`} labelText="" hideLabel size="sm"
-                              value={col.column_key}
-                              onChange={(e) => updateColumn(si, ci, { column_key: e.target.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "") })}
-                              disabled={isProcessing} style={{ fontFamily: "monospace" }} />
-                          </td>
-                          <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
-                            <Select id={`ndtype-${si}-${ci}`} labelText="" hideLabel size="sm"
-                              value={col.data_type} onChange={(e) => updateColumn(si, ci, { data_type: e.target.value })} disabled={isProcessing}>
-                              {DATA_TYPE_OPTIONS.map((opt) => <SelectItem key={opt.value} value={opt.value} text={opt.label} />)}
-                            </Select>
-                          </td>
-                          <td style={{ padding: "0.5rem 0.75rem", verticalAlign: "middle" }}>
-                            <Toggle id={`nreq-${si}-${ci}`} labelText="Required" hideLabel size="sm"
-                              toggled={col.required} onToggle={(checked) => updateColumn(si, ci, { required: checked })} disabled={isProcessing} />
-                          </td>
-                          <td style={{ padding: "0.5rem 0.75rem", verticalAlign: "middle" }}>
-                            <Toggle id={`nfilter-${si}-${ci}`} labelText="Filterable" hideLabel size="sm"
-                              toggled={col.filterable} onToggle={(checked) => updateColumn(si, ci, { filterable: checked })} disabled={isProcessing} />
-                          </td>
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}
+                    >
+                      <thead>
+                        <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "0.5rem 0.75rem",
+                              fontWeight: 600,
+                              width: "25%",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Column name
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "0.5rem 0.75rem",
+                              fontWeight: 600,
+                              width: "27%",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Column key{" "}
+                            <span
+                              style={{ fontWeight: 400, color: "#6f6f6f", fontSize: "0.75rem" }}
+                            >
+                              (editable)
+                            </span>
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "0.5rem 0.75rem",
+                              fontWeight: 600,
+                              width: "20%",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Data type
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "0.5rem 0.75rem",
+                              fontWeight: 600,
+                              width: "14%",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Required
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "0.5rem 0.75rem",
+                              fontWeight: 600,
+                              width: "14%",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Filterable
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {sheet.columns.map((col, ci) => (
+                          <tr
+                            key={ci}
+                            style={{
+                              borderBottom: "1px solid #f4f4f4",
+                              backgroundColor: col.required ? "#f0f7ff" : undefined,
+                            }}
+                          >
+                            <td
+                              style={{
+                                padding: "0.5rem 0.75rem",
+                                fontWeight: col.required ? 600 : 400,
+                                verticalAlign: "middle",
+                              }}
+                            >
+                              {col.column_name}
+                            </td>
+                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                              <TextInput
+                                id={`nkey-${si}-${ci}`}
+                                labelText=""
+                                hideLabel
+                                size="sm"
+                                value={col.column_key}
+                                onChange={(e) =>
+                                  updateColumn(si, ci, {
+                                    column_key: e.target.value
+                                      .trim()
+                                      .toLowerCase()
+                                      .replace(/[^a-z0-9_]/g, ""),
+                                  })
+                                }
+                                disabled={isProcessing}
+                                style={{ fontFamily: "monospace" }}
+                              />
+                            </td>
+                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                              <Select
+                                id={`ndtype-${si}-${ci}`}
+                                labelText=""
+                                hideLabel
+                                size="sm"
+                                value={col.data_type}
+                                onChange={(e) =>
+                                  updateColumn(si, ci, { data_type: e.target.value })
+                                }
+                                disabled={isProcessing}
+                              >
+                                {DATA_TYPE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value} text={opt.label} />
+                                ))}
+                              </Select>
+                            </td>
+                            <td style={{ padding: "0.5rem 0.75rem", verticalAlign: "middle" }}>
+                              <Toggle
+                                id={`nreq-${si}-${ci}`}
+                                labelText="Required"
+                                hideLabel
+                                size="sm"
+                                toggled={col.required}
+                                onToggle={(checked) => updateColumn(si, ci, { required: checked })}
+                                disabled={isProcessing}
+                              />
+                            </td>
+                            <td style={{ padding: "0.5rem 0.75rem", verticalAlign: "middle" }}>
+                              <Toggle
+                                id={`nfilter-${si}-${ci}`}
+                                labelText="Filterable"
+                                hideLabel
+                                size="sm"
+                                toggled={col.filterable}
+                                onToggle={(checked) =>
+                                  updateColumn(si, ci, { filterable: checked })
+                                }
+                                disabled={isProcessing}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </div>
               ))}
             </div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "1rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: "1rem",
+            }}
+          >
             {isReplacing && <InlineLoading description="Replacing columns..." />}
-            <Button kind="secondary" onClick={onClose} disabled={isProcessing}>Cancel</Button>
-            <Button kind="danger" onClick={() => void handleReplace()} disabled={isProcessing || includedSheets.length === 0}>
+            <Button kind="secondary" onClick={onClose} disabled={isProcessing}>
+              Cancel
+            </Button>
+            <Button
+              kind="danger"
+              onClick={() => void handleReplace()}
+              disabled={isProcessing || includedSheets.length === 0}
+            >
               Replace Columns
             </Button>
           </div>
@@ -515,14 +827,46 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function EditTemplateModal({ template, onClose }: EditTemplateModalProps) {
+function EditTemplateModalContent({
+  template,
+
+  onClose,
+}: EditTemplateModalProps) {
   return (
     <div style={{ maxWidth: 760 }}>
       <div style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ margin: 0, marginBottom: "0.5rem" }}>Edit Template</h2>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          <Tag type="cool-gray" style={{ margin: 0 }}>{template.code}</Tag>
-          <span style={{ color: "#6f6f6f", fontSize: "0.875rem" }}>
+        <h2
+          style={{
+            margin: 0,
+
+            marginBottom: "0.5rem",
+          }}
+        >
+          Edit Template
+        </h2>
+
+        <div
+          style={{
+            display: "flex",
+
+            gap: "0.5rem",
+
+            alignItems: "center",
+
+            flexWrap: "wrap",
+          }}
+        >
+          <Tag type="cool-gray" style={{ margin: 0 }}>
+            {template.code}
+          </Tag>
+
+          <span
+            style={{
+              color: "#6f6f6f",
+
+              fontSize: "0.875rem",
+            }}
+          >
             {template.file_type.toUpperCase()} · v{template.version}
           </span>
         </div>
@@ -531,17 +875,65 @@ export function EditTemplateModal({ template, onClose }: EditTemplateModalProps)
       <Tabs>
         <TabList aria-label="Edit template options" contained>
           <Tab>Edit columns &amp; metadata</Tab>
+
           <Tab>Replace columns from file</Tab>
         </TabList>
+
         <TabPanels>
-          <TabPanel style={{ paddingInline: 0, paddingTop: "1.5rem" }}>
+          <TabPanel
+            style={{
+              paddingInline: 0,
+
+              paddingTop: "1.5rem",
+            }}
+          >
             <EditTab template={template} onClose={onClose} />
           </TabPanel>
-          <TabPanel style={{ paddingInline: 0, paddingTop: "1.5rem" }}>
+
+          <TabPanel
+            style={{
+              paddingInline: 0,
+
+              paddingTop: "1.5rem",
+            }}
+          >
             <ReplaceTab template={template} onClose={onClose} />
           </TabPanel>
         </TabPanels>
       </Tabs>
     </div>
+  );
+}
+
+export function EditTemplateModal({ template, onClose }: EditTemplateModalProps) {
+  return (
+    <PermissionGuard
+      permission={PERMISSIONS.documentTemplatesWrite}
+      fallback={
+        <div style={{ maxWidth: 760 }}>
+          <InlineNotification
+            kind="warning"
+            title="Access denied"
+            subtitle="You do not have permission to edit document templates."
+            lowContrast
+            hideCloseButton
+          />
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "1.5rem",
+            }}
+          >
+            <Button kind="secondary" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <EditTemplateModalContent template={template} onClose={onClose} />
+    </PermissionGuard>
   );
 }
