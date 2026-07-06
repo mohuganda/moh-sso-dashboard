@@ -238,6 +238,7 @@ type CreateColumnRequest struct {
 
 type UpdateColumnRequest struct {
 	ID            uuid.UUID      `json:"id"`
+	ColumnKey     string         `json:"column_key"`
 	ColumnName    string         `json:"column_name"`
 	DisplayName   string         `json:"display_name"`
 	DataType      string         `json:"data_type"`

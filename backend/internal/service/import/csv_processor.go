@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/csv"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,6 +46,12 @@ func (c *CSVProcessor) Process(
 		return err
 	}
 
+	templateCode, err := getTemplateCodeFromDocument(doc)
+	if err != nil {
+		return fmt.Errorf("csv processor: %w", err)
+	}
+	templateCode = strings.ToUpper(strings.TrimSpace(templateCode))
+
 	msg := "Opening file"
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 5, &msg)
 
@@ -72,7 +80,7 @@ func (c *CSVProcessor) Process(
 		headers[i] = strings.TrimSpace(headers[i])
 	}
 
-	// 4. Create file record in a short transaction
+	// 4. Create file record
 	var fileKey int64
 	{
 		tx, err := c.remoteDB.BeginTx(ctx, nil)
@@ -85,6 +93,8 @@ func (c *CSVProcessor) Process(
 			tx,
 			doc.OriginalFilename,
 			doc.ObjectKey,
+			templateCode,
+			doc.ID.String(),
 		)
 		if err != nil {
 			_ = tx.Rollback()
@@ -97,12 +107,13 @@ func (c *CSVProcessor) Process(
 		}
 	}
 
-	// 5. Batch rows
+	// 5. Batch upsert rows, collecting all hashes for soft-delete
 	const batchSize = 2000
 	rowCount := 0
 	lastProgressUpdate := time.Now()
 
-	batch := make([][]byte, 0, batchSize)
+	batch := make([]documentRepository.UpsertRow, 0, batchSize)
+	allHashes := make([]string, 0, 10000)
 
 	flushBatch := func() error {
 		if len(batch) == 0 {
@@ -114,7 +125,7 @@ func (c *CSVProcessor) Process(
 			return err
 		}
 
-		if err := c.fileRepository.InsertCustomDataBatch(ctx, tx, fileKey, batch); err != nil {
+		if err := c.fileRepository.UpsertCustomDataBatch(ctx, tx, fileKey, templateCode, batch); err != nil {
 			_ = tx.Rollback()
 			return err
 		}
@@ -151,7 +162,11 @@ func (c *CSVProcessor) Process(
 			return err
 		}
 
-		batch = append(batch, jsonBytes)
+		sum := sha256.Sum256(jsonBytes)
+		hash := hex.EncodeToString(sum[:])
+
+		batch = append(batch, documentRepository.UpsertRow{Data: jsonBytes, Hash: hash})
+		allHashes = append(allHashes, hash)
 		rowCount++
 
 		if len(batch) >= batchSize {
@@ -175,7 +190,25 @@ func (c *CSVProcessor) Process(
 		return err
 	}
 
-	msg = fmt.Sprintf("Inserted %d rows successfully", rowCount)
+	// 6. Soft-delete rows from previous uploads that are no longer in this file
+	{
+		tx, err := c.remoteDB.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+
+		if err := c.fileRepository.SoftDeleteRemovedRows(ctx, tx, templateCode, allHashes); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+
+		if err := tx.Commit(); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	msg = fmt.Sprintf("Upserted %d rows successfully", rowCount)
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 90, &msg)
 
 	msg = "Finished processing"

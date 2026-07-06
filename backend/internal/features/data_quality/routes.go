@@ -11,9 +11,6 @@ func RegisterProtectedRoutes(
 	protected *gin.RouterGroup,
 	handler *Handler,
 ) {
-	registerValidationRuleRoutes(protected.Group("/data-quality"), handler)
-	registerValidationRuleRoutes(protected.Group("/data-validation"), handler)
-
 	issues := protected.Group("/issues")
 	{
 		issues.POST(
@@ -48,23 +45,6 @@ func RegisterProtectedRoutes(
 			"/:issueCode/transactions",
 			middleware.RequirePermission(authz.PermissionIssueTrackerRead),
 			handler.ListIssueResolutionTransactions,
-		)
-	}
-}
-
-func registerValidationRuleRoutes(group *gin.RouterGroup, handler *Handler) {
-	rules := group.Group("/rules")
-	{
-		rules.GET(
-			"",
-			middleware.RequirePermission(authz.PermissionDataQualityRead),
-			handler.ListValidationRules,
-		)
-
-		rules.POST(
-			"/import",
-			middleware.RequirePermission(authz.PermissionDataQualityWrite),
-			handler.ImportValidationRules,
 		)
 	}
 }

@@ -1,7 +1,5 @@
 package data_quality
 
-import "time"
-
 type issueResponse struct {
 	IssueID      int64   `json:"issue_id"`
 	IssueCode    *string `json:"issue_code,omitempty"`
@@ -117,70 +115,4 @@ type resolveIssueInput struct {
 	ProcessChange      interface{}
 	PreventiveOwner    interface{}
 	DueDate            interface{}
-}
-
-type validationRuleImportRequest struct {
-	TableID     *string `json:"table_id"`
-	Program     *string `json:"program"`
-	Category    *string `json:"category"`
-	Code        string  `json:"code"`
-	Severity    string  `json:"severity"`
-	Description *string `json:"description"`
-	Column      string  `json:"column"`
-	Op          string  `json:"op"`
-	Value       *string `json:"value"`
-	ValueColumn *string `json:"value_column"`
-}
-
-type validationRuleImportEnvelope struct {
-	Rules []validationRuleImportRequest `json:"rules"`
-}
-
-type validationRuleInput struct {
-	TableID     interface{}
-	Program     interface{}
-	Category    interface{}
-	Code        string
-	Severity    string
-	Description string
-	Column      string
-	Op          string
-	Value       interface{}
-	ValueColumn interface{}
-	CreatedBy   interface{}
-}
-
-type validationRuleResponse struct {
-	ID          int64      `json:"id"`
-	TableID     *string    `json:"table_id,omitempty"`
-	Program     *string    `json:"program,omitempty"`
-	Category    *string    `json:"category,omitempty"`
-	Code        string     `json:"code"`
-	Severity    string     `json:"severity"`
-	Description string     `json:"description"`
-	Column      string     `json:"column"`
-	Op          string     `json:"op"`
-	Value       *string    `json:"value,omitempty"`
-	ValueColumn *string    `json:"value_column,omitempty"`
-	IsActive    bool       `json:"is_active"`
-	CreatedBy   *string    `json:"created_by,omitempty"`
-	UpdatedBy   *string    `json:"updated_by,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
-}
-
-type validationRuleImportResult struct {
-	Imported int                      `json:"imported"`
-	Created  int                      `json:"created"`
-	Updated  int                      `json:"updated"`
-	Skipped  int                      `json:"skipped"`
-	Errors   []validationRuleRowError `json:"errors"`
-	Rules    []validationRuleResponse `json:"rules"`
-}
-
-type validationRuleRowError struct {
-	Index   int    `json:"index"`
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message"`
 }

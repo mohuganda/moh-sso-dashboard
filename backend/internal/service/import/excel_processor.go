@@ -3,10 +3,13 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +27,7 @@ import (
 type ExcelProcessor struct {
 	documentRepository      documentRepository.DocumentRepository
 	documentTemplateService documenttemplates.Service
-	stockImportRepository   documentRepository.StockImportRepository
+	templateImportRepo      documentRepository.TemplateImportRepository
 	processRepository       processRepository.ProcessRepository
 	storage                 storage.Storage
 	remoteDB                *sql.DB
@@ -32,7 +35,7 @@ type ExcelProcessor struct {
 
 func NewExcelProcessor(
 	documentRepository documentRepository.DocumentRepository,
-	stockImportRepository documentRepository.StockImportRepository,
+	templateImportRepo documentRepository.TemplateImportRepository,
 	processRepository processRepository.ProcessRepository,
 	documentTemplateService documenttemplates.Service,
 	storage storage.Storage,
@@ -40,7 +43,7 @@ func NewExcelProcessor(
 ) *ExcelProcessor {
 	return &ExcelProcessor{
 		documentRepository:      documentRepository,
-		stockImportRepository:   stockImportRepository,
+		templateImportRepo:      templateImportRepo,
 		processRepository:       processRepository,
 		documentTemplateService: documentTemplateService,
 		storage:                 storage,
@@ -55,6 +58,7 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 	}
 
 	if document.IsTemplate {
+		log.Printf("[ExcelProcessor] document %s is a template, skipping data extraction", document.ID)
 		return nil
 	}
 
@@ -62,12 +66,27 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 	if err != nil {
 		return err
 	}
-
 	templateCode = strings.ToUpper(strings.TrimSpace(templateCode))
+
+	reportDate, err := getReportDateFromDocument(document)
+	if err != nil {
+		return err
+	}
+
+	replaceDocumentID, err := getReplaceDocumentIDFromDocument(document)
+	if err != nil {
+		return err
+	}
 
 	template, err := c.documentTemplateService.GetTemplateStructure(ctx, templateCode)
 	if err != nil {
 		return fmt.Errorf("get template structure %q: %w", templateCode, err)
+	}
+
+	log.Printf("[ExcelProcessor] document=%s template=%s sheets=%d", document.ID, templateCode, len(template.Sheets))
+
+	if len(template.Sheets) == 0 {
+		log.Printf("[ExcelProcessor] WARNING: template %q has no sheets configured — no data will be imported", templateCode)
 	}
 
 	reader, err := c.storage.Download(ctx, document.ObjectKey)
@@ -87,159 +106,220 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 	}
 	defer workbook.Close()
 
+	workbookSheets := workbook.GetSheetList()
+	log.Printf("[ExcelProcessor] workbook sheets: %v", workbookSheets)
+
 	tx, err := c.remoteDB.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin remote tx: %w", err)
 	}
 	defer tx.Rollback()
 
+	// If replacing a previous upload, invalidate its rows and upload record first.
+	if replaceDocumentID != nil {
+		if err := c.templateImportRepo.InvalidateByDocument(ctx, tx, *replaceDocumentID); err != nil {
+			return fmt.Errorf("invalidate previous document rows: %w", err)
+		}
+		if err := c.templateImportRepo.InvalidateUpload(ctx, tx, *replaceDocumentID); err != nil {
+			return fmt.Errorf("invalidate previous upload record: %w", err)
+		}
+	}
+
+	// Create the upload record once per document.
+	uploadID, err := c.templateImportRepo.CreateUpload(ctx, tx, document.ID, templateCode, reportDate)
+	if err != nil {
+		return fmt.Errorf("create template upload record: %w", err)
+	}
+
+	// sheetHashes tracks hashes per sheet_code for the post-commit soft-delete pass.
+	sheetHashes := make(map[string][]string)
+	totalInserted := 0
+
 	for _, sheet := range template.Sheets {
 		sheetCode := strings.ToLower(strings.TrimSpace(sheet.Code))
+		resolvedName := resolveWorkbookSheetName(workbook, sheet)
+		log.Printf("[ExcelProcessor] sheet code=%q name=%q resolved_workbook_sheet=%q header_row=%d required=%v",
+			sheetCode, sheet.Name, resolvedName, sheet.HeaderRow, sheet.Required)
 
-		if !isSupportedStockSheet(templateCode, sheetCode) {
-			continue
-		}
-
-		rows, err := c.extractSheetRows(ctx, workbook, sheet)
+		positionalOverrides := blankHeaderOverrides(sheet)
+		rows, err := c.extractSheetRows(ctx, workbook, sheet, positionalOverrides)
 		if err != nil {
 			return fmt.Errorf("extract sheet %q: %w", sheet.Name, err)
 		}
 
+		log.Printf("[ExcelProcessor] sheet %q extracted %d rows", sheetCode, len(rows))
+
 		if len(rows) == 0 {
+			log.Printf("[ExcelProcessor] sheet %q: no data rows found — skipping", sheetCode)
 			continue
 		}
 
-		if err := c.insertSheetRows(ctx, tx, templateCode, sheet, document.ID, rows); err != nil {
-			return err
+		// Apply forward-fill if the sheet configuration requests it.
+		rows = applyForwardFill(rows, sheet)
+
+		const batchSize = 1000
+
+		importRows := make([]documentRepository.TemplateImportRow, 0, len(rows))
+		for _, row := range rows {
+			importRows = append(importRows, documentRepository.TemplateImportRow{
+				UploadID:     uploadID,
+				DocumentID:   document.ID,
+				TemplateCode: templateCode,
+				SheetCode:    sheetCode,
+				RowNumber:    row.RowNumber,
+				ReportDate:   reportDate,
+				Data:         row.Data,
+				RawData:      row.RawData,
+				RowHash:      hashRawData(row.RawData),
+			})
 		}
+
+		importRows = deduplicateByHash(importRows, func(r documentRepository.TemplateImportRow) string {
+			return r.RowHash
+		})
+
+		for _, batch := range chunkSlice(importRows, batchSize) {
+			if err := c.templateImportRepo.UpsertRowsBatch(ctx, tx, batch); err != nil {
+				return fmt.Errorf("upsert rows for sheet %q: %w", sheet.Name, err)
+			}
+		}
+
+		hashes := make([]string, len(importRows))
+		for i, r := range importRows {
+			hashes[i] = r.RowHash
+		}
+		sheetHashes[sheetCode] = hashes
+		totalInserted += len(importRows)
+		log.Printf("[ExcelProcessor] sheet %q: inserted %d rows (after dedup)", sheetCode, len(importRows))
 	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit remote tx: %w", err)
 	}
 
-	return nil
-}
+	log.Printf("[ExcelProcessor] document=%s total rows inserted=%d", document.ID, totalInserted)
 
-func isSupportedStockSheet(templateCode string, sheetCode string) bool {
-	templateCode = strings.ToUpper(strings.TrimSpace(templateCode))
-	sheetCode = strings.ToLower(strings.TrimSpace(sheetCode))
-
-	switch templateCode {
-	case "NMS_STOCK_REPORT":
-		return sheetCode == "nms_stock_issues" ||
-			sheetCode == "nms_stock_on_hand"
-
-	case "JMS_STOCK_REPORT":
-		return sheetCode == "jms_stock_issues" ||
-			sheetCode == "jms_stock_on_hand"
-
-	default:
-		return false
+	if totalInserted == 0 {
+		log.Printf("[ExcelProcessor] WARNING: document=%s completed but zero rows were imported for template=%s", document.ID, templateCode)
 	}
-}
 
-func (c *ExcelProcessor) insertSheetRows(
-	ctx context.Context,
-	tx *sql.Tx,
-	templateCode string,
-	sheet model.TemplateSheetStructure,
-	documentID uuid.UUID,
-	rows []extractedExcelRow,
-) error {
-	sheetCode := strings.ToLower(strings.TrimSpace(sheet.Code))
-	templateCode = strings.ToUpper(strings.TrimSpace(templateCode))
+	// Soft-delete rows from previous uploads that are no longer in this file.
+	sdTx, err := c.remoteDB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin soft-delete tx: %w", err)
+	}
+	defer sdTx.Rollback()
 
-	const batchSize = 1000
-
-	switch templateCode {
-	case "NMS_STOCK_REPORT":
-		switch sheetCode {
-		case "nms_stock_issues":
-			items := make([]model.NMSStockIssue, 0, len(rows))
-
-			for _, row := range rows {
-				items = append(items, mapNMSStockIssue(documentID, row))
-			}
-
-			for _, batch := range chunkSlice(items, batchSize) {
-				if err := c.stockImportRepository.InsertNMSStockIssuesBatch(ctx, tx, batch); err != nil {
-					return fmt.Errorf("insert NMS stock issues batch: %w", err)
-				}
-			}
-
-		case "nms_stock_on_hand":
-			items := make([]model.NMSStockOnHand, 0, len(rows))
-
-			for _, row := range rows {
-				items = append(items, mapNMSStockOnHand(documentID, row))
-			}
-
-			for _, batch := range chunkSlice(items, batchSize) {
-				if err := c.stockImportRepository.InsertNMSStockOnHandBatch(ctx, tx, batch); err != nil {
-					return fmt.Errorf("insert NMS stock on hand batch: %w", err)
-				}
-			}
-
-		default:
-			return nil
+	for sheetCode, hashes := range sheetHashes {
+		if err := c.templateImportRepo.SoftDeleteBySheet(ctx, sdTx, templateCode, sheetCode, hashes); err != nil {
+			return fmt.Errorf("soft-delete sheet %q: %w", sheetCode, err)
 		}
+	}
 
-	case "JMS_STOCK_REPORT":
-		switch sheetCode {
-		case "jms_stock_issues":
-			items := make([]model.JMSStockIssue, 0, len(rows))
-
-			for _, row := range rows {
-				items = append(items, mapJMSStockIssue(documentID, row))
-			}
-
-			for _, batch := range chunkSlice(items, batchSize) {
-				if err := c.stockImportRepository.InsertJMSStockIssuesBatch(ctx, tx, batch); err != nil {
-					return fmt.Errorf("insert JMS stock issues batch: %w", err)
-				}
-			}
-
-		case "jms_stock_on_hand":
-			items := make([]model.JMSStockOnHand, 0, len(rows))
-
-			for _, row := range rows {
-				items = append(items, mapJMSStockOnHand(documentID, row))
-			}
-
-			for _, batch := range chunkSlice(items, batchSize) {
-				if err := c.stockImportRepository.InsertJMSStockOnHandBatch(ctx, tx, batch); err != nil {
-					return fmt.Errorf("insert JMS stock on hand batch: %w", err)
-				}
-			}
-
-		default:
-			return nil
-		}
-
-	default:
-		return fmt.Errorf("unsupported stock template code: %s", templateCode)
+	if err := sdTx.Commit(); err != nil {
+		return fmt.Errorf("commit soft-delete tx: %w", err)
 	}
 
 	return nil
+}
+
+// applyForwardFill forward-fills blank cell values for columns listed in the
+// sheet configuration under "forward_fill_columns". This replaces the old
+// hard-coded normalizeGHSCRows function.
+func applyForwardFill(rows []extractedExcelRow, sheet model.TemplateSheetStructure) []extractedExcelRow {
+	raw, ok := sheet.Configuration["forward_fill_columns"]
+	if !ok {
+		return rows
+	}
+
+	var fillKeys []string
+	switch v := raw.(type) {
+	case []any:
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				fillKeys = append(fillKeys, s)
+			}
+		}
+	case []string:
+		fillKeys = v
+	}
+
+	if len(fillKeys) == 0 {
+		return rows
+	}
+
+	carry := make(map[string]any)
+	for i := range rows {
+		for _, key := range fillKeys {
+			if isBlankValue(rows[i].Data[key]) && !isBlankValue(carry[key]) {
+				rows[i].Data[key] = carry[key]
+			}
+		}
+		for _, key := range fillKeys {
+			if !isBlankValue(rows[i].Data[key]) {
+				carry[key] = rows[i].Data[key]
+			}
+		}
+	}
+
+	return rows
+}
+
+// blankHeaderOverrides reads positional blank-header overrides from the sheet
+// configuration key "blank_header_overrides" (map of 1-based col index → column_key).
+// This replaces the old hard-coded blankHeaderOverrides() switch.
+func blankHeaderOverrides(sheet model.TemplateSheetStructure) map[int]string {
+	raw, ok := sheet.Configuration["blank_header_overrides"]
+	if !ok {
+		return nil
+	}
+
+	asMap, ok := raw.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	result := make(map[int]string, len(asMap))
+	for k, v := range asMap {
+		idx, err := strconv.Atoi(k)
+		if err != nil {
+			continue
+		}
+		if s, ok := v.(string); ok {
+			result[idx] = s
+		}
+	}
+	return result
+}
+
+// deduplicateByHash removes items with duplicate hashes, keeping the first occurrence.
+// Required because PostgreSQL's ON CONFLICT DO UPDATE cannot target the same row twice
+// within a single INSERT statement.
+func deduplicateByHash[T any](items []T, getHash func(T) string) []T {
+	seen := make(map[string]struct{}, len(items))
+	result := make([]T, 0, len(items))
+	for _, item := range items {
+		h := getHash(item)
+		if _, ok := seen[h]; !ok {
+			seen[h] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 func chunkSlice[T any](items []T, size int) [][]T {
 	if size <= 0 {
 		size = 1000
 	}
-
 	chunks := make([][]T, 0, (len(items)+size-1)/size)
-
 	for start := 0; start < len(items); start += size {
 		end := start + size
 		if end > len(items) {
 			end = len(items)
 		}
-
 		chunks = append(chunks, items[start:end])
 	}
-
 	return chunks
 }
 
@@ -253,6 +333,7 @@ func (c *ExcelProcessor) extractSheetRows(
 	ctx context.Context,
 	workbook *excelize.File,
 	sheet model.TemplateSheetStructure,
+	positionalOverrides map[int]string,
 ) ([]extractedExcelRow, error) {
 	_ = ctx
 
@@ -263,7 +344,6 @@ func (c *ExcelProcessor) extractSheetRows(
 		if sheet.Required {
 			return nil, fmt.Errorf("%w (available sheets: %s)", err, strings.Join(workbook.GetSheetList(), ", "))
 		}
-
 		return nil, nil
 	}
 
@@ -273,21 +353,55 @@ func (c *ExcelProcessor) extractSheetRows(
 	if headerIndex < 0 {
 		headerIndex = 0
 	}
-
 	if startIndex <= headerIndex {
 		startIndex = headerIndex + 1
+	}
+
+	// Anchor-based header detection: scan for the last row containing the anchor
+	// value to locate the real data table's header when a sheet has multiple tables.
+	// Configured via sheet.Configuration["header_anchor"] = "<column header value>".
+	if anchor, ok := sheet.Configuration["header_anchor"].(string); ok && anchor != "" {
+		normalizedAnchor := normalizeHeader(anchor)
+		foundAt := -1
+		for i, row := range rows {
+			for _, cell := range row {
+				if normalizeHeader(cell) == normalizedAnchor {
+					foundAt = i
+					break
+				}
+			}
+		}
+		if foundAt >= 0 {
+			headerIndex = foundAt
+			startIndex = headerIndex + 1
+		}
 	}
 
 	if len(rows) <= headerIndex {
 		if sheet.Required {
 			return nil, fmt.Errorf("header row %d not found", sheet.HeaderRow)
 		}
-
 		return nil, nil
+	}
+
+	rows, err = expandMergedCellValues(workbook, sheetName, rows, headerIndex+1)
+	if err != nil {
+		return nil, fmt.Errorf("expand merged cells: %w", err)
 	}
 
 	headers := normalizeHeaders(rows[headerIndex])
 	columnByHeader := buildColumnMap(sheet.Columns)
+
+	log.Printf("[ExcelProcessor] sheet %q: header_row=%d start_row=%d headers=%v total_rows_in_file=%d",
+		sheet.Name, headerIndex+1, startIndex+1, headers, len(rows))
+
+	matchedHeaders := 0
+	for _, h := range headers {
+		if _, ok := columnByHeader[h]; ok {
+			matchedHeaders++
+		}
+	}
+	log.Printf("[ExcelProcessor] sheet %q: %d/%d headers matched template columns", sheet.Name, matchedHeaders, len(headers))
 
 	result := make([]extractedExcelRow, 0)
 
@@ -302,25 +416,32 @@ func (c *ExcelProcessor) extractSheetRows(
 		rawData := make(map[string]any)
 
 		for colIndex, header := range headers {
-			if header == "" {
-				continue
-			}
-
 			value := ""
-
 			if colIndex < len(row) {
 				value = strings.TrimSpace(row[colIndex])
 			}
 
-			rawData[header] = value
+			var column model.TemplateColumnStructure
+			var ok bool
 
-			column, ok := columnByHeader[header]
-			if !ok {
-				if !sheet.AllowExtraColumns {
-					continue
+			if header != "" {
+				rawData[header] = value
+				column, ok = columnByHeader[header]
+			}
+
+			if !ok && header == "" {
+				if colKey, hasOverride := positionalOverrides[colIndex+1]; hasOverride {
+					column, ok = columnByHeader[normalizeHeader(colKey)]
+					if ok {
+						rawData[colKey] = value
+					}
 				}
+			}
 
-				data[header] = value
+			if !ok {
+				if header != "" && sheet.AllowExtraColumns {
+					data[header] = value
+				}
 				continue
 			}
 
@@ -328,11 +449,7 @@ func (c *ExcelProcessor) extractSheetRows(
 			if err != nil {
 				return nil, fmt.Errorf(
 					"sheet=%s row=%d column=%s value=%q: %w",
-					sheet.Name,
-					rowIndex+1,
-					column.ColumnName,
-					value,
-					err,
+					sheet.Name, rowIndex+1, column.ColumnName, value, err,
 				)
 			}
 
@@ -349,231 +466,216 @@ func (c *ExcelProcessor) extractSheetRows(
 	return result, nil
 }
 
-func resolveWorkbookSheetName(
+func expandMergedCellValues(
 	workbook *excelize.File,
-	sheet model.TemplateSheetStructure,
-) string {
+	sheetName string,
+	rows [][]string,
+	minRow int,
+) ([][]string, error) {
+	if minRow < 1 {
+		minRow = 1
+	}
+
+	rowHasOwnData := make([]bool, len(rows))
+	for i, row := range rows {
+		rowHasOwnData[i] = !isEmptyRow(row)
+	}
+
+	mergedCells, err := workbook.GetMergeCells(sheetName)
+	if err != nil {
+		return rows, err
+	}
+
+	for _, mergedCell := range mergedCells {
+		value := strings.TrimSpace(mergedCell.GetCellValue())
+		if value == "" {
+			continue
+		}
+
+		startCol, startRow, err := excelize.CellNameToCoordinates(mergedCell.GetStartAxis())
+		if err != nil {
+			return rows, err
+		}
+		endCol, endRow, err := excelize.CellNameToCoordinates(mergedCell.GetEndAxis())
+		if err != nil {
+			return rows, err
+		}
+
+		if startRow > endRow {
+			startRow, endRow = endRow, startRow
+		}
+		if startCol > endCol {
+			startCol, endCol = endCol, startCol
+		}
+		if endRow < minRow {
+			continue
+		}
+		if startRow < minRow {
+			startRow = minRow
+		}
+
+		for rowNumber := startRow; rowNumber <= endRow; rowNumber++ {
+			rowIndex := rowNumber - 1
+			if rowIndex < 0 || rowIndex >= len(rows) || !rowHasOwnData[rowIndex] {
+				continue
+			}
+			if len(rows[rowIndex]) < endCol {
+				expanded := make([]string, endCol)
+				copy(expanded, rows[rowIndex])
+				rows[rowIndex] = expanded
+			}
+			for colNumber := startCol; colNumber <= endCol; colNumber++ {
+				colIndex := colNumber - 1
+				if strings.TrimSpace(rows[rowIndex][colIndex]) == "" {
+					rows[rowIndex][colIndex] = value
+				}
+			}
+		}
+	}
+
+	return rows, nil
+}
+
+func resolveWorkbookSheetName(workbook *excelize.File, sheet model.TemplateSheetStructure) string {
 	candidates := sheetNameCandidates(sheet)
 
 	visibleSheets := make([]string, 0)
-
 	for _, sheetName := range workbook.GetSheetList() {
 		visible, err := workbook.GetSheetVisible(sheetName)
 		if err != nil {
 			continue
 		}
-
 		if visible {
 			visibleSheets = append(visibleSheets, sheetName)
 		}
 	}
 
 	for _, candidate := range candidates {
-		for _, availableSheet := range visibleSheets {
-			if candidate == strings.TrimSpace(availableSheet) {
-				return availableSheet
+		for _, available := range visibleSheets {
+			if candidate == strings.TrimSpace(available) {
+				return available
 			}
 		}
 	}
 
-	availableByNormalizedName := make(map[string]string, len(visibleSheets))
-
-	for _, availableSheet := range visibleSheets {
-		normalized := normalizeSheetName(availableSheet)
+	availableByNormalized := make(map[string]string, len(visibleSheets))
+	for _, available := range visibleSheets {
+		normalized := normalizeSheetName(available)
 		if normalized == "" {
 			continue
 		}
-
-		if _, exists := availableByNormalizedName[normalized]; !exists {
-			availableByNormalizedName[normalized] = availableSheet
+		if _, exists := availableByNormalized[normalized]; !exists {
+			availableByNormalized[normalized] = available
 		}
 	}
 
 	for _, candidate := range candidates {
-		if availableSheet, ok := availableByNormalizedName[normalizeSheetName(candidate)]; ok {
-			return availableSheet
+		if available, ok := availableByNormalized[normalizeSheetName(candidate)]; ok {
+			return available
+		}
+	}
+
+	// Fallback 1: sheet name starts with the candidate
+	for _, candidate := range candidates {
+		normalizedCandidate := normalizeSheetName(candidate)
+		if normalizedCandidate == "" {
+			continue
+		}
+		for normalizedSheet, available := range availableByNormalized {
+			if strings.HasPrefix(normalizedSheet, normalizedCandidate) {
+				return available
+			}
+		}
+	}
+
+	// Fallback 2: sheet name contains the candidate
+	for _, candidate := range candidates {
+		normalizedCandidate := normalizeSheetName(candidate)
+		if normalizedCandidate == "" {
+			continue
+		}
+		for normalizedSheet, available := range availableByNormalized {
+			if strings.Contains(normalizedSheet, normalizedCandidate) {
+				return available
+			}
 		}
 	}
 
 	if len(candidates) > 0 {
 		return candidates[0]
 	}
-
 	return ""
 }
 
 func sheetNameCandidates(sheet model.TemplateSheetStructure) []string {
-	values := []string{
-		sheet.Code,
-		sheet.Name,
-		sheet.DisplayName,
+	values := []string{sheet.Code, sheet.Name, sheet.DisplayName}
+
+	if aliases, ok := sheet.Configuration["aliases"]; ok {
+		switch v := aliases.(type) {
+		case []any:
+			for _, a := range v {
+				if s, ok := a.(string); ok {
+					values = append(values, s)
+				}
+			}
+		case []string:
+			values = append(values, v...)
+		}
 	}
 
 	result := make([]string, 0, len(values))
 	seen := make(map[string]struct{}, len(values))
-
 	for _, value := range values {
 		candidate := strings.TrimSpace(value)
 		if candidate == "" {
 			continue
 		}
-
 		normalized := normalizeSheetName(candidate)
 		if _, ok := seen[normalized]; ok {
 			continue
 		}
-
 		seen[normalized] = struct{}{}
 		result = append(result, candidate)
 	}
-
 	return result
 }
 
 func normalizeSheetName(value string) string {
 	value = strings.TrimSpace(strings.ToLower(value))
-
 	var builder strings.Builder
 	builder.Grow(len(value))
-
 	for _, r := range value {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
 			builder.WriteRune(r)
 		}
 	}
-
 	return builder.String()
 }
 
-func mapNMSStockIssue(documentID uuid.UUID, row extractedExcelRow) model.NMSStockIssue {
-	return model.NMSStockIssue{
-		DocumentID:         documentID,
-		RowNumber:          row.RowNumber,
-		OrderType:          getString(row.Data, "order_type"),
-		ShipToFacilityCode: getString(row.Data, "ship_to_facility_code"),
-		ShipToFacilityName: getString(row.Data, "ship_to_facility_name"),
-		BillToFacilityCode: getString(row.Data, "bill_to_facility_code"),
-		BillToFacilityName: getString(row.Data, "bill_to_facility_name"),
-		District:           getString(row.Data, "district"),
-		LOC:                getString(row.Data, "loc"),
-		FundingSource:      getString(row.Data, "funding_source"),
-		Cycle:              getString(row.Data, "cycle"),
-		ItemCode:           getString(row.Data, "item_code"),
-		ItemDescription:    getString(row.Data, "item_description"),
-		UnitOfMeasure:      getString(row.Data, "unit_of_measure"),
-		OrderNumber:        getString(row.Data, "order_number"),
-		OrderQuantity:      getFloatPtr(row.Data, "order_quantity"),
-		LineID:             getString(row.Data, "line_id"),
-		QuantityShipped:    getFloatPtr(row.Data, "quantity_shipped"),
-		LotNumber:          getString(row.Data, "lot_number"),
-		LotExpirationDate:  getTimePtr(row.Data, "lot_expiration_date"),
-		ListPrice:          getFloatPtr(row.Data, "list_price"),
-		SellingPrice:       getFloatPtr(row.Data, "selling_price"),
-		CurrencyCode:       getString(row.Data, "currency_code"),
-		AmountUGX:          getFloatPtr(row.Data, "amount_ugx"),
-		ShipToLocation:     getString(row.Data, "ship_to_location"),
-		ShipConfirmDate:    getTimePtr(row.Data, "ship_confirm_date"),
-		ShipConfirmedBy:    getString(row.Data, "ship_confirmed_by"),
-		RawPayload:         row.RawData,
-	}
-}
-
-func mapNMSStockOnHand(documentID uuid.UUID, row extractedExcelRow) model.NMSStockOnHand {
-	return model.NMSStockOnHand{
-		DocumentID:          documentID,
-		RowNumber:           row.RowNumber,
-		ItemCode:            getString(row.Data, "item_code"),
-		ItemDescription:     getString(row.Data, "item_description"),
-		ItemInventoryStatus: getString(row.Data, "item_inventory_status"),
-		FundingSource:       getString(row.Data, "funding_source"),
-		SubInventory:        getString(row.Data, "subinventory"),
-		Locator:             getString(row.Data, "locator"),
-		LotNumber:           getString(row.Data, "lot_number"),
-		ExpiryDate:          getTimePtr(row.Data, "expiry_date"),
-		PalletID:            getString(row.Data, "pallet_id"),
-		UOM:                 getString(row.Data, "uom"),
-		OnHandQuantity:      getFloatPtr(row.Data, "on_hand_quantity"),
-		RawPayload:          row.RawData,
-	}
-}
-
-func mapJMSStockIssue(documentID uuid.UUID, row extractedExcelRow) model.JMSStockIssue {
-	return model.JMSStockIssue{
-		DocumentID:         documentID,
-		RowNumber:          row.RowNumber,
-		OrderNo:            getString(row.Data, "order_no"),
-		SellToCustomerNo:   getString(row.Data, "sell_to_customer_no"),
-		CustomerName:       getString(row.Data, "customer_name"),
-		District:           getString(row.Data, "district"),
-		Reference:          getString(row.Data, "reference"),
-		PartNo:             getString(row.Data, "part_no"),
-		PartDescription:    getString(row.Data, "part_description"),
-		OwningCustomerNo:   getString(row.Data, "owning_customer_no"),
-		OwningCustomerName: getString(row.Data, "owning_customer_name"),
-		UOM:                getString(row.Data, "uom"),
-		ItemStatus:         getString(row.Data, "item_status"),
-		SoldQty:            getFloatPtr(row.Data, "sold_qty"),
-		DesiredQty:         getFloatPtr(row.Data, "desired_qty"),
-		UnitPrice:          getFloatPtr(row.Data, "unit_price"),
-		DateSold:           getTimePtr(row.Data, "date_sold"),
-		AssociationNo:      getString(row.Data, "association_no"),
-		ExpiryDates:        getString(row.Data, "expiry_dates"),
-		OFR:                getFloatPtr(row.Data, "ofr"),
-		RawPayload:         row.RawData,
-	}
-}
-
-func mapJMSStockOnHand(documentID uuid.UUID, row extractedExcelRow) model.JMSStockOnHand {
-	return model.JMSStockOnHand{
-		DocumentID:         documentID,
-		RowNumber:          row.RowNumber,
-		LocationCode:       getString(row.Data, "location_code"),
-		LocationName:       getString(row.Data, "location_name"),
-		BinCode:            getString(row.Data, "bin_code"),
-		ReceiptDate:        getTimePtr(row.Data, "receipt_date"),
-		ReceiptNo:          getString(row.Data, "receipt_no"),
-		PurchaseOrderNo:    getString(row.Data, "purchase_order_no"),
-		No:                 getString(row.Data, "no"),
-		Description:        getString(row.Data, "description"),
-		LotNo:              getString(row.Data, "lot_no"),
-		ExpirationDate:     getTimePtr(row.Data, "expiration_date"),
-		AvailableQuantity:  getFloatPtr(row.Data, "available_quantity"),
-		UnitOfMeasureCode:  getString(row.Data, "unit_of_measure_code"),
-		UnitCost:           getFloatPtr(row.Data, "unit_cost"),
-		Ownership:          getString(row.Data, "ownership"),
-		TotalCost:          getFloatPtr(row.Data, "total_cost"),
-		TransferOrderNo:    getString(row.Data, "transfer_order_no"),
-		FromLocation:       getString(row.Data, "from_location"),
-		ToLocation:         getString(row.Data, "to_location"),
-		PostingDescription: getString(row.Data, "posting_description"),
-		YourReference:      getString(row.Data, "your_reference"),
-		RawPayload:         row.RawData,
-	}
+func hashRawData(rawData map[string]any) string {
+	b, _ := json.Marshal(rawData)
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
 }
 
 func buildColumnMap(columns []model.TemplateColumnStructure) map[string]model.TemplateColumnStructure {
 	result := make(map[string]model.TemplateColumnStructure)
-
 	for _, column := range columns {
 		result[normalizeHeader(column.ColumnName)] = column
 		result[normalizeHeader(column.ColumnKey)] = column
 		result[normalizeHeader(column.DisplayName)] = column
-
 		for _, alias := range column.Aliases {
 			result[normalizeHeader(alias)] = column
 		}
 	}
-
 	return result
 }
 
 func normalizeHeaders(headers []string) []string {
 	result := make([]string, 0, len(headers))
-
 	for _, header := range headers {
 		result = append(result, normalizeHeader(header))
 	}
-
 	return result
 }
 
@@ -583,13 +685,18 @@ func isEmptyRow(row []string) bool {
 			return false
 		}
 	}
-
 	return true
+}
+
+func isBlankValue(value any) bool {
+	if value == nil {
+		return true
+	}
+	return strings.TrimSpace(fmt.Sprint(value)) == ""
 }
 
 func parseValue(value string, dataType string) (any, error) {
 	value = strings.TrimSpace(value)
-
 	if value == "" {
 		return nil, nil
 	}
@@ -601,25 +708,21 @@ func parseValue(value string, dataType string) (any, error) {
 	case "number", "numeric", "decimal":
 		cleaned := strings.ReplaceAll(value, ",", "")
 		cleaned = strings.TrimSuffix(cleaned, "%")
-
 		number, err := strconv.ParseFloat(cleaned, 64)
 		if err != nil {
 			return nil, err
 		}
-
 		return number, nil
 
 	case "integer", "int":
 		cleaned := strings.ReplaceAll(value, ",", "")
-
 		number, err := strconv.Atoi(cleaned)
 		if err != nil {
 			return nil, err
 		}
-
 		return number, nil
 
-	case "date":
+	case "date", "datetime", "timestamp":
 		return parseDate(value)
 
 	case "boolean", "bool":
@@ -638,33 +741,11 @@ func parseValue(value string, dataType string) (any, error) {
 }
 
 func parseDate(value string) (string, error) {
-	formats := []string{
-		"02-Jan-06",
-		"02-Jan-2006",
-		"01/02/2006",
-		"1/2/2006",
-		"2006-01-02",
-		"02/01/2006",
-		"2/1/2006",
+	parsed, err := parseDateToTime(value)
+	if err != nil {
+		return "", err
 	}
-
-	for _, format := range formats {
-		parsed, err := time.Parse(format, value)
-		if err == nil {
-			return parsed.Format("2006-01-02"), nil
-		}
-	}
-
-	return "", fmt.Errorf("invalid date")
-}
-
-func getString(data map[string]any, key string) string {
-	value, ok := data[key]
-	if !ok || value == nil {
-		return ""
-	}
-
-	return strings.TrimSpace(fmt.Sprint(value))
+	return parsed.Format("2006-01-02"), nil
 }
 
 func getFloatPtr(data map[string]any, key string) *float64 {
@@ -672,7 +753,6 @@ func getFloatPtr(data map[string]any, key string) *float64 {
 	if !ok || value == nil {
 		return nil
 	}
-
 	switch v := value.(type) {
 	case float64:
 		return &v
@@ -689,16 +769,13 @@ func getFloatPtr(data map[string]any, key string) *float64 {
 		cleaned := strings.TrimSpace(v)
 		cleaned = strings.ReplaceAll(cleaned, ",", "")
 		cleaned = strings.TrimSuffix(cleaned, "%")
-
 		if cleaned == "" {
 			return nil
 		}
-
 		n, err := strconv.ParseFloat(cleaned, 64)
 		if err != nil {
 			return nil
 		}
-
 		return &n
 	default:
 		return nil
@@ -710,16 +787,22 @@ func getTimePtr(data map[string]any, key string) *time.Time {
 	if !ok || value == nil {
 		return nil
 	}
-
 	switch v := value.(type) {
 	case time.Time:
 		return &v
+	case float64:
+		return excelSerialDateToTimePtr(v)
+	case float32:
+		return excelSerialDateToTimePtr(float64(v))
+	case int:
+		return excelSerialDateToTimePtr(float64(v))
+	case int64:
+		return excelSerialDateToTimePtr(float64(v))
 	case string:
 		parsed, err := parseDateToTime(v)
 		if err != nil {
 			return nil
 		}
-
 		return &parsed
 	default:
 		return nil
@@ -728,15 +811,37 @@ func getTimePtr(data map[string]any, key string) *time.Time {
 
 func parseDateToTime(value string) (time.Time, error) {
 	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Time{}, fmt.Errorf("invalid date")
+	}
+
+	if parsed, ok := parseExcelSerialDate(value); ok {
+		return parsed, nil
+	}
 
 	formats := []string{
 		"2006-01-02",
+		"2006/01/02",
 		"02-Jan-06",
 		"02-Jan-2006",
+		"2-Jan-06",
+		"2-Jan-2006",
 		"01/02/2006",
 		"1/2/2006",
+		"01/02/06",
+		"1/2/06",
+		"01-02-2006",
+		"1-2-2006",
+		"01-02-06",
+		"1-2-06",
 		"02/01/2006",
 		"2/1/2006",
+		"02/01/06",
+		"2/1/06",
+		"Jan-06",
+		"Jan-2006",
+		"January-06",
+		"January-2006",
 	}
 
 	for _, format := range formats {
@@ -749,42 +854,86 @@ func parseDateToTime(value string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("invalid date")
 }
 
+func parseExcelSerialDate(value string) (time.Time, bool) {
+	cleaned := strings.TrimSpace(strings.ReplaceAll(value, ",", ""))
+	serial, err := strconv.ParseFloat(cleaned, 64)
+	if err != nil || serial <= 0 {
+		return time.Time{}, false
+	}
+	parsed, err := excelize.ExcelDateToTime(serial, false)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
+func excelSerialDateToTimePtr(serial float64) *time.Time {
+	if serial <= 0 {
+		return nil
+	}
+	parsed, err := excelize.ExcelDateToTime(serial, false)
+	if err != nil {
+		return nil
+	}
+	return &parsed
+}
+
+func getReplaceDocumentIDFromDocument(document db.Document) (*uuid.UUID, error) {
+	if len(document.Metadata) == 0 {
+		return nil, nil
+	}
+	var metadata struct {
+		ReplaceDocumentID string `json:"replace_document_id"`
+	}
+	if err := json.Unmarshal(document.Metadata, &metadata); err != nil {
+		return nil, fmt.Errorf("decode document metadata: %w", err)
+	}
+	if metadata.ReplaceDocumentID == "" {
+		return nil, nil
+	}
+	id, err := uuid.Parse(metadata.ReplaceDocumentID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid replace_document_id %q: %w", metadata.ReplaceDocumentID, err)
+	}
+	return &id, nil
+}
+
+func getReportDateFromDocument(document db.Document) (*time.Time, error) {
+	if len(document.Metadata) == 0 {
+		return nil, fmt.Errorf("document metadata missing report_date")
+	}
+	var metadata struct {
+		ReportDate string `json:"report_date"`
+	}
+	if err := json.Unmarshal(document.Metadata, &metadata); err != nil {
+		return nil, fmt.Errorf("decode document metadata: %w", err)
+	}
+	if metadata.ReportDate == "" {
+		return nil, fmt.Errorf("report_date is required in document metadata")
+	}
+	parsed, err := time.Parse("2006-01-02", metadata.ReportDate)
+	if err != nil {
+		return nil, fmt.Errorf("invalid report_date %q: expected YYYY-MM-DD", metadata.ReportDate)
+	}
+	if parsed.After(time.Now().Truncate(24 * time.Hour)) {
+		return nil, fmt.Errorf("report_date cannot be a future date")
+	}
+	return &parsed, nil
+}
+
 func getTemplateCodeFromDocument(document db.Document) (string, error) {
 	if len(document.Metadata) == 0 {
 		return "", fmt.Errorf("document metadata missing template_code")
 	}
-
 	var metadata struct {
 		TemplateCode string `json:"template_code"`
 	}
-
 	if err := json.Unmarshal(document.Metadata, &metadata); err != nil {
 		return "", fmt.Errorf("decode document metadata: %w", err)
 	}
-
 	templateCode := strings.TrimSpace(metadata.TemplateCode)
 	if templateCode == "" {
 		return "", fmt.Errorf("template_code is required in document metadata")
 	}
-
 	return templateCode, nil
-}
-
-func chunkNMSStockIssues(rows []model.NMSStockIssue, size int) [][]model.NMSStockIssue {
-	if size <= 0 {
-		size = 1000
-	}
-
-	chunks := make([][]model.NMSStockIssue, 0, (len(rows)+size-1)/size)
-
-	for start := 0; start < len(rows); start += size {
-		end := start + size
-		if end > len(rows) {
-			end = len(rows)
-		}
-
-		chunks = append(chunks, rows[start:end])
-	}
-
-	return chunks
 }
