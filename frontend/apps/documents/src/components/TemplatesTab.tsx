@@ -20,7 +20,7 @@ import {
   TaskComplete,
   TrashCan,
 } from "@carbon/react/icons";
-import ExcelJS from "exceljs";
+import * as XLSX from "xlsx";
 
 import { useHeaderPanel } from "@moh-sso/ui";
 import { UploadTemplateModal } from "./UploadTemplateModal";
@@ -58,41 +58,25 @@ function formatDateTime(iso?: string): string {
   });
 }
 
-async function downloadTemplateFile(template: DocumentTemplate, structure: TemplateStructure) {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "MOH SSO Dashboard";
-  workbook.created = new Date();
-
-  const YELLOW = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFFFF2CC" } };
-  const BLUE   = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFD0E4FF" } };
+function downloadTemplateFile(template: DocumentTemplate, structure: TemplateStructure) {
+  const workbook = XLSX.utils.book_new();
 
   for (const sheet of structure.sheets) {
-    const ws = workbook.addWorksheet(sheet.name);
     const ordered = sheet.columns
       .slice()
       .sort((a, b) => (a.column_order ?? 0) - (b.column_order ?? 0));
 
-    ws.columns = ordered.map((col) => ({
-      header: col.column_name,
-      key: col.column_key,
-      width: Math.max(col.column_name.length + 4, 18),
+    const headers = ordered.map((col) => col.column_name);
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
+
+    ws["!cols"] = ordered.map((col) => ({
+      wch: Math.max(col.column_name.length + 4, 18),
     }));
 
-    // Style header row
-    const headerRow = ws.getRow(1);
-    headerRow.eachCell((cell, colNumber) => {
-      const col = ordered[colNumber - 1];
-      cell.fill = col?.required ? YELLOW : BLUE;
-      cell.font = { bold: true, size: 11 };
-      cell.alignment = { vertical: "middle", horizontal: "left" };
-      cell.border = {
-        bottom: { style: "medium", color: { argb: "FF000000" } },
-      };
-    });
-    headerRow.height = 20;
+    XLSX.utils.book_append_sheet(workbook, ws, sheet.name);
   }
 
-  const buffer = await workbook.xlsx.writeBuffer();
+  const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -309,7 +293,7 @@ export function TemplatesTab() {
   async function handleDownload(t: DocumentTemplate) {
     const result = await getStructure(t.code);
     if (result.data) {
-      await downloadTemplateFile(t, result.data);
+      downloadTemplateFile(t, result.data);
     }
   }
 
