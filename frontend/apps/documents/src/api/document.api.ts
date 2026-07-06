@@ -1,5 +1,6 @@
 import type {
   CreateDocumentPayload,
+  DataPreviewResponse,
   DocumentTemplate,
   DocumentProcess,
   DocumentResponse,
@@ -23,7 +24,7 @@ export const documentsApi = baseApi.injectEndpoints({
         url: `/documents`,
         method: "GET",
       }),
-      transformResponse: (response: ApiEnvelope<DocumentResponse[]>) => response.data,
+      transformResponse: (response: ApiEnvelope<DocumentResponse[]>) => response.data ?? [],
       providesTags: (result) =>
         result
           ? [
@@ -184,10 +185,88 @@ export const documentsApi = baseApi.injectEndpoints({
 
     listDocumentTemplates: builder.query<DocumentTemplate[], void>({
       query: () => "/document-templates",
-
       transformResponse: (res: ApiEnvelope<DocumentTemplate[]>) => res.data,
-
       providesTags: ["DocumentTemplates"],
+    }),
+
+    // -----------------------------
+    // DOCUMENT STATS
+    // -----------------------------
+    getDocumentStats: builder.query<{
+      total: number;
+      total_size: number;
+      pending: number;
+      processing: number;
+      completed: number;
+      failed: number;
+    }, void>({
+      query: () => `/documents/stats`,
+      transformResponse: (res: ApiEnvelope<{
+        total: number; total_size: number;
+        pending: number; processing: number; completed: number; failed: number;
+      }>) => res.data,
+      providesTags: [{ type: "Documents", id: "LIST" }],
+    }),
+
+    // -----------------------------
+    // DATA PREVIEW
+    // -----------------------------
+    getDocumentDataPreview: builder.query<DataPreviewResponse, string>({
+      query: (id) => `/documents/${id}/data-preview`,
+      transformResponse: (res: ApiEnvelope<DataPreviewResponse>) => res.data,
+      providesTags: (_res, _err, id) => [{ type: "Document", id }],
+    }),
+
+    // -----------------------------
+    // PARSE STRUCTURE (server-side detection from stored document)
+    // -----------------------------
+    parseDocumentStructure: builder.query<{
+      sheets: {
+        name: string;
+        header_row: number;
+        start_row: number;
+        columns: { column_key: string; column_name: string }[];
+      }[];
+    }, string>({
+      query: (id) => `/documents/${id}/parse-structure`,
+      transformResponse: (res: ApiEnvelope<{
+        sheets: {
+          name: string;
+          header_row: number;
+          start_row: number;
+          columns: { column_key: string; column_name: string }[];
+        }[];
+      }>) => res.data,
+    }),
+
+    // -----------------------------
+    // SCAN STRUCTURE (server-side detection from uploaded file, no storage)
+    // -----------------------------
+    scanDocumentStructure: builder.mutation<{
+      sheets: {
+        name: string;
+        header_row: number;
+        start_row: number;
+        columns: { column_key: string; column_name: string }[];
+      }[];
+    }, File>({
+      query: (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        return {
+          url: `/documents/scan-structure`,
+          method: "POST",
+          body: formData,
+        };
+      },
+      transformResponse: (res: ApiEnvelope<{
+        sheets: {
+          name: string;
+          header_row: number;
+          start_row: number;
+          columns: { column_key: string; column_name: string }[];
+        }[];
+      }>) => res.data,
     }),
   }),
 });
@@ -207,4 +286,9 @@ export const {
   useListStorageLocationsQuery,
   useGetStorageLocationQuery,
   useListDocumentTemplatesQuery,
+  useGetDocumentDataPreviewQuery,
+  useLazyGetDocumentDataPreviewQuery,
+  useGetDocumentStatsQuery,
+  useLazyParseDocumentStructureQuery,
+  useScanDocumentStructureMutation,
 } = documentsApi;

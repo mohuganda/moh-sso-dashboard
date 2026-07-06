@@ -1,8 +1,10 @@
 package document_templates
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -16,18 +18,24 @@ type Handler struct {
 	service       Service
 	sheetService  SheetService
 	columnService ColumnService
+	db            *sql.DB
+	remoteDB      *sql.DB
 }
 
 func NewHandler(
 	service Service,
 	sheetService SheetService,
 	columnService ColumnService,
+	db *sql.DB,
+	remoteDB *sql.DB,
 ) *Handler {
 
 	return &Handler{
 		service:       service,
 		sheetService:  sheetService,
 		columnService: columnService,
+		db:            db,
+		remoteDB:      remoteDB,
 	}
 }
 
@@ -183,9 +191,20 @@ func (h *Handler) GetTemplateStructure(c *gin.Context) {
 
 func (h *Handler) ListTemplates(c *gin.Context) {
 
-	templates, err := h.service.ListTemplates(
-		c.Request.Context(),
+	ctx := c.Request.Context()
+	activeOnly := strings.EqualFold(c.Query("active"), "true")
+
+	var (
+		templates []model.DocumentTemplate
+		err       error
 	)
+
+	if activeOnly {
+		templates, err = h.service.ListActiveTemplates(ctx)
+	} else {
+		templates, err = h.service.ListTemplates(ctx)
+	}
+
 	if err != nil {
 
 		response.Fail(
@@ -198,7 +217,11 @@ func (h *Handler) ListTemplates(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, toTemplateResponses(templates))
+	if templates == nil {
+		templates = []model.DocumentTemplate{}
+	}
+
+	response.OK(c, http.StatusOK, templates)
 }
 
 /* =========================================================
@@ -405,6 +428,69 @@ func (h *Handler) ListSheets(c *gin.Context) {
 }
 
 /* =========================================================
+ * Update Column
+ * ========================================================= */
+
+func (h *Handler) UpdateColumn(c *gin.Context) {
+
+	columnID, err := uuid.Parse(c.Param("columnId"))
+	if err != nil {
+
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_COLUMN_ID",
+			"Invalid column ID",
+		)
+
+		return
+	}
+
+	var req model.UpdateColumnRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Invalid request payload",
+		)
+
+		return
+	}
+
+	req.ID = columnID
+
+	col, err := h.columnService.UpdateColumn(c.Request.Context(), req)
+	if err != nil {
+
+		response.Fail(
+			c,
+			http.StatusInternalServerError,
+			"UPDATE_COLUMN_FAILED",
+			"Failed to update column",
+		)
+
+		return
+	}
+
+	// Update column_key separately when provided (not part of SQLC-generated update)
+	if strings.TrimSpace(req.ColumnKey) != "" {
+		if _, err := h.db.ExecContext(c.Request.Context(),
+			`UPDATE document_template_columns SET column_key = $1, updated_at = NOW() WHERE id = $2`,
+			strings.TrimSpace(req.ColumnKey), columnID,
+		); err != nil {
+			response.Fail(c, http.StatusInternalServerError, "UPDATE_COLUMN_KEY_FAILED", "Failed to update column key")
+			return
+		}
+		col.ColumnKey = strings.TrimSpace(req.ColumnKey)
+	}
+
+	response.OK(c, http.StatusOK, col)
+}
+
+/* =========================================================
  * List Columns
  * ========================================================= */
 
@@ -441,6 +527,67 @@ func (h *Handler) ListColumns(c *gin.Context) {
 
 	response.OK(c, http.StatusOK, toColumnResponses(columns))
 }
+
+/* =========================================================
+ * Has Data
+ * ========================================================= */
+
+func (h *Handler) HasData(c *gin.Context) {
+	code := c.Param("code")
+	if code == "" {
+		response.Fail(c, http.StatusBadRequest, "MISSING_TEMPLATE_CODE", "Template code is required")
+		return
+	}
+
+	ctx := c.Request.Context()
+	var hasData bool
+
+	err := h.remoteDB.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM import.template_row_data
+			WHERE template_code = $1 AND is_valid = TRUE
+		)
+	`, strings.ToUpper(strings.TrimSpace(code))).Scan(&hasData)
+
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "HAS_DATA_CHECK_FAILED", "Failed to check template data")
+		return
+	}
+
+	response.OK(c, http.StatusOK, gin.H{"has_data": hasData})
+}
+
+/* =========================================================
+ * Replace Structure
+ * ========================================================= */
+
+func (h *Handler) ReplaceStructure(c *gin.Context) {
+	templateID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ID", "invalid template id")
+		return
+	}
+
+	var req struct {
+		Sheets []model.CreateTemplateSheetWithColumnsRequest `json:"sheets"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "VALIDATION_FAILED", "invalid request payload")
+		return
+	}
+
+	structure, err := h.service.ReplaceStructure(c.Request.Context(), templateID, req.Sheets)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "REPLACE_FAILED", err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, structure)
+}
+
+/* =========================================================
+ * Create Template With Structure
+ * ========================================================= */
 
 func (h *Handler) CreateTemplateWithStructure(c *gin.Context) {
 	var req model.CreateTemplateStructureRequest
@@ -483,6 +630,17 @@ func (h *Handler) CreateTemplateWithStructure(c *gin.Context) {
 				apiErr.HTTPStatus,
 				apiErr.Code,
 				apiErr.Message,
+			)
+
+			return
+		}
+
+		if errors.Is(err, ErrTemplateCodeExists) {
+			response.Fail(
+				c,
+				http.StatusConflict,
+				"TEMPLATE_CODE_EXISTS",
+				"A template with this code already exists",
 			)
 
 			return

@@ -1,19 +1,18 @@
-import {
-  TableRow,
-  TableCell,
-  Tag,
-  ProgressBar,
-  OverflowMenu,
-  OverflowMenuItem,
-} from "@carbon/react";
+import { TableRow, TableCell, Tag, IconButton } from "@carbon/react";
+import { DataVis_1, Download, TrashCan, Renew } from "@carbon/react/icons";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import {
   useGetDocumentProcessesQuery,
   useLazyDownloadDocumentQuery,
-  useLazyViewDocumentQuery,
+  useDeleteDocumentMutation,
   useReprocessDocumentMutation,
 } from "../api";
+import { useGetUserQuery } from "@moh-sso/users/api";
+import { selectUser } from "@moh-sso/auth";
 import type { DocumentProcess, DocumentResponse } from "../types";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function StatusTag({ status }: { status: string }) {
   const colorMap: Record<string, "gray" | "blue" | "green" | "red" | "magenta"> = {
@@ -23,57 +22,70 @@ function StatusTag({ status }: { status: string }) {
     FAILED: "red",
     CANCELLED: "magenta",
   };
-
   return <Tag type={colorMap[status] || "gray"}>{status}</Tag>;
 }
-
-type Props = {
-  document: DocumentResponse;
-};
 
 function requiresProcessing(document: DocumentResponse) {
   const type = (document.content_type || "").toLowerCase();
   const filename = (document.original_filename || "").toLowerCase();
-
   if (
     type === "text/csv" ||
     type === "application/vnd.ms-excel" ||
     type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  ) {
-    return true;
-  }
-
+  ) return true;
   return filename.endsWith(".csv") || filename.endsWith(".xls") || filename.endsWith(".xlsx");
 }
 
 function formatFileSize(bytes?: number) {
   if (!bytes || bytes <= 0) return "0 B";
-
   const units = ["B", "KB", "MB", "GB"];
   let value = bytes;
   let unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-
+  while (value >= 1024 && unitIndex < units.length - 1) { value /= 1024; unitIndex++; }
   return `${value < 10 && unitIndex > 0 ? value.toFixed(1) : value.toFixed(0)} ${units[unitIndex]}`;
 }
 
+function formatFileType(contentType: string, filename?: string): string {
+  switch (contentType) {
+    case "application/pdf": return "pdf";
+    case "text/csv": return "csv";
+    case "application/vnd.ms-excel": return "xls";
+    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": return "xlsx";
+  }
+  if (filename) {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    if (ext && ext.length <= 5) return ext;
+  }
+  return contentType || "—";
+}
+
+function formatDateTime(iso?: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `${date} at ${time}`;
+}
+
+
 function getLatestProcess(processes: DocumentProcess[]): DocumentProcess | undefined {
   if (!processes.length) return undefined;
-
   return [...processes].sort(
     (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
   )[0];
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
+type Props = {
+  document: DocumentResponse;
+};
+
 export function DocumentRow({ document }: Props) {
   const navigate = useNavigate();
-  const [reprocessDocument, { isLoading: isReprocessing }] = useReprocessDocumentMutation();
   const [triggerDownload] = useLazyDownloadDocumentQuery();
-  const [triggerView] = useLazyViewDocumentQuery();
+  const [deleteDocument, { isLoading: isDeleting }] = useDeleteDocumentMutation();
+  const [reprocessDocument, { isLoading: isReprocessing }] = useReprocessDocumentMutation();
 
   const processable = requiresProcessing(document);
 
@@ -83,20 +95,27 @@ export function DocumentRow({ document }: Props) {
   });
 
   const latest = getLatestProcess(processes);
-
   const status = (latest?.status || document.status || "UNKNOWN").toUpperCase();
-  const progress = latest?.progress ?? (status === "COMPLETED" ? 100 : 0);
 
-  const handleView = async () => {
-    try {
-      const blob = await triggerView(document.id).unwrap();
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      console.error("Failed to preview document", error);
-      navigate(`/apps/utilities/self-service/eservice/document-upload/${document.id}`);
-    }
-  };
+  const reportDate = document.metadata?.report_date ?? "—";
+  const isBusy = isDeleting || isReprocessing;
+
+  // ── Uploader name ──
+  const currentUser = useSelector(selectUser);
+  const isOwnUpload = !!document.uploaded_by && currentUser?.id === document.uploaded_by;
+  const { data: uploaderUser, isLoading: isLoadingUploader } = useGetUserQuery(
+    document.uploaded_by,
+    { skip: !document.uploaded_by || isOwnUpload },
+  );
+  const uploaderName = !document.uploaded_by
+    ? "—"
+    : isOwnUpload
+      ? [currentUser!.firstName, currentUser!.lastName].filter(Boolean).join(" ") || currentUser!.username
+      : isLoadingUploader
+        ? "Loading…"
+        : uploaderUser
+          ? [uploaderUser.firstName, uploaderUser.lastName].filter(Boolean).join(" ") || uploaderUser.username
+          : "—";
 
   const handleDownload = async () => {
     try {
@@ -107,55 +126,88 @@ export function DocumentRow({ document }: Props) {
       link.download = document.original_filename;
       link.click();
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Failed to download document", error);
+    } catch (e) {
+      console.error("Download failed", e);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${document.original_filename}"? This cannot be undone.`)) return;
+    try {
+      await deleteDocument(document.id).unwrap();
+    } catch (e) {
+      console.error("Delete failed", e);
     }
   };
 
   const handleReprocess = async () => {
     try {
       await reprocessDocument(document.id).unwrap();
-    } catch (error) {
-      console.error("Failed to reprocess document", error);
+    } catch (e) {
+      console.error("Reprocess failed", e);
     }
   };
 
   return (
     <TableRow>
-      <TableCell>{document.original_filename}</TableCell>
-      <TableCell>{document.content_type || "—"}</TableCell>
-      <TableCell>{formatFileSize(document.size_bytes)}</TableCell>
-
+      <TableCell>
+        <div style={{ fontWeight: 500 }}>{document.original_filename}</div>
+        <div style={{ fontSize: "0.75rem", color: "#6f6f6f", marginTop: 2 }}>
+          {formatFileType(document.content_type, document.original_filename).toUpperCase()}
+          {" · "}
+          {formatFileSize(document.size_bytes)}
+        </div>
+      </TableCell>
+      <TableCell style={{ fontSize: "0.875rem", color: reportDate === "—" ? "#8d8d8d" : "#161616" }}>
+        {reportDate}
+      </TableCell>
+      <TableCell style={{ fontSize: "0.875rem", color: "#525252" }}>
+        {uploaderName}
+      </TableCell>
+      <TableCell style={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+        {formatDateTime(document.created_at)}
+      </TableCell>
       <TableCell>
         <StatusTag status={status} />
       </TableCell>
-
       <TableCell>
-        <div style={{ width: 150 }}>
-          <ProgressBar value={progress} max={100} label="" size="small" />
+        <div style={{ display: "flex", gap: "0.125rem", alignItems: "center" }}>
+          <IconButton
+            label="View Details"
+            kind="ghost"
+            size="sm"
+            onClick={() => navigate(`/apps/utilities/self-service/eservice/document-upload/${document.id}`)}
+          >
+            <DataVis_1 />
+          </IconButton>
+          <IconButton
+            label="Download"
+            kind="ghost"
+            size="sm"
+            onClick={() => void handleDownload()}
+            disabled={status !== "COMPLETED" || isBusy}
+          >
+            <Download />
+          </IconButton>
+          <IconButton
+            label={isReprocessing ? "Reprocessing…" : "Reprocess"}
+            kind="ghost"
+            size="sm"
+            onClick={() => void handleReprocess()}
+            disabled={!["FAILED", "COMPLETED"].includes(status) || isBusy}
+          >
+            <Renew />
+          </IconButton>
+          <IconButton
+            label="Delete"
+            kind="ghost"
+            size="sm"
+            onClick={() => void handleDelete()}
+            disabled={isBusy}
+          >
+            <TrashCan />
+          </IconButton>
         </div>
-      </TableCell>
-
-      <TableCell>
-        <OverflowMenu size="sm" ariaLabel="Document actions">
-          <OverflowMenuItem
-            itemText="View Details"
-            onClick={() =>
-              navigate(`/apps/utilities/self-service/eservice/document-upload/${document.id}`)
-            }
-          />
-          <OverflowMenuItem itemText="Open / Preview" onClick={handleView} />
-          <OverflowMenuItem
-            itemText="Download"
-            onClick={handleDownload}
-            disabled={status !== "COMPLETED"}
-          />
-          <OverflowMenuItem
-            itemText={isReprocessing ? "Reprocessing..." : "Reprocess"}
-            onClick={handleReprocess}
-            disabled={!processable || isReprocessing || status === "PROCESSING"}
-          />
-        </OverflowMenu>
       </TableCell>
     </TableRow>
   );

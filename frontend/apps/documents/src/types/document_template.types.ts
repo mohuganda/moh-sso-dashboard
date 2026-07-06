@@ -14,6 +14,30 @@ export type DocumentTemplate = {
   archived_at?: string | null;
 };
 
+export type UpdateColumnPayload = {
+  templateId: string;
+  sheetId: string;
+  columnId: string;
+  column_key?: string;
+  column_name: string;
+  display_name: string;
+  data_type: string;
+  required: boolean;
+  is_unique: boolean;
+  allowed_values: string[];
+  aliases: string[];
+  configuration: Record<string, unknown>;
+};
+
+export type UpdateTemplatePayload = {
+  id: string;
+  name: string;
+  description: string;
+  file_type: string;
+  is_active: boolean;
+  configuration: Record<string, unknown>;
+};
+
 export type CreateDocumentTemplateRequest = {
   document_id?: string | null;
   code: string;

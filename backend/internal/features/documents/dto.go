@@ -17,20 +17,21 @@ type UpdateDocumentRequest struct {
 }
 
 type DocumentResponse struct {
-	ID               uuid.UUID `json:"id"`
-	OriginalFilename string    `json:"original_filename"`
-	ContentType      string    `json:"content_type"`
-	SizeBytes        int64     `json:"size_bytes"`
-	ChecksumSHA256   *string   `json:"checksum_sha256,omitempty"`
-	StorageLocation  uuid.UUID `json:"storage_location"`
-	ObjectKey        string    `json:"object_key"`
-	UploadedBy       uuid.UUID `json:"uploaded_by"`
-	Status           string    `json:"status"`
-	ObjectURL        string    `json:"object_url,omitempty"`
-	ViewURL          string    `json:"view_url,omitempty"`
-	DownloadURL      string    `json:"download_url,omitempty"`
-	CreatedAt        string    `json:"created_at"`
-	UpdatedAt        string    `json:"updated_at"`
+	ID               uuid.UUID              `json:"id"`
+	OriginalFilename string                 `json:"original_filename"`
+	ContentType      string                 `json:"content_type"`
+	SizeBytes        int64                  `json:"size_bytes"`
+	ChecksumSHA256   *string                `json:"checksum_sha256,omitempty"`
+	StorageLocation  uuid.UUID              `json:"storage_location"`
+	ObjectKey        string                 `json:"object_key"`
+	UploadedBy       uuid.UUID              `json:"uploaded_by"`
+	Status           string                 `json:"status"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	ObjectURL        string                 `json:"object_url,omitempty"`
+	ViewURL          string                 `json:"view_url,omitempty"`
+	DownloadURL      string                 `json:"download_url,omitempty"`
+	CreatedAt        string                 `json:"created_at"`
+	UpdatedAt        string                 `json:"updated_at"`
 }
 
 type ProcessResponse struct {

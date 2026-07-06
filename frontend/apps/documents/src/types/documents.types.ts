@@ -29,11 +29,25 @@ export type DocumentResponse = {
   object_key: string;
   uploaded_by: string;
   status: string;
+  metadata?: Record<string, string> | null;
   object_url?: string;
   view_url?: string;
   download_url?: string;
   created_at: string;
   updated_at: string;
+};
+
+export type DataPreviewSheet = {
+  name: string;
+  row_count: number;
+  columns: string[];
+  rows: Record<string, unknown>[];
+};
+
+export type DataPreviewResponse = {
+  template_code: string;
+  report_date?: string;
+  sheets: DataPreviewSheet[];
 };
 
 export interface DocumentProcess {
@@ -42,6 +56,7 @@ export interface DocumentProcess {
   status: ProcessStatus;
   progress: number;
   message?: string;
+  error?: string | null;
   created_at: string;
   started_at: string;
   finished_at: string;

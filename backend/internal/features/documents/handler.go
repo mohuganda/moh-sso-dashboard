@@ -1,15 +1,19 @@
 package documents
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
@@ -17,6 +21,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/storage"
+	"github.com/xuri/excelize/v2"
 )
 
 type Handler struct {
@@ -25,6 +30,8 @@ type Handler struct {
 	storageLocationService storagelocationfeature.Service
 	storage                storage.Storage
 	storageFactory         *storage.StorageFactory
+	db                     *sql.DB
+	remoteDB               *sql.DB
 }
 
 func NewHandler(
@@ -33,6 +40,8 @@ func NewHandler(
 	storageLocationService storagelocationfeature.Service,
 	storage storage.Storage,
 	storageFactory *storage.StorageFactory,
+	db *sql.DB,
+	remoteDB *sql.DB,
 ) *Handler {
 	return &Handler{
 		documentService:        documentService,
@@ -40,6 +49,8 @@ func NewHandler(
 		storageLocationService: storageLocationService,
 		storage:                storage,
 		storageFactory:         storageFactory,
+		db:                     db,
+		remoteDB:               remoteDB,
 	}
 }
 
@@ -433,10 +444,46 @@ func (h *Handler) ViewDocument(c *gin.Context) {
 	_, _ = io.Copy(c.Writer, reader)
 }
 
+func (h *Handler) GetDocumentStats(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	row := h.db.QueryRowContext(ctx, `
+		SELECT
+			COUNT(*)                                              AS total,
+			COALESCE(SUM(size_bytes), 0)                         AS total_size,
+			COUNT(*) FILTER (WHERE status = 'PENDING')           AS pending,
+			COUNT(*) FILTER (WHERE status = 'PROCESSING')        AS processing,
+			COUNT(*) FILTER (WHERE status = 'COMPLETED')         AS completed,
+			COUNT(*) FILTER (WHERE status = 'FAILED')            AS failed
+		FROM documents
+		WHERE is_template = false
+	`)
+
+	var stats struct {
+		Total      int64 `json:"total"`
+		TotalSize  int64 `json:"total_size"`
+		Pending    int64 `json:"pending"`
+		Processing int64 `json:"processing"`
+		Completed  int64 `json:"completed"`
+		Failed     int64 `json:"failed"`
+	}
+
+	if err := row.Scan(
+		&stats.Total, &stats.TotalSize,
+		&stats.Pending, &stats.Processing,
+		&stats.Completed, &stats.Failed,
+	); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "STATS_FAILED", "failed to compute stats")
+		return
+	}
+
+	response.OK(c, http.StatusOK, stats)
+}
+
 func (h *Handler) ListDocuments(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	limitStr := c.DefaultQuery("limit", "20")
+	limitStr := c.DefaultQuery("limit", "1000")
 	offsetStr := c.DefaultQuery("offset", "0")
 
 	limit, _ := strconv.Atoi(limitStr)
@@ -514,4 +561,394 @@ func (h *Handler) ReprocessDocument(c *gin.Context) {
 	response.OK(c, http.StatusOK, struct {
 		Message string `json:"message"`
 	}{Message: "reprocessing started"})
+}
+
+// ── Data Preview ──────────────────────────────────────────────────────────────
+
+type previewSheet struct {
+	Name     string                   `json:"name"`
+	RowCount int                      `json:"row_count"`
+	Columns  []string                 `json:"columns"`
+	Rows     []map[string]interface{} `json:"rows"`
+}
+
+type dataPreviewResponse struct {
+	TemplateCode string         `json:"template_code"`
+	ReportDate   string         `json:"report_date,omitempty"`
+	Sheets       []previewSheet `json:"sheets"`
+}
+
+func (h *Handler) DataPreview(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	documentID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ID", "invalid document id")
+		return
+	}
+
+	doc, err := h.documentService.GetDocument(ctx, documentID)
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "document not found")
+		return
+	}
+
+	var meta map[string]string
+	if len(doc.Metadata) > 0 {
+		_ = json.Unmarshal(doc.Metadata, &meta)
+	}
+
+	templateCode := strings.ToUpper(strings.TrimSpace(meta["template_code"]))
+	reportDate := meta["report_date"]
+
+	if templateCode == "" {
+		response.OK(c, http.StatusOK, dataPreviewResponse{Sheets: []previewSheet{}})
+		return
+	}
+
+	if h.remoteDB == nil {
+		response.Fail(c, http.StatusServiceUnavailable, "NO_REMOTE_DB", "remote database not configured")
+		return
+	}
+
+	// Distinct sheet codes present for this document, ordered by first row_number seen
+	sheetCodeRows, err := h.remoteDB.QueryContext(ctx, `
+		SELECT sheet_code
+		FROM import.template_row_data
+		WHERE document_id = $1 AND is_valid = TRUE
+		GROUP BY sheet_code
+		ORDER BY MIN(row_number)
+	`, documentID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "QUERY_FAILED", err.Error())
+		return
+	}
+	var sheetCodes []string
+	for sheetCodeRows.Next() {
+		var code string
+		if err := sheetCodeRows.Scan(&code); err == nil {
+			sheetCodes = append(sheetCodes, code)
+		}
+	}
+	sheetCodeRows.Close()
+
+	if len(sheetCodes) == 0 {
+		response.OK(c, http.StatusOK, dataPreviewResponse{
+			TemplateCode: templateCode,
+			ReportDate:   reportDate,
+			Sheets:       []previewSheet{},
+		})
+		return
+	}
+
+	// Load ordered column keys and sheet display names from template structure (primary DB)
+	type sheetMeta struct {
+		displayName string
+		columns     []string // ordered by column_order
+	}
+	sheetMetas := map[string]*sheetMeta{}
+
+	for _, code := range sheetCodes {
+		colRows, err := h.db.QueryContext(ctx, `
+			SELECT dts.display_name, dtc.column_key
+			FROM document_template_sheets dts
+			JOIN document_template_columns dtc ON dtc.sheet_id = dts.id
+			JOIN document_templates dt ON dt.id = dts.template_id
+			WHERE dt.code = $1 AND dts.code = $2
+			ORDER BY dtc.column_order
+		`, templateCode, code)
+		if err != nil {
+			continue
+		}
+		sm := &sheetMeta{}
+		for colRows.Next() {
+			var displayName, columnKey string
+			if err := colRows.Scan(&displayName, &columnKey); err == nil {
+				sm.displayName = displayName
+				sm.columns = append(sm.columns, columnKey)
+			}
+		}
+		colRows.Close()
+		if sm.displayName != "" || len(sm.columns) > 0 {
+			sheetMetas[code] = sm
+		}
+	}
+
+	result := dataPreviewResponse{TemplateCode: templateCode, ReportDate: reportDate}
+
+	for _, sheetCode := range sheetCodes {
+		var totalCount int
+		_ = h.remoteDB.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM import.template_row_data
+			WHERE document_id = $1 AND sheet_code = $2 AND is_valid = TRUE
+		`, documentID, sheetCode).Scan(&totalCount)
+
+		dataRows, err := h.remoteDB.QueryContext(ctx, `
+			SELECT data FROM import.template_row_data
+			WHERE document_id = $1 AND sheet_code = $2 AND is_valid = TRUE
+			ORDER BY row_number
+		`, documentID, sheetCode)
+		if err != nil {
+			continue
+		}
+
+		var rows []map[string]interface{}
+		var fallbackColumns []string
+		for dataRows.Next() {
+			var raw []byte
+			if err := dataRows.Scan(&raw); err != nil {
+				continue
+			}
+			var rowData map[string]interface{}
+			if err := json.Unmarshal(raw, &rowData); err != nil {
+				continue
+			}
+			// Derive column order from first row if template structure unavailable
+			if fallbackColumns == nil {
+				for k := range rowData {
+					fallbackColumns = append(fallbackColumns, k)
+				}
+			}
+			rows = append(rows, rowData)
+		}
+		dataRows.Close()
+
+		if rows == nil {
+			rows = []map[string]interface{}{}
+		}
+
+		// Column list: prefer template definition order, fall back to first-row keys
+		columns := fallbackColumns
+		displayName := sheetCode
+		if sm, ok := sheetMetas[sheetCode]; ok {
+			if len(sm.columns) > 0 {
+				columns = sm.columns
+			}
+			if sm.displayName != "" {
+				displayName = sm.displayName
+			}
+		}
+
+		result.Sheets = append(result.Sheets, previewSheet{
+			Name:     displayName,
+			RowCount: totalCount,
+			Columns:  columns,
+			Rows:     rows,
+		})
+	}
+
+	response.OK(c, http.StatusOK, result)
+}
+
+/* =========================================================
+ * ParseStructure — detect sheet/column layout of a template file
+ * ========================================================= */
+
+type detectedColumn struct {
+	ColumnKey  string `json:"column_key"`
+	ColumnName string `json:"column_name"`
+}
+
+type detectedSheet struct {
+	Name      string           `json:"name"`
+	HeaderRow int              `json:"header_row"`
+	StartRow  int              `json:"start_row"`
+	Columns   []detectedColumn `json:"columns"`
+}
+
+func (h *Handler) ParseStructure(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	uid, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_UUID", "invalid document id")
+		return
+	}
+
+	doc, err := h.documentService.GetDocument(ctx, uid)
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "document not found")
+		return
+	}
+
+	loc, err := h.storageLocationService.GetByID(ctx, doc.StorageLocationID.String())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "STORAGE_LOOKUP_FAILED", "failed to get storage location")
+		return
+	}
+
+	provider, err := h.storageFactory.Get(loc.Provider)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INVALID_PROVIDER", "unsupported storage provider")
+		return
+	}
+
+	reader, err := provider.Download(ctx, doc.ObjectKey)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "DOWNLOAD_FAILED", "failed to retrieve file")
+		return
+	}
+	defer reader.Close()
+
+	ext := strings.ToLower(filepath.Ext(doc.OriginalFilename))
+	if ext != ".xlsx" && ext != ".xls" {
+		response.Fail(c, http.StatusBadRequest, "UNSUPPORTED_FORMAT", "only .xlsx and .xls files are supported")
+		return
+	}
+
+	sheets, err := detectSheetsFromReader(reader)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "PARSE_FAILED", "failed to parse spreadsheet: "+err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, gin.H{"sheets": sheets})
+}
+
+/* =========================================================
+ * ScanStructure — detect sheet/column layout from an uploaded file
+ *   Accepts a multipart file upload, returns detected structure
+ *   without creating any document record in the database.
+ * ========================================================= */
+
+func (h *Handler) ScanStructure(c *gin.Context) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "NO_FILE", "file is required")
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	if ext != ".xlsx" && ext != ".xls" {
+		response.Fail(c, http.StatusBadRequest, "UNSUPPORTED_FORMAT", "only .xlsx and .xls files are supported")
+		return
+	}
+
+	f, err := fileHeader.Open()
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "READ_FAILED", "failed to open uploaded file")
+		return
+	}
+	defer f.Close()
+
+	sheets, err := detectSheetsFromReader(f)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "PARSE_FAILED", "failed to parse spreadsheet: "+err.Error())
+		return
+	}
+
+	response.OK(c, http.StatusOK, gin.H{"sheets": sheets})
+}
+
+// detectSheetsFromReader reads an Excel file stream and returns visible sheets
+// with detected header columns. Reads at most 20 rows per sheet.
+func detectSheetsFromReader(r io.Reader) ([]detectedSheet, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var sheets []detectedSheet
+
+	for _, sheetName := range f.GetSheetList() {
+		visible, err := f.GetSheetVisible(sheetName)
+		if err != nil || !visible {
+			continue
+		}
+
+		rowStream, err := f.Rows(sheetName)
+		if err != nil {
+			continue
+		}
+
+		var rawRows [][]string
+		for rowStream.Next() {
+			cols, _ := rowStream.Columns()
+			rawRows = append(rawRows, cols)
+			if len(rawRows) >= 20 {
+				break
+			}
+		}
+		_ = rowStream.Close()
+
+		// Find first row with 4+ non-empty cells
+		headerIdx := -1
+		for i, row := range rawRows {
+			nonEmpty := 0
+			for _, cell := range row {
+				if strings.TrimSpace(cell) != "" {
+					nonEmpty++
+				}
+			}
+			if nonEmpty >= 4 {
+				headerIdx = i
+				break
+			}
+		}
+		if headerIdx < 0 || headerIdx >= len(rawRows) {
+			continue
+		}
+
+		seen := map[string]int{}
+		var columns []detectedColumn
+		for _, cell := range rawRows[headerIdx] {
+			name := strings.TrimSpace(cell)
+			if name == "" {
+				continue
+			}
+			key := toColumnKey(name)
+			if key == "" {
+				continue
+			}
+			seen[key]++
+			if seen[key] > 1 {
+				key = fmt.Sprintf("%s_%d", key, seen[key])
+			}
+			columns = append(columns, detectedColumn{ColumnKey: key, ColumnName: name})
+		}
+
+		if len(columns) == 0 {
+			continue
+		}
+
+		sheets = append(sheets, detectedSheet{
+			Name:      sheetName,
+			HeaderRow: headerIdx + 1,
+			StartRow:  headerIdx + 2,
+			Columns:   columns,
+		})
+	}
+
+	if sheets == nil {
+		sheets = []detectedSheet{}
+	}
+
+	return sheets, nil
+}
+
+// toColumnKey converts a column header to a snake_case database key.
+func toColumnKey(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	var out []byte
+	prevSep := true
+	for i := 0; i < len(name); i++ {
+		ch := name[i]
+		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') {
+			out = append(out, ch)
+			prevSep = false
+		} else if !prevSep && len(out) > 0 {
+			out = append(out, '_')
+			prevSep = true
+		}
+	}
+	for len(out) > 0 && out[len(out)-1] == '_' {
+		out = out[:len(out)-1]
+	}
+	return string(out)
 }
