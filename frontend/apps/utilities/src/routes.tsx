@@ -4,5 +4,4 @@ export const utilitiesRoute: MicrofrontendRoute = {
   appName: "@moh-sso/utilities",
   path: "/apps/utilities/self-service",
   paths: ["/apps/utilities/self-service"],
-  requiredPermissions: ["portal:access"],
 };

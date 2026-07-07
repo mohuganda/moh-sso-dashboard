@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 
 import {
@@ -6,6 +7,7 @@ import {
   type MicrofrontendLifecycle,
   type MicrofrontendRuntimeProps,
 } from "@moh-sso/microfrontend";
+import { selectAuthenticated, selectUser } from "@moh-sso/auth";
 import { MicrofrontendErrorBoundary } from "@moh-sso/ui";
 import { microfrontendContainerId } from "./containers";
 import {
@@ -24,7 +26,17 @@ type SingleSpaAppProps = MicrofrontendRuntimeProps & {
 export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpaAppProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
-  const { apiBaseUrl, auth, eventBus } = runtimeProps;
+  const shellUser = useSelector(selectUser);
+  const shellAuthenticated = useSelector(selectAuthenticated);
+  const { apiBaseUrl, eventBus } = runtimeProps;
+  const auth = useMemo(
+    () =>
+      runtimeProps.auth ?? {
+        isAuthenticated: shellAuthenticated,
+        user: shellUser ?? undefined,
+      },
+    [runtimeProps.auth, shellAuthenticated, shellUser],
+  );
   const orchestrationRequested = shouldUseSingleSpaOrchestration();
   const [orchestrationState, setOrchestrationState] = useState(() => ({
     started: isSingleSpaOrchestrationStarted(),
@@ -55,6 +67,16 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
       window.removeEventListener(MICROFRONTEND_ORCHESTRATION_EVENT, handleOrchestrationChange);
     };
   }, []);
+
+  useEffect(() => {
+    window.__MOH_SSO_AUTH__ = auth;
+
+    return () => {
+      if (window.__MOH_SSO_AUTH__ === auth) {
+        delete window.__MOH_SSO_AUTH__;
+      }
+    };
+  }, [auth]);
 
   useEffect(() => {
     if (orchestrationRequested && !orchestrationState.started && !orchestrationState.unavailable) {

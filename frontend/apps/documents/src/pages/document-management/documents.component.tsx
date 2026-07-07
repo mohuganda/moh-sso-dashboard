@@ -120,7 +120,7 @@ function DocumentPageContent() {
 
 export default function DocumentPage() {
   return (
-    <PermissionGuard permission={PERMISSIONS.documentsRead}>
+    <PermissionGuard anyOf={[PERMISSIONS.documentsRead, PERMISSIONS.documentTemplatesRead]}>
       <DocumentPageContent />
     </PermissionGuard>
   );

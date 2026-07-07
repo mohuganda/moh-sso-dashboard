@@ -22,12 +22,14 @@ export const dataValidationRoute: MicrofrontendRoute = {
   appName: "@moh-sso/data-validation",
   path: "/apps/dwh/data-validation",
   requiredPermissions: ["data_quality:read"],
+  requiredSystems: ["data-statistics"],
 };
 
 export const dataVisualizerRoute: MicrofrontendRoute = {
   appName: "@moh-sso/data-visualizer",
   path: "/apps/dwh/data-visualizer",
-  requiredAnyPermissions: ["documents:read", "data_quality:read", "surveillance:read"],
+  requiredAnyPermissions: ["documents:read", "data_quality:read"],
+  requiredSystems: ["data-statistics"],
 };
 
 export const documentsRoute: MicrofrontendRoute = {
@@ -52,7 +54,8 @@ export const emailRoute: MicrofrontendRoute = {
 export const issueTrackerRoute: MicrofrontendRoute = {
   appName: "@moh-sso/issue-tracker",
   path: "/apps/dwh/issue-tracker",
-  requiredPermissions: ["data_quality:read"],
+  requiredPermissions: ["issue_tracker:read"],
+  requiredSystems: ["data-statistics"],
 };
 
 export const reportBrowserRoute: MicrofrontendRoute = {
@@ -72,7 +75,7 @@ export const rbacRoute: MicrofrontendRoute = {
 export const surveillanceRoute: MicrofrontendRoute = {
   appName: "@moh-sso/surveillance",
   path: "/apps/dwh/surveillance",
-  requiredAnyPermissions: ["surveillance:read", "outbreak:access"],
+  requiredAnyPermissions: ["surveillance:read"],
   requiredSystems: ["data-statistics"],
 };
 
@@ -86,7 +89,6 @@ export const utilitiesRoute: MicrofrontendRoute = {
   appName: "@moh-sso/utilities",
   path: "/apps/utilities/self-service",
   paths: ["/apps/utilities/self-service"],
-  requiredPermissions: ["portal:access"],
 };
 
 export const registeredMicrofrontends: MicrofrontendRoute[] = [

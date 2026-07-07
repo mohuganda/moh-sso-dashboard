@@ -3,6 +3,7 @@ import React from "react";
 import ReactDOMClient, { type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 
+import { authLoaded, loginSuccess, type AuthUser } from "@moh-sso/auth";
 import { store } from "@moh-sso/state";
 import {
   HeaderPanelProvider,
@@ -97,6 +98,21 @@ function renderLifecycleError(
   );
 }
 
+function isAuthUser(value: unknown): value is AuthUser {
+  return Boolean(value && typeof value === "object" && "id" in value && "username" in value);
+}
+
+function hydrateAuthState(props: MicrofrontendMountProps) {
+  const auth = props.auth ?? window.__MOH_SSO_AUTH__;
+
+  if (auth?.isAuthenticated && isAuthUser(auth.user)) {
+    store.dispatch(loginSuccess({ user: auth.user }));
+    return;
+  }
+
+  store.dispatch(authLoaded());
+}
+
 function createManualLifecycle(
   RootComponent: ComponentType<MicrofrontendRuntimeProps>,
   options: Required<ReactLifecycleOptions>,
@@ -108,6 +124,7 @@ function createManualLifecycle(
       return undefined;
     },
     async mount(props) {
+      hydrateAuthState(props);
       root = ReactDOMClient.createRoot(props.domElement);
       root.render(renderRoot(RootComponent, props, options));
     },
@@ -148,7 +165,10 @@ export function createReactMicrofrontendLifecycle(
       ? singleSpaReact({
           React,
           ReactDOMClient,
-          rootComponent: (props) => renderRoot(RootComponent, props, options),
+          rootComponent: (props) => {
+            hydrateAuthState(props);
+            return renderRoot(RootComponent, props, options);
+          },
           domElementGetter: ({ domElement }) => domElement,
           errorBoundary: (error, errorInfo, props) =>
             renderLifecycleError(RootComponent, error, errorInfo, props),

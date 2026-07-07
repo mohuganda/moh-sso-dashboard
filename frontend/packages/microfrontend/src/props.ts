@@ -22,3 +22,9 @@ export type MicrofrontendRuntimeProps = {
 export type MicrofrontendMountProps = MicrofrontendRuntimeProps & {
   domElement: HTMLElement;
 };
+
+declare global {
+  interface Window {
+    __MOH_SSO_AUTH__?: MicrofrontendRuntimeProps["auth"];
+  }
+}
