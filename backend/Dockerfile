@@ -49,6 +49,7 @@ RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /app
 
 COPY --from=builder /app/internal/db/migrations ./internal/db/migrations
+COPY --from=builder /app/config ./config
 COPY --from=builder /app/sso-server ./sso-server
 
 RUN adduser -D appuser

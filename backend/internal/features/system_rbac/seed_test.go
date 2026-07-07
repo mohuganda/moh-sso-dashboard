@@ -35,7 +35,7 @@ func TestValidateSeedRejectsUnknownDefaultSystemRole(t *testing.T) {
 	seed := DefaultSeed()
 	for index := range seed.RealmRoles {
 		if seed.RealmRoles[index].Name == authz.RoleUser {
-			seed.RealmRoles[index].SystemRoles[authz.SystemUtilities] = []string{"missing-role"}
+			seed.RealmRoles[index].SystemRoles[authz.SystemDataStatistics] = []string{"missing-role"}
 		}
 	}
 	if err := ValidateSeed(seed); err == nil {

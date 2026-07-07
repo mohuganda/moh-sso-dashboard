@@ -636,6 +636,8 @@ realmRoles:
       data-statistics:
         - data-statistics_access
         - document_viewer
+      utilities:
+        - utilities_access
       settings:
         - settings_access
 

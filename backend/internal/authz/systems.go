@@ -5,7 +5,8 @@ const (
 	SystemOutbreakManagement = "outbreak-management"
 	SystemDataStatistics     = "data-statistics"
 	SystemUtilities          = "utilities"
-	SystemSettings           = "settings"
+
+	SystemSettings = "settings"
 )
 
 const (
@@ -29,6 +30,21 @@ const (
 	ReportBrowserViewer  = "report_viewer"
 
 	DataStatisticsAccess = "data-statistics_access"
-	UtilitiesAccess      = "utilities_access"
-	SettingsAccess       = "settings_access"
+
+	IssueTrackerViewer      = "issue_tracker_viewer"
+	IssueTrackerContributor = "issue_tracker_contributor"
+	IssueTrackerEditor      = "issue_tracker_editor"
+	IssueTrackerManager     = "issue_tracker_manager"
+
+	DocumentViewer    = "document_viewer"
+	DocumentEditor    = "document_editor"
+	DocumentProcessor = "document_processor"
+	DocumentManager   = "document_manager"
+
+	DocumentTemplateViewer    = "document_template_viewer"
+	DocumentTemplateEditor    = "document_template_editor"
+	DocumentTemplatePublisher = "document_template_publisher"
+
+	UtilitiesAccess = "utilities_access"
+	SettingsAccess  = "settings_access"
 )

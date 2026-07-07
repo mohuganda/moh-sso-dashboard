@@ -78,7 +78,6 @@ const utilitiesNavigation = `[
     ]}
   ]}
 ]`
-
 const caseRegistersNavigation = `[
   {"id":"external-referrals","label":"External Referrals","path":"/apps/case-registers/external-referrals"},
   {"id":"disease-registers","label":"Disease Registers","path":"/apps/case-registers/disease-registers"}
@@ -504,7 +503,7 @@ func DefaultSeed() SeedFile {
 			defaultPortalSystem("reference-registers", "Reference Registers", "Facility, terminology, and reference data registers.", "catalog", "/portal/apps/reference-registers", "registry", referenceRegistersNavigation, []string{
 				string(authz.PermissionSystemsRead),
 			}, enabled),
-			defaultPortalSystem("utilities", "Utilities", "Self-service utilities and staff tools.", "tools", "/portal/apps/utilities/self-service", "utilities", utilitiesNavigation, nil, enabled),
+			defaultPortalSystem(authz.SystemUtilities, "Utilities", "Self-service utilities and staff tools.", "tools", "/portal/apps/utilities/self-service", "utilities", utilitiesNavigation, nil, enabled),
 			defaultSettingsSystem(enabled),
 		},
 		RealmRoles: []SeedRealmRole{
@@ -516,12 +515,15 @@ func DefaultSeed() SeedFile {
 					string(authz.PermissionSystemsRead),
 					string(authz.PermissionSystemsLaunch),
 					string(authz.PermissionDataQualityRead),
+					string(authz.PermissionIssueTrackerRead),
 					string(authz.PermissionDocumentsRead),
+					string(authz.PermissionDocumentTemplatesRead),
+					string(authz.PermissionStorageLocationsRead),
 					string(authz.PermissionSurveillanceRead),
 					string(authz.PermissionReportBrowserRead),
 				},
 				SystemRoles: map[string][]string{
-					authz.SystemDataStatistics: {authz.DataStatisticsAccess},
+					authz.SystemDataStatistics: {authz.DataStatisticsAccess, authz.DocumentViewer},
 					authz.SystemUtilities:      {authz.UtilitiesAccess},
 					authz.SystemSettings:       {authz.SettingsAccess},
 				},
@@ -536,10 +538,33 @@ func DefaultSeed() SeedFile {
 					string(authz.PermissionClientsRead),
 					string(authz.PermissionAnnouncementsRead),
 					string(authz.PermissionDocumentsRead),
+					string(authz.PermissionDocumentsWrite),
+					string(authz.PermissionDocumentsProcess),
+					string(authz.PermissionDocumentTemplatesRead),
+					string(authz.PermissionDocumentTemplatesWrite),
+					string(authz.PermissionDocumentTemplatesPublish),
+					string(authz.PermissionStorageLocationsRead),
 					string(authz.PermissionSurveillanceRead),
 					string(authz.PermissionDataQualityRead),
 					string(authz.PermissionDataQualityWrite),
+					string(authz.PermissionIssueTrackerRead),
+					string(authz.PermissionIssueTrackerWrite),
+					string(authz.PermissionIssueTrackerManage),
+					string(authz.PermissionIssueTrackerAssign),
+					string(authz.PermissionIssueTrackerClose),
+					string(authz.PermissionIssueTrackerReopen),
+					string(authz.PermissionIssueTrackerComment),
 					string(authz.PermissionNotificationsRead),
+				},
+				SystemRoles: map[string][]string{
+					authz.SystemDataStatistics: {
+						authz.DataStatisticsAccess,
+						authz.ReportBrowserManager,
+						authz.IssueTrackerManager,
+						authz.DocumentManager,
+					},
+					authz.SystemUtilities: {authz.UtilitiesAccess},
+					authz.SystemSettings:  {authz.SettingsAccess},
 				},
 			},
 		},
@@ -560,7 +585,7 @@ func applyDefaultSortOrder(systems []SeedSystem) {
 		"research-studies":          40,
 		"case-registers":            50,
 		"reference-registers":       60,
-		"utilities":                 90,
+		authz.SystemUtilities:       90,
 		"settings":                  100,
 		"demo-platform-system":      900,
 		"external-knowledge-system": 910,
@@ -657,6 +682,17 @@ func defaultDataStatisticsSystem(enabled bool) SeedSystem {
 		authz.ReportBrowserAnalyst,
 		authz.ReportBrowserManager,
 		authz.ReportBrowserAdmin,
+		authz.IssueTrackerViewer,
+		authz.IssueTrackerContributor,
+		authz.IssueTrackerEditor,
+		authz.IssueTrackerManager,
+		authz.DocumentViewer,
+		authz.DocumentEditor,
+		authz.DocumentProcessor,
+		authz.DocumentManager,
+		authz.DocumentTemplateViewer,
+		authz.DocumentTemplateEditor,
+		authz.DocumentTemplatePublisher,
 	)
 	system.Roles = append(system.Roles,
 		SeedRole{
@@ -689,6 +725,115 @@ func defaultDataStatisticsSystem(enabled bool) SeedSystem {
 			DisplayName: "Report Viewer",
 			Permissions: []string{
 				string(authz.PermissionReportBrowserRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.IssueTrackerViewer,
+			DisplayName: "Issue Tracker Viewer",
+			Permissions: []string{
+				string(authz.PermissionIssueTrackerRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.IssueTrackerContributor,
+			DisplayName: "Issue Tracker Contributor",
+			Permissions: []string{
+				string(authz.PermissionIssueTrackerRead),
+				string(authz.PermissionIssueTrackerComment),
+			},
+		},
+		SeedRole{
+			Name:        authz.IssueTrackerEditor,
+			DisplayName: "Issue Tracker Editor",
+			Permissions: []string{
+				string(authz.PermissionIssueTrackerRead),
+				string(authz.PermissionIssueTrackerWrite),
+				string(authz.PermissionIssueTrackerComment),
+			},
+		},
+		SeedRole{
+			Name:        authz.IssueTrackerManager,
+			DisplayName: "Issue Tracker Manager",
+			Permissions: []string{
+				string(authz.PermissionIssueTrackerRead),
+				string(authz.PermissionIssueTrackerWrite),
+				string(authz.PermissionIssueTrackerManage),
+				string(authz.PermissionIssueTrackerAssign),
+				string(authz.PermissionIssueTrackerClose),
+				string(authz.PermissionIssueTrackerReopen),
+				string(authz.PermissionIssueTrackerComment),
+			},
+		},
+		SeedRole{
+			Name:        authz.DocumentViewer,
+			DisplayName: "Document Viewer",
+			Permissions: []string{
+				string(authz.PermissionDocumentsRead),
+				string(authz.PermissionDocumentTemplatesRead),
+				string(authz.PermissionStorageLocationsRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.DocumentEditor,
+			DisplayName: "Document Editor",
+			Permissions: []string{
+				string(authz.PermissionDocumentsRead),
+				string(authz.PermissionDocumentsWrite),
+				string(authz.PermissionDocumentTemplatesRead),
+				string(authz.PermissionStorageLocationsRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.DocumentProcessor,
+			DisplayName: "Document Processor",
+			Permissions: []string{
+				string(authz.PermissionDocumentsRead),
+				string(authz.PermissionDocumentsProcess),
+				string(authz.PermissionDocumentTemplatesRead),
+				string(authz.PermissionStorageLocationsRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.DocumentManager,
+			DisplayName: "Document Manager",
+			Permissions: []string{
+				string(authz.PermissionDocumentsRead),
+				string(authz.PermissionDocumentsWrite),
+				string(authz.PermissionDocumentsProcess),
+				string(authz.PermissionDocumentTemplatesRead),
+				string(authz.PermissionDocumentTemplatesWrite),
+				string(authz.PermissionDocumentTemplatesPublish),
+				string(authz.PermissionStorageLocationsRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.DocumentTemplateViewer,
+			DisplayName: "Document Template Viewer",
+			Permissions: []string{
+				string(authz.PermissionDocumentsRead),
+				string(authz.PermissionDocumentTemplatesRead),
+				string(authz.PermissionStorageLocationsRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.DocumentTemplateEditor,
+			DisplayName: "Document Template Editor",
+			Permissions: []string{
+				string(authz.PermissionDocumentsRead),
+				string(authz.PermissionDocumentTemplatesRead),
+				string(authz.PermissionDocumentTemplatesWrite),
+				string(authz.PermissionStorageLocationsRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.DocumentTemplatePublisher,
+			DisplayName: "Document Template Publisher",
+			Permissions: []string{
+				string(authz.PermissionDocumentsRead),
+				string(authz.PermissionDocumentTemplatesRead),
+				string(authz.PermissionDocumentTemplatesWrite),
+				string(authz.PermissionDocumentTemplatesPublish),
+				string(authz.PermissionStorageLocationsRead),
 			},
 		},
 	)

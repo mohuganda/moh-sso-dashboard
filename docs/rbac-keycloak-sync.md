@@ -362,6 +362,12 @@ RBAC startup seed applied
 
 Also confirm that the role names in Keycloak exactly match the role names in the seed.
 
+In production Docker images, `backend/config/` is copied into `/app/config`, so the default
+seed path resolves to `/app/config/system-rbac.seed.yaml`. The Keycloak realm export is not
+bundled into the backend image by default. If `RBAC_STARTUP_SYNC_REALM_EXPORT=true`, mount a
+realm export file into the container and set `RBAC_STARTUP_SYNC_REALM_EXPORT_PATH`; otherwise
+set `RBAC_STARTUP_SYNC_REALM_EXPORT=false` and rely on live Keycloak sync plus the seed.
+
 ### System Appears But Cannot Launch
 
 Check:

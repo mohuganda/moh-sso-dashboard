@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"os"
+	"fmt"
+	"strings"
 
 	"github.com/moh-sso-dashboard/internal/config"
 	systemrbac "github.com/moh-sso-dashboard/internal/features/system_rbac"
@@ -123,14 +124,13 @@ func runStartupRBACSync(
 }
 
 func loadStartupRBACSeed(path string) (systemrbac.SeedFile, string, error) {
+	path = strings.TrimSpace(path)
 	if path != "" {
 		seed, err := systemrbac.LoadSeedFile(path)
-		if err == nil {
-			return seed, path, nil
+		if err != nil {
+			return systemrbac.SeedFile{}, path, fmt.Errorf("load RBAC startup seed %q: %w", path, err)
 		}
-		if !errors.Is(err, os.ErrNotExist) {
-			return systemrbac.SeedFile{}, path, err
-		}
+		return seed, path, nil
 	}
 
 	return systemrbac.DefaultSeed(), "compiled-default", nil
