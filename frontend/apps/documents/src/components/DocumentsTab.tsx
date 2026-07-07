@@ -15,6 +15,7 @@ import {
   TableToolbar,
   TableToolbarContent,
   TableToolbarSearch,
+  Tile,
 } from "@carbon/react";
 import { Upload } from "@carbon/react/icons";
 
@@ -48,6 +49,23 @@ function getDocumentSearchText(document: DocumentResponse) {
 
 function getDocumentStatus(document: Partial<DocumentResponse>) {
   return String(document.status ?? "UNKNOWN").toUpperCase();
+}
+
+function formatBytes(bytes: number) {
+  if (!bytes || bytes <= 0) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value < 10 && unitIndex > 0 ? value.toFixed(1) : value.toFixed(0)} ${units[unitIndex]}`;
 }
 
 function DocumentsTabContent() {
@@ -110,94 +128,55 @@ function DocumentsTabContent() {
 
   return (
     <div className="documents-tab">
-      <div
-        className="documents-tab__actions"
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginBottom: "1rem",
-        }}
-      >
+      <div className="documents-tab__actions">
+        <div>
+          <h3>Uploaded documents</h3>
+          <p>Track uploaded files, processing status, and generated previews.</p>
+        </div>
+
         <PermissionGuard permission={PERMISSIONS.documentsWrite}>
-          <Button
-            renderIcon={Upload}
-            onClick={handleOpenUpload}
-            size="sm"
-            kind="primary"
-            style={{
-              width: "auto",
-              minWidth: 0,
-            }}
-          >
+          <Button renderIcon={Upload} onClick={handleOpenUpload} size="sm" kind="primary">
             Upload Document
           </Button>
         </PermissionGuard>
       </div>
 
-      <div
-        className="documents-tab__stats"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-          gap: "1px",
-          background: "#e0e0e0",
-          border: "1px solid #e0e0e0",
-          borderRadius: 4,
-          overflow: "hidden",
-          marginBottom: "1.5rem",
-        }}
-      >
+      <div className="documents-tab__stats">
         {[
           {
             label: "Total uploads",
             value: stats.total,
-            accent: "#0f62fe",
+            tone: "blue",
           },
           {
             label: "Completed",
             value: stats.completed,
-            accent: "#198038",
+            tone: "green",
           },
           {
             label: "In progress",
             value: stats.pending + stats.processing,
-            accent: "#f1c21b",
+            tone: "yellow",
           },
           {
             label: "Failed",
             value: stats.failed,
-            accent: "#da1e28",
+            tone: "red",
           },
-        ].map(({ label, value, accent }) => (
-          <div
+          {
+            label: "Stored size",
+            value: formatBytes(stats.totalSize),
+            tone: "gray",
+          },
+        ].map(({ label, value, tone }) => (
+          <Tile
             key={label}
-            style={{
-              background: "#fff",
-              padding: "1rem 1.25rem",
-            }}
+            className={`documents-tab__stat documents-tab__stat--${tone}`}
           >
-            <div
-              style={{
-                fontSize: "0.75rem",
-                color: "#6f6f6f",
-                marginBottom: "0.35rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              {label}
-            </div>
+            <span>{label}</span>
 
-            <div
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: 700,
-                color: accent,
-              }}
-            >
-              {value}
-            </div>
-          </div>
+            <strong>{value}</strong>
+          </Tile>
         ))}
       </div>
 
@@ -230,7 +209,6 @@ function DocumentsTabContent() {
                     hideLabel
                     value={statusFilter}
                     onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                    style={{ width: 180 }}
                   >
                     {STATUS_OPTIONS.map((status) => (
                       <SelectItem
@@ -244,7 +222,7 @@ function DocumentsTabContent() {
               </TableToolbar>
 
               {filteredDocs.length === 0 ? (
-                <div style={{ padding: "2rem 0" }}>
+                <div className="documents-tab__empty">
                   <EmptyState
                     title="No matching documents"
                     description="Try changing your search or status filter."

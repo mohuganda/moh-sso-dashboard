@@ -8,6 +8,7 @@ import {
   Modal,
   Search,
   Tag,
+  Tile,
 } from "@carbon/react";
 import {
   Add,
@@ -206,88 +207,28 @@ function TemplateStructureView({ code }: { code: string }) {
   }
 
   return (
-    <div
-      style={{
-        padding: "1rem 1.5rem 1.25rem",
-        background: "#f4f4f4",
-      }}
-    >
+    <div className="documents-template-structure">
       {structure.sheets.map((sheet, sheetIndex) => (
         <div
           key={sheet.id}
-          style={{
-            marginBottom: sheetIndex === structure.sheets.length - 1 ? 0 : "1.25rem",
-          }}
+          className="documents-template-structure__sheet"
+          data-last={sheetIndex === structure.sheets.length - 1 ? "true" : undefined}
         >
           {structure.sheets.length > 1 && (
-            <p
-              style={{
-                margin: "0 0 0.5rem",
-                fontWeight: 600,
-                fontSize: "0.875rem",
-              }}
-            >
-              Sheet: {sheet.name}
-            </p>
+            <p className="documents-template-structure__sheet-title">Sheet: {sheet.name}</p>
           )}
 
           {sheet.columns.length === 0 ? (
-            <p
-              style={{
-                margin: 0,
-                color: "#6f6f6f",
-                fontSize: "0.875rem",
-              }}
-            >
-              No columns defined.
-            </p>
+            <p className="documents-template-structure__empty">No columns defined.</p>
           ) : (
-            <table
-              style={{
-                borderCollapse: "collapse",
-                fontSize: "0.8125rem",
-                width: "100%",
-                maxWidth: 640,
-              }}
-            >
+            <table className="documents-template-structure__table">
               <thead>
-                <tr
-                  style={{
-                    borderBottom: "1px solid #c6c6c6",
-                  }}
-                >
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "0.35rem 0.75rem",
-                      fontWeight: 600,
-                      color: "#525252",
-                    }}
-                  >
-                    Column
-                  </th>
+                <tr>
+                  <th>Column</th>
 
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "0.35rem 0.75rem",
-                      fontWeight: 600,
-                      color: "#525252",
-                    }}
-                  >
-                    Type
-                  </th>
+                  <th>Type</th>
 
-                  <th
-                    style={{
-                      textAlign: "center",
-                      padding: "0.35rem 0.75rem",
-                      fontWeight: 600,
-                      color: "#525252",
-                    }}
-                  >
-                    Required
-                  </th>
+                  <th>Required</th>
                 </tr>
               </thead>
 
@@ -298,48 +239,19 @@ function TemplateStructureView({ code }: { code: string }) {
                   .map((column) => (
                     <tr
                       key={column.id}
-                      style={{
-                        borderBottom: "1px solid #e8e8e8",
-                        background: column.required ? "#fff" : undefined,
-                      }}
+                      className={column.required ? "is-required" : undefined}
                     >
-                      <td
-                        style={{
-                          padding: "0.35rem 0.75rem",
-                          fontFamily: "monospace",
-                          fontWeight: column.required ? 600 : 400,
-                          color: column.required ? "#161616" : "#525252",
-                        }}
-                      >
+                      <td className="documents-template-structure__column">
                         {column.column_name}
                       </td>
 
-                      <td
-                        style={{
-                          padding: "0.35rem 0.75rem",
-                          color: "#525252",
-                        }}
-                      >
-                        {column.data_type}
-                      </td>
+                      <td>{column.data_type}</td>
 
-                      <td
-                        style={{
-                          padding: "0.35rem 0.75rem",
-                          textAlign: "center",
-                        }}
-                      >
+                      <td>
                         {column.required ? (
-                          <span
-                            style={{
-                              color: "#198038",
-                              fontWeight: 700,
-                            }}
-                          >
-                            ✓
-                          </span>
+                          <Tag type="green" size="sm">Required</Tag>
                         ) : (
-                          <span style={{ color: "#8d8d8d" }}>—</span>
+                          <span className="documents-muted-cell">—</span>
                         )}
                       </td>
                     </tr>
@@ -518,20 +430,16 @@ export function TemplatesTab() {
           />
         </PermissionGuard>
 
-        <div
-          style={{
-            marginBottom: "1rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <p style={{ margin: 0, color: "#6f6f6f" }}>
-            {templates.length} template
-            {templates.length !== 1 ? "s" : ""} total —{" "}
-            {templates.filter((template) => template.is_active && !template.archived_at).length}{" "}
-            active
-          </p>
+        <div className="documents-templates__toolbar">
+          <div>
+            <h3>Templates</h3>
+            <p>
+              {templates.length} template
+              {templates.length !== 1 ? "s" : ""} total ·{" "}
+              {templates.filter((template) => template.is_active && !template.archived_at).length}{" "}
+              active
+            </p>
+          </div>
 
           <PermissionGuard permission={PERMISSIONS.documentTemplatesWrite}>
             <Button renderIcon={Add} onClick={handleNewTemplate} size="sm">
@@ -540,7 +448,7 @@ export function TemplatesTab() {
           </PermissionGuard>
         </div>
 
-        <div style={{ marginBottom: "0.5rem" }}>
+        <Tile className="documents-templates__filters">
           <Search
             placeholder="Search by name, code, or file type"
             value={search}
@@ -548,36 +456,19 @@ export function TemplatesTab() {
             labelText="Search templates"
             size="lg"
           />
-        </div>
+        </Tile>
 
         {filtered.length === 0 ? (
-          <div
-            style={{
-              padding: "3rem 1rem",
-              textAlign: "center",
-              color: "#6f6f6f",
-              border: "1px dashed #c6c6c6",
-            }}
-          >
+          <div className="documents-templates__empty">
             {templates.length === 0
               ? "No templates are currently available."
               : "No templates match your search."}
           </div>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "0.875rem",
-            }}
-          >
+          <div className="documents-templates__table-scroll">
+            <table className="documents-templates__table">
             <thead>
-              <tr
-                style={{
-                  borderBottom: "2px solid #e0e0e0",
-                  background: "#f4f4f4",
-                }}
-              >
+              <tr>
                 <th style={{ width: 32 }} />
 
                 <th
@@ -896,7 +787,8 @@ export function TemplatesTab() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </>
     </PermissionGuard>

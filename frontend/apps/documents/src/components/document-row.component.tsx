@@ -160,27 +160,27 @@ export function DocumentRow({ document }: Props) {
   return (
     <TableRow>
       <TableCell>
-        <div style={{ fontWeight: 500 }}>{document.original_filename}</div>
-        <div style={{ fontSize: "0.75rem", color: "#6f6f6f", marginTop: 2 }}>
+        <div className="documents-file-cell">
+          <span className="documents-file-cell__name">{document.original_filename}</span>
+        </div>
+        <div className="documents-file-cell__meta">
           {formatFileType(document.content_type, document.original_filename).toUpperCase()}
           {" · "}
           {formatFileSize(document.size_bytes)}
         </div>
       </TableCell>
-      <TableCell
-        style={{ fontSize: "0.875rem", color: reportDate === "—" ? "#8d8d8d" : "#161616" }}
-      >
+      <TableCell className={reportDate === "—" ? "documents-muted-cell" : undefined}>
         {reportDate}
       </TableCell>
-      <TableCell style={{ fontSize: "0.875rem", color: "#525252" }}>{uploaderName}</TableCell>
-      <TableCell style={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+      <TableCell className="documents-secondary-cell">{uploaderName}</TableCell>
+      <TableCell className="documents-nowrap-cell">
         {formatDateTime(document.created_at)}
       </TableCell>
       <TableCell>
         <StatusTag status={status} />
       </TableCell>
       <TableCell>
-        <div style={{ display: "flex", gap: "0.125rem", alignItems: "center" }}>
+        <div className="documents-row-actions">
           <IconButton
             label="View Details"
             kind="ghost"
