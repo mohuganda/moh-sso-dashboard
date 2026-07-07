@@ -15,6 +15,8 @@ import {
 } from "@carbon/react";
 import { ArrowLeft, Download } from "@carbon/react/icons";
 
+import { useToast } from "@moh-sso/ui";
+
 import {
   useGetDocumentQuery,
   useGetDocumentDataPreviewQuery,
@@ -354,6 +356,7 @@ function SheetView({
 export default function DocumentPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const [triggerDownload] = useLazyDownloadDocumentQuery();
 
   const { data: document, isLoading: isLoadingDoc } = useGetDocumentQuery(id!, { skip: !id });
@@ -389,8 +392,9 @@ export default function DocumentPreviewPage() {
       link.download = document.original_filename;
       link.click();
       window.URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error("Download failed", e);
+      toast.success("Download started", document.original_filename);
+    } catch {
+      toast.error("Download failed", "Please try again.");
     }
   };
 

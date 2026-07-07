@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
 
 import { type ReusableModalProps, ReusableModal } from "./ReusableModal";
 
@@ -20,13 +20,13 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     onClose: () => {},
   });
 
-  const openModal = (config: Omit<ModalState, "open">) => {
+  const openModal = useCallback((config: Omit<ModalState, "open">) => {
     setState({ ...config, open: true });
-  };
+  }, []);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setState((prev) => ({ ...prev, open: false }));
-  };
+  }, []);
 
   return (
     <ModalContext.Provider value={{ openModal, closeModal }}>

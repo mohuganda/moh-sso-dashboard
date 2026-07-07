@@ -6,7 +6,6 @@ import {
   FilterableMultiSelect,
   InlineLoading,
   InlineNotification,
-  Modal,
   Tab,
   TabList,
   TabPanel,
@@ -18,7 +17,7 @@ import {
 import { Download, Renew, TrashCan } from "@carbon/react/icons";
 
 import { PermissionGuard, PERMISSIONS, selectUser } from "@moh-sso/auth";
-import { useToast } from "@moh-sso/ui";
+import { useModal, useToast } from "@moh-sso/ui";
 import { useGetUserQuery } from "@moh-sso/users/api";
 
 import {
@@ -706,12 +705,11 @@ function InfoItem({
 
 function DocumentDetailsPageContent() {
   const toast = useToast();
+  const { openModal, closeModal } = useModal();
 
   const { id } = useParams<{ id: string }>();
 
   const navigate = useNavigate();
-
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const {
     data: document,
@@ -827,6 +825,7 @@ function DocumentDetailsPageContent() {
       anchor.remove();
 
       window.URL.revokeObjectURL(url);
+      toast.success("Download started", document.original_filename);
     } catch (error: unknown) {
       const message =
         typeof error === "object" && error !== null && "data" in error
@@ -880,6 +879,7 @@ function DocumentDetailsPageContent() {
     try {
       await deleteDocument(id).unwrap();
 
+      closeModal();
       toast.success("Deleted", "Document deleted successfully.");
 
       navigate("..");
@@ -899,6 +899,33 @@ function DocumentDetailsPageContent() {
 
       toast.error("Delete failed", message);
     }
+  }
+
+  function handleDeleteRequest() {
+    if (!document) {
+      return;
+    }
+
+    openModal({
+      title: "Delete document",
+      onClose: closeModal,
+      content: (
+        <p>
+          Permanently delete <strong>{document.original_filename}</strong>? All imported rows will
+          also be removed. This cannot be undone.
+        </p>
+      ),
+      primaryAction: {
+        label: deleting ? "Deleting..." : "Delete",
+        kind: "danger",
+        disabled: deleting,
+        onClick: () => void handleDeleteConfirm(),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
+    });
   }
 
   if (documentLoading) {
@@ -973,24 +1000,6 @@ function DocumentDetailsPageContent() {
 
   return (
     <>
-      <PermissionGuard permission={PERMISSIONS.documentsWrite}>
-        <Modal
-          open={confirmDelete}
-          danger
-          modalHeading="Delete document"
-          primaryButtonText={deleting ? "Deleting…" : "Delete"}
-          secondaryButtonText="Cancel"
-          primaryButtonDisabled={deleting}
-          onRequestClose={() => setConfirmDelete(false)}
-          onRequestSubmit={() => void handleDeleteConfirm()}
-        >
-          <p>
-            Permanently delete <strong>{document.original_filename}</strong>? All imported rows will
-            also be removed. This cannot be undone.
-          </p>
-        </Modal>
-      </PermissionGuard>
-
       <div
         style={{
           display: "flex",
@@ -1214,7 +1223,7 @@ function DocumentDetailsPageContent() {
                 <PermissionGuard permission={PERMISSIONS.documentsWrite}>
                   <button
                     type="button"
-                    onClick={() => setConfirmDelete(true)}
+                    onClick={handleDeleteRequest}
                     disabled={isBusy}
                     style={{
                       display: "flex",

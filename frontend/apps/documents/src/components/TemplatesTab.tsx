@@ -5,7 +5,6 @@ import {
   IconButton,
   InlineLoading,
   InlineNotification,
-  Modal,
   Search,
   Tag,
   Tile,
@@ -24,7 +23,7 @@ import {
 import * as XLSX from "xlsx";
 
 import { PermissionGuard, PERMISSIONS, selectUser } from "@moh-sso/auth";
-import { useHeaderPanel } from "@moh-sso/ui";
+import { useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
 import { useGetUserQuery } from "@moh-sso/users/api";
 
 import { UploadTemplateModal } from "./UploadTemplateModal";
@@ -265,41 +264,13 @@ function TemplateStructureView({ code }: { code: string }) {
   );
 }
 
-type DeleteModalProps = {
-  template: DocumentTemplate | null;
-  onConfirm: () => void;
-  onCancel: () => void;
-  isLoading: boolean;
-};
-
-function DeleteConfirmModal({ template, onConfirm, onCancel, isLoading }: DeleteModalProps) {
-  return (
-    <Modal
-      open={template !== null}
-      danger
-      modalHeading="Delete template"
-      primaryButtonText={isLoading ? "Deleting..." : "Delete"}
-      secondaryButtonText="Cancel"
-      onRequestClose={onCancel}
-      onRequestSubmit={onConfirm}
-      primaryButtonDisabled={isLoading}
-    >
-      {template && (
-        <p>
-          Are you sure you want to delete <strong>{template.name}</strong> ({template.code})? This
-          cannot be undone.
-        </p>
-      )}
-    </Modal>
-  );
-}
-
 export function TemplatesTab() {
   const { openPanel, closePanel } = useHeaderPanel();
+  const { openModal, closeModal } = useModal();
+  const toast = useToast();
 
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [deleteTarget, setDeleteTarget] = useState<DocumentTemplate | null>(null);
 
   const { data: templates = [], isLoading, isError } = useGetTemplatesQuery();
 
@@ -358,39 +329,70 @@ export function TemplatesTab() {
   }
 
   async function handleDownload(template: DocumentTemplate) {
-    const result = await getStructure(template.code);
+    try {
+      const result = await getStructure(template.code);
 
-    if (result.data) {
-      downloadTemplateFile(template, result.data);
+      if (result.data) {
+        downloadTemplateFile(template, result.data);
+        toast.success("Template downloaded", template.name);
+        return;
+      }
+
+      toast.error("Download failed", "Template structure is unavailable.");
+    } catch {
+      toast.error("Download failed", "Please try again.");
     }
   }
 
   async function handlePublish(template: DocumentTemplate) {
     try {
       await publishTemplate(template.id).unwrap();
+      toast.success("Template published", template.name);
     } catch {
-      // Error is exposed through RTK Query state.
+      toast.error("Publish failed", "Please try again.");
     }
   }
 
   async function handleArchive(template: DocumentTemplate) {
     try {
       await archiveTemplate(template.id).unwrap();
+      toast.success("Template archived", template.name);
     } catch {
-      // Error is exposed through RTK Query state.
+      toast.error("Archive failed", "Please try again.");
     }
   }
 
-  async function handleDeleteConfirm() {
-    if (!deleteTarget) {
-      return;
-    }
-
+  async function handleDeleteConfirm(template: DocumentTemplate) {
     try {
-      await deleteTemplate(deleteTarget.id).unwrap();
-    } finally {
-      setDeleteTarget(null);
+      await deleteTemplate(template.id).unwrap();
+      closeModal();
+      toast.success("Template deleted", template.name);
+    } catch {
+      toast.error("Delete failed", "Please try again.");
     }
+  }
+
+  function handleDeleteRequest(template: DocumentTemplate) {
+    openModal({
+      title: "Delete template",
+      onClose: closeModal,
+      content: (
+        <p>
+          Are you sure you want to delete <strong>{template.name}</strong> ({template.code})? This
+          cannot be undone.
+        </p>
+      ),
+      primaryAction: {
+        label: isDeleting ? "Deleting..." : "Delete",
+        kind: "danger",
+        disabled: isDeleting,
+        onClick: () => void handleDeleteConfirm(template),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
+    });
   }
 
   if (isLoading) {
@@ -421,15 +423,6 @@ export function TemplatesTab() {
       }
     >
       <>
-        <PermissionGuard permission={PERMISSIONS.documentTemplatesWrite}>
-          <DeleteConfirmModal
-            template={deleteTarget}
-            onConfirm={() => void handleDeleteConfirm()}
-            onCancel={() => setDeleteTarget(null)}
-            isLoading={isDeleting}
-          />
-        </PermissionGuard>
-
         <div className="documents-templates__toolbar">
           <div>
             <h3>Templates</h3>
@@ -755,14 +748,14 @@ export function TemplatesTab() {
                             </IconButton>
                           </PermissionGuard>
 
-                          <PermissionGuard permission={PERMISSIONS.documentTemplatesWrite}>
-                            <IconButton
-                              label="Delete"
-                              kind="ghost"
-                              size="sm"
-                              onClick={() => setDeleteTarget(template)}
-                              disabled={isMutating}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.documentTemplatesWrite}>
+                              <IconButton
+                                label="Delete"
+                                kind="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteRequest(template)}
+                                disabled={isMutating}
+                              >
                               <TrashCan />
                             </IconButton>
                           </PermissionGuard>

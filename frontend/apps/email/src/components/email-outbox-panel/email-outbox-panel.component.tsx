@@ -459,9 +459,7 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
 
       resetForm();
       onSuccess?.();
-    } catch (error) {
-      console.error(error);
-
+    } catch {
       toast.error({
         title: deliveryMode === "send" ? "Failed to send email" : "Failed to queue email",
         subtitle: "Please check the email service logs and try again.",

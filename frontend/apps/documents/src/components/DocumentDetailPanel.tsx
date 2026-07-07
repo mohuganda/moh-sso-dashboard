@@ -1,11 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
   InlineLoading,
   InlineNotification,
-  Modal,
   ProgressBar,
   Tab,
   TabList,
@@ -17,6 +16,7 @@ import {
 import { ChartBar, Download, Renew, TrashCan } from "@carbon/react/icons";
 
 import { PermissionGuard, PERMISSIONS, selectUser } from "@moh-sso/auth";
+import { useModal, useToast } from "@moh-sso/ui";
 import { useGetUserQuery } from "@moh-sso/users/api";
 
 import {
@@ -167,8 +167,8 @@ type Props = {
 
 function DocumentDetailPanelContent({ document, onClose }: Props) {
   const navigate = useNavigate();
-
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const { openModal, closeModal } = useModal();
+  const toast = useToast();
 
   const [triggerDownload] = useLazyDownloadDocumentQuery();
 
@@ -233,16 +233,18 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
       link.click();
 
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Download failed", error);
+      toast.success("Download started", document.original_filename);
+    } catch {
+      toast.error("Download failed", "Please try again.");
     }
   }
 
   async function handleReprocess() {
     try {
       await reprocessDocument(document.id).unwrap();
-    } catch (error) {
-      console.error("Reprocess failed", error);
+      toast.success("Reprocess started", document.original_filename);
+    } catch {
+      toast.error("Reprocess failed", "Please try again.");
     }
   }
 
@@ -250,11 +252,35 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
     try {
       await deleteDocument(document.id).unwrap();
 
-      setConfirmDelete(false);
+      closeModal();
+      toast.success("Document deleted", document.original_filename);
       onClose();
-    } catch (error) {
-      console.error("Delete failed", error);
+    } catch {
+      toast.error("Delete failed", "Please try again.");
     }
+  }
+
+  function handleDeleteRequest() {
+    openModal({
+      title: "Delete document",
+      onClose: closeModal,
+      content: (
+        <p>
+          Permanently delete <strong>{document.original_filename}</strong>? This also removes all
+          imported rows from the database and cannot be undone.
+        </p>
+      ),
+      primaryAction: {
+        label: isDeleting ? "Deleting..." : "Delete",
+        kind: "danger",
+        disabled: isDeleting,
+        onClick: () => void handleDeleteConfirm(),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
+    });
   }
 
   function handlePreview() {
@@ -265,24 +291,6 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
 
   return (
     <>
-      <PermissionGuard permission={PERMISSIONS.documentsWrite}>
-        <Modal
-          open={confirmDelete}
-          danger
-          modalHeading="Delete document"
-          primaryButtonText={isDeleting ? "Deleting…" : "Delete"}
-          secondaryButtonText="Cancel"
-          primaryButtonDisabled={isDeleting}
-          onRequestClose={() => setConfirmDelete(false)}
-          onRequestSubmit={() => void handleDeleteConfirm()}
-        >
-          <p>
-            Permanently delete <strong>{document.original_filename}</strong>? This also removes all
-            imported rows from the database and cannot be undone.
-          </p>
-        </Modal>
-      </PermissionGuard>
-
       <div
         style={{
           display: "flex",
@@ -419,7 +427,7 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
               kind="ghost"
               size="sm"
               disabled={isBusy}
-              onClick={() => setConfirmDelete(true)}
+              onClick={handleDeleteRequest}
               style={{
                 marginLeft: "auto",
               }}

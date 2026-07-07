@@ -26,10 +26,10 @@ import {
 
 import type { EmailStatus, EmailOutboxItem } from "../types";
 
-import { ErrorState, useHeaderPanel, useToast } from "@moh-sso/ui";
+import { ErrorState, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
 
 import EmailPanelComponent from "../components/email-outbox-panel/email-outbox-panel.component";
-import { EmailDetailsModal } from "../components/email-outbox-detail/email-outbox-details-modal.component";
+import { EmailDetailsContent } from "../components/email-outbox-detail/email-outbox-details-modal.component";
 import { EmailOutboxActionsMenu } from "../components/email-outbox-actions-menu.component";
 
 import "./email-outbox.scss";
@@ -106,6 +106,7 @@ function toApiStatus(status: StatusFilter): "ALL" | EmailStatus {
 
 export default function EmailOutbox() {
   const { openPanel, closePanel } = useHeaderPanel();
+  const { openModal, closeModal } = useModal();
   const toast = useToast();
 
   const [bulkAction, setBulkAction] = useState<"retry" | "delete" | null>(null);
@@ -121,11 +122,6 @@ export default function EmailOutbox() {
    * ----------------------------- */
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-
-  /* -----------------------------
-   * Modals
-   * ----------------------------- */
-  const [selectedEmail, setSelectedEmail] = useState<EmailOutboxItem | null>(null);
 
   const offset = (page - 1) * pageSize;
   const apiStatus = toApiStatus(statusFilter);
@@ -257,28 +253,97 @@ export default function EmailOutbox() {
     }
   };
 
-  const handleDelete = async (item: EmailOutboxItem) => {
-    const confirmed = window.confirm(`Delete email record "${getSubject(item)}"?`);
-
-    if (!confirmed) return;
-
+  const deleteEmailRecord = async (item: EmailOutboxItem) => {
     try {
       await deleteEmail(item.id).unwrap();
+      closeModal();
 
       toast.success({
         title: "Email deleted",
         subtitle: getSubject(item),
       });
-
-      if (selectedEmail?.id === item.id) {
-        setSelectedEmail(null);
-      }
     } catch {
       toast.error({
         title: "Delete failed",
         subtitle: "Please try again.",
       });
     }
+  };
+
+  const handleView = (item: EmailOutboxItem) => {
+    openModal({
+      title: "Email details",
+      onClose: closeModal,
+      content: <EmailDetailsContent email={item} />,
+      size: "lg",
+      secondaryAction: {
+        label: "Close",
+        onClick: closeModal,
+      },
+    });
+  };
+
+  const handleDelete = (item: EmailOutboxItem) => {
+    openModal({
+      title: "Delete email record",
+      onClose: closeModal,
+      content: (
+        <p>
+          Delete email record <strong>{getSubject(item)}</strong>?
+        </p>
+      ),
+      primaryAction: {
+        label: "Delete",
+        kind: "danger",
+        onClick: () => void deleteEmailRecord(item),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
+    });
+  };
+
+  const deleteSelectedEmails = async (selectedEmails: EmailOutboxItem[]) => {
+    try {
+      setBulkAction("delete");
+
+      await Promise.all(selectedEmails.map((email) => deleteEmail(email.id).unwrap()));
+      closeModal();
+
+      toast.success({
+        title: "Emails deleted",
+        subtitle: `${selectedEmails.length} email record(s) deleted.`,
+      });
+    } catch {
+      toast.error({
+        title: "Delete failed",
+        subtitle: "Some emails could not be deleted.",
+      });
+    } finally {
+      setBulkAction(null);
+    }
+  };
+
+  const handleBulkDelete = (selectedEmails: EmailOutboxItem[]) => {
+    openModal({
+      title: "Delete email records",
+      onClose: closeModal,
+      content: (
+        <p>
+          Delete <strong>{selectedEmails.length}</strong> selected email record(s)?
+        </p>
+      ),
+      primaryAction: {
+        label: "Delete",
+        kind: "danger",
+        onClick: () => void deleteSelectedEmails(selectedEmails),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
+    });
   };
 
   /* -----------------------------
@@ -384,38 +449,7 @@ export default function EmailOutbox() {
                       }
                     }}
                     onDelete={async () => {
-                      const confirmed = window.confirm(
-                        `Delete ${selectedEmails.length} selected email record(s)?`,
-                      );
-
-                      if (!confirmed) return;
-
-                      try {
-                        setBulkAction("delete");
-
-                        await Promise.all(
-                          selectedEmails.map((email) => deleteEmail(email.id).unwrap()),
-                        );
-
-                        toast.success({
-                          title: "Emails deleted",
-                          subtitle: `${selectedEmails.length} email record(s) deleted.`,
-                        });
-
-                        if (
-                          selectedEmail &&
-                          selectedEmails.some((email) => email.id === selectedEmail.id)
-                        ) {
-                          setSelectedEmail(null);
-                        }
-                      } catch {
-                        toast.error({
-                          title: "Delete failed",
-                          subtitle: "Some emails could not be deleted.",
-                        });
-                      } finally {
-                        setBulkAction(null);
-                      }
+                      handleBulkDelete(selectedEmails);
                     }}
                   />
 
@@ -501,7 +535,7 @@ export default function EmailOutbox() {
                                         <EmailOutboxActionsMenu
                                           email={email}
                                           isMutating={Boolean(bulkAction)}
-                                          onView={() => setSelectedEmail(email)}
+                                          onView={() => handleView(email)}
                                           onRetry={() => handleRetry(email)}
                                           onDelete={() => handleDelete(email)}
                                         />
@@ -535,12 +569,6 @@ export default function EmailOutbox() {
           />
         </Tile>
       </div>
-
-      <EmailDetailsModal
-        open={Boolean(selectedEmail)}
-        email={selectedEmail}
-        onClose={() => setSelectedEmail(null)}
-      />
     </>
   );
 }
