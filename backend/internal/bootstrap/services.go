@@ -244,6 +244,7 @@ func buildServices(deps serviceDependencies) services {
 	)
 
 	rbacService := rbacfeature.NewService(deps.Repositories.RBAC, userService)
+	rbacService.SetFrontendBaseURL(deps.Config.FrontendBaseURL)
 
 	return services{
 		Email:                   emailService,

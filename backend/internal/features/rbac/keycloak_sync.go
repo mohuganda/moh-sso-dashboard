@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -136,12 +137,13 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 		}
 		discoveredSystem, ok := discoveredSystems[clientID]
 		if !ok {
+			clientURL := s.keycloakClientURL(system.LaunchURL)
 			if _, err := source.CreateClient(keycloak.CreateClientParams{
 				ClientID:    clientID,
 				Name:        system.DisplayName,
 				Description: system.Description,
-				BaseURL:     system.LaunchURL,
-				RootURL:     system.LaunchURL,
+				BaseURL:     clientURL,
+				RootURL:     clientURL,
 				Enabled:     system.Enabled,
 				Attributes:  attributes,
 			}); err != nil {
@@ -231,6 +233,51 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 	}
 
 	return result, nil
+}
+
+func (s *Service) keycloakClientURL(launchURL string) string {
+	launchURL = strings.TrimSpace(launchURL)
+	if launchURL == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(launchURL); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		return launchURL
+	}
+
+	base := strings.TrimSpace(s.frontendBaseURL)
+	if base == "" {
+		return ""
+	}
+	baseURL, err := url.Parse(base)
+	if err != nil || baseURL.Scheme == "" || baseURL.Host == "" {
+		return ""
+	}
+
+	relative, err := url.Parse(launchURL)
+	if err != nil {
+		return ""
+	}
+	if relative.IsAbs() {
+		return relative.String()
+	}
+
+	basePath := strings.TrimRight(baseURL.Path, "/")
+	path := relative.Path
+	if path == "" {
+		path = "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if basePath != "" && path != basePath && !strings.HasPrefix(path, basePath+"/") {
+		path = basePath + path
+	}
+
+	resolved := *baseURL
+	resolved.Path = path
+	resolved.RawQuery = relative.RawQuery
+	resolved.Fragment = relative.Fragment
+	return resolved.String()
 }
 
 func (s *Service) previewDiscoveredSync(ctx context.Context, source string, discovered discoveredRBAC) (SyncPreviewResponse, error) {

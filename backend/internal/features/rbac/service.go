@@ -22,8 +22,9 @@ var (
 )
 
 type Service struct {
-	repository Repository
-	users      UserLookup
+	repository      Repository
+	users           UserLookup
+	frontendBaseURL string
 }
 
 type UserLookup interface {
@@ -39,6 +40,10 @@ func NewService(repository Repository, users ...UserLookup) *Service {
 		userLookup = users[0]
 	}
 	return &Service{repository: repository, users: userLookup}
+}
+
+func (s *Service) SetFrontendBaseURL(value string) {
+	s.frontendBaseURL = strings.TrimSpace(value)
 }
 
 func (s *Service) ListSystems(ctx context.Context) ([]System, error) {

@@ -102,6 +102,48 @@ func TestValidateOptionalURLAcceptsRootRelativeSupportLinks(t *testing.T) {
 	}
 }
 
+func TestKeycloakClientURLResolvesPortalRelativeLaunchURL(t *testing.T) {
+	service := NewService(nil)
+	service.SetFrontendBaseURL("http://localhost:3000/portal")
+
+	got := service.keycloakClientURL("/portal/apps/outbreak-management")
+	want := "http://localhost:3000/portal/apps/outbreak-management"
+	if got != want {
+		t.Fatalf("keycloakClientURL returned %q, want %q", got, want)
+	}
+}
+
+func TestKeycloakClientURLResolvesAppPathUnderPortalBase(t *testing.T) {
+	service := NewService(nil)
+	service.SetFrontendBaseURL("http://localhost:3000/portal")
+
+	got := service.keycloakClientURL("/apps/dwh/surveillance")
+	want := "http://localhost:3000/portal/apps/dwh/surveillance"
+	if got != want {
+		t.Fatalf("keycloakClientURL returned %q, want %q", got, want)
+	}
+}
+
+func TestKeycloakClientURLKeepsAbsoluteLaunchURL(t *testing.T) {
+	service := NewService(nil)
+	service.SetFrontendBaseURL("http://localhost:3000/portal")
+
+	got := service.keycloakClientURL("https://systems.health.go.ug/outbreak")
+	want := "https://systems.health.go.ug/outbreak"
+	if got != want {
+		t.Fatalf("keycloakClientURL returned %q, want %q", got, want)
+	}
+}
+
+func TestKeycloakClientURLReturnsEmptyWithoutAbsoluteFrontendBase(t *testing.T) {
+	service := NewService(nil)
+	service.SetFrontendBaseURL("/portal")
+
+	if got := service.keycloakClientURL("/portal/apps/outbreak-management"); got != "" {
+		t.Fatalf("keycloakClientURL returned %q, want empty string", got)
+	}
+}
+
 func TestParseRealmExportRequiresExplicitPortalEnrollment(t *testing.T) {
 	payload := []byte(`{
 		"roles":{"realm":[],"client":{"portal-app":[{"name":"portal-app_access"}],"technical-app":[{"name":"technical-app_access"}]}},
