@@ -1203,6 +1203,16 @@ func (c *KeyAdminClient) EnsureRealmRoleClientRoleComposite(
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(res.Body)
+		if res.StatusCode == http.StatusForbidden {
+			return fmt.Errorf(
+				"add realm role composite failed [403]: keycloak admin client %q service account needs realm-management realm-admin or manage-realm to assign client role %q/%q to realm role %q: %s",
+				c.ClientID,
+				clientID,
+				roleName,
+				realmRole,
+				string(body),
+			)
+		}
 		return fmt.Errorf("add realm role composite failed [%d]: %s", res.StatusCode, string(body))
 	}
 	return nil

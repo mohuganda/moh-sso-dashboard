@@ -706,6 +706,8 @@
       "serviceAccountClientId": "dashboard-admin",
       "clientRoles": {
         "realm-management": [
+          "realm-admin",
+          "manage-realm",
           "view-clients",
           "manage-clients",
           "view-users",
