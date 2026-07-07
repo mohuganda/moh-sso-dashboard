@@ -5,5 +5,9 @@ import EmailOutbox from "./pages/email-outbox.component";
 export function EmailRoot(props: MicrofrontendRuntimeProps) {
   void props;
 
-  return <EmailOutbox />;
+  return (
+    <div className="moh-microfrontend-root">
+      <EmailOutbox />
+    </div>
+  );
 }

@@ -28,13 +28,15 @@ function resolveDocumentsBasename(props: MicrofrontendRuntimeProps) {
 export function DocumentsRoot(props: MicrofrontendRuntimeProps) {
   const basename = resolveDocumentsBasename(props);
   return (
-    <MohThemeProvider theme="white">
-      <BrowserRouter basename={basename}>
-        <Routes>
-          <Route index element={<DocumentPage />} />
-          <Route path=":id" element={<DocumentDetailsPage />} />
-        </Routes>
-      </BrowserRouter>
-    </MohThemeProvider>
+    <div className="moh-microfrontend-root">
+      <MohThemeProvider theme="white">
+        <BrowserRouter basename={basename}>
+          <Routes>
+            <Route index element={<DocumentPage />} />
+            <Route path=":id" element={<DocumentDetailsPage />} />
+          </Routes>
+        </BrowserRouter>
+      </MohThemeProvider>
+    </div>
   );
 }

@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { SideNav, SideNavItems, SideNavLink, SideNavMenu } from "@carbon/react";
 import { Menu } from "@carbon/react/icons";
 
 import type { Client } from "@moh-sso/types";
+import { useFocusTrap } from "../../accessibility";
 
 type SideNavItem = {
   id: string;
@@ -275,6 +276,11 @@ export function ClientSideNav({
   visible = true,
   onToggleVisibility,
 }: ClientSideNavProps) {
+  const navRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const shouldTrapFocus =
+    visible && typeof window !== "undefined" && window.matchMedia("(max-width: 1056px)").matches;
+
   const navClients = useMemo(() => {
     return clients
       .filter(isPlatformSideNavClient)
@@ -297,6 +303,12 @@ export function ClientSideNav({
         return getClientLabel(a.client).localeCompare(getClientLabel(b.client));
       });
   }, [clients, hasPermission]);
+
+  useFocusTrap({
+    active: shouldTrapFocus,
+    containerRef: navRef,
+    initialFocusRef: closeButtonRef,
+  });
 
   if (navClients.length === 0) {
     return null;
@@ -326,6 +338,7 @@ export function ClientSideNav({
       ) : null}
 
       <SideNav
+        ref={navRef}
         id="user-sidenav"
         isFixedNav
         expanded
@@ -342,6 +355,7 @@ export function ClientSideNav({
 
             {onToggleVisibility ? (
               <button
+                ref={closeButtonRef}
                 type="button"
                 className="moh-client-sidenav__toggle"
                 aria-label="Hide navigation"

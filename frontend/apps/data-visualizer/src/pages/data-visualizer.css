@@ -87,6 +87,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   background: #fff;
 }
 
@@ -125,6 +126,7 @@
   padding: 16px;
   flex: 1;
   overflow: auto;
+  min-width: 0;
   /*background: #f9fafb;*/
 }
 
@@ -231,6 +233,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 16px;
+  min-width: 0;
   min-height: 400px;
   display: flex;
   flex-direction: column;
@@ -270,6 +273,9 @@
 /* Chart Styles */
 .simple-chart-container {
   padding: 1rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .simple-chart {
@@ -285,6 +291,7 @@
   gap: 0.5rem;
   height: 200px;
   padding: 1rem 0;
+  min-width: 32rem;
 }
 
 .chart-bar-container {
@@ -389,8 +396,37 @@
 .dv-action-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 16px;
+}
+
+.dv-container,
+.dv-layout,
+.dv-dimension-layout,
+.dv-dimension-grid,
+.dv-canvas,
+.dv-canvas > *,
+.simple-chart,
+.dv-action-bar {
+  max-width: 100%;
+}
+
+.dv-canvas .pvtUi,
+.dv-canvas .pvtTable,
+.dv-canvas .pvtRendererArea,
+.dv-canvas table {
+  max-width: 100%;
+}
+
+.dv-canvas .pvtUi,
+.dv-canvas .pvtRendererArea {
+  overflow-x: auto;
+}
+
+.dv-canvas .pvtTable,
+.dv-canvas table {
+  min-width: max-content;
 }
 
 .dv-btn {
@@ -477,6 +513,8 @@
 @media (max-width: 768px) {
   .dv-container {
     flex-direction: column;
+    width: 100%;
+    overflow-x: hidden;
   }
 
   .dv-sidebar {
@@ -488,5 +526,48 @@
 
   .dv-dimension-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dv-toolbar {
+    height: auto;
+    min-height: 44px;
+    justify-content: stretch;
+    flex-wrap: wrap;
+    padding: 0.75rem;
+  }
+
+  .dv-toolbar .cds--btn,
+  .dwh-btn-width {
+    width: 100%;
+    max-width: none;
+  }
+
+  .dv-layout,
+  .dv-dimension-layout,
+  .dv-canvas {
+    padding: 0.75rem;
+  }
+
+  .dv-canvas {
+    min-height: 18rem;
+  }
+
+  .dv-canvas-placeholder {
+    padding: 1.5rem 0.75rem;
+  }
+
+  .dv-badge {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dv-action-bar,
+  .dv-action-bar .cds--btn,
+  .dv-btn {
+    width: 100%;
+  }
+
+  .chart-bars {
+    min-width: 28rem;
   }
 }

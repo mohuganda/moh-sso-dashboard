@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import {
   Content,
@@ -33,6 +33,7 @@ import {
   PublicFooter,
   ToastProvider,
   useHeaderPanel,
+  useFocusTrap,
 } from "@moh-sso/ui";
 
 import { API } from "@moh-sso/config";
@@ -163,6 +164,10 @@ function readStoredSideNavVisible(): boolean {
     return true;
   }
 
+  if (window.matchMedia("(max-width: 1056px)").matches) {
+    return window.localStorage.getItem(ADMIN_SIDENAV_STORAGE_KEY) === "true";
+  }
+
   return window.localStorage.getItem(ADMIN_SIDENAV_STORAGE_KEY) !== "false";
 }
 
@@ -282,12 +287,17 @@ function HeaderActions() {
 type AdminSideNavProps = {
   visible: boolean;
   onToggleVisibility: () => void;
+  onNavigate?: () => void;
 };
 
-function AdminSideNav({ visible, onToggleVisibility }: AdminSideNavProps) {
+function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { can, canAny } = useAuthorization();
+  const navRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const shouldTrapFocus =
+    visible && typeof window !== "undefined" && window.matchMedia("(max-width: 1056px)").matches;
 
   const navItems = useMemo(
     () =>
@@ -298,6 +308,12 @@ function AdminSideNav({ visible, onToggleVisibility }: AdminSideNavProps) {
       ),
     [can, canAny],
   );
+
+  useFocusTrap({
+    active: shouldTrapFocus,
+    containerRef: navRef,
+    initialFocusRef: closeButtonRef,
+  });
 
   return (
     <>
@@ -315,6 +331,7 @@ function AdminSideNav({ visible, onToggleVisibility }: AdminSideNavProps) {
       ) : null}
 
       <SideNav
+        ref={navRef}
         id="admin-sidenav"
         isFixedNav
         expanded
@@ -330,6 +347,7 @@ function AdminSideNav({ visible, onToggleVisibility }: AdminSideNavProps) {
             </div>
 
             <button
+              ref={closeButtonRef}
               type="button"
               className="admin-layout__sidenav-toggle"
               aria-label="Hide navigation"
@@ -365,6 +383,7 @@ function AdminSideNav({ visible, onToggleVisibility }: AdminSideNavProps) {
                         if (location.pathname !== item.path) {
                           navigate(item.path);
                         }
+                        onNavigate?.();
                       }}
                     >
                       {item.label}
@@ -384,6 +403,29 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [isSideNavVisible, setIsSideNavVisible] = useState(readStoredSideNavVisible);
   const versionInfo = useVersionInfo();
+
+  useEffect(() => {
+    if (!isSideNavVisible) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && window.matchMedia("(max-width: 1056px)").matches) {
+        setIsSideNavVisible(false);
+      }
+    };
+
+    const originalOverflow = document.body.style.overflow;
+
+    if (window.matchMedia("(max-width: 1056px)").matches) {
+      document.body.style.overflow = "hidden";
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isSideNavVisible]);
 
   useEffect(() => {
     window.localStorage.setItem(ADMIN_SIDENAV_STORAGE_KEY, String(isSideNavVisible));
@@ -428,7 +470,21 @@ export default function AdminLayout() {
           <AdminSideNav
             visible={isSideNavVisible}
             onToggleVisibility={() => setIsSideNavVisible((visible) => !visible)}
+            onNavigate={() => {
+              if (window.matchMedia("(max-width: 1056px)").matches) {
+                setIsSideNavVisible(false);
+              }
+            }}
           />
+
+          {isSideNavVisible ? (
+            <button
+              type="button"
+              className="admin-layout__sidenav-backdrop"
+              aria-label="Close navigation"
+              onClick={() => setIsSideNavVisible(false)}
+            />
+          ) : null}
 
           <div className="admin-layout__content-shell">
             <RouteBreadcrumbBar />

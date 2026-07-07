@@ -135,4 +135,34 @@
     width: 100%;
     max-width: 100%;
   }
+
+  .app-side-panel__header {
+    min-height: 3.5rem;
+    padding: 0 0.75rem;
+  }
+
+  .app-side-panel__title {
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .app-side-panel__body {
+    padding: 0.75rem;
+  }
+
+  .app-side-panel__body .cds--form-item,
+  .app-side-panel__body .cds--text-input,
+  .app-side-panel__body .cds--text-area,
+  .app-side-panel__body .cds--select,
+  .app-side-panel__body .cds--dropdown,
+  .app-side-panel__body .cds--multi-select,
+  .app-side-panel__body .cds--date-picker,
+  .app-side-panel__body .cds--date-picker-container {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .app-side-panel__footer {
+    grid-template-columns: 1fr;
+  }
 }

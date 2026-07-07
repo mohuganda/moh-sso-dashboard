@@ -109,8 +109,9 @@ function DocumentsTabContent() {
   }
 
   return (
-    <div>
+    <div className="documents-tab">
       <div
+        className="documents-tab__actions"
         style={{
           display: "flex",
           justifyContent: "flex-end",
@@ -134,6 +135,7 @@ function DocumentsTabContent() {
       </div>
 
       <div
+        className="documents-tab__stats"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
@@ -208,6 +210,7 @@ function DocumentsTabContent() {
         <DataTable rows={filteredDocs} headers={TABLE_HEADERS}>
           {({ headers, getTableProps, getHeaderProps }) => (
             <TableContainer
+              className="documents-tab__table"
               title="Uploaded documents"
               description={isFetching ? "Refreshing..." : undefined}
             >

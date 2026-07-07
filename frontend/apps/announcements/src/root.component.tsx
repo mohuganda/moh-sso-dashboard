@@ -5,5 +5,9 @@ import { AnnouncementsPage } from "./pages/announcements.components";
 export function AnnouncementsRoot(props: MicrofrontendRuntimeProps) {
   void props;
 
-  return <AnnouncementsPage />;
+  return (
+    <div className="moh-microfrontend-root">
+      <AnnouncementsPage />
+    </div>
+  );
 }

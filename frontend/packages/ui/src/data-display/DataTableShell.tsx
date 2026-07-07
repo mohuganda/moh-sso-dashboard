@@ -72,10 +72,12 @@ export function DataTableShell<T extends object>({
         ) : (
           <>
             {bulkActions}
-            {children({
-              rows: rows.map((row) => ({ ...row, id: getRowId(row) })),
-              headers,
-            })}
+            <div className="moh-data-table-shell__table-scroll">
+              {children({
+                rows: rows.map((row) => ({ ...row, id: getRowId(row) })),
+                headers,
+              })}
+            </div>
           </>
         )}
       </Tile>

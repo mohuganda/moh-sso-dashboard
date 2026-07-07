@@ -5,5 +5,9 @@ import DataValidationPage from "./pages/data-validation.page";
 export function DataValidationRoot(props: MicrofrontendRuntimeProps) {
   void props;
 
-  return <DataValidationPage />;
+  return (
+    <div className="moh-microfrontend-root">
+      <DataValidationPage />
+    </div>
+  );
 }

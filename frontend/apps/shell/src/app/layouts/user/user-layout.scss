@@ -11,6 +11,11 @@
   background: var(--cds-background, #ffffff);
 }
 
+.user-layout,
+.user-layout * {
+  min-width: 0;
+}
+
 .user-layout__body {
   flex: 1;
   display: flex;
@@ -44,6 +49,8 @@
   min-width: 0;
   flex: 1;
   padding: 1.5rem;
+  padding-bottom: 4.5rem;
+  overflow-x: hidden;
   background: var(--cds-background, #ffffff);
 }
 
@@ -127,6 +134,10 @@
   border-right: 1px solid var(--cds-border-subtle-01, #e0e0e0);
   border-bottom: 1px solid var(--cds-border-subtle-01, #e0e0e0);
   box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.02);
+}
+
+.user-layout__sidenav-backdrop {
+  display: none;
 }
 
 .user-layout .moh-client-sidenav__kicker {
@@ -219,10 +230,31 @@
   .user-layout {
     --moh-footer-left-offset: 0rem;
   }
+
+  .user-layout .cds--side-nav {
+    width: min(20rem, 86vw);
+    max-width: 86vw;
+    transform: translateX(0);
+    z-index: var(--moh-z-sidenav, 6000);
+  }
+
+  .user-layout--sidenav-hidden .moh-client-sidenav {
+    transform: translateX(-100%);
+  }
+
+  .user-layout__sidenav-backdrop {
+    position: fixed;
+    inset: var(--moh-header-height) 0 0;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: rgba(22, 22, 22, 0.38);
+    z-index: calc(var(--moh-z-sidenav, 6000) - 1);
+  }
 }
 
 @media (max-width: 672px) {
   .user-layout__content {
-    padding: 1rem;
+    padding: 1rem 0.75rem 5rem;
   }
 }

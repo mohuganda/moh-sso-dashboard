@@ -5,5 +5,9 @@ import IssueTracker from "./pages/issue-tracker.component";
 export function IssueTrackerRoot(props: MicrofrontendRuntimeProps) {
   void props;
 
-  return <IssueTracker />;
+  return (
+    <div className="moh-microfrontend-root">
+      <IssueTracker />
+    </div>
+  );
 }

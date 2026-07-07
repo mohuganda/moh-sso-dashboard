@@ -5,5 +5,9 @@ import ReportBrowser from "./pages/report-broswer";
 export function ReportBrowserRoot(props: MicrofrontendRuntimeProps) {
   void props;
 
-  return <ReportBrowser />;
+  return (
+    <div className="moh-microfrontend-root">
+      <ReportBrowser />
+    </div>
+  );
 }

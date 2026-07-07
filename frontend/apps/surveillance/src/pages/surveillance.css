@@ -335,6 +335,8 @@
 /* dashboard page */
 .surveillance-dashboard-page {
   padding: 1rem 1rem 2rem;
+  min-width: 0;
+  max-width: 100%;
   background: #ffffff;
 }
 
@@ -423,5 +425,87 @@
 
   .surveillance-dashboard-page__title {
     font-size: 1.75rem;
+  }
+}
+
+.surveillance-panels,
+.surveillance-panels__grid,
+.surveillance-panel,
+.surveillance-map,
+.surveillance-map__canvas,
+.surveillance-map__leaflet,
+.surveillance-dashboard-page__section {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.surveillance-panel {
+  overflow: hidden;
+}
+
+.surveillance-dashboard-page .cds--data-table-container,
+.surveillance-dashboard-page .cds--data-table-content,
+.surveillance-dashboard-page table {
+  max-width: 100%;
+}
+
+.surveillance-dashboard-page .cds--data-table-content {
+  overflow-x: auto;
+}
+
+.surveillance-dashboard-page table {
+  min-width: max-content;
+}
+
+@media (max-width: 672px) {
+  .surveillance-dashboard-page {
+    padding: 0.75rem 0.75rem 5rem;
+  }
+
+  .surveillance-dashboard-page__hero-copy {
+    min-width: 0;
+  }
+
+  .surveillance-dashboard-page__title {
+    font-size: 1.5rem;
+  }
+
+  .surveillance-panel {
+    padding: 0.75rem;
+  }
+
+  .surveillance-panel__title {
+    font-size: 1.25rem;
+  }
+
+  .surveillance-panel--map,
+  .surveillance-map {
+    min-height: 360px;
+  }
+
+  .surveillance-map__canvas,
+  .surveillance-map__leaflet,
+  .surveillance-map__leaflet .leaflet-container {
+    min-height: 300px;
+  }
+
+  .surveillance-map__header {
+    padding: 0.75rem 0;
+  }
+
+  .surveillance-map__header h3 {
+    font-size: 1.35rem;
+  }
+
+  .surveillance-map__footer,
+  .surveillance-map__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .surveillance-map__tool-button {
+    width: 100%;
   }
 }

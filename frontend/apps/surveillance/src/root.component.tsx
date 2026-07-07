@@ -7,14 +7,16 @@ import { MohThemeProvider } from "@moh-sso/ui";
 
 export function SurveillanceRoot(props: MicrofrontendRuntimeProps) {
   return (
-    <MohThemeProvider theme="white">
-      <BrowserRouter basename={resolveRuntimeBasename(props.basename || "/apps/dwh/surveillance")}>
-        <Routes>
-          <Route index element={<SurveillanceDashboardPage />} />
-          <Route path=":diseaseName" element={<DiseaseDetailsPage />} />
-          <Route path="*" element={<SurveillanceDashboardPage />} />
-        </Routes>
-      </BrowserRouter>
-    </MohThemeProvider>
+    <div className="moh-microfrontend-root">
+      <MohThemeProvider theme="white">
+        <BrowserRouter basename={resolveRuntimeBasename(props.basename || "/apps/dwh/surveillance")}>
+          <Routes>
+            <Route index element={<SurveillanceDashboardPage />} />
+            <Route path=":diseaseName" element={<DiseaseDetailsPage />} />
+            <Route path="*" element={<SurveillanceDashboardPage />} />
+          </Routes>
+        </BrowserRouter>
+      </MohThemeProvider>
+    </div>
   );
 }

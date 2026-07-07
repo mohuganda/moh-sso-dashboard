@@ -23,38 +23,40 @@ export function EServicesRoot(props: MicrofrontendRuntimeProps) {
   const basename = resolveRuntimeBasename(normalizeBasename(props.basename));
 
   return (
-    <MohThemeProvider theme="white">
-      <BrowserRouter basename={basename}>
-        <Routes>
-          <Route index element={<Navigate to="/ihris/meeting-manager" replace />} />
-
-          <Route path="ihris">
+    <div className="moh-microfrontend-root">
+      <MohThemeProvider theme="white">
+        <BrowserRouter basename={basename}>
+          <Routes>
             <Route index element={<Navigate to="/ihris/meeting-manager" replace />} />
 
-            <Route path="meeting-manager" element={<MeetingManagerPage />} />
+            <Route path="ihris">
+              <Route index element={<Navigate to="/ihris/meeting-manager" replace />} />
 
-            <Route path="action-tracker" element={<ActionTrackerPage />} />
+              <Route path="meeting-manager" element={<MeetingManagerPage />} />
 
-            <Route path="clinician-outputs" element={<ClinicianOutputsPage />} />
+              <Route path="action-tracker" element={<ActionTrackerPage />} />
 
-            <Route path="leave-absence-management" element={<LeaveAbsenceManagementPage />} />
+              <Route path="clinician-outputs" element={<ClinicianOutputsPage />} />
 
-            <Route path="workplans" element={<WorkplansPage />} />
+              <Route path="leave-absence-management" element={<LeaveAbsenceManagementPage />} />
 
-            <Route path="budget-tracker" element={<BudgetTrackerPage />} />
+              <Route path="workplans" element={<WorkplansPage />} />
 
-            <Route path="activity-reporting" element={<ActivityReportingPage />} />
+              <Route path="budget-tracker" element={<BudgetTrackerPage />} />
+
+              <Route path="activity-reporting" element={<ActivityReportingPage />} />
+
+              <Route path="*" element={<Navigate to="/ihris/meeting-manager" replace />} />
+            </Route>
+
+            <Route path="partner-management" element={<div>Partner Management</div>} />
+
+            <Route path="observatory-uploads" element={<div>Observatory Uploads</div>} />
 
             <Route path="*" element={<Navigate to="/ihris/meeting-manager" replace />} />
-          </Route>
-
-          <Route path="partner-management" element={<div>Partner Management</div>} />
-
-          <Route path="observatory-uploads" element={<div>Observatory Uploads</div>} />
-
-          <Route path="*" element={<Navigate to="/ihris/meeting-manager" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </MohThemeProvider>
+          </Routes>
+        </BrowserRouter>
+      </MohThemeProvider>
+    </div>
   );
 }

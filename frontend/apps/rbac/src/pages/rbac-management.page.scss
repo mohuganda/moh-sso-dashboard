@@ -452,3 +452,120 @@
     position: static;
   }
 }
+
+/* Mobile hardening for dense governance screens. */
+.rbac-page,
+.rbac-page__layout,
+.rbac-page__main,
+.rbac-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rbac-card {
+  overflow: hidden;
+}
+
+.rbac-system-list__item strong,
+.rbac-role-list__item strong,
+.rbac-system-list__item small,
+.rbac-role-list__item small,
+.rbac-permission-catalog__row,
+.rbac-tag-list,
+.rbac-effective-card,
+.rbac-audit-detail__meta dd {
+  overflow-wrap: anywhere;
+}
+
+.rbac-card .cds--text-input,
+.rbac-card .cds--search-input,
+.rbac-card .cds--list-box,
+.rbac-card .cds--dropdown,
+.rbac-card textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rbac-governance-tabs,
+.rbac-drift-table {
+  overflow-x: auto;
+}
+
+.rbac-governance-tabs .cds--tabs,
+.rbac-governance-tabs .cds--tab--list {
+  min-width: max-content;
+}
+
+.rbac-drift-row {
+  min-width: 54rem;
+}
+
+.rbac-tag-list .cds--tag {
+  max-width: 100%;
+}
+
+.rbac-tag-list .cds--tag__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rbac-audit-actions,
+.rbac-sync-actions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 672px) {
+  .rbac-page {
+    padding: 0.75rem;
+  }
+
+  .rbac-page__header,
+  .rbac-page__panel-header,
+  .rbac-audit-detail__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rbac-page__header h1 {
+    font-size: 1.5rem;
+  }
+
+  .rbac-page__panel-header,
+  .rbac-form-grid,
+  .rbac-permission-matrix,
+  .rbac-governance-grid,
+  .rbac-sync-grid,
+  .rbac-drift,
+  .rbac-effective-search,
+  .rbac-effective-result {
+    padding: 0.75rem;
+  }
+
+  .rbac-inline-form,
+  .rbac-audit-actions,
+  .rbac-sync-actions,
+  .rbac-effective-user,
+  .rbac-effective-grant {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .rbac-inline-form .cds--btn,
+  .rbac-audit-actions .cds--btn,
+  .rbac-sync-actions .cds--btn,
+  .rbac-effective-search .cds--btn {
+    width: 100%;
+    max-width: none;
+  }
+
+  .rbac-drift-row {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .rbac-summary-tile strong {
+    font-size: 1.25rem;
+  }
+}
