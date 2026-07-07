@@ -636,8 +636,6 @@ realmRoles:
       data-statistics:
         - data-statistics_access
         - document_viewer
-      utilities:
-        - utilities_access
       settings:
         - settings_access
 
@@ -674,5 +672,3 @@ realmRoles:
         - report_manager
         - issue_tracker_manager
         - document_manager
-      utilities:
-        - utilities_access
