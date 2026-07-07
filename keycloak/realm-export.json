@@ -1051,6 +1051,9 @@
           "report_viewer",
           "issue_tracker_viewer",
           "document_viewer"
+        ],
+        "settings": [
+          "settings_access"
         ]
       }
     },
@@ -1149,6 +1152,9 @@
           "report_analyst",
           "issue_tracker_editor",
           "document_editor"
+        ],
+        "settings": [
+          "settings_access"
         ]
       }
     },
@@ -1197,6 +1203,584 @@
           "report_viewer",
           "issue_tracker_viewer",
           "document_viewer"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "document.viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Document",
+      "lastName": "Viewer",
+      "email": "document.viewer@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-viewer"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "DocumentViewer@123",
+          "temporary": true
+        }
+      ],
+        "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_viewer"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "document.editor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Document",
+      "lastName": "Editor",
+      "email": "document.editor@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-editor"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "DocumentEditor@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_editor"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "document.processor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Document",
+      "lastName": "Processor",
+      "email": "document.processor@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-processor"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "DocumentProcessor@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_processor"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "document.manager",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Document",
+      "lastName": "Manager",
+      "email": "document.manager@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-manager"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "DocumentManager@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_manager"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_manager"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "template.viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Template",
+      "lastName": "Viewer",
+      "email": "template.viewer@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-template-viewer"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "TemplateViewer@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_template_viewer"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "template.editor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Template",
+      "lastName": "Editor",
+      "email": "template.editor@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-template-editor"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "TemplateEditor@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_template_editor"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "template.publisher",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Template",
+      "lastName": "Publisher",
+      "email": "template.publisher@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-template-publisher"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "TemplatePublisher@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_template_publisher"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "issue.viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Issue",
+      "lastName": "Viewer",
+      "email": "issue.viewer@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "issue-tracker-viewer"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "IssueViewer@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "issue_tracker_viewer"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "issue.contributor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Issue",
+      "lastName": "Contributor",
+      "email": "issue.contributor@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "issue-tracker-contributor"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "IssueContributor@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "issue_tracker_contributor"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "issue.editor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Issue",
+      "lastName": "Editor",
+      "email": "issue.editor@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "issue-tracker-editor"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "IssueEditor@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "issue_tracker_editor"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "issue.manager",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Issue",
+      "lastName": "Manager",
+      "email": "issue.manager@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "issue-tracker-manager"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "IssueManager@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_manager"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "issue_tracker_manager"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "data.operations.officer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Data",
+      "lastName": "Operations Officer",
+      "email": "data.operations@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-and-issue-operator"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "DataOperations@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_user"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_editor",
+          "document_processor",
+          "issue_tracker_editor"
+        ],
+        "settings": [
+          "settings_access"
+        ]
+      }
+    },
+    {
+      "username": "data.governance.manager",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Data",
+      "lastName": "Governance Manager",
+      "email": "data.governance@moh.go.ug",
+      "attributes": {
+        "access_profile": [
+          "document-and-issue-manager"
+        ],
+        "primary_system": [
+          "data-statistics"
+        ],
+        "accessible_systems": [
+          "dashboard-web",
+          "data-statistics",
+          "settings"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "DataGovernance@123",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "dashboard-web": [
+          "dashboard-web_access",
+          "portal_manager"
+        ],
+        "data-statistics": [
+          "data-statistics_access",
+          "document_manager",
+          "issue_tracker_manager"
+        ],
+        "settings": [
+          "settings_access"
         ]
       }
     },
