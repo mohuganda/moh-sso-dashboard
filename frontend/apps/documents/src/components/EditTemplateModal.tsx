@@ -28,6 +28,7 @@ import {
 } from "../api";
 import type { DocumentTemplate, TemplateColumnStructure } from "../types";
 import { PermissionGuard, PERMISSIONS } from "@moh-sso/auth";
+import "./documents-components.scss";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -201,98 +202,35 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
       />
 
       <div>
-        <p style={{ margin: "0 0 0.75rem", fontWeight: 600, fontSize: "0.9375rem" }}>
-          Column structure
-        </p>
+        <p className="document-edit-template__section-title">Column structure</p>
 
         {isLoadingStructure && <InlineLoading description="Loading columns..." />}
 
         {!isLoadingStructure && !hasSheets && (
-          <p style={{ color: "#6f6f6f", fontSize: "0.875rem", margin: 0 }}>
-            No columns defined for this template.
-          </p>
+          <p className="document-edit-template__empty">No columns defined for this template.</p>
         )}
 
         {!isLoadingStructure &&
           hasSheets &&
           structure.sheets.map((sheet) => (
-            <div key={sheet.id} style={{ marginBottom: "1.25rem" }}>
+            <div key={sheet.id} className="document-edit-template__sheet">
               {multiSheet && (
-                <p
-                  style={{
-                    margin: "0 0 0.5rem",
-                    fontSize: "0.875rem",
-                    color: "#525252",
-                    fontWeight: 600,
-                  }}
-                >
-                  Sheet: {sheet.name}
-                </p>
+                <p className="document-upload-modal__sheet-title">Sheet: {sheet.name}</p>
               )}
               {sheet.columns.length === 0 ? (
-                <p style={{ color: "#6f6f6f", fontSize: "0.875rem", margin: 0 }}>No columns.</p>
+                <p className="document-edit-template__empty">No columns.</p>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                <table className="document-upload-modal__columns-table">
                   <thead>
-                    <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.4rem 0.75rem",
-                          fontWeight: 600,
-                          width: "25%",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        Column name
-                      </th>
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.4rem 0.75rem",
-                          fontWeight: 600,
-                          width: "27%",
-                          verticalAlign: "middle",
-                        }}
-                      >
+                    <tr>
+                      <th>Column name</th>
+                      <th>
                         Column key{" "}
-                        <span style={{ fontWeight: 400, color: "#6f6f6f", fontSize: "0.75rem" }}>
-                          (editable)
-                        </span>
+                        <span className="document-upload-modal__header-note">(editable)</span>
                       </th>
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.4rem 0.75rem",
-                          fontWeight: 600,
-                          width: "22%",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        Data type
-                      </th>
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.4rem 0.75rem",
-                          fontWeight: 600,
-                          width: "13%",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        Required
-                      </th>
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.4rem 0.75rem",
-                          fontWeight: 600,
-                          width: "13%",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        Filterable
-                      </th>
+                      <th>Data type</th>
+                      <th>Required</th>
+                      <th>Filterable</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -305,21 +243,18 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
                         return (
                           <tr
                             key={col.id}
-                            style={{
-                              borderBottom: "1px solid #f4f4f4",
-                              background: draft.required ? "#f0f7ff" : undefined,
-                            }}
+                            className={
+                              draft.required ? "document-upload-modal__required-row" : undefined
+                            }
                           >
                             <td
-                              style={{
-                                padding: "0.4rem 0.75rem",
-                                fontWeight: draft.required ? 600 : 400,
-                                verticalAlign: "middle",
-                              }}
+                              className={
+                                draft.required ? "document-upload-modal__required-name" : undefined
+                              }
                             >
                               {col.column_name}
                             </td>
-                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                            <td className="document-upload-modal__compact-cell">
                               <TextInput
                                 id={`key-${col.id}`}
                                 labelText=""
@@ -335,10 +270,10 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
                                   })
                                 }
                                 disabled={isSaving}
-                                style={{ fontFamily: "monospace" }}
+                                className="document-upload-modal__mono-input"
                               />
                             </td>
-                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                            <td className="document-upload-modal__compact-cell">
                               <Select
                                 id={`dtype-${col.id}`}
                                 labelText=""
@@ -353,7 +288,7 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
                                 ))}
                               </Select>
                             </td>
-                            <td style={{ padding: "0.4rem 0.75rem", verticalAlign: "middle" }}>
+                            <td>
                               <Toggle
                                 id={`req-${col.id}`}
                                 labelText="Required"
@@ -364,7 +299,7 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
                                 disabled={isSaving}
                               />
                             </td>
-                            <td style={{ padding: "0.4rem 0.75rem", verticalAlign: "middle" }}>
+                            <td>
                               <Toggle
                                 id={`filter-${col.id}`}
                                 labelText="Filterable"
@@ -392,9 +327,7 @@ function EditTab({ template, onClose }: EditTemplateModalProps) {
           ))}
       </div>
 
-      <div
-        style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "1rem" }}
-      >
+      <div className="document-upload-modal__actions">
         {isSaving && <InlineLoading description="Saving changes..." />}
         <Button kind="secondary" onClick={onClose} disabled={isSaving}>
           Cancel
@@ -553,7 +486,7 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
       <Form>
         <Stack gap={5}>
           <div>
-            <p style={{ margin: "0 0 0.5rem", fontWeight: 600 }}>Upload new template file</p>
+            <p className="document-upload-modal__section-title">Upload new template file</p>
             <FileUploaderDropContainer
               labelText="Drag and drop an Excel file (.xlsx / .xls) here, or click to browse"
               accept={[".xlsx", ".xls"]}
@@ -564,11 +497,9 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
           </div>
 
           {file && !isScanning && (
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}
-            >
+            <div className="document-upload-modal__file">
               <Tag type="cyan">New file</Tag>
-              <span style={{ fontWeight: 500 }}>{file.name}</span>
+              <span className="document-upload-modal__file-name">{file.name}</span>
               <Button
                 kind="ghost"
                 size="sm"
@@ -589,19 +520,14 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
 
           {!isScanning && sheets.length > 0 && (
             <div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  marginBottom: "0.75rem",
-                }}
-              >
-                <p style={{ margin: 0, fontWeight: 600 }}>
+              <div className="document-upload-modal__detected-header">
+                <p className="document-upload-modal__detected-title">
                   New columns —{" "}
-                  <span style={{ color: "#6f6f6f", fontWeight: 400 }}>review before replacing</span>
+                  <span className="document-upload-modal__detected-note">
+                    review before replacing
+                  </span>
                 </p>
-                <span style={{ color: "#6f6f6f", fontSize: "0.875rem" }}>
+                <span className="document-upload-modal__detected-count">
                   {requiredCount} of {totalColumns} required
                 </span>
               </div>
@@ -609,25 +535,22 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
               {sheets.map((sheet, si) => (
                 <div
                   key={sheet.name}
-                  style={{ marginBottom: "1.5rem", opacity: sheet.excluded ? 0.6 : 1 }}
+                  className={[
+                    "document-upload-modal__sheet",
+                    sheet.excluded ? "document-upload-modal__sheet--excluded" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   {sheets.length > 1 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.75rem",
-                        marginBottom: "0.5rem",
-                        flexWrap: "wrap",
-                      }}
-                    >
+                    <div className="document-upload-modal__sheet-header">
                       <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.875rem",
-                          color: sheet.excluded ? "#a8a8a8" : "#6f6f6f",
-                          fontWeight: 600,
-                        }}
+                        className={[
+                          "document-upload-modal__sheet-title",
+                          sheet.excluded ? "document-upload-modal__sheet-title--excluded" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
                       >
                         Sheet: {sheet.name}
                       </p>
@@ -644,92 +567,35 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
                     </div>
                   )}
                   {!sheet.excluded && (
-                    <table
-                      style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}
-                    >
+                    <table className="document-upload-modal__columns-table">
                       <thead>
-                        <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "25%",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            Column name
-                          </th>
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "27%",
-                              verticalAlign: "middle",
-                            }}
-                          >
+                        <tr>
+                          <th>Column name</th>
+                          <th>
                             Column key{" "}
-                            <span
-                              style={{ fontWeight: 400, color: "#6f6f6f", fontSize: "0.75rem" }}
-                            >
-                              (editable)
-                            </span>
+                            <span className="document-upload-modal__header-note">(editable)</span>
                           </th>
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "20%",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            Data type
-                          </th>
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "14%",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            Required
-                          </th>
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "14%",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            Filterable
-                          </th>
+                          <th>Data type</th>
+                          <th>Required</th>
+                          <th>Filterable</th>
                         </tr>
                       </thead>
                       <tbody>
                         {sheet.columns.map((col, ci) => (
                           <tr
                             key={ci}
-                            style={{
-                              borderBottom: "1px solid #f4f4f4",
-                              backgroundColor: col.required ? "#f0f7ff" : undefined,
-                            }}
+                            className={
+                              col.required ? "document-upload-modal__required-row" : undefined
+                            }
                           >
                             <td
-                              style={{
-                                padding: "0.5rem 0.75rem",
-                                fontWeight: col.required ? 600 : 400,
-                                verticalAlign: "middle",
-                              }}
+                              className={
+                                col.required ? "document-upload-modal__required-name" : undefined
+                              }
                             >
                               {col.column_name}
                             </td>
-                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                            <td className="document-upload-modal__compact-cell">
                               <TextInput
                                 id={`nkey-${si}-${ci}`}
                                 labelText=""
@@ -745,10 +611,10 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
                                   })
                                 }
                                 disabled={isProcessing}
-                                style={{ fontFamily: "monospace" }}
+                                className="document-upload-modal__mono-input"
                               />
                             </td>
-                            <td style={{ padding: "0.25rem 0.75rem", verticalAlign: "middle" }}>
+                            <td className="document-upload-modal__compact-cell">
                               <Select
                                 id={`ndtype-${si}-${ci}`}
                                 labelText=""
@@ -765,7 +631,7 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
                                 ))}
                               </Select>
                             </td>
-                            <td style={{ padding: "0.5rem 0.75rem", verticalAlign: "middle" }}>
+                            <td>
                               <Toggle
                                 id={`nreq-${si}-${ci}`}
                                 labelText="Required"
@@ -776,7 +642,7 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
                                 disabled={isProcessing}
                               />
                             </td>
-                            <td style={{ padding: "0.5rem 0.75rem", verticalAlign: "middle" }}>
+                            <td>
                               <Toggle
                                 id={`nfilter-${si}-${ci}`}
                                 labelText="Filterable"
@@ -799,14 +665,7 @@ function ReplaceTab({ template, onClose }: EditTemplateModalProps) {
             </div>
           )}
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: "1rem",
-            }}
-          >
+          <div className="document-upload-modal__actions">
             {isReplacing && <InlineLoading description="Replacing columns..." />}
             <Button kind="secondary" onClick={onClose} disabled={isProcessing}>
               Cancel
@@ -833,40 +692,16 @@ function EditTemplateModalContent({
   onClose,
 }: EditTemplateModalProps) {
   return (
-    <div style={{ maxWidth: 760 }}>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h2
-          style={{
-            margin: 0,
+    <div className="document-edit-template">
+      <div className="document-edit-template__header">
+        <h2>Edit Template</h2>
 
-            marginBottom: "0.5rem",
-          }}
-        >
-          Edit Template
-        </h2>
-
-        <div
-          style={{
-            display: "flex",
-
-            gap: "0.5rem",
-
-            alignItems: "center",
-
-            flexWrap: "wrap",
-          }}
-        >
-          <Tag type="cool-gray" style={{ margin: 0 }}>
+        <div className="document-edit-template__metadata">
+          <Tag type="cool-gray" className="document-edit-template__tag">
             {template.code}
           </Tag>
 
-          <span
-            style={{
-              color: "#6f6f6f",
-
-              fontSize: "0.875rem",
-            }}
-          >
+          <span className="document-edit-template__meta-text">
             {template.file_type.toUpperCase()} · v{template.version}
           </span>
         </div>
@@ -880,23 +715,11 @@ function EditTemplateModalContent({
         </TabList>
 
         <TabPanels>
-          <TabPanel
-            style={{
-              paddingInline: 0,
-
-              paddingTop: "1.5rem",
-            }}
-          >
+          <TabPanel className="document-edit-template__tab-panel">
             <EditTab template={template} onClose={onClose} />
           </TabPanel>
 
-          <TabPanel
-            style={{
-              paddingInline: 0,
-
-              paddingTop: "1.5rem",
-            }}
-          >
+          <TabPanel className="document-edit-template__tab-panel">
             <ReplaceTab template={template} onClose={onClose} />
           </TabPanel>
         </TabPanels>
@@ -910,7 +733,7 @@ export function EditTemplateModal({ template, onClose }: EditTemplateModalProps)
     <PermissionGuard
       permission={PERMISSIONS.documentTemplatesWrite}
       fallback={
-        <div style={{ maxWidth: 760 }}>
+        <div className="document-edit-template">
           <InlineNotification
             kind="warning"
             title="Access denied"
@@ -919,13 +742,7 @@ export function EditTemplateModal({ template, onClose }: EditTemplateModalProps)
             hideCloseButton
           />
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "1.5rem",
-            }}
-          >
+          <div className="document-permission-fallback__actions">
             <Button kind="secondary" onClick={onClose}>
               Close
             </Button>

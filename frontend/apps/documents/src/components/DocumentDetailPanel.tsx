@@ -26,6 +26,7 @@ import {
   useReprocessDocumentMutation,
 } from "../api";
 import type { DocumentProcess, DocumentResponse } from "../types";
+import "./documents-components.scss";
 
 function formatFileSize(bytes?: number) {
   if (!bytes || bytes <= 0) {
@@ -128,34 +129,10 @@ function requiresProcessing(document: DocumentResponse) {
 
 function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: "0.5rem",
-        padding: "0.45rem 0",
-        borderBottom: "1px solid #f4f4f4",
-      }}
-    >
-      <span
-        style={{
-          width: 160,
-          minWidth: 160,
-          color: "#6f6f6f",
-          fontSize: "0.875rem",
-        }}
-      >
-        {label}
-      </span>
+    <div className="document-info-row">
+      <span className="document-info-row__label">{label}</span>
 
-      <span
-        style={{
-          fontSize: "0.875rem",
-          color: "#161616",
-          wordBreak: "break-all",
-        }}
-      >
-        {value}
-      </span>
+      <span className="document-info-row__value">{value}</span>
     </div>
   );
 }
@@ -291,77 +268,27 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
 
   return (
     <>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          gap: "1.25rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            flexWrap: "wrap",
-            padding: "0.75rem 1rem",
-            background: "#f4f4f4",
-            borderRadius: 4,
-          }}
-        >
+      <div className="document-detail-panel">
+        <div className="document-detail-panel__summary">
           <StatusTag status={status} />
 
           {templateCode && (
-            <Tag
-              type="cyan"
-              style={{
-                fontFamily: "monospace",
-              }}
-            >
+            <Tag type="cyan" className="document-detail-panel__mono-tag">
               {templateCode}
             </Tag>
           )}
 
           {reportDate !== "—" && <Tag type="teal">Report: {reportDate}</Tag>}
 
-          <span
-            style={{
-              color: "#6f6f6f",
-              fontSize: "0.8rem",
-              marginLeft: "auto",
-            }}
-          >
-            {formatFileSize(document.size_bytes)}
-          </span>
+          <span className="document-detail-panel__size">{formatFileSize(document.size_bytes)}</span>
         </div>
 
         {processable && (
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: "0.25rem",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "0.8rem",
-                  color: "#525252",
-                }}
-              >
-                Processing progress
-              </span>
+            <div className="document-detail-panel__progress-header">
+              <span className="document-detail-panel__progress-label">Processing progress</span>
 
-              <span
-                style={{
-                  fontSize: "0.8rem",
-                  color: "#525252",
-                }}
-              >
-                {progress}%
-              </span>
+              <span className="document-detail-panel__progress-value">{progress}%</span>
             </div>
 
             <ProgressBar
@@ -374,13 +301,7 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
           </div>
         )}
 
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="document-detail-panel__actions">
           <PermissionGuard permission={PERMISSIONS.documentsRead}>
             <Button
               renderIcon={Download}
@@ -428,9 +349,7 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
               size="sm"
               disabled={isBusy}
               onClick={handleDeleteRequest}
-              style={{
-                marginLeft: "auto",
-              }}
+              className="document-detail-panel__delete-action"
             >
               Delete
             </Button>
@@ -444,12 +363,7 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
           </TabList>
 
           <TabPanels>
-            <TabPanel
-              style={{
-                paddingInline: 0,
-                paddingTop: "1rem",
-              }}
-            >
+            <TabPanel className="document-detail-panel__tab-panel">
               <div>
                 <InfoRow label="Filename" value={document.original_filename} />
 
@@ -471,11 +385,7 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
                   <InfoRow
                     label="Failure reason"
                     value={
-                      <span
-                        style={{
-                          color: "#da1e28",
-                        }}
-                      >
+                      <span className="document-detail-panel__failure">
                         {latest.error ?? latest.message}
                       </span>
                     }
@@ -487,13 +397,7 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
                 <InfoRow
                   label="Object key"
                   value={
-                    <code
-                      style={{
-                        fontSize: "0.8rem",
-                      }}
-                    >
-                      {document.object_key}
-                    </code>
+                    <code className="document-detail-panel__code-sm">{document.object_key}</code>
                   }
                 />
 
@@ -501,11 +405,7 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
                   <InfoRow
                     label="SHA-256"
                     value={
-                      <code
-                        style={{
-                          fontSize: "0.75rem",
-                        }}
-                      >
+                      <code className="document-detail-panel__code-xs">
                         {document.checksum_sha256}
                       </code>
                     }
@@ -514,103 +414,21 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
               </div>
             </TabPanel>
 
-            <TabPanel
-              style={{
-                paddingInline: 0,
-                paddingTop: "1rem",
-              }}
-            >
+            <TabPanel className="document-detail-panel__tab-panel">
               {isLoadingProcesses ? (
                 <InlineLoading description="Loading processes…" />
               ) : processes.length === 0 ? (
-                <p
-                  style={{
-                    color: "#6f6f6f",
-                    margin: 0,
-                  }}
-                >
-                  No processing jobs found.
-                </p>
+                <p className="document-detail-panel__empty">No processing jobs found.</p>
               ) : (
-                <table
-                  style={{
-                    borderCollapse: "collapse",
-                    fontSize: "0.875rem",
-                    width: "100%",
-                  }}
-                >
+                <table className="document-table">
                   <thead>
-                    <tr
-                      style={{
-                        background: "#f4f4f4",
-                        borderBottom: "2px solid #e0e0e0",
-                      }}
-                    >
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.45rem 0.75rem",
-                          fontWeight: 600,
-                          color: "#525252",
-                        }}
-                      >
-                        Type
-                      </th>
-
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.45rem 0.75rem",
-                          fontWeight: 600,
-                          color: "#525252",
-                        }}
-                      >
-                        Status
-                      </th>
-
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.45rem 0.75rem",
-                          fontWeight: 600,
-                          color: "#525252",
-                        }}
-                      >
-                        Progress
-                      </th>
-
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.45rem 0.75rem",
-                          fontWeight: 600,
-                          color: "#525252",
-                        }}
-                      >
-                        Started
-                      </th>
-
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.45rem 0.75rem",
-                          fontWeight: 600,
-                          color: "#525252",
-                        }}
-                      >
-                        Duration
-                      </th>
-
-                      <th
-                        style={{
-                          textAlign: "left",
-                          padding: "0.45rem 0.75rem",
-                          fontWeight: 600,
-                          color: "#525252",
-                        }}
-                      >
-                        Message
-                      </th>
+                    <tr>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Progress</th>
+                      <th>Started</th>
+                      <th>Duration</th>
+                      <th>Message</th>
                     </tr>
                   </thead>
 
@@ -630,63 +448,29 @@ function DocumentDetailPanelContent({ document, onClose }: Props) {
                             : process.message;
 
                         return (
-                          <tr
-                            key={process.id}
-                            style={{
-                              borderBottom: "1px solid #e8e8e8",
-                            }}
-                          >
-                            <td
-                              style={{
-                                padding: "0.45rem 0.75rem",
-                                fontFamily: "monospace",
-                                fontSize: "0.8rem",
-                              }}
-                            >
-                              {processStatus}
-                            </td>
+                          <tr key={process.id}>
+                            <td className="document-table__mono">{processStatus}</td>
 
-                            <td
-                              style={{
-                                padding: "0.45rem 0.75rem",
-                              }}
-                            >
+                            <td>
                               <StatusTag status={processStatus} />
                             </td>
 
-                            <td
-                              style={{
-                                padding: "0.45rem 0.75rem",
-                              }}
-                            >
-                              {process.progress}%
-                            </td>
+                            <td>{process.progress}%</td>
 
-                            <td
-                              style={{
-                                padding: "0.45rem 0.75rem",
-                                fontSize: "0.8rem",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
+                            <td className="document-table__small document-table__nowrap">
                               {formatDateTime(process.started_at)}
                             </td>
 
-                            <td
-                              style={{
-                                padding: "0.45rem 0.75rem",
-                                fontSize: "0.8rem",
-                              }}
-                            >
+                            <td className="document-table__small">
                               {formatDuration(process.started_at, process.finished_at)}
                             </td>
 
                             <td
-                              style={{
-                                padding: "0.45rem 0.75rem",
-                                fontSize: "0.8rem",
-                                color: processStatus === "FAILED" ? "#da1e28" : "#525252",
-                              }}
+                              className={
+                                processStatus === "FAILED"
+                                  ? "document-table__small document-table__error"
+                                  : "document-table__small document-table__muted"
+                              }
                             >
                               {message || "—"}
                             </td>
@@ -718,13 +502,7 @@ export function DocumentDetailPanel({ document, onClose }: Props) {
             hideCloseButton
           />
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "1.5rem",
-            }}
-          >
+          <div className="document-permission-fallback__actions">
             <Button kind="secondary" onClick={onClose}>
               Close
             </Button>

@@ -26,6 +26,7 @@ import {
   useLazyParseDocumentStructureQuery,
   useListStorageLocationsQuery,
 } from "../api";
+import "./documents-components.scss";
 
 type ColumnDraft = {
   column_key: string;
@@ -364,27 +365,11 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
     includedSheets.length === 0;
 
   return (
-    <div style={{ maxWidth: 760 }}>
-      <div
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        <h2
-          style={{
-            margin: 0,
-            marginBottom: "0.5rem",
-          }}
-        >
-          Upload Template
-        </h2>
+    <div className="document-upload-modal document-upload-modal--wide">
+      <div className="document-upload-modal__header">
+        <h2>Upload Template</h2>
 
-        <p
-          style={{
-            margin: 0,
-            color: "#6f6f6f",
-          }}
-        >
+        <p>
           Upload an Excel file to define a reusable template. Set which columns are required so
           uploads against this template can be validated.
         </p>
@@ -429,35 +414,10 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
             />
 
             {templateName.trim() && templateCode && (
-              <div
-                style={{
-                  marginTop: "0.4rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#6f6f6f",
-                  }}
-                >
-                  Code:
-                </span>
+              <div className="document-upload-modal__code-preview">
+                <span className="document-upload-modal__code-label">Code:</span>
 
-                <code
-                  style={{
-                    fontSize: "0.8125rem",
-                    fontFamily: "monospace",
-                    backgroundColor: "#f4f4f4",
-                    padding: "0.1rem 0.5rem",
-                    borderRadius: "3px",
-                    color: "#161616",
-                  }}
-                >
-                  {templateCode}
-                </code>
+                <code className="document-upload-modal__code">{templateCode}</code>
               </div>
             )}
           </div>
@@ -472,31 +432,12 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
           />
 
           {file && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="document-upload-modal__file">
               <Tag type="cyan">Template file</Tag>
 
-              <span
-                style={{
-                  fontWeight: 500,
-                }}
-              >
-                {file.name}
-              </span>
+              <span className="document-upload-modal__file-name">{file.name}</span>
 
-              <span
-                style={{
-                  color: "#6f6f6f",
-                }}
-              >
-                {formatFileSize(file.size)}
-              </span>
+              <span className="document-upload-modal__file-size">{formatFileSize(file.size)}</span>
 
               {!isDetecting && (
                 <Button
@@ -521,40 +462,16 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
 
           {!isDetecting && sheets.length > 0 && (
             <div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  marginBottom: "0.75rem",
-                  gap: "1rem",
-                }}
-              >
-                <p
-                  style={{
-                    margin: 0,
-                    fontWeight: 600,
-                  }}
-                >
+              <div className="document-upload-modal__detected-header">
+                <p className="document-upload-modal__detected-title">
                   Columns detected —{" "}
-                  <span
-                    style={{
-                      color: "#6f6f6f",
-                      fontWeight: 400,
-                    }}
-                  >
+                  <span className="document-upload-modal__detected-note">
                     toggle <strong>Required</strong> for columns that must be present when data is
                     uploaded
                   </span>
                 </p>
 
-                <span
-                  style={{
-                    color: "#6f6f6f",
-                    fontSize: "0.875rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <span className="document-upload-modal__detected-count">
                   {requiredCount} of {totalColumns} required
                 </span>
               </div>
@@ -562,28 +479,20 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
               {sheets.map((sheet, sheetIndex) => (
                 <div
                   key={`${sheet.name}-${sheetIndex}`}
-                  style={{
-                    marginBottom: "1.5rem",
-                    opacity: sheet.excluded ? 0.6 : 1,
-                  }}
+                  className={
+                    sheet.excluded
+                      ? "document-upload-modal__sheet document-upload-modal__sheet--excluded"
+                      : "document-upload-modal__sheet"
+                  }
                 >
                   {sheets.length > 1 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.75rem",
-                        marginBottom: "0.5rem",
-                        flexWrap: "wrap",
-                      }}
-                    >
+                    <div className="document-upload-modal__sheet-header">
                       <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.875rem",
-                          color: sheet.excluded ? "#a8a8a8" : "#6f6f6f",
-                          fontWeight: 600,
-                        }}
+                        className={
+                          sheet.excluded
+                            ? "document-upload-modal__sheet-title document-upload-modal__sheet-title--excluded"
+                            : "document-upload-modal__sheet-title"
+                        }
                       >
                         Sheet: {sheet.name}
                       </p>
@@ -602,88 +511,21 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
                   )}
 
                   {!sheet.excluded && (
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        fontSize: "0.875rem",
-                      }}
-                    >
+                    <table className="document-upload-modal__columns-table">
                       <thead>
-                        <tr
-                          style={{
-                            borderBottom: "2px solid #e0e0e0",
-                          }}
-                        >
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "25%",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            Column name
-                          </th>
+                        <tr>
+                          <th>Column name</th>
 
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "30%",
-                              verticalAlign: "middle",
-                            }}
-                          >
+                          <th>
                             Column key
-                            <span
-                              style={{
-                                fontWeight: 400,
-                                color: "#6f6f6f",
-                                fontSize: "0.75rem",
-                                marginLeft: "0.35rem",
-                              }}
-                            >
-                              (editable)
-                            </span>
+                            <span className="document-upload-modal__header-note">(editable)</span>
                           </th>
 
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "20%",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            Data type
-                          </th>
+                          <th>Data type</th>
 
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "12%",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            Required
-                          </th>
+                          <th>Required</th>
 
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "0.5rem 0.75rem",
-                              fontWeight: 600,
-                              width: "13%",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            Filterable
-                          </th>
+                          <th>Filterable</th>
                         </tr>
                       </thead>
 
@@ -691,27 +533,19 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
                         {sheet.columns.map((column, columnIndex) => (
                           <tr
                             key={`${sheetIndex}-${columnIndex}`}
-                            style={{
-                              borderBottom: "1px solid #f4f4f4",
-                              backgroundColor: column.required ? "#f0f7ff" : undefined,
-                            }}
+                            className={
+                              column.required ? "document-upload-modal__required-row" : undefined
+                            }
                           >
                             <td
-                              style={{
-                                padding: "0.5rem 0.75rem",
-                                fontWeight: column.required ? 600 : 400,
-                                verticalAlign: "middle",
-                              }}
+                              className={
+                                column.required ? "document-upload-modal__required-name" : undefined
+                              }
                             >
                               {column.column_name}
                             </td>
 
-                            <td
-                              style={{
-                                padding: "0.25rem 0.75rem",
-                                verticalAlign: "middle",
-                              }}
-                            >
+                            <td className="document-upload-modal__compact-cell">
                               <TextInput
                                 id={`key-${sheetIndex}-${columnIndex}`}
                                 labelText="Column key"
@@ -727,18 +561,11 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
                                   })
                                 }
                                 disabled={isSubmitting}
-                                style={{
-                                  fontFamily: "monospace",
-                                }}
+                                className="document-upload-modal__mono-input"
                               />
                             </td>
 
-                            <td
-                              style={{
-                                padding: "0.25rem 0.75rem",
-                                verticalAlign: "middle",
-                              }}
-                            >
+                            <td className="document-upload-modal__compact-cell">
                               <Select
                                 id={`dtype-${sheetIndex}-${columnIndex}`}
                                 labelText="Data type"
@@ -762,12 +589,7 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
                               </Select>
                             </td>
 
-                            <td
-                              style={{
-                                padding: "0.5rem 0.75rem",
-                                verticalAlign: "middle",
-                              }}
-                            >
+                            <td>
                               <Toggle
                                 id={`req-${sheetIndex}-${columnIndex}`}
                                 labelText="Required"
@@ -783,12 +605,7 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
                               />
                             </td>
 
-                            <td
-                              style={{
-                                padding: "0.5rem 0.75rem",
-                                verticalAlign: "middle",
-                              }}
-                            >
+                            <td>
                               <Toggle
                                 id={`filter-${sheetIndex}-${columnIndex}`}
                                 labelText="Filterable"
@@ -827,15 +644,7 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
             )}
           </Select>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: "1rem",
-              marginTop: "0.5rem",
-            }}
-          >
+          <div className="document-upload-modal__actions">
             {isCreatingStructure && <InlineLoading description="Saving template structure…" />}
 
             <Button kind="secondary" onClick={onClose} disabled={isSubmitting}>
@@ -857,7 +666,7 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
     <PermissionGuard
       permission={PERMISSIONS.documentTemplatesWrite}
       fallback={
-        <div style={{ maxWidth: 760 }}>
+        <div className="document-upload-modal document-upload-modal--wide">
           <InlineNotification
             kind="warning"
             title="Access denied"
@@ -866,13 +675,7 @@ export const UploadTemplateModal: React.FC<UploadTemplateModalProps> = ({ onClos
             hideCloseButton
           />
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "1.5rem",
-            }}
-          >
+          <div className="document-permission-fallback__actions">
             <Button kind="secondary" onClick={onClose}>
               Close
             </Button>

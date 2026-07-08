@@ -24,6 +24,7 @@ import {
   useGetTemplateStructureQuery,
 } from "../api";
 import type { DataPreviewSheet } from "../types";
+import "./documents-components.scss";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -138,18 +139,8 @@ function SheetView({
   return (
     <div>
       {/* ── Toolbar ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.75rem",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-          marginBottom: "0.75rem",
-          padding: "0.75rem",
-          background: "#f4f4f4",
-        }}
-      >
-        <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+      <div className="document-preview__toolbar">
+        <div className="document-preview__search">
           <TableToolbarSearch
             persistent
             value={search}
@@ -168,7 +159,7 @@ function SheetView({
           const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
           const selected = (selections[key] ?? []).map((v) => ({ id: v, label: v }));
           return (
-            <div key={key} style={{ flex: "0 1 280px", minWidth: 200 }}>
+            <div key={key} className="document-preview__filter">
               <FilterableMultiSelect
                 id={`filter-${sheet.name}-${key}`}
                 titleText={label}
@@ -195,17 +186,10 @@ function SheetView({
           </Button>
         )}
 
-        <div
-          style={{
-            marginLeft: "auto",
-            fontSize: "0.875rem",
-            color: "#525252",
-            alignSelf: "center",
-          }}
-        >
+        <div className="document-preview__row-count">
           {filtered.length.toLocaleString()} / {sheet.row_count.toLocaleString()} rows
           {sheet.rows.length < sheet.row_count && (
-            <span style={{ color: "#e78c21", marginLeft: "0.5rem" }}>
+            <span className="document-preview__row-count-note">
               (preview: first {sheet.rows.length} loaded)
             </span>
           )}
@@ -213,24 +197,10 @@ function SheetView({
       </div>
 
       {/* ── Table ── */}
-      <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            borderCollapse: "collapse",
-            fontSize: "0.8125rem",
-            width: "100%",
-            minWidth: 600,
-          }}
-        >
+      <div className="document-preview__table-scroll">
+        <table className="document-preview__table">
           <thead>
-            <tr
-              style={{
-                background: "#e8e8e8",
-                borderBottom: "2px solid #c6c6c6",
-                position: "sticky",
-                top: 0,
-              }}
-            >
+            <tr>
               {sheet.columns.map((col) => {
                 const isActive = sortCol === col;
                 const arrow = isActive ? (sortDir === "asc" ? " ▲" : " ▼") : "";
@@ -238,17 +208,7 @@ function SheetView({
                   <th
                     key={col}
                     onClick={() => handleSort(col)}
-                    style={{
-                      textAlign: "left",
-                      padding: "0.5rem 0.75rem",
-                      fontWeight: 600,
-                      color: "#161616",
-                      whiteSpace: "nowrap",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      background: isActive ? "#d0e2ff" : undefined,
-                      borderBottom: isActive ? "2px solid #0f62fe" : undefined,
-                    }}
+                    className={isActive ? "document-preview__sort-header--active" : undefined}
                     title={`Sort by ${col}`}
                   >
                     {col.replace(/_/g, " ")}
@@ -261,35 +221,19 @@ function SheetView({
           <tbody>
             {pageRows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={sheet.columns.length}
-                  style={{ padding: "2rem", textAlign: "center", color: "#6f6f6f" }}
-                >
+                <td colSpan={sheet.columns.length} className="document-preview__no-rows">
                   No rows match the current filters.
                 </td>
               </tr>
             ) : (
               pageRows.map((row, idx) => (
-                <tr
-                  key={idx}
-                  style={{
-                    borderBottom: "1px solid #e8e8e8",
-                    background: idx % 2 ? "#fafafa" : "#fff",
-                  }}
-                >
+                <tr key={idx}>
                   {sheet.columns.map((col) => {
                     const val = formatCell(row[col]);
                     return (
                       <td
                         key={col}
-                        style={{
-                          padding: "0.4rem 0.75rem",
-                          whiteSpace: "nowrap",
-                          maxWidth: 260,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          color: val ? "#161616" : "#a8a8a8",
-                        }}
+                        className={val ? undefined : "document-preview__empty-cell"}
                         title={val || "—"}
                       >
                         {val || "—"}
@@ -305,16 +249,7 @@ function SheetView({
 
       {/* ── Pagination ── */}
       {totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            alignItems: "center",
-            padding: "0.75rem 0",
-            justifyContent: "center",
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="document-preview__pagination">
           <Button kind="ghost" size="sm" disabled={page === 0} onClick={() => setPage(0)}>
             «
           </Button>
@@ -326,7 +261,7 @@ function SheetView({
           >
             ‹ Prev
           </Button>
-          <span style={{ fontSize: "0.875rem", color: "#525252" }}>
+          <span className="document-preview__page-label">
             Page {page + 1} of {totalPages}
           </span>
           <Button
@@ -401,41 +336,33 @@ export default function DocumentPreviewPage() {
   const isLoading = isLoadingDoc || isLoadingPreview;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+    <div className="document-preview">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+      <div className="document-preview__header">
+        <div className="document-preview__header-content">
+          <div className="document-preview__title-row">
             <Button
               kind="ghost"
               size="sm"
               renderIcon={ArrowLeft}
               onClick={() => navigate(-1)}
-              style={{ paddingLeft: 0 }}
+              className="document-preview__back"
             >
               Back
             </Button>
-            <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>
+            <h2 className="document-preview__title">
               {document?.original_filename ?? "Data Preview"}
             </h2>
           </div>
           {document && (
-            <div
-              style={{
-                display: "flex",
-                gap: "0.5rem",
-                marginTop: "0.5rem",
-                flexWrap: "wrap",
-                alignItems: "center",
-              }}
-            >
+            <div className="document-preview__metadata">
               {preview?.template_code && (
-                <Tag type="cyan" style={{ fontFamily: "monospace" }}>
+                <Tag type="cyan" className="document-detail-panel__mono-tag">
                   {preview.template_code}
                 </Tag>
               )}
               {preview?.report_date && <Tag type="teal">Report: {preview.report_date}</Tag>}
-              <span style={{ fontSize: "0.8rem", color: "#6f6f6f" }}>
+              <span className="document-preview__uploaded">
                 Uploaded {formatDateTime(document.created_at)}
               </span>
             </div>
@@ -454,7 +381,7 @@ export default function DocumentPreviewPage() {
 
       {/* Content */}
       {isLoading ? (
-        <InlineLoading description="Loading data…" style={{ padding: "2rem 0" }} />
+        <InlineLoading description="Loading data…" className="document-preview__loading" />
       ) : isError ? (
         <InlineNotification
           kind="error"
@@ -475,7 +402,7 @@ export default function DocumentPreviewPage() {
             {preview.sheets.map((sheet) => (
               <Tab key={sheet.name}>
                 {sheet.name}
-                <Tag type="gray" style={{ marginLeft: "0.5rem" }}>
+                <Tag type="gray" className="document-preview__tab-tag">
                   {sheet.row_count.toLocaleString()}
                 </Tag>
               </Tab>
@@ -483,7 +410,7 @@ export default function DocumentPreviewPage() {
           </TabList>
           <TabPanels>
             {preview.sheets.map((sheet) => (
-              <TabPanel key={sheet.name} style={{ paddingInline: 0, paddingTop: "0.75rem" }}>
+              <TabPanel key={sheet.name} className="document-preview__tab-panel">
                 <SheetView sheet={sheet} filterableKeys={filterableKeysBySheet[sheet.name] ?? []} />
               </TabPanel>
             ))}

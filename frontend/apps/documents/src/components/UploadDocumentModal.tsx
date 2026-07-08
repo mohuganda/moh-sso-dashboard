@@ -33,6 +33,7 @@ import {
   useListDocumentsQuery,
   useListStorageLocationsQuery,
 } from "../api";
+import "./documents-components.scss";
 import { DOCUMENT_PROCESS_TYPE_OPTIONS, type DocumentProcessType } from "../types";
 
 const CSV_HEADER_READ_BYTES = 64 * 1024;
@@ -433,27 +434,11 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
     !isTemplateValid;
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <div
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        <h2
-          style={{
-            margin: 0,
-            marginBottom: "0.5rem",
-          }}
-        >
-          Upload Document
-        </h2>
+    <div className="document-upload-modal">
+      <div className="document-upload-modal__header">
+        <h2>Upload Document</h2>
 
-        <p
-          style={{
-            margin: 0,
-            color: "#6f6f6f",
-          }}
-        >
+        <p>
           Upload a file for processing. Optionally select a template to validate the file&apos;s
           columns before uploading.
         </p>
@@ -482,31 +467,12 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
           </FormGroup>
 
           {file && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="document-upload-modal__file">
               <Tag type="blue">Selected</Tag>
 
-              <span
-                style={{
-                  fontWeight: 500,
-                }}
-              >
-                {file.name}
-              </span>
+              <span className="document-upload-modal__file-name">{file.name}</span>
 
-              <span
-                style={{
-                  color: "#6f6f6f",
-                }}
-              >
-                {formatFileSize(file.size)}
-              </span>
+              <span className="document-upload-modal__file-size">{formatFileSize(file.size)}</span>
 
               {isPdf && <Tag type="cool-gray">No processing required</Tag>}
 
@@ -528,50 +494,17 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
           )}
 
           {previousUpload && fileNeedsProcessing && (
-            <div
-              style={{
-                border: "1px solid #f1c21b",
-                borderRadius: 4,
-                background: "#fdf6dd",
-                padding: "0.875rem 1rem",
-              }}
-            >
-              <p
-                style={{
-                  margin: "0 0 0.6rem",
-                  fontWeight: 600,
-                  fontSize: "0.875rem",
-                  color: "#161616",
-                }}
-              >
+            <div className="document-upload-modal__warning">
+              <p className="document-upload-modal__warning-title">
                 This filename was uploaded before
               </p>
 
-              <p
-                style={{
-                  margin: "0 0 0.75rem",
-                  fontSize: "0.8125rem",
-                  color: "#525252",
-                }}
-              >
+              <p className="document-upload-modal__warning-text">
                 Previous report date: <strong>{previousReportDate ?? "—"}</strong>
               </p>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.4rem",
-                }}
-              >
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "0.5rem",
-                    cursor: "pointer",
-                  }}
-                >
+              <div className="document-upload-modal__radio-list">
+                <label className="document-upload-modal__radio">
                   <input
                     type="radio"
                     name="reupload-mode"
@@ -584,24 +517,12 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
                         setReportDate(previousReportDate);
                       }
                     }}
-                    style={{
-                      marginTop: 3,
-                    }}
                   />
 
-                  <span
-                    style={{
-                      fontSize: "0.8125rem",
-                      color: "#161616",
-                    }}
-                  >
+                  <span className="document-upload-modal__radio-text">
                     <strong>Yes, same report date</strong> — replace the previous upload
                     {previousReportDate && (
-                      <span
-                        style={{
-                          color: "#525252",
-                        }}
-                      >
+                      <span className="document-upload-modal__radio-note">
                         {" "}
                         ({previousReportDate})
                       </span>
@@ -609,14 +530,7 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
                   </span>
                 </label>
 
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "0.5rem",
-                    cursor: "pointer",
-                  }}
-                >
+                <label className="document-upload-modal__radio">
                   <input
                     type="radio"
                     name="reupload-mode"
@@ -627,17 +541,9 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
                       setReportDate("");
                       setReportDateTouched(false);
                     }}
-                    style={{
-                      marginTop: 3,
-                    }}
                   />
 
-                  <span
-                    style={{
-                      fontSize: "0.8125rem",
-                      color: "#161616",
-                    }}
-                  >
+                  <span className="document-upload-modal__radio-text">
                     <strong>No, different report date</strong> — add as a new upload
                   </span>
                 </label>
@@ -719,46 +625,21 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
                     />
                   )}
 
-                  <div
-                    style={{
-                      marginTop: "0.75rem",
-                    }}
-                  >
-                    <p
-                      style={{
-                        margin: "0 0 0.5rem",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Required columns
-                    </p>
+                  <div className="document-upload-modal__section">
+                    <p className="document-upload-modal__section-title">Required columns</p>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "0.5rem",
-                      }}
-                    >
+                    <div className="document-upload-modal__chip-list">
                       {columnValidation.required.map((columnName) => {
                         const isPresent = columnValidation.present.includes(columnName);
 
                         return (
                           <span
                             key={columnName}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "0.25rem",
-                              padding: "0.2rem 0.6rem",
-                              borderRadius: "1rem",
-                              fontSize: "0.8rem",
-                              fontFamily: "monospace",
-                              backgroundColor: isPresent ? "#defbe6" : "#fff1f1",
-                              color: isPresent ? "#198038" : "#da1e28",
-                              border: `1px solid ${isPresent ? "#a7f0ba" : "#ffd7d9"}`,
-                            }}
+                            className={
+                              isPresent
+                                ? "document-upload-modal__validation-chip document-upload-modal__validation-chip--present"
+                                : "document-upload-modal__validation-chip"
+                            }
                           >
                             {isPresent ? "✓" : "✗"} {columnName}
                           </span>
@@ -857,15 +738,7 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
             )}
           </Select>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: "1rem",
-              marginTop: "0.5rem",
-            }}
-          >
+          <div className="document-upload-modal__actions">
             {isUploading && <InlineLoading description="Uploading document..." />}
 
             <Button kind="secondary" onClick={onClose} disabled={isUploading}>
@@ -887,7 +760,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
     <PermissionGuard
       permission={PERMISSIONS.documentsWrite}
       fallback={
-        <div style={{ maxWidth: 720 }}>
+        <div className="document-upload-modal">
           <InlineNotification
             kind="warning"
             title="Access denied"
@@ -896,13 +769,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
             hideCloseButton
           />
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "1.5rem",
-            }}
-          >
+          <div className="document-permission-fallback__actions">
             <Button kind="secondary" onClick={onClose}>
               Close
             </Button>

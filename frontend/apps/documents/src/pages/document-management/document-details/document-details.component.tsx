@@ -30,6 +30,7 @@ import {
   useReprocessDocumentMutation,
 } from "../../../api";
 import type { DataPreviewSheet, DocumentProcess, DocumentResponse } from "../../../types";
+import "../../../components/documents-components.scss";
 
 function formatDateTime(iso?: string | null) {
   if (!iso) {
@@ -351,30 +352,9 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
   }.csv`;
 
   return (
-    <div
-      style={{
-        minWidth: 0,
-        width: "100%",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "0.75rem",
-          flexWrap: "wrap",
-          padding: "0.75rem",
-          background: "#f4f4f4",
-          borderRadius: "4px 4px 0 0",
-          borderBottom: "1px solid #e0e0e0",
-        }}
-      >
-        <div
-          style={{
-            flex: "1 1 180px",
-            minWidth: 160,
-          }}
-        >
+    <div className="document-sheet-view">
+      <div className="document-sheet-view__toolbar">
+        <div className="document-sheet-view__search">
           <TableToolbarSearch
             persistent
             value={search}
@@ -404,13 +384,7 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
           }));
 
           return (
-            <div
-              key={key}
-              style={{
-                flex: "0 1 280px",
-                minWidth: 200,
-              }}
-            >
+            <div key={key} className="document-sheet-view__filter">
               <FilterableMultiSelect
                 id={`filter-${sheet.name}-${key}`}
                 titleText={label}
@@ -433,40 +407,13 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
         })}
 
         {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={clearFilters}
-            style={{
-              fontSize: "0.8rem",
-              padding: "0.35rem 0.6rem",
-              border: "1px solid #c6c6c6",
-              borderRadius: 3,
-              background: "#fff",
-              cursor: "pointer",
-              color: "#525252",
-              whiteSpace: "nowrap",
-              alignSelf: "flex-end",
-            }}
-          >
+          <button type="button" onClick={clearFilters} className="document-sheet-view__clear">
             Clear
           </button>
         )}
 
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "0.8rem",
-              color: "#6f6f6f",
-              whiteSpace: "nowrap",
-            }}
-          >
+        <div className="document-sheet-view__actions">
+          <span className="document-sheet-view__row-count">
             {filteredRows.length.toLocaleString()} / {sheet.row_count.toLocaleString()} rows
           </span>
 
@@ -484,27 +431,10 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
         </div>
       </div>
 
-      <div
-        style={{
-          overflowX: "auto",
-          border: "1px solid #e0e0e0",
-          borderTop: "none",
-        }}
-      >
-        <table
-          style={{
-            borderCollapse: "collapse",
-            fontSize: "0.8125rem",
-            width: "max-content",
-            minWidth: "100%",
-          }}
-        >
+      <div className="document-sheet-view__table-scroll">
+        <table className="document-sheet-view__table">
           <thead>
-            <tr
-              style={{
-                background: "#e0e0e0",
-              }}
-            >
+            <tr>
               {sheet.columns.map((column) => {
                 const active = sortColumn === column;
 
@@ -519,20 +449,7 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
                     key={column}
                     onClick={() => handleSort(column)}
                     title={`Sort by ${label}`}
-                    style={{
-                      textAlign: "left",
-                      padding: "0.5rem 0.875rem",
-                      fontWeight: 600,
-                      color: "#161616",
-                      whiteSpace: "nowrap",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      position: "sticky",
-                      top: 0,
-                      background: active ? "#d0e2ff" : "#e0e0e0",
-                      borderBottom: active ? "2px solid #0f62fe" : "2px solid #c6c6c6",
-                      borderRight: "1px solid #c6c6c6",
-                    }}
+                    className={active ? "document-sheet-view__sort-header--active" : undefined}
                   >
                     {label}
                     {arrow}
@@ -545,38 +462,20 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
           <tbody>
             {pageRows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={sheet.columns.length}
-                  style={{
-                    padding: "2rem",
-                    textAlign: "center",
-                    color: "#6f6f6f",
-                  }}
-                >
+                <td colSpan={sheet.columns.length} className="document-sheet-view__no-rows">
                   No rows match the current filters.
                 </td>
               </tr>
             ) : (
               pageRows.map((row, rowIndex) => (
-                <tr
-                  key={rowIndex}
-                  style={{
-                    borderBottom: "1px solid #e8e8e8",
-                    background: rowIndex % 2 ? "#fafafa" : "#fff",
-                  }}
-                >
+                <tr key={rowIndex}>
                   {sheet.columns.map((column) => {
                     const value = formatCell(row[column]);
 
                     return (
                       <td
                         key={column}
-                        style={{
-                          padding: "0.4rem 0.875rem",
-                          whiteSpace: "nowrap",
-                          color: value ? "#161616" : "#c6c6c6",
-                          borderRight: "1px solid #f0f0f0",
-                        }}
+                        className={!value ? "document-sheet-view__empty-cell" : undefined}
                       >
                         {value || "—"}
                       </td>
@@ -590,18 +489,7 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
       </div>
 
       {totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            alignItems: "center",
-            padding: "0.75rem",
-            justifyContent: "center",
-            background: "#f4f4f4",
-            border: "1px solid #e0e0e0",
-            borderTop: "none",
-          }}
-        >
+        <div className="document-sheet-view__pagination">
           <Button kind="ghost" size="sm" disabled={safePageIndex === 0} onClick={() => setPage(0)}>
             «
           </Button>
@@ -615,19 +503,9 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
             ‹
           </Button>
 
-          <span
-            style={{
-              fontSize: "0.875rem",
-              color: "#525252",
-            }}
-          >
+          <span className="document-sheet-view__page-label">
             Page {safePageIndex + 1} of {totalPages}
-            <span
-              style={{
-                color: "#8d8d8d",
-                marginLeft: "0.5rem",
-              }}
-            >
+            <span className="document-sheet-view__page-range">
               ({(safePageIndex * ROWS_PER_PAGE + 1).toLocaleString()}–
               {Math.min((safePageIndex + 1) * ROWS_PER_PAGE, filteredRows.length).toLocaleString()})
             </span>
@@ -667,38 +545,17 @@ function InfoItem({
   isLast: boolean;
   index: number;
 }) {
+  void index;
+
   return (
     <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "0.75rem 1.25rem",
-        background: index % 2 === 0 ? "#fff" : "#f9f9f9",
-        borderBottom: isLast ? "none" : "1px solid #e8e8e8",
-      }}
+      className={["document-details-info-item", isLast ? "document-details-info-item--last" : ""]
+        .filter(Boolean)
+        .join(" ")}
     >
-      <span
-        style={{
-          width: 160,
-          minWidth: 160,
-          fontSize: "0.8125rem",
-          color: "#6f6f6f",
-          fontWeight: 500,
-        }}
-      >
-        {label}
-      </span>
+      <span className="document-details-info-item__label">{label}</span>
 
-      <span
-        style={{
-          fontSize: "0.875rem",
-          color: "#161616",
-          fontWeight: 400,
-          overflowWrap: "anywhere",
-        }}
-      >
-        {value}
-      </span>
+      <span className="document-details-info-item__value">{value}</span>
     </div>
   );
 }
@@ -929,7 +786,7 @@ function DocumentDetailsPageContent() {
   }
 
   if (documentLoading) {
-    return <InlineLoading description="Loading document…" style={{ padding: "2rem" }} />;
+    return <InlineLoading description="Loading document…" className="documents-loading-block" />;
   }
 
   if (documentError || !document) {
@@ -987,54 +844,19 @@ function DocumentDetailsPageContent() {
     informationItems.push({
       label: "Failure reason",
       value: (
-        <span
-          style={{
-            color: "#da1e28",
-          }}
-        >
-          {latest.error ?? latest.message}
-        </span>
+        <span className="document-details-page__failure">{latest.error ?? latest.message}</span>
       ),
     });
   }
 
   return (
     <>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.25rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "1.25rem",
-              fontWeight: 600,
-              overflowWrap: "anywhere",
-            }}
-          >
-            {document.original_filename}
-          </h2>
+      <div className="document-details-page">
+        <div className="document-details-page__title-row">
+          <h2 className="document-details-page__title">{document.original_filename}</h2>
 
           {processesRefreshing && (
-            <span
-              style={{
-                fontSize: "0.8rem",
-                color: "#6f6f6f",
-              }}
-            >
-              Refreshing…
-            </span>
+            <span className="document-details-page__refreshing">Refreshing…</span>
           )}
         </div>
 
@@ -1047,14 +869,7 @@ function DocumentDetailsPageContent() {
 
           <TabPanels>
             {templateCode && (
-              <TabPanel
-                style={{
-                  paddingInline: 0,
-                  paddingTop: "1.25rem",
-                  minWidth: 0,
-                  overflow: "hidden",
-                }}
-              >
+              <TabPanel className="document-details-page__tab-panel">
                 {previewLoading ? (
                   <InlineLoading description="Loading imported data…" />
                 ) : previewError ? (
@@ -1078,12 +893,7 @@ function DocumentDetailsPageContent() {
                         <Tab key={sheet.name}>
                           {sheet.name}
 
-                          <Tag
-                            type="gray"
-                            style={{
-                              marginLeft: "0.5rem",
-                            }}
-                          >
+                          <Tag type="gray" className="document-details-page__tab-tag">
                             {sheet.row_count.toLocaleString()}
                           </Tag>
                         </Tab>
@@ -1092,13 +902,7 @@ function DocumentDetailsPageContent() {
 
                     <TabPanels>
                       {preview.sheets.map((sheet) => (
-                        <TabPanel
-                          key={sheet.name}
-                          style={{
-                            paddingInline: 0,
-                            paddingTop: "0.75rem",
-                          }}
-                        >
+                        <TabPanel key={sheet.name} className="document-preview__tab-panel">
                           <SheetView
                             sheet={sheet}
                             reportDate={reportDate}
@@ -1112,20 +916,8 @@ function DocumentDetailsPageContent() {
               </TabPanel>
             )}
 
-            <TabPanel
-              style={{
-                paddingInline: 0,
-                paddingTop: "1.5rem",
-              }}
-            >
-              <div
-                style={{
-                  border: "1px solid #e0e0e0",
-                  borderRadius: 4,
-                  overflow: "hidden",
-                  marginBottom: "1.5rem",
-                }}
-              >
+            <TabPanel className="document-details-page__tab-panel document-details-page__tab-panel--info">
+              <div className="document-details-page__info-list">
                 {informationItems.map((item, index) => (
                   <InfoItem
                     key={item.label}
@@ -1137,47 +929,17 @@ function DocumentDetailsPageContent() {
                 ))}
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.75rem",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div className="document-details-page__actions">
                 <PermissionGuard permission={PERMISSIONS.documentsRead}>
                   <button
                     type="button"
                     onClick={() => void handleDownloadFile()}
                     disabled={status !== "COMPLETED" || isBusy}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                      padding: "0.6rem 1rem",
-                      border: "1px solid #0f62fe",
-                      borderRadius: 4,
-                      background: "#fff",
-                      cursor: status !== "COMPLETED" || isBusy ? "not-allowed" : "pointer",
-                      opacity: status !== "COMPLETED" || isBusy ? 0.4 : 1,
-                    }}
+                    className="document-details-action document-details-action--primary"
                   >
-                    <Download
-                      size={16}
-                      style={{
-                        color: "#0f62fe",
-                      }}
-                    />
+                    <Download size={16} />
 
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "#0f62fe",
-                      }}
-                    >
-                      Download
-                    </span>
+                    <span className="document-details-action__label">Download</span>
                   </button>
                 </PermissionGuard>
 
@@ -1187,33 +949,11 @@ function DocumentDetailsPageContent() {
                       type="button"
                       onClick={() => void handleReprocess()}
                       disabled={status !== "FAILED" || isBusy}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: "0.3rem",
-                        padding: "0.6rem 1rem",
-                        border: "1px solid #393939",
-                        borderRadius: 4,
-                        background: "#fff",
-                        cursor: status !== "FAILED" || isBusy ? "not-allowed" : "pointer",
-                        opacity: status !== "FAILED" || isBusy ? 0.4 : 1,
-                      }}
+                      className="document-details-action document-details-action--neutral"
                     >
-                      <Renew
-                        size={16}
-                        style={{
-                          color: "#393939",
-                        }}
-                      />
+                      <Renew size={16} />
 
-                      <span
-                        style={{
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          color: "#393939",
-                        }}
-                      >
+                      <span className="document-details-action__label">
                         {reprocessing ? "Reprocessing…" : "Reprocess"}
                       </span>
                     </button>
@@ -1225,35 +965,11 @@ function DocumentDetailsPageContent() {
                     type="button"
                     onClick={handleDeleteRequest}
                     disabled={isBusy}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                      padding: "0.6rem 1rem",
-                      border: "1px solid #da1e28",
-                      borderRadius: 4,
-                      background: "#fff",
-                      cursor: isBusy ? "not-allowed" : "pointer",
-                      opacity: isBusy ? 0.4 : 1,
-                    }}
+                    className="document-details-action document-details-action--danger"
                   >
-                    <TrashCan
-                      size={16}
-                      style={{
-                        color: "#da1e28",
-                      }}
-                    />
+                    <TrashCan size={16} />
 
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "#da1e28",
-                      }}
-                    >
-                      Delete
-                    </span>
+                    <span className="document-details-action__label">Delete</span>
                   </button>
                 </PermissionGuard>
               </div>
@@ -1279,13 +995,7 @@ export default function DocumentDetailsPage() {
             hideCloseButton
           />
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "1.5rem",
-            }}
-          >
+          <div className="document-permission-fallback__actions">
             <Button kind="secondary" as={RouterLink} to="..">
               Back to Documents
             </Button>
