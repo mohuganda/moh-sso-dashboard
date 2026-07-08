@@ -17,6 +17,7 @@ import {
   shouldUseSingleSpaOrchestration,
   startMicrofrontendOrchestration,
 } from "./orchestrator";
+import "./microfrontends.scss";
 
 type SingleSpaAppProps = MicrofrontendRuntimeProps & {
   appName: string;
@@ -141,16 +142,7 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
   return (
     <MicrofrontendErrorBoundary appName={appName}>
       {mountError ? (
-        <div
-          role="alert"
-          className="microfrontend-mount-error"
-          style={{
-            padding: "1rem",
-            color: "#da1e28",
-            backgroundColor: "#fff1f1",
-            borderRadius: "4px",
-          }}
-        >
+        <div role="alert" className="microfrontend-mount-error">
           Unable to load {appName}. {mountError.message}
         </div>
       ) : null}
