@@ -27,6 +27,7 @@ import type {
 import { useToast } from "@moh-sso/ui";
 import { useListRbacSystemsQuery, useListRealmRolePermissionsQuery } from "@moh-sso/rbac";
 import { useListUsersQuery } from "@moh-sso/users";
+import "./announcements.components.scss";
 
 export interface AnnouncementFormValues {
   title: string;
@@ -327,14 +328,7 @@ export function AnnouncementForm({
           enableCounter
         />
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "1rem",
-            alignItems: "start",
-          }}
-        >
+        <div className="announcement-form__grid">
           <Select
             id="announcement-level"
             labelText="Level"
@@ -453,13 +447,13 @@ export function AnnouncementForm({
         <FormGroup legendText="Audience targeting">
           <Stack gap={4}>
             {form.audience_type === "ALL_USERS" && (
-              <p style={{ margin: 0, color: "#6f6f6f" }}>
+              <p className="announcement-form__hint">
                 This announcement will be visible to all portal users.
               </p>
             )}
 
             {form.audience_type === "ADMINS_ONLY" && (
-              <p style={{ margin: 0, color: "#6f6f6f" }}>
+              <p className="announcement-form__hint">
                 This announcement will be visible to users with the admin realm role.
               </p>
             )}
@@ -535,12 +529,7 @@ export function AnnouncementForm({
           </Stack>
         </FormGroup>
 
-        <div
-          style={{
-            display: "grid",
-            gap: "0.75rem",
-          }}
-        >
+        <div className="announcement-form__toggles">
           <Checkbox
             id="announcement-pinned"
             labelText="Pin this announcement"
@@ -576,21 +565,14 @@ export function AnnouncementForm({
             />
           ) : null}
 
-          <p
-            style={{
-              margin: 0,
-              color: "#6f6f6f",
-              fontSize: "0.8125rem",
-              lineHeight: 1.4,
-            }}
-          >
+          <p className="announcement-form__notification-note">
             Email and SMS notifications are only queued when the announcement is published and the
             matching option is enabled. Drafts and scheduled announcements will not notify users
             until they are published.
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+        <div className="announcement-form__actions">
           <Button
             type="submit"
             renderIcon={mode === "create" ? Send : Save}

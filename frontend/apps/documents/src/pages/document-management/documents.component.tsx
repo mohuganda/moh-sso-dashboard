@@ -23,23 +23,10 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, PageErrorBoun
   render() {
     if (this.state.error) {
       return (
-        <div
-          style={{
-            padding: "2rem",
-            background: "#fff1f1",
-            border: "1px solid #ffd7d9",
-            borderRadius: 4,
-          }}
-        >
+        <div className="documents-page__error">
           <strong>Page crashed:</strong>
 
-          <pre
-            style={{
-              marginTop: "0.5rem",
-              fontSize: "0.8rem",
-              whiteSpace: "pre-wrap",
-            }}
-          >
+          <pre className="documents-page__error-details">
             {this.state.error.message}
             {"\n\n"}
             {this.state.error.stack}
@@ -77,12 +64,7 @@ function DocumentPageContent() {
 
             <TabPanels>
               <PermissionGuard permission={PERMISSIONS.documentTemplatesRead}>
-                <TabPanel
-                  style={{
-                    paddingInline: 0,
-                    paddingTop: "1.25rem",
-                  }}
-                >
+                <TabPanel className="documents-page__tab-panel">
                   <PageErrorBoundary>
                     <TemplatesTab />
                   </PageErrorBoundary>
@@ -90,12 +72,7 @@ function DocumentPageContent() {
               </PermissionGuard>
 
               <PermissionGuard permission={PERMISSIONS.documentsRead}>
-                <TabPanel
-                  style={{
-                    paddingInline: 0,
-                    paddingTop: "1.25rem",
-                  }}
-                >
+                <TabPanel className="documents-page__tab-panel">
                   <PageErrorBoundary>
                     <DocumentsTab />
                   </PageErrorBoundary>

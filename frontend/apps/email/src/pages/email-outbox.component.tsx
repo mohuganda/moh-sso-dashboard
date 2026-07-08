@@ -351,7 +351,7 @@ export default function EmailOutbox() {
    * ----------------------------- */
   if (isLoading) {
     return (
-      <div style={{ padding: "2rem" }}>
+      <div className="email-outbox-page__loading">
         <InlineLoading description="Loading emails…" />
       </div>
     );
@@ -372,24 +372,17 @@ export default function EmailOutbox() {
 
   return (
     <>
-      <div style={{ padding: 16, display: "grid", gap: 16 }}>
+      <div className="email-outbox-page__content">
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 16,
-            alignItems: "flex-start",
-          }}
-        >
+        <div className="email-outbox-page__header">
           <div>
-            <h3 style={{ margin: 0 }}>Email Outbox</h3>
-            <p style={{ marginTop: 6, opacity: 0.8 }}>
+            <h3 className="email-outbox-page__heading">Email Outbox</h3>
+            <p className="email-outbox-page__description">
               View, filter, retry, and delete queued email records.
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="email-outbox-page__toolbar-actions">
             {isFetching && !isLoading && <InlineLoading description="Refreshing emails…" />}
 
             <Button renderIcon={Add} onClick={handleOpenSendEmailPanel}>
@@ -472,15 +465,7 @@ export default function EmailOutbox() {
                       {rows.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={headers.length}>
-                            <div
-                              style={{
-                                padding: "2rem",
-                                textAlign: "center",
-                                opacity: 0.7,
-                              }}
-                            >
-                              No emails found.
-                            </div>
+                            <div className="email-outbox-page__empty-table">No emails found.</div>
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -498,19 +483,10 @@ export default function EmailOutbox() {
                                 if (cell.info.header === "subject") {
                                   return (
                                     <TableCell key={cell.id}>
-                                      <div style={{ display: "grid", gap: 4 }}>
+                                      <div className="email-outbox-page__table-title">
                                         <strong>{getSubject(email)}</strong>
 
-                                        <span
-                                          style={{
-                                            maxWidth: 360,
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                            opacity: 0.75,
-                                            fontSize: "0.8125rem",
-                                          }}
-                                        >
+                                        <span className="email-outbox-page__recipient-preview">
                                           {getRecipients(email)}
                                         </span>
                                       </div>

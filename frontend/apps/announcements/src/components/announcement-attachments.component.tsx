@@ -16,6 +16,7 @@ import {
   useUploadAnnouncementAttachmentMutation,
 } from "../api";
 import { useToast } from "@moh-sso/ui";
+import "./announcements.components.scss";
 
 type AnnouncementAttachmentsProps = {
   announcementId: string;
@@ -108,19 +109,12 @@ export function AnnouncementAttachments({ announcementId }: AnnouncementAttachme
     <section aria-labelledby="announcement-attachments-title">
       <Stack gap={4}>
         <div>
-          <h4 id="announcement-attachments-title" style={{ margin: 0 }}>
+          <h4 id="announcement-attachments-title" className="announcement-attachments__title">
             Attachments
           </h4>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) auto",
-            gap: "0.75rem",
-            alignItems: "end",
-          }}
-        >
+        <div className="announcement-attachments__upload-row">
           <TextInput
             id="announcement-attachment-file"
             ref={inputRef}
@@ -150,27 +144,17 @@ export function AnnouncementAttachments({ announcementId }: AnnouncementAttachme
           <InlineLoading description="Updating attachments..." />
         )}
 
-        <div style={{ display: "grid", gap: "0.5rem" }}>
+        <div className="announcement-attachments__list">
           {attachments.length === 0 ? (
-            <p style={{ color: "#6f6f6f", margin: 0 }}>No attachments uploaded.</p>
+            <p className="announcement-attachments__empty">No attachments uploaded.</p>
           ) : (
             attachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) auto auto",
-                  gap: "0.75rem",
-                  alignItems: "center",
-                  borderTop: "1px solid #e0e0e0",
-                  paddingTop: "0.75rem",
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <strong style={{ display: "block", overflowWrap: "anywhere" }}>
+              <div key={attachment.id} className="announcement-attachments__item">
+                <div className="announcement-attachments__file">
+                  <strong className="announcement-attachments__file-name">
                     {attachment.original_file_name}
                   </strong>
-                  <span style={{ color: "#6f6f6f", fontSize: "0.875rem" }}>
+                  <span className="announcement-attachments__file-meta">
                     {formatFileSize(attachment.file_size)}
                   </span>
                   <Checkbox

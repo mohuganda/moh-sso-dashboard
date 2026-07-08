@@ -32,6 +32,24 @@
   min-width: 0;
 }
 
+.documents-page__error {
+  padding: 2rem;
+  border: 1px solid var(--cds-support-error-inverse, #ffd7d9);
+  border-radius: 4px;
+  background: var(--cds-support-error-inverse, #fff1f1);
+}
+
+.documents-page__error-details {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
+.documents-page__tab-panel {
+  padding-inline: 0;
+  padding-top: 1.25rem;
+}
+
 .documents-page__tab-list {
   overflow-x: auto;
 }

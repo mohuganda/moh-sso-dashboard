@@ -1,4 +1,5 @@
 import { Button, Dropdown, Search } from "@carbon/react";
+import "../pages/email-outbox.scss";
 
 type Option = {
   id: string;
@@ -26,14 +27,7 @@ export function EmailOutboxFilters<TStatus extends string>({
   const statusItems: Option[] = [...statusOptions];
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "2fr minmax(180px, 260px) auto",
-        gap: 12,
-        alignItems: "end",
-      }}
-    >
+    <div className="email-outbox-filter-grid">
       <Search
         id="email-outbox-search"
         labelText="Search emails"

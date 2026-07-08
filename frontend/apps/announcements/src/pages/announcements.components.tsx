@@ -36,6 +36,7 @@ import { AnnouncementFilters } from "../components/announcement-filters.componen
 import { AnnouncementBulkActions } from "../components/announcement-bulk-actions.component";
 import { AnnouncementActionsMenu } from "../components/announcement-actions-menu.component";
 import { ManageAnnouncementsPanel } from "../components/manage-announcement-panel";
+import "./announcements.scss";
 
 function getApiErrorMessage(error: unknown, fallback: string) {
   if (!error || typeof error !== "object") {
@@ -396,7 +397,7 @@ export function AnnouncementsPage() {
    * ----------------------------- */
   if (isLoading) {
     return (
-      <div style={{ padding: "2rem" }}>
+      <div className="announcements-page__loading">
         <InlineLoading description="Loading announcements…" />
       </div>
     );
@@ -413,19 +414,12 @@ export function AnnouncementsPage() {
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 16 }}>
+    <div className="announcements-page">
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 16,
-          alignItems: "flex-start",
-        }}
-      >
+      <div className="announcements-page__header">
         <div>
-          <h3 style={{ margin: 0 }}>Announcements</h3>
-          <p style={{ marginTop: 6, opacity: 0.8 }}>
+          <h3 className="announcements-page__title">Announcements</h3>
+          <p className="announcements-page__subtitle">
             Manage platform notices, alerts, drafts, schedules, and archived updates.
           </p>
         </div>
@@ -637,20 +631,11 @@ export function AnnouncementsPage() {
 
                               return (
                                 <TableCell key={cell.id}>
-                                  <div style={{ display: "grid", gap: 4 }}>
+                                  <div className="announcements-page__table-title">
                                     <strong>{announcement.title}</strong>
 
                                     {announcement.summary && (
-                                      <span
-                                        style={{
-                                          maxWidth: 340,
-                                          overflow: "hidden",
-                                          textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          opacity: 0.75,
-                                          fontSize: "0.8125rem",
-                                        }}
-                                      >
+                                      <span className="announcements-page__summary">
                                         {announcement.summary}
                                       </span>
                                     )}
@@ -664,16 +649,10 @@ export function AnnouncementsPage() {
                                     )}
 
                                     {(hasLink || attachmentCount > 0) && (
-                                      <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                      <span className="announcements-page__tag-list">
                                         {hasLink && (
                                           <Tag size="sm" type="blue">
-                                            <span
-                                              style={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 4,
-                                              }}
-                                            >
+                                            <span className="announcements-page__tag-content">
                                               <LinkIcon size={12} />
                                               Link
                                             </span>
@@ -682,13 +661,7 @@ export function AnnouncementsPage() {
 
                                         {attachmentCount > 0 && (
                                           <Tag size="sm" type="cyan">
-                                            <span
-                                              style={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 4,
-                                              }}
-                                            >
+                                            <span className="announcements-page__tag-content">
                                               <Attachment size={12} />
                                               {attachmentCount === 1
                                                 ? "1 attachment"
@@ -713,13 +686,7 @@ export function AnnouncementsPage() {
                                 <TableCell key={cell.id}>
                                   {attachmentCount > 0 ? (
                                     <Tag type="cyan" size="sm">
-                                      <span
-                                        style={{
-                                          display: "inline-flex",
-                                          alignItems: "center",
-                                          gap: 4,
-                                        }}
-                                      >
+                                      <span className="announcements-page__tag-content">
                                         <Attachment size={12} />
                                         {attachmentCount}
                                       </span>

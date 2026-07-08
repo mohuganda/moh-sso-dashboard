@@ -1,6 +1,7 @@
 import { Button, InlineLoading } from "@carbon/react";
 
 import type { Announcement } from "../types";
+import "./announcements.components.scss";
 
 type BulkAction = "publish" | "draft" | "archive" | "pin" | "unpin" | "delete" | null;
 
@@ -31,25 +32,10 @@ export function AnnouncementBulkActions({
   const isLoading = Boolean(loadingAction);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 8,
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingBlockEnd: 12,
-      }}
-    >
+    <div className="announcement-bulk-actions">
       <strong>{announcements.length} selected</strong>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="announcement-bulk-actions__buttons">
         {isLoading && <InlineLoading description="Processing…" />}
 
         <Button size="sm" kind="secondary" disabled={isLoading} onClick={onPublish}>

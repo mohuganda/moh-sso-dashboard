@@ -1,4 +1,5 @@
 import { Button, Dropdown, Search } from "@carbon/react";
+import "./announcements.components.scss";
 
 type Option = {
   id: string;
@@ -59,14 +60,7 @@ export function AnnouncementFilters<
   const pinItems = [...pinOptions];
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "2fr repeat(4, minmax(150px, 1fr)) auto",
-        gap: 12,
-        alignItems: "end",
-      }}
-    >
+    <div className="announcement-filter-grid">
       <Search
         id="announcement-search"
         labelText="Search announcements"
