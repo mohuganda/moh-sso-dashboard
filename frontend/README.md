@@ -96,6 +96,7 @@ More detail: [docs/development.md](docs/development.md).
 
 ```bash
 npm run audit:packages
+npm run audit:inline-styles
 npm run typecheck
 npm run lint
 npm run build:shell
@@ -107,6 +108,12 @@ npm run build:docker
 ```
 
 `npm run audit:packages` verifies that every app/package declares the packages it imports. Run it after changing imports or package manifests.
+
+## Styling
+
+Use SCSS for project-owned styles in apps and packages. Keep styles feature-local unless they are truly reusable, then move them into `packages/ui`. Vendor CSS imports such as Carbon, Leaflet, and pivot table styles are allowed to stay as `.css` imports.
+
+Avoid inline styles for static layout, spacing, color, and typography. Prefer MOH theme classes, Carbon components, and SCSS modules/files. Inline styles should be limited to runtime-computed values that cannot be represented safely as classes, such as chart dimensions or map coordinates. Run `npm run audit:inline-styles` to review remaining inline style usage.
 
 ## Versioning And Releases
 

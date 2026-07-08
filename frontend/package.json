@@ -32,6 +32,7 @@
     "audit:packages": "node scripts/audit-package-dependencies.mjs",
     "audit:import-map": "node scripts/audit-import-map.mjs",
     "audit:mf-css": "node scripts/audit-microfrontend-css.mjs",
+    "audit:inline-styles": "node scripts/audit-inline-styles.mjs",
     "audit:publishability": "node scripts/audit-package-publishability.mjs",
     "bundle:budget": "node scripts/bundle-budget.mjs",
     "runtime:verify": "node scripts/verify-production-runtime.mjs",

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import type { Notification } from "@moh-sso/types";
 import { getSeverityTagType } from "../utils/severity";
 
-import "./notifications-panel.css";
+import "./notifications-panel.scss";
 
 type Props = {
   notifications: Notification[];

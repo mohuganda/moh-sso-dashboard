@@ -1,7 +1,7 @@
 import { Launch } from "@carbon/react/icons";
 import { Tile, Stack, Tag, Button } from "@carbon/react";
 import { useNavigate } from "react-router-dom";
-import "./application-tile.css";
+import "./application-tile.scss";
 
 export type ApplicationTileProps = {
   clientId: string;

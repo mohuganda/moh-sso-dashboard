@@ -1,5 +1,5 @@
 // src/components/forms/CaseFormsGrid.tsx
-import "./CaseFormsGrid.css";
+import "./CaseFormsGrid.scss";
 
 const forms = [
   {

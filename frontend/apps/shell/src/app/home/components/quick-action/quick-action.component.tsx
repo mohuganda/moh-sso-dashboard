@@ -1,7 +1,7 @@
 import { Tile } from "@carbon/react";
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./quick-action.css";
+import "./quick-action.scss";
 
 type QuickActionTone = "default" | "primary" | "warning" | "danger";
 

@@ -28,7 +28,7 @@ import {
 import { useListDocumentsQuery } from "@moh-sso/documents/api";
 import type { DocumentResponse } from "@moh-sso/documents/types";
 import WeeklyCasesChart from "./surveillance-weekly-cases.component";
-import "./surveillance-details.css";
+import "./surveillance-details.scss";
 
 function formatDiseaseName(value?: string) {
   if (!value) return "Disease";

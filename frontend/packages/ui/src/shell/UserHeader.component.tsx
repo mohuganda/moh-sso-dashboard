@@ -10,7 +10,7 @@ import type React from "react";
 import type { ReactNode } from "react";
 
 import AppMenuAction from "../navigation/appmenu/AppMenu.component";
-import "./public-header.css";
+import "./public-header.scss";
 
 import imagePath from "../assets/logo.png";
 

@@ -7,7 +7,7 @@ import SurveillanceFilters from "./surveillance-filters.component";
 import SurveillanceTiles from "./surveillance-tiles.component";
 import SurveillancePanels from "./surveillance-panel.component";
 import SurveillanceUgandaMap from "./surveillance-uganda-map.component";
-import "./surveillance.css";
+import "./surveillance.scss";
 
 import {
   useGetGeoJsonQuery,

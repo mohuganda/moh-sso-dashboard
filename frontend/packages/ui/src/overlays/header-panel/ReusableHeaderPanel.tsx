@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useFocusTrap } from "../../accessibility/useFocusTrap";
 import type { PanelSize } from "./header-panel.context";
-import "./reusable-header-panel.css";
+import "./reusable-header-panel.scss";
 
 type Props = {
   isOpen: boolean;

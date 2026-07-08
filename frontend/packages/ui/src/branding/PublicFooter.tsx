@@ -1,5 +1,5 @@
 // src/components/footer/PublicFooter.tsx
-import "./PublicFooter.css";
+import "./PublicFooter.scss";
 
 export type FooterVersionInfo = {
   frontendVersion?: string;
