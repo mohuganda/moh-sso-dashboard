@@ -2,6 +2,7 @@ import { Tile, InlineLoading } from "@carbon/react";
 import type React from "react";
 
 import { useAuditOverviewQuery } from "../api";
+import "./audit-components.scss";
 
 type Props = {
   from: string;
@@ -21,17 +22,11 @@ export const AuditMetricsPanel: React.FC<Props> = ({ from, to }) => {
   }
 
   if (isError && !data) {
-    return <div style={{ opacity: 0.7 }}>Failed to load audit metrics.</div>;
+    return <div className="audit-metrics__error">Failed to load audit metrics.</div>;
   }
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-        gap: 12,
-      }}
-    >
+    <div className="audit-metrics">
       <MetricCard label="Total Events" value={data?.total_events} />
       <MetricCard label="Total Failures" value={data?.total_failures} />
       <MetricCard label="Failed Logins" value={data?.failed_logins} />
@@ -43,24 +38,9 @@ export const AuditMetricsPanel: React.FC<Props> = ({ from, to }) => {
 function MetricCard({ label, value }: { label: string; value?: number | null }) {
   return (
     <Tile>
-      <div
-        style={{
-          fontSize: "0.8125rem",
-          color: "#6f6f6f",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </div>
+      <div className="audit-metrics__label">{label}</div>
 
-      <div
-        style={{
-          fontSize: 24,
-          fontWeight: 600,
-        }}
-      >
-        {value ?? "—"}
-      </div>
+      <div className="audit-metrics__value">{value ?? "—"}</div>
     </Tile>
   );
 }

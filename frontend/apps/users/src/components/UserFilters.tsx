@@ -1,5 +1,7 @@
 import { Dropdown, Button, Stack } from "@carbon/react";
 
+import "./user-components.scss";
+
 interface UserFiltersProps {
   status: string;
   roles: string[];
@@ -23,12 +25,7 @@ export function UserFilters({
     <Stack
       orientation="horizontal"
       gap={5}
-      style={{
-        width: "100%",
-        justifyContent: "flex-end",
-        alignItems: "flex-end",
-        flexWrap: "nowrap",
-      }}
+      className="user-filters"
     >
       {/* Status */}
       <Dropdown
@@ -38,7 +35,7 @@ export function UserFilters({
         titleText="Status"
         items={["all", "active", "disabled"]}
         selectedItem={status}
-        style={{ width: 160 }}
+        className="user-filters__field--status"
         onChange={({ selectedItem }) => {
           onStatusChange(selectedItem!);
         }}
@@ -52,7 +49,7 @@ export function UserFilters({
         titleText="Role"
         items={roles}
         selectedItem={selectedRole}
-        style={{ width: 200 }}
+        className="user-filters__field--role"
         onChange={({ selectedItem }) => {
           onRoleChange(selectedItem!);
         }}

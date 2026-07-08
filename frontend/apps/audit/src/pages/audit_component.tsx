@@ -29,6 +29,7 @@ import { buildAuditExportUrl, useListAuditActionsQuery, useListAuditLogsQuery } 
 import type { AuditFilters, AuditLog, Cursor } from "../types";
 import { AuditLogBulkActions } from "../components/audit-log-bulk-actions.component";
 import { AuditLogActionsMenu } from "../components/audit-log-actions-menu.component";
+import "./audit.scss";
 
 type SuccessFilter = "true" | "false";
 
@@ -496,7 +497,7 @@ export default function AuditLogs() {
           </DataTable>
 
           {hasMore && (
-            <div style={{ textAlign: "center", padding: 16 }}>
+            <div className="audit-page__load-more">
               <Button
                 kind="secondary"
                 disabled={isFetching || !nextCursor?.cursor_id || !nextCursor?.cursor_created_at}

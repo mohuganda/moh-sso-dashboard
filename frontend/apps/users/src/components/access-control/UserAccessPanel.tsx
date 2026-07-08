@@ -7,6 +7,7 @@ import {
 } from "@moh-sso/rbac/api";
 import type { RbacAssignableSystemAccess, RbacPermission } from "@moh-sso/rbac/types";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
+import "../user-components.scss";
 
 type Props = {
   userId: string;
@@ -187,7 +188,7 @@ function groupPermissions(permissions: RbacPermission[]) {
 
 function TagList({ values, type }: { values: string[]; type: "cyan" | "green" }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+    <div className="user-access-tag-list">
       {values.map((value) => (
         <Tag key={value} size="sm" type={type}>
           {value}

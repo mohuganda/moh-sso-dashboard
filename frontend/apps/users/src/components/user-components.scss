@@ -1,0 +1,57 @@
+.user-filters {
+  width: 100%;
+  justify-content: flex-end;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+}
+
+.user-filters__field--status {
+  width: 10rem;
+}
+
+.user-filters__field--role {
+  width: 12.5rem;
+}
+
+.user-bulk-actions {
+  margin-bottom: 1rem;
+}
+
+.user-confirm-modal {
+  display: grid;
+  gap: 1rem;
+}
+
+.user-confirm-modal__description {
+  color: var(--cds-text-secondary);
+}
+
+.user-confirm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.user-access-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 672px) {
+  .user-filters {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .user-filters__field--status,
+  .user-filters__field--role {
+    width: 100%;
+  }
+
+  .user-confirm-modal__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

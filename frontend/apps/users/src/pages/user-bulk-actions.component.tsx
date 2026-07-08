@@ -1,6 +1,7 @@
 import { Button, ButtonSet, InlineLoading } from "@carbon/react";
 
 import type { User } from "../types";
+import "../components/user-components.scss";
 
 type BulkAction = "enable" | "disable" | null;
 
@@ -24,7 +25,7 @@ export function UserBulkActions({
   const busy = loadingAction !== null;
 
   return (
-    <ButtonSet style={{ marginBottom: 16 }}>
+    <ButtonSet className="user-bulk-actions">
       <Button kind="secondary" disabled={allEnabled || busy} onClick={onEnable}>
         {loadingAction === "enable" ? (
           <InlineLoading description="Enabling…" />

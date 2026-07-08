@@ -528,11 +528,7 @@ export default function DiseaseDetailsPage() {
                       {doc.label}
                     </Link>
                     {doc.uploaded && doc.status ? (
-                      <span
-                        style={{ marginLeft: "0.5rem", color: "#6f6f6f", fontSize: "0.875rem" }}
-                      >
-                        ({doc.status})
-                      </span>
+                      <span className="disease-details-page__link-status">({doc.status})</span>
                     ) : null}
                   </li>
                 ))}

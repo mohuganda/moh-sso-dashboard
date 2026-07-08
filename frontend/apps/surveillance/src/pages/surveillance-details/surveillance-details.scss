@@ -83,6 +83,12 @@
   margin-bottom: 0.5rem;
 }
 
+.disease-details-page__link-status {
+  margin-left: 0.5rem;
+  color: var(--cds-text-secondary);
+  font-size: 0.875rem;
+}
+
 .disease-details-page__table-empty,
 .disease-details-page__loading,
 .disease-details-page__placeholder {

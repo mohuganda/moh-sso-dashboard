@@ -4,6 +4,49 @@
   margin-bottom: 1rem;
 }
 
+.surveillance-upload {
+  max-width: 45rem;
+}
+
+.surveillance-upload__header {
+  margin-bottom: 1.5rem;
+}
+
+.surveillance-upload__header h2 {
+  margin: 0 0 0.5rem;
+}
+
+.surveillance-upload__header p {
+  margin: 0;
+  color: var(--cds-text-secondary);
+}
+
+.surveillance-upload__selected-file {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.surveillance-upload__file-size {
+  color: var(--cds-text-secondary);
+}
+
+.surveillance-upload__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 672px) {
+  .surveillance-upload__actions {
+    justify-content: stretch;
+  }
+}
+
 .surveillance-filters__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -12,6 +12,7 @@ import {
 } from "@carbon/react";
 import { useMemo, useState, type SyntheticEvent } from "react";
 import { useCreateImportBatchMutation } from "../api";
+import "./surveillance.scss";
 
 type UploadCSVModalProps = {
   onClose: () => void;
@@ -123,10 +124,10 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ margin: 0, marginBottom: "0.5rem" }}>Upload Surveillance File</h2>
-        <p style={{ margin: 0, color: "#6f6f6f" }}>
+    <div className="surveillance-upload">
+      <div className="surveillance-upload__header">
+        <h2>Upload Surveillance File</h2>
+        <p>
           Upload a CSV or Excel file and choose the surveillance dataset it belongs to.
         </p>
       </div>
@@ -154,17 +155,10 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
           </FormGroup>
 
           {file && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="surveillance-upload__selected-file">
               <Tag type="blue">Selected file</Tag>
               <span>{file.name}</span>
-              <span style={{ color: "#6f6f6f" }}>{formatFileSize(file.size)}</span>
+              <span className="surveillance-upload__file-size">{formatFileSize(file.size)}</span>
               <Button kind="ghost" size="sm" onClick={handleRemoveFile} disabled={isUploading}>
                 Remove
               </Button>
@@ -184,16 +178,7 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
             ))}
           </Select>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: "1rem",
-              marginTop: "0.5rem",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="surveillance-upload__actions">
             {isUploading && <InlineLoading description="Uploading file..." />}
 
             <Button kind="secondary" onClick={onClose} disabled={isUploading}>

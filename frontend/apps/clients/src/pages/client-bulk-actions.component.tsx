@@ -1,6 +1,7 @@
 import { Button, ButtonSet, InlineLoading } from "@carbon/react";
 
 import type { Client } from "@moh-sso/types";
+import "../components/client-components.scss";
 
 type Props = {
   clients: Client[];
@@ -16,7 +17,7 @@ export function ClientBulkActions({ clients, loadingAction, onEnable, onDisable 
   const allDisabled = clients.every((c) => !c.enabled);
 
   return (
-    <ButtonSet style={{ marginBottom: 16 }}>
+    <ButtonSet className="client-bulk-actions">
       <Button kind="secondary" disabled={allEnabled || loadingAction !== null} onClick={onEnable}>
         {loadingAction === "enable" ? (
           <InlineLoading description="Enabling…" />
