@@ -317,7 +317,14 @@ type AssignableUserAccessResponse struct {
 
 type UserAccessProfileResponse struct {
 	EffectiveAccess EffectiveAccessResponse      `json:"effectiveAccess"`
+	DirectAccess    DirectUserAccessResponse     `json:"directAccess"`
 	Assignable      AssignableUserAccessResponse `json:"assignable"`
+}
+
+type DirectUserAccessResponse struct {
+	RealmRoles  []string            `json:"realmRoles"`
+	ClientRoles map[string][]string `json:"clientRoles"`
+	Permissions []Permission        `json:"permissions"`
 }
 
 type UpdateUserAccessRequest struct {

@@ -285,6 +285,11 @@ export type RbacAssignableUserAccess = {
 
 export type RbacUserAccessProfile = {
   effectiveAccess: RbacEffectiveAccess;
+  directAccess?: {
+    realmRoles: string[];
+    clientRoles: Record<string, string[]>;
+    permissions: RbacPermission[];
+  };
   assignable: RbacAssignableUserAccess;
 };
 

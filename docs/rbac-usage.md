@@ -16,7 +16,7 @@ Realm roles and client roles are inputs. Permission checks are the preferred aut
 
 Keycloak clients are the source candidates for portal systems. Use `system-rbac sync-keycloak` against live Keycloak, or use `--realm-export keycloak/realm-export.json`, to draft/apply portal systems from Keycloak clients and client roles. Portal RBAC then maps those discovered roles to application permissions.
 
-For the full operator workflow, including startup sync, new client onboarding, permission mapping, and troubleshooting, see [RBAC And Keycloak Sync](./rbac-keycloak-sync.md).
+For the full operator workflow, including startup sync, new client onboarding, permission mapping, and troubleshooting, see [RBAC And Keycloak Sync](./rbac-keycloak-sync.md). For group-based assignments and inherited access behavior, see [RBAC Groups](./rbac-groups.md).
 
 ## Backend Rules
 
@@ -73,9 +73,13 @@ The RBAC page also includes an Effective Access section. Use it to search by use
 
 - realm roles from Keycloak
 - client roles from Keycloak
+- group memberships from Keycloak
+- group-derived realm roles, client roles, and portal permissions
 - resolved portal permissions
 - accessible systems
 - the role or system role that granted each permission
+
+Group-derived access is read-only from the user access panel. Change inherited access by editing the Keycloak group, group membership, or portal group permission mapping.
 
 ## Microfrontend Metadata
 

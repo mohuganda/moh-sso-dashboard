@@ -5,6 +5,7 @@ The MOH Integrated Health Portal uses Keycloak for identity and role assignment,
 This means:
 
 - Keycloak owns users, passwords, sessions, realm roles, client roles, and client membership.
+- Keycloak owns groups, group membership, and group role mappings.
 - Keycloak clients are treated as portal systems.
 - Keycloak client roles are treated as system roles.
 - Portal RBAC owns permission keys and maps Keycloak roles to portal permissions.
@@ -61,10 +62,13 @@ Startup order:
 1. Sync systems and roles from the local Keycloak realm export, if enabled.
 2. Sync systems and roles from live Keycloak, if enabled.
 3. Apply the curated portal RBAC seed.
-4. Sync Keycloak users into the local portal DB user cache.
-5. Optionally create missing portal-defined roles back into Keycloak, if enabled.
+4. Sync Keycloak groups, group memberships, and group role mappings into the local portal RBAC cache.
+5. Sync Keycloak users into the local portal DB user cache.
+6. Optionally create missing portal-defined roles back into Keycloak, if enabled.
 
 The curated seed is applied after discovery so known portal metadata and permission mappings win over generic Keycloak metadata.
+
+Group membership can grant inherited realm roles, client roles, and portal group permissions. For the effective-access model, admin workflow, and QA checklist, see [RBAC Groups](./rbac-groups.md).
 
 ### Default Access For The `user` Realm Role
 
@@ -240,7 +244,7 @@ Only use permission keys that exist in `backend/internal/authz/permissions.go`. 
 
 ### 4. Assign Users In Keycloak
 
-Assign the user the relevant client roles in Keycloak, or use the portal user access panel if it writes through to Keycloak.
+Assign the user the relevant client roles in Keycloak, assign the user to a Keycloak group that carries those roles, or use the portal user access panel if it writes through to Keycloak.
 
 Example:
 

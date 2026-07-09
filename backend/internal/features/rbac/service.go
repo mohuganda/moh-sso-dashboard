@@ -201,6 +201,11 @@ func (s *Service) GetUserAccessProfile(ctx context.Context, userID string) (User
 		return UserAccessProfileResponse{}, err
 	}
 
+	user, err := s.lookupUser(userID, "", "")
+	if err != nil {
+		return UserAccessProfileResponse{}, err
+	}
+
 	assignable, err := s.ListAssignableUserAccess(ctx)
 	if err != nil {
 		return UserAccessProfileResponse{}, err
@@ -208,6 +213,7 @@ func (s *Service) GetUserAccessProfile(ctx context.Context, userID string) (User
 
 	return UserAccessProfileResponse{
 		EffectiveAccess: effective,
+		DirectAccess:    directUserAccess(user),
 		Assignable:      assignable,
 	}, nil
 }
@@ -280,7 +286,12 @@ func (s *Service) UpdateUserAccess(
 
 	return UserAccessProfileResponse{
 		EffectiveAccess: after,
-		Assignable:      assignable,
+		DirectAccess: DirectUserAccessResponse{
+			RealmRoles:  realmRoles,
+			ClientRoles: clientRoles,
+			Permissions: []Permission{},
+		},
+		Assignable: assignable,
 	}, nil
 }
 
@@ -401,7 +412,7 @@ func (s *Service) UpsertGroup(ctx context.Context, input GroupInput) (Group, err
 	if err != nil {
 		return Group{}, err
 	}
-	if err := s.recordAudit(ctx, "group.upserted", "group", group.ID, "", "", "", map[string]any{"path": group.Path}); err != nil {
+	if err := s.recordAudit(ctx, "group.upserted", "group", group.ID, "", "", "", groupAuditDetails(group, nil)); err != nil {
 		return Group{}, err
 	}
 	return group, nil
@@ -420,6 +431,7 @@ func (s *Service) ReplaceGroupMembers(ctx context.Context, groupID string, membe
 	if groupID == "" {
 		return fmt.Errorf("%w: groupId is required", ErrInvalidInput)
 	}
+	group, _ := s.repository.GetGroup(ctx, groupID)
 	normalized := make([]GroupMember, 0, len(members))
 	for _, member := range members {
 		member.UserID = strings.TrimSpace(member.UserID)
@@ -433,7 +445,7 @@ func (s *Service) ReplaceGroupMembers(ctx context.Context, groupID string, membe
 	if err := s.repository.ReplaceGroupMembers(ctx, groupID, normalized); err != nil {
 		return err
 	}
-	return s.recordAudit(ctx, "group.members_replaced", "group", groupID, "", "", "", map[string]any{"memberCount": len(normalized)})
+	return s.recordAudit(ctx, "group.members_replaced", "group", groupID, "", "", "", groupAuditDetails(group, map[string]any{"memberCount": len(normalized)}))
 }
 
 func (s *Service) AssignGroupPermission(ctx context.Context, groupID string, permissionKey string) error {
@@ -442,13 +454,14 @@ func (s *Service) AssignGroupPermission(ctx context.Context, groupID string, per
 	if groupID == "" || permissionKey == "" {
 		return fmt.Errorf("%w: groupId and permissionKey are required", ErrInvalidInput)
 	}
+	group, _ := s.repository.GetGroup(ctx, groupID)
 	if err := s.requirePermission(ctx, permissionKey); err != nil {
 		return err
 	}
 	if err := s.repository.AssignGroupPermission(ctx, groupID, permissionKey); err != nil {
 		return err
 	}
-	return s.recordAudit(ctx, "group.permission_assigned", "group", groupID, "", "", permissionKey, nil)
+	return s.recordAudit(ctx, "group.permission_assigned", "group", groupID, "", "", permissionKey, groupAuditDetails(group, nil))
 }
 
 func (s *Service) RemoveGroupPermission(ctx context.Context, groupID string, permissionKey string) error {
@@ -457,10 +470,11 @@ func (s *Service) RemoveGroupPermission(ctx context.Context, groupID string, per
 	if groupID == "" || permissionKey == "" {
 		return fmt.Errorf("%w: groupId and permissionKey are required", ErrInvalidInput)
 	}
+	group, _ := s.repository.GetGroup(ctx, groupID)
 	if err := s.repository.RemoveGroupPermission(ctx, groupID, permissionKey); err != nil {
 		return err
 	}
-	return s.recordAudit(ctx, "group.permission_removed", "group", groupID, "", "", permissionKey, nil)
+	return s.recordAudit(ctx, "group.permission_removed", "group", groupID, "", "", permissionKey, groupAuditDetails(group, nil))
 }
 
 func (s *Service) AssignGroupRealmRole(ctx context.Context, groupID string, realmRole string) error {
@@ -469,10 +483,11 @@ func (s *Service) AssignGroupRealmRole(ctx context.Context, groupID string, real
 	if groupID == "" || realmRole == "" {
 		return fmt.Errorf("%w: groupId and realmRole are required", ErrInvalidInput)
 	}
+	group, _ := s.repository.GetGroup(ctx, groupID)
 	if err := s.repository.AssignGroupRealmRole(ctx, groupID, realmRole); err != nil {
 		return err
 	}
-	return s.recordAudit(ctx, "group.realm_role_assigned", "group", groupID, "", realmRole, "", nil)
+	return s.recordAudit(ctx, "group.realm_role_assigned", "group", groupID, "", realmRole, "", groupAuditDetails(group, nil))
 }
 
 func (s *Service) RemoveGroupRealmRole(ctx context.Context, groupID string, realmRole string) error {
@@ -481,10 +496,11 @@ func (s *Service) RemoveGroupRealmRole(ctx context.Context, groupID string, real
 	if groupID == "" || realmRole == "" {
 		return fmt.Errorf("%w: groupId and realmRole are required", ErrInvalidInput)
 	}
+	group, _ := s.repository.GetGroup(ctx, groupID)
 	if err := s.repository.RemoveGroupRealmRole(ctx, groupID, realmRole); err != nil {
 		return err
 	}
-	return s.recordAudit(ctx, "group.realm_role_removed", "group", groupID, "", realmRole, "", nil)
+	return s.recordAudit(ctx, "group.realm_role_removed", "group", groupID, "", realmRole, "", groupAuditDetails(group, nil))
 }
 
 func (s *Service) AssignGroupSystemRole(ctx context.Context, groupID string, input GroupSystemRoleInput) error {
@@ -494,10 +510,11 @@ func (s *Service) AssignGroupSystemRole(ctx context.Context, groupID string, inp
 	if groupID == "" || input.ClientID == "" || input.RoleName == "" {
 		return fmt.Errorf("%w: groupId, clientId, and roleName are required", ErrInvalidInput)
 	}
+	group, _ := s.repository.GetGroup(ctx, groupID)
 	if err := s.repository.AssignGroupSystemRole(ctx, groupID, input.ClientID, input.RoleName); err != nil {
 		return err
 	}
-	return s.recordAudit(ctx, "group.system_role_assigned", "group", groupID, input.ClientID, input.RoleName, "", nil)
+	return s.recordAudit(ctx, "group.system_role_assigned", "group", groupID, input.ClientID, input.RoleName, "", groupAuditDetails(group, nil))
 }
 
 func (s *Service) RemoveGroupSystemRole(ctx context.Context, groupID string, clientID string, roleName string) error {
@@ -507,10 +524,11 @@ func (s *Service) RemoveGroupSystemRole(ctx context.Context, groupID string, cli
 	if groupID == "" || clientID == "" || roleName == "" {
 		return fmt.Errorf("%w: groupId, clientId, and roleName are required", ErrInvalidInput)
 	}
+	group, _ := s.repository.GetGroup(ctx, groupID)
 	if err := s.repository.RemoveGroupSystemRole(ctx, groupID, clientID, roleName); err != nil {
 		return err
 	}
-	return s.recordAudit(ctx, "group.system_role_removed", "group", groupID, clientID, roleName, "", nil)
+	return s.recordAudit(ctx, "group.system_role_removed", "group", groupID, clientID, roleName, "", groupAuditDetails(group, nil))
 }
 
 func (s *Service) AssignRealmRolePermission(ctx context.Context, realmRole string, permissionKey string) error {
@@ -1339,6 +1357,41 @@ func (s *Service) recordAudit(ctx context.Context, action string, resourceType s
 		PermissionKey:  permissionKey,
 		Details:        payload,
 	})
+}
+
+func directUserAccess(user *model.User) DirectUserAccessResponse {
+	if user == nil {
+		return DirectUserAccessResponse{
+			RealmRoles:  []string{},
+			ClientRoles: map[string][]string{},
+			Permissions: []Permission{},
+		}
+	}
+	return DirectUserAccessResponse{
+		RealmRoles:  sortedStrings(user.RealmRoles),
+		ClientRoles: sortedClientRoles(user.ClientRoles),
+		Permissions: []Permission{},
+	}
+}
+
+func groupAuditDetails(group Group, extra map[string]any) map[string]any {
+	details := map[string]any{}
+	if strings.TrimSpace(group.ID) != "" {
+		details["groupId"] = group.ID
+	}
+	if strings.TrimSpace(group.Path) != "" {
+		details["groupPath"] = group.Path
+	}
+	if strings.TrimSpace(group.Name) != "" {
+		details["groupName"] = group.Name
+	}
+	if strings.TrimSpace(group.DisplayName) != "" {
+		details["groupDisplayName"] = group.DisplayName
+	}
+	for key, value := range extra {
+		details[key] = value
+	}
+	return details
 }
 
 func (s *Service) requirePermission(ctx context.Context, permissionKey string) error {

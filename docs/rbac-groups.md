@@ -1,0 +1,108 @@
+# RBAC Groups
+
+Keycloak groups are access containers for many users. The portal treats groups as a first-class RBAC source while keeping Keycloak as the identity source for group identity, group membership, realm roles, and client roles.
+
+Effective access is resolved from:
+
+- direct user realm roles
+- direct user system/client roles
+- direct user platform permissions, where supported
+- group direct permissions
+- group realm roles mapped to portal permissions
+- group system/client roles mapped to portal permissions and app access
+
+## Data Ownership
+
+Keycloak owns:
+
+- group IDs, names, paths, and nested group structure
+- group membership
+- group realm-role mappings
+- group client-role mappings
+
+The portal database owns:
+
+- group metadata cache for RBAC explanations
+- group direct permission mappings
+- synced group membership cache
+- audit history
+- UI-friendly effective access explanations
+
+Do not manually edit Keycloak-owned group membership in the portal database. Sync Keycloak again after group membership changes.
+
+## Admin Workflow
+
+1. Create or update groups in Keycloak.
+2. Assign realm roles and client roles to the group in Keycloak.
+3. Run RBAC sync from the portal or allow startup sync to pull groups.
+4. Open `Admin > RBAC > Groups`.
+5. Review the synced groups.
+6. Add direct portal permissions to the group only when permissions are not already represented by realm/client roles.
+7. Inspect a user from `Admin > Users > Manage roles` to confirm inherited access.
+
+The users access panel separates:
+
+- direct editable roles
+- inherited read-only group access
+- final effective permissions
+
+Inherited access should not be removed from the direct user-role controls. Change the Keycloak group, group membership, or group RBAC mappings instead.
+
+## App Visibility
+
+The app launcher, side navigation, and microfrontend route guards use the current user's final authorization payload:
+
+- `permissions`
+- `systems`
+- `accessibleSystems`
+
+Keycloak group realm/client roles are normally included in the token/userinfo role mappings and are therefore available to guards after login/refresh. Portal-only group permission mappings are visible in RBAC effective-access endpoints and should be reflected in auth/session payloads only when the auth layer is wired to the RBAC resolver.
+
+Manual QA:
+
+- A user with group-derived `data_quality:read` can see and open Data Validation.
+- A user with group-derived `documents:read` can see and open Document Management.
+- A user with group-derived `data-statistics` system access can see Data & Statistics navigation.
+- Direct navigation without direct or group-derived access shows Access Denied, not a blank page.
+- After Keycloak group changes, refresh login/session or run sync before testing visibility.
+
+## Audit Events
+
+Group RBAC mutations write audit events with safe metadata:
+
+- `group.upserted`
+- `group.members_replaced`
+- `group.permission_assigned`
+- `group.permission_removed`
+- `group.realm_role_assigned`
+- `group.realm_role_removed`
+- `group.system_role_assigned`
+- `group.system_role_removed`
+- `rbac.groups_synced`
+
+Audit details include group ID/path/name and counts where useful. Full Keycloak payloads, tokens, and secrets are not logged.
+
+## Startup Sync Notes
+
+Current group sync runs as part of live Keycloak RBAC sync when the configured Keycloak admin client supports group APIs.
+
+Recommended production posture:
+
+- keep Keycloak as source of truth for membership
+- keep push-to-Keycloak disabled unless intentionally provisioning systems/roles
+- do not delete Keycloak groups automatically
+- treat sync warnings as operational signals unless fail-on-error is explicitly enabled
+
+## Troubleshooting
+
+If a user does not see an app expected from group access:
+
+1. Confirm the user is a member of the Keycloak group.
+2. Confirm the group has the expected realm/client role in Keycloak.
+3. Confirm the client/system exists in the portal system registry.
+4. Run RBAC sync and check warnings.
+5. Inspect `Admin > Users > Manage roles` and review the Groups section.
+6. Confirm the permission appears in effective permissions.
+7. Refresh the user's session or log out/in.
+
+If inherited access appears as removable direct access, verify the users access panel is using `directAccess` for editable controls and `effectiveAccess` only for read-only explanation.
