@@ -7,7 +7,8 @@ export type AnnouncementAudienceType =
   | "ADMINS_ONLY"
   | "SPECIFIC_CLIENTS"
   | "SPECIFIC_ROLES"
-  | "SPECIFIC_USERS";
+  | "SPECIFIC_USERS"
+  | "SPECIFIC_GROUPS";
 
 export interface Announcement {
   id: string;
@@ -27,6 +28,7 @@ export interface Announcement {
   client_ids?: string[];
   role_names?: string[];
   user_ids?: string[];
+  group_ids?: string[];
   notify_by_email: boolean;
   email_notification_sent_at: string | null;
   notify_by_sms: boolean;
@@ -71,6 +73,7 @@ export interface CreateAnnouncementRequest {
   client_ids?: string[];
   role_names?: string[];
   user_ids?: string[];
+  group_ids?: string[];
   notify_by_email?: boolean;
   notify_by_sms?: boolean;
   sms_message?: string | null;
@@ -145,6 +148,7 @@ export interface UpdateAnnouncementRequest {
   client_ids?: string[];
   role_names?: string[];
   user_ids?: string[];
+  group_ids?: string[];
 
   /**
    * User-controlled email notification preference.

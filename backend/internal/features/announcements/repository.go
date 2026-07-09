@@ -192,6 +192,23 @@ type AnnouncementRepository interface {
 		announcementID uuid.UUID,
 	) ([]uuid.UUID, error)
 
+	AddGroupAudience(
+		ctx context.Context,
+		announcementID uuid.UUID,
+		groupID uuid.UUID,
+	) error
+
+	ReplaceGroupAudience(
+		ctx context.Context,
+		announcementID uuid.UUID,
+		groupIDs []uuid.UUID,
+	) error
+
+	ListGroupAudience(
+		ctx context.Context,
+		announcementID uuid.UUID,
+	) ([]uuid.UUID, error)
+
 	// ---------------------------------
 	// End-user targeting queries
 	// ---------------------------------

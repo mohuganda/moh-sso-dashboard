@@ -16,12 +16,17 @@ const modulePath = "github.com/moh-sso-dashboard/internal/features/"
 var allowedFeatureImports = map[string]map[string]string{
 	"announcements": {
 		"users": "announcement audiences can resolve Keycloak users through the users repository port",
+		"rbac":  "announcement group audiences resolve members through the RBAC repository port",
 	},
 	"auth": {
 		"authsession": "auth owns the authsession backing store as an implementation detail",
 	},
 	"documents": {
 		"storage_locations": "document upload flows validate configured storage locations",
+	},
+	"email": {
+		"rbac":  "email group targeting resolves recipients through the RBAC repository port",
+		"users": "email group targeting filters resolved members through the users repository port",
 	},
 	"rbac": {
 		"system_rbac": "RBAC sync applies the system RBAC seed format",

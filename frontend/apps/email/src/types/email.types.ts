@@ -15,7 +15,9 @@ export type EmailAttachment = {
 export type SendEmailRequest = {
   id?: string;
   from?: EmailAddress;
-  to: EmailAddress[];
+  to?: EmailAddress[];
+  to_groups?: string[];
+  to_group_paths?: string[];
   cc?: EmailAddress[];
   bcc?: EmailAddress[];
   reply_to?: EmailAddress[];
@@ -28,6 +30,16 @@ export type SendEmailRequest = {
   headers?: Record<string, string>;
   metadata?: Record<string, string>;
   scheduled_at?: string;
+};
+
+export type EmailRecipientPreviewRequest = {
+  to_groups?: string[];
+  to_group_paths?: string[];
+};
+
+export type EmailRecipientPreviewResponse = {
+  recipient_count: number;
+  recipients?: EmailAddress[];
 };
 
 export type EmailStatus = "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "RETRY";

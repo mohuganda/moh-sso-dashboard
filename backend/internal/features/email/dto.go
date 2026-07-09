@@ -19,7 +19,9 @@ type EmailAttachmentRequest struct {
 type SendEmailRequest struct {
 	ID           string                   `json:"id,omitempty"`
 	From         *EmailAddressRequest     `json:"from,omitempty"`
-	To           []EmailAddressRequest    `json:"to" binding:"required,min=1,dive"`
+	To           []EmailAddressRequest    `json:"to,omitempty"`
+	ToGroups     []string                 `json:"to_groups,omitempty"`
+	ToGroupPaths []string                 `json:"to_group_paths,omitempty"`
 	Cc           []EmailAddressRequest    `json:"cc,omitempty"`
 	Bcc          []EmailAddressRequest    `json:"bcc,omitempty"`
 	ReplyTo      []EmailAddressRequest    `json:"reply_to,omitempty"`
@@ -32,6 +34,16 @@ type SendEmailRequest struct {
 	Headers      map[string]string        `json:"headers,omitempty"`
 	Metadata     map[string]string        `json:"metadata,omitempty"`
 	ScheduledAt  *string                  `json:"scheduled_at,omitempty"`
+}
+
+type EmailRecipientPreviewRequest struct {
+	ToGroups     []string `json:"to_groups,omitempty"`
+	ToGroupPaths []string `json:"to_group_paths,omitempty"`
+}
+
+type EmailRecipientPreviewResponse struct {
+	RecipientCount int                    `json:"recipient_count"`
+	Recipients     []EmailAddressResponse `json:"recipients,omitempty"`
 }
 
 type MessageResponse struct {

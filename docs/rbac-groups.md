@@ -141,3 +141,24 @@ If a user does not see an app expected from group access:
 7. Refresh the user's session or log out/in.
 
 If inherited access appears as removable direct access, verify the users access panel is using `directAccess` for editable controls and `effectiveAccess` only for read-only explanation.
+
+## Announcement And Email Targeting
+
+Groups can also be used as message audiences after they have been synced into portal RBAC.
+
+Announcements support a `SPECIFIC_GROUPS` audience type. Admins select one or more synced RBAC groups, and the backend resolves the current group members when the announcement is published or scheduled. The resolver:
+
+- reads members from the synced RBAC group membership cache
+- looks up users through the users repository where possible
+- skips disabled users and users without email addresses
+- deduplicates recipients by email address
+- sends or queues email only when the announcement email notification flag is enabled
+
+Direct admin email also supports group recipients. Admins can select groups instead of manually entering every address. The backend expands selected group IDs or group paths into email recipients before sending or queueing the message.
+
+Operational notes:
+
+- Keycloak remains the source of truth for group membership.
+- Run RBAC sync after group membership changes before sending group-targeted announcements or email.
+- Group targeting uses a point-in-time snapshot at publish/send time; later group changes do not rewrite already queued delivery records.
+- If a group has no enabled users with email addresses, the email request is rejected with a validation error rather than sending an empty message.

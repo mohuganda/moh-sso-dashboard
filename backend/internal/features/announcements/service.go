@@ -14,6 +14,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	emailutil "github.com/moh-sso-dashboard/internal/email"
+	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	userRepository "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	models "github.com/moh-sso-dashboard/internal/model"
@@ -25,6 +26,7 @@ import (
 type Service struct {
 	repo          Repository
 	userRepo      userRepository.UserRepository
+	rbacRepo      rbacfeature.Repository
 	notifications sharedservice.NotificationsService
 	storage       storage.Storage
 	cfg           *config.Config
@@ -63,6 +65,13 @@ func NewService(
 		storage:       fileStorage,
 		cfg:           appConfig,
 	}
+}
+
+func (s *Service) SetRBACRepository(repo rbacfeature.Repository) {
+	if s == nil {
+		return
+	}
+	s.rbacRepo = repo
 }
 
 // ---------------------------------
@@ -1469,6 +1478,82 @@ func (s *Service) ListUserAudience(
 	return items, nil
 }
 
+func (s *Service) AddGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	groupID uuid.UUID,
+) error {
+	if s == nil {
+		return errors.New("announcement service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("announcement repository is nil")
+	}
+
+	if announcementID == uuid.Nil {
+		return errors.New("announcement id is required")
+	}
+
+	if groupID == uuid.Nil {
+		return errors.New("group id is required")
+	}
+
+	if err := s.repo.AddGroupAudience(ctx, announcementID, groupID); err != nil {
+		return fmt.Errorf("add group audience: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) ReplaceGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	groupIDs []uuid.UUID,
+) error {
+	if s == nil {
+		return errors.New("announcement service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("announcement repository is nil")
+	}
+
+	if announcementID == uuid.Nil {
+		return errors.New("announcement id is required")
+	}
+
+	if err := s.repo.ReplaceGroupAudience(ctx, announcementID, groupIDs); err != nil {
+		return fmt.Errorf("replace group audience: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) ListGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]uuid.UUID, error) {
+	if s == nil {
+		return nil, errors.New("announcement service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("announcement repository is nil")
+	}
+
+	if announcementID == uuid.Nil {
+		return nil, errors.New("announcement id is required")
+	}
+
+	items, err := s.repo.ListGroupAudience(ctx, announcementID)
+	if err != nil {
+		return nil, fmt.Errorf("list group audience: %w", err)
+	}
+
+	return items, nil
+}
+
 // ---------------------------------
 // Announcement email recipient resolution
 // ---------------------------------
@@ -1521,6 +1606,14 @@ func (s *Service) resolveAnnouncementEmailRecipients(
 		}
 
 		return s.resolveUsersByClientAccess(ctx, clientIDs)
+
+	case "SPECIFIC_GROUPS":
+		groupIDs, err := s.repo.ListGroupAudience(ctx, item.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list announcement group audience: %w", err)
+		}
+
+		return s.resolveUsersByRBACGroups(ctx, groupIDs)
 
 	default:
 		return nil, fmt.Errorf("unsupported announcement audience type: %s", audienceType)
@@ -1647,6 +1740,79 @@ func (s *Service) resolveUsersByClientAccess(
 	}
 
 	return announcementRecipientMapToSlice(seen), nil
+}
+
+func (s *Service) resolveUsersByRBACGroups(
+	ctx context.Context,
+	groupIDs []uuid.UUID,
+) ([]AnnouncementEmailRecipient, error) {
+	if s.rbacRepo == nil {
+		return nil, errors.New("rbac repository is required for group audience resolution")
+	}
+
+	seen := make(map[string]AnnouncementEmailRecipient)
+
+	for _, groupID := range groupIDs {
+		if groupID == uuid.Nil {
+			continue
+		}
+
+		members, err := s.rbacRepo.ListGroupMembers(ctx, groupID.String())
+		if err != nil {
+			return nil, fmt.Errorf("list members for group %s: %w", groupID.String(), err)
+		}
+
+		for _, member := range members {
+			recipient, ok, err := s.announcementRecipientFromGroupMember(member)
+			if err != nil {
+				return nil, err
+			}
+
+			if !ok {
+				continue
+			}
+
+			seen[strings.ToLower(recipient.Email)] = recipient
+		}
+	}
+
+	return announcementRecipientMapToSlice(seen), nil
+}
+
+func (s *Service) announcementRecipientFromGroupMember(
+	member rbacfeature.GroupMember,
+) (AnnouncementEmailRecipient, bool, error) {
+	userID := uuid.Nil
+	parsedUserID, err := uuid.Parse(strings.TrimSpace(member.UserID))
+	if err == nil && parsedUserID != uuid.Nil {
+		userID = parsedUserID
+		user, err := s.userRepo.GetUserByID(parsedUserID)
+		if err != nil {
+			return AnnouncementEmailRecipient{}, false, fmt.Errorf("get group member user %s: %w", parsedUserID, err)
+		}
+
+		if user != nil {
+			recipient, ok := announcementRecipientFromUser(*user)
+			return recipient, ok, nil
+		}
+	}
+
+	email := strings.TrimSpace(member.Email)
+	if email == "" {
+		return AnnouncementEmailRecipient{}, false, nil
+	}
+
+	fullName := strings.TrimSpace(member.Username)
+	if fullName == "" {
+		fullName = email
+	}
+
+	return AnnouncementEmailRecipient{
+		ID:       userID,
+		Email:    email,
+		Username: strings.TrimSpace(member.Username),
+		FullName: fullName,
+	}, true, nil
 }
 
 func announcementRecipientFromUser(user models.User) (AnnouncementEmailRecipient, bool) {

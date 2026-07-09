@@ -24,6 +24,7 @@ type createAnnouncementRequest struct {
 	ClientIDs     []string `json:"client_ids"`
 	RoleNames     []string `json:"role_names"`
 	UserIDs       []string `json:"user_ids"`
+	GroupIDs      []string `json:"group_ids"`
 	NotifyByEmail bool     `json:"notify_by_email"`
 	NotifyBySMS   bool     `json:"notify_by_sms"`
 	SMSMessage    *string  `json:"sms_message"`
@@ -45,6 +46,7 @@ type updateAnnouncementRequest struct {
 	ClientIDs     []string `json:"client_ids"`
 	RoleNames     []string `json:"role_names"`
 	UserIDs       []string `json:"user_ids"`
+	GroupIDs      []string `json:"group_ids"`
 	NotifyByEmail bool     `json:"notify_by_email"`
 	NotifyBySMS   bool     `json:"notify_by_sms"`
 	SMSMessage    *string  `json:"sms_message"`
@@ -108,6 +110,7 @@ type AnnouncementResponse struct {
 	ClientIDs               []string                         `json:"client_ids,omitempty"`
 	RoleNames               []string                         `json:"role_names,omitempty"`
 	UserIDs                 []string                         `json:"user_ids,omitempty"`
+	GroupIDs                []string                         `json:"group_ids,omitempty"`
 	NotifyByEmail           bool                             `json:"notify_by_email"`
 	EmailNotificationSentAt *time.Time                       `json:"email_notification_sent_at,omitempty"`
 	NotifyBySMS             bool                             `json:"notify_by_sms"`

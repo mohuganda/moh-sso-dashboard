@@ -92,10 +92,12 @@ func withAnnouncementAudience(
 	clientIDs []uuid.UUID,
 	roleNames []string,
 	userIDs []uuid.UUID,
+	groupIDs []uuid.UUID,
 ) AnnouncementResponse {
 	res.ClientIDs = uuidStrings(clientIDs)
 	res.RoleNames = roleNames
 	res.UserIDs = uuidStrings(userIDs)
+	res.GroupIDs = uuidStrings(groupIDs)
 	return res
 }
 

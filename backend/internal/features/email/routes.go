@@ -15,6 +15,7 @@ func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler, limit
 	{
 		email.POST("/send", middleware.RequirePermission(authz.PermissionEmailSend), sendLimit, handler.Send)
 		email.POST("/queue", middleware.RequirePermission(authz.PermissionEmailSend), sendLimit, handler.Queue)
+		email.POST("/recipient-preview", middleware.RequirePermission(authz.PermissionEmailSend), sendLimit, handler.PreviewRecipients)
 		email.GET("", middleware.RequirePermission(authz.PermissionEmailRead), handler.List)
 		email.GET("/status/:status", middleware.RequirePermission(authz.PermissionEmailRead), handler.ListByStatus)
 		email.GET("/:id", middleware.RequirePermission(authz.PermissionEmailRead), handler.GetByID)

@@ -44,6 +44,32 @@ func (h *Handler) Send(c *gin.Context) {
 		return
 	}
 
+	msg, _, err = h.service.ExpandGroupRecipients(
+		c.Request.Context(),
+		msg,
+		req.ToGroups,
+		req.ToGroupPaths,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_RECIPIENT_GROUPS",
+			"Failed to resolve recipient groups",
+		)
+		return
+	}
+
+	if len(msg.To) == 0 {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"At least one valid recipient is required",
+		)
+		return
+	}
+
 	if err := h.service.Send(c.Request.Context(), msg); err != nil {
 		response.Fail(
 			c,
@@ -81,6 +107,32 @@ func (h *Handler) Queue(c *gin.Context) {
 		return
 	}
 
+	msg, _, err = h.service.ExpandGroupRecipients(
+		c.Request.Context(),
+		msg,
+		req.ToGroups,
+		req.ToGroupPaths,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_RECIPIENT_GROUPS",
+			"Failed to resolve recipient groups",
+		)
+		return
+	}
+
+	if len(msg.To) == 0 {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"At least one valid recipient is required",
+		)
+		return
+	}
+
 	if err := h.service.Queue(c.Request.Context(), msg); err != nil {
 		response.Fail(
 			c,
@@ -92,6 +144,40 @@ func (h *Handler) Queue(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusAccepted, MessageResponse{Message: "email queued successfully"})
+}
+
+func (h *Handler) PreviewRecipients(c *gin.Context) {
+	var req EmailRecipientPreviewRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Invalid recipient preview payload",
+		)
+		return
+	}
+
+	recipients, err := h.service.ResolveGroupEmailRecipients(
+		c.Request.Context(),
+		req.ToGroups,
+		req.ToGroupPaths,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_RECIPIENT_GROUPS",
+			"Failed to resolve recipient groups",
+		)
+		return
+	}
+
+	response.OK(c, http.StatusOK, EmailRecipientPreviewResponse{
+		RecipientCount: len(recipients),
+		Recipients:     toAddressResponses(recipients),
+	})
 }
 
 func (h *Handler) List(c *gin.Context) {

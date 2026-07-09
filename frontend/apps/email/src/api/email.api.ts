@@ -3,6 +3,8 @@ import type {
   EmailOutboxItemResponse,
   EmailListParams,
   EmailListByStatusParams,
+  EmailRecipientPreviewRequest,
+  EmailRecipientPreviewResponse,
   SendEmailRequest,
 } from "../types";
 import { baseApi } from "@moh-sso/api";
@@ -52,6 +54,17 @@ export const emailApi = baseApi.injectEndpoints({
         body,
       }),
       invalidatesTags: ["Emails"],
+    }),
+
+    previewEmailRecipients: builder.mutation<
+      ApiEnvelope<EmailRecipientPreviewResponse>,
+      EmailRecipientPreviewRequest
+    >({
+      query: (body) => ({
+        url: "/emails/recipient-preview",
+        method: "POST",
+        body,
+      }),
     }),
 
     listEmails: builder.query<EmailOutboxItem[], EmailListParams | void>({
@@ -113,6 +126,7 @@ export const emailApi = baseApi.injectEndpoints({
 export const {
   useSendEmailMutation,
   useQueueEmailMutation,
+  usePreviewEmailRecipientsMutation,
   useListEmailsQuery,
   useGetEmailByIdQuery,
   useListEmailsByStatusQuery,

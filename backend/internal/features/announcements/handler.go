@@ -141,7 +141,12 @@ func (h *Handler) attachAnnouncementAudience(
 		return
 	}
 
-	*res = withAnnouncementAudience(*res, clientIDs, roleNames, userIDs)
+	groupIDs, err := h.announcementService.ListGroupAudience(c.Request.Context(), announcementID)
+	if err != nil {
+		return
+	}
+
+	*res = withAnnouncementAudience(*res, clientIDs, roleNames, userIDs, groupIDs)
 }
 
 func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
@@ -269,6 +274,12 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	groupIDs, err := parseUUIDList(req.GroupIDs)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more group_ids are invalid")
+		return
+	}
+
 	if len(clientIDs) > 0 {
 		if err := h.announcementService.ReplaceClientAudience(c.Request.Context(), item.ID, clientIDs); err != nil {
 			response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to save client audience")
@@ -286,6 +297,13 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 	if len(userIDs) > 0 {
 		if err := h.announcementService.ReplaceUserAudience(c.Request.Context(), item.ID, userIDs); err != nil {
 			response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to save user audience")
+			return
+		}
+	}
+
+	if len(groupIDs) > 0 {
+		if err := h.announcementService.ReplaceGroupAudience(c.Request.Context(), item.ID, groupIDs); err != nil {
+			response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to save group audience")
 			return
 		}
 	}
@@ -380,6 +398,12 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	groupIDs, err := parseUUIDList(req.GroupIDs)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more group_ids are invalid")
+		return
+	}
+
 	if err := h.announcementService.ReplaceClientAudience(c.Request.Context(), item.ID, clientIDs); err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update client audience")
 		return
@@ -392,6 +416,11 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 
 	if err := h.announcementService.ReplaceUserAudience(c.Request.Context(), item.ID, userIDs); err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update user audience")
+		return
+	}
+
+	if err := h.announcementService.ReplaceGroupAudience(c.Request.Context(), item.ID, groupIDs); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update group audience")
 		return
 	}
 

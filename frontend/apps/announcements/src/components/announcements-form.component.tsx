@@ -25,7 +25,11 @@ import type {
   UpdateAnnouncementRequest,
 } from "../types";
 import { useToast } from "@moh-sso/ui";
-import { useListRbacSystemsQuery, useListRealmRolePermissionsQuery } from "@moh-sso/rbac";
+import {
+  useListRbacGroupsQuery,
+  useListRbacSystemsQuery,
+  useListRealmRolePermissionsQuery,
+} from "@moh-sso/rbac";
 import { useListUsersQuery } from "@moh-sso/users";
 import "./announcements.components.scss";
 
@@ -44,6 +48,7 @@ export interface AnnouncementFormValues {
   client_ids: string[];
   role_names: string[];
   user_ids: string[];
+  group_ids: string[];
   publish_at: string;
   expires_at: string;
 
@@ -81,6 +86,7 @@ const initialForm: AnnouncementFormValues = {
   client_ids: [],
   role_names: [],
   user_ids: [],
+  group_ids: [],
   publish_at: "",
   expires_at: "",
   notify_by_email: false,
@@ -116,6 +122,7 @@ function normalizeInitialValues(
     client_ids: "client_ids" in values && Array.isArray(values.client_ids) ? values.client_ids : [],
     role_names: "role_names" in values && Array.isArray(values.role_names) ? values.role_names : [],
     user_ids: "user_ids" in values && Array.isArray(values.user_ids) ? values.user_ids : [],
+    group_ids: "group_ids" in values && Array.isArray(values.group_ids) ? values.group_ids : [],
     publish_at: toIsoString(values.publish_at),
     expires_at: toIsoString(values.expires_at),
     notify_by_email: Boolean(values.notify_by_email),
@@ -141,6 +148,11 @@ export function AnnouncementForm({
     isError: rolesError,
   } = useListRealmRolePermissionsQuery();
   const { data: users = [], isLoading: usersLoading, isError: usersError } = useListUsersQuery();
+  const {
+    data: groups = [],
+    isLoading: groupsLoading,
+    isError: groupsError,
+  } = useListRbacGroupsQuery();
 
   useEffect(() => {
     setForm(normalizeInitialValues(initialValues));
@@ -175,6 +187,17 @@ export function AnnouncementForm({
     [users],
   );
 
+  const groupItems = useMemo(
+    () =>
+      groups
+        .filter((group) => group.enabled)
+        .map((group) => ({
+          id: group.id,
+          text: group.displayName || group.path || group.name,
+        })),
+    [groups],
+  );
+
   const isValid = useMemo(() => {
     if (form.title.trim().length === 0 || form.message.trim().length === 0) {
       return false;
@@ -190,6 +213,10 @@ export function AnnouncementForm({
 
     if (form.audience_type === "SPECIFIC_USERS") {
       return form.user_ids.length > 0;
+    }
+
+    if (form.audience_type === "SPECIFIC_GROUPS") {
+      return form.group_ids.length > 0;
     }
 
     return true;
@@ -232,6 +259,10 @@ export function AnnouncementForm({
 
     if (form.audience_type === "SPECIFIC_USERS") {
       payload.user_ids = form.user_ids;
+    }
+
+    if (form.audience_type === "SPECIFIC_GROUPS") {
+      payload.group_ids = form.group_ids;
     }
 
     if (form.summary.trim()) {
@@ -366,6 +397,7 @@ export function AnnouncementForm({
             <SelectItem value="SPECIFIC_CLIENTS" text="SPECIFIC_CLIENTS" />
             <SelectItem value="SPECIFIC_ROLES" text="SPECIFIC_ROLES" />
             <SelectItem value="SPECIFIC_USERS" text="SPECIFIC_USERS" />
+            <SelectItem value="SPECIFIC_GROUPS" text="SPECIFIC_GROUPS" />
           </Select>
 
           <TextInput
@@ -520,6 +552,29 @@ export function AnnouncementForm({
                   onChange={({ selectedItems }) =>
                     updateForm(
                       "user_ids",
+                      (selectedItems ?? []).map((item) => item.id),
+                    )
+                  }
+                />
+              </>
+            )}
+
+            {form.audience_type === "SPECIFIC_GROUPS" && (
+              <>
+                {groupsLoading && <InlineLoading description="Loading groups..." />}
+                <MultiSelect
+                  id="announcement-group-audience"
+                  titleText="Groups"
+                  label={groupsError ? "Unable to load groups" : "Select groups"}
+                  items={groupItems}
+                  itemToString={(item) => item?.text ?? ""}
+                  selectedItems={groupItems.filter((item) => form.group_ids.includes(item.id))}
+                  disabled={groupsLoading || groupsError}
+                  invalid={form.group_ids.length === 0}
+                  invalidText="Select at least one group."
+                  onChange={({ selectedItems }) =>
+                    updateForm(
+                      "group_ids",
                       (selectedItems ?? []).map((item) => item.id),
                     )
                   }

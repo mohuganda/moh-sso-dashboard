@@ -104,6 +104,8 @@ func buildServices(deps serviceDependencies) services {
 	}
 
 	emailFeatureService := emailfeature.NewService(emailService, deps.Repositories.Email)
+	emailFeatureService.SetRBACRepository(deps.Repositories.RBAC)
+	emailFeatureService.SetUserRepository(deps.Repositories.Users)
 
 	publisher := cache.NewNotificationPublisher(deps.CacheClient)
 	notificationsService := service.NewNotificationsService(
@@ -157,6 +159,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.FileStorage,
 		deps.Config,
 	)
+	announcementService.SetRBACRepository(deps.Repositories.RBAC)
 
 	diseaseService := surveillancefeature.NewDiseaseService(
 		deps.Logger,

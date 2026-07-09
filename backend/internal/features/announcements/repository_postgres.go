@@ -754,6 +754,119 @@ func (r *announcementsRepository) ListUserAudience(
 	return items, nil
 }
 
+func (r *announcementsRepository) AddGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	groupID uuid.UUID,
+) error {
+	rawDB, err := r.rawDB()
+	if err != nil {
+		return err
+	}
+
+	_, err = rawDB.ExecContext(
+		ctx,
+		`INSERT INTO announcement_groups (announcement_id, group_id)
+		 VALUES ($1, $2)
+		 ON CONFLICT DO NOTHING`,
+		announcementID,
+		groupID,
+	)
+	if err != nil {
+		r.logger.Error("failed to add group audience", err)
+		return fmt.Errorf("add group audience: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ReplaceGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	groupIDs []uuid.UUID,
+) error {
+	rawDB, err := r.rawDB()
+	if err != nil {
+		return err
+	}
+
+	tx, err := rawDB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin group audience transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`DELETE FROM announcement_groups WHERE announcement_id = $1`,
+		announcementID,
+	); err != nil {
+		return fmt.Errorf("delete existing group audience: %w", err)
+	}
+
+	for _, groupID := range groupIDs {
+		if groupID == uuid.Nil {
+			continue
+		}
+
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO announcement_groups (announcement_id, group_id)
+			 VALUES ($1, $2)
+			 ON CONFLICT DO NOTHING`,
+			announcementID,
+			groupID,
+		); err != nil {
+			return fmt.Errorf("insert group audience [%s]: %w", groupID, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit group audience transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ListGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]uuid.UUID, error) {
+	rawDB, err := r.rawDB()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := rawDB.QueryContext(
+		ctx,
+		`SELECT group_id
+		 FROM announcement_groups
+		 WHERE announcement_id = $1
+		 ORDER BY created_at ASC`,
+		announcementID,
+	)
+	if err != nil {
+		r.logger.Error("failed to list group audience", err)
+		return nil, fmt.Errorf("list group audience: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var groupID uuid.UUID
+		if err := rows.Scan(&groupID); err != nil {
+			return nil, fmt.Errorf("scan group audience: %w", err)
+		}
+		items = append(items, groupID)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate group audience: %w", err)
+	}
+
+	return items, nil
+}
+
 // ---------------------------------
 // End-user targeting queries
 // ---------------------------------
