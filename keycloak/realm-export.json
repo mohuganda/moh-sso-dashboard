@@ -162,6 +162,32 @@
           }
         }
       ]
+    },
+    {
+      "name": "groups",
+      "description": "Exposes the user's Keycloak group memberships",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "true",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "roles": {
@@ -733,7 +759,8 @@
         "openid",
         "profile",
         "email",
-        "roles"
+        "roles",
+        "groups"
       ],
       "attributes": {
         "access.token.lifespan": "1800",
@@ -778,7 +805,7 @@
         "ui.home": "/portal/apps/dwh",
         "ui.category": "platform",
         "portal.system": "true",
-        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin,issue_tracker_viewer,issue_tracker_contributor,issue_tracker_editor,issue_tracker_manager,document_viewer,document_editor,document_processor,document_manager,document_template_viewer,document_template_editor,document_template_publisher",
+        "portal.accessRoles": "data-statistics_access,report_admin,report_manager,report_analyst,report_viewer,issue_tracker_viewer,issue_tracker_contributor,issue_tracker_editor,issue_tracker_manager,document_viewer,document_editor,document_processor,document_manager,document_template_viewer,document_template_editor,document_template_publisher",
         "ui.systemType": "platform",
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
@@ -868,7 +895,7 @@
         "ui.home": "/portal/apps/outbreak-management",
         "ui.category": "surveillance",
         "portal.system": "true",
-        "portal.accessRoles": "outbreak-management_access,viewer,data_entry,surveillance_officer,manager,admin,super_admin",
+        "portal.accessRoles": "outbreak-management_access,viewer,data_entry,lab_technician,surveillance_officer,manager,admin,super_admin",
         "ui.systemType": "platform",
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
@@ -881,7 +908,8 @@
         "openid",
         "profile",
         "email",
-        "roles"
+        "roles",
+        "groups"
       ]
     },
     {
@@ -906,8 +934,8 @@
         "ui.home": "/portal/apps/dwh",
         "ui.icon": "dashboard",
         "ui.category": "platform",
-        "ui.navigation": "[{\"id\":\"dashboards\",\"label\":\"Dashboards\",\"path\":\"/apps/dwh/dashboards\",\"permission\":\"report_browser:read\"}]",
-        "portal.accessRoles": "demo-platform-system_access"
+        "portal.accessRoles": "demo-platform-system_access",
+        "ui.navigation": "[{\"id\":\"dashboards\",\"label\":\"Dashboards\",\"path\":\"/apps/dwh/dashboards\",\"permission\":\"report_browser:read\"}]"
       }
     },
     {
@@ -961,6 +989,546 @@
       }
     }
   ],
+  "groups": [
+    {
+      "name": "MOH",
+      "attributes": {
+        "organization": [
+          "Ministry of Health"
+        ],
+        "group_type": [
+          "organization"
+        ]
+      },
+      "subGroups": [
+        {
+          "name": "Platform Administrators",
+          "attributes": {
+            "group_type": [
+              "access"
+            ],
+            "access_profile": [
+              "platform-admin"
+            ],
+            "protected": [
+              "true"
+            ]
+          },
+          "realmRoles": [
+            "admin"
+          ],
+          "clientRoles": {
+            "dashboard-web": [
+              "dashboard-web_access",
+              "portal_admin"
+            ],
+            "outbreak-management": [
+              "outbreak-management_access",
+              "super_admin",
+              "admin"
+            ],
+            "data-statistics": [
+              "data-statistics_access",
+              "report_admin",
+              "report_manager",
+              "issue_tracker_manager",
+              "document_manager"
+            ],
+            "utilities": [
+              "utilities_access"
+            ],
+            "settings": [
+              "settings_access"
+            ]
+          }
+        },
+        {
+          "name": "Platform Managers",
+          "attributes": {
+            "group_type": [
+              "access"
+            ],
+            "access_profile": [
+              "platform-manager"
+            ]
+          },
+          "realmRoles": [
+            "manager"
+          ],
+          "clientRoles": {
+            "dashboard-web": [
+              "dashboard-web_access",
+              "portal_manager"
+            ],
+            "data-statistics": [
+              "data-statistics_access",
+              "report_manager",
+              "issue_tracker_manager",
+              "document_manager"
+            ],
+            "utilities": [
+              "utilities_access"
+            ],
+            "settings": [
+              "settings_access"
+            ]
+          }
+        },
+        {
+          "name": "Portal Users",
+          "attributes": {
+            "group_type": [
+              "access"
+            ],
+            "access_profile": [
+              "standard-user"
+            ]
+          },
+          "realmRoles": [
+            "user"
+          ],
+          "clientRoles": {
+            "dashboard-web": [
+              "dashboard-web_access",
+              "portal_user"
+            ],
+            "settings": [
+              "settings_access"
+            ]
+          }
+        },
+        {
+          "name": "Outbreak Management",
+          "attributes": {
+            "group_type": [
+              "application"
+            ],
+            "system": [
+              "outbreak-management"
+            ]
+          },
+          "clientRoles": {
+            "outbreak-management": [
+              "outbreak-management_access"
+            ]
+          },
+          "subGroups": [
+            {
+              "name": "Super Administrators",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "outbreak-super-admin"
+                ],
+                "protected": [
+                  "true"
+                ]
+              },
+              "clientRoles": {
+                "outbreak-management": [
+                  "super_admin"
+                ]
+              }
+            },
+            {
+              "name": "Administrators",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "outbreak-admin"
+                ]
+              },
+              "clientRoles": {
+                "outbreak-management": [
+                  "admin"
+                ]
+              }
+            },
+            {
+              "name": "Managers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "outbreak-manager"
+                ]
+              },
+              "clientRoles": {
+                "outbreak-management": [
+                  "manager"
+                ]
+              }
+            },
+            {
+              "name": "Surveillance Officers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "surveillance-officer"
+                ]
+              },
+              "clientRoles": {
+                "outbreak-management": [
+                  "surveillance_officer"
+                ]
+              }
+            },
+            {
+              "name": "Data Entry Officers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "surveillance-data-entry"
+                ]
+              },
+              "clientRoles": {
+                "outbreak-management": [
+                  "data_entry"
+                ]
+              }
+            },
+            {
+              "name": "Laboratory Technicians",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "laboratory-technician"
+                ]
+              },
+              "clientRoles": {
+                "outbreak-management": [
+                  "lab_technician"
+                ]
+              }
+            },
+            {
+              "name": "Viewers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "outbreak-viewer"
+                ]
+              },
+              "clientRoles": {
+                "outbreak-management": [
+                  "viewer"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Data and Statistics",
+          "attributes": {
+            "group_type": [
+              "application"
+            ],
+            "system": [
+              "data-statistics"
+            ]
+          },
+          "clientRoles": {
+            "data-statistics": [
+              "data-statistics_access"
+            ]
+          },
+          "subGroups": [
+            {
+              "name": "Report Administrators",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "report-admin"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "report_admin"
+                ]
+              }
+            },
+            {
+              "name": "Report Managers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "report-manager"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "report_manager"
+                ]
+              }
+            },
+            {
+              "name": "Report Analysts",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "report-analyst"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "report_analyst"
+                ]
+              }
+            },
+            {
+              "name": "Report Viewers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "report-viewer"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "report_viewer"
+                ]
+              }
+            },
+            {
+              "name": "Issue Tracker Managers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "issue-tracker-manager"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "issue_tracker_manager"
+                ]
+              }
+            },
+            {
+              "name": "Issue Tracker Editors",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "issue-tracker-editor"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "issue_tracker_editor"
+                ]
+              }
+            },
+            {
+              "name": "Issue Tracker Contributors",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "issue-tracker-contributor"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "issue_tracker_contributor"
+                ]
+              }
+            },
+            {
+              "name": "Issue Tracker Viewers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "issue-tracker-viewer"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "issue_tracker_viewer"
+                ]
+              }
+            },
+            {
+              "name": "Document Managers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "document-manager"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "document_manager"
+                ]
+              }
+            },
+            {
+              "name": "Document Editors",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "document-editor"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "document_editor"
+                ]
+              }
+            },
+            {
+              "name": "Document Processors",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "document-processor"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "document_processor"
+                ]
+              }
+            },
+            {
+              "name": "Document Viewers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "document-viewer"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "document_viewer"
+                ]
+              }
+            },
+            {
+              "name": "Template Publishers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "document-template-publisher"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "document_template_publisher"
+                ]
+              }
+            },
+            {
+              "name": "Template Editors",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "document-template-editor"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "document_template_editor"
+                ]
+              }
+            },
+            {
+              "name": "Template Viewers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "document-template-viewer"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "document_template_viewer"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Demo Systems",
+          "attributes": {
+            "group_type": [
+              "application"
+            ],
+            "environment": [
+              "development"
+            ]
+          },
+          "subGroups": [
+            {
+              "name": "Demo Registry Users",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "registry-launch-demo"
+                ]
+              },
+              "realmRoles": [
+                "user"
+              ],
+              "clientRoles": {
+                "demo-platform-system": [
+                  "demo-platform-system_access"
+                ],
+                "demo-external-new-tab": [
+                  "demo-external-new-tab_access"
+                ],
+                "demo-external-same-tab": [
+                  "demo-external-same-tab_access"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "users": [
     {
       "username": "admin",
@@ -1009,7 +1577,10 @@
           "issue_tracker_manager",
           "document_manager"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Platform Administrators"
+      ]
     },
     {
       "username": "testuser",
@@ -1055,7 +1626,13 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Report Viewers",
+        "/MOH/Data and Statistics/Issue Tracker Viewers",
+        "/MOH/Data and Statistics/Document Viewers"
+      ]
     },
     {
       "username": "pwaiswa",
@@ -1104,7 +1681,15 @@
           "issue_tracker_manager",
           "document_manager"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Platform Managers",
+        "/MOH/Outbreak Management/Managers",
+        "/MOH/Outbreak Management/Surveillance Officers",
+        "/MOH/Data and Statistics/Report Managers",
+        "/MOH/Data and Statistics/Issue Tracker Managers",
+        "/MOH/Data and Statistics/Document Managers"
+      ]
     },
     {
       "username": "pmbaka",
@@ -1156,7 +1741,15 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Outbreak Management/Data Entry Officers",
+        "/MOH/Outbreak Management/Surveillance Officers",
+        "/MOH/Data and Statistics/Report Analysts",
+        "/MOH/Data and Statistics/Issue Tracker Editors",
+        "/MOH/Data and Statistics/Document Editors"
+      ]
     },
     {
       "username": "outbreak_viewer@example.com",
@@ -1207,7 +1800,14 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Outbreak Management/Viewers",
+        "/MOH/Data and Statistics/Report Viewers",
+        "/MOH/Data and Statistics/Issue Tracker Viewers",
+        "/MOH/Data and Statistics/Document Viewers"
+      ]
     },
     {
       "username": "document.viewer",
@@ -1236,7 +1836,7 @@
           "temporary": true
         }
       ],
-        "realmRoles": [
+      "realmRoles": [
         "user"
       ],
       "clientRoles": {
@@ -1251,7 +1851,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Document Viewers"
+      ]
     },
     {
       "username": "document.editor",
@@ -1295,7 +1899,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Document Editors"
+      ]
     },
     {
       "username": "document.processor",
@@ -1339,7 +1947,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Document Processors"
+      ]
     },
     {
       "username": "document.manager",
@@ -1383,7 +1995,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Platform Managers",
+        "/MOH/Data and Statistics/Document Managers"
+      ]
     },
     {
       "username": "template.viewer",
@@ -1427,7 +2043,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Template Viewers"
+      ]
     },
     {
       "username": "template.editor",
@@ -1471,7 +2091,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Template Editors"
+      ]
     },
     {
       "username": "template.publisher",
@@ -1515,7 +2139,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Template Publishers"
+      ]
     },
     {
       "username": "issue.viewer",
@@ -1559,7 +2187,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Issue Tracker Viewers"
+      ]
     },
     {
       "username": "issue.contributor",
@@ -1603,7 +2235,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Issue Tracker Contributors"
+      ]
     },
     {
       "username": "issue.editor",
@@ -1647,7 +2283,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Issue Tracker Editors"
+      ]
     },
     {
       "username": "issue.manager",
@@ -1691,7 +2331,11 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Platform Managers",
+        "/MOH/Data and Statistics/Issue Tracker Managers"
+      ]
     },
     {
       "username": "data.operations.officer",
@@ -1737,7 +2381,13 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Portal Users",
+        "/MOH/Data and Statistics/Document Editors",
+        "/MOH/Data and Statistics/Document Processors",
+        "/MOH/Data and Statistics/Issue Tracker Editors"
+      ]
     },
     {
       "username": "data.governance.manager",
@@ -1782,7 +2432,12 @@
         "settings": [
           "settings_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Platform Managers",
+        "/MOH/Data and Statistics/Document Managers",
+        "/MOH/Data and Statistics/Issue Tracker Managers"
+      ]
     },
     {
       "username": "service-account-dashboard-admin",
@@ -1855,7 +2510,10 @@
         "demo-external-same-tab": [
           "demo-external-same-tab_access"
         ]
-      }
+      },
+      "groups": [
+        "/MOH/Demo Systems/Demo Registry Users"
+      ]
     }
   ]
 }

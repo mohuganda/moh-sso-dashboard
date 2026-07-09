@@ -1043,10 +1043,16 @@ func (s *Service) ApplyImport(ctx context.Context, input ImportPreviewRequest) (
 			}
 		}
 	}
-	if err := s.recordAudit(ctx, "rbac.import_applied", "import", "seed", "", "", "", map[string]any{"systemsToCreate": preview.SystemsToCreate, "systemsToUpdate": preview.SystemsToUpdate, "rolesToCreate": preview.RolesToCreate, "prune": input.Prune}); err != nil {
+
+	groupsSynced, err := s.applyDiscoveredGroups(ctx, discoveredGroupsFromSeed(seed.Groups, seed.GroupMemberships), "seed-import")
+	if err != nil {
 		return ImportApplyResponse{}, err
 	}
-	return ImportApplyResponse{Preview: preview, Applied: true}, nil
+
+	if err := s.recordAudit(ctx, "rbac.import_applied", "import", "seed", "", "", "", map[string]any{"systemsToCreate": preview.SystemsToCreate, "systemsToUpdate": preview.SystemsToUpdate, "rolesToCreate": preview.RolesToCreate, "groupsSynced": groupsSynced, "prune": input.Prune}); err != nil {
+		return ImportApplyResponse{}, err
+	}
+	return ImportApplyResponse{Preview: preview, Applied: true, GroupsSynced: groupsSynced}, nil
 }
 
 func (s *Service) RoleTemplates() []RoleTemplate {
@@ -1599,15 +1605,12 @@ func parseImportSeed(payload json.RawMessage) (systemrbac.SeedFile, error) {
 		}
 	}
 
-	var asEnvelope struct {
-		Systems    []systemrbac.SeedSystem    `json:"systems" yaml:"systems"`
-		RealmRoles []systemrbac.SeedRealmRole `json:"realmRoles" yaml:"realmRoles"`
-	}
 	if json.Valid(payload) {
-		if err := json.Unmarshal(payload, &asEnvelope); err != nil {
+		var seed systemrbac.SeedFile
+		if err := json.Unmarshal(payload, &seed); err != nil {
 			return systemrbac.SeedFile{}, err
 		}
-		return systemrbac.SeedFile{Systems: asEnvelope.Systems, RealmRoles: asEnvelope.RealmRoles}, nil
+		return seed, nil
 	}
 
 	var seed systemrbac.SeedFile

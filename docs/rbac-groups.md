@@ -84,7 +84,42 @@ Audit details include group ID/path/name and counts where useful. Full Keycloak 
 
 ## Startup Sync Notes
 
-Current group sync runs as part of live Keycloak RBAC sync when the configured Keycloak admin client supports group APIs.
+Group sync can come from two sources:
+
+- realm export sync reads `groups`, nested `subGroups`, group `realmRoles`, group `clientRoles`, and user `groups` memberships from `keycloak/realm-export.json`
+- live Keycloak sync reads groups, members, realm-role mappings, and client-role mappings through the Keycloak Admin API
+
+Realm export sync is useful for local bootstrap and repeatable seed environments. Live Keycloak sync is the production source for an already deployed realm.
+
+Required realm export shape:
+
+```json
+{
+  "groups": [
+    {
+      "name": "MOH",
+      "subGroups": [
+        {
+          "name": "Document Viewers",
+          "realmRoles": ["user"],
+          "clientRoles": {
+            "data-statistics": ["document_viewer"]
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "document.viewer",
+      "email": "document.viewer@example.org",
+      "groups": ["/MOH/Document Viewers"]
+    }
+  ]
+}
+```
+
+Startup sync applies group records after system/client roles have been discovered so group role references can resolve against the system registry.
 
 Recommended production posture:
 

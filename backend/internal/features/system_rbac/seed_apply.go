@@ -95,6 +95,10 @@ func ApplySeed(ctx context.Context, db *sql.DB, seed SeedFile) error {
 		}
 	}
 
+	if err := applySeedGroups(ctx, tx, seed, permissionIDs); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -129,6 +133,15 @@ func collectPermissions(seed SeedFile) []string {
 	}
 	for _, role := range seed.RealmRoles {
 		for _, permission := range role.Permissions {
+			if permission == "*" {
+				addAll()
+				continue
+			}
+			add(permission)
+		}
+	}
+	for _, group := range FlattenGroups(seed.Groups) {
+		for _, permission := range group.Permissions {
 			if permission == "*" {
 				addAll()
 				continue
@@ -283,5 +296,164 @@ func assignRealmRoleSystemRole(
 		WHERE s.client_id = $2 AND sr.role_name = $3
 		ON CONFLICT DO NOTHING
 	`, strings.ToLower(strings.TrimSpace(realmRole)), strings.TrimSpace(clientID), strings.ToLower(strings.TrimSpace(roleName)))
+	return err
+}
+
+func applySeedGroups(ctx context.Context, tx *sql.Tx, seed SeedFile, permissionIDs map[string]string) error {
+	groupsByPath := map[string]string{}
+	for _, group := range FlattenGroups(seed.Groups) {
+		groupID, err := upsertGroup(ctx, tx, group)
+		if err != nil {
+			return err
+		}
+		groupPath := NormalizeGroupPath(group.Path)
+		groupsByPath[groupPath] = groupID
+
+		if err := replaceGroupAssignments(ctx, tx, groupID); err != nil {
+			return err
+		}
+		for _, roleName := range group.RealmRoles {
+			if err := assignGroupRealmRole(ctx, tx, groupID, roleName); err != nil {
+				return err
+			}
+		}
+		for clientID, roles := range group.SystemRoles {
+			for _, roleName := range roles {
+				if err := assignGroupSystemRole(ctx, tx, groupID, clientID, roleName); err != nil {
+					return err
+				}
+			}
+		}
+		for _, permission := range group.Permissions {
+			if permission == "*" {
+				for _, permissionID := range permissionIDs {
+					if err := assignGroupPermission(ctx, tx, groupID, permissionID); err != nil {
+						return err
+					}
+				}
+				continue
+			}
+			if err := assignGroupPermission(ctx, tx, groupID, permissionIDs[permission]); err != nil {
+				return err
+			}
+		}
+	}
+
+	return replaceSeedGroupMembers(ctx, tx, groupsByPath, seed.GroupMemberships)
+}
+
+func upsertGroup(ctx context.Context, tx *sql.Tx, group SeedGroup) (string, error) {
+	group.Name = strings.TrimSpace(group.Name)
+	group.Path = NormalizeGroupPath(firstNonEmpty(group.Path, group.Name))
+	metadata, err := json.Marshal(map[string]any{
+		"type":       strings.TrimSpace(group.Type),
+		"protected":  group.Protected,
+		"attributes": group.Attributes,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	var id string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO ihp_rbac_groups (
+			path, name, display_name, description, enabled, metadata
+		) VALUES (
+			$1, $2, NULLIF($3, ''), NULLIF($4, ''), TRUE, $5
+		)
+		ON CONFLICT (path) DO UPDATE SET
+			name = EXCLUDED.name,
+			display_name = EXCLUDED.display_name,
+			description = EXCLUDED.description,
+			enabled = EXCLUDED.enabled,
+			metadata = EXCLUDED.metadata,
+			updated_at = now()
+		RETURNING id::text
+	`, group.Path, group.Name, group.DisplayName, group.Description, metadata).Scan(&id)
+
+	return id, err
+}
+
+func replaceGroupAssignments(ctx context.Context, tx *sql.Tx, groupID string) error {
+	for _, statement := range []string{
+		`DELETE FROM ihp_rbac_group_realm_roles WHERE group_id = $1::uuid`,
+		`DELETE FROM ihp_rbac_group_system_roles WHERE group_id = $1::uuid`,
+		`DELETE FROM ihp_rbac_group_permissions WHERE group_id = $1::uuid`,
+	} {
+		if _, err := tx.ExecContext(ctx, statement, groupID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func replaceSeedGroupMembers(ctx context.Context, tx *sql.Tx, groupsByPath map[string]string, memberships []SeedGroupMembership) error {
+	for _, groupID := range groupsByPath {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM ihp_rbac_group_members WHERE group_id = $1::uuid`, groupID); err != nil {
+			return err
+		}
+	}
+	for _, membership := range memberships {
+		memberID := firstNonEmpty(membership.UserID, membership.Username, membership.Email)
+		if memberID == "" {
+			continue
+		}
+		for _, path := range membership.Groups {
+			groupID := groupsByPath[NormalizeGroupPath(path)]
+			if groupID == "" {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO ihp_rbac_group_members (group_id, user_id, username, email)
+				VALUES ($1::uuid, $2, NULLIF($3, ''), NULLIF($4, ''))
+				ON CONFLICT (group_id, user_id) DO UPDATE SET
+					username = EXCLUDED.username,
+					email = EXCLUDED.email
+			`, groupID, memberID, membership.Username, membership.Email); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func assignGroupPermission(ctx context.Context, tx *sql.Tx, groupID string, permissionID string) error {
+	if permissionID == "" {
+		return nil
+	}
+
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO ihp_rbac_group_permissions (group_id, permission_id)
+		VALUES ($1::uuid, $2::uuid)
+		ON CONFLICT DO NOTHING
+	`, groupID, permissionID)
+
+	return err
+}
+
+func assignGroupRealmRole(ctx context.Context, tx *sql.Tx, groupID string, realmRole string) error {
+	realmRole = strings.ToLower(strings.TrimSpace(realmRole))
+	if realmRole == "" {
+		return nil
+	}
+
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO ihp_rbac_group_realm_roles (group_id, realm_role)
+		VALUES ($1::uuid, $2)
+		ON CONFLICT DO NOTHING
+	`, groupID, realmRole)
+
+	return err
+}
+
+func assignGroupSystemRole(ctx context.Context, tx *sql.Tx, groupID string, clientID string, roleName string) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO ihp_rbac_group_system_roles (group_id, system_role_id)
+		SELECT $1::uuid, sr.id
+		FROM ihp_system_roles sr
+		JOIN ihp_systems s ON s.id = sr.system_id
+		WHERE s.client_id = $2 AND sr.role_name = $3
+		ON CONFLICT DO NOTHING
+	`, groupID, strings.TrimSpace(clientID), strings.ToLower(strings.TrimSpace(roleName)))
 	return err
 }

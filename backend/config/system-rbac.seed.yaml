@@ -21,13 +21,11 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
       - name: portal_admin
         displayName: Portal Admin
         description: Portal administrator access
         permissions:
           - "*"
-
       - name: portal_manager
         displayName: Portal Manager
         description: Portal manager access
@@ -43,7 +41,6 @@ systems:
           - surveillance:read
           - report_browser:read
           - notifications:read
-
       - name: portal_user
         displayName: Portal User
         description: Standard portal user access
@@ -51,7 +48,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
   - clientId: outbreak-management
     displayName: Outbreak Management
     description: Signals, alerts, surveillance, points of entry, and case management.
@@ -63,17 +59,15 @@ systems:
     displayInSideNav: true
     launchMode: internal
     sortOrder: 10
-    navigation: |-
-      [
-        {"id":"signals-alerts","label":"Signals & Alerts","path":"/apps/outbreak-management/signals-alerts"},
-        {"id":"poe-management","label":"PoE Management","path":"/apps/outbreak-management/poe-management"},
-        {"id":"case-management","label":"Case Management","path":"/apps/outbreak-management/case-management"}
-      ]
+    navigation:
+      '[{"id":"signals-alerts","label":"Signals & Alerts","path":"/apps/outbreak-management/signals-alerts"},{"id":"poe-management","label":"PoE
+      Management","path":"/apps/outbreak-management/poe-management"},{"id":"case-management","label":"Case Management","path":"/apps/outbreak-management/case-management"}]'
     enabled: true
     accessRoles:
       - outbreak-management_access
       - viewer
       - data_entry
+      - lab_technician
       - surveillance_officer
       - manager
       - admin
@@ -88,7 +82,6 @@ systems:
           - systems:launch
           - outbreak:access
           - surveillance:read
-
       - name: super_admin
         displayName: Super Administrator
         description: Super Administrator with full system access
@@ -109,7 +102,6 @@ systems:
           - document_templates:write
           - document_templates:publish
           - storage_locations:read
-
       - name: admin
         displayName: Administrator
         description: Administrator with management access
@@ -123,7 +115,6 @@ systems:
           - data_quality:read
           - data_quality:write
           - data_quality:resolve
-
       - name: manager
         displayName: Manager
         description: Department manager with oversight access
@@ -133,7 +124,6 @@ systems:
           - data_quality:read
           - data_quality:write
           - documents:read
-
       - name: viewer
         displayName: Viewer
         description: Read-only access to reports and data
@@ -142,7 +132,6 @@ systems:
           - surveillance:read
           - data_quality:read
           - documents:read
-
       - name: data_entry
         displayName: Data Entry
         description: Data entry personnel
@@ -152,7 +141,6 @@ systems:
           - surveillance:import
           - data_quality:read
           - data_quality:write
-
       - name: lab_technician
         displayName: Lab Technician
         description: Laboratory technician with lab-specific access
@@ -161,7 +149,6 @@ systems:
           - surveillance:read
           - data_quality:read
           - data_quality:write
-
       - name: surveillance_officer
         displayName: Surveillance Officer
         description: Surveillance officer with monitoring access
@@ -170,7 +157,6 @@ systems:
           - surveillance:read
           - surveillance:import
           - surveillance:manage_alerts
-
   - clientId: data-statistics
     displayName: Data & Statistics
     description: Data quality, document management, reports, surveillance, and issue tracking tools.
@@ -182,22 +168,18 @@ systems:
     displayInSideNav: true
     launchMode: internal
     sortOrder: 20
-    navigation: |-
-      [
-        {"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"report_browser:read"},
-        {"id":"data-validation","label":"Data Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},
-        {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},
-        {"id":"documents","label":"Document Management","path":"/apps/dwh/documents","permission":"documents:read"},
-        {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},
-        {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read"}
-      ]
+    navigation:
+      '[{"id":"dashboards","label":"Dashboards","path":"/apps/dwh/dashboards","permission":"report_browser:read"},{"id":"data-validation","label":"Data
+      Validation","path":"/apps/dwh/data-validation","permission":"data_quality:read"},{"id":"data-visualizer","label":"Data
+      Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read"},{"id":"documents","label":"Document Management","path":"/apps/dwh/documents","permission":"documents:read"},{"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read"},{"id":"issue-tracker","label":"Issue
+      Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read"}]'
     enabled: true
     accessRoles:
       - data-statistics_access
-      - report_viewer
-      - report_analyst
-      - report_manager
       - report_admin
+      - report_manager
+      - report_analyst
+      - report_viewer
       - issue_tracker_viewer
       - issue_tracker_contributor
       - issue_tracker_editor
@@ -211,7 +193,7 @@ systems:
       - document_template_publisher
     roles:
       - name: data-statistics_access
-        displayName: Data & Statistics Access
+        displayName: Data-Statistics Access
         description: Default access to Data & Statistics
         permissions:
           - portal:access
@@ -221,9 +203,9 @@ systems:
           - issue_tracker:read
           - documents:read
           - document_templates:read
+          - storage_locations:read
           - surveillance:read
           - report_browser:read
-
       - name: report_admin
         displayName: Report Admin
         description: Report Browser administrator access
@@ -231,40 +213,34 @@ systems:
           - report_browser:read
           - metrics:read
           - audit:read
-
       - name: report_manager
         displayName: Report Manager
         description: Report Browser manager access
         permissions:
           - report_browser:read
           - metrics:read
-
       - name: report_analyst
         displayName: Report Analyst
         description: Report Browser analyst access
         permissions:
           - report_browser:read
           - data_quality:read
-
       - name: report_viewer
         displayName: Report Viewer
         description: Report Browser read-only access
         permissions:
           - report_browser:read
-
       - name: issue_tracker_viewer
         displayName: Issue Tracker Viewer
-        description: Read-only access to issue records and issue history
+        description: Read-only access to issue tracker records and history
         permissions:
           - issue_tracker:read
-
       - name: issue_tracker_contributor
         displayName: Issue Tracker Contributor
         description: Can view issues and add comments
         permissions:
           - issue_tracker:read
           - issue_tracker:comment
-
       - name: issue_tracker_editor
         displayName: Issue Tracker Editor
         description: Can create, edit, and comment on issues
@@ -272,7 +248,6 @@ systems:
           - issue_tracker:read
           - issue_tracker:write
           - issue_tracker:comment
-
       - name: issue_tracker_manager
         displayName: Issue Tracker Manager
         description: Can manage the complete issue lifecycle
@@ -284,7 +259,6 @@ systems:
           - issue_tracker:close
           - issue_tracker:reopen
           - issue_tracker:comment
-
       - name: document_viewer
         displayName: Document Viewer
         description: Read-only access to documents and document templates
@@ -292,7 +266,6 @@ systems:
           - documents:read
           - document_templates:read
           - storage_locations:read
-
       - name: document_editor
         displayName: Document Editor
         description: Can view, upload, update, and delete documents
@@ -301,7 +274,6 @@ systems:
           - documents:write
           - document_templates:read
           - storage_locations:read
-
       - name: document_processor
         displayName: Document Processor
         description: Can view, process, and reprocess documents
@@ -310,7 +282,6 @@ systems:
           - documents:process
           - document_templates:read
           - storage_locations:read
-
       - name: document_manager
         displayName: Document Manager
         description: Full document and document-template management access
@@ -322,7 +293,6 @@ systems:
           - document_templates:write
           - document_templates:publish
           - storage_locations:read
-
       - name: document_template_viewer
         displayName: Document Template Viewer
         description: Read-only access to document templates
@@ -330,7 +300,6 @@ systems:
           - documents:read
           - document_templates:read
           - storage_locations:read
-
       - name: document_template_editor
         displayName: Document Template Editor
         description: Can create and edit document templates and their structures
@@ -339,7 +308,6 @@ systems:
           - document_templates:read
           - document_templates:write
           - storage_locations:read
-
       - name: document_template_publisher
         displayName: Document Template Publisher
         description: Can create, edit, publish, archive, and republish document templates
@@ -349,7 +317,6 @@ systems:
           - document_templates:write
           - document_templates:publish
           - storage_locations:read
-
   - clientId: eservices
     displayName: eServices
     description: Digital service requests and operational tools.
@@ -361,19 +328,12 @@ systems:
     displayInSideNav: true
     launchMode: internal
     sortOrder: 30
-    navigation: |-
-      [
-        {"id":"ihris","label":"iHRIS","path":"/apps/eservices/ihris"},
-        {"id":"meeting-manager","label":"Meeting Manager","path":"/apps/eservices/meeting-manager"},
-        {"id":"action-tracker","label":"Action Tracker","path":"/apps/eservices/action-tracker"},
-        {"id":"clinician-outputs","label":"Clinician Outputs","path":"/apps/eservices/clinician-outputs"},
-        {"id":"leave-absence","label":"Leave & Absence Management","path":"/apps/eservices/leave-absence"},
-        {"id":"workplans","label":"Workplans","path":"/apps/eservices/workplans"},
-        {"id":"budget-tracker","label":"Budget Tracker","path":"/apps/eservices/budget-tracker"},
-        {"id":"activity-reporting","label":"Activity Reporting","path":"/apps/eservices/activity-reporting"},
-        {"id":"partner-management","label":"Partner Management","path":"/apps/eservices/partner-management"},
-        {"id":"observatory-uploads","label":"Observatory Uploads","path":"/apps/eservices/observatory-uploads"}
-      ]
+    navigation:
+      '[{"id":"ihris","label":"iHRIS","path":"/apps/eservices/ihris"},{"id":"meeting-manager","label":"Meeting Manager","path":"/apps/eservices/meeting-manager"},{"id":"action-tracker","label":"Action
+      Tracker","path":"/apps/eservices/action-tracker"},{"id":"clinician-outputs","label":"Clinician Outputs","path":"/apps/eservices/clinician-outputs"},{"id":"leave-absence","label":"Leave
+      & Absence Management","path":"/apps/eservices/leave-absence"},{"id":"workplans","label":"Workplans","path":"/apps/eservices/workplans"},{"id":"budget-tracker","label":"Budget
+      Tracker","path":"/apps/eservices/budget-tracker"},{"id":"activity-reporting","label":"Activity Reporting","path":"/apps/eservices/activity-reporting"},{"id":"partner-management","label":"Partner
+      Management","path":"/apps/eservices/partner-management"},{"id":"observatory-uploads","label":"Observatory Uploads","path":"/apps/eservices/observatory-uploads"}]'
     enabled: true
     accessRoles:
       - eservices_access
@@ -385,7 +345,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
   - clientId: research-studies
     displayName: Research & Studies
     description: Research studies, datasets, ethics approvals, and publications.
@@ -397,13 +356,9 @@ systems:
     displayInSideNav: true
     launchMode: internal
     sortOrder: 40
-    navigation: |-
-      [
-        {"id":"studies","label":"Studies","path":"/apps/research-studies/studies"},
-        {"id":"datasets","label":"Datasets","path":"/apps/research-studies/datasets"},
-        {"id":"ethics-approvals","label":"Ethics & Approvals","path":"/apps/research-studies/ethics"},
-        {"id":"publications","label":"Publications","path":"/apps/research-studies/publications"}
-      ]
+    navigation:
+      '[{"id":"studies","label":"Studies","path":"/apps/research-studies/studies"},{"id":"datasets","label":"Datasets","path":"/apps/research-studies/datasets"},{"id":"ethics-approvals","label":"Ethics
+      & Approvals","path":"/apps/research-studies/ethics"},{"id":"publications","label":"Publications","path":"/apps/research-studies/publications"}]'
     enabled: true
     accessRoles:
       - research-studies_access
@@ -415,7 +370,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
   - clientId: case-registers
     displayName: Case Registers
     description: Case registers and referral tracking.
@@ -427,11 +381,9 @@ systems:
     displayInSideNav: true
     launchMode: internal
     sortOrder: 50
-    navigation: |-
-      [
-        {"id":"external-referrals","label":"External Referrals","path":"/apps/case-registers/external-referrals"},
-        {"id":"disease-registers","label":"Disease Registers","path":"/apps/case-registers/disease-registers"}
-      ]
+    navigation:
+      '[{"id":"external-referrals","label":"External Referrals","path":"/apps/case-registers/external-referrals"},{"id":"disease-registers","label":"Disease
+      Registers","path":"/apps/case-registers/disease-registers"}]'
     enabled: true
     accessRoles:
       - case-registers_access
@@ -444,7 +396,6 @@ systems:
           - systems:read
           - systems:launch
           - documents:read
-
   - clientId: reference-registers
     displayName: Reference Registers
     description: Facility, terminology, and reference data registers.
@@ -456,16 +407,9 @@ systems:
     displayInSideNav: true
     launchMode: internal
     sortOrder: 60
-    navigation: |-
-      [
-        {"id":"facility-register","label":"Facility Register","path":"/apps/reference-registers/facility-register"},
-        {"id":"terminology-service","label":"Terminology Service","children":[
-          {"id":"test-menu","label":"Test Menu","path":"/apps/reference-registers/terminology/test-menu"},
-          {"id":"pharmaceuticals","label":"Pharmaceuticals","path":"/apps/reference-registers/terminology/pharmaceuticals"},
-          {"id":"procedures","label":"Procedures","path":"/apps/reference-registers/terminology/procedures"},
-          {"id":"equipment","label":"Equipment","path":"/apps/reference-registers/terminology/equipment"}
-        ]}
-      ]
+    navigation:
+      '[{"id":"facility-register","label":"Facility Register","path":"/apps/reference-registers/facility-register"},{"id":"terminology-service","label":"Terminology
+      Service","children":[{"id":"test-menu","label":"Test Menu","path":"/apps/reference-registers/terminology/test-menu"},{"id":"pharmaceuticals","label":"Pharmaceuticals","path":"/apps/reference-registers/terminology/pharmaceuticals"},{"id":"procedures","label":"Procedures","path":"/apps/reference-registers/terminology/procedures"},{"id":"equipment","label":"Equipment","path":"/apps/reference-registers/terminology/equipment"}]}]'
     enabled: true
     accessRoles:
       - reference-registers_access
@@ -477,7 +421,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
   - clientId: utilities
     displayName: Utilities
     description: Self-service utilities and staff tools.
@@ -489,20 +432,12 @@ systems:
     displayInSideNav: true
     launchMode: internal
     sortOrder: 90
-    navigation: |-
-      [
-        {"id":"self-service","label":"Self Service","children":[
-          {"id":"my-timesheet","label":"My Timesheet","path":"/apps/utilities/self-service/timesheet"},
-          {"id":"elearning","label":"eLearning","path":"/apps/utilities/self-service/elearning"},
-          {"id":"leave-plan","label":"Leave Plan","path":"/apps/utilities/self-service/leave-plan"},
-          {"id":"absence-requests","label":"Absence Requests","path":"/apps/utilities/self-service/absence-requests"},
-          {"id":"absence-dashboard","label":"My Absence Dashboard","path":"/apps/utilities/self-service/absence-dashboard"},
-          {"id":"eservice-requests","label":"eService Requests","children":[
-            {"id":"service-access","label":"Service Access","path":"/apps/utilities/self-service/eservice/service-access"},
-            {"id":"equipment-request","label":"Equipment Request","path":"/apps/utilities/self-service/eservice/equipment-request"}
-          ]}
-        ]}
-      ]
+    navigation:
+      '[{"id":"self-service","label":"Self Service","children":[{"id":"my-timesheet","label":"My Timesheet","path":"/apps/utilities/self-service/timesheet"},{"id":"elearning","label":"eLearning","path":"/apps/utilities/self-service/elearning"},{"id":"leave-plan","label":"Leave
+      Plan","path":"/apps/utilities/self-service/leave-plan"},{"id":"absence-requests","label":"Absence Requests","path":"/apps/utilities/self-service/absence-requests"},{"id":"absence-dashboard","label":"My
+      Absence Dashboard","path":"/apps/utilities/self-service/absence-dashboard"},{"id":"eservice-requests","label":"eService
+      Requests","children":[{"id":"service-access","label":"Service Access","path":"/apps/utilities/self-service/eservice/service-access"},{"id":"equipment-request","label":"Equipment
+      Request","path":"/apps/utilities/self-service/eservice/equipment-request"}]}]}]'
     enabled: true
     accessRoles:
       - utilities_access
@@ -514,7 +449,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
   - clientId: settings
     displayName: Settings
     description: User profile, session, and security settings.
@@ -538,7 +472,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
   - clientId: demo-platform-system
     displayName: Demo Platform System
     description: Development example of an internal platform system with side navigation.
@@ -550,11 +483,7 @@ systems:
     displayInSideNav: false
     launchMode: internal
     sortOrder: 900
-    navigation: |-
-      [
-        {"id":"overview","label":"Overview","path":"/apps/dwh"},
-        {"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"}
-      ]
+    navigation: '[{"id":"overview","label":"Overview","path":"/apps/dwh"},{"id":"reports","label":"Reports","path":"/apps/dwh/reports","permission":"report_browser:read"}]'
     enabled: true
     accessRoles:
       - demo-platform-system_access
@@ -566,7 +495,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
   - clientId: demo-external-new-tab
     displayName: External Health System
     description: Development example of a launcher-only external system opening in a new tab.
@@ -589,7 +517,6 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
   - clientId: demo-external-same-tab
     displayName: External Support Portal
     description: Development example of a launcher-only external system opening in the current tab.
@@ -612,13 +539,11 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
-
 realmRoles:
   - name: admin
     description: Administrator role with full access
     permissions:
       - "*"
-
   - name: user
     description: Standard user role with read-only access to common platform services
     permissions:
@@ -638,7 +563,6 @@ realmRoles:
         - document_viewer
       settings:
         - settings_access
-
   - name: manager
     description: Can manage applications and operational workflows
     permissions:
@@ -672,3 +596,499 @@ realmRoles:
         - report_manager
         - issue_tracker_manager
         - document_manager
+groups:
+  - name: MOH
+    displayName: Ministry of Health
+    description: Root organizational group for Ministry of Health users
+    type: organization
+    attributes:
+      organization:
+        - Ministry of Health
+      group_type:
+        - organization
+    subgroups:
+      - name: Platform Administrators
+        displayName: Platform Administrators
+        description: Full administrative access to the Integrated Health Portal
+        type: access
+        protected: true
+        realmRoles:
+          - admin
+        systemRoles:
+          dashboard-web:
+            - dashboard-web_access
+            - portal_admin
+          outbreak-management:
+            - outbreak-management_access
+            - super_admin
+            - admin
+          data-statistics:
+            - data-statistics_access
+            - report_admin
+            - report_manager
+            - issue_tracker_manager
+            - document_manager
+          utilities:
+            - utilities_access
+          settings:
+            - settings_access
+        attributes:
+          access_profile:
+            - platform-admin
+          group_type:
+            - access
+          protected:
+            - "true"
+      - name: Platform Managers
+        displayName: Platform Managers
+        description: Operational managers across portal applications
+        type: access
+        realmRoles:
+          - manager
+        systemRoles:
+          dashboard-web:
+            - dashboard-web_access
+            - portal_manager
+          data-statistics:
+            - data-statistics_access
+            - report_manager
+            - issue_tracker_manager
+            - document_manager
+          utilities:
+            - utilities_access
+          settings:
+            - settings_access
+        attributes:
+          access_profile:
+            - platform-manager
+          group_type:
+            - access
+      - name: Portal Users
+        displayName: Portal Users
+        description: Standard users of the Integrated Health Portal
+        type: access
+        realmRoles:
+          - user
+        systemRoles:
+          dashboard-web:
+            - dashboard-web_access
+            - portal_user
+          settings:
+            - settings_access
+        attributes:
+          access_profile:
+            - standard-user
+          group_type:
+            - access
+      - name: Outbreak Management
+        displayName: Outbreak Management
+        description: Users with access to Outbreak Management
+        type: application
+        systemRoles:
+          outbreak-management:
+            - outbreak-management_access
+        attributes:
+          group_type:
+            - application
+          system:
+            - outbreak-management
+        subgroups:
+          - name: Super Administrators
+            displayName: Outbreak Super Administrators
+            description: Full Outbreak Management administrative access
+            type: access
+            systemRoles:
+              outbreak-management:
+                - super_admin
+            protected: true
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - outbreak-super-admin
+              protected:
+                - "true"
+          - name: Administrators
+            displayName: Outbreak Administrators
+            description: Administrators of Outbreak Management
+            type: access
+            systemRoles:
+              outbreak-management:
+                - admin
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - outbreak-admin
+          - name: Managers
+            displayName: Outbreak Managers
+            description: Operational managers in Outbreak Management
+            type: access
+            systemRoles:
+              outbreak-management:
+                - manager
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - outbreak-manager
+          - name: Surveillance Officers
+            displayName: Surveillance Officers
+            description: Officers responsible for surveillance and alert management
+            type: access
+            systemRoles:
+              outbreak-management:
+                - surveillance_officer
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - surveillance-officer
+          - name: Data Entry Officers
+            displayName: Data Entry Officers
+            description: Personnel responsible for entering and importing surveillance data
+            type: access
+            systemRoles:
+              outbreak-management:
+                - data_entry
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - surveillance-data-entry
+          - name: Laboratory Technicians
+            displayName: Laboratory Technicians
+            description: Laboratory personnel using Outbreak Management
+            type: access
+            systemRoles:
+              outbreak-management:
+                - lab_technician
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - laboratory-technician
+          - name: Viewers
+            displayName: Outbreak Viewers
+            description: Read-only users of Outbreak Management
+            type: access
+            systemRoles:
+              outbreak-management:
+                - viewer
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - outbreak-viewer
+      - name: Data and Statistics
+        displayName: Data & Statistics
+        description: Users of Data & Statistics modules
+        type: application
+        systemRoles:
+          data-statistics:
+            - data-statistics_access
+        attributes:
+          group_type:
+            - application
+          system:
+            - data-statistics
+        subgroups:
+          - name: Report Administrators
+            displayName: Report Administrators
+            description: Administrators of reporting and metrics
+            type: access
+            systemRoles:
+              data-statistics:
+                - report_admin
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - report-admin
+          - name: Report Managers
+            displayName: Report Managers
+            description: Managers of reporting workflows
+            type: access
+            systemRoles:
+              data-statistics:
+                - report_manager
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - report-manager
+          - name: Report Analysts
+            displayName: Report Analysts
+            description: Users who analyse reports and data-quality information
+            type: access
+            systemRoles:
+              data-statistics:
+                - report_analyst
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - report-analyst
+          - name: Report Viewers
+            displayName: Report Viewers
+            description: Read-only reporting users
+            type: access
+            systemRoles:
+              data-statistics:
+                - report_viewer
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - report-viewer
+          - name: Issue Tracker Managers
+            displayName: Issue Tracker Managers
+            description: Users who manage the full issue lifecycle
+            type: access
+            systemRoles:
+              data-statistics:
+                - issue_tracker_manager
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - issue-tracker-manager
+          - name: Issue Tracker Editors
+            displayName: Issue Tracker Editors
+            description: Users who create and update issues
+            type: access
+            systemRoles:
+              data-statistics:
+                - issue_tracker_editor
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - issue-tracker-editor
+          - name: Issue Tracker Contributors
+            displayName: Issue Tracker Contributors
+            description: Users who view and comment on issues
+            type: access
+            systemRoles:
+              data-statistics:
+                - issue_tracker_contributor
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - issue-tracker-contributor
+          - name: Issue Tracker Viewers
+            displayName: Issue Tracker Viewers
+            description: Read-only issue tracker users
+            type: access
+            systemRoles:
+              data-statistics:
+                - issue_tracker_viewer
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - issue-tracker-viewer
+          - name: Document Managers
+            displayName: Document Managers
+            description: Full document and template management access
+            type: access
+            systemRoles:
+              data-statistics:
+                - document_manager
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - document-manager
+          - name: Document Editors
+            displayName: Document Editors
+            description: Users who create and edit documents
+            type: access
+            systemRoles:
+              data-statistics:
+                - document_editor
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - document-editor
+          - name: Document Processors
+            displayName: Document Processors
+            description: Users who process and reprocess documents
+            type: access
+            systemRoles:
+              data-statistics:
+                - document_processor
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - document-processor
+          - name: Document Viewers
+            displayName: Document Viewers
+            description: Read-only document users
+            type: access
+            systemRoles:
+              data-statistics:
+                - document_viewer
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - document-viewer
+          - name: Template Publishers
+            displayName: Document Template Publishers
+            description: Users who create, edit and publish document templates
+            type: access
+            systemRoles:
+              data-statistics:
+                - document_template_publisher
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - document-template-publisher
+          - name: Template Editors
+            displayName: Document Template Editors
+            description: Users who create and edit document templates
+            type: access
+            systemRoles:
+              data-statistics:
+                - document_template_editor
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - document-template-editor
+          - name: Template Viewers
+            displayName: Document Template Viewers
+            description: Read-only document template users
+            type: access
+            systemRoles:
+              data-statistics:
+                - document_template_viewer
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - document-template-viewer
+      - name: Demo Systems
+        displayName: Demo Systems
+        description: Development and demonstration system access
+        type: application
+        attributes:
+          group_type:
+            - application
+          environment:
+            - development
+        subgroups:
+          - name: Demo Registry Users
+            displayName: Demo Registry Users
+            description: Users allowed to access development demonstration systems
+            type: access
+            realmRoles:
+              - user
+            systemRoles:
+              demo-platform-system:
+                - demo-platform-system_access
+              demo-external-new-tab:
+                - demo-external-new-tab_access
+              demo-external-same-tab:
+                - demo-external-same-tab_access
+            attributes:
+              access_profile:
+                - registry-launch-demo
+              group_type:
+                - access
+groupMemberships:
+  - username: admin
+    groups:
+      - /MOH/Platform Administrators
+  - username: testuser
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Report Viewers
+      - /MOH/Data and Statistics/Issue Tracker Viewers
+      - /MOH/Data and Statistics/Document Viewers
+  - username: pwaiswa
+    groups:
+      - /MOH/Platform Managers
+      - /MOH/Outbreak Management/Managers
+      - /MOH/Outbreak Management/Surveillance Officers
+      - /MOH/Data and Statistics/Report Managers
+      - /MOH/Data and Statistics/Issue Tracker Managers
+      - /MOH/Data and Statistics/Document Managers
+  - username: pmbaka
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Outbreak Management/Data Entry Officers
+      - /MOH/Outbreak Management/Surveillance Officers
+      - /MOH/Data and Statistics/Report Analysts
+      - /MOH/Data and Statistics/Issue Tracker Editors
+      - /MOH/Data and Statistics/Document Editors
+  - username: outbreak_viewer@example.com
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Outbreak Management/Viewers
+      - /MOH/Data and Statistics/Report Viewers
+      - /MOH/Data and Statistics/Issue Tracker Viewers
+      - /MOH/Data and Statistics/Document Viewers
+  - username: document.viewer
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Document Viewers
+  - username: document.editor
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Document Editors
+  - username: document.processor
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Document Processors
+  - username: document.manager
+    groups:
+      - /MOH/Platform Managers
+      - /MOH/Data and Statistics/Document Managers
+  - username: template.viewer
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Template Viewers
+  - username: template.editor
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Template Editors
+  - username: template.publisher
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Template Publishers
+  - username: issue.viewer
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Issue Tracker Viewers
+  - username: issue.contributor
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Issue Tracker Contributors
+  - username: issue.editor
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Issue Tracker Editors
+  - username: issue.manager
+    groups:
+      - /MOH/Platform Managers
+      - /MOH/Data and Statistics/Issue Tracker Managers
+  - username: data.operations.officer
+    groups:
+      - /MOH/Portal Users
+      - /MOH/Data and Statistics/Document Editors
+      - /MOH/Data and Statistics/Document Processors
+      - /MOH/Data and Statistics/Issue Tracker Editors
+  - username: data.governance.manager
+    groups:
+      - /MOH/Platform Managers
+      - /MOH/Data and Statistics/Document Managers
+      - /MOH/Data and Statistics/Issue Tracker Managers
+  - username: demo.registry.user
+    groups:
+      - /MOH/Demo Systems/Demo Registry Users

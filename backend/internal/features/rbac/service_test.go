@@ -15,7 +15,19 @@ func TestParseImportSeedAcceptsJSONSeed(t *testing.T) {
 				"roles": [{"name": "viewer"}]
 			}
 		],
-		"realmRoles": [{"name": "admin"}]
+		"realmRoles": [{"name": "admin"}],
+		"groups": [
+			{
+				"name": "Data Team",
+				"path": "/Data Team",
+				"realmRoles": ["user"],
+				"systemRoles": {"test-system": ["viewer"]},
+				"permissions": ["systems:read"]
+			}
+		],
+		"groupMemberships": [
+			{"username": "analyst", "groups": ["/Data Team"]}
+		]
 	}`)
 
 	seed, err := parseImportSeed(payload)
@@ -27,6 +39,12 @@ func TestParseImportSeedAcceptsJSONSeed(t *testing.T) {
 	}
 	if got := seed.RealmRoles[0].Name; got != "admin" {
 		t.Fatalf("expected realm role admin, got %q", got)
+	}
+	if got := len(seed.Groups); got != 1 {
+		t.Fatalf("expected one group, got %d", got)
+	}
+	if got := len(seed.GroupMemberships); got != 1 {
+		t.Fatalf("expected one group membership, got %d", got)
 	}
 }
 
@@ -175,5 +193,97 @@ func TestParseRealmExportKeepsKnownLegacySystem(t *testing.T) {
 	}
 	if len(discovered.Systems) != 1 || discovered.Systems[0].ClientID != "legacy-app" {
 		t.Fatalf("expected known legacy app, got %+v", discovered.Systems)
+	}
+}
+
+func TestParseRealmExportDiscoversGroupsRolesAndMembers(t *testing.T) {
+	payload := []byte(`{
+		"roles":{"realm":[{"name":"user"}],"client":{"data-statistics":[{"name":"data-statistics_access"},{"name":"document_viewer"}]}},
+		"clients":[{"clientId":"data-statistics","name":"Data & Statistics","enabled":true,"attributes":{"portal.system":"true","portal.accessRoles":"data-statistics_access"}}],
+		"groups":[{
+			"name":"MOH",
+			"subGroups":[{
+				"name":"Document Viewers",
+				"realmRoles":["user"],
+				"clientRoles":{"data-statistics":["document_viewer"]}
+			}]
+		}],
+		"users":[{
+			"id":"11111111-1111-1111-1111-111111111111",
+			"username":"document.viewer",
+			"email":"document.viewer@example.org",
+			"groups":["/MOH/Document Viewers"]
+		}]
+	}`)
+
+	discovered, err := parseRealmExport(payload)
+	if err != nil {
+		t.Fatalf("parseRealmExport returned error: %v", err)
+	}
+
+	var group discoveredGroup
+	for _, candidate := range discovered.Groups {
+		if candidate.Path == "/MOH/Document Viewers" {
+			group = candidate
+			break
+		}
+	}
+	if group.Path == "" {
+		t.Fatalf("expected /MOH/Document Viewers group, got %#v", discovered.Groups)
+	}
+	if !containsString(group.RealmRoles, "user") {
+		t.Fatalf("expected group realm role, got %#v", group.RealmRoles)
+	}
+	if !containsString(group.ClientRoles["data-statistics"], "document_viewer") {
+		t.Fatalf("expected group client role, got %#v", group.ClientRoles)
+	}
+	if len(group.Members) != 1 || group.Members[0].Username != "document.viewer" {
+		t.Fatalf("expected group member from user group assignment, got %#v", group.Members)
+	}
+}
+
+func TestApplyRealmExportSyncPersistsGroups(t *testing.T) {
+	payload := []byte(`{
+		"roles":{"realm":[{"name":"user"}],"client":{"data-statistics":[{"name":"data-statistics_access"},{"name":"document_viewer"}]}},
+		"clients":[{"clientId":"data-statistics","name":"Data & Statistics","enabled":true,"attributes":{"portal.system":"true","portal.accessRoles":"data-statistics_access"}}],
+		"groups":[{
+			"name":"MOH",
+			"subGroups":[{
+				"name":"Document Viewers",
+				"realmRoles":["user"],
+				"clientRoles":{"data-statistics":["document_viewer"]}
+			}]
+		}],
+		"users":[{
+			"id":"11111111-1111-1111-1111-111111111111",
+			"username":"document.viewer",
+			"email":"document.viewer@example.org",
+			"groups":["/MOH/Document Viewers"]
+		}]
+	}`)
+
+	repo := newTestRBACRepository()
+	service := NewService(repo)
+
+	result, err := service.ApplyRealmExportSync(context.Background(), payload)
+	if err != nil {
+		t.Fatalf("ApplyRealmExportSync returned error: %v", err)
+	}
+	if result.GroupsSynced != 2 {
+		t.Fatalf("expected root and nested groups synced, got %d", result.GroupsSynced)
+	}
+	if repo.group.Path != "/MOH/Document Viewers" {
+		t.Fatalf("expected final synced group path, got %#v", repo.group)
+	}
+	if len(repo.groupMembers) != 1 || repo.groupMembers[0].Username != "document.viewer" {
+		t.Fatalf("expected synced group member, got %#v", repo.groupMembers)
+	}
+	if !containsString(repo.groupRealmRoles, "user") {
+		t.Fatalf("expected synced group realm role, got %#v", repo.groupRealmRoles)
+	}
+	if len(repo.groupSystemRoles) != 1 ||
+		repo.groupSystemRoles[0].ClientID != "data-statistics" ||
+		repo.groupSystemRoles[0].RoleName != "document_viewer" {
+		t.Fatalf("expected synced group system role, got %#v", repo.groupSystemRoles)
 	}
 }

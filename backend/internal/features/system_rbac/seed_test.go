@@ -43,6 +43,58 @@ func TestValidateSeedRejectsUnknownDefaultSystemRole(t *testing.T) {
 	}
 }
 
+func TestValidateSeedAcceptsGroupsAndMemberships(t *testing.T) {
+	seed := DefaultSeed()
+	seed.Groups = []SeedGroup{
+		{
+			Name:        "Data Team",
+			Path:        "/Data Team",
+			RealmRoles:  []string{authz.RoleUser},
+			SystemRoles: map[string][]string{authz.SystemDataStatistics: {authz.DataStatisticsAccess}},
+			Permissions: []string{string(authz.PermissionSystemsRead)},
+			Subgroups: []SeedGroup{
+				{
+					Name:        "Analysts",
+					Permissions: []string{string(authz.PermissionReportBrowserRead)},
+				},
+			},
+		},
+	}
+	seed.GroupMemberships = []SeedGroupMembership{
+		{Username: "analyst", Groups: []string{"/Data Team", "/Data Team/Analysts"}},
+	}
+
+	if err := ValidateSeed(seed); err != nil {
+		t.Fatalf("expected valid group seed: %v", err)
+	}
+}
+
+func TestValidateSeedRejectsUnknownGroupSystemRole(t *testing.T) {
+	seed := DefaultSeed()
+	seed.Groups = []SeedGroup{
+		{
+			Name:        "Data Team",
+			Path:        "/Data Team",
+			SystemRoles: map[string][]string{authz.SystemDataStatistics: {"missing-role"}},
+		},
+	}
+
+	if err := ValidateSeed(seed); err == nil {
+		t.Fatal("expected unknown group system role validation error")
+	}
+}
+
+func TestValidateSeedRejectsUnknownMembershipGroup(t *testing.T) {
+	seed := DefaultSeed()
+	seed.GroupMemberships = []SeedGroupMembership{
+		{Username: "analyst", Groups: []string{"/Missing Group"}},
+	}
+
+	if err := ValidateSeed(seed); err == nil {
+		t.Fatal("expected unknown membership group validation error")
+	}
+}
+
 func TestValidateSystemBehaviorSupportsAllLaunchModes(t *testing.T) {
 	trueValue := true
 	falseValue := false

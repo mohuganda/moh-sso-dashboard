@@ -248,6 +248,7 @@ type SyncApplyResponse struct {
 	SystemsSynced int                 `json:"systemsSynced"`
 	RolesSynced   int                 `json:"rolesSynced"`
 	AccessRoles   int                 `json:"accessRolesSynced"`
+	GroupsSynced  int                 `json:"groupsSynced"`
 }
 
 type EffectiveAccessUser struct {
@@ -416,8 +417,9 @@ type ImportPreviewResponse struct {
 }
 
 type ImportApplyResponse struct {
-	Preview ImportPreviewResponse `json:"preview"`
-	Applied bool                  `json:"applied"`
+	Preview      ImportPreviewResponse `json:"preview"`
+	Applied      bool                  `json:"applied"`
+	GroupsSynced int                   `json:"groupsSynced"`
 }
 
 type RoleTemplate struct {
