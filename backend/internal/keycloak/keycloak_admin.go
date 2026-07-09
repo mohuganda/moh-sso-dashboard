@@ -164,6 +164,13 @@ type RoleRep struct {
 	Description string `json:"description"`
 }
 
+type GroupRep struct {
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Path      string     `json:"path"`
+	SubGroups []GroupRep `json:"subGroups"`
+}
+
 type compositeRoleRepresentation struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -819,6 +826,120 @@ func (c *KeyAdminClient) ListUsers() ([]UserInfo, error) {
 	}
 
 	return users, nil
+}
+
+func (c *KeyAdminClient) ListGroups(ctx context.Context) ([]GroupRep, error) {
+	res, err := c.GetWithContext(ctx, "groups?briefRepresentation=false")
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("failed to list groups: %s", string(body))
+	}
+
+	var roots []GroupRep
+	if err := json.NewDecoder(res.Body).Decode(&roots); err != nil {
+		return nil, err
+	}
+
+	groups := make([]GroupRep, 0)
+	var walk func(values []GroupRep)
+	walk = func(values []GroupRep) {
+		for _, group := range values {
+			children := group.SubGroups
+			group.SubGroups = nil
+			groups = append(groups, group)
+			walk(children)
+		}
+	}
+	walk(roots)
+	return groups, nil
+}
+
+func (c *KeyAdminClient) ListGroupMembers(ctx context.Context, groupID string) ([]KeycloakUser, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return nil, fmt.Errorf("groupID is required")
+	}
+
+	res, err := c.GetWithContext(ctx, "groups/"+url.PathEscape(groupID)+"/members")
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("failed to list group members: %s", string(body))
+	}
+
+	var users []KeycloakUser
+	if err := json.NewDecoder(res.Body).Decode(&users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (c *KeyAdminClient) ListGroupRealmRoles(ctx context.Context, groupID string) ([]RoleRep, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return nil, fmt.Errorf("groupID is required")
+	}
+
+	res, err := c.GetWithContext(ctx, "groups/"+url.PathEscape(groupID)+"/role-mappings/realm")
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("failed to list group realm roles: %s", string(body))
+	}
+
+	var roles []RoleRep
+	if err := json.NewDecoder(res.Body).Decode(&roles); err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
+func (c *KeyAdminClient) ListGroupClientRoles(ctx context.Context, groupID string, clientID string) ([]ClientRoleRep, error) {
+	groupID = strings.TrimSpace(groupID)
+	clientID = strings.TrimSpace(clientID)
+	if groupID == "" || clientID == "" {
+		return nil, fmt.Errorf("groupID and clientID are required")
+	}
+
+	clientUUID, err := c.resolveClientUUID(ctx, clientID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve client UUID: %w", err)
+	}
+
+	path := fmt.Sprintf(
+		"groups/%s/role-mappings/clients/%s",
+		url.PathEscape(groupID),
+		url.PathEscape(clientUUID),
+	)
+	res, err := c.GetWithContext(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("failed to list group client roles: %s", string(body))
+	}
+
+	var roles []ClientRoleRep
+	if err := json.NewDecoder(res.Body).Decode(&roles); err != nil {
+		return nil, err
+	}
+	return roles, nil
 }
 
 func (c *KeyAdminClient) GetUser(userID string) (*UserInfo, error) {

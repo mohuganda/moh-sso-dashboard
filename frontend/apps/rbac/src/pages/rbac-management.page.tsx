@@ -12,22 +12,30 @@ import { Add, Save, TrashCan } from "@carbon/react/icons";
 
 import {
   useAddSystemAccessRoleMutation,
+  useAssignGroupPermissionMutation,
+  useAssignGroupRealmRoleMutation,
+  useAssignGroupSystemRoleMutation,
   useAssignRealmRolePermissionMutation,
   useAssignSystemRolePermissionMutation,
   useCreateSystemRoleMutation,
   useDeleteSystemRoleMutation,
   useGetRbacSystemQuery,
+  useListRbacGroupsQuery,
   useListRbacPermissionsQuery,
   useListRbacSystemsQuery,
   useListRealmRolePermissionsQuery,
   usePreviewRbacChangeMutation,
+  useRemoveGroupPermissionMutation,
+  useRemoveGroupRealmRoleMutation,
+  useRemoveGroupSystemRoleMutation,
   useRemoveRealmRolePermissionMutation,
   useRemoveSystemAccessRoleMutation,
   useRemoveSystemRolePermissionMutation,
   useUpdateRbacSystemMutation,
+  useUpsertRbacGroupMutation,
 } from "../api";
 import { PERMISSIONS, PermissionGuard, useAuthorization } from "@moh-sso/auth";
-import type { RbacPermission, RbacSystem, RbacSystemRole } from "../types";
+import type { RbacGroup, RbacPermission, RbacSystem, RbacSystemRole } from "../types";
 
 import { EffectiveAccessPanel } from "../components/EffectiveAccessPanel";
 import { GovernanceToolsPanel } from "../components/GovernanceToolsPanel";
@@ -83,6 +91,7 @@ export default function RbacManagementPage() {
   const { data: systems = [], isLoading: systemsLoading } = useListRbacSystemsQuery();
   const { data: permissions = [], isLoading: permissionsLoading } = useListRbacPermissionsQuery();
   const { data: realmRoles = [] } = useListRealmRolePermissionsQuery();
+  const { data: groups = [] } = useListRbacGroupsQuery();
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const activeClientId = selectedClientId || systems[0]?.clientId || "";
   const { data: systemDetail, isFetching: systemLoading } = useGetRbacSystemQuery(activeClientId, {
@@ -97,6 +106,12 @@ export default function RbacManagementPage() {
   const [realmRoleName, setRealmRoleName] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
   const [selectedRealmRole, setSelectedRealmRole] = useState<string>("");
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [newGroupPath, setNewGroupPath] = useState("");
+  const [newGroupDisplayName, setNewGroupDisplayName] = useState("");
+  const [groupRealmRoleName, setGroupRealmRoleName] = useState("");
+  const [groupSystemClientId, setGroupSystemClientId] = useState("");
+  const [groupSystemRoleName, setGroupSystemRoleName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const [updateSystem, { isLoading: savingSystem }] = useUpdateRbacSystemMutation();
@@ -109,6 +124,13 @@ export default function RbacManagementPage() {
   const [addAccessRole] = useAddSystemAccessRoleMutation();
   const [removeAccessRole] = useRemoveSystemAccessRoleMutation();
   const [previewChange] = usePreviewRbacChangeMutation();
+  const [upsertGroup, { isLoading: creatingGroup }] = useUpsertRbacGroupMutation();
+  const [assignGroupPermission] = useAssignGroupPermissionMutation();
+  const [removeGroupPermission] = useRemoveGroupPermissionMutation();
+  const [assignGroupRealmRole] = useAssignGroupRealmRoleMutation();
+  const [removeGroupRealmRole] = useRemoveGroupRealmRoleMutation();
+  const [assignGroupSystemRole] = useAssignGroupSystemRoleMutation();
+  const [removeGroupSystemRole] = useRemoveGroupSystemRoleMutation();
 
   const canWriteSystems = can(PERMISSIONS.rbacWrite);
   const canWriteRoles = can(PERMISSIONS.rbacRolesWrite);
@@ -126,6 +148,11 @@ export default function RbacManagementPage() {
     [realmRoleName, realmRoles, selectedRealmRole],
   );
 
+  const selectedGroup = useMemo(
+    () => groups.find((group) => group.id === selectedGroupId) ?? groups[0],
+    [groups, selectedGroupId],
+  );
+
   const groupedPermissions = useMemo(() => {
     return permissions.reduce<Record<string, RbacPermission[]>>((groups, permission) => {
       const category = permissionCategory(permission);
@@ -137,6 +164,9 @@ export default function RbacManagementPage() {
   const rolePermissionKeys = new Set(selectedRole?.permissions.map((permission) => permission.key) ?? []);
   const realmPermissionKeys = new Set(
     selectedRealmRoleGroup?.permissions.map((permission) => permission.key) ?? [],
+  );
+  const groupPermissionKeys = new Set(
+    selectedGroup?.permissions.map((permission) => permission.key) ?? [],
   );
 
   const handleSelectSystem = (clientId: string) => {
@@ -247,6 +277,92 @@ export default function RbacManagementPage() {
       await removeAccessRole({ clientId: activeClientId, roleName }).unwrap();
     } catch {
       setError("Unable to remove access role. Use backend force mode only after review.");
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    const path = newGroupPath.trim();
+    if (!path) return;
+    try {
+      setError(null);
+      const group = await upsertGroup({
+        path,
+        displayName: newGroupDisplayName,
+        enabled: true,
+      }).unwrap();
+      setSelectedGroupId(group.id);
+      setNewGroupPath("");
+      setNewGroupDisplayName("");
+    } catch {
+      setError("Unable to create or update group.");
+    }
+  };
+
+  const toggleGroupPermission = async (permission: RbacPermission, checked: boolean) => {
+    if (!selectedGroup) return;
+    try {
+      setError(null);
+      if (checked) {
+        await assignGroupPermission({
+          groupId: selectedGroup.id,
+          data: { permissionKey: permission.key },
+        }).unwrap();
+      } else {
+        await removeGroupPermission({
+          groupId: selectedGroup.id,
+          permissionKey: permission.key,
+        }).unwrap();
+      }
+    } catch {
+      setError("Unable to update group permissions.");
+    }
+  };
+
+  const handleAssignGroupRealmRole = async () => {
+    if (!selectedGroup || !groupRealmRoleName.trim()) return;
+    try {
+      setError(null);
+      await assignGroupRealmRole({
+        groupId: selectedGroup.id,
+        data: { realmRole: groupRealmRoleName },
+      }).unwrap();
+      setGroupRealmRoleName("");
+    } catch {
+      setError("Unable to assign group realm role.");
+    }
+  };
+
+  const handleRemoveGroupRealmRole = async (realmRole: string) => {
+    if (!selectedGroup) return;
+    try {
+      setError(null);
+      await removeGroupRealmRole({ groupId: selectedGroup.id, realmRole }).unwrap();
+    } catch {
+      setError("Unable to remove group realm role.");
+    }
+  };
+
+  const handleAssignGroupSystemRole = async () => {
+    if (!selectedGroup || !groupSystemClientId.trim() || !groupSystemRoleName.trim()) return;
+    try {
+      setError(null);
+      await assignGroupSystemRole({
+        groupId: selectedGroup.id,
+        data: { clientId: groupSystemClientId, roleName: groupSystemRoleName },
+      }).unwrap();
+      setGroupSystemClientId("");
+      setGroupSystemRoleName("");
+    } catch {
+      setError("Unable to assign group system role.");
+    }
+  };
+
+  const handleRemoveGroupSystemRole = async (group: RbacGroup, clientId: string, roleName: string) => {
+    try {
+      setError(null);
+      await removeGroupSystemRole({ groupId: group.id, clientId, roleName }).unwrap();
+    } catch {
+      setError("Unable to remove group system role.");
     }
   };
 
@@ -577,6 +693,182 @@ export default function RbacManagementPage() {
                 disabled={(!selectedRealmRole && !realmRoleName.trim()) || !canWritePermissions}
                 onToggle={toggleRealmPermission}
               />
+            </div>
+          </section>
+
+          <section className="rbac-card">
+            <div className="rbac-page__panel-header">
+              <div>
+                <h2>Groups</h2>
+                <p>Map Keycloak groups to realm roles, system roles, and direct permissions.</p>
+              </div>
+              <div className="rbac-inline-form">
+                <TextInput
+                  id="rbac-new-group-path"
+                  hideLabel
+                  labelText="Group path"
+                  placeholder="/data-statistics/users"
+                  value={newGroupPath}
+                  disabled={!canWriteRoles}
+                  onChange={(event) => setNewGroupPath(event.target.value)}
+                />
+                <TextInput
+                  id="rbac-new-group-display"
+                  hideLabel
+                  labelText="Group display name"
+                  placeholder="Data statistics users"
+                  value={newGroupDisplayName}
+                  disabled={!canWriteRoles}
+                  onChange={(event) => setNewGroupDisplayName(event.target.value)}
+                />
+                <PermissionGuard permission={PERMISSIONS.rbacRolesWrite}>
+                  <Button
+                    renderIcon={Add}
+                    size="sm"
+                    disabled={creatingGroup || !newGroupPath.trim()}
+                    onClick={handleCreateGroup}
+                  >
+                    Save group
+                  </Button>
+                </PermissionGuard>
+              </div>
+            </div>
+
+            <div className="rbac-realm-layout">
+              <div className="rbac-role-list">
+                {groups.map((group) => (
+                  <button
+                    className={`rbac-role-list__item ${group.id === selectedGroup?.id ? "is-active" : ""}`}
+                    key={group.id}
+                    onClick={() => setSelectedGroupId(group.id)}
+                    type="button"
+                  >
+                    <span>{group.displayName || group.name}</span>
+                    <small>
+                      {group.path} · {group.memberCount} members
+                    </small>
+                  </button>
+                ))}
+              </div>
+
+              <div className="rbac-group-detail">
+                {selectedGroup ? (
+                  <>
+                    <div className="rbac-page__panel-header">
+                      <div>
+                        <h3>{selectedGroup.displayName || selectedGroup.name}</h3>
+                        <p>{selectedGroup.path}</p>
+                      </div>
+                      <Tag type={selectedGroup.enabled ? "green" : "gray"}>
+                        {selectedGroup.enabled ? "Enabled" : "Disabled"}
+                      </Tag>
+                    </div>
+
+                    <div className="rbac-group-detail__section">
+                      <h4>Realm roles</h4>
+                      <div className="rbac-inline-form">
+                        <TextInput
+                          id="rbac-group-realm-role"
+                          hideLabel
+                          labelText="Realm role"
+                          placeholder="user"
+                          value={groupRealmRoleName}
+                          disabled={!canWriteRoles}
+                          onChange={(event) => setGroupRealmRoleName(event.target.value)}
+                        />
+                        <PermissionGuard permission={PERMISSIONS.rbacRolesWrite}>
+                          <Button size="sm" renderIcon={Add} onClick={handleAssignGroupRealmRole}>
+                            Add
+                          </Button>
+                        </PermissionGuard>
+                      </div>
+                      <div className="rbac-tag-list">
+                        {selectedGroup.realmRoles.map((role) => (
+                          <Tag
+                            key={role}
+                            type="purple"
+                            filter={canWriteRoles}
+                            onClose={
+                              canWriteRoles
+                                ? (event) => {
+                                    event.preventDefault();
+                                    void handleRemoveGroupRealmRole(role);
+                                  }
+                                : undefined
+                            }
+                          >
+                            {role}
+                          </Tag>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rbac-group-detail__section">
+                      <h4>System roles</h4>
+                      <div className="rbac-inline-form">
+                        <TextInput
+                          id="rbac-group-system-client"
+                          hideLabel
+                          labelText="Client ID"
+                          placeholder="data-statistics"
+                          value={groupSystemClientId}
+                          disabled={!canWriteRoles}
+                          onChange={(event) => setGroupSystemClientId(event.target.value)}
+                        />
+                        <TextInput
+                          id="rbac-group-system-role"
+                          hideLabel
+                          labelText="Role name"
+                          placeholder="data-statistics_access"
+                          value={groupSystemRoleName}
+                          disabled={!canWriteRoles}
+                          onChange={(event) => setGroupSystemRoleName(event.target.value)}
+                        />
+                        <PermissionGuard permission={PERMISSIONS.rbacRolesWrite}>
+                          <Button size="sm" renderIcon={Add} onClick={handleAssignGroupSystemRole}>
+                            Add
+                          </Button>
+                        </PermissionGuard>
+                      </div>
+                      <div className="rbac-tag-list">
+                        {selectedGroup.systemRoles.map((role) => (
+                          <Tag
+                            key={`${role.clientId}:${role.roleName}`}
+                            type="cyan"
+                            filter={canWriteRoles}
+                            onClose={
+                              canWriteRoles
+                                ? (event) => {
+                                    event.preventDefault();
+                                    void handleRemoveGroupSystemRole(
+                                      selectedGroup,
+                                      role.clientId,
+                                      role.roleName,
+                                    );
+                                  }
+                                : undefined
+                            }
+                          >
+                            {role.clientId}:{role.roleName}
+                          </Tag>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rbac-group-detail__section">
+                      <h4>Direct permissions</h4>
+                      <PermissionMatrix
+                        groupedPermissions={groupedPermissions}
+                        selectedKeys={groupPermissionKeys}
+                        disabled={!canWritePermissions}
+                        onToggle={toggleGroupPermission}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <p>No groups have been synced or created yet.</p>
+                )}
+              </div>
             </div>
           </section>
         </main>

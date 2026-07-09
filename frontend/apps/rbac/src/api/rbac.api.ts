@@ -13,6 +13,11 @@ import type {
   RbacDecisionPayload,
   RbacDriftReport,
   RbacEffectiveAccess,
+  RbacGroup,
+  RbacGroupMembersPayload,
+  RbacGroupPayload,
+  RbacGroupRealmRolePayload,
+  RbacGroupSystemRolePayload,
   RbacImportApplyResult,
   RbacImportPayload,
   RbacImportPreview,
@@ -169,6 +174,103 @@ export const rbacApi = baseApi.injectEndpoints({
       query: () => `${base}/realm-roles`,
       transformResponse: (res: ApiEnvelope<RbacRealmRolePermissionGroup[]>) => res.data,
       providesTags: [{ type: "RbacRealmRole", id: "LIST" }],
+    }),
+    listRbacGroups: builder.query<RbacGroup[], void>({
+      query: () => `${base}/groups`,
+      transformResponse: (res: ApiEnvelope<RbacGroup[]>) => res.data,
+      providesTags: [{ type: "RbacGroup", id: "LIST" }],
+    }),
+    getRbacGroup: builder.query<RbacGroup, string>({
+      query: (groupId) => `${base}/groups/${encodeURIComponent(groupId)}`,
+      transformResponse: (res: ApiEnvelope<RbacGroup>) => res.data,
+      providesTags: (_result, _error, groupId) => [{ type: "RbacGroup", id: groupId }],
+    }),
+    upsertRbacGroup: builder.mutation<RbacGroup, RbacGroupPayload>({
+      query: (data) => ({
+        url: `${base}/groups`,
+        method: "POST",
+        body: data,
+      }),
+      transformResponse: (res: ApiEnvelope<RbacGroup>) => res.data,
+      invalidatesTags: [
+        { type: "RbacGroup", id: "LIST" },
+        { type: "RbacAudit", id: "LIST" },
+      ],
+    }),
+    replaceRbacGroupMembers: builder.mutation<void, { groupId: string; data: RbacGroupMembersPayload }>({
+      query: ({ groupId, data }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/members`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { groupId }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: "LIST" },
+        { type: "RbacAudit", id: "LIST" },
+      ],
+    }),
+    assignGroupPermission: builder.mutation<void, { groupId: string; data: RbacPermissionPayload }>({
+      query: ({ groupId, data }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/permissions`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { groupId }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: "LIST" },
+      ],
+    }),
+    removeGroupPermission: builder.mutation<void, { groupId: string; permissionKey: string }>({
+      query: ({ groupId, permissionKey }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/permissions/${encodeURIComponent(permissionKey)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { groupId }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: "LIST" },
+      ],
+    }),
+    assignGroupRealmRole: builder.mutation<void, { groupId: string; data: RbacGroupRealmRolePayload }>({
+      query: ({ groupId, data }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/realm-roles`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { groupId }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: "LIST" },
+      ],
+    }),
+    removeGroupRealmRole: builder.mutation<void, { groupId: string; realmRole: string }>({
+      query: ({ groupId, realmRole }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/realm-roles/${encodeURIComponent(realmRole)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { groupId }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: "LIST" },
+      ],
+    }),
+    assignGroupSystemRole: builder.mutation<void, { groupId: string; data: RbacGroupSystemRolePayload }>({
+      query: ({ groupId, data }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/system-roles`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { groupId }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: "LIST" },
+      ],
+    }),
+    removeGroupSystemRole: builder.mutation<void, { groupId: string; clientId: string; roleName: string }>({
+      query: ({ groupId, clientId, roleName }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/system-roles/${encodeURIComponent(clientId)}/${encodeURIComponent(roleName)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { groupId }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: "LIST" },
+      ],
     }),
     getRealmRoleUsage: builder.query<RbacRealmRoleUsage, string>({
       query: (realmRole) => `${base}/realm-roles/${encodeURIComponent(realmRole)}/usage`,
@@ -413,6 +515,9 @@ export const {
   useApplyRbacSyncMutation,
   useApplyRbacImportMutation,
   useAddSystemAccessRoleMutation,
+  useAssignGroupPermissionMutation,
+  useAssignGroupRealmRoleMutation,
+  useAssignGroupSystemRoleMutation,
   useAssignRealmRolePermissionMutation,
   useAssignSystemRolePermissionMutation,
   useBulkAssignPermissionMutation,
@@ -428,6 +533,7 @@ export const {
   useExportRbacSeedQuery,
   useGetRbacDriftQuery,
   useGetRbacEffectiveAccessQuery,
+  useGetRbacGroupQuery,
   useGetAssignableUserAccessQuery,
   useGetUserAccessProfileQuery,
   useGetRealmRoleUsageQuery,
@@ -437,6 +543,7 @@ export const {
   useListRbacAuditEventsQuery,
   useGetRbacSystemQuery,
   useListRbacPermissionsQuery,
+  useListRbacGroupsQuery,
   useListRbacRoleTemplatesQuery,
   useListRbacSystemsQuery,
   useListRealmRolePermissionsQuery,
@@ -445,6 +552,9 @@ export const {
   usePreviewRbacImportMutation,
   usePreviewRbacRealmExportDriftMutation,
   usePreviewRbacSyncMutation,
+  useRemoveGroupPermissionMutation,
+  useRemoveGroupRealmRoleMutation,
+  useRemoveGroupSystemRoleMutation,
   useRemoveRealmRolePermissionMutation,
   useRemoveSystemAccessRoleMutation,
   useRemoveSystemRolePermissionMutation,
@@ -453,4 +563,6 @@ export const {
   useUpdateRbacPermissionMetadataMutation,
   useUpdateRbacSystemMutation,
   useUpdateSystemRoleMutation,
+  useUpsertRbacGroupMutation,
+  useReplaceRbacGroupMembersMutation,
 } = rbacApi;

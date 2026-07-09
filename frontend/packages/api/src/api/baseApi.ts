@@ -193,6 +193,7 @@ export const baseApi = createApi({
     "DocumentSheets",
     "DocumentColumns",
     "RbacSystem",
+    "RbacGroup",
     "RbacPermission",
     "RbacRealmRole",
     "RbacAccessRequest",

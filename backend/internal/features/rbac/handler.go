@@ -138,6 +138,123 @@ func (h *Handler) ListRealmRolePermissions(c *gin.Context) {
 	response.OK(c, http.StatusOK, groups)
 }
 
+func (h *Handler) ListGroups(c *gin.Context) {
+	groups, err := h.service.ListGroups(c.Request.Context())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "LIST_GROUPS_FAILED", "failed to list groups")
+		return
+	}
+	response.OK(c, http.StatusOK, groups)
+}
+
+func (h *Handler) GetGroup(c *gin.Context) {
+	group, err := h.service.GetGroup(c.Request.Context(), c.Param("groupId"))
+	if err != nil {
+		writeError(c, err, "GET_GROUP_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, group)
+}
+
+func (h *Handler) UpsertGroup(c *gin.Context) {
+	var input GroupInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
+		return
+	}
+	group, err := h.service.UpsertGroup(c.Request.Context(), input)
+	if err != nil {
+		writeError(c, err, "UPSERT_GROUP_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, group)
+}
+
+func (h *Handler) ListGroupMembers(c *gin.Context) {
+	members, err := h.service.ListGroupMembers(c.Request.Context(), c.Param("groupId"))
+	if err != nil {
+		writeError(c, err, "LIST_GROUP_MEMBERS_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, members)
+}
+
+func (h *Handler) ReplaceGroupMembers(c *gin.Context) {
+	var input GroupMembersInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
+		return
+	}
+	if err := h.service.ReplaceGroupMembers(c.Request.Context(), c.Param("groupId"), input.Members); err != nil {
+		writeError(c, err, "REPLACE_GROUP_MEMBERS_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, OperationResultResponse{Added: true})
+}
+
+func (h *Handler) AssignGroupPermission(c *gin.Context) {
+	var input PermissionInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
+		return
+	}
+	if err := h.service.AssignGroupPermission(c.Request.Context(), c.Param("groupId"), input.PermissionKey); err != nil {
+		writeError(c, err, "ASSIGN_GROUP_PERMISSION_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, OperationResultResponse{Assigned: true})
+}
+
+func (h *Handler) RemoveGroupPermission(c *gin.Context) {
+	if err := h.service.RemoveGroupPermission(c.Request.Context(), c.Param("groupId"), c.Param("permissionKey")); err != nil {
+		writeError(c, err, "REMOVE_GROUP_PERMISSION_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, OperationResultResponse{Removed: true})
+}
+
+func (h *Handler) AssignGroupRealmRole(c *gin.Context) {
+	var input GroupRealmRoleInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
+		return
+	}
+	if err := h.service.AssignGroupRealmRole(c.Request.Context(), c.Param("groupId"), input.RealmRole); err != nil {
+		writeError(c, err, "ASSIGN_GROUP_REALM_ROLE_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, OperationResultResponse{Assigned: true})
+}
+
+func (h *Handler) RemoveGroupRealmRole(c *gin.Context) {
+	if err := h.service.RemoveGroupRealmRole(c.Request.Context(), c.Param("groupId"), c.Param("realmRole")); err != nil {
+		writeError(c, err, "REMOVE_GROUP_REALM_ROLE_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, OperationResultResponse{Removed: true})
+}
+
+func (h *Handler) AssignGroupSystemRole(c *gin.Context) {
+	var input GroupSystemRoleInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
+		return
+	}
+	if err := h.service.AssignGroupSystemRole(c.Request.Context(), c.Param("groupId"), input); err != nil {
+		writeError(c, err, "ASSIGN_GROUP_SYSTEM_ROLE_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, OperationResultResponse{Assigned: true})
+}
+
+func (h *Handler) RemoveGroupSystemRole(c *gin.Context) {
+	if err := h.service.RemoveGroupSystemRole(c.Request.Context(), c.Param("groupId"), c.Param("clientId"), c.Param("roleName")); err != nil {
+		writeError(c, err, "REMOVE_GROUP_SYSTEM_ROLE_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, OperationResultResponse{Removed: true})
+}
+
 func (h *Handler) AssignRealmRolePermission(c *gin.Context) {
 	var input PermissionInput
 	if err := c.ShouldBindJSON(&input); err != nil {

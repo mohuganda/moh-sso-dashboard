@@ -56,6 +56,19 @@ func RegisterAdminRoutes(admin *gin.RouterGroup, handler *Handler, limiter *rate
 		rbac.POST("/realm-roles/:realmRole/permissions", middleware.RequirePermission(authz.PermissionRBACPermissionsWrite), sensitiveWriteLimit, handler.AssignRealmRolePermission)
 		rbac.DELETE("/realm-roles/:realmRole/permissions/:permissionKey", middleware.RequirePermission(authz.PermissionRBACPermissionsWrite), sensitiveWriteLimit, handler.RemoveRealmRolePermission)
 
+		rbac.GET("/groups", middleware.RequirePermission(authz.PermissionRBACRead), handler.ListGroups)
+		rbac.POST("/groups", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.UpsertGroup)
+		rbac.GET("/groups/:groupId", middleware.RequirePermission(authz.PermissionRBACRead), handler.GetGroup)
+		rbac.PUT("/groups/:groupId", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.UpsertGroup)
+		rbac.GET("/groups/:groupId/members", middleware.RequirePermission(authz.PermissionRBACRead), handler.ListGroupMembers)
+		rbac.PUT("/groups/:groupId/members", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.ReplaceGroupMembers)
+		rbac.POST("/groups/:groupId/permissions", middleware.RequirePermission(authz.PermissionRBACPermissionsWrite), sensitiveWriteLimit, handler.AssignGroupPermission)
+		rbac.DELETE("/groups/:groupId/permissions/:permissionKey", middleware.RequirePermission(authz.PermissionRBACPermissionsWrite), sensitiveWriteLimit, handler.RemoveGroupPermission)
+		rbac.POST("/groups/:groupId/realm-roles", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.AssignGroupRealmRole)
+		rbac.DELETE("/groups/:groupId/realm-roles/:realmRole", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.RemoveGroupRealmRole)
+		rbac.POST("/groups/:groupId/system-roles", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.AssignGroupSystemRole)
+		rbac.DELETE("/groups/:groupId/system-roles/:clientId/:roleName", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.RemoveGroupSystemRole)
+
 		rbac.POST("/systems/:clientId/access-roles", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.AddSystemAccessRole)
 		rbac.DELETE("/systems/:clientId/access-roles/:roleName", middleware.RequirePermission(authz.PermissionRBACRolesWrite), sensitiveWriteLimit, handler.RemoveSystemAccessRole)
 	}

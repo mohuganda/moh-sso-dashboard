@@ -23,6 +23,13 @@ type KeycloakSyncSource interface {
 	EnsureRealmRoleClientRoleComposite(ctx context.Context, realmRole string, clientID string, roleName string) error
 }
 
+type KeycloakGroupSyncSource interface {
+	ListGroups(ctx context.Context) ([]keycloak.GroupRep, error)
+	ListGroupMembers(ctx context.Context, groupID string) ([]keycloak.KeycloakUser, error)
+	ListGroupRealmRoles(ctx context.Context, groupID string) ([]keycloak.RoleRep, error)
+	ListGroupClientRoles(ctx context.Context, groupID string, clientID string) ([]keycloak.ClientRoleRep, error)
+}
+
 type KeycloakPushResult struct {
 	ClientsCreated     int      `json:"clientsCreated"`
 	RealmRolesCreated  int      `json:"realmRolesCreated"`
@@ -85,8 +92,108 @@ func (s *Service) ApplyLiveKeycloakSync(ctx context.Context, source KeycloakSync
 	if err != nil {
 		return SyncApplyResponse{}, err
 	}
-	response.Preview.Report.Warnings = append(response.Preview.Report.Warnings, warnings...)
+	if groupSource, ok := source.(KeycloakGroupSyncSource); ok {
+		groupsSynced, warnings := s.syncLiveKeycloakGroups(ctx, groupSource, discovered.Systems)
+		response.Preview.Report.Warnings = append(response.Preview.Report.Warnings, warnings...)
+		response.Preview.Report.Warnings = append(response.Preview.Report.Warnings, fmt.Sprintf("Groups synced from Keycloak: %d", groupsSynced))
+	}
 	return response, nil
+}
+
+func (s *Service) syncLiveKeycloakGroups(ctx context.Context, source KeycloakGroupSyncSource, systems []KeycloakDiscoveredSystem) (int, []string) {
+	groups, err := source.ListGroups(ctx)
+	if err != nil {
+		return 0, []string{fmt.Sprintf("Keycloak group sync skipped: %v", err)}
+	}
+
+	systemIDs := make([]string, 0, len(systems))
+	for _, system := range systems {
+		if strings.TrimSpace(system.ClientID) != "" {
+			systemIDs = append(systemIDs, system.ClientID)
+		}
+	}
+	sort.Strings(systemIDs)
+
+	warnings := make([]string, 0)
+	synced := 0
+	for _, kcGroup := range groups {
+		path := strings.TrimSpace(kcGroup.Path)
+		if path == "" {
+			path = "/" + strings.Trim(strings.TrimSpace(kcGroup.Name), "/")
+		}
+		group, err := s.repository.UpsertGroup(ctx, GroupInput{
+			KeycloakGroupID: kcGroup.ID,
+			Path:            path,
+			Name:            kcGroup.Name,
+			DisplayName:     kcGroup.Name,
+			Enabled:         enabledBoolPtr(true),
+		})
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("group %q metadata sync failed: %v", path, err))
+			continue
+		}
+
+		members, err := source.ListGroupMembers(ctx, kcGroup.ID)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("group %q member sync failed: %v", path, err))
+		} else {
+			groupMembers := make([]GroupMember, 0, len(members))
+			for _, member := range members {
+				groupMembers = append(groupMembers, GroupMember{
+					UserID:   member.ID,
+					Username: member.Username,
+					Email:    member.Email,
+				})
+			}
+			if err := s.repository.ReplaceGroupMembers(ctx, group.ID, groupMembers); err != nil {
+				warnings = append(warnings, fmt.Sprintf("group %q member persistence failed: %v", path, err))
+			}
+		}
+
+		realmRoles, err := source.ListGroupRealmRoles(ctx, kcGroup.ID)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("group %q realm role sync failed: %v", path, err))
+		} else {
+			for _, role := range realmRoles {
+				roleName := normalize(role.Name)
+				if roleName == "" {
+					continue
+				}
+				if err := s.repository.AssignGroupRealmRole(ctx, group.ID, roleName); err != nil {
+					warnings = append(warnings, fmt.Sprintf("group %q realm role %q persistence failed: %v", path, roleName, err))
+				}
+			}
+		}
+
+		for _, clientID := range systemIDs {
+			clientRoles, err := source.ListGroupClientRoles(ctx, kcGroup.ID, clientID)
+			if err != nil {
+				continue
+			}
+			for _, role := range clientRoles {
+				roleName := normalize(role.Name)
+				if roleName == "" {
+					continue
+				}
+				if err := s.repository.AssignGroupSystemRole(ctx, group.ID, clientID, roleName); err != nil {
+					warnings = append(warnings, fmt.Sprintf("group %q client role %q/%q persistence failed: %v", path, clientID, roleName, err))
+				}
+			}
+		}
+		synced++
+	}
+
+	if synced > 0 {
+		if err := s.recordAudit(ctx, "rbac.groups_synced", "sync", "live-keycloak-groups", "", "", "", map[string]any{"groups_synced": synced}); err != nil {
+			warnings = append(warnings, fmt.Sprintf("group sync audit failed: %v", err))
+		}
+	}
+	sort.Strings(warnings)
+	return synced, warnings
+}
+
+func enabledBoolPtr(value bool) *bool {
+	return &value
 }
 
 func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source KeycloakSyncSource) (KeycloakPushResult, error) {

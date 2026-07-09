@@ -369,6 +369,150 @@ func (s *Service) ListRealmRolePermissions(ctx context.Context) ([]RealmRolePerm
 	return s.repository.ListRealmRolePermissions(ctx)
 }
 
+func (s *Service) ListGroups(ctx context.Context) ([]Group, error) {
+	return s.repository.ListGroups(ctx)
+}
+
+func (s *Service) GetGroup(ctx context.Context, groupID string) (Group, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return Group{}, fmt.Errorf("%w: groupId is required", ErrInvalidInput)
+	}
+	return s.repository.GetGroup(ctx, groupID)
+}
+
+func (s *Service) UpsertGroup(ctx context.Context, input GroupInput) (Group, error) {
+	input.KeycloakGroupID = strings.TrimSpace(input.KeycloakGroupID)
+	input.Path = strings.TrimSpace(input.Path)
+	input.Name = strings.TrimSpace(input.Name)
+	input.DisplayName = strings.TrimSpace(input.DisplayName)
+	input.Description = strings.TrimSpace(input.Description)
+	if input.Path == "" {
+		return Group{}, fmt.Errorf("%w: group path is required", ErrInvalidInput)
+	}
+	if !strings.HasPrefix(input.Path, "/") {
+		input.Path = "/" + input.Path
+	}
+	if input.Name == "" {
+		parts := strings.Split(strings.Trim(input.Path, "/"), "/")
+		input.Name = parts[len(parts)-1]
+	}
+	group, err := s.repository.UpsertGroup(ctx, input)
+	if err != nil {
+		return Group{}, err
+	}
+	if err := s.recordAudit(ctx, "group.upserted", "group", group.ID, "", "", "", map[string]any{"path": group.Path}); err != nil {
+		return Group{}, err
+	}
+	return group, nil
+}
+
+func (s *Service) ListGroupMembers(ctx context.Context, groupID string) ([]GroupMember, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return nil, fmt.Errorf("%w: groupId is required", ErrInvalidInput)
+	}
+	return s.repository.ListGroupMembers(ctx, groupID)
+}
+
+func (s *Service) ReplaceGroupMembers(ctx context.Context, groupID string, members []GroupMember) error {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return fmt.Errorf("%w: groupId is required", ErrInvalidInput)
+	}
+	normalized := make([]GroupMember, 0, len(members))
+	for _, member := range members {
+		member.UserID = strings.TrimSpace(member.UserID)
+		member.Username = strings.TrimSpace(member.Username)
+		member.Email = strings.TrimSpace(member.Email)
+		if member.UserID == "" {
+			continue
+		}
+		normalized = append(normalized, member)
+	}
+	if err := s.repository.ReplaceGroupMembers(ctx, groupID, normalized); err != nil {
+		return err
+	}
+	return s.recordAudit(ctx, "group.members_replaced", "group", groupID, "", "", "", map[string]any{"memberCount": len(normalized)})
+}
+
+func (s *Service) AssignGroupPermission(ctx context.Context, groupID string, permissionKey string) error {
+	groupID = strings.TrimSpace(groupID)
+	permissionKey = strings.TrimSpace(permissionKey)
+	if groupID == "" || permissionKey == "" {
+		return fmt.Errorf("%w: groupId and permissionKey are required", ErrInvalidInput)
+	}
+	if err := s.requirePermission(ctx, permissionKey); err != nil {
+		return err
+	}
+	if err := s.repository.AssignGroupPermission(ctx, groupID, permissionKey); err != nil {
+		return err
+	}
+	return s.recordAudit(ctx, "group.permission_assigned", "group", groupID, "", "", permissionKey, nil)
+}
+
+func (s *Service) RemoveGroupPermission(ctx context.Context, groupID string, permissionKey string) error {
+	groupID = strings.TrimSpace(groupID)
+	permissionKey = strings.TrimSpace(permissionKey)
+	if groupID == "" || permissionKey == "" {
+		return fmt.Errorf("%w: groupId and permissionKey are required", ErrInvalidInput)
+	}
+	if err := s.repository.RemoveGroupPermission(ctx, groupID, permissionKey); err != nil {
+		return err
+	}
+	return s.recordAudit(ctx, "group.permission_removed", "group", groupID, "", "", permissionKey, nil)
+}
+
+func (s *Service) AssignGroupRealmRole(ctx context.Context, groupID string, realmRole string) error {
+	groupID = strings.TrimSpace(groupID)
+	realmRole = normalize(realmRole)
+	if groupID == "" || realmRole == "" {
+		return fmt.Errorf("%w: groupId and realmRole are required", ErrInvalidInput)
+	}
+	if err := s.repository.AssignGroupRealmRole(ctx, groupID, realmRole); err != nil {
+		return err
+	}
+	return s.recordAudit(ctx, "group.realm_role_assigned", "group", groupID, "", realmRole, "", nil)
+}
+
+func (s *Service) RemoveGroupRealmRole(ctx context.Context, groupID string, realmRole string) error {
+	groupID = strings.TrimSpace(groupID)
+	realmRole = normalize(realmRole)
+	if groupID == "" || realmRole == "" {
+		return fmt.Errorf("%w: groupId and realmRole are required", ErrInvalidInput)
+	}
+	if err := s.repository.RemoveGroupRealmRole(ctx, groupID, realmRole); err != nil {
+		return err
+	}
+	return s.recordAudit(ctx, "group.realm_role_removed", "group", groupID, "", realmRole, "", nil)
+}
+
+func (s *Service) AssignGroupSystemRole(ctx context.Context, groupID string, input GroupSystemRoleInput) error {
+	groupID = strings.TrimSpace(groupID)
+	input.ClientID = strings.TrimSpace(input.ClientID)
+	input.RoleName = normalize(input.RoleName)
+	if groupID == "" || input.ClientID == "" || input.RoleName == "" {
+		return fmt.Errorf("%w: groupId, clientId, and roleName are required", ErrInvalidInput)
+	}
+	if err := s.repository.AssignGroupSystemRole(ctx, groupID, input.ClientID, input.RoleName); err != nil {
+		return err
+	}
+	return s.recordAudit(ctx, "group.system_role_assigned", "group", groupID, input.ClientID, input.RoleName, "", nil)
+}
+
+func (s *Service) RemoveGroupSystemRole(ctx context.Context, groupID string, clientID string, roleName string) error {
+	groupID = strings.TrimSpace(groupID)
+	clientID = strings.TrimSpace(clientID)
+	roleName = normalize(roleName)
+	if groupID == "" || clientID == "" || roleName == "" {
+		return fmt.Errorf("%w: groupId, clientId, and roleName are required", ErrInvalidInput)
+	}
+	if err := s.repository.RemoveGroupSystemRole(ctx, groupID, clientID, roleName); err != nil {
+		return err
+	}
+	return s.recordAudit(ctx, "group.system_role_removed", "group", groupID, clientID, roleName, "", nil)
+}
+
 func (s *Service) AssignRealmRolePermission(ctx context.Context, realmRole string, permissionKey string) error {
 	realmRole = strings.ToLower(strings.TrimSpace(realmRole))
 	permissionKey = strings.TrimSpace(permissionKey)
@@ -440,27 +584,80 @@ func (s *Service) GetEffectiveAccess(ctx context.Context, userID string, usernam
 		return EffectiveAccessResponse{}, err
 	}
 
+	userGroups, err := s.repository.ListGroupsForUser(ctx, user.ID, user.Username, user.Email)
+	if err != nil {
+		return EffectiveAccessResponse{}, err
+	}
+
 	permissionsByKey := map[string]Permission{}
 	sources := make([]PermissionGrantSource, 0)
 
 	userRealmRoles := normalizeStringSet(user.RealmRoles)
-	for _, group := range realmGroups {
-		role := normalize(group.RealmRole)
-		if !userRealmRoles[role] {
-			continue
-		}
+	effectiveRealmRoles := normalizeStringSet(user.RealmRoles)
+	groupRealmRoleSources := make(map[string][]Group)
+	groupSystemRoleSources := make(map[string][]Group)
+	effectiveClientRoles := sortedClientRoles(user.ClientRoles)
+
+	for _, group := range userGroups {
 		for _, permission := range group.Permissions {
 			permissionsByKey[permission.Key] = permission
 			sources = append(sources, PermissionGrantSource{
 				PermissionKey: permission.Key,
-				GrantedByType: "realmRole",
-				Role:          role,
+				GrantedByType: "groupPermission",
+				GroupID:       group.ID,
+				GroupPath:     group.Path,
+				GroupName:     firstNonEmpty(group.DisplayName, group.Name, group.Path),
 			})
+		}
+		for _, role := range group.RealmRoles {
+			role = normalize(role)
+			if role == "" {
+				continue
+			}
+			effectiveRealmRoles[role] = true
+			groupRealmRoleSources[role] = append(groupRealmRoleSources[role], group)
+		}
+		for _, role := range group.SystemRoles {
+			clientID := strings.TrimSpace(role.ClientID)
+			roleName := normalize(role.RoleName)
+			if clientID == "" || roleName == "" {
+				continue
+			}
+			effectiveClientRoles[clientID] = sortedStrings(append(effectiveClientRoles[clientID], roleName))
+			sourceKey := clientID + "\x00" + roleName
+			groupSystemRoleSources[sourceKey] = append(groupSystemRoleSources[sourceKey], group)
+		}
+	}
+
+	for _, group := range realmGroups {
+		role := normalize(group.RealmRole)
+		if !effectiveRealmRoles[role] {
+			continue
+		}
+		for _, permission := range group.Permissions {
+			permissionsByKey[permission.Key] = permission
+			if userRealmRoles[role] {
+				sources = append(sources, PermissionGrantSource{
+					PermissionKey: permission.Key,
+					GrantedByType: "realmRole",
+					Role:          role,
+				})
+			}
+			for _, sourceGroup := range groupRealmRoleSources[role] {
+				sources = append(sources, PermissionGrantSource{
+					PermissionKey: permission.Key,
+					GrantedByType: "groupRealmRole",
+					Role:          role,
+					GroupID:       sourceGroup.ID,
+					GroupPath:     sourceGroup.Path,
+					GroupName:     firstNonEmpty(sourceGroup.DisplayName, sourceGroup.Name, sourceGroup.Path),
+				})
+			}
 		}
 	}
 
 	accessible := make([]SystemAccessSummary, 0)
-	for clientID, roles := range user.ClientRoles {
+	for clientID, roles := range effectiveClientRoles {
 		clientID = strings.TrimSpace(clientID)
 		if clientID == "" || len(roles) == 0 {
 			continue
@@ -497,13 +694,28 @@ func (s *Service) GetEffectiveAccess(ctx context.Context, userID string, usernam
 			}
 			for _, permission := range role.Permissions {
 				permissionsByKey[permission.Key] = permission
-				sources = append(sources, PermissionGrantSource{
-					PermissionKey:  permission.Key,
-					GrantedByType:  "clientRole",
-					Role:           roleName,
-					SystemClientID: clientID,
-					SystemName:     firstNonEmpty(detail.DisplayName, clientID),
-				})
+				if normalizeStringSet(user.ClientRoles[clientID])[roleName] {
+					sources = append(sources, PermissionGrantSource{
+						PermissionKey:  permission.Key,
+						GrantedByType:  "clientRole",
+						Role:           roleName,
+						SystemClientID: clientID,
+						SystemName:     firstNonEmpty(detail.DisplayName, clientID),
+					})
+				}
+				sourceKey := clientID + "\x00" + roleName
+				for _, sourceGroup := range groupSystemRoleSources[sourceKey] {
+					sources = append(sources, PermissionGrantSource{
+						PermissionKey:  permission.Key,
+						GrantedByType:  "groupClientRole",
+						Role:           roleName,
+						SystemClientID: clientID,
+						SystemName:     firstNonEmpty(detail.DisplayName, clientID),
+						GroupID:        sourceGroup.ID,
+						GroupPath:      sourceGroup.Path,
+						GroupName:      firstNonEmpty(sourceGroup.DisplayName, sourceGroup.Name, sourceGroup.Path),
+					})
+				}
 			}
 		}
 	}
@@ -531,8 +743,9 @@ func (s *Service) GetEffectiveAccess(ctx context.Context, userID string, usernam
 			IsAdmin:    user.IsAdmin,
 			IsResolved: true,
 		},
-		RealmRoles:        sortedStrings(user.RealmRoles),
-		ClientRoles:       sortedClientRoles(user.ClientRoles),
+		Groups:            groupSummaries(userGroups),
+		RealmRoles:        setToSortedStrings(effectiveRealmRoles),
+		ClientRoles:       sortedClientRoles(effectiveClientRoles),
 		Permissions:       permissions,
 		AccessibleSystems: accessible,
 		GrantSources:      sources,
@@ -1360,6 +1573,33 @@ func normalizeStringSet(values []string) map[string]bool {
 		}
 	}
 	return set
+}
+
+func setToSortedStrings(values map[string]bool) []string {
+	out := make([]string, 0, len(values))
+	for value, ok := range values {
+		if ok && strings.TrimSpace(value) != "" {
+			out = append(out, value)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func groupSummaries(groups []Group) []GroupSummary {
+	out := make([]GroupSummary, 0, len(groups))
+	for _, group := range groups {
+		out = append(out, GroupSummary{
+			ID:              group.ID,
+			KeycloakGroupID: group.KeycloakGroupID,
+			Path:            group.Path,
+			Name:            group.Name,
+			DisplayName:     group.DisplayName,
+			Enabled:         group.Enabled,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out
 }
 
 func intersectRoleNames(values []string, allowed map[string]bool) []string {

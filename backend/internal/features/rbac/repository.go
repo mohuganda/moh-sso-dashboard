@@ -23,6 +23,19 @@ type Repository interface {
 	RemoveRealmRolePermission(ctx context.Context, realmRole string, permissionKey string) error
 	ListRealmRoleSystemRoles(ctx context.Context) ([]RealmRoleSystemRole, error)
 
+	ListGroups(ctx context.Context) ([]Group, error)
+	GetGroup(ctx context.Context, groupID string) (Group, error)
+	ListGroupsForUser(ctx context.Context, userID string, username string, email string) ([]Group, error)
+	UpsertGroup(ctx context.Context, input GroupInput) (Group, error)
+	ListGroupMembers(ctx context.Context, groupID string) ([]GroupMember, error)
+	ReplaceGroupMembers(ctx context.Context, groupID string, members []GroupMember) error
+	AssignGroupPermission(ctx context.Context, groupID string, permissionKey string) error
+	RemoveGroupPermission(ctx context.Context, groupID string, permissionKey string) error
+	AssignGroupRealmRole(ctx context.Context, groupID string, realmRole string) error
+	RemoveGroupRealmRole(ctx context.Context, groupID string, realmRole string) error
+	AssignGroupSystemRole(ctx context.Context, groupID string, clientID string, roleName string) error
+	RemoveGroupSystemRole(ctx context.Context, groupID string, clientID string, roleName string) error
+
 	AddSystemAccessRole(ctx context.Context, clientID string, roleName string) error
 	RemoveSystemAccessRole(ctx context.Context, clientID string, roleName string) error
 	CountSystemAccessRoles(ctx context.Context, clientID string) (int, error)

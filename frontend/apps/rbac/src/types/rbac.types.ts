@@ -54,6 +54,64 @@ export type RbacRealmRolePermissionGroup = {
   permissions: RbacPermission[];
 };
 
+export type RbacGroupSystemRole = {
+  roleId: string;
+  clientId: string;
+  roleName: string;
+  displayName?: string;
+};
+
+export type RbacGroup = {
+  id: string;
+  keycloakGroupId?: string;
+  path: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  enabled: boolean;
+  memberCount: number;
+  realmRoles: string[];
+  systemRoles: RbacGroupSystemRole[];
+  permissions: RbacPermission[];
+};
+
+export type RbacGroupSummary = {
+  id: string;
+  keycloakGroupId?: string;
+  path: string;
+  name: string;
+  displayName?: string;
+  enabled: boolean;
+};
+
+export type RbacGroupPayload = {
+  keycloakGroupId?: string;
+  path: string;
+  name?: string;
+  displayName?: string;
+  description?: string;
+  enabled?: boolean;
+};
+
+export type RbacGroupMember = {
+  userId: string;
+  username?: string;
+  email?: string;
+};
+
+export type RbacGroupMembersPayload = {
+  members: RbacGroupMember[];
+};
+
+export type RbacGroupRealmRolePayload = {
+  realmRole: string;
+};
+
+export type RbacGroupSystemRolePayload = {
+  clientId: string;
+  roleName: string;
+};
+
 export type UpsertRbacSystemPayload = {
   displayName: string;
   description?: string;
@@ -158,10 +216,13 @@ export type RbacEffectiveAccessUser = {
 
 export type RbacPermissionGrantSource = {
   permissionKey: string;
-  grantedByType: "realmRole" | "clientRole" | string;
+  grantedByType: "realmRole" | "clientRole" | "groupPermission" | "groupRealmRole" | "groupClientRole" | string;
   role: string;
   systemClientId?: string;
   systemName?: string;
+  groupId?: string;
+  groupPath?: string;
+  groupName?: string;
 };
 
 export type RbacSystemAccessSummary = {
@@ -180,6 +241,7 @@ export type RbacSystemAccessSummary = {
 
 export type RbacEffectiveAccess = {
   user: RbacEffectiveAccessUser;
+  groups?: RbacGroupSummary[];
   realmRoles: string[];
   clientRoles: Record<string, string[]>;
   permissions: RbacPermission[];
