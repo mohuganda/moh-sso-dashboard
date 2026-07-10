@@ -145,6 +145,49 @@ func (r *userRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
 	}, nil
 }
 
+func (r *userRepository) GetUserByUsername(
+	ctx context.Context,
+	username string,
+) (*models.User, error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return nil, fmt.Errorf("username is required")
+	}
+
+	if r == nil || r.keycloakClient == nil {
+		return nil, fmt.Errorf("user repository is not configured")
+	}
+
+	row, err := r.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			r.logger.Warn(
+				"user not found by username",
+				"username", username,
+			)
+
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf(
+			"get user by username %q: %w",
+			username,
+			err,
+		)
+	}
+
+	user, err := r.GetUserByID(row.ID)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"load keycloak user for username %q: %w",
+			username,
+			err,
+		)
+	}
+
+	return user, nil
+}
+
 func (r *userRepository) ListUsers() ([]models.User, error) {
 	ctx := context.Background()
 

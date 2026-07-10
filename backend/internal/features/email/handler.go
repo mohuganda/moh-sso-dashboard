@@ -39,12 +39,14 @@ func (h *Handler) Send(c *gin.Context) {
 			c,
 			http.StatusBadRequest,
 			"INVALID_EMAIL_PAYLOAD",
-			"invalid email payload",
+			err.Error(),
 		)
 		return
 	}
 
-	msg, _, err = h.service.ExpandGroupRecipients(
+	directRecipientCount := len(msg.To)
+
+	msg, expandedRecipientCount, err := h.service.ExpandGroupRecipients(
 		c.Request.Context(),
 		msg,
 		req.ToGroups,
@@ -55,20 +57,34 @@ func (h *Handler) Send(c *gin.Context) {
 			c,
 			http.StatusBadRequest,
 			"INVALID_RECIPIENT_GROUPS",
-			"Failed to resolve recipient groups",
+			err.Error(),
 		)
 		return
 	}
 
 	if len(msg.To) == 0 {
+		message := "At least one valid recipient is required"
+
+		switch {
+		case len(req.ToGroups) == 0 &&
+			len(req.ToGroupPaths) == 0 &&
+			directRecipientCount == 0:
+			message = "Select at least one email address or recipient group"
+
+		case len(req.ToGroups) > 0 || len(req.ToGroupPaths) > 0:
+			message = "The selected groups contain no users with valid email addresses"
+		}
+
 		response.Fail(
 			c,
 			http.StatusBadRequest,
 			"VALIDATION_FAILED",
-			"At least one valid recipient is required",
+			message,
 		)
 		return
 	}
+
+	_ = expandedRecipientCount
 
 	if err := h.service.Send(c.Request.Context(), msg); err != nil {
 		response.Fail(
@@ -80,7 +96,11 @@ func (h *Handler) Send(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, MessageResponse{Message: "email sent successfully"})
+	response.OK(
+		c,
+		http.StatusOK,
+		MessageResponse{Message: "email sent successfully"},
+	)
 }
 
 func (h *Handler) Queue(c *gin.Context) {
