@@ -74,6 +74,38 @@ func (s *Service) SetRBACRepository(repo rbacfeature.Repository) {
 	s.rbacRepo = repo
 }
 
+func (s *Service) ValidateGroupAudience(ctx context.Context, groupIDs []uuid.UUID) error {
+	if len(groupIDs) == 0 {
+		return nil
+	}
+
+	if s == nil {
+		return errors.New("announcement service is nil")
+	}
+
+	if s.rbacRepo == nil {
+		return errors.New("rbac repository is required for group audience")
+	}
+
+	seen := make(map[uuid.UUID]struct{}, len(groupIDs))
+	for _, groupID := range groupIDs {
+		if groupID == uuid.Nil {
+			return errors.New("group id is required")
+		}
+
+		if _, exists := seen[groupID]; exists {
+			continue
+		}
+		seen[groupID] = struct{}{}
+
+		if _, err := s.rbacRepo.GetGroup(ctx, groupID.String()); err != nil {
+			return fmt.Errorf("validate group audience [%s]: %w", groupID, err)
+		}
+	}
+
+	return nil
+}
+
 // ---------------------------------
 // Core CRUD
 // ---------------------------------

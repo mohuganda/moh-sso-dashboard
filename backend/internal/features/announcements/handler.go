@@ -85,6 +85,46 @@ func getAnnouncementAttachmentID(c *gin.Context) (uuid.UUID, bool) {
 	return attachmentID, true
 }
 
+func parseAnnouncementAudienceSelection(
+	reqAudienceType string,
+	clientIDValues []string,
+	userIDValues []string,
+	groupIDValues []string,
+) ([]uuid.UUID, []uuid.UUID, []uuid.UUID, bool) {
+	clientIDs, err := parseUUIDList(clientIDValues)
+	if err != nil {
+		return nil, nil, nil, false
+	}
+
+	userIDs, err := parseUUIDList(userIDValues)
+	if err != nil {
+		return nil, nil, nil, false
+	}
+
+	groupIDs, err := parseUUIDList(groupIDValues)
+	if err != nil {
+		return nil, nil, nil, false
+	}
+
+	audienceType := strings.ToUpper(strings.TrimSpace(reqAudienceType))
+	switch audienceType {
+	case "SPECIFIC_CLIENTS":
+		if len(clientIDs) == 0 {
+			return nil, nil, nil, false
+		}
+	case "SPECIFIC_USERS":
+		if len(userIDs) == 0 {
+			return nil, nil, nil, false
+		}
+	case "SPECIFIC_GROUPS":
+		if len(groupIDs) == 0 {
+			return nil, nil, nil, false
+		}
+	}
+
+	return clientIDs, userIDs, groupIDs, true
+}
+
 func getCurrentUserID(c *gin.Context) (uuid.UUID, bool) {
 	userID := utils.ToNullUUID(c.GetString("user_id"))
 	if !userID.Valid {
@@ -236,6 +276,23 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	clientIDs, userIDs, groupIDs, ok := parseAnnouncementAudienceSelection(
+		req.AudienceType,
+		req.ClientIDs,
+		req.UserIDs,
+		req.GroupIDs,
+	)
+	if !ok {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "selected announcement audience is invalid or empty")
+		return
+	}
+	if len(groupIDs) > 0 {
+		if err := h.announcementService.ValidateGroupAudience(c.Request.Context(), groupIDs); err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more selected groups do not exist")
+			return
+		}
+	}
+
 	input := CreateAnnouncementInput{
 		Title:         strings.TrimSpace(req.Title),
 		Message:       strings.TrimSpace(req.Message),
@@ -259,24 +316,6 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 	item, err := h.announcementService.CreateAnnouncementFromInput(c.Request.Context(), input)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create announcement")
-		return
-	}
-
-	clientIDs, err := parseUUIDList(req.ClientIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more client_ids are invalid")
-		return
-	}
-
-	userIDs, err := parseUUIDList(req.UserIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more user_ids are invalid")
-		return
-	}
-
-	groupIDs, err := parseUUIDList(req.GroupIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more group_ids are invalid")
 		return
 	}
 
@@ -360,6 +399,23 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	clientIDs, userIDs, groupIDs, ok := parseAnnouncementAudienceSelection(
+		req.AudienceType,
+		req.ClientIDs,
+		req.UserIDs,
+		req.GroupIDs,
+	)
+	if !ok {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "selected announcement audience is invalid or empty")
+		return
+	}
+	if len(groupIDs) > 0 {
+		if err := h.announcementService.ValidateGroupAudience(c.Request.Context(), groupIDs); err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more selected groups do not exist")
+			return
+		}
+	}
+
 	input := UpdateAnnouncementInput{
 		ID:            announcementID,
 		Title:         strings.TrimSpace(req.Title),
@@ -383,24 +439,6 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 	item, err := h.announcementService.UpdateAnnouncementFromInput(c.Request.Context(), input)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update announcement")
-		return
-	}
-
-	clientIDs, err := parseUUIDList(req.ClientIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more client_ids are invalid")
-		return
-	}
-
-	userIDs, err := parseUUIDList(req.UserIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more user_ids are invalid")
-		return
-	}
-
-	groupIDs, err := parseUUIDList(req.GroupIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more group_ids are invalid")
 		return
 	}
 

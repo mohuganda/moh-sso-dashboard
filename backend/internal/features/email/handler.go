@@ -20,6 +20,18 @@ func NewHandler(service *Service) *Handler {
 	}
 }
 
+func recipientValidationMessage(req SendEmailRequest, directRecipientCount int) string {
+	if len(req.ToGroups) == 0 && len(req.ToGroupPaths) == 0 && directRecipientCount == 0 {
+		return "Select at least one email address or recipient group"
+	}
+
+	if len(req.ToGroups) > 0 || len(req.ToGroupPaths) > 0 {
+		return "The selected groups contain no users with valid email addresses"
+	}
+
+	return "At least one valid recipient is required"
+}
+
 func (h *Handler) Send(c *gin.Context) {
 	var req SendEmailRequest
 
@@ -63,23 +75,11 @@ func (h *Handler) Send(c *gin.Context) {
 	}
 
 	if len(msg.To) == 0 {
-		message := "At least one valid recipient is required"
-
-		switch {
-		case len(req.ToGroups) == 0 &&
-			len(req.ToGroupPaths) == 0 &&
-			directRecipientCount == 0:
-			message = "Select at least one email address or recipient group"
-
-		case len(req.ToGroups) > 0 || len(req.ToGroupPaths) > 0:
-			message = "The selected groups contain no users with valid email addresses"
-		}
-
 		response.Fail(
 			c,
 			http.StatusBadRequest,
 			"VALIDATION_FAILED",
-			message,
+			recipientValidationMessage(req, directRecipientCount),
 		)
 		return
 	}
@@ -127,6 +127,8 @@ func (h *Handler) Queue(c *gin.Context) {
 		return
 	}
 
+	directRecipientCount := len(msg.To)
+
 	msg, _, err = h.service.ExpandGroupRecipients(
 		c.Request.Context(),
 		msg,
@@ -148,7 +150,7 @@ func (h *Handler) Queue(c *gin.Context) {
 			c,
 			http.StatusBadRequest,
 			"VALIDATION_FAILED",
-			"At least one valid recipient is required",
+			recipientValidationMessage(req, directRecipientCount),
 		)
 		return
 	}
