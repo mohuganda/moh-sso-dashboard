@@ -82,6 +82,26 @@ function hasInvalidEmailList(value: string) {
   return emails.some((email) => !isValidEmail(email));
 }
 
+function getApiErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    typeof (error as { data?: unknown }).data === "object" &&
+    (error as { data?: unknown }).data !== null
+  ) {
+    const data = (error as { data: { error?: { message?: unknown }; message?: unknown } }).data;
+    if (typeof data.error?.message === "string" && data.error.message.trim()) {
+      return data.error.message;
+    }
+    if (typeof data.message === "string" && data.message.trim()) {
+      return data.message;
+    }
+  }
+
+  return undefined;
+}
+
 function getRecipientDisplayName(name: string, email: string) {
   return name.trim() || email.trim();
 }
@@ -500,10 +520,10 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
 
       resetForm();
       onSuccess?.();
-    } catch {
+    } catch (error) {
       toast.error({
         title: deliveryMode === "send" ? "Failed to send email" : "Failed to queue email",
-        subtitle: "Please check the email service logs and try again.",
+        subtitle: getApiErrorMessage(error) ?? "Please check the email service logs and try again.",
       });
     }
   };
