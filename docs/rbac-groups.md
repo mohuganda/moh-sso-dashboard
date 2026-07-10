@@ -28,7 +28,7 @@ The portal database owns:
 - audit history
 - UI-friendly effective access explanations
 
-Do not manually edit Keycloak-owned group membership in the portal database. Sync Keycloak again after group membership changes.
+Do not manually edit Keycloak-owned group membership directly in the portal database. If membership is changed through the portal UI, the portal must write the change to Keycloak first and then refresh the local RBAC membership cache.
 
 ## Admin Workflow
 
@@ -37,8 +37,9 @@ Do not manually edit Keycloak-owned group membership in the portal database. Syn
 3. Run RBAC sync from the portal or allow startup sync to pull groups.
 4. Open `Admin > RBAC > Groups`.
 5. Review the synced groups.
-6. Add direct portal permissions to the group only when permissions are not already represented by realm/client roles.
-7. Inspect a user from `Admin > Users > Manage roles` to confirm inherited access.
+6. Use the group members panel to add or remove users when portal-managed membership changes are needed. These changes call Keycloak first, then sync the portal cache.
+7. Add direct portal permissions to the group only when permissions are not already represented by realm/client roles.
+8. Inspect a user from `Admin > Users > Manage roles` to confirm inherited access.
 
 The users access panel separates:
 
@@ -71,6 +72,9 @@ Manual QA:
 Group RBAC mutations write audit events with safe metadata:
 
 - `group.upserted`
+- `group.member_added`
+- `group.member_removed`
+- `group.members_synced`
 - `group.members_replaced`
 - `group.permission_assigned`
 - `group.permission_removed`
@@ -124,6 +128,7 @@ Startup sync applies group records after system/client roles have been discovere
 Recommended production posture:
 
 - keep Keycloak as source of truth for membership
+- use the portal group members panel only for Keycloak-backed membership changes, not local DB overrides
 - keep push-to-Keycloak disabled unless intentionally provisioning systems/roles
 - do not delete Keycloak groups automatically
 - treat sync warnings as operational signals unless fail-on-error is explicitly enabled
@@ -159,6 +164,6 @@ Direct admin email also supports group recipients. Admins can select groups inst
 Operational notes:
 
 - Keycloak remains the source of truth for group membership.
-- Run RBAC sync after group membership changes before sending group-targeted announcements or email.
+- Run RBAC sync after group membership changes before sending group-targeted announcements or email. Portal group member add/remove actions perform a group-level sync automatically after Keycloak accepts the change.
 - Group targeting uses a point-in-time snapshot at publish/send time; later group changes do not rewrite already queued delivery records.
 - If a group has no enabled users with email addresses, the email request is rejected with a validation error rather than sending an empty message.

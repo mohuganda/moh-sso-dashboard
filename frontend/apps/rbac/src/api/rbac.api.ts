@@ -4,6 +4,7 @@ import type {
   RbacAccessRequestPayload,
   RbacAuditFilter,
   RbacAuditEvent,
+  RbacAddGroupMemberPayload,
   RbacBulkPermissionPayload,
   RbacChangePreview,
   RbacChangePreviewPayload,
@@ -14,7 +15,9 @@ import type {
   RbacDriftReport,
   RbacEffectiveAccess,
   RbacGroup,
+  RbacGroupMember,
   RbacGroupMembersPayload,
+  RbacGroupMembersSyncResult,
   RbacGroupPayload,
   RbacGroupRealmRolePayload,
   RbacGroupSystemRolePayload,
@@ -185,6 +188,11 @@ export const rbacApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiEnvelope<RbacGroup>) => res.data,
       providesTags: (_result, _error, groupId) => [{ type: "RbacGroup", id: groupId }],
     }),
+    listRbacGroupMembers: builder.query<RbacGroupMember[], string>({
+      query: (groupId) => `${base}/groups/${encodeURIComponent(groupId)}/members`,
+      transformResponse: (res: ApiEnvelope<RbacGroupMember[]>) => res.data,
+      providesTags: (_result, _error, groupId) => [{ type: "RbacGroup", id: `${groupId}:members` }],
+    }),
     upsertRbacGroup: builder.mutation<RbacGroup, RbacGroupPayload>({
       query: (data) => ({
         url: `${base}/groups`,
@@ -193,6 +201,54 @@ export const rbacApi = baseApi.injectEndpoints({
       }),
       transformResponse: (res: ApiEnvelope<RbacGroup>) => res.data,
       invalidatesTags: [
+        { type: "RbacGroup", id: "LIST" },
+        { type: "RbacAudit", id: "LIST" },
+      ],
+    }),
+    addRbacGroupMember: builder.mutation<
+      RbacGroupMembersSyncResult,
+      { groupId: string; data: RbacAddGroupMemberPayload }
+    >({
+      query: ({ groupId, data }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/members`,
+        method: "POST",
+        body: data,
+      }),
+      transformResponse: (res: ApiEnvelope<RbacGroupMembersSyncResult>) => res.data,
+      invalidatesTags: (_result, _error, { groupId, data }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: `${groupId}:members` },
+        { type: "RbacGroup", id: "LIST" },
+        { type: "RbacAudit", id: "LIST" },
+        { type: "User", id: data.userId },
+      ],
+    }),
+    removeRbacGroupMember: builder.mutation<
+      RbacGroupMembersSyncResult,
+      { groupId: string; userId: string }
+    >({
+      query: ({ groupId, userId }) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(userId)}`,
+        method: "DELETE",
+      }),
+      transformResponse: (res: ApiEnvelope<RbacGroupMembersSyncResult>) => res.data,
+      invalidatesTags: (_result, _error, { groupId, userId }) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: `${groupId}:members` },
+        { type: "RbacGroup", id: "LIST" },
+        { type: "RbacAudit", id: "LIST" },
+        { type: "User", id: userId },
+      ],
+    }),
+    syncRbacGroupMembers: builder.mutation<RbacGroupMembersSyncResult, string>({
+      query: (groupId) => ({
+        url: `${base}/groups/${encodeURIComponent(groupId)}/sync-members`,
+        method: "POST",
+      }),
+      transformResponse: (res: ApiEnvelope<RbacGroupMembersSyncResult>) => res.data,
+      invalidatesTags: (_result, _error, groupId) => [
+        { type: "RbacGroup", id: groupId },
+        { type: "RbacGroup", id: `${groupId}:members` },
         { type: "RbacGroup", id: "LIST" },
         { type: "RbacAudit", id: "LIST" },
       ],
@@ -515,6 +571,7 @@ export const {
   useApplyRbacSyncMutation,
   useApplyRbacImportMutation,
   useAddSystemAccessRoleMutation,
+  useAddRbacGroupMemberMutation,
   useAssignGroupPermissionMutation,
   useAssignGroupRealmRoleMutation,
   useAssignGroupSystemRoleMutation,
@@ -543,6 +600,7 @@ export const {
   useListRbacAuditEventsQuery,
   useGetRbacSystemQuery,
   useListRbacPermissionsQuery,
+  useListRbacGroupMembersQuery,
   useListRbacGroupsQuery,
   useListRbacRoleTemplatesQuery,
   useListRbacSystemsQuery,
@@ -553,12 +611,14 @@ export const {
   usePreviewRbacRealmExportDriftMutation,
   usePreviewRbacSyncMutation,
   useRemoveGroupPermissionMutation,
+  useRemoveRbacGroupMemberMutation,
   useRemoveGroupRealmRoleMutation,
   useRemoveGroupSystemRoleMutation,
   useRemoveRealmRolePermissionMutation,
   useRemoveSystemAccessRoleMutation,
   useRemoveSystemRolePermissionMutation,
   useSimulateRbacAccessMutation,
+  useSyncRbacGroupMembersMutation,
   useUpdateUserAccessMutation,
   useUpdateRbacPermissionMetadataMutation,
   useUpdateRbacSystemMutation,

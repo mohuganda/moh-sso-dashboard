@@ -103,6 +103,16 @@ export type RbacGroupMembersPayload = {
   members: RbacGroupMember[];
 };
 
+export type RbacAddGroupMemberPayload = {
+  userId: string;
+};
+
+export type RbacGroupMembersSyncResult = {
+  members: RbacGroupMember[];
+  memberCount: number;
+  warnings?: string[];
+};
+
 export type RbacGroupRealmRolePayload = {
   realmRole: string;
 };

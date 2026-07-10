@@ -110,6 +110,52 @@
   padding: 1rem;
 }
 
+.rbac-group-detail__section {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.rbac-group-detail__section:last-child {
+  border-bottom: 0;
+}
+
+.rbac-group-detail__section-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rbac-group-detail__section h4,
+.rbac-group-detail__section-header p {
+  margin: 0;
+}
+
+.rbac-group-detail__section-header p {
+  margin-top: 0.25rem;
+  color: var(--cds-text-secondary);
+  font-size: 0.875rem;
+}
+
+.rbac-group-members__add {
+  align-items: end;
+}
+
+.rbac-group-members__add .cds--dropdown__wrapper {
+  min-width: min(28rem, 100%);
+}
+
+.rbac-group-members-table {
+  border: 1px solid var(--cds-border-subtle);
+}
+
+.rbac-group-members-table__empty {
+  padding: 1rem;
+  color: var(--cds-text-secondary);
+}
+
 .rbac-role-grid,
 .rbac-realm-layout {
   display: grid;
@@ -521,6 +567,7 @@
 
   .rbac-page__header,
   .rbac-page__panel-header,
+  .rbac-group-detail__section-header,
   .rbac-audit-detail__header {
     flex-direction: column;
     align-items: stretch;

@@ -135,6 +135,20 @@ Mounted under:
 | `POST` | `/roles/:roleId/copy-permissions` | `rbac:permissions:write` | Copy permissions. |
 | `POST` | `/roles/:roleId/permissions` | `rbac:permissions:write` | Assign permission to role. |
 | `DELETE` | `/roles/:roleId/permissions/:permissionKey` | `rbac:permissions:write` | Remove permission from role. |
+| `GET` | `/groups` | `rbac:read` | List synced Keycloak/RBAC groups. |
+| `POST` | `/groups` | `rbac:roles:write` | Create or update a portal group mapping. |
+| `GET` | `/groups/:groupId` | `rbac:read` | Get group roles, permissions, and metadata. |
+| `GET` | `/groups/:groupId/members` | `rbac:read` | List synced group members. |
+| `POST` | `/groups/:groupId/members` | `rbac:roles:write` | Add a user to the Keycloak group, then refresh the portal cache. |
+| `DELETE` | `/groups/:groupId/members/:userId` | `rbac:roles:write` | Remove a user from the Keycloak group, then refresh the portal cache. |
+| `PUT` | `/groups/:groupId/members` | `rbac:roles:write` | Replace cached members for sync/import use. |
+| `POST` | `/groups/:groupId/sync-members` | `rbac:roles:write` | Refresh one group's members from Keycloak. |
+| `POST` | `/groups/:groupId/permissions` | `rbac:permissions:write` | Assign a direct portal permission to a group. |
+| `DELETE` | `/groups/:groupId/permissions/:permissionKey` | `rbac:permissions:write` | Remove a direct portal permission from a group. |
+| `POST` | `/groups/:groupId/realm-roles` | `rbac:roles:write` | Map a realm role to a group. |
+| `DELETE` | `/groups/:groupId/realm-roles/:realmRole` | `rbac:roles:write` | Remove a group realm-role mapping. |
+| `POST` | `/groups/:groupId/system-roles` | `rbac:roles:write` | Map a client/system role to a group. |
+| `DELETE` | `/groups/:groupId/system-roles/:clientId/:roleName` | `rbac:roles:write` | Remove a group client/system-role mapping. |
 | `GET` | `/user-access/assignable` | `rbac:read` | List assignable realm roles, systems, roles, and permissions. |
 | `GET` | `/user-access/users/:userId` | `rbac:read` | Get user access profile. |
 | `PUT` | `/user-access/users/:userId` | `rbac:roles:write` | Update user realm roles, system roles, and permissions. |
