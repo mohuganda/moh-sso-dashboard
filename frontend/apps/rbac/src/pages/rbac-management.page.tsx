@@ -937,6 +937,15 @@ export default function RbacManagementPage() {
                         </Button>
                       </div>
 
+                      {!selectedGroup.keycloakGroupId && (
+                        <InlineNotification
+                          kind="warning"
+                          lowContrast
+                          title="Keycloak link missing"
+                          subtitle="This group does not have a cached Keycloak group ID. The backend will try to match it by path; if that fails, run live RBAC sync or create the group in Keycloak first."
+                        />
+                      )}
+
                       <div className="rbac-inline-form rbac-group-members__add">
                         <Dropdown<User>
                           id="rbac-group-member-user"

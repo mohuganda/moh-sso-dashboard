@@ -38,6 +38,8 @@ type UserLookup interface {
 
 type KeycloakGroupMembershipManager interface {
 	GetUser(userID string) (*keycloak.UserInfo, error)
+	ListGroups(ctx context.Context) ([]keycloak.GroupRep, error)
+	EnsureGroupPath(ctx context.Context, groupPath string, displayName string, description string, attributes map[string][]string) (keycloak.GroupRep, error)
 	ListGroupMembers(ctx context.Context, groupID string) ([]keycloak.KeycloakUser, error)
 	AddUserToGroup(ctx context.Context, userID string, groupID string) error
 	RemoveUserFromGroup(ctx context.Context, userID string, groupID string) error
@@ -542,7 +544,11 @@ func (s *Service) SyncGroupMembers(ctx context.Context, groupID string) (GroupMe
 	}
 	keycloakGroupID := strings.TrimSpace(group.KeycloakGroupID)
 	if keycloakGroupID == "" {
-		return GroupMembersSyncResponse{}, fmt.Errorf("%w: group is not linked to a Keycloak group", ErrInvalidInput)
+		resolvedGroupID, err := s.resolveKeycloakGroupID(ctx, group)
+		if err != nil {
+			return GroupMembersSyncResponse{}, err
+		}
+		keycloakGroupID = resolvedGroupID
 	}
 
 	keycloakMembers, err := s.keycloakGroups.ListGroupMembers(ctx, keycloakGroupID)
@@ -592,9 +598,89 @@ func (s *Service) groupMembershipTarget(ctx context.Context, groupID string, use
 	}
 	keycloakGroupID := strings.TrimSpace(group.KeycloakGroupID)
 	if keycloakGroupID == "" {
-		return Group{}, "", fmt.Errorf("%w: group is not linked to a Keycloak group", ErrInvalidInput)
+		resolvedGroupID, err := s.resolveKeycloakGroupID(ctx, group)
+		if err != nil {
+			return Group{}, "", err
+		}
+		keycloakGroupID = resolvedGroupID
 	}
 	return group, keycloakGroupID, nil
+}
+
+func (s *Service) resolveKeycloakGroupID(ctx context.Context, group Group) (string, error) {
+	localPath := normalizeGroupPath(group.Path)
+	localName := strings.TrimSpace(group.Name)
+	if localName == "" {
+		localName = strings.Trim(strings.TrimSpace(group.Path), "/")
+		if strings.Contains(localName, "/") {
+			parts := strings.Split(localName, "/")
+			localName = parts[len(parts)-1]
+		}
+	}
+
+	keycloakGroups, err := s.keycloakGroups.ListGroups(ctx)
+	if err != nil {
+		return "", fmt.Errorf("%w: group is not linked to a Keycloak group and Keycloak lookup failed", ErrInvalidInput)
+	}
+	for _, candidate := range keycloakGroups {
+		candidateID := strings.TrimSpace(candidate.ID)
+		if candidateID == "" {
+			continue
+		}
+		if localPath != "" && normalizeGroupPath(candidate.Path) == localPath {
+			updated, err := s.repository.UpsertGroup(ctx, GroupInput{
+				KeycloakGroupID: candidateID,
+				Path:            group.Path,
+				Name:            group.Name,
+				DisplayName:     group.DisplayName,
+				Description:     group.Description,
+				Enabled:         &group.Enabled,
+			})
+			if err == nil {
+				return strings.TrimSpace(updated.KeycloakGroupID), nil
+			}
+			return candidateID, nil
+		}
+		if localPath == "" && localName != "" && strings.EqualFold(strings.TrimSpace(candidate.Name), localName) {
+			updated, err := s.repository.UpsertGroup(ctx, GroupInput{
+				KeycloakGroupID: candidateID,
+				Path:            group.Path,
+				Name:            group.Name,
+				DisplayName:     group.DisplayName,
+				Description:     group.Description,
+				Enabled:         &group.Enabled,
+			})
+			if err == nil {
+				return strings.TrimSpace(updated.KeycloakGroupID), nil
+			}
+			return candidateID, nil
+		}
+	}
+
+	if localPath == "" {
+		return "", fmt.Errorf("%w: group is not linked to a Keycloak group and has no usable path", ErrInvalidInput)
+	}
+
+	created, err := s.keycloakGroups.EnsureGroupPath(ctx, localPath, firstNonEmpty(group.DisplayName, group.Name), group.Description, nil)
+	if err != nil {
+		return "", fmt.Errorf("%w: group is not linked to a Keycloak group and automatic Keycloak group creation failed: %v", ErrInvalidInput, err)
+	}
+	createdID := strings.TrimSpace(created.ID)
+	if createdID == "" {
+		return "", fmt.Errorf("%w: group is not linked to a Keycloak group and automatic Keycloak group creation returned no id", ErrInvalidInput)
+	}
+	updated, err := s.repository.UpsertGroup(ctx, GroupInput{
+		KeycloakGroupID: createdID,
+		Path:            group.Path,
+		Name:            group.Name,
+		DisplayName:     group.DisplayName,
+		Description:     group.Description,
+		Enabled:         &group.Enabled,
+	})
+	if err == nil {
+		return strings.TrimSpace(updated.KeycloakGroupID), nil
+	}
+	return createdID, nil
 }
 
 func (s *Service) AssignGroupPermission(ctx context.Context, groupID string, permissionKey string) error {

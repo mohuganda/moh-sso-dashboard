@@ -192,6 +192,42 @@ func TestGroupMemberMutationsWriteThroughKeycloakAndRefreshCache(t *testing.T) {
 	}
 }
 
+func TestGroupMemberMutationCreatesMissingKeycloakGroup(t *testing.T) {
+	ctx := context.Background()
+	repo := newTestRBACRepository()
+	repo.group.KeycloakGroupID = ""
+	repo.group.Path = "/MOH/Data and Statistics/Report Viewers"
+	repo.group.Name = "Report Viewers"
+	service := NewService(repo, &testUserLookup{})
+	source := &testKeycloakGroupSource{
+		groups:   []keycloak.GroupRep{},
+		ensureID: "kc-report-viewers",
+		members: []keycloak.KeycloakUser{{
+			ID:       "11111111-1111-1111-1111-111111111111",
+			Username: "data.officer",
+			Email:    "data.officer@example.org",
+		}},
+	}
+	service.SetKeycloakGroupMembershipManager(source)
+
+	result, err := service.AddGroupMember(ctx, "group-data", "11111111-1111-1111-1111-111111111111", uuid.Nil)
+	if err != nil {
+		t.Fatalf("AddGroupMember returned error: %v", err)
+	}
+	if source.ensurePath != "/MOH/Data and Statistics/Report Viewers" {
+		t.Fatalf("expected missing Keycloak group path to be ensured, got %q", source.ensurePath)
+	}
+	if source.addedGroupID != "kc-report-viewers" {
+		t.Fatalf("expected user added to created Keycloak group, got %q", source.addedGroupID)
+	}
+	if repo.group.KeycloakGroupID != "kc-report-viewers" {
+		t.Fatalf("expected local group to cache created Keycloak id, got %q", repo.group.KeycloakGroupID)
+	}
+	if result.MemberCount != 1 {
+		t.Fatalf("expected member sync after create, got %#v", result)
+	}
+}
+
 type testUserLookup struct {
 	user *model.User
 }
@@ -420,14 +456,32 @@ type testKeycloakGroupSource struct {
 	addedGroupID   string
 	removedUserID  string
 	removedGroupID string
+	ensurePath     string
+	ensureID       string
+	groups         []keycloak.GroupRep
 }
 
 func (s *testKeycloakGroupSource) ListGroups(context.Context) ([]keycloak.GroupRep, error) {
+	if s.groups != nil {
+		return s.groups, nil
+	}
 	return []keycloak.GroupRep{{
 		ID:   "kc-group-data",
 		Name: "Data Officers",
 		Path: "/Data Officers",
 	}}, nil
+}
+
+func (s *testKeycloakGroupSource) EnsureGroupPath(_ context.Context, groupPath string, _ string, _ string, _ map[string][]string) (keycloak.GroupRep, error) {
+	s.ensurePath = groupPath
+	if s.ensureID == "" {
+		s.ensureID = "kc-created-group"
+	}
+	return keycloak.GroupRep{
+		ID:   s.ensureID,
+		Name: "Created Group",
+		Path: groupPath,
+	}, nil
 }
 
 func (s *testKeycloakGroupSource) ListGroupMembers(context.Context, string) ([]keycloak.KeycloakUser, error) {

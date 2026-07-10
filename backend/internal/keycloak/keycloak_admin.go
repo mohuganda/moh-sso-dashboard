@@ -165,10 +165,13 @@ type RoleRep struct {
 }
 
 type GroupRep struct {
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	Path      string     `json:"path"`
-	SubGroups []GroupRep `json:"subGroups"`
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	Path          string              `json:"path"`
+	ParentID      string              `json:"parentId,omitempty"`
+	SubGroupCount int                 `json:"subGroupCount,omitempty"`
+	Attributes    map[string][]string `json:"attributes,omitempty"`
+	SubGroups     []GroupRep          `json:"subGroups"`
 }
 
 type compositeRoleRepresentation struct {
@@ -829,34 +832,180 @@ func (c *KeyAdminClient) ListUsers() ([]UserInfo, error) {
 }
 
 func (c *KeyAdminClient) ListGroups(ctx context.Context) ([]GroupRep, error) {
-	res, err := c.GetWithContext(ctx, "groups?briefRepresentation=false")
+	roots, err := c.listGroupsPage(ctx, "groups", "failed to list groups")
 	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("failed to list groups: %s", string(body))
-	}
-
-	var roots []GroupRep
-	if err := json.NewDecoder(res.Body).Decode(&roots); err != nil {
 		return nil, err
 	}
 
 	groups := make([]GroupRep, 0)
-	var walk func(values []GroupRep)
-	walk = func(values []GroupRep) {
+	var walk func(values []GroupRep) error
+	walk = func(values []GroupRep) error {
 		for _, group := range values {
 			children := group.SubGroups
+			if len(children) == 0 && group.SubGroupCount > 0 && strings.TrimSpace(group.ID) != "" {
+				fetched, err := c.listGroupChildren(ctx, group.ID)
+				if err != nil {
+					return err
+				}
+				children = fetched
+			}
 			group.SubGroups = nil
 			groups = append(groups, group)
-			walk(children)
+			if err := walk(children); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := walk(roots); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+func (c *KeyAdminClient) listGroupsPage(ctx context.Context, endpoint string, errorPrefix string) ([]GroupRep, error) {
+	const pageSize = 100
+
+	allGroups := make([]GroupRep, 0)
+	for first := 0; ; first += pageSize {
+		separator := "?"
+		if strings.Contains(endpoint, "?") {
+			separator = "&"
+		}
+		pagedEndpoint := fmt.Sprintf("%s%sbriefRepresentation=false&first=%d&max=%d", endpoint, separator, first, pageSize)
+
+		res, err := c.GetWithContext(ctx, pagedEndpoint)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+			return nil, fmt.Errorf("%s: %s", errorPrefix, string(body))
+		}
+
+		var groups []GroupRep
+		if err := json.NewDecoder(res.Body).Decode(&groups); err != nil {
+			res.Body.Close()
+			return nil, err
+		}
+		res.Body.Close()
+
+		allGroups = append(allGroups, groups...)
+		if len(groups) < pageSize {
+			break
 		}
 	}
-	walk(roots)
-	return groups, nil
+	return allGroups, nil
+}
+
+func (c *KeyAdminClient) listGroupChildren(ctx context.Context, groupID string) ([]GroupRep, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return nil, fmt.Errorf("groupID is required")
+	}
+
+	return c.listGroupsPage(ctx, "groups/"+url.PathEscape(groupID)+"/children", "failed to list group children")
+}
+
+func (c *KeyAdminClient) EnsureGroupPath(
+	ctx context.Context,
+	groupPath string,
+	displayName string,
+	description string,
+	attributes map[string][]string,
+) (GroupRep, error) {
+	groupPath = normalizeKeycloakGroupPath(groupPath)
+	if groupPath == "" {
+		return GroupRep{}, fmt.Errorf("groupPath is required")
+	}
+
+	groups, err := c.ListGroups(ctx)
+	if err != nil {
+		return GroupRep{}, err
+	}
+
+	byPath := make(map[string]GroupRep, len(groups))
+	for _, group := range groups {
+		byPath[normalizeKeycloakGroupPath(group.Path)] = group
+	}
+	if existing, ok := byPath[groupPath]; ok && strings.TrimSpace(existing.ID) != "" {
+		return existing, nil
+	}
+
+	segments := strings.Split(strings.Trim(groupPath, "/"), "/")
+	parentID := ""
+	currentPath := ""
+	var current GroupRep
+	for _, segment := range segments {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			continue
+		}
+
+		currentPath = normalizeKeycloakGroupPath(currentPath + "/" + segment)
+		if existing, ok := byPath[currentPath]; ok && strings.TrimSpace(existing.ID) != "" {
+			current = existing
+			parentID = existing.ID
+			continue
+		}
+
+		payload := GroupRep{
+			Name: segment,
+		}
+		if currentPath == groupPath {
+			payload.Attributes = copyStringSliceMap(attributes)
+			if strings.TrimSpace(displayName) != "" {
+				if payload.Attributes == nil {
+					payload.Attributes = map[string][]string{}
+				}
+				payload.Attributes["display_name"] = []string{strings.TrimSpace(displayName)}
+			}
+			if strings.TrimSpace(description) != "" {
+				if payload.Attributes == nil {
+					payload.Attributes = map[string][]string{}
+				}
+				payload.Attributes["description"] = []string{strings.TrimSpace(description)}
+			}
+		}
+
+		endpoint := "groups"
+		if parentID != "" {
+			endpoint = "groups/" + url.PathEscape(parentID) + "/children"
+		}
+
+		res, err := c.PostWithContext(ctx, endpoint, payload)
+		if err != nil {
+			return GroupRep{}, err
+		}
+		body, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+
+		if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusConflict {
+			return GroupRep{}, fmt.Errorf("create group %q failed: status=%d body=%s", currentPath, res.StatusCode, string(body))
+		}
+
+		groups, err = c.ListGroups(ctx)
+		if err != nil {
+			return GroupRep{}, err
+		}
+		byPath = make(map[string]GroupRep, len(groups))
+		for _, group := range groups {
+			byPath[normalizeKeycloakGroupPath(group.Path)] = group
+		}
+		existing, ok := byPath[currentPath]
+		if !ok || strings.TrimSpace(existing.ID) == "" {
+			return GroupRep{}, fmt.Errorf("create group %q failed: created group was not found after refresh", currentPath)
+		}
+		current = existing
+		parentID = existing.ID
+	}
+
+	if strings.TrimSpace(current.ID) == "" {
+		return GroupRep{}, fmt.Errorf("create group %q failed: group id is empty", groupPath)
+	}
+	return current, nil
 }
 
 func (c *KeyAdminClient) ListGroupMembers(ctx context.Context, groupID string) ([]KeycloakUser, error) {
@@ -881,6 +1030,38 @@ func (c *KeyAdminClient) ListGroupMembers(ctx context.Context, groupID string) (
 		return nil, err
 	}
 	return users, nil
+}
+
+func normalizeKeycloakGroupPath(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	parts := strings.FieldsFunc(value, func(r rune) bool { return r == '/' })
+	cleaned := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			cleaned = append(cleaned, part)
+		}
+	}
+	if len(cleaned) == 0 {
+		return ""
+	}
+	return "/" + strings.Join(cleaned, "/")
+}
+
+func copyStringSliceMap(input map[string][]string) map[string][]string {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(input))
+	for key, values := range input {
+		copied := make([]string, len(values))
+		copy(copied, values)
+		out[key] = copied
+	}
+	return out
 }
 
 func (c *KeyAdminClient) AddUserToGroup(ctx context.Context, userID string, groupID string) error {

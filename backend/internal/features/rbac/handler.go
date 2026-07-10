@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -707,7 +708,7 @@ func bindRealmExportPayload(c *gin.Context) ([]byte, bool) {
 func writeError(c *gin.Context, err error, code string) {
 	switch {
 	case errors.Is(err, ErrInvalidInput):
-		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "invalid input")
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", safeInvalidInputMessage(err))
 	case errors.Is(err, ErrPermissionMissing):
 		response.Fail(c, http.StatusBadRequest, "UNKNOWN_PERMISSION", "unknown permission")
 	case errors.Is(err, ErrLastAccessRole):
@@ -717,4 +718,14 @@ func writeError(c *gin.Context, err error, code string) {
 	default:
 		response.Fail(c, http.StatusInternalServerError, code, "request failed")
 	}
+}
+
+func safeInvalidInputMessage(err error) string {
+	message := strings.TrimSpace(err.Error())
+	message = strings.TrimPrefix(message, ErrInvalidInput.Error()+":")
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return "invalid input"
+	}
+	return "invalid input: " + message
 }
