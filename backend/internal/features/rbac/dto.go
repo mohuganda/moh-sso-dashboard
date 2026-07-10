@@ -114,6 +114,16 @@ type GroupMembersInput struct {
 	Members []GroupMember `json:"members"`
 }
 
+type GroupMemberInput struct {
+	UserID string `json:"userId" binding:"required"`
+}
+
+type GroupMembersSyncResponse struct {
+	Members     []GroupMember `json:"members"`
+	MemberCount int           `json:"memberCount"`
+	Warnings    []string      `json:"warnings,omitempty"`
+}
+
 type GroupRealmRoleInput struct {
 	RealmRole string `json:"realmRole" binding:"required"`
 }

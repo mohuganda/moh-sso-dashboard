@@ -192,6 +192,40 @@ func (h *Handler) ReplaceGroupMembers(c *gin.Context) {
 	response.OK(c, http.StatusOK, OperationResultResponse{Added: true})
 }
 
+func (h *Handler) AddGroupMember(c *gin.Context) {
+	var input GroupMemberInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid payload")
+		return
+	}
+	actorID, _ := uuid.Parse(c.GetString("user_id"))
+	result, err := h.service.AddGroupMember(c.Request.Context(), c.Param("groupId"), input.UserID, actorID)
+	if err != nil {
+		writeError(c, err, "ADD_GROUP_MEMBER_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, result)
+}
+
+func (h *Handler) RemoveGroupMember(c *gin.Context) {
+	actorID, _ := uuid.Parse(c.GetString("user_id"))
+	result, err := h.service.RemoveGroupMember(c.Request.Context(), c.Param("groupId"), c.Param("userId"), actorID)
+	if err != nil {
+		writeError(c, err, "REMOVE_GROUP_MEMBER_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, result)
+}
+
+func (h *Handler) SyncGroupMembers(c *gin.Context) {
+	result, err := h.service.SyncGroupMembers(c.Request.Context(), c.Param("groupId"))
+	if err != nil {
+		writeError(c, err, "SYNC_GROUP_MEMBERS_FAILED")
+		return
+	}
+	response.OK(c, http.StatusOK, result)
+}
+
 func (h *Handler) AssignGroupPermission(c *gin.Context) {
 	var input PermissionInput
 	if err := c.ShouldBindJSON(&input); err != nil {

@@ -14,6 +14,7 @@ import (
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
 	userfeature "github.com/moh-sso-dashboard/internal/features/users"
+	"github.com/moh-sso-dashboard/internal/keycloak"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/service"
 	importsvc "github.com/moh-sso-dashboard/internal/service/import"
@@ -53,14 +54,15 @@ type services struct {
 }
 
 type serviceDependencies struct {
-	Config       *config.Config
-	Store        storepkg.Store
-	Cache        *cache.RedisCache
-	CacheClient  *redis.Client
-	Databases    databases
-	Repositories repositories
-	FileStorage  storage.Storage
-	Logger       *logger.Logger
+	Config        *config.Config
+	Store         storepkg.Store
+	Cache         *cache.RedisCache
+	CacheClient   *redis.Client
+	Databases     databases
+	Repositories  repositories
+	FileStorage   storage.Storage
+	Logger        *logger.Logger
+	AdminKeycloak *keycloak.KeyAdminClient
 }
 
 func buildServices(deps serviceDependencies) services {
@@ -247,6 +249,7 @@ func buildServices(deps serviceDependencies) services {
 	)
 
 	rbacService := rbacfeature.NewService(deps.Repositories.RBAC, userService)
+	rbacService.SetKeycloakGroupMembershipManager(deps.AdminKeycloak)
 	rbacService.SetFrontendBaseURL(deps.Config.FrontendBaseURL)
 
 	return services{

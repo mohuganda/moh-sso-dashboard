@@ -118,14 +118,15 @@ func Run() {
 	// SERVICES
 	// ==================================================
 	services := buildServices(serviceDependencies{
-		Config:       cfg,
-		Store:        store,
-		Cache:        cacheAdapter,
-		CacheClient:  rdb,
-		Databases:    dbs,
-		Repositories: repos,
-		FileStorage:  fileStorage,
-		Logger:       appLogger,
+		Config:        cfg,
+		Store:         store,
+		Cache:         cacheAdapter,
+		CacheClient:   rdb,
+		Databases:     dbs,
+		Repositories:  repos,
+		FileStorage:   fileStorage,
+		Logger:        appLogger,
+		AdminKeycloak: adminKC,
 	})
 
 	if err := runStartupRBACSync(ctx, cfg, dbs.Primary, services, adminKC, appLogger); err != nil {

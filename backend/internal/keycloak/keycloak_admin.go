@@ -883,6 +883,53 @@ func (c *KeyAdminClient) ListGroupMembers(ctx context.Context, groupID string) (
 	return users, nil
 }
 
+func (c *KeyAdminClient) AddUserToGroup(ctx context.Context, userID string, groupID string) error {
+	userID = strings.TrimSpace(userID)
+	groupID = strings.TrimSpace(groupID)
+	if userID == "" || groupID == "" {
+		return fmt.Errorf("userID and groupID are required")
+	}
+
+	res, err := c.PutWithContext(
+		ctx,
+		"users/"+url.PathEscape(userID)+"/groups/"+url.PathEscape(groupID),
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("failed to add user to group: status=%d body=%s", res.StatusCode, string(body))
+	}
+	return nil
+}
+
+func (c *KeyAdminClient) RemoveUserFromGroup(ctx context.Context, userID string, groupID string) error {
+	userID = strings.TrimSpace(userID)
+	groupID = strings.TrimSpace(groupID)
+	if userID == "" || groupID == "" {
+		return fmt.Errorf("userID and groupID are required")
+	}
+
+	res, err := c.DeleteWithContext(
+		ctx,
+		"users/"+url.PathEscape(userID)+"/groups/"+url.PathEscape(groupID),
+	)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("failed to remove user from group: status=%d body=%s", res.StatusCode, string(body))
+	}
+	return nil
+}
+
 func (c *KeyAdminClient) ListGroupRealmRoles(ctx context.Context, groupID string) ([]RoleRep, error) {
 	groupID = strings.TrimSpace(groupID)
 	if groupID == "" {

@@ -149,6 +149,49 @@ func TestSyncLiveKeycloakGroupsPersistsMembershipRolesAndAudit(t *testing.T) {
 	}
 }
 
+func TestGroupMemberMutationsWriteThroughKeycloakAndRefreshCache(t *testing.T) {
+	ctx := context.Background()
+	repo := newTestRBACRepository()
+	service := NewService(repo, &testUserLookup{})
+	source := &testKeycloakGroupSource{
+		members: []keycloak.KeycloakUser{{
+			ID:       "11111111-1111-1111-1111-111111111111",
+			Username: "data.officer",
+			Email:    "data.officer@example.org",
+		}},
+	}
+	service.SetKeycloakGroupMembershipManager(source)
+
+	result, err := service.AddGroupMember(ctx, "group-data", "11111111-1111-1111-1111-111111111111", uuid.Nil)
+	if err != nil {
+		t.Fatalf("AddGroupMember returned error: %v", err)
+	}
+	if source.addedUserID != "11111111-1111-1111-1111-111111111111" || source.addedGroupID != "kc-group-data" {
+		t.Fatalf("expected Keycloak add call, got user=%q group=%q", source.addedUserID, source.addedGroupID)
+	}
+	if result.MemberCount != 1 || len(repo.groupMembers) != 1 || repo.groupMembers[0].Username != "data.officer" {
+		t.Fatalf("expected local group cache refresh, got result=%#v repo=%#v", result, repo.groupMembers)
+	}
+	if len(repo.auditEvents) < 2 || repo.auditEvents[len(repo.auditEvents)-1].Action != "group.member_added" {
+		t.Fatalf("expected group.member_added audit event, got %#v", repo.auditEvents)
+	}
+
+	source.members = []keycloak.KeycloakUser{}
+	result, err = service.RemoveGroupMember(ctx, "group-data", "11111111-1111-1111-1111-111111111111", uuid.Nil)
+	if err != nil {
+		t.Fatalf("RemoveGroupMember returned error: %v", err)
+	}
+	if source.removedUserID != "11111111-1111-1111-1111-111111111111" || source.removedGroupID != "kc-group-data" {
+		t.Fatalf("expected Keycloak remove call, got user=%q group=%q", source.removedUserID, source.removedGroupID)
+	}
+	if result.MemberCount != 0 || len(repo.groupMembers) != 0 {
+		t.Fatalf("expected empty local group cache after remove, got result=%#v repo=%#v", result, repo.groupMembers)
+	}
+	if repo.auditEvents[len(repo.auditEvents)-1].Action != "group.member_removed" {
+		t.Fatalf("expected group.member_removed audit event, got %#v", repo.auditEvents)
+	}
+}
+
 type testUserLookup struct {
 	user *model.User
 }
@@ -371,7 +414,13 @@ func (r *testRBACRepository) UpdateChangeRequestStatus(context.Context, string, 
 	return ChangeRequest{}, nil
 }
 
-type testKeycloakGroupSource struct{}
+type testKeycloakGroupSource struct {
+	members        []keycloak.KeycloakUser
+	addedUserID    string
+	addedGroupID   string
+	removedUserID  string
+	removedGroupID string
+}
 
 func (s *testKeycloakGroupSource) ListGroups(context.Context) ([]keycloak.GroupRep, error) {
 	return []keycloak.GroupRep{{
@@ -382,11 +431,35 @@ func (s *testKeycloakGroupSource) ListGroups(context.Context) ([]keycloak.GroupR
 }
 
 func (s *testKeycloakGroupSource) ListGroupMembers(context.Context, string) ([]keycloak.KeycloakUser, error) {
+	if s.members != nil {
+		return s.members, nil
+	}
 	return []keycloak.KeycloakUser{{
 		ID:       "11111111-1111-1111-1111-111111111111",
 		Username: "data.officer",
 		Email:    "data.officer@example.org",
 	}}, nil
+}
+
+func (s *testKeycloakGroupSource) GetUser(userID string) (*keycloak.UserInfo, error) {
+	return &keycloak.UserInfo{
+		ID:       userID,
+		Username: "data.officer",
+		Email:    "data.officer@example.org",
+		Enabled:  true,
+	}, nil
+}
+
+func (s *testKeycloakGroupSource) AddUserToGroup(_ context.Context, userID string, groupID string) error {
+	s.addedUserID = userID
+	s.addedGroupID = groupID
+	return nil
+}
+
+func (s *testKeycloakGroupSource) RemoveUserFromGroup(_ context.Context, userID string, groupID string) error {
+	s.removedUserID = userID
+	s.removedGroupID = groupID
+	return nil
 }
 
 func (s *testKeycloakGroupSource) ListGroupRealmRoles(context.Context, string) ([]keycloak.RoleRep, error) {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	systemrbac "github.com/moh-sso-dashboard/internal/features/system_rbac"
+	"github.com/moh-sso-dashboard/internal/keycloak"
 	"github.com/moh-sso-dashboard/internal/model"
 	"go.yaml.in/yaml/v3"
 )
@@ -24,6 +25,7 @@ var (
 type Service struct {
 	repository      Repository
 	users           UserLookup
+	keycloakGroups  KeycloakGroupMembershipManager
 	frontendBaseURL string
 }
 
@@ -34,12 +36,23 @@ type UserLookup interface {
 	UpdateUserClientRoles(ctx context.Context, userID uuid.UUID, clientID string, clientUUID string, roles []string, adminID uuid.UUID) error
 }
 
+type KeycloakGroupMembershipManager interface {
+	GetUser(userID string) (*keycloak.UserInfo, error)
+	ListGroupMembers(ctx context.Context, groupID string) ([]keycloak.KeycloakUser, error)
+	AddUserToGroup(ctx context.Context, userID string, groupID string) error
+	RemoveUserFromGroup(ctx context.Context, userID string, groupID string) error
+}
+
 func NewService(repository Repository, users ...UserLookup) *Service {
 	var userLookup UserLookup
 	if len(users) > 0 {
 		userLookup = users[0]
 	}
 	return &Service{repository: repository, users: userLookup}
+}
+
+func (s *Service) SetKeycloakGroupMembershipManager(manager KeycloakGroupMembershipManager) {
+	s.keycloakGroups = manager
 }
 
 func (s *Service) SetFrontendBaseURL(value string) {
@@ -446,6 +459,142 @@ func (s *Service) ReplaceGroupMembers(ctx context.Context, groupID string, membe
 		return err
 	}
 	return s.recordAudit(ctx, "group.members_replaced", "group", groupID, "", "", "", groupAuditDetails(group, map[string]any{"memberCount": len(normalized)}))
+}
+
+func (s *Service) AddGroupMember(
+	ctx context.Context,
+	groupID string,
+	userID string,
+	actorID uuid.UUID,
+) (GroupMembersSyncResponse, error) {
+	group, keycloakGroupID, err := s.groupMembershipTarget(ctx, groupID, userID)
+	if err != nil {
+		return GroupMembersSyncResponse{}, err
+	}
+	user, err := s.keycloakGroups.GetUser(strings.TrimSpace(userID))
+	if err != nil {
+		return GroupMembersSyncResponse{}, fmt.Errorf("%w: user does not exist in Keycloak", ErrInvalidInput)
+	}
+
+	if err := s.keycloakGroups.AddUserToGroup(ctx, user.ID, keycloakGroupID); err != nil {
+		return GroupMembersSyncResponse{}, err
+	}
+
+	response, err := s.SyncGroupMembers(ctx, group.ID)
+	if err != nil {
+		response.Warnings = append(response.Warnings, fmt.Sprintf("Keycloak membership updated, but local cache refresh failed: %v", err))
+	}
+	_ = s.recordAudit(ctx, "group.member_added", "group", group.ID, "", "", "", groupAuditDetails(group, map[string]any{
+		"actor_id": actorID.String(),
+		"user_id":  user.ID,
+		"username": user.Username,
+		"email":    user.Email,
+		"source":   "portal-admin",
+	}))
+	return response, nil
+}
+
+func (s *Service) RemoveGroupMember(
+	ctx context.Context,
+	groupID string,
+	userID string,
+	actorID uuid.UUID,
+) (GroupMembersSyncResponse, error) {
+	group, keycloakGroupID, err := s.groupMembershipTarget(ctx, groupID, userID)
+	if err != nil {
+		return GroupMembersSyncResponse{}, err
+	}
+	user, err := s.keycloakGroups.GetUser(strings.TrimSpace(userID))
+	if err != nil {
+		return GroupMembersSyncResponse{}, fmt.Errorf("%w: user does not exist in Keycloak", ErrInvalidInput)
+	}
+
+	if err := s.keycloakGroups.RemoveUserFromGroup(ctx, user.ID, keycloakGroupID); err != nil {
+		return GroupMembersSyncResponse{}, err
+	}
+
+	response, err := s.SyncGroupMembers(ctx, group.ID)
+	if err != nil {
+		response.Warnings = append(response.Warnings, fmt.Sprintf("Keycloak membership updated, but local cache refresh failed: %v", err))
+	}
+	_ = s.recordAudit(ctx, "group.member_removed", "group", group.ID, "", "", "", groupAuditDetails(group, map[string]any{
+		"actor_id": actorID.String(),
+		"user_id":  user.ID,
+		"username": user.Username,
+		"email":    user.Email,
+		"source":   "portal-admin",
+	}))
+	return response, nil
+}
+
+func (s *Service) SyncGroupMembers(ctx context.Context, groupID string) (GroupMembersSyncResponse, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return GroupMembersSyncResponse{}, fmt.Errorf("%w: groupId is required", ErrInvalidInput)
+	}
+	if s.keycloakGroups == nil {
+		return GroupMembersSyncResponse{}, fmt.Errorf("%w: Keycloak group membership manager is not configured", ErrInvalidInput)
+	}
+
+	group, err := s.repository.GetGroup(ctx, groupID)
+	if err != nil {
+		return GroupMembersSyncResponse{}, err
+	}
+	keycloakGroupID := strings.TrimSpace(group.KeycloakGroupID)
+	if keycloakGroupID == "" {
+		return GroupMembersSyncResponse{}, fmt.Errorf("%w: group is not linked to a Keycloak group", ErrInvalidInput)
+	}
+
+	keycloakMembers, err := s.keycloakGroups.ListGroupMembers(ctx, keycloakGroupID)
+	if err != nil {
+		return GroupMembersSyncResponse{}, err
+	}
+
+	members := make([]GroupMember, 0, len(keycloakMembers))
+	for _, member := range keycloakMembers {
+		memberID := strings.TrimSpace(member.ID)
+		if memberID == "" {
+			continue
+		}
+		members = append(members, GroupMember{
+			UserID:   memberID,
+			Username: strings.TrimSpace(member.Username),
+			Email:    strings.TrimSpace(member.Email),
+		})
+	}
+	if err := s.repository.ReplaceGroupMembers(ctx, group.ID, members); err != nil {
+		return GroupMembersSyncResponse{}, err
+	}
+	if err := s.recordAudit(ctx, "group.members_synced", "group", group.ID, "", "", "", groupAuditDetails(group, map[string]any{
+		"member_count": len(members),
+		"source":       "keycloak",
+	})); err != nil {
+		return GroupMembersSyncResponse{}, err
+	}
+	return GroupMembersSyncResponse{
+		Members:     members,
+		MemberCount: len(members),
+	}, nil
+}
+
+func (s *Service) groupMembershipTarget(ctx context.Context, groupID string, userID string) (Group, string, error) {
+	groupID = strings.TrimSpace(groupID)
+	userID = strings.TrimSpace(userID)
+	if groupID == "" || userID == "" {
+		return Group{}, "", fmt.Errorf("%w: groupId and userId are required", ErrInvalidInput)
+	}
+	if s.keycloakGroups == nil {
+		return Group{}, "", fmt.Errorf("%w: Keycloak group membership manager is not configured", ErrInvalidInput)
+	}
+	group, err := s.repository.GetGroup(ctx, groupID)
+	if err != nil {
+		return Group{}, "", err
+	}
+	keycloakGroupID := strings.TrimSpace(group.KeycloakGroupID)
+	if keycloakGroupID == "" {
+		return Group{}, "", fmt.Errorf("%w: group is not linked to a Keycloak group", ErrInvalidInput)
+	}
+	return group, keycloakGroupID, nil
 }
 
 func (s *Service) AssignGroupPermission(ctx context.Context, groupID string, permissionKey string) error {
