@@ -186,6 +186,24 @@ var systemRolePermissions = map[string]map[string][]Permission{
 		ReportBrowserViewer: {
 			PermissionReportBrowserRead,
 		},
+		SurveillanceViewer: {
+			PermissionSurveillanceRead,
+		},
+		SurveillanceOfficer: {
+			PermissionSurveillanceRead,
+			PermissionSurveillanceImport,
+			PermissionSurveillanceManageAlerts,
+		},
+		SurveillanceDataEntry: {
+			PermissionSurveillanceRead,
+			PermissionSurveillanceImport,
+		},
+		SurveillanceManager: {
+			PermissionSurveillanceRead,
+			PermissionSurveillanceImport,
+			PermissionSurveillanceManageLocations,
+			PermissionSurveillanceManageAlerts,
+		},
 		IssueTrackerViewer: {
 			PermissionIssueTrackerRead,
 		},
@@ -273,6 +291,11 @@ var systemRolePermissions = map[string]map[string][]Permission{
 var defaultSystemRolesForRealmRole = map[string]map[string][]string{
 	RoleUser: {
 		SystemDataStatistics: {DataStatisticsAccess, DocumentViewer},
+		SystemUtilities:      {UtilitiesAccess},
+		SystemSettings:       {SettingsAccess},
+	},
+	RoleManager: {
+		SystemDataStatistics: {DataStatisticsAccess, SurveillanceManager, ReportBrowserManager, IssueTrackerManager, DocumentManager},
 		SystemUtilities:      {UtilitiesAccess},
 		SystemSettings:       {SettingsAccess},
 	},

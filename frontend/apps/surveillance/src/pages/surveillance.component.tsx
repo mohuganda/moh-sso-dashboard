@@ -1,4 +1,5 @@
 import { InlineLoading } from "@carbon/react";
+import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Feature, FeatureCollection, GeoJsonProperties, Geometry } from "geojson";
@@ -105,7 +106,26 @@ function filterFeatureCollection(
   };
 }
 
-export default function SurveillanceDashboardPage() {
+function SurveillanceAccessDenied() {
+  return (
+    <div className="surveillance-dashboard-page">
+      <div className="surveillance-dashboard-page__header">
+        <div className="surveillance-dashboard-page__hero">
+          <div className="surveillance-dashboard-page__hero-main">
+            <div className="surveillance-dashboard-page__hero-copy">
+              <h1 className="surveillance-dashboard-page__title">Access denied</h1>
+              <p className="surveillance-dashboard-page__subtitle">
+                You need surveillance read access to view this workspace.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SurveillanceDashboardContent() {
   const navigate = useNavigate();
 
   const [selectedWeekId, setSelectedWeekId] = useState("");
@@ -590,5 +610,16 @@ export default function SurveillanceDashboardPage() {
         />
       </section>
     </div>
+  );
+}
+
+export default function SurveillanceDashboardPage() {
+  return (
+    <PermissionGuard
+      permission={PERMISSIONS.surveillanceRead}
+      fallback={<SurveillanceAccessDenied />}
+    >
+      <SurveillanceDashboardContent />
+    </PermissionGuard>
   );
 }

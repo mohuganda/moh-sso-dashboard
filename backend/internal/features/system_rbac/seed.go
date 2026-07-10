@@ -675,6 +675,7 @@ func DefaultSeed() SeedFile {
 				SystemRoles: map[string][]string{
 					authz.SystemDataStatistics: {
 						authz.DataStatisticsAccess,
+						authz.SurveillanceManager,
 						authz.ReportBrowserManager,
 						authz.IssueTrackerManager,
 						authz.DocumentManager,
@@ -798,6 +799,10 @@ func defaultDataStatisticsSystem(enabled bool) SeedSystem {
 		authz.ReportBrowserAnalyst,
 		authz.ReportBrowserManager,
 		authz.ReportBrowserAdmin,
+		authz.SurveillanceViewer,
+		authz.SurveillanceOfficer,
+		authz.SurveillanceDataEntry,
+		authz.SurveillanceManager,
 		authz.IssueTrackerViewer,
 		authz.IssueTrackerContributor,
 		authz.IssueTrackerEditor,
@@ -841,6 +846,40 @@ func defaultDataStatisticsSystem(enabled bool) SeedSystem {
 			DisplayName: "Report Viewer",
 			Permissions: []string{
 				string(authz.PermissionReportBrowserRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.SurveillanceViewer,
+			DisplayName: "Surveillance Viewer",
+			Permissions: []string{
+				string(authz.PermissionSurveillanceRead),
+			},
+		},
+		SeedRole{
+			Name:        authz.SurveillanceOfficer,
+			DisplayName: "Surveillance Officer",
+			Permissions: []string{
+				string(authz.PermissionSurveillanceRead),
+				string(authz.PermissionSurveillanceImport),
+				string(authz.PermissionSurveillanceManageAlerts),
+			},
+		},
+		SeedRole{
+			Name:        authz.SurveillanceDataEntry,
+			DisplayName: "Surveillance Data Entry",
+			Permissions: []string{
+				string(authz.PermissionSurveillanceRead),
+				string(authz.PermissionSurveillanceImport),
+			},
+		},
+		SeedRole{
+			Name:        authz.SurveillanceManager,
+			DisplayName: "Surveillance Manager",
+			Permissions: []string{
+				string(authz.PermissionSurveillanceRead),
+				string(authz.PermissionSurveillanceImport),
+				string(authz.PermissionSurveillanceManageLocations),
+				string(authz.PermissionSurveillanceManageAlerts),
 			},
 		},
 		SeedRole{

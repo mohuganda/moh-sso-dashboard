@@ -180,6 +180,10 @@ systems:
       - report_manager
       - report_analyst
       - report_viewer
+      - surveillance_viewer
+      - surveillance_officer
+      - surveillance_data_entry
+      - surveillance_manager
       - issue_tracker_viewer
       - issue_tracker_contributor
       - issue_tracker_editor
@@ -230,6 +234,32 @@ systems:
         description: Report Browser read-only access
         permissions:
           - report_browser:read
+      - name: surveillance_viewer
+        displayName: Surveillance Viewer
+        description: Read-only surveillance dashboard access
+        permissions:
+          - surveillance:read
+      - name: surveillance_officer
+        displayName: Surveillance Officer
+        description: Can monitor surveillance dashboards, import data, and manage alerts
+        permissions:
+          - surveillance:read
+          - surveillance:import
+          - surveillance:manage_alerts
+      - name: surveillance_data_entry
+        displayName: Surveillance Data Entry
+        description: Can view surveillance dashboards and import surveillance data
+        permissions:
+          - surveillance:read
+          - surveillance:import
+      - name: surveillance_manager
+        displayName: Surveillance Manager
+        description: Can manage surveillance dashboards, imports, locations, and alerts
+        permissions:
+          - surveillance:read
+          - surveillance:import
+          - surveillance:manage_locations
+          - surveillance:manage_alerts
       - name: issue_tracker_viewer
         displayName: Issue Tracker Viewer
         description: Read-only access to issue tracker records and history
@@ -841,6 +871,58 @@ groups:
                 - access
               access_profile:
                 - report-viewer
+          - name: Surveillance Managers
+            displayName: Surveillance Managers
+            description: Users who manage surveillance locations, imports, and alerts
+            type: access
+            systemRoles:
+              data-statistics:
+                - data-statistics_access
+                - surveillance_manager
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - surveillance-manager
+          - name: Surveillance Officers
+            displayName: Surveillance Officers
+            description: Users who monitor surveillance dashboards, import data, and manage alerts
+            type: access
+            systemRoles:
+              data-statistics:
+                - data-statistics_access
+                - surveillance_officer
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - surveillance-officer
+          - name: Surveillance Data Entry
+            displayName: Surveillance Data Entry
+            description: Users who import surveillance data
+            type: access
+            systemRoles:
+              data-statistics:
+                - data-statistics_access
+                - surveillance_data_entry
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - surveillance-data-entry
+          - name: Surveillance Viewers
+            displayName: Surveillance Viewers
+            description: Read-only surveillance dashboard users
+            type: access
+            systemRoles:
+              data-statistics:
+                - data-statistics_access
+                - surveillance_viewer
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - surveillance-viewer
           - name: Issue Tracker Managers
             displayName: Issue Tracker Managers
             description: Users who manage the full issue lifecycle
@@ -1017,6 +1099,7 @@ groupMemberships:
       - /MOH/Outbreak Management/Managers
       - /MOH/Outbreak Management/Surveillance Officers
       - /MOH/Data and Statistics/Report Managers
+      - /MOH/Data and Statistics/Surveillance Managers
       - /MOH/Data and Statistics/Issue Tracker Managers
       - /MOH/Data and Statistics/Document Managers
   - username: pmbaka
@@ -1025,6 +1108,7 @@ groupMemberships:
       - /MOH/Outbreak Management/Data Entry Officers
       - /MOH/Outbreak Management/Surveillance Officers
       - /MOH/Data and Statistics/Report Analysts
+      - /MOH/Data and Statistics/Surveillance Officers
       - /MOH/Data and Statistics/Issue Tracker Editors
       - /MOH/Data and Statistics/Document Editors
   - username: outbreak_viewer@example.com
@@ -1032,6 +1116,7 @@ groupMemberships:
       - /MOH/Portal Users
       - /MOH/Outbreak Management/Viewers
       - /MOH/Data and Statistics/Report Viewers
+      - /MOH/Data and Statistics/Surveillance Viewers
       - /MOH/Data and Statistics/Issue Tracker Viewers
       - /MOH/Data and Statistics/Document Viewers
   - username: document.viewer

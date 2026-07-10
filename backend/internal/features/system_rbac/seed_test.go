@@ -31,6 +31,24 @@ func TestDefaultSeedGivesUserDefaultSystems(t *testing.T) {
 	t.Fatal("default seed does not define user realm role")
 }
 
+func TestDefaultSeedGivesManagerSurveillanceDataStatisticsRole(t *testing.T) {
+	seed := DefaultSeed()
+	if err := ValidateSeed(seed); err != nil {
+		t.Fatalf("default seed is invalid: %v", err)
+	}
+
+	for _, realmRole := range seed.RealmRoles {
+		if realmRole.Name != authz.RoleManager {
+			continue
+		}
+		if !contains(realmRole.SystemRoles[authz.SystemDataStatistics], authz.SurveillanceManager) {
+			t.Fatalf("manager defaults missing %s/%s: %+v", authz.SystemDataStatistics, authz.SurveillanceManager, realmRole.SystemRoles)
+		}
+		return
+	}
+	t.Fatal("default seed does not define manager realm role")
+}
+
 func TestValidateSeedRejectsUnknownDefaultSystemRole(t *testing.T) {
 	seed := DefaultSeed()
 	for index := range seed.RealmRoles {

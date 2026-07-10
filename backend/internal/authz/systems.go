@@ -31,6 +31,11 @@ const (
 
 	DataStatisticsAccess = "data-statistics_access"
 
+	SurveillanceViewer    = "surveillance_viewer"
+	SurveillanceOfficer   = "surveillance_officer"
+	SurveillanceDataEntry = "surveillance_data_entry"
+	SurveillanceManager   = "surveillance_manager"
+
 	IssueTrackerViewer      = "issue_tracker_viewer"
 	IssueTrackerContributor = "issue_tracker_contributor"
 	IssueTrackerEditor      = "issue_tracker_editor"

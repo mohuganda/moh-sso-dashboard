@@ -521,6 +521,48 @@
               "storage_locations:read"
             ]
           }
+        },
+        {
+          "name": "surveillance_viewer",
+          "description": "Read-only surveillance dashboard access",
+          "attributes": {
+            "portal.permissions": [
+              "surveillance:read"
+            ]
+          }
+        },
+        {
+          "name": "surveillance_officer",
+          "description": "Can monitor surveillance dashboards, import data, and manage alerts",
+          "attributes": {
+            "portal.permissions": [
+              "surveillance:read",
+              "surveillance:import",
+              "surveillance:manage_alerts"
+            ]
+          }
+        },
+        {
+          "name": "surveillance_data_entry",
+          "description": "Can view surveillance dashboards and import surveillance data",
+          "attributes": {
+            "portal.permissions": [
+              "surveillance:read",
+              "surveillance:import"
+            ]
+          }
+        },
+        {
+          "name": "surveillance_manager",
+          "description": "Can manage surveillance dashboards, imports, locations, and alerts",
+          "attributes": {
+            "portal.permissions": [
+              "surveillance:read",
+              "surveillance:import",
+              "surveillance:manage_locations",
+              "surveillance:manage_alerts"
+            ]
+          }
         }
       ],
       "utilities": [
@@ -805,7 +847,7 @@
         "ui.home": "/portal/apps/dwh",
         "ui.category": "platform",
         "portal.system": "true",
-        "portal.accessRoles": "data-statistics_access,report_admin,report_manager,report_analyst,report_viewer,issue_tracker_viewer,issue_tracker_contributor,issue_tracker_editor,issue_tracker_manager,document_viewer,document_editor,document_processor,document_manager,document_template_viewer,document_template_editor,document_template_publisher",
+        "portal.accessRoles": "data-statistics_access,report_admin,report_manager,report_analyst,report_viewer,issue_tracker_viewer,issue_tracker_contributor,issue_tracker_editor,issue_tracker_manager,document_viewer,document_editor,document_processor,document_manager,document_template_viewer,document_template_editor,document_template_publisher,surveillance_viewer,surveillance_officer,surveillance_data_entry,surveillance_manager",
         "ui.systemType": "platform",
         "ui.displayInLauncher": "false",
         "ui.displayInSideNav": "true",
@@ -1485,6 +1527,74 @@
                   "document_template_viewer"
                 ]
               }
+            },
+            {
+              "name": "Surveillance Managers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "surveillance-manager"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "data-statistics_access",
+                  "surveillance_manager"
+                ]
+              }
+            },
+            {
+              "name": "Surveillance Officers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "surveillance-officer"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "data-statistics_access",
+                  "surveillance_officer"
+                ]
+              }
+            },
+            {
+              "name": "Surveillance Data Entry",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "surveillance-data-entry"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "data-statistics_access",
+                  "surveillance_data_entry"
+                ]
+              }
+            },
+            {
+              "name": "Surveillance Viewers",
+              "attributes": {
+                "group_type": [
+                  "access"
+                ],
+                "access_profile": [
+                  "surveillance-viewer"
+                ]
+              },
+              "clientRoles": {
+                "data-statistics": [
+                  "data-statistics_access",
+                  "surveillance_viewer"
+                ]
+              }
             }
           ]
         },
@@ -1679,7 +1789,8 @@
           "report_manager",
           "report_analyst",
           "issue_tracker_manager",
-          "document_manager"
+          "document_manager",
+          "surveillance_manager"
         ]
       },
       "groups": [
@@ -1688,7 +1799,8 @@
         "/MOH/Outbreak Management/Surveillance Officers",
         "/MOH/Data and Statistics/Report Managers",
         "/MOH/Data and Statistics/Issue Tracker Managers",
-        "/MOH/Data and Statistics/Document Managers"
+        "/MOH/Data and Statistics/Document Managers",
+        "/MOH/Data and Statistics/Surveillance Managers"
       ]
     },
     {
@@ -1736,7 +1848,8 @@
           "data-statistics_access",
           "report_analyst",
           "issue_tracker_editor",
-          "document_editor"
+          "document_editor",
+          "surveillance_officer"
         ],
         "settings": [
           "settings_access"
@@ -1748,7 +1861,8 @@
         "/MOH/Outbreak Management/Surveillance Officers",
         "/MOH/Data and Statistics/Report Analysts",
         "/MOH/Data and Statistics/Issue Tracker Editors",
-        "/MOH/Data and Statistics/Document Editors"
+        "/MOH/Data and Statistics/Document Editors",
+        "/MOH/Data and Statistics/Surveillance Officers"
       ]
     },
     {
@@ -1795,7 +1909,8 @@
           "data-statistics_access",
           "report_viewer",
           "issue_tracker_viewer",
-          "document_viewer"
+          "document_viewer",
+          "surveillance_viewer"
         ],
         "settings": [
           "settings_access"
@@ -1806,7 +1921,8 @@
         "/MOH/Outbreak Management/Viewers",
         "/MOH/Data and Statistics/Report Viewers",
         "/MOH/Data and Statistics/Issue Tracker Viewers",
-        "/MOH/Data and Statistics/Document Viewers"
+        "/MOH/Data and Statistics/Document Viewers",
+        "/MOH/Data and Statistics/Surveillance Viewers"
       ]
     },
     {
