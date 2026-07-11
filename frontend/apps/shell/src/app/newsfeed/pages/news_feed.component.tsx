@@ -13,11 +13,14 @@ import {
   Warning,
 } from "@carbon/react/icons";
 import { Link, SkeletonText, Tag, Tile } from "@carbon/react";
+import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
+import { selectAuthenticated } from "@moh-sso/auth";
 import { EmptyState, ErrorState } from "@moh-sso/ui";
 import {
   buildUserAnnouncementAttachmentDownloadUrl,
+  useListMyAnnouncementsQuery,
   useListPublicAnnouncementsQuery,
 } from "@moh-sso/announcements/api";
 import type {
@@ -488,6 +491,7 @@ function FeedSection({ title, subtitle, icon: Icon, count, children }: FeedSecti
 
 export default function NewsFeedPage() {
   const navigate = useNavigate();
+  const isAuthenticated = useSelector(selectAuthenticated);
 
   const publicQuery = useListPublicAnnouncementsQuery(
     { limit: 20, offset: 0 },
@@ -496,9 +500,27 @@ export default function NewsFeedPage() {
     },
   );
 
+  const myQuery = useListMyAnnouncementsQuery(
+    { limit: 20, offset: 0 },
+    {
+      refetchOnMountOrArgChange: true,
+      skip: !isAuthenticated,
+    },
+  );
+
   const announcements = useMemo<Announcement[]>(() => {
-    return publicQuery.data ?? [];
-  }, [publicQuery.data]);
+    const byId = new Map<string, Announcement>();
+
+    for (const item of publicQuery.data ?? []) {
+      byId.set(item.id, item);
+    }
+
+    for (const item of myQuery.data ?? []) {
+      byId.set(item.id, item);
+    }
+
+    return Array.from(byId.values());
+  }, [myQuery.data, publicQuery.data]);
 
   const sortedAnnouncements = useMemo(() => {
     return [...announcements].sort((a, b) => {
@@ -520,20 +542,26 @@ export default function NewsFeedPage() {
     [sortedAnnouncements],
   );
 
-  const shouldShowInitialLoading = publicQuery.isLoading && announcements.length === 0;
-  const shouldShowRefreshing = publicQuery.isFetching && announcements.length > 0;
+  const isLoadingAnnouncements = publicQuery.isLoading || (isAuthenticated && myQuery.isLoading);
+  const isFetchingAnnouncements = publicQuery.isFetching || (isAuthenticated && myQuery.isFetching);
 
-  const hasError = publicQuery.isError && announcements.length === 0;
+  const shouldShowInitialLoading = isLoadingAnnouncements && announcements.length === 0;
+  const shouldShowRefreshing = isFetchingAnnouncements && announcements.length > 0;
+
+  const hasError = publicQuery.isError && myQuery.isError && announcements.length === 0;
 
   const isEmpty =
-    !publicQuery.isLoading &&
-    !publicQuery.isFetching &&
+    !isLoadingAnnouncements &&
+    !isFetchingAnnouncements &&
     !hasError &&
     pinnedAnnouncements.length === 0 &&
     regularAnnouncements.length === 0;
 
   const handleRetry = () => {
     publicQuery.refetch();
+    if (isAuthenticated) {
+      myQuery.refetch();
+    }
   };
 
   return (
