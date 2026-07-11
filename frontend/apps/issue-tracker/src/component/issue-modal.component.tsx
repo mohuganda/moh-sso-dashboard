@@ -5,7 +5,7 @@ import {
   useLazyGetDataSetElementsQuery
 } from "../../../data-visualizer/src/pages/modals/data-model/data-model.ts";
 import {useCallback, useEffect, useState} from "react";
-import { useCreateIssueMutation, useUpdateIssueMutation } from "@moh-sso/api";
+import { useCreateIssueMutation, useUpdateIssueMutation } from "../api";
 import {IssueTypes, Priority} from "../lib/constants.ts";
 import {useSelector} from "react-redux";
 import type {Issue} from "../pages/issue-tracker.component.tsx";

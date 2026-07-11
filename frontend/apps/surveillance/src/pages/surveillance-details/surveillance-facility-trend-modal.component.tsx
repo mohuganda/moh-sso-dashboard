@@ -1,4 +1,9 @@
-import { InlineLoading, Modal } from "@carbon/react";
+import { useEffect } from "react";
+
+import { InlineLoading } from "@carbon/react";
+
+import { useModal } from "@moh-sso/ui";
+
 import WeeklyCasesChart from "./surveillance-weekly-cases.component";
 
 type WeeklyCasesPoint = {
@@ -40,21 +45,26 @@ export function FacilityTrendModal({
   loading = false,
   onClose,
 }: FacilityTrendModalProps) {
-  return (
-    <Modal
-      open={open}
-      modalHeading={
-        selectedFacilityTrend
-          ? `${selectedFacilityTrend.facilityName} Case Trend`
-          : "Facility Case Trend"
-      }
-      primaryButtonText="Close"
-      secondaryButtonText=""
-      onRequestClose={onClose}
-      onRequestSubmit={onClose}
-      size="lg"
-    >
-      {selectedFacilityTrend ? (
+  const { openModal, closeModal } = useModal();
+
+  useEffect(() => {
+    if (!open) {
+      closeModal();
+      return;
+    }
+
+    const closeTrendModal = () => {
+      closeModal();
+      onClose();
+    };
+
+    openModal({
+      title: selectedFacilityTrend
+        ? `${selectedFacilityTrend.facilityName} Case Trend`
+        : "Facility Case Trend",
+      onClose: onClose,
+      size: "lg",
+      content: selectedFacilityTrend ? (
         <div className="disease-details-page__section">
           <dl className="disease-details-page__stats">
             <div>
@@ -88,7 +98,24 @@ export function FacilityTrendModal({
             />
           )}
         </div>
-      ) : null}
-    </Modal>
-  );
+      ) : null,
+      primaryAction: {
+        label: "Close",
+        onClick: closeTrendModal,
+      },
+    });
+  }, [
+    closeModal,
+    loading,
+    onClose,
+    open,
+    openModal,
+    selectedFacilityPeakWeek,
+    selectedFacilityTotalCases,
+    selectedFacilityTrend,
+    selectedFacilityTrendData,
+    trendSubjectLabel,
+  ]);
+
+  return null;
 }

@@ -3,8 +3,15 @@ import React from "react";
 import ReactDOMClient, { type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 
+import { authLoaded, loginSuccess, type AuthUser } from "@moh-sso/auth";
 import { store } from "@moh-sso/state";
-import { HeaderPanelProvider, ModalProvider, MohThemeProvider, ToastProvider } from "@moh-sso/ui";
+import {
+  HeaderPanelProvider,
+  MicrofrontendErrorBoundary,
+  ModalProvider,
+  MohThemeProvider,
+  ToastProvider,
+} from "@moh-sso/ui";
 
 import type { MicrofrontendLifecycle } from "./lifecycle";
 import type { MicrofrontendMountProps, MicrofrontendRuntimeProps } from "./props";
@@ -28,7 +35,16 @@ type SingleSpaReactFactory = (options: {
   ReactDOMClient: typeof ReactDOMClient;
   rootComponent: ComponentType<MicrofrontendMountProps>;
   domElementGetter: (props: MicrofrontendMountProps) => HTMLElement;
+  errorBoundary: (
+    error: Error,
+    errorInfo: React.ErrorInfo,
+    props: MicrofrontendMountProps,
+  ) => ReactNode;
 }) => MicrofrontendLifecycle;
+
+function getAppName(RootComponent: ComponentType<MicrofrontendRuntimeProps>) {
+  return RootComponent.displayName || RootComponent.name || "microfrontend";
+}
 
 function withProviders(children: ReactNode, options: Required<ReactLifecycleOptions>) {
   let tree = children;
@@ -58,7 +74,43 @@ function renderRoot(
   options: Required<ReactLifecycleOptions>,
 ) {
   const { domElement: _domElement, ...runtimeProps } = props;
-  return withProviders(<RootComponent {...runtimeProps} />, options);
+  return withProviders(
+    <MicrofrontendErrorBoundary appName={getAppName(RootComponent)}>
+      <RootComponent {...runtimeProps} />
+    </MicrofrontendErrorBoundary>,
+    options,
+  );
+}
+
+function renderLifecycleError(
+  RootComponent: ComponentType<MicrofrontendRuntimeProps>,
+  error: Error,
+  errorInfo: React.ErrorInfo,
+  props: MicrofrontendMountProps,
+) {
+  void errorInfo;
+  void props;
+
+  return (
+    <div className="moh-microfrontend-error-boundary" role="alert">
+      Unable to load {getAppName(RootComponent)}. {error.message}
+    </div>
+  );
+}
+
+function isAuthUser(value: unknown): value is AuthUser {
+  return Boolean(value && typeof value === "object" && "id" in value && "username" in value);
+}
+
+function hydrateAuthState(props: MicrofrontendMountProps) {
+  const auth = props.auth ?? window.__MOH_SSO_AUTH__;
+
+  if (auth?.isAuthenticated && isAuthUser(auth.user)) {
+    store.dispatch(loginSuccess({ user: auth.user }));
+    return;
+  }
+
+  store.dispatch(authLoaded());
 }
 
 function createManualLifecycle(
@@ -72,6 +124,7 @@ function createManualLifecycle(
       return undefined;
     },
     async mount(props) {
+      hydrateAuthState(props);
       root = ReactDOMClient.createRoot(props.domElement);
       root.render(renderRoot(RootComponent, props, options));
     },
@@ -112,8 +165,13 @@ export function createReactMicrofrontendLifecycle(
       ? singleSpaReact({
           React,
           ReactDOMClient,
-          rootComponent: (props) => renderRoot(RootComponent, props, options),
+          rootComponent: (props) => {
+            hydrateAuthState(props);
+            return renderRoot(RootComponent, props, options);
+          },
           domElementGetter: ({ domElement }) => domElement,
+          errorBoundary: (error, errorInfo, props) =>
+            renderLifecycleError(RootComponent, error, errorInfo, props),
         })
       : manualLifecycle;
 

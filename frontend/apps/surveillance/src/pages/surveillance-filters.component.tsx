@@ -1,5 +1,5 @@
 import { Select, SelectItem } from "@carbon/react";
-import "./surveillance.css";
+import "./surveillance.scss";
 
 type FilterOption = {
   value: string;

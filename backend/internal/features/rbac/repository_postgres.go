@@ -489,6 +489,255 @@ func (r *postgresRepository) ListRealmRoleSystemRoles(ctx context.Context) ([]Re
 	return values, rows.Err()
 }
 
+func (r *postgresRepository) ListGroups(ctx context.Context) ([]Group, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT g.id::text, COALESCE(g.keycloak_group_id, ''), g.path, g.name,
+		       COALESCE(g.display_name, ''), COALESCE(g.description, ''), g.enabled,
+		       COUNT(DISTINCT gm.user_id)::int
+		FROM ihp_rbac_groups g
+		LEFT JOIN ihp_rbac_group_members gm ON gm.group_id = g.id
+		GROUP BY g.id, g.keycloak_group_id, g.path, g.name, g.display_name, g.description, g.enabled
+		ORDER BY g.path
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	groups := make([]Group, 0)
+	for rows.Next() {
+		group, err := scanGroup(rows)
+		if err != nil {
+			return nil, err
+		}
+		if err := r.hydrateGroup(ctx, &group); err != nil {
+			return nil, err
+		}
+		groups = append(groups, group)
+	}
+	return groups, rows.Err()
+}
+
+func (r *postgresRepository) GetGroup(ctx context.Context, groupID string) (Group, error) {
+	var group Group
+	err := r.db.QueryRowContext(ctx, `
+		SELECT g.id::text, COALESCE(g.keycloak_group_id, ''), g.path, g.name,
+		       COALESCE(g.display_name, ''), COALESCE(g.description, ''), g.enabled,
+		       COUNT(DISTINCT gm.user_id)::int
+		FROM ihp_rbac_groups g
+		LEFT JOIN ihp_rbac_group_members gm ON gm.group_id = g.id
+		WHERE g.id = $1::uuid
+		GROUP BY g.id, g.keycloak_group_id, g.path, g.name, g.display_name, g.description, g.enabled
+	`, groupID).Scan(
+		&group.ID,
+		&group.KeycloakGroupID,
+		&group.Path,
+		&group.Name,
+		&group.DisplayName,
+		&group.Description,
+		&group.Enabled,
+		&group.MemberCount,
+	)
+	if err != nil {
+		return Group{}, err
+	}
+	if err := r.hydrateGroup(ctx, &group); err != nil {
+		return Group{}, err
+	}
+	return group, nil
+}
+
+func (r *postgresRepository) ListGroupsForUser(ctx context.Context, userID string, username string, email string) ([]Group, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT g.id::text, COALESCE(g.keycloak_group_id, ''), g.path, g.name,
+		       COALESCE(g.display_name, ''), COALESCE(g.description, ''), g.enabled,
+		       COUNT(DISTINCT all_members.user_id)::int
+		FROM ihp_rbac_groups g
+		JOIN ihp_rbac_group_members gm ON gm.group_id = g.id
+		LEFT JOIN ihp_rbac_group_members all_members ON all_members.group_id = g.id
+		WHERE g.enabled = TRUE
+		  AND (
+			(NULLIF($1, '') IS NOT NULL AND gm.user_id = $1)
+			OR (NULLIF($2, '') IS NOT NULL AND lower(gm.username) = lower($2))
+			OR (NULLIF($3, '') IS NOT NULL AND lower(gm.email) = lower($3))
+		  )
+		GROUP BY g.id, g.keycloak_group_id, g.path, g.name, g.display_name, g.description, g.enabled
+		ORDER BY g.path
+	`, userID, username, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	groups := make([]Group, 0)
+	for rows.Next() {
+		group, err := scanGroup(rows)
+		if err != nil {
+			return nil, err
+		}
+		if err := r.hydrateGroup(ctx, &group); err != nil {
+			return nil, err
+		}
+		groups = append(groups, group)
+	}
+	return groups, rows.Err()
+}
+
+func (r *postgresRepository) UpsertGroup(ctx context.Context, input GroupInput) (Group, error) {
+	enabled := true
+	if input.Enabled != nil {
+		enabled = *input.Enabled
+	}
+	var group Group
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO ihp_rbac_groups (
+			keycloak_group_id, path, name, display_name, description, enabled
+		) VALUES (
+			NULLIF($1, ''), $2, $3, NULLIF($4, ''), NULLIF($5, ''), $6
+		)
+		ON CONFLICT (path) DO UPDATE SET
+			keycloak_group_id = COALESCE(EXCLUDED.keycloak_group_id, ihp_rbac_groups.keycloak_group_id),
+			name = EXCLUDED.name,
+			display_name = EXCLUDED.display_name,
+			description = EXCLUDED.description,
+			enabled = EXCLUDED.enabled,
+			updated_at = now()
+		RETURNING id::text, COALESCE(keycloak_group_id, ''), path, name,
+		          COALESCE(display_name, ''), COALESCE(description, ''), enabled, 0::int
+	`, input.KeycloakGroupID, input.Path, input.Name, input.DisplayName, input.Description, enabled).Scan(
+		&group.ID,
+		&group.KeycloakGroupID,
+		&group.Path,
+		&group.Name,
+		&group.DisplayName,
+		&group.Description,
+		&group.Enabled,
+		&group.MemberCount,
+	)
+	if err != nil {
+		return Group{}, err
+	}
+	return r.GetGroup(ctx, group.ID)
+}
+
+func (r *postgresRepository) ListGroupMembers(ctx context.Context, groupID string) ([]GroupMember, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT user_id, COALESCE(username, ''), COALESCE(email, '')
+		FROM ihp_rbac_group_members
+		WHERE group_id = $1::uuid
+		ORDER BY COALESCE(username, email, user_id)
+	`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	members := make([]GroupMember, 0)
+	for rows.Next() {
+		var member GroupMember
+		if err := rows.Scan(&member.UserID, &member.Username, &member.Email); err != nil {
+			return nil, err
+		}
+		members = append(members, member)
+	}
+	return members, rows.Err()
+}
+
+func (r *postgresRepository) ReplaceGroupMembers(ctx context.Context, groupID string, members []GroupMember) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if _, err = tx.ExecContext(ctx, `DELETE FROM ihp_rbac_group_members WHERE group_id = $1::uuid`, groupID); err != nil {
+		return err
+	}
+	for _, member := range members {
+		if strings.TrimSpace(member.UserID) == "" {
+			continue
+		}
+		if _, err = tx.ExecContext(ctx, `
+			INSERT INTO ihp_rbac_group_members (group_id, user_id, username, email)
+			VALUES ($1::uuid, $2, NULLIF($3, ''), NULLIF($4, ''))
+			ON CONFLICT (group_id, user_id) DO UPDATE SET
+				username = EXCLUDED.username,
+				email = EXCLUDED.email
+		`, groupID, member.UserID, member.Username, member.Email); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (r *postgresRepository) AssignGroupPermission(ctx context.Context, groupID string, permissionKey string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO ihp_rbac_group_permissions (group_id, permission_id)
+		SELECT $1::uuid, id
+		FROM ihp_permissions
+		WHERE permission_key = $2
+		ON CONFLICT DO NOTHING
+	`, groupID, permissionKey)
+	return err
+}
+
+func (r *postgresRepository) RemoveGroupPermission(ctx context.Context, groupID string, permissionKey string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM ihp_rbac_group_permissions gp
+		USING ihp_permissions p
+		WHERE gp.permission_id = p.id
+		  AND gp.group_id = $1::uuid
+		  AND p.permission_key = $2
+	`, groupID, permissionKey)
+	return err
+}
+
+func (r *postgresRepository) AssignGroupRealmRole(ctx context.Context, groupID string, realmRole string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO ihp_rbac_group_realm_roles (group_id, realm_role)
+		VALUES ($1::uuid, $2)
+		ON CONFLICT DO NOTHING
+	`, groupID, realmRole)
+	return err
+}
+
+func (r *postgresRepository) RemoveGroupRealmRole(ctx context.Context, groupID string, realmRole string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM ihp_rbac_group_realm_roles
+		WHERE group_id = $1::uuid AND realm_role = $2
+	`, groupID, realmRole)
+	return err
+}
+
+func (r *postgresRepository) AssignGroupSystemRole(ctx context.Context, groupID string, clientID string, roleName string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO ihp_rbac_group_system_roles (group_id, system_role_id)
+		SELECT $1::uuid, sr.id
+		FROM ihp_system_roles sr
+		JOIN ihp_systems s ON s.id = sr.system_id
+		WHERE s.client_id = $2 AND sr.role_name = $3
+		ON CONFLICT DO NOTHING
+	`, groupID, clientID, roleName)
+	return err
+}
+
+func (r *postgresRepository) RemoveGroupSystemRole(ctx context.Context, groupID string, clientID string, roleName string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM ihp_rbac_group_system_roles gr
+		USING ihp_system_roles sr, ihp_systems s
+		WHERE gr.system_role_id = sr.id
+		  AND sr.system_id = s.id
+		  AND gr.group_id = $1::uuid
+		  AND s.client_id = $2
+		  AND sr.role_name = $3
+	`, groupID, clientID, roleName)
+	return err
+}
+
 func (r *postgresRepository) AddSystemAccessRole(ctx context.Context, clientID string, roleName string) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO ihp_system_access_roles (system_id, role_name)
@@ -847,6 +1096,96 @@ func (r *postgresRepository) listPermissionsForRealmRole(ctx context.Context, re
 	return scanPermissions(rows)
 }
 
+func (r *postgresRepository) hydrateGroup(ctx context.Context, group *Group) error {
+	if group == nil || strings.TrimSpace(group.ID) == "" {
+		return nil
+	}
+	realmRoles, err := r.listRealmRolesForGroup(ctx, group.ID)
+	if err != nil {
+		return err
+	}
+	systemRoles, err := r.listSystemRolesForGroup(ctx, group.ID)
+	if err != nil {
+		return err
+	}
+	permissions, err := r.listPermissionsForGroup(ctx, group.ID)
+	if err != nil {
+		return err
+	}
+	group.RealmRoles = realmRoles
+	group.SystemRoles = systemRoles
+	group.Permissions = permissions
+	return nil
+}
+
+func (r *postgresRepository) listRealmRolesForGroup(ctx context.Context, groupID string) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT realm_role
+		FROM ihp_rbac_group_realm_roles
+		WHERE group_id = $1::uuid
+		ORDER BY realm_role
+	`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	roles := make([]string, 0)
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+	return roles, rows.Err()
+}
+
+func (r *postgresRepository) listSystemRolesForGroup(ctx context.Context, groupID string) ([]GroupSystemRole, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT sr.id::text, s.client_id, sr.role_name, COALESCE(sr.display_name, '')
+		FROM ihp_rbac_group_system_roles gr
+		JOIN ihp_system_roles sr ON sr.id = gr.system_role_id
+		JOIN ihp_systems s ON s.id = sr.system_id
+		WHERE gr.group_id = $1::uuid
+		ORDER BY s.client_id, sr.role_name
+	`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	roles := make([]GroupSystemRole, 0)
+	for rows.Next() {
+		var role GroupSystemRole
+		if err := rows.Scan(&role.RoleID, &role.ClientID, &role.RoleName, &role.DisplayName); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+	return roles, rows.Err()
+}
+
+func (r *postgresRepository) listPermissionsForGroup(ctx context.Context, groupID string) ([]Permission, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT p.id::text, p.permission_key, COALESCE(p.display_name, ''), COALESCE(p.description, ''), COALESCE(p.category, ''), COALESCE(p.status, 'active'),
+		       COUNT(DISTINCT srp.system_role_id)::int,
+		       COUNT(DISTINCT rrp.realm_role)::int
+		FROM ihp_rbac_group_permissions gp
+		JOIN ihp_permissions p ON p.id = gp.permission_id
+		LEFT JOIN ihp_system_role_permissions srp ON srp.permission_id = p.id
+		LEFT JOIN ihp_realm_role_permissions rrp ON rrp.permission_id = p.id
+		WHERE gp.group_id = $1::uuid
+		GROUP BY p.id, p.permission_key, p.display_name, p.description, p.category, p.status
+		ORDER BY p.permission_key
+	`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPermissions(rows)
+}
+
 type permissionScanner interface {
 	Scan(dest ...any) error
 }
@@ -872,6 +1211,21 @@ func scanPermission(row permissionScanner) (Permission, error) {
 		&permission.RealmRoleUsageCount,
 	)
 	return permission, err
+}
+
+func scanGroup(row permissionScanner) (Group, error) {
+	var group Group
+	err := row.Scan(
+		&group.ID,
+		&group.KeycloakGroupID,
+		&group.Path,
+		&group.Name,
+		&group.DisplayName,
+		&group.Description,
+		&group.Enabled,
+		&group.MemberCount,
+	)
+	return group, err
 }
 
 func scanPermissions(rows *sql.Rows) ([]Permission, error) {

@@ -64,25 +64,16 @@ function copyDirectory(from, to) {
 }
 
 assertRequired(join(root, "apps", "shell", "dist", "index.html"));
-copyDirectory(
-  join(root, "apps", "shell", "dist"),
-  join(root, "dist"),
-);
+copyDirectory(join(root, "apps", "shell", "dist"), join(root, "dist"));
 
 for (const app of apps) {
   assertRequired(join(root, "apps", app, "dist", "single-spa.js"));
-  copyDirectory(
-    join(root, "apps", app, "dist"),
-    join(root, "dist", "mf", app),
-  );
+  copyDirectory(join(root, "apps", app, "dist"), join(root, "dist", "mf", app));
 }
 
 for (const pkg of packages) {
   assertRequired(join(root, "packages", pkg, "dist", "index.js"));
-  copyDirectory(
-    join(root, "packages", pkg, "dist"),
-    join(root, "dist", "packages", pkg),
-  );
+  copyDirectory(join(root, "packages", pkg, "dist"), join(root, "dist", "packages", pkg));
 }
 
 copyRequired(
@@ -101,10 +92,14 @@ if (basePath && basePath !== "/") {
     "packages",
     "config.js",
     "config.production.js",
+    "icons",
     "import-map.json",
     "import-map.local.json",
     "index.html",
     "logo.png",
+    "manifest.webmanifest",
+    "offline.html",
+    "sw.js",
     "version-manifest.json",
   ]) {
     const source = join(root, "dist", entry);
@@ -118,5 +113,13 @@ if (basePath && basePath !== "/") {
         copyFileSync(source, target);
       }
     }
+  }
+
+  for (const entry of readdirSync(join(root, "dist"), { withFileTypes: true })) {
+    if (!entry.isFile() || !/^workbox-[A-Za-z0-9_-]+\.js(\.map)?$/.test(entry.name)) {
+      continue;
+    }
+
+    copyRequired(join(root, "dist", entry.name), join(baseDir, entry.name));
   }
 }

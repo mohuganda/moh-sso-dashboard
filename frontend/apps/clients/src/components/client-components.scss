@@ -1,0 +1,50 @@
+.client-filters {
+  width: 100%;
+  justify-content: flex-end;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+}
+
+.client-filters__field--status {
+  width: 11.25rem;
+}
+
+.client-filters__field--type {
+  width: 12.5rem;
+}
+
+.client-bulk-actions {
+  margin-bottom: 1rem;
+}
+
+.client-confirm-modal {
+  display: grid;
+  gap: 1rem;
+}
+
+.client-confirm-modal__description {
+  color: var(--cds-text-secondary);
+}
+
+.client-confirm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 672px) {
+  .client-filters {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .client-filters__field--status,
+  .client-filters__field--type {
+    width: 100%;
+  }
+
+  .client-confirm-modal__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

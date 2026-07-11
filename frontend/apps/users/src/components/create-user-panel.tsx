@@ -13,10 +13,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   useCreateUserMutation,
-  useGetAssignableUserAccessQuery,
   useUpdateUserMutation,
-} from "@moh-sso/api";
-import type { User } from "@moh-sso/types";
+} from "../api";
+import { useGetAssignableUserAccessQuery } from "@moh-sso/rbac/api";
+import type { User } from "../types";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
 
 export type UserFormMode = "create" | "edit";

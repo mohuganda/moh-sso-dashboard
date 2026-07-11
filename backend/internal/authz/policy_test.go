@@ -85,6 +85,22 @@ func TestOutbreakManagementViewerGetsReadOnlyPermissions(t *testing.T) {
 	}
 }
 
+func TestOutbreakManagementSurveillanceRoleDoesNotGrantDataStatisticsSystem(t *testing.T) {
+	ctx := NewContext("user-1", nil, map[string][]string{
+		SystemOutbreakManagement: {OutbreakManagementSurveillanceOfficer},
+	})
+
+	if !ctx.HasPermission(PermissionSurveillanceRead) {
+		t.Fatal("expected outbreak surveillance officer to have surveillance read")
+	}
+	if !ctx.HasPermission(PermissionSurveillanceImport) {
+		t.Fatal("expected outbreak surveillance officer to have surveillance import")
+	}
+	if ctx.HasSystem(SystemDataStatistics) {
+		t.Fatal("did not expect outbreak-only role to expose Data & Statistics")
+	}
+}
+
 func TestOutbreakManagementSuperAdminGetsElevatedPermissions(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, map[string][]string{
 		SystemOutbreakManagement: {OutbreakManagementSuperAdmin},
@@ -112,6 +128,29 @@ func TestDataStatisticsAccessGetsReportBrowserPermission(t *testing.T) {
 	}
 	if !ctx.HasSystem(SystemDataStatistics) {
 		t.Fatal("expected Data & Statistics to be accessible")
+	}
+}
+
+func TestDataStatisticsSurveillanceRolesGrantScopedSurveillanceAccess(t *testing.T) {
+	ctx := NewContext("user-1", nil, map[string][]string{
+		SystemDataStatistics: {DataStatisticsAccess, SurveillanceManager},
+	})
+
+	for _, permission := range []Permission{
+		PermissionSurveillanceRead,
+		PermissionSurveillanceImport,
+		PermissionSurveillanceManageLocations,
+		PermissionSurveillanceManageAlerts,
+	} {
+		if !ctx.HasPermission(permission) {
+			t.Fatalf("expected Data & Statistics surveillance manager to have %s", permission)
+		}
+	}
+	if !ctx.HasSystem(SystemDataStatistics) {
+		t.Fatal("expected Data & Statistics system access")
+	}
+	if ctx.HasSystem(SystemOutbreakManagement) {
+		t.Fatal("did not expect Data & Statistics surveillance role to expose outbreak management")
 	}
 }
 

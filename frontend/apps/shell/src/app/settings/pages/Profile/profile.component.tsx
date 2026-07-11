@@ -12,7 +12,7 @@ import {
 } from "@carbon/react";
 import { CheckmarkFilled, Save, Security, UserAvatar, UserRole, Time } from "@carbon/react/icons";
 
-import { useMeQuery, useUpdateProfileMutation } from "@moh-sso/api";
+import { useMeQuery, useUpdateProfileMutation } from "@moh-sso/auth";
 import UserSessionsTable from "@/app/settings/sessions/UserSessionsTable";
 
 import "./profile.scss";

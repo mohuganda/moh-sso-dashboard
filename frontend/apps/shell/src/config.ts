@@ -4,8 +4,32 @@ type ShellRuntimeConfig = {
   microfrontendMountMode?: "hybrid" | "orchestrated";
 };
 
-export const APP_CONFIG = (
+const DEFAULT_DEV_CONFIG: Required<ShellRuntimeConfig> = {
+  singleSpaOrchestration: false,
+  microfrontendMode: "local",
+  microfrontendMountMode: "hybrid",
+};
+
+const runtimeConfig = (
   window as Window & {
     __APP_CONFIG__?: ShellRuntimeConfig;
   }
-).__APP_CONFIG__;
+).__APP_CONFIG__; 
+
+const isLocalDevelopmentHost =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "::1";
+
+export const APP_CONFIG: Required<ShellRuntimeConfig> = isLocalDevelopmentHost
+  ? {
+      ...DEFAULT_DEV_CONFIG,
+      ...runtimeConfig,
+      singleSpaOrchestration: false,
+      microfrontendMode: "local",
+      microfrontendMountMode: "hybrid",
+    }
+  : {
+      ...DEFAULT_DEV_CONFIG,
+      ...runtimeConfig,
+    };

@@ -20,6 +20,7 @@ import (
 	emailRepo "github.com/moh-sso-dashboard/internal/repository/email"
 	metricsRepo "github.com/moh-sso-dashboard/internal/repository/metrics"
 	notificationDeliveryRepo "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
+	notificationPreferencesRepo "github.com/moh-sso-dashboard/internal/repository/notification_preferences"
 	notificationsRepo "github.com/moh-sso-dashboard/internal/repository/notifications"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
 )
@@ -31,8 +32,9 @@ type repositories struct {
 	Metrics                 metricsRepo.MetricsRepository
 	Notifications           notificationsRepo.NotificationsRepository
 	NotificationDelivery    notificationDeliveryRepo.NotificationDeliveryRepository
+	NotificationPreferences notificationPreferencesRepo.NotificationPreferencesRepository
 	Documents               documentRepo.DocumentRepository
-	DocumentStockImports    documentRepo.StockImportRepository
+	DocumentTemplateImports documentRepo.TemplateImportRepository
 	DocumentFiles           documentRepo.FileRepository
 	DocumentTemplates       documentTemplateRepo.DocumentTemplateRepository
 	DocumentTemplateColumns documentTemplateRepo.DocumentTemplateColumnRepository
@@ -65,8 +67,9 @@ func buildRepositories(
 		Metrics:                 metricsRepo.NewMetricsRepository(cfg, store, *appLogger),
 		Notifications:           notificationsRepo.NewNotificationsRepository(store, *appLogger),
 		NotificationDelivery:    notificationDeliveryRepo.NewNotificationDeliveryRepository(store, *appLogger),
+		NotificationPreferences: notificationPreferencesRepo.NewNotificationPreferencesRepository(store),
 		Documents:               documentRepo.NewDocumentRepository(cfg, store, *appLogger),
-		DocumentStockImports:    documentRepo.NewStockImportRepository(),
+		DocumentTemplateImports: documentRepo.NewTemplateImportRepository(),
 		DocumentFiles:           documentRepo.NewFileRepository(),
 		DocumentTemplates:       documentTemplateRepo.NewDocumentTemplateRepository(store),
 		DocumentTemplateColumns: documentTemplateRepo.NewDocumentTemplateColumnRepository(store),

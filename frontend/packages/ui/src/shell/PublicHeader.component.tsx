@@ -8,7 +8,7 @@ import {
 } from "@carbon/react";
 import type React from "react";
 
-import "./public-header.css";
+import "./public-header.scss";
 import imagePath from "../assets/logo.png";
 
 type PublicHeaderProps = {

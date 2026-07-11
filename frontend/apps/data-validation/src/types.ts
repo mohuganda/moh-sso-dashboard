@@ -25,3 +25,15 @@ export type RuleFormState = {
   value: string;
   description: string;
 };
+
+export type ValidationRulePayload = {
+  table_id?: string;
+  category: "custom";
+  code: string;
+  severity: Severity;
+  description: string;
+  column: string;
+  op: Operator;
+  value?: string;
+  value_column?: string;
+};

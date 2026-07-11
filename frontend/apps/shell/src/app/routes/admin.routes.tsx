@@ -6,6 +6,7 @@ import { PermissionRoute } from "./guards/PermissionRoute";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import AdminLayout from "../layouts/admin/admin-layout.component";
 import HomePage from "@/app/home/pages/home.component";
+import NotificationDeliveriesPage from "@/app/notifications/pages/notification-deliveries.component";
 import SystemsPage from "@/app/systems/pages/systems.component";
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
 import { PERMISSIONS, type Permission, type System } from "@moh-sso/auth";
@@ -133,6 +134,16 @@ export const adminRoutes = (
           basename="/admin/emails"
         />,
       )}
+    />
+    <Route
+      path="notifications/deliveries"
+      element={
+        <AdminRoute>
+          <PermissionRoute permission={PERMISSIONS.notificationsRead}>
+            <NotificationDeliveriesPage />
+          </PermissionRoute>
+        </AdminRoute>
+      }
     />
     <Route
       path="rbac"

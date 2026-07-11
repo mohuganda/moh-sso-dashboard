@@ -1,6 +1,8 @@
 import { Button, InlineLoading } from "@carbon/react";
 import { useState } from "react";
 
+import "./user-components.scss";
+
 type EnableUserModalProps = {
   username: string;
   enabled: boolean;
@@ -21,13 +23,13 @@ export function EnableUserModal({ username, enabled, onConfirm, onCancel }: Enab
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="user-confirm-modal">
       <p>
         Are you sure you want to <strong>{enabled ? "disable" : "enable"}</strong> the user{" "}
         <strong>{username}</strong>?
       </p>
 
-      <p style={{ opacity: 0.75 }}>
+      <p className="user-confirm-modal__description">
         {enabled
           ? "The user will no longer be able to log in."
           : "The user will regain access to the platform."}
@@ -35,13 +37,7 @@ export function EnableUserModal({ username, enabled, onConfirm, onCancel }: Enab
 
       {loading && <InlineLoading description={enabled ? "Disabling user…" : "Enabling user…"} />}
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-        }}
-      >
+      <div className="user-confirm-modal__actions">
         <Button kind="secondary" onClick={onCancel} disabled={loading}>
           Cancel
         </Button>

@@ -10,6 +10,7 @@ import {
   TableCell,
 } from "@carbon/react";
 import { ChartLine } from "@carbon/react/icons";
+import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useEffect, useMemo, useState } from "react";
 
 type FacilityWeeklyMetricRow = {
@@ -208,34 +209,38 @@ export function FacilitiesActionTable({
 
                         return (
                           <TableCell key={cell.id}>
-                            <Button
-                              kind="ghost"
-                              size="sm"
-                              renderIcon={ChartLine}
-                              iconDescription="View facility trend"
-                              disabled={!onViewFacilityTrend}
-                              onClick={() => {
-                                if (!raw || !onViewFacilityTrend) return;
+                            <PermissionGuard permission={PERMISSIONS.surveillanceRead}>
+                              <Button
+                                kind="ghost"
+                                size="sm"
+                                renderIcon={ChartLine}
+                                iconDescription="View facility trend"
+                                disabled={!onViewFacilityTrend}
+                                onClick={() => {
+                                  if (!raw || !onViewFacilityTrend) return;
 
-                                onViewFacilityTrend({
-                                  facilityId: raw.facility_id ? String(raw.facility_id) : undefined,
-                                  facilityName: raw.facility_name ?? "--",
-                                  regionId: raw.region_id ? String(raw.region_id) : undefined,
-                                  districtId: raw.district_id ? String(raw.district_id) : undefined,
-                                  subCountyId: raw.sub_county_id
-                                    ? String(raw.sub_county_id)
-                                    : undefined,
-                                  diseaseId: raw.disease_id ? String(raw.disease_id) : undefined,
-                                  indicatorId: raw.indicator_id
-                                    ? String(raw.indicator_id)
-                                    : undefined,
-                                  diseaseName: raw.disease_name ?? undefined,
-                                  indicatorName: raw.indicator_name ?? undefined,
-                                });
-                              }}
-                            >
-                              View trends
-                            </Button>
+                                  onViewFacilityTrend({
+                                    facilityId: raw.facility_id
+                                      ? String(raw.facility_id)
+                                      : undefined,
+                                    facilityName: raw.facility_name ?? "--",
+                                    regionId: raw.region_id ? String(raw.region_id) : undefined,
+                                    districtId: raw.district_id ? String(raw.district_id) : undefined,
+                                    subCountyId: raw.sub_county_id
+                                      ? String(raw.sub_county_id)
+                                      : undefined,
+                                    diseaseId: raw.disease_id ? String(raw.disease_id) : undefined,
+                                    indicatorId: raw.indicator_id
+                                      ? String(raw.indicator_id)
+                                      : undefined,
+                                    diseaseName: raw.disease_name ?? undefined,
+                                    indicatorName: raw.indicator_name ?? undefined,
+                                  });
+                                }}
+                              >
+                                View trends
+                              </Button>
+                            </PermissionGuard>
                           </TableCell>
                         );
                       }

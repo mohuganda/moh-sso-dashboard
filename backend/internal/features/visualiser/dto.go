@@ -8,6 +8,8 @@ type DataValuesRequest struct {
 	OU           []string `json:"ou"`
 	PE           []string `json:"pe"`
 	DX           []string `json:"dx"`
+	LevelOfCare  []string `json:"levelOfCare"`
+	Ownership    []string `json:"ownership"`
 	StartDate    string   `json:"startDate"`
 	EndDate      string   `json:"endDate"`
 	OrgunitLevel any      `json:"orgunitLevel"`

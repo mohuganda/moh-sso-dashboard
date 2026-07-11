@@ -1,66 +1,45 @@
-CREATE TABLE epi_weeks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  epi_year INT NOT NULL,
-  epi_week INT NOT NULL CHECK (epi_week BETWEEN 1 AND 53),
-  week_start_date DATE,
-  week_end_date DATE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(epi_year, epi_week)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS epi_weeks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    epi_year INT NOT NULL,
+    epi_week INT NOT NULL CHECK (epi_week BETWEEN 1 AND 53),
+    week_start_date DATE NOT NULL,
+    week_end_date DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (epi_year, epi_week),
+    CHECK (week_end_date = week_start_date + 6)
 );
 
-
-INSERT INTO epi_weeks (epi_year, epi_week, week_start_date, week_end_date)
-VALUES
-  (2025, 1,  '2024-12-30', '2025-01-05'),
-  (2025, 2,  '2025-01-06', '2025-01-12'),
-  (2025, 3,  '2025-01-13', '2025-01-19'),
-  (2025, 4,  '2025-01-20', '2025-01-26'),
-  (2025, 5,  '2025-01-27', '2025-02-02'),
-  (2025, 6,  '2025-02-03', '2025-02-09'),
-  (2025, 7,  '2025-02-10', '2025-02-16'),
-  (2025, 8,  '2025-02-17', '2025-02-23'),
-  (2025, 9,  '2025-02-24', '2025-03-02'),
-  (2025, 10, '2025-03-03', '2025-03-09'),
-  (2025, 11, '2025-03-10', '2025-03-16'),
-  (2025, 12, '2025-03-17', '2025-03-23'),
-  (2025, 13, '2025-03-24', '2025-03-30'),
-  (2025, 14, '2025-03-31', '2025-04-06'),
-  (2025, 15, '2025-04-07', '2025-04-13'),
-  (2025, 16, '2025-04-14', '2025-04-20'),
-  (2025, 17, '2025-04-21', '2025-04-27'),
-  (2025, 18, '2025-04-28', '2025-05-04'),
-  (2025, 19, '2025-05-05', '2025-05-11'),
-  (2025, 20, '2025-05-12', '2025-05-18'),
-  (2025, 21, '2025-05-19', '2025-05-25'),
-  (2025, 22, '2025-05-26', '2025-06-01'),
-  (2025, 23, '2025-06-02', '2025-06-08'),
-  (2025, 24, '2025-06-09', '2025-06-15'),
-  (2025, 25, '2025-06-16', '2025-06-22'),
-  (2025, 26, '2025-06-23', '2025-06-29'),
-  (2025, 27, '2025-06-30', '2025-07-06'),
-  (2025, 28, '2025-07-07', '2025-07-13'),
-  (2025, 29, '2025-07-14', '2025-07-20'),
-  (2025, 30, '2025-07-21', '2025-07-27'),
-  (2025, 31, '2025-07-28', '2025-08-03'),
-  (2025, 32, '2025-08-04', '2025-08-10'),
-  (2025, 33, '2025-08-11', '2025-08-17'),
-  (2025, 34, '2025-08-18', '2025-08-24'),
-  (2025, 35, '2025-08-25', '2025-08-31'),
-  (2025, 36, '2025-09-01', '2025-09-07'),
-  (2025, 37, '2025-09-08', '2025-09-14'),
-  (2025, 38, '2025-09-15', '2025-09-21'),
-  (2025, 39, '2025-09-22', '2025-09-28'),
-  (2025, 40, '2025-09-29', '2025-10-05'),
-  (2025, 41, '2025-10-06', '2025-10-12'),
-  (2025, 42, '2025-10-13', '2025-10-19'),
-  (2025, 43, '2025-10-20', '2025-10-26'),
-  (2025, 44, '2025-10-27', '2025-11-02'),
-  (2025, 45, '2025-11-03', '2025-11-09'),
-  (2025, 46, '2025-11-10', '2025-11-16'),
-  (2025, 47, '2025-11-17', '2025-11-23'),
-  (2025, 48, '2025-11-24', '2025-11-30'),
-  (2025, 49, '2025-12-01', '2025-12-07'),
-  (2025, 50, '2025-12-08', '2025-12-14'),
-  (2025, 51, '2025-12-15', '2025-12-21'),
-  (2025, 52, '2025-12-22', '2025-12-28')
-ON CONFLICT (epi_year, epi_week) DO NOTHING;
+WITH current_epi_year AS (
+    SELECT EXTRACT(ISOYEAR FROM CURRENT_DATE)::INT AS epi_year
+),
+generated_weeks AS (
+    SELECT
+        current_epi_year.epi_year,
+        week_start::DATE AS week_start_date,
+        (week_start + INTERVAL '6 days')::DATE AS week_end_date
+    FROM current_epi_year
+    CROSS JOIN LATERAL generate_series(
+        TO_DATE(current_epi_year.epi_year || '-01-1', 'IYYY-IW-ID'),
+        TO_DATE(current_epi_year.epi_year || '-53-1', 'IYYY-IW-ID'),
+        INTERVAL '1 week'
+    ) AS week_start
+)
+INSERT INTO epi_weeks (
+    epi_year,
+    epi_week,
+    week_start_date,
+    week_end_date
+)
+SELECT
+    EXTRACT(ISOYEAR FROM week_start_date)::INT,
+    EXTRACT(WEEK FROM week_start_date)::INT,
+    week_start_date,
+    week_end_date
+FROM generated_weeks
+WHERE EXTRACT(ISOYEAR FROM week_start_date)::INT = epi_year
+ON CONFLICT (epi_year, epi_week)
+DO UPDATE SET
+    week_start_date = EXCLUDED.week_start_date,
+    week_end_date = EXCLUDED.week_end_date;

@@ -14,6 +14,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	emailutil "github.com/moh-sso-dashboard/internal/email"
+	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	userRepository "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	models "github.com/moh-sso-dashboard/internal/model"
@@ -25,6 +26,7 @@ import (
 type Service struct {
 	repo          Repository
 	userRepo      userRepository.UserRepository
+	rbacRepo      rbacfeature.Repository
 	notifications sharedservice.NotificationsService
 	storage       storage.Storage
 	cfg           *config.Config
@@ -63,6 +65,45 @@ func NewService(
 		storage:       fileStorage,
 		cfg:           appConfig,
 	}
+}
+
+func (s *Service) SetRBACRepository(repo rbacfeature.Repository) {
+	if s == nil {
+		return
+	}
+	s.rbacRepo = repo
+}
+
+func (s *Service) ValidateGroupAudience(ctx context.Context, groupIDs []uuid.UUID) error {
+	if len(groupIDs) == 0 {
+		return nil
+	}
+
+	if s == nil {
+		return errors.New("announcement service is nil")
+	}
+
+	if s.rbacRepo == nil {
+		return errors.New("rbac repository is required for group audience")
+	}
+
+	seen := make(map[uuid.UUID]struct{}, len(groupIDs))
+	for _, groupID := range groupIDs {
+		if groupID == uuid.Nil {
+			return errors.New("group id is required")
+		}
+
+		if _, exists := seen[groupID]; exists {
+			continue
+		}
+		seen[groupID] = struct{}{}
+
+		if _, err := s.rbacRepo.GetGroup(ctx, groupID.String()); err != nil {
+			return fmt.Errorf("validate group audience [%s]: %w", groupID, err)
+		}
+	}
+
+	return nil
 }
 
 // ---------------------------------
@@ -109,7 +150,11 @@ func (s *Service) CreateAnnouncementFromInput(
 	ctx context.Context,
 	input CreateAnnouncementInput,
 ) (db.Announcement, error) {
-	return s.CreateAnnouncement(ctx, db.CreateAnnouncementParams{
+	if err := s.validateAnnouncementSMSInput(input.NotifyBySMS, input.SMSMessage); err != nil {
+		return db.Announcement{}, err
+	}
+
+	item, err := s.CreateAnnouncement(ctx, db.CreateAnnouncementParams{
 		Title:         strings.TrimSpace(input.Title),
 		Message:       strings.TrimSpace(input.Message),
 		Summary:       input.Summary,
@@ -124,8 +169,15 @@ func (s *Service) CreateAnnouncementFromInput(
 		ExpiresAt:     input.ExpiresAt,
 		AudienceType:  dbAnnouncementAudienceType(input.AudienceType),
 		NotifyByEmail: input.NotifyByEmail,
+		NotifyBySms:   input.NotifyBySMS,
+		SmsMessage:    normalizeSMSMessage(input.SMSMessage),
 		CreatedBy:     input.CreatedBy,
 	})
+	if err != nil {
+		return db.Announcement{}, err
+	}
+
+	return item, nil
 }
 
 func (s *Service) GetAnnouncementByID(
@@ -192,7 +244,11 @@ func (s *Service) UpdateAnnouncementFromInput(
 	ctx context.Context,
 	input UpdateAnnouncementInput,
 ) (db.Announcement, error) {
-	return s.UpdateAnnouncement(ctx, db.UpdateAnnouncementParams{
+	if err := s.validateAnnouncementSMSInput(input.NotifyBySMS, input.SMSMessage); err != nil {
+		return db.Announcement{}, err
+	}
+
+	item, err := s.UpdateAnnouncement(ctx, db.UpdateAnnouncementParams{
 		ID:            input.ID,
 		Title:         strings.TrimSpace(input.Title),
 		Message:       strings.TrimSpace(input.Message),
@@ -207,11 +263,18 @@ func (s *Service) UpdateAnnouncementFromInput(
 		ExpiresAt:     input.ExpiresAt,
 		AudienceType:  dbAnnouncementAudienceType(input.AudienceType),
 		NotifyByEmail: input.NotifyByEmail,
+		NotifyBySms:   input.NotifyBySMS,
+		SmsMessage:    normalizeSMSMessage(input.SMSMessage),
 		UpdatedBy: uuid.NullUUID{
 			UUID:  input.UpdatedBy,
 			Valid: input.UpdatedBy != uuid.Nil,
 		},
 	})
+	if err != nil {
+		return db.Announcement{}, err
+	}
+
+	return item, nil
 }
 
 func (s *Service) DeleteAnnouncement(
@@ -796,6 +859,10 @@ func (s *Service) PublishAnnouncementNow(
 		}),
 	}
 
+	if err := s.attachAnnouncementSMSDelivery(ctx, &notification, item, nil); err != nil {
+		return item, err
+	}
+
 	if s.shouldSendAnnouncementEmail(item) {
 		recipients, err := s.resolveAnnouncementEmailRecipients(ctx, item)
 		if err != nil {
@@ -905,6 +972,15 @@ func (s *Service) ScheduleAnnouncement(
 			"title":           item.Title,
 			"status":          announcementStatusString(item.Status),
 		}),
+	}
+
+	var scheduledAt *time.Time
+	if item.PublishAt.Valid {
+		publishAt := item.PublishAt.Time
+		scheduledAt = &publishAt
+	}
+	if err := s.attachAnnouncementSMSDelivery(ctx, &notification, item, scheduledAt); err != nil {
+		return item, err
 	}
 
 	if s.shouldSendAnnouncementEmail(item) {
@@ -1434,6 +1510,82 @@ func (s *Service) ListUserAudience(
 	return items, nil
 }
 
+func (s *Service) AddGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	groupID uuid.UUID,
+) error {
+	if s == nil {
+		return errors.New("announcement service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("announcement repository is nil")
+	}
+
+	if announcementID == uuid.Nil {
+		return errors.New("announcement id is required")
+	}
+
+	if groupID == uuid.Nil {
+		return errors.New("group id is required")
+	}
+
+	if err := s.repo.AddGroupAudience(ctx, announcementID, groupID); err != nil {
+		return fmt.Errorf("add group audience: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) ReplaceGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	groupIDs []uuid.UUID,
+) error {
+	if s == nil {
+		return errors.New("announcement service is nil")
+	}
+
+	if s.repo == nil {
+		return errors.New("announcement repository is nil")
+	}
+
+	if announcementID == uuid.Nil {
+		return errors.New("announcement id is required")
+	}
+
+	if err := s.repo.ReplaceGroupAudience(ctx, announcementID, groupIDs); err != nil {
+		return fmt.Errorf("replace group audience: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) ListGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]uuid.UUID, error) {
+	if s == nil {
+		return nil, errors.New("announcement service is nil")
+	}
+
+	if s.repo == nil {
+		return nil, errors.New("announcement repository is nil")
+	}
+
+	if announcementID == uuid.Nil {
+		return nil, errors.New("announcement id is required")
+	}
+
+	items, err := s.repo.ListGroupAudience(ctx, announcementID)
+	if err != nil {
+		return nil, fmt.Errorf("list group audience: %w", err)
+	}
+
+	return items, nil
+}
+
 // ---------------------------------
 // Announcement email recipient resolution
 // ---------------------------------
@@ -1486,6 +1638,14 @@ func (s *Service) resolveAnnouncementEmailRecipients(
 		}
 
 		return s.resolveUsersByClientAccess(ctx, clientIDs)
+
+	case "SPECIFIC_GROUPS":
+		groupIDs, err := s.repo.ListGroupAudience(ctx, item.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list announcement group audience: %w", err)
+		}
+
+		return s.resolveUsersByRBACGroups(ctx, groupIDs)
 
 	default:
 		return nil, fmt.Errorf("unsupported announcement audience type: %s", audienceType)
@@ -1614,6 +1774,79 @@ func (s *Service) resolveUsersByClientAccess(
 	return announcementRecipientMapToSlice(seen), nil
 }
 
+func (s *Service) resolveUsersByRBACGroups(
+	ctx context.Context,
+	groupIDs []uuid.UUID,
+) ([]AnnouncementEmailRecipient, error) {
+	if s.rbacRepo == nil {
+		return nil, errors.New("rbac repository is required for group audience resolution")
+	}
+
+	seen := make(map[string]AnnouncementEmailRecipient)
+
+	for _, groupID := range groupIDs {
+		if groupID == uuid.Nil {
+			continue
+		}
+
+		members, err := s.rbacRepo.ListGroupMembers(ctx, groupID.String())
+		if err != nil {
+			return nil, fmt.Errorf("list members for group %s: %w", groupID.String(), err)
+		}
+
+		for _, member := range members {
+			recipient, ok, err := s.announcementRecipientFromGroupMember(member)
+			if err != nil {
+				return nil, err
+			}
+
+			if !ok {
+				continue
+			}
+
+			seen[strings.ToLower(recipient.Email)] = recipient
+		}
+	}
+
+	return announcementRecipientMapToSlice(seen), nil
+}
+
+func (s *Service) announcementRecipientFromGroupMember(
+	member rbacfeature.GroupMember,
+) (AnnouncementEmailRecipient, bool, error) {
+	userID := uuid.Nil
+	parsedUserID, err := uuid.Parse(strings.TrimSpace(member.UserID))
+	if err == nil && parsedUserID != uuid.Nil {
+		userID = parsedUserID
+		user, err := s.userRepo.GetUserByID(parsedUserID)
+		if err != nil {
+			return AnnouncementEmailRecipient{}, false, fmt.Errorf("get group member user %s: %w", parsedUserID, err)
+		}
+
+		if user != nil {
+			recipient, ok := announcementRecipientFromUser(*user)
+			return recipient, ok, nil
+		}
+	}
+
+	email := strings.TrimSpace(member.Email)
+	if email == "" {
+		return AnnouncementEmailRecipient{}, false, nil
+	}
+
+	fullName := strings.TrimSpace(member.Username)
+	if fullName == "" {
+		fullName = email
+	}
+
+	return AnnouncementEmailRecipient{
+		ID:       userID,
+		Email:    email,
+		Username: strings.TrimSpace(member.Username),
+		FullName: fullName,
+	}, true, nil
+}
+
 func announcementRecipientFromUser(user models.User) (AnnouncementEmailRecipient, bool) {
 	if !user.Enabled {
 		return AnnouncementEmailRecipient{}, false
@@ -1736,18 +1969,81 @@ func (s *Service) shouldSendAnnouncementEmail(item db.Announcement) bool {
 	return item.NotifyByEmail && !item.EmailNotificationSentAt.Valid
 }
 
-func (s *Service) attachAnnouncementEmailDelivery(
-	notification *models.Notification,
-	item db.Announcement,
-	recipients []AnnouncementEmailRecipient,
-	options AnnouncementEmailOptions,
-) {
-	if notification == nil {
-		return
+func (s *Service) shouldSendAnnouncementSMS(item db.Announcement) bool {
+	if !item.NotifyBySms || item.SmsNotificationQueuedAt.Valid {
+		return false
 	}
 
-	deliveries := []models.NotificationDeliveryRequest{
-		{
+	if s == nil || s.cfg == nil {
+		return false
+	}
+
+	return s.cfg.SMS.Enabled
+}
+
+func (s *Service) validateAnnouncementSMSInput(
+	notifyBySMS bool,
+	smsMessage sql.NullString,
+) error {
+	if !notifyBySMS {
+		return nil
+	}
+
+	message := strings.TrimSpace(smsMessage.String)
+	if message == "" {
+		return nil
+	}
+
+	maxLength := 160
+	if s != nil && s.cfg != nil && s.cfg.SMS.MaxLength > 0 {
+		maxLength = s.cfg.SMS.MaxLength
+	}
+
+	if len([]rune(message)) > maxLength {
+		return fmt.Errorf("sms message exceeds max length of %d characters", maxLength)
+	}
+
+	return nil
+}
+
+func normalizeSMSMessage(value sql.NullString) sql.NullString {
+	message := strings.TrimSpace(value.String)
+	if message == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: message, Valid: true}
+}
+
+func (s *Service) attachAnnouncementSMSDelivery(
+	ctx context.Context,
+	notification *models.Notification,
+	item db.Announcement,
+	scheduledAt *time.Time,
+) error {
+	if notification == nil {
+		return nil
+	}
+
+	if !s.shouldSendAnnouncementSMS(item) {
+		return nil
+	}
+
+	emailRecipients, err := s.resolveAnnouncementEmailRecipients(ctx, item)
+	if err != nil {
+		return fmt.Errorf("resolve announcement sms audience: %w", err)
+	}
+
+	recipients, err := s.resolveAnnouncementSMSRecipients(ctx, emailRecipients)
+	if err != nil {
+		return fmt.Errorf("resolve announcement sms recipients: %w", err)
+	}
+
+	if len(recipients) == 0 {
+		return nil
+	}
+
+	if len(notification.Deliveries) == 0 {
+		notification.Deliveries = append(notification.Deliveries, models.NotificationDeliveryRequest{
 			Channel: models.NotificationChannelInApp,
 			Recipient: map[string]any{
 				"target_role": notification.TargetRole,
@@ -1759,7 +2055,135 @@ func (s *Service) attachAnnouncementEmailDelivery(
 				"severity": notification.Severity,
 			},
 			MaxAttempts: 1,
-		},
+		})
+	}
+
+	body := s.announcementSMSMessage(item)
+	for _, recipient := range recipients {
+		phone := strings.TrimSpace(recipient.PhoneNumber)
+		if phone == "" {
+			continue
+		}
+
+		notification.Deliveries = append(notification.Deliveries, models.NotificationDeliveryRequest{
+			Channel: models.NotificationChannelSMS,
+			Recipient: map[string]any{
+				"user_id": recipient.ID.String(),
+				"phone":   phone,
+			},
+			Payload: map[string]any{
+				"body":            body,
+				"announcement_id": item.ID.String(),
+				"title":           item.Title,
+			},
+			ScheduledAt: scheduledAt,
+			MaxAttempts: 3,
+		})
+	}
+
+	if _, err := s.repo.MarkSMSNotificationQueued(ctx, item.ID); err != nil {
+		return fmt.Errorf("mark announcement sms notification queued: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) resolveAnnouncementSMSRecipients(
+	ctx context.Context,
+	emailRecipients []AnnouncementEmailRecipient,
+) ([]AnnouncementSMSRecipient, error) {
+	if len(emailRecipients) == 0 {
+		return nil, nil
+	}
+
+	userIDs := make([]uuid.UUID, 0, len(emailRecipients))
+	recipientByID := make(map[uuid.UUID]AnnouncementEmailRecipient, len(emailRecipients))
+	for _, recipient := range emailRecipients {
+		if recipient.ID == uuid.Nil {
+			continue
+		}
+		userIDs = append(userIDs, recipient.ID)
+		recipientByID[recipient.ID] = recipient
+	}
+
+	items, err := s.repo.ListSMSRecipientsForUsers(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range items {
+		if base, ok := recipientByID[items[i].ID]; ok {
+			items[i].Username = base.Username
+			items[i].FullName = base.FullName
+		}
+	}
+
+	return items, nil
+}
+
+func (s *Service) announcementSMSMessage(
+	item db.Announcement,
+) string {
+	if item.SmsMessage.Valid && strings.TrimSpace(item.SmsMessage.String) != "" {
+		return strings.TrimSpace(item.SmsMessage.String)
+	}
+
+	message := strings.TrimSpace(item.Summary.String)
+	if message == "" {
+		message = strings.TrimSpace(item.Message)
+	}
+	if message == "" {
+		message = strings.TrimSpace(item.Title)
+	}
+
+	prefix := strings.TrimSpace(s.platformName())
+	if prefix == "" {
+		prefix = "MOH"
+	}
+
+	body := fmt.Sprintf("%s: %s", prefix, message)
+	maxLength := 160
+	if s != nil && s.cfg != nil && s.cfg.SMS.MaxLength > 0 {
+		maxLength = s.cfg.SMS.MaxLength
+	}
+
+	runes := []rune(body)
+	if len(runes) <= maxLength {
+		return body
+	}
+
+	if maxLength <= 1 {
+		return string(runes[:maxLength])
+	}
+
+	return string(runes[:maxLength-1]) + "…"
+}
+
+func (s *Service) attachAnnouncementEmailDelivery(
+	notification *models.Notification,
+	item db.Announcement,
+	recipients []AnnouncementEmailRecipient,
+	options AnnouncementEmailOptions,
+) {
+	if notification == nil {
+		return
+	}
+
+	deliveries := notification.Deliveries
+	if len(deliveries) == 0 {
+		deliveries = append(deliveries, models.NotificationDeliveryRequest{
+			Channel: models.NotificationChannelInApp,
+			Recipient: map[string]any{
+				"target_role": notification.TargetRole,
+			},
+			Payload: map[string]any{
+				"title":    notification.Title,
+				"message":  notification.Message,
+				"type":     notification.Type,
+				"severity": notification.Severity,
+			},
+			MaxAttempts: 1,
+		})
 	}
 
 	for _, recipient := range recipients {

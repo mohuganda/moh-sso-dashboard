@@ -16,7 +16,7 @@ import {
 } from "@carbon/react";
 import type { FileUploaderItemProps } from "@carbon/react";
 
-import { useCreateDocumentMutation, useListStorageLocationsQuery } from "@moh-sso/api";
+import { useCreateDocumentMutation, useListStorageLocationsQuery } from "../../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import {
   ACCEPTED_EXTENSIONS,
@@ -26,7 +26,7 @@ import {
   isAcceptedFile,
   validateProcessTypeAgainstFile,
 } from "@moh-sso/utils";
-import { DOCUMENT_PROCESS_TYPE_OPTIONS, type DocumentProcessType } from "@moh-sso/types";
+import { DOCUMENT_PROCESS_TYPE_OPTIONS, type DocumentProcessType } from "../../types";
 
 import "./file-upload.scss";
 
@@ -283,7 +283,7 @@ const FileUpload = () => {
     <PermissionGuard permission={PERMISSIONS.documentsWrite}>
       <>
         <FormItem className="uploader-form-item">
-          <div style={{ marginBottom: "1rem" }}>
+          <div className="file-upload__intro">
             <p className="cds--file--label">UPLOAD A FILE &amp; PREVIEW DATA</p>
 
             <p className="cds--label-description">
@@ -329,33 +329,14 @@ const FileUpload = () => {
             )}
 
             {file && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.75rem",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div className="file-upload__file-summary">
                 <Tag type="blue">Selected file</Tag>
 
                 <span>{file.name}</span>
 
-                <span
-                  style={{
-                    color: "#6f6f6f",
-                  }}
-                >
-                  {formatFileSize(file.size)}
-                </span>
+                <span className="file-upload__file-meta">{formatFileSize(file.size)}</span>
 
-                <span
-                  style={{
-                    color: "#6f6f6f",
-                  }}
-                >
-                  {parsedData.length} rows parsed
-                </span>
+                <span className="file-upload__file-meta">{parsedData.length} rows parsed</span>
               </div>
             )}
 
@@ -415,23 +396,9 @@ const FileUpload = () => {
 
         {parsedData.length > 0 && (
           <div className="preview-container">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                gap: "1rem",
-                flexWrap: "wrap",
-                marginBottom: "1rem",
-              }}
-            >
+            <div className="file-upload-preview__header">
               <div>
-                <p
-                  className="cds--file--label"
-                  style={{
-                    marginBottom: "0.5rem",
-                  }}
-                >
+                <p className="cds--file--label file-upload-preview__label">
                   PREVIEW: {file?.name}
                 </p>
 
@@ -441,40 +408,12 @@ const FileUpload = () => {
               </div>
             </div>
 
-            <div
-              style={{
-                overflowX: "auto",
-                maxHeight: 400,
-                border: "1px solid #e0e0e0",
-                borderRadius: 4,
-                background: "#fff",
-              }}
-            >
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                }}
-              >
-                <thead
-                  style={{
-                    backgroundColor: "#f4f4f4",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                  }}
-                >
+            <div className="file-upload-preview__table-scroll">
+              <table className="file-upload-preview__table">
+                <thead>
                   <tr>
                     {headers.map((header) => (
-                      <th
-                        key={header}
-                        style={{
-                          borderBottom: "1px solid #e0e0e0",
-                          padding: 8,
-                          textAlign: "left",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
+                      <th key={header}>
                         {header}
                       </th>
                     ))}
@@ -485,14 +424,7 @@ const FileUpload = () => {
                   {previewRows.map((row, rowIndex) => (
                     <tr key={rowIndex}>
                       {headers.map((header) => (
-                        <td
-                          key={`${rowIndex}-${header}`}
-                          style={{
-                            borderBottom: "1px solid #f0f0f0",
-                            padding: 8,
-                            verticalAlign: "top",
-                          }}
-                        >
+                        <td key={`${rowIndex}-${header}`}>
                           {String(row[header] ?? "")}
                         </td>
                       ))}
@@ -502,17 +434,7 @@ const FileUpload = () => {
               </table>
             </div>
 
-            <div
-              className="file-upload-btn-container"
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                alignItems: "center",
-                gap: "1rem",
-                marginTop: "1rem",
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="file-upload-btn-container">
               {isUploading && <InlineLoading description="Uploading to backend..." />}
 
               <Button kind="secondary" onClick={resetUploader} disabled={isUploading}>

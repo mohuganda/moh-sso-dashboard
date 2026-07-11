@@ -11,12 +11,10 @@ import {
   InlineLoading,
   OverflowMenu,
   OverflowMenuItem,
-  Modal,
 } from "@carbon/react";
-import { useState } from "react";
 
-import { useListClientRolesQuery, useDeleteClientRoleMutation } from "@moh-sso/api";
-import { useToast } from "@moh-sso/ui";
+import { useListClientRolesQuery, useDeleteClientRoleMutation } from "../../api";
+import { useModal, useToast } from "@moh-sso/ui";
 
 import { CreateClientRoleForm } from "./create-client-role-form";
 
@@ -34,22 +32,42 @@ const headers = [
 
 export function ClientRolesPanel({ clientUuid, clientId }: Props) {
   const toast = useToast();
-  const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
+  const { openModal, closeModal } = useModal();
 
   const { data: roles = [], isLoading } = useListClientRolesQuery(clientUuid);
 
   const [deleteRole, { isLoading: deletingRole }] = useDeleteClientRoleMutation();
 
-  const handleDelete = async () => {
-    if (!roleToDelete) return;
-
+  const handleDelete = async (roleName: string) => {
     try {
-      await deleteRole({ clientUuid, roleName: roleToDelete }).unwrap();
-      toast.success("Role deleted", `"${roleToDelete}" was removed`);
-      setRoleToDelete(null);
+      await deleteRole({ clientUuid, roleName }).unwrap();
+      closeModal();
+      toast.success("Role deleted", `"${roleName}" was removed`);
     } catch {
       toast.error("Failed to delete role", "Please try again");
     }
+  };
+
+  const handleDeleteRequest = (roleName: string) => {
+    openModal({
+      title: "Delete client role",
+      onClose: closeModal,
+      content: (
+        <p>
+          Are you sure you want to delete the role <strong>{roleName}</strong>?
+        </p>
+      ),
+      primaryAction: {
+        label: deletingRole ? "Deleting..." : "Delete role",
+        kind: "danger",
+        disabled: deletingRole,
+        onClick: () => void handleDelete(roleName),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
+    });
   };
 
   if (isLoading) {
@@ -112,7 +130,9 @@ export function ClientRolesPanel({ clientUuid, clientId }: Props) {
                                   const roleName = row.cells.find(
                                     (cell) => cell.info.header === "roleName",
                                   )?.value;
-                                  if (typeof roleName === "string") setRoleToDelete(roleName);
+                                  if (typeof roleName === "string") {
+                                    handleDeleteRequest(roleName);
+                                  }
                                 }}
                               />
                             </OverflowMenu>
@@ -129,21 +149,6 @@ export function ClientRolesPanel({ clientUuid, clientId }: Props) {
           )}
         </DataTable>
       </Tile>
-
-      <Modal
-        open={roleToDelete !== null}
-        modalHeading="Delete client role"
-        primaryButtonText="Delete role"
-        secondaryButtonText="Cancel"
-        danger
-        primaryButtonDisabled={deletingRole}
-        onRequestSubmit={handleDelete}
-        onRequestClose={() => setRoleToDelete(null)}
-      >
-        <p>
-          Are you sure you want to delete the role <strong>{roleToDelete}</strong>?
-        </p>
-      </Modal>
     </Stack>
   );
 }

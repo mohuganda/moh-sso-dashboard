@@ -2,7 +2,7 @@ import { Button, TextInput } from "@carbon/react";
 import { useMemo, useState } from "react";
 
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
-import type { RbacPermission } from "@moh-sso/types";
+import type { RbacPermission } from "../types";
 
 type PermissionCatalogPanelProps = {
   permissions: RbacPermission[];

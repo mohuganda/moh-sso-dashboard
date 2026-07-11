@@ -1,5 +1,7 @@
 import { Dropdown, Stack } from "@carbon/react";
 
+import "./client-components.scss";
+
 type StatusFilter = "all" | "enabled" | "disabled";
 type TypeFilter = "all" | "public" | "confidential";
 
@@ -29,12 +31,7 @@ export function ClientFilters({
     <Stack
       orientation="horizontal"
       gap={5}
-      style={{
-        width: "100%",
-        justifyContent: "flex-end",
-        alignItems: "flex-end",
-        flexWrap: "nowrap",
-      }}
+      className="client-filters"
     >
       {/* Status */}
       <Dropdown
@@ -45,7 +42,7 @@ export function ClientFilters({
         items={[...statusOptions]}
         selectedItem={statusOptions.find((i) => i.id === status)}
         itemToString={(item) => item?.label ?? ""}
-        style={{ width: 180 }}
+        className="client-filters__field--status"
         onChange={({ selectedItem }) => {
           onStatusChange(selectedItem?.id as StatusFilter);
         }}
@@ -60,7 +57,7 @@ export function ClientFilters({
         items={[...typeOptions]}
         selectedItem={typeOptions.find((i) => i.id === type)}
         itemToString={(item) => item?.label ?? ""}
-        style={{ width: 200 }}
+        className="client-filters__field--type"
         onChange={({ selectedItem }) => {
           onTypeChange(selectedItem?.id as TypeFilter);
         }}

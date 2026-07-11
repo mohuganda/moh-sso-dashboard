@@ -25,3 +25,9 @@
   padding: 0 1rem;
   overflow: hidden;
 }
+
+@media (max-width: 672px) {
+  .moh-breadcrumb-bar__content {
+    padding: 0 0.75rem;
+  }
+}

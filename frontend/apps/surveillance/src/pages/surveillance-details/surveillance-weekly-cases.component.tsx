@@ -2,7 +2,7 @@ import { SimpleBarChart } from "@carbon/charts-react";
 import { ScaleTypes } from "@carbon/charts";
 import "@carbon/charts/styles.css";
 import { useMemo } from "react";
-import "./surveillance-details.css";
+import "./surveillance-details.scss";
 
 type WeeklyCasesPoint = {
   week: string | number;

@@ -1,21 +1,31 @@
 # API Package
 
-`@moh-sso/api` contains shared frontend API clients and RTK Query endpoints.
+`@moh-sso/api` contains the shared RTK Query base API used by frontend apps.
 
 ## Responsibilities
 
 - Provide the shared `baseApi`.
-- Export API hooks used by apps and shell modules.
-- Keep endpoint definitions out of feature UI where they are reused.
-- Centralize request/response integration with backend APIs.
+- Centralize request credentials, refresh handling, and backend base URL behavior.
+- Keep feature endpoint definitions out of the shared package.
+- Let each app inject its own endpoints into `baseApi` from its local `src/api` folder.
 
 ## Usage
 
-Import API hooks from the package public entrypoint:
+Feature modules should import `baseApi`, inject endpoints locally, and export their hooks from
+their own app package.
 
 ```ts
-import { useListUsersQuery } from "@moh-sso/api";
+import { baseApi } from "@moh-sso/api";
+
+export const usersApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    // feature-owned endpoints
+  }),
+});
 ```
+
+Consumers should import hooks from the owning module, for example `@moh-sso/users`,
+`@moh-sso/clients`, or a local `src/api` barrel inside that module.
 
 ## Development
 

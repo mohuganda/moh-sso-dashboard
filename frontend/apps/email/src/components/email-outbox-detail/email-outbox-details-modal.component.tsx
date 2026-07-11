@@ -1,12 +1,10 @@
-import { Modal, Stack, Tag } from "@carbon/react";
+import { Stack, Tag } from "@carbon/react";
 
-import type { EmailOutboxItem } from "@moh-sso/types";
+import type { EmailOutboxItem } from "../../types";
 import "./email-outbox-details.scss";
 
 type Props = {
-  email: EmailOutboxItem | null;
-  open: boolean;
-  onClose: () => void;
+  email: EmailOutboxItem;
 };
 
 function formatDate(value?: string | null) {
@@ -57,86 +55,84 @@ function DetailItem({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-export function EmailDetailsModal({ email, open, onClose }: Props) {
+export function EmailDetailsContent({ email }: Props) {
   return (
-    <Modal open={open} modalHeading="Email details" passiveModal onRequestClose={onClose} size="lg">
-      {email && (
-        <Stack gap={5}>
-          <dl className="email-details">
-            <DetailItem label="Subject">{getSubject(email)}</DetailItem>
+    <Stack gap={5}>
+      <dl className="email-details">
+        <DetailItem label="Subject">{getSubject(email)}</DetailItem>
 
-            <DetailItem label="To">{getRecipients(email)}</DetailItem>
+        <DetailItem label="To">{getRecipients(email)}</DetailItem>
 
-            {email.message?.cc?.length ? (
-              <DetailItem label="CC">{getCcRecipients(email)}</DetailItem>
-            ) : null}
+        {email.message?.cc?.length ? (
+          <DetailItem label="CC">{getCcRecipients(email)}</DetailItem>
+        ) : null}
 
-            {email.message?.bcc?.length ? (
-              <DetailItem label="BCC">{getBccRecipients(email)}</DetailItem>
-            ) : null}
+        {email.message?.bcc?.length ? (
+          <DetailItem label="BCC">{getBccRecipients(email)}</DetailItem>
+        ) : null}
 
-            <DetailItem label="Status">
-              <Tag type={getStatusTagType(email.status)}>{email.status}</Tag>
-            </DetailItem>
+        <DetailItem label="Status">
+          <Tag type={getStatusTagType(email.status)}>{email.status}</Tag>
+        </DetailItem>
 
-            <DetailItem label="Attempts">
-              {email.attempts ?? 0}/{email.max_attempts ?? "—"}
-            </DetailItem>
+        <DetailItem label="Attempts">
+          {email.attempts ?? 0}/{email.max_attempts ?? "—"}
+        </DetailItem>
 
-            <DetailItem label="Scheduled at">{formatDate(email.scheduled_at)}</DetailItem>
+        <DetailItem label="Scheduled at">{formatDate(email.scheduled_at)}</DetailItem>
 
-            <DetailItem label="Locked at">{formatDate(email.locked_at)}</DetailItem>
+        <DetailItem label="Locked at">{formatDate(email.locked_at)}</DetailItem>
 
-            <DetailItem label="Sent at">{formatDate(email.sent_at)}</DetailItem>
+        <DetailItem label="Sent at">{formatDate(email.sent_at)}</DetailItem>
 
-            <DetailItem label="Created at">{formatDate(email.created_at)}</DetailItem>
+        <DetailItem label="Created at">{formatDate(email.created_at)}</DetailItem>
 
-            <DetailItem label="Updated at">{formatDate(email.updated_at)}</DetailItem>
+        <DetailItem label="Updated at">{formatDate(email.updated_at)}</DetailItem>
 
-            {email.message?.template_name ? (
-              <DetailItem label="Template">
-                <Tag type="blue">{email.message.template_name}</Tag>
-              </DetailItem>
-            ) : null}
-          </dl>
+        {email.message?.template_name ? (
+          <DetailItem label="Template">
+            <Tag type="blue">{email.message.template_name}</Tag>
+          </DetailItem>
+        ) : null}
+      </dl>
 
-          {email.message?.template_data ? (
-            <section className="email-details__section">
-              <h4 className="email-details__section-title">Template data</h4>
-              <pre className="email-details__json">{formatJson(email.message.template_data)}</pre>
-            </section>
-          ) : null}
+      {email.message?.template_data ? (
+        <section className="email-details__section">
+          <h4 className="email-details__section-title">Template data</h4>
+          <pre className="email-details__json">{formatJson(email.message.template_data)}</pre>
+        </section>
+      ) : null}
 
-          {email.last_error && (
-            <section className="email-details__section">
-              <h4 className="email-details__section-title">Last error</h4>
-              <pre className="email-outbox-page__error">{email.last_error}</pre>
-            </section>
-          )}
-
-          {email.message?.attachments?.length ? (
-            <section className="email-details__section">
-              <h4 className="email-details__section-title">Attachments</h4>
-
-              <ul className="email-details__attachments">
-                {email.message.attachments.map((attachment, index) => (
-                  <li key={`${attachment.file_name}-${index}`}>
-                    <strong>{attachment.file_name || "Attachment"}</strong>
-                    {attachment.content_type ? <span> · {attachment.content_type}</span> : null}
-                    {attachment.path ? <div>{attachment.path}</div> : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          <section className="email-details__section">
-            <h4 className="email-details__section-title">Message</h4>
-            <pre className="email-outbox-page__body">{getBody(email)}</pre>
-          </section>
-        </Stack>
+      {email.last_error && (
+        <section className="email-details__section">
+          <h4 className="email-details__section-title">Last error</h4>
+          <pre className="email-outbox-page__error">{email.last_error}</pre>
+        </section>
       )}
-    </Modal>
+
+      {email.message?.attachments?.length ? (
+        <section className="email-details__section">
+          <h4 className="email-details__section-title">Attachments</h4>
+
+          <ul className="email-details__attachments">
+            {email.message.attachments.map((attachment, index) => (
+              <li key={`${attachment.file_name}-${index}`}>
+                <strong>{attachment.file_name || "Attachment"}</strong>
+                {attachment.content_type ? <span> · {attachment.content_type}</span> : null}
+                {attachment.inline ? <span> · inline</span> : null}
+                {attachment.content_id ? <span> · cid:{attachment.content_id}</span> : null}
+                {attachment.path ? <div>{attachment.path}</div> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="email-details__section">
+        <h4 className="email-details__section-title">Message</h4>
+        <pre className="email-outbox-page__body">{getBody(email)}</pre>
+      </section>
+    </Stack>
   );
 }
 

@@ -1,6 +1,9 @@
 name: Backend Release
 
 on:
+  push:
+    tags:
+      - "backend/v*.*.*"
   workflow_dispatch:
     inputs:
       version:
@@ -32,6 +35,7 @@ jobs:
           fetch-depth: 0
 
       - name: Validate semantic version
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           VERSION="${{ inputs.version }}"
@@ -44,6 +48,23 @@ jobs:
             echo "Tag ${TAG} already exists"
             exit 1
           fi
+
+      - name: Resolve release version from tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#backend/v}"
+          fi
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid semantic version: $VERSION"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -75,7 +96,7 @@ jobs:
       - name: Build release artifacts
         shell: bash
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ steps.version.outputs.version }}"
           COMMIT="$(git rev-parse HEAD)"
           BUILD_TIME="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           LDFLAGS="-s -w \
@@ -115,20 +136,41 @@ jobs:
           subject-path: backend/dist/moh-sso-dashboard-*
 
       - name: Create verified component tag
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
-          TAG="backend/v${{ inputs.version }}"
+          TAG="backend/v${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Backend release ${{ inputs.version }}"
+          git tag -a "$TAG" -m "Backend release ${{ steps.version.outputs.version }}"
           git push origin "$TAG"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: backend/v${{ inputs.version }}
-          name: Backend ${{ inputs.version }}
+          tag_name: backend/v${{ steps.version.outputs.version }}
+          name: Backend ${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: backend/dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write release metadata
+        shell: bash
+        run: |
+          cat > backend/dist/release-metadata.json <<EOF
+          {
+            "release_tag": "backend/v${{ steps.version.outputs.version }}",
+            "image_tag": "${{ steps.version.outputs.version }}",
+            "version": "${{ steps.version.outputs.version }}",
+            "commit": "$(git rev-parse HEAD)",
+            "build_time": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+            "dirty": false
+          }
+          EOF
+
+      - name: Upload release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-release-metadata
+          path: backend/dist/release-metadata.json

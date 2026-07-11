@@ -35,16 +35,16 @@ func makeJWT(t *testing.T, claims map[string]interface{}) string {
 // Realistic Keycloak access token claims (realm MoH, client dashboard-web).
 func keycloakAccessTokenClaims(sub string) map[string]interface{} {
 	claims := map[string]interface{}{
-		"exp":            1765553397,
-		"iat":            1765551597,
-		"jti":            "f59af150-9c4c-4a13-9862-3bdce2587673",
-		"iss":            "https://auth.health.go.ug/realms/MoH",
-		"aud":            "account",
-		"typ":            "Bearer",
-		"azp":            "dashboard-web",
-		"sid":            "27971a2b-9a40-435d-8d94-96584d973084",
-		"scope":          "openid profile email",
-		"realm_access":   map[string]interface{}{"roles": []string{"user"}},
+		"exp":          1765553397,
+		"iat":          1765551597,
+		"jti":          "f59af150-9c4c-4a13-9862-3bdce2587673",
+		"iss":          "https://auth.health.go.ug/realms/MoH",
+		"aud":          "account",
+		"typ":          "Bearer",
+		"azp":          "dashboard-web",
+		"sid":          "27971a2b-9a40-435d-8d94-96584d973084",
+		"scope":        "openid profile email",
+		"realm_access": map[string]interface{}{"roles": []string{"user"}},
 		"resource_access": map[string]interface{}{
 			"dashboard-web": map[string]interface{}{"roles": []string{"viewer"}},
 		},

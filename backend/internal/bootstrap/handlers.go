@@ -67,7 +67,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 	userHandler := userfeature.NewHandler(deps.Services.Users, deps.Services.Audit, deps.Cache)
 	metricsHandler := metricsfeature.NewHandler(deps.Services.Metrics)
 	auditHandler := auditfeature.NewHandler(auditfeature.NewService(auditfeature.NewRepository(deps.Store)), deps.Cache)
-	notificationsHandler := notificationsfeature.NewHandler(deps.Services.Notifications)
+	notificationsHandler := notificationsfeature.NewHandler(deps.Services.Notifications, deps.Services.Audit)
 
 	documentHandler := documentsfeature.NewHandler(
 		deps.Services.Documents,
@@ -75,6 +75,8 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.StorageLocations,
 		deps.FileStorage,
 		deps.StorageFactory,
+		deps.Databases.Primary,
+		deps.Databases.Remote,
 	)
 
 	storageLocationHandler := storagelocationfeature.NewHandler(
@@ -82,7 +84,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.Audit,
 	)
 	sessionHandler := sessionfeature.NewHandler(deps.Services.Sessions)
-	dataQualityHandler := dataqualityfeature.NewHandler(deps.Databases.DWH)
+	dataQualityHandler := dataqualityfeature.NewHandler(deps.Databases.DWH, deps.Databases.Primary)
 	announcementHandler := announcementfeature.NewHandler(
 		deps.Services.Announcements,
 		deps.Services.Audit,
@@ -107,6 +109,8 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.DocumentTemplates,
 		deps.Services.DocumentTemplateSheets,
 		deps.Services.DocumentTemplateColumns,
+		deps.Databases.Primary,
+		deps.Databases.Remote,
 	)
 	documentTemplateSheetHandler := documenttemplatesfeature.NewSheetHandler(
 		deps.Services.DocumentTemplateSheets,

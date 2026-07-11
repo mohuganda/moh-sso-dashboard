@@ -46,7 +46,7 @@ SET
   updated_at = now()
 FROM next_deliveries next
 WHERE nd.id = next.id
-RETURNING nd.id, nd.notification_id, nd.channel, nd.status, nd.recipient, nd.template_name, nd.template_data, nd.payload, nd.scheduled_at, nd.locked_at, nd.sent_at, nd.attempts, nd.max_attempts, nd.last_error, nd.created_at, nd.updated_at
+RETURNING nd.id, nd.notification_id, nd.channel, nd.status, nd.recipient, nd.template_name, nd.template_data, nd.payload, nd.scheduled_at, nd.locked_at, nd.sent_at, nd.attempts, nd.max_attempts, nd.last_error, nd.created_at, nd.updated_at, nd.provider, nd.provider_message_id, nd.provider_status, nd.provider_response
 `
 
 type ClaimPendingNotificationDeliveriesParams struct {
@@ -80,6 +80,10 @@ func (q *Queries) ClaimPendingNotificationDeliveries(ctx context.Context, arg Cl
 			&i.LastError,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Provider,
+			&i.ProviderMessageID,
+			&i.ProviderStatus,
+			&i.ProviderResponse,
 		); err != nil {
 			return nil, err
 		}
@@ -106,15 +110,23 @@ WHERE
     $2::text IS NULL
     OR nd.status = $2::text
   )
+  AND (
+    $3::text IS NULL
+    OR nd.id::text ILIKE '%' || $3::text || '%'
+    OR nd.notification_id::text ILIKE '%' || $3::text || '%'
+    OR nd.recipient::text ILIKE '%' || $3::text || '%'
+    OR COALESCE(nd.provider_message_id, '') ILIKE '%' || $3::text || '%'
+  )
 `
 
 type CountNotificationDeliveriesParams struct {
 	FilterChannel sql.NullString `json:"filter_channel"`
 	FilterStatus  sql.NullString `json:"filter_status"`
+	FilterSearch  sql.NullString `json:"filter_search"`
 }
 
 func (q *Queries) CountNotificationDeliveries(ctx context.Context, arg CountNotificationDeliveriesParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countNotificationDeliveries, arg.FilterChannel, arg.FilterStatus)
+	row := q.db.QueryRowContext(ctx, countNotificationDeliveries, arg.FilterChannel, arg.FilterStatus, arg.FilterSearch)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -162,7 +174,7 @@ VALUES (
   0,
   COALESCE($9, 5)
 )
-RETURNING id, notification_id, channel, status, recipient, template_name, template_data, payload, scheduled_at, locked_at, sent_at, attempts, max_attempts, last_error, created_at, updated_at
+RETURNING id, notification_id, channel, status, recipient, template_name, template_data, payload, scheduled_at, locked_at, sent_at, attempts, max_attempts, last_error, created_at, updated_at, provider, provider_message_id, provider_status, provider_response
 `
 
 type CreateNotificationDeliveryParams struct {
@@ -210,12 +222,16 @@ func (q *Queries) CreateNotificationDelivery(ctx context.Context, arg CreateNoti
 		&i.LastError,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Provider,
+		&i.ProviderMessageID,
+		&i.ProviderStatus,
+		&i.ProviderResponse,
 	)
 	return i, err
 }
 
 const getNotificationDeliveryByID = `-- name: GetNotificationDeliveryByID :one
-SELECT id, notification_id, channel, status, recipient, template_name, template_data, payload, scheduled_at, locked_at, sent_at, attempts, max_attempts, last_error, created_at, updated_at
+SELECT id, notification_id, channel, status, recipient, template_name, template_data, payload, scheduled_at, locked_at, sent_at, attempts, max_attempts, last_error, created_at, updated_at, provider, provider_message_id, provider_status, provider_response
 FROM notification_deliveries
 WHERE id = $1
 `
@@ -240,12 +256,16 @@ func (q *Queries) GetNotificationDeliveryByID(ctx context.Context, id uuid.UUID)
 		&i.LastError,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Provider,
+		&i.ProviderMessageID,
+		&i.ProviderStatus,
+		&i.ProviderResponse,
 	)
 	return i, err
 }
 
 const listNotificationDeliveries = `-- name: ListNotificationDeliveries :many
-SELECT nd.id, nd.notification_id, nd.channel, nd.status, nd.recipient, nd.template_name, nd.template_data, nd.payload, nd.scheduled_at, nd.locked_at, nd.sent_at, nd.attempts, nd.max_attempts, nd.last_error, nd.created_at, nd.updated_at
+SELECT nd.id, nd.notification_id, nd.channel, nd.status, nd.recipient, nd.template_name, nd.template_data, nd.payload, nd.scheduled_at, nd.locked_at, nd.sent_at, nd.attempts, nd.max_attempts, nd.last_error, nd.created_at, nd.updated_at, nd.provider, nd.provider_message_id, nd.provider_status, nd.provider_response
 FROM notification_deliveries nd
 WHERE
   (
@@ -256,6 +276,13 @@ WHERE
     $4::text IS NULL
     OR nd.status = $4::text
   )
+  AND (
+    $5::text IS NULL
+    OR nd.id::text ILIKE '%' || $5::text || '%'
+    OR nd.notification_id::text ILIKE '%' || $5::text || '%'
+    OR nd.recipient::text ILIKE '%' || $5::text || '%'
+    OR COALESCE(nd.provider_message_id, '') ILIKE '%' || $5::text || '%'
+  )
 ORDER BY nd.created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -265,6 +292,7 @@ type ListNotificationDeliveriesParams struct {
 	Offset        int32          `json:"offset"`
 	FilterChannel sql.NullString `json:"filter_channel"`
 	FilterStatus  sql.NullString `json:"filter_status"`
+	FilterSearch  sql.NullString `json:"filter_search"`
 }
 
 func (q *Queries) ListNotificationDeliveries(ctx context.Context, arg ListNotificationDeliveriesParams) ([]NotificationDelivery, error) {
@@ -273,6 +301,7 @@ func (q *Queries) ListNotificationDeliveries(ctx context.Context, arg ListNotifi
 		arg.Offset,
 		arg.FilterChannel,
 		arg.FilterStatus,
+		arg.FilterSearch,
 	)
 	if err != nil {
 		return nil, err
@@ -298,6 +327,10 @@ func (q *Queries) ListNotificationDeliveries(ctx context.Context, arg ListNotifi
 			&i.LastError,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Provider,
+			&i.ProviderMessageID,
+			&i.ProviderStatus,
+			&i.ProviderResponse,
 		); err != nil {
 			return nil, err
 		}
@@ -313,7 +346,7 @@ func (q *Queries) ListNotificationDeliveries(ctx context.Context, arg ListNotifi
 }
 
 const listNotificationDeliveriesByNotificationID = `-- name: ListNotificationDeliveriesByNotificationID :many
-SELECT id, notification_id, channel, status, recipient, template_name, template_data, payload, scheduled_at, locked_at, sent_at, attempts, max_attempts, last_error, created_at, updated_at
+SELECT id, notification_id, channel, status, recipient, template_name, template_data, payload, scheduled_at, locked_at, sent_at, attempts, max_attempts, last_error, created_at, updated_at, provider, provider_message_id, provider_status, provider_response
 FROM notification_deliveries
 WHERE notification_id = $1
 ORDER BY created_at ASC
@@ -345,6 +378,78 @@ func (q *Queries) ListNotificationDeliveriesByNotificationID(ctx context.Context
 			&i.LastError,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Provider,
+			&i.ProviderMessageID,
+			&i.ProviderStatus,
+			&i.ProviderResponse,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNotificationDeliveryMetrics = `-- name: ListNotificationDeliveryMetrics :many
+SELECT
+  nd.channel,
+  COALESCE(nd.provider, '')::text AS provider,
+  COUNT(*)::bigint AS total,
+  COUNT(*) FILTER (WHERE nd.status = 'PENDING')::bigint AS pending,
+  COUNT(*) FILTER (WHERE nd.status = 'PROCESSING')::bigint AS processing,
+  COUNT(*) FILTER (WHERE nd.status = 'SENT')::bigint AS sent,
+  COUNT(*) FILTER (WHERE nd.status = 'FAILED')::bigint AS failed,
+  COUNT(*) FILTER (WHERE nd.status = 'RETRY')::bigint AS retry,
+  COUNT(*) FILTER (WHERE nd.status = 'CANCELLED')::bigint AS cancelled,
+  COALESCE(
+    AVG(EXTRACT(EPOCH FROM (nd.sent_at - nd.created_at)))
+      FILTER (WHERE nd.sent_at IS NOT NULL),
+    0
+  )::double precision AS avg_processing_seconds
+FROM notification_deliveries nd
+GROUP BY nd.channel, COALESCE(nd.provider, '')
+ORDER BY nd.channel ASC, provider ASC
+`
+
+type ListNotificationDeliveryMetricsRow struct {
+	Channel              string  `json:"channel"`
+	Provider             string  `json:"provider"`
+	Total                int64   `json:"total"`
+	Pending              int64   `json:"pending"`
+	Processing           int64   `json:"processing"`
+	Sent                 int64   `json:"sent"`
+	Failed               int64   `json:"failed"`
+	Retry                int64   `json:"retry"`
+	Cancelled            int64   `json:"cancelled"`
+	AvgProcessingSeconds float64 `json:"avg_processing_seconds"`
+}
+
+func (q *Queries) ListNotificationDeliveryMetrics(ctx context.Context) ([]ListNotificationDeliveryMetricsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listNotificationDeliveryMetrics)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListNotificationDeliveryMetricsRow{}
+	for rows.Next() {
+		var i ListNotificationDeliveryMetricsRow
+		if err := rows.Scan(
+			&i.Channel,
+			&i.Provider,
+			&i.Total,
+			&i.Pending,
+			&i.Processing,
+			&i.Sent,
+			&i.Failed,
+			&i.Retry,
+			&i.Cancelled,
+			&i.AvgProcessingSeconds,
 		); err != nil {
 			return nil, err
 		}

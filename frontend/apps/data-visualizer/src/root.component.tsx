@@ -5,5 +5,9 @@ import DataVisualizer from "./pages/data-visualizer";
 export function DataVisualizerRoot(props: MicrofrontendRuntimeProps) {
   void props;
 
-  return <DataVisualizer />;
+  return (
+    <div className="moh-microfrontend-root">
+      <DataVisualizer />
+    </div>
+  );
 }

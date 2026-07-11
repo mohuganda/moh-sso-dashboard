@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState, type ReactNode } from "react
 import { HeaderGlobalAction } from "@carbon/react";
 import { Switcher } from "@carbon/react/icons";
 
+import { useFocusTrap } from "../../accessibility/useFocusTrap";
 import "./AppMenu.scss";
 
 type AppMenuActionProps = {
@@ -14,6 +15,12 @@ const AppMenuAction: React.FC<AppMenuActionProps> = ({ children }) => {
   const panelId = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useFocusTrap({
+    active: expanded,
+    containerRef: panelRef,
+    restoreFocus: true,
+  });
 
   const closeMenu = () => {
     setExpanded(false);
@@ -53,16 +60,6 @@ const AppMenuAction: React.FC<AppMenuActionProps> = ({ children }) => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [expanded]);
-
-  useEffect(() => {
-    if (!expanded) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      panelRef.current?.focus();
-    });
   }, [expanded]);
 
   return (

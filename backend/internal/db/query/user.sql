@@ -41,7 +41,8 @@ WHERE id = $1;
 -- name: GetUserByUsername :one
 SELECT *
 FROM users
-WHERE username = $1;
+WHERE LOWER(username) = LOWER(sqlc.arg(username))
+LIMIT 1;
 
 -- name: GetUsersByRole :many
 SELECT *

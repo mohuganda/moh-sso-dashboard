@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	documenttemplates "github.com/moh-sso-dashboard/internal/features/document_templates"
 	documentRepo "github.com/moh-sso-dashboard/internal/features/documents"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -17,11 +18,11 @@ import (
 )
 
 type Service struct {
-	documentRepo     documentRepo.DocumentRepository
-	stockRepo        documentRepo.StockImportRepository
-	processRepo      processRepo.ProcessRepository
-	fileRepository   documentRepo.FileRepository
-	importRepository surveillancefeature.ImportRepository
+	documentRepo       documentRepo.DocumentRepository
+	templateImportRepo documentRepo.TemplateImportRepository
+	processRepo        processRepo.ProcessRepository
+	fileRepository     documentRepo.FileRepository
+	importRepository   surveillancefeature.ImportRepository
 
 	documentTemplateService documenttemplates.Service
 	facilityMetricsService  *surveillancefeature.FacilityWeeklyMetricsService
@@ -35,7 +36,7 @@ type Service struct {
 }
 
 func NewService(documentRepo documentRepo.DocumentRepository,
-	stockRepo documentRepo.StockImportRepository,
+	templateImportRepo documentRepo.TemplateImportRepository,
 	processRepo processRepo.ProcessRepository,
 	fileRepository documentRepo.FileRepository,
 	importRepository surveillancefeature.ImportRepository,
@@ -48,7 +49,7 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 
 	s := &Service{
 		documentRepo:            documentRepo,
-		stockRepo:               stockRepo,
+		templateImportRepo:      templateImportRepo,
 		processRepo:             processRepo,
 		fileRepository:          fileRepository,
 		importRepository:        importRepository,
@@ -68,7 +69,7 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 
 	reg.Register(model.ProcessTypeCSVImport, NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))
 
-	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, stockRepo, processRepo, documentTemplateService, storage, remote))
+	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, templateImportRepo, processRepo, documentTemplateService, storage, remote))
 
 	reg.Register(model.ProcessTypeFHIRImport, NewFhirBundlerProcessor(documentRepo, storage))
 
@@ -102,9 +103,23 @@ func (s *Service) Execute(ctx context.Context, processID uuid.UUID) error {
 	// 3️⃣ Execute processor
 	if err := processor.Process(ctx, proc); err != nil {
 		_ = s.processRepo.Fail(ctx, processID, err.Error())
+		_, _ = s.documentRepo.UpdateDocumentStatus(ctx, db.UpdateDocumentStatusParams{
+			ID:     proc.DocumentID,
+			Status: db.DocumentStatusFAILED,
+		})
 		return err
 	}
 
 	// 4️⃣ Mark complete
-	return s.processRepo.Complete(ctx, processID)
+	if err := s.processRepo.Complete(ctx, processID); err != nil {
+		return err
+	}
+
+	// 5️⃣ Update document status to COMPLETED
+	_, err = s.documentRepo.UpdateDocumentStatus(ctx, db.UpdateDocumentStatusParams{
+		ID:     proc.DocumentID,
+		Status: db.DocumentStatusCOMPLETED,
+	})
+	return err
+
 }

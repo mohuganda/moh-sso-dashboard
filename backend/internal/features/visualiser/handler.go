@@ -2,6 +2,7 @@ package visualiser
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -53,13 +54,26 @@ func (h *Handler) GetDataElements(c *gin.Context) {
 // GetDataValues gets data values with optional filters.
 func (h *Handler) GetDataValues(c *gin.Context) {
 	var req DataValuesRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "invalid JSON")
 		return
 	}
 
 	results, err := h.service.ListDataValues(c.Request.Context(), req)
 	if err != nil {
+		log.Printf(
+			"[VISUALIZER DATAVALUES] request_id=%s dx=%v pe=%v ou=%v levelOfCare=%v ownership=%v startDate=%q endDate=%q orgunitLevel=%v error=%v",
+			c.GetString("request_id"),
+			req.DX,
+			req.PE,
+			req.OU,
+			req.LevelOfCare,
+			req.Ownership,
+			req.StartDate,
+			req.EndDate,
+			req.OrgunitLevel,
+			err,
+		)
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "request failed")
 		return
 	}

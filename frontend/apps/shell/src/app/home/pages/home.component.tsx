@@ -10,7 +10,7 @@ import { QuickAction } from "@/app/home/components/quick-action/quick-action.com
 import {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
-} from "@moh-sso/api";
+} from "../../api";
 import { selectUser, useAuthorization } from "@moh-sso/auth";
 import { buildAccessibleClients } from "@/app/access/accessClients";
 
@@ -82,13 +82,13 @@ export default function HomePage() {
   const [markNotificationAsRead] = useMarkNotificationAsReadMutation();
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 16 }}>
+    <div className="home-page">
       {/* ==================================================
        * HEADER
        * ================================================== */}
       <div>
-        <h3 style={{ margin: 0 }}>Admin Overview</h3>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
+        <h3 className="home-page__title">Admin Overview</h3>
+        <p className="home-page__subtitle">
           System status, applications, and quick actions.
         </p>
       </div>
@@ -100,7 +100,7 @@ export default function HomePage() {
           <InlineLoading description="Loading user…" />
         ) : (
           <Stack gap={3}>
-            <h3 style={{ margin: 0 }}>Welcome back, {user.lastName}</h3>
+            <h3 className="home-hero__title">Welcome back, {user.lastName}</h3>
 
             <Stack orientation="horizontal" gap={3}>
               <Tag type="blue">{user?.realmRoles.join(", ")}</Tag>
@@ -152,9 +152,9 @@ export default function HomePage() {
        * ================================================== */}
       <Tile>
         {/* Header */}
-        <div style={{ marginBottom: "0.75rem" }}>
-          <h4 style={{ margin: 0 }}>Quick actions</h4>
-          <p className="muted" style={{ marginTop: 4 }}>
+        <div className="home-page__section-heading">
+          <h4 className="home-page__section-title">Quick actions</h4>
+          <p className="muted home-page__subtitle">
             Common administrative tasks
           </p>
         </div>
@@ -235,15 +235,8 @@ export default function HomePage() {
        * ================================================== */}
       <Tile>
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "1rem",
-          }}
-        >
-          <h4 style={{ margin: 0 }}>Notifications</h4>
+        <div className="notification-section__header">
+          <h4 className="home-page__section-title">Notifications</h4>
 
           {notifications.length > 0 && (
             <Tag size="sm" type="gray">
@@ -269,47 +262,20 @@ export default function HomePage() {
                   key={n.id}
                   role="listitem"
                   className={`notification-item ${!n.read ? "notification-unread" : ""}`}
-                  style={{
-                    display: "flex",
-                    gap: "0.75rem",
-                    padding: "0.75rem",
-                    borderRadius: "4px",
-                    background: !n.read ? "var(--cds-layer-accent)" : "transparent",
-                    alignItems: "flex-start",
-                  }}
                 >
-                  <Notification size={16} style={{ marginTop: 2 }} />
+                  <Notification size={16} className="notification-item__icon" />
 
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                      }}
-                    >
+                  <div className="notification-content">
+                    <div className="notification-header">
                       <strong>{n.title}</strong>
                       <Tag size="sm" type={getSeverityTagType(n.severity)}>
                         {n.severity}
                       </Tag>
                     </div>
 
-                    <p
-                      style={{
-                        margin: "0.25rem 0",
-                        opacity: 0.85,
-                      }}
-                    >
-                      {n.message}
-                    </p>
+                    <p className="notification-message">{n.message}</p>
 
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        opacity: 0.6,
-                      }}
-                    >
+                    <span className="notification-meta">
                       {new Date(n.created_at).toLocaleString()}
                     </span>
                   </div>

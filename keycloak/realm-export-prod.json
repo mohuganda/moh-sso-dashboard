@@ -442,7 +442,8 @@
         "ui.displayInLauncher": "true",
         "ui.displayInSideNav": "false",
         "ui.launchMode": "internal",
-        "ui.launchUrl": "/portal/apps/dwh"
+        "ui.launchUrl": "/portal/apps/dwh",
+        "ui.navigation": "[{\"id\":\"dashboards\",\"label\":\"Dashboards\",\"path\":\"/apps/dwh/dashboards\",\"permission\":\"report_browser:read\"},{\"id\":\"data-validation\",\"label\":\"Data Validation\",\"path\":\"/apps/dwh/data-validation\",\"permission\":\"data_quality:read\"},{\"id\":\"documents\",\"label\":\"Documents\",\"path\":\"/apps/dwh/documents\",\"permission\":\"documents:read\"},{\"id\":\"surveillance\",\"label\":\"Surveillance\",\"path\":\"/apps/dwh/surveillance\",\"permission\":\"surveillance:read\"},{\"id\":\"issue-tracker\",\"label\":\"Issue Tracker\",\"path\":\"/apps/dwh/issue-tracker\",\"permission\":\"issue_tracker:read\"}]"
       }
     }
   ],
@@ -638,6 +639,8 @@
       "serviceAccountClientId": "dashboard-admin",
       "clientRoles": {
         "realm-management": [
+          "realm-admin",
+          "manage-realm",
           "view-clients",
           "manage-clients",
           "view-users",

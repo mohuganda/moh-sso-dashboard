@@ -274,7 +274,6 @@ type Announcement struct {
 	Level                   interface{}    `json:"level"`
 	Tag                     sql.NullString `json:"tag"`
 	LinkUrl                 sql.NullString `json:"link_url"`
-	LinkLabel               sql.NullString `json:"link_label"`
 	Priority                int32          `json:"priority"`
 	IsPinned                bool           `json:"is_pinned"`
 	Status                  interface{}    `json:"status"`
@@ -294,6 +293,10 @@ type Announcement struct {
 	Version                 int32          `json:"version"`
 	NotifyByEmail           bool           `json:"notify_by_email"`
 	EmailNotificationSentAt sql.NullTime   `json:"email_notification_sent_at"`
+	LinkLabel               sql.NullString `json:"link_label"`
+	NotifyBySms             bool           `json:"notify_by_sms"`
+	SmsMessage              sql.NullString `json:"sms_message"`
+	SmsNotificationQueuedAt sql.NullTime   `json:"sms_notification_queued_at"`
 }
 
 type AnnouncementAttachment struct {
@@ -537,6 +540,143 @@ type FacilityWeeklyMetric struct {
 	CreatedAt      time.Time      `json:"created_at"`
 }
 
+type IhpAccessRequest struct {
+	ID             uuid.UUID      `json:"id"`
+	UserID         sql.NullString `json:"user_id"`
+	Username       sql.NullString `json:"username"`
+	Email          sql.NullString `json:"email"`
+	SystemClientID string         `json:"system_client_id"`
+	RequestedRole  string         `json:"requested_role"`
+	Reason         sql.NullString `json:"reason"`
+	Status         string         `json:"status"`
+	RequestedBy    sql.NullString `json:"requested_by"`
+	ReviewedBy     sql.NullString `json:"reviewed_by"`
+	ReviewedAt     sql.NullTime   `json:"reviewed_at"`
+	DecisionNote   sql.NullString `json:"decision_note"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+type IhpAccessRequestEvent struct {
+	ID          uuid.UUID      `json:"id"`
+	RequestID   uuid.UUID      `json:"request_id"`
+	ActorUserID sql.NullString `json:"actor_user_id"`
+	Action      string         `json:"action"`
+	Note        sql.NullString `json:"note"`
+	CreatedAt   time.Time      `json:"created_at"`
+}
+
+type IhpPermission struct {
+	ID            uuid.UUID       `json:"id"`
+	PermissionKey string          `json:"permission_key"`
+	DisplayName   sql.NullString  `json:"display_name"`
+	Description   sql.NullString  `json:"description"`
+	Category      sql.NullString  `json:"category"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+	Status        string          `json:"status"`
+	DeprecatedAt  sql.NullTime    `json:"deprecated_at"`
+	Metadata      json.RawMessage `json:"metadata"`
+}
+
+type IhpRbacAuditEvent struct {
+	ID             uuid.UUID       `json:"id"`
+	ActorUserID    sql.NullString  `json:"actor_user_id"`
+	Action         string          `json:"action"`
+	ResourceType   string          `json:"resource_type"`
+	ResourceID     sql.NullString  `json:"resource_id"`
+	SystemClientID sql.NullString  `json:"system_client_id"`
+	RoleName       sql.NullString  `json:"role_name"`
+	PermissionKey  sql.NullString  `json:"permission_key"`
+	Details        json.RawMessage `json:"details"`
+	CreatedAt      time.Time       `json:"created_at"`
+}
+
+type IhpRbacChangeRequest struct {
+	ID           uuid.UUID       `json:"id"`
+	RequestedBy  sql.NullString  `json:"requested_by"`
+	ReviewedBy   sql.NullString  `json:"reviewed_by"`
+	Status       string          `json:"status"`
+	Action       string          `json:"action"`
+	ResourceType string          `json:"resource_type"`
+	ResourceID   sql.NullString  `json:"resource_id"`
+	Payload      json.RawMessage `json:"payload"`
+	RiskLevel    string          `json:"risk_level"`
+	Reason       sql.NullString  `json:"reason"`
+	DecisionNote sql.NullString  `json:"decision_note"`
+	ReviewedAt   sql.NullTime    `json:"reviewed_at"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+}
+
+type IhpRbacChangeRequestEvent struct {
+	ID          uuid.UUID      `json:"id"`
+	RequestID   uuid.UUID      `json:"request_id"`
+	ActorUserID sql.NullString `json:"actor_user_id"`
+	Action      string         `json:"action"`
+	Note        sql.NullString `json:"note"`
+	CreatedAt   time.Time      `json:"created_at"`
+}
+
+type IhpRealmRolePermission struct {
+	RealmRole    string    `json:"realm_role"`
+	PermissionID uuid.UUID `json:"permission_id"`
+}
+
+type IhpRealmRoleSystemRole struct {
+	RealmRole    string    `json:"realm_role"`
+	SystemRoleID uuid.UUID `json:"system_role_id"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type IhpSystem struct {
+	ID                uuid.UUID       `json:"id"`
+	ClientID          string          `json:"client_id"`
+	DisplayName       string          `json:"display_name"`
+	Description       sql.NullString  `json:"description"`
+	Icon              sql.NullString  `json:"icon"`
+	LaunchUrl         sql.NullString  `json:"launch_url"`
+	Category          sql.NullString  `json:"category"`
+	Enabled           bool            `json:"enabled"`
+	SortOrder         int32           `json:"sort_order"`
+	Metadata          json.RawMessage `json:"metadata"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	OwnerTeam         sql.NullString  `json:"owner_team"`
+	OwnerName         sql.NullString  `json:"owner_name"`
+	OwnerEmail        sql.NullString  `json:"owner_email"`
+	SupportUrl        sql.NullString  `json:"support_url"`
+	DocumentationUrl  sql.NullString  `json:"documentation_url"`
+	Environment       sql.NullString  `json:"environment"`
+	Criticality       sql.NullString  `json:"criticality"`
+	SystemType        string          `json:"system_type"`
+	DisplayInLauncher bool            `json:"display_in_launcher"`
+	DisplayInSidenav  bool            `json:"display_in_sidenav"`
+	LaunchMode        string          `json:"launch_mode"`
+}
+
+type IhpSystemAccessRole struct {
+	SystemID uuid.UUID `json:"system_id"`
+	RoleName string    `json:"role_name"`
+}
+
+type IhpSystemRole struct {
+	ID          uuid.UUID       `json:"id"`
+	SystemID    uuid.UUID       `json:"system_id"`
+	RoleName    string          `json:"role_name"`
+	DisplayName sql.NullString  `json:"display_name"`
+	Description sql.NullString  `json:"description"`
+	Enabled     bool            `json:"enabled"`
+	Metadata    json.RawMessage `json:"metadata"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+}
+
+type IhpSystemRolePermission struct {
+	SystemRoleID uuid.UUID `json:"system_role_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
+}
+
 type ImportJob struct {
 	ID           uuid.UUID       `json:"id"`
 	Filename     string          `json:"filename"`
@@ -592,22 +732,39 @@ type Notification struct {
 }
 
 type NotificationDelivery struct {
-	ID             uuid.UUID             `json:"id"`
-	NotificationID uuid.UUID             `json:"notification_id"`
-	Channel        string                `json:"channel"`
-	Status         string                `json:"status"`
-	Recipient      pqtype.NullRawMessage `json:"recipient"`
-	TemplateName   sql.NullString        `json:"template_name"`
-	TemplateData   pqtype.NullRawMessage `json:"template_data"`
-	Payload        pqtype.NullRawMessage `json:"payload"`
-	ScheduledAt    sql.NullTime          `json:"scheduled_at"`
-	LockedAt       sql.NullTime          `json:"locked_at"`
-	SentAt         sql.NullTime          `json:"sent_at"`
-	Attempts       int32                 `json:"attempts"`
-	MaxAttempts    int32                 `json:"max_attempts"`
-	LastError      sql.NullString        `json:"last_error"`
-	CreatedAt      time.Time             `json:"created_at"`
-	UpdatedAt      time.Time             `json:"updated_at"`
+	ID                uuid.UUID             `json:"id"`
+	NotificationID    uuid.UUID             `json:"notification_id"`
+	Channel           string                `json:"channel"`
+	Status            string                `json:"status"`
+	Recipient         pqtype.NullRawMessage `json:"recipient"`
+	TemplateName      sql.NullString        `json:"template_name"`
+	TemplateData      pqtype.NullRawMessage `json:"template_data"`
+	Payload           pqtype.NullRawMessage `json:"payload"`
+	ScheduledAt       sql.NullTime          `json:"scheduled_at"`
+	LockedAt          sql.NullTime          `json:"locked_at"`
+	SentAt            sql.NullTime          `json:"sent_at"`
+	Attempts          int32                 `json:"attempts"`
+	MaxAttempts       int32                 `json:"max_attempts"`
+	LastError         sql.NullString        `json:"last_error"`
+	CreatedAt         time.Time             `json:"created_at"`
+	UpdatedAt         time.Time             `json:"updated_at"`
+	Provider          sql.NullString        `json:"provider"`
+	ProviderMessageID sql.NullString        `json:"provider_message_id"`
+	ProviderStatus    sql.NullString        `json:"provider_status"`
+	ProviderResponse  pqtype.NullRawMessage `json:"provider_response"`
+}
+
+type NotificationPreference struct {
+	ID              uuid.UUID      `json:"id"`
+	UserID          string         `json:"user_id"`
+	EmailEnabled    bool           `json:"email_enabled"`
+	SmsEnabled      bool           `json:"sms_enabled"`
+	PhoneNumber     sql.NullString `json:"phone_number"`
+	PhoneVerified   bool           `json:"phone_verified"`
+	QuietHoursStart sql.NullString `json:"quiet_hours_start"`
+	QuietHoursEnd   sql.NullString `json:"quiet_hours_end"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 type Process struct {

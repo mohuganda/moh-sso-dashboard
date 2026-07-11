@@ -2,26 +2,27 @@ import react from "@vitejs/plugin-react";
 import { readdirSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 
 const pathFromRoot = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
 const getDirectories = (source: string) =>
   readdirSync(pathFromRoot(source), { withFileTypes: true })
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
 
 const apps = getDirectories("./apps");
 const packages = getDirectories("./packages");
 
 const dynamicAliases = [
   ...packages.map((pkg) => ({
-    find: `@moh-sso/${pkg}`,
-    replacement: pathFromRoot(`./packages/${pkg}/src/index.ts`),
+    find: new RegExp(`^@moh-sso/${pkg}/(.+)$`),
+    replacement: pathFromRoot(`./packages/${pkg}/src/$1`),
   })),
 
   ...packages.map((pkg) => ({
-    find: new RegExp(`^@moh-sso/${pkg}/(.+)$`),
-    replacement: pathFromRoot(`./packages/${pkg}/src/$1`),
+    find: `@moh-sso/${pkg}`,
+    replacement: pathFromRoot(`./packages/${pkg}/src/index.ts`),
   })),
 
   ...apps.map((app) => ({
@@ -30,40 +31,114 @@ const dynamicAliases = [
   })),
 
   ...apps.map((app) => ({
-    find: `@moh-sso/${app}`,
-    replacement: pathFromRoot(`./apps/${app}/src/index.ts`),
-  })),
-
-  ...apps.map((app) => ({
     find: new RegExp(`^@moh-sso/${app}/(.+)$`),
     replacement: pathFromRoot(`./apps/${app}/src/$1`),
   })),
+
+  ...apps.map((app) => ({
+    find: `@moh-sso/${app}`,
+    replacement: pathFromRoot(`./apps/${app}/src/index.ts`),
+  })),
 ];
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: "/portal/",
   root: pathFromRoot("./apps/shell"),
   publicDir: pathFromRoot("./public"),
 
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      base: "/portal/",
+      scope: "/portal/",
+      registerType: "prompt",
+      manifest: false,
+      devOptions: {
+        enabled: false,
+      },
+      includeAssets: [
+        "logo.png",
+        "manifest.webmanifest",
+        "offline.html",
+        "config.js",
+        "config.production.js",
+        "config.development.js",
+        "config.local-remote.js",
+        "import-map.json",
+        "import-map.local.json",
+        "version-manifest.json",
+        "icons/icon-192.png",
+        "icons/icon-512.png",
+        "icons/maskable-192.png",
+        "icons/maskable-512.png",
+      ],
+      workbox: {
+        navigateFallback: "/portal/index.html",
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest,json}"],
+        navigateFallbackDenylist: [/^\/api\//, /^\/realms\//, /^\/auth\//],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) =>
+              request.destination === "script" && url.pathname.startsWith("/portal/assets/"),
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "portal-static-assets",
+              expiration: {
+                maxEntries: 80,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith("/portal/mf/") ||
+              url.pathname.startsWith("/portal/packages/"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "portal-microfrontends",
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 120,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+            },
+          },
+        ],
+      },
+    }),
+  ],
+
+  define: {
+    "process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),
+  },
 
   resolve: {
-    dedupe: ["react", "react-dom", "react-router-dom", "react-redux"],
+    dedupe: [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "react-redux",
+      "@reduxjs/toolkit",
+      "@carbon/react",
+      "single-spa",
+      "single-spa-react",
+    ],
+
     alias: [
-      { find: "@/config", replacement: pathFromRoot("./packages/config/src") },
-      { find: "@/types", replacement: pathFromRoot("./packages/types/src/global") },
       {
-        find: "@moh-sso/data-validation/single-spa",
-        replacement: pathFromRoot("./apps/data-validation/src/single-spa.tsx"),
+        find: "@/config",
+        replacement: pathFromRoot("./packages/config/src"),
       },
       {
-        find: "@moh-sso/data-validation",
-        replacement: pathFromRoot("./apps/data-validation/src/index.ts"),
+        find: "@/types",
+        replacement: pathFromRoot("./packages/types/src/global"),
       },
-
       ...dynamicAliases,
-
-      { find: "@", replacement: pathFromRoot("./apps/shell/src") },
+      {
+        find: "@",
+        replacement: pathFromRoot("./apps/shell/src"),
+      },
     ],
   },
 
@@ -76,8 +151,9 @@ export default defineConfig({
     include: [
       "react",
       "react-dom",
-      "react-dom/client", // Prevents internal React bundle pollution
+      "react-dom/client",
       "react/jsx-runtime",
+      "react/jsx-dev-runtime",
       "react-redux",
       "react-router-dom",
       "@reduxjs/toolkit",
@@ -90,8 +166,13 @@ export default defineConfig({
   },
 
   build: {
+    outDir: pathFromRoot("./apps/shell/dist"),
+    emptyOutDir: true,
+    sourcemap: true,
+
     commonjsOptions: {
       include: [/react-pivottable/, /node_modules/],
+      transformMixedEsModules: true,
     },
   },
-});
+}));

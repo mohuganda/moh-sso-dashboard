@@ -85,6 +85,46 @@ func getAnnouncementAttachmentID(c *gin.Context) (uuid.UUID, bool) {
 	return attachmentID, true
 }
 
+func parseAnnouncementAudienceSelection(
+	reqAudienceType string,
+	clientIDValues []string,
+	userIDValues []string,
+	groupIDValues []string,
+) ([]uuid.UUID, []uuid.UUID, []uuid.UUID, bool) {
+	clientIDs, err := parseUUIDList(clientIDValues)
+	if err != nil {
+		return nil, nil, nil, false
+	}
+
+	userIDs, err := parseUUIDList(userIDValues)
+	if err != nil {
+		return nil, nil, nil, false
+	}
+
+	groupIDs, err := parseUUIDList(groupIDValues)
+	if err != nil {
+		return nil, nil, nil, false
+	}
+
+	audienceType := strings.ToUpper(strings.TrimSpace(reqAudienceType))
+	switch audienceType {
+	case "SPECIFIC_CLIENTS":
+		if len(clientIDs) == 0 {
+			return nil, nil, nil, false
+		}
+	case "SPECIFIC_USERS":
+		if len(userIDs) == 0 {
+			return nil, nil, nil, false
+		}
+	case "SPECIFIC_GROUPS":
+		if len(groupIDs) == 0 {
+			return nil, nil, nil, false
+		}
+	}
+
+	return clientIDs, userIDs, groupIDs, true
+}
+
 func getCurrentUserID(c *gin.Context) (uuid.UUID, bool) {
 	userID := utils.ToNullUUID(c.GetString("user_id"))
 	if !userID.Valid {
@@ -109,11 +149,44 @@ func (h *Handler) announcementResponsesWithAttachments(
 		}
 		if adminLinks {
 			res[i] = toAnnouncementResponseWithAttachments(item, attachments)
+			h.attachAnnouncementAudience(ctx, item.ID, &res[i])
 		} else {
 			res[i] = toUserAnnouncementResponseWithAttachments(item, attachments)
 		}
 	}
 	return res
+}
+
+func (h *Handler) attachAnnouncementAudience(
+	c *gin.Context,
+	announcementID uuid.UUID,
+	res *AnnouncementResponse,
+) {
+	if h == nil || h.announcementService == nil || res == nil || announcementID == uuid.Nil {
+		return
+	}
+
+	clientIDs, err := h.announcementService.ListClientAudience(c.Request.Context(), announcementID)
+	if err != nil {
+		return
+	}
+
+	roleNames, err := h.announcementService.ListRoleAudience(c.Request.Context(), announcementID)
+	if err != nil {
+		return
+	}
+
+	userIDs, err := h.announcementService.ListUserAudience(c.Request.Context(), announcementID)
+	if err != nil {
+		return
+	}
+
+	groupIDs, err := h.announcementService.ListGroupAudience(c.Request.Context(), announcementID)
+	if err != nil {
+		return
+	}
+
+	*res = withAnnouncementAudience(*res, clientIDs, roleNames, userIDs, groupIDs)
 }
 
 func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
@@ -146,7 +219,9 @@ func (h *Handler) GetAnnouncementByID(c *gin.Context) {
 	}
 
 	attachments, _ := h.announcementService.ListAttachments(c.Request.Context(), item.ID)
-	response.OK(c, http.StatusOK, toAnnouncementResponseWithAttachments(item, attachments))
+	res := toAnnouncementResponseWithAttachments(item, attachments)
+	h.attachAnnouncementAudience(c, item.ID, &res)
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) ListPublicAnnouncements(c *gin.Context) {
@@ -201,6 +276,23 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	clientIDs, userIDs, groupIDs, ok := parseAnnouncementAudienceSelection(
+		req.AudienceType,
+		req.ClientIDs,
+		req.UserIDs,
+		req.GroupIDs,
+	)
+	if !ok {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "selected announcement audience is invalid or empty")
+		return
+	}
+	if len(groupIDs) > 0 {
+		if err := h.announcementService.ValidateGroupAudience(c.Request.Context(), groupIDs); err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more selected groups do not exist")
+			return
+		}
+	}
+
 	input := CreateAnnouncementInput{
 		Title:         strings.TrimSpace(req.Title),
 		Message:       strings.TrimSpace(req.Message),
@@ -216,24 +308,14 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		ExpiresAt:     expiresAt,
 		AudienceType:  req.AudienceType,
 		NotifyByEmail: req.NotifyByEmail,
+		NotifyBySMS:   req.NotifyBySMS,
+		SMSMessage:    nullableString(req.SMSMessage),
 		CreatedBy:     userID,
 	}
 
 	item, err := h.announcementService.CreateAnnouncementFromInput(c.Request.Context(), input)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create announcement")
-		return
-	}
-
-	clientIDs, err := parseUUIDList(req.ClientIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more client_ids are invalid")
-		return
-	}
-
-	userIDs, err := parseUUIDList(req.UserIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more user_ids are invalid")
 		return
 	}
 
@@ -258,6 +340,13 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		}
 	}
 
+	if len(groupIDs) > 0 {
+		if err := h.announcementService.ReplaceGroupAudience(c.Request.Context(), item.ID, groupIDs); err != nil {
+			response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to save group audience")
+			return
+		}
+	}
+
 	if h.auditService != nil {
 		_ = h.auditService.Log(
 			c.Request.Context(),
@@ -271,11 +360,14 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 				"status":          item.Status,
 				"is_pinned":       item.IsPinned,
 				"notify_by_email": item.NotifyByEmail,
+				"notify_by_sms":   req.NotifyBySMS,
 			},
 		)
 	}
 
-	response.OK(c, http.StatusCreated, toAnnouncementResponse(item))
+	res := toAnnouncementResponse(item)
+	h.attachAnnouncementAudience(c, item.ID, &res)
+	response.OK(c, http.StatusCreated, res)
 }
 
 func (h *Handler) UpdateAnnouncement(c *gin.Context) {
@@ -307,6 +399,23 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	clientIDs, userIDs, groupIDs, ok := parseAnnouncementAudienceSelection(
+		req.AudienceType,
+		req.ClientIDs,
+		req.UserIDs,
+		req.GroupIDs,
+	)
+	if !ok {
+		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "selected announcement audience is invalid or empty")
+		return
+	}
+	if len(groupIDs) > 0 {
+		if err := h.announcementService.ValidateGroupAudience(c.Request.Context(), groupIDs); err != nil {
+			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more selected groups do not exist")
+			return
+		}
+	}
+
 	input := UpdateAnnouncementInput{
 		ID:            announcementID,
 		Title:         strings.TrimSpace(req.Title),
@@ -322,24 +431,14 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		ExpiresAt:     expiresAt,
 		AudienceType:  req.AudienceType,
 		NotifyByEmail: req.NotifyByEmail,
+		NotifyBySMS:   req.NotifyBySMS,
+		SMSMessage:    nullableString(req.SMSMessage),
 		UpdatedBy:     userID,
 	}
 
 	item, err := h.announcementService.UpdateAnnouncementFromInput(c.Request.Context(), input)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update announcement")
-		return
-	}
-
-	clientIDs, err := parseUUIDList(req.ClientIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more client_ids are invalid")
-		return
-	}
-
-	userIDs, err := parseUUIDList(req.UserIDs)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more user_ids are invalid")
 		return
 	}
 
@@ -358,6 +457,11 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	if err := h.announcementService.ReplaceGroupAudience(c.Request.Context(), item.ID, groupIDs); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update group audience")
+		return
+	}
+
 	if h.auditService != nil {
 		_ = h.auditService.Log(
 			c.Request.Context(),
@@ -371,11 +475,14 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 				"status":          item.Status,
 				"is_pinned":       item.IsPinned,
 				"notify_by_email": item.NotifyByEmail,
+				"notify_by_sms":   req.NotifyBySMS,
 			},
 		)
 	}
 
-	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
+	res := toAnnouncementResponse(item)
+	h.attachAnnouncementAudience(c, item.ID, &res)
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
@@ -418,11 +525,14 @@ func (h *Handler) PublishAnnouncementNow(c *gin.Context) {
 				"title":                              item.Title,
 				"notify_by_email":                    item.NotifyByEmail,
 				"email_notification_sent_at_present": item.EmailNotificationSentAt.Valid,
+				"notify_by_sms":                      item.NotifyBySms,
+				"sms_notification_queued_at_present": item.SmsNotificationQueuedAt.Valid,
 			},
 		)
 	}
 
-	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
+	res := toAnnouncementResponse(item)
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
@@ -457,7 +567,8 @@ func (h *Handler) MoveAnnouncementToDraft(c *gin.Context) {
 		)
 	}
 
-	response.OK(c, http.StatusOK, toAnnouncementResponse(item))
+	res := toAnnouncementResponse(item)
+	response.OK(c, http.StatusOK, res)
 }
 
 func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
@@ -504,6 +615,7 @@ func (h *Handler) ScheduleAnnouncement(c *gin.Context) {
 				"announcement_id": item.ID.String(),
 				"title":           item.Title,
 				"publish_at":      item.PublishAt,
+				"notify_by_sms":   item.NotifyBySms,
 			},
 		)
 	}

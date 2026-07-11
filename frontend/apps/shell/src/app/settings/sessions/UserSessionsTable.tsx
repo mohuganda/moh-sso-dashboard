@@ -15,7 +15,7 @@ import {
   Tile,
 } from "@carbon/react";
 
-import { useGetSessionsQuery, useLogoutSessionMutation } from "@moh-sso/api";
+import { useGetSessionsQuery, useLogoutSessionMutation } from "../../api";
 
 import "./user-sessions-table.scss";
 

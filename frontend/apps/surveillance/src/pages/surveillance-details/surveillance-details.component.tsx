@@ -8,6 +8,7 @@ import {
   Link,
   InlineLoading,
 } from "@carbon/react";
+import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useMemo, useState } from "react";
 import { useParams, useSearchParams, Link as RouterLink } from "react-router-dom";
 
@@ -24,10 +25,11 @@ import {
   useListFacilityIndicatorMetricsTrendQuery,
   useListRegionsQuery,
   useListWeeklyStatusesDetailedQuery,
- useListDocumentsQuery } from "@moh-sso/api";
-import type { DocumentResponse } from "@moh-sso/types";
+} from "../../api";
+import { useListDocumentsQuery } from "@moh-sso/documents/api";
+import type { DocumentResponse } from "@moh-sso/documents/types";
 import WeeklyCasesChart from "./surveillance-weekly-cases.component";
-import "./surveillance-details.css";
+import "./surveillance-details.scss";
 
 function formatDiseaseName(value?: string) {
   if (!value) return "Disease";
@@ -73,7 +75,18 @@ function getDocumentSearchBlob(document: DocumentResponse) {
     .toLowerCase();
 }
 
-export default function DiseaseDetailsPage() {
+function DiseaseDetailsAccessDenied() {
+  return (
+    <Content className="disease-details-page">
+      <div className="disease-details-page__header">
+        <h1>Access denied</h1>
+        <p>You need surveillance read access to view disease details.</p>
+      </div>
+    </Content>
+  );
+}
+
+function DiseaseDetailsContent() {
   const { diseaseName } = useParams<{ diseaseName: string }>();
   const [searchParams] = useSearchParams();
 
@@ -527,11 +540,7 @@ export default function DiseaseDetailsPage() {
                       {doc.label}
                     </Link>
                     {doc.uploaded && doc.status ? (
-                      <span
-                        style={{ marginLeft: "0.5rem", color: "#6f6f6f", fontSize: "0.875rem" }}
-                      >
-                        ({doc.status})
-                      </span>
+                      <span className="disease-details-page__link-status">({doc.status})</span>
                     ) : null}
                   </li>
                 ))}
@@ -621,5 +630,16 @@ export default function DiseaseDetailsPage() {
         onClose={handleCloseTrendModal}
       />
     </Content>
+  );
+}
+
+export default function DiseaseDetailsPage() {
+  return (
+    <PermissionGuard
+      permission={PERMISSIONS.surveillanceRead}
+      fallback={<DiseaseDetailsAccessDenied />}
+    >
+      <DiseaseDetailsContent />
+    </PermissionGuard>
   );
 }

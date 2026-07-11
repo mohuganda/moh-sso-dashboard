@@ -10,7 +10,7 @@ import type React from "react";
 import type { ReactNode } from "react";
 
 import AppMenuAction from "../navigation/appmenu/AppMenu.component";
-import "./public-header.css";
+import "./public-header.scss";
 
 import imagePath from "../assets/logo.png";
 
@@ -21,7 +21,12 @@ type UserHeaderProps = {
   onLogout?: () => void;
 };
 
-const UserHeader: React.FC<UserHeaderProps> = ({ username, appMenu, onNavigateHome, onLogout }) => {
+const UserHeader: React.FC<UserHeaderProps> = ({
+  username,
+  appMenu,
+  onNavigateHome,
+  onLogout,
+}) => {
   return (
     <Header aria-label="MOH Integrated Health Portal">
       <SkipToContent />

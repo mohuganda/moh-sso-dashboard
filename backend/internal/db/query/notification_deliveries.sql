@@ -129,6 +129,13 @@ WHERE
     sqlc.narg('filter_status')::text IS NULL
     OR nd.status = sqlc.narg('filter_status')::text
   )
+  AND (
+    sqlc.narg('filter_search')::text IS NULL
+    OR nd.id::text ILIKE '%' || sqlc.narg('filter_search')::text || '%'
+    OR nd.notification_id::text ILIKE '%' || sqlc.narg('filter_search')::text || '%'
+    OR nd.recipient::text ILIKE '%' || sqlc.narg('filter_search')::text || '%'
+    OR COALESCE(nd.provider_message_id, '') ILIKE '%' || sqlc.narg('filter_search')::text || '%'
+  )
 ORDER BY nd.created_at DESC
 LIMIT $1 OFFSET $2;
 
@@ -144,4 +151,32 @@ WHERE
   AND (
     sqlc.narg('filter_status')::text IS NULL
     OR nd.status = sqlc.narg('filter_status')::text
+  )
+  AND (
+    sqlc.narg('filter_search')::text IS NULL
+    OR nd.id::text ILIKE '%' || sqlc.narg('filter_search')::text || '%'
+    OR nd.notification_id::text ILIKE '%' || sqlc.narg('filter_search')::text || '%'
+    OR nd.recipient::text ILIKE '%' || sqlc.narg('filter_search')::text || '%'
+    OR COALESCE(nd.provider_message_id, '') ILIKE '%' || sqlc.narg('filter_search')::text || '%'
   );
+
+
+-- name: ListNotificationDeliveryMetrics :many
+SELECT
+  nd.channel,
+  COALESCE(nd.provider, '')::text AS provider,
+  COUNT(*)::bigint AS total,
+  COUNT(*) FILTER (WHERE nd.status = 'PENDING')::bigint AS pending,
+  COUNT(*) FILTER (WHERE nd.status = 'PROCESSING')::bigint AS processing,
+  COUNT(*) FILTER (WHERE nd.status = 'SENT')::bigint AS sent,
+  COUNT(*) FILTER (WHERE nd.status = 'FAILED')::bigint AS failed,
+  COUNT(*) FILTER (WHERE nd.status = 'RETRY')::bigint AS retry,
+  COUNT(*) FILTER (WHERE nd.status = 'CANCELLED')::bigint AS cancelled,
+  COALESCE(
+    AVG(EXTRACT(EPOCH FROM (nd.sent_at - nd.created_at)))
+      FILTER (WHERE nd.sent_at IS NOT NULL),
+    0
+  )::double precision AS avg_processing_seconds
+FROM notification_deliveries nd
+GROUP BY nd.channel, COALESCE(nd.provider, '')
+ORDER BY nd.channel ASC, provider ASC;

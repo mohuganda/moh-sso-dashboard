@@ -1,14 +1,12 @@
+import "./report-browser.scss";
+
 const ReportBrowser = () => {
   return (
-    <div style={{ width: "100%", height: "100vh", overflow: "hidden" }}>
+    <div className="report-browser">
       <iframe
         src="https://dashboards.health.go.ug/report-browser/"
         title="Health Dashboard Report Browser"
-        style={{
-          width: "100%",
-          height: "100%",
-          border: "none",
-        }}
+        className="report-browser__frame"
         allowFullScreen
       />
     </div>

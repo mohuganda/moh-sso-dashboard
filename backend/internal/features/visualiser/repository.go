@@ -125,6 +125,18 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		conditions = append(conditions, fmt.Sprintf("hs.tperiod <= $%d", paramCounter))
 	}
 
+	orgUnitFilterClause := ""
+	if len(req.LevelOfCare) > 0 {
+		paramCounter++
+		values = append(values, pq.Array(req.LevelOfCare))
+		orgUnitFilterClause += fmt.Sprintf(" AND h.level_of_care = ANY($%d)", paramCounter)
+	}
+	if len(req.Ownership) > 0 {
+		paramCounter++
+		values = append(values, pq.Array(req.Ownership))
+		orgUnitFilterClause += fmt.Sprintf(" AND h.ownership = ANY($%d)", paramCounter)
+	}
+
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
@@ -138,6 +150,18 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 			values = append(values, *requestedLevel)
 			selectedLevelClause = fmt.Sprintf("WHERE su.selected_level = $%d", paramCounter)
 		}
+		countryOrgUnitFilterJoin := ""
+		if orgUnitFilterClause != "" {
+			countryOrgUnitFilterJoin = `
+		     JOIN (
+		       SELECT DISTINCT COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid
+		       FROM hiv.organisation_unit h
+		       WHERE COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
+		         ` + orgUnitFilterClause + `
+		     ) ou_filter
+		       ON ou_filter.facility_uid = hs.org_unit_id
+		     `
+		}
 
 		query = `
 		   WITH selected_input AS (
@@ -150,9 +174,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       COALESCE(MIN(NULLIF(h.facility_name, '')), MIN(NULLIF(h.org_unit_name, '')), si.selected_uid) AS selected_name,
 		       1 AS priority
 		     FROM selected_input si
-		     JOIN dwh.dim_org_hierarchy h
-		       ON h.is_current = true
-		      AND (h.facility_uid = si.selected_uid OR (h.level = '6' AND h.org_unit_id = si.selected_uid))
+		     JOIN hiv.organisation_unit h
+		       ON (h.facility_uid = si.selected_uid OR (h.level = '6' AND h.org_unit_id = si.selected_uid))
 		     GROUP BY si.selected_uid
 
 		     UNION ALL
@@ -163,9 +186,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       COALESCE(MIN(NULLIF(h.sub_county, '')), MIN(NULLIF(h.org_unit_name, '')), si.selected_uid) AS selected_name,
 		       2 AS priority
 		     FROM selected_input si
-		     JOIN dwh.dim_org_hierarchy h
-		       ON h.is_current = true
-		      AND (h.sub_county_uid = si.selected_uid OR (h.level = '5' AND h.org_unit_id = si.selected_uid))
+		     JOIN hiv.organisation_unit h ON
+		      (h.sub_county_uid = si.selected_uid OR (h.level = '5' AND h.org_unit_id = si.selected_uid))
 		     GROUP BY si.selected_uid
 
 		     UNION ALL
@@ -176,9 +198,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       COALESCE(MIN(NULLIF(h.district, '')), si.selected_uid) AS selected_name,
 		       3 AS priority
 		     FROM selected_input si
-		     JOIN dwh.dim_org_hierarchy h
-		       ON h.is_current = true
-		      AND h.district_uid = si.selected_uid
+		     JOIN hiv.organisation_unit h
+		      ON h.district_uid = si.selected_uid
 		     GROUP BY si.selected_uid
 
 		     UNION ALL
@@ -189,9 +210,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       COALESCE(MIN(NULLIF(h.region, '')), si.selected_uid) AS selected_name,
 		       4 AS priority
 		     FROM selected_input si
-		     JOIN dwh.dim_org_hierarchy h
-		       ON h.is_current = true
-		      AND h.region_uid = si.selected_uid
+		     JOIN hiv.organisation_unit h
+		      ON h.region_uid = si.selected_uid
 		     GROUP BY si.selected_uid
 
 		     UNION ALL
@@ -202,9 +222,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       COALESCE(MIN(CASE WHEN h.level = '1' THEN NULLIF(h.org_unit_name, '') END), 'MoH - Uganda') AS selected_name,
 		       5 AS priority
 		     FROM selected_input si
-		     JOIN dwh.dim_org_hierarchy h
-		       ON h.is_current = true
-		      AND (h.country_uid = si.selected_uid OR (h.level = '1' AND h.org_unit_id = si.selected_uid))
+		     JOIN hiv.organisation_unit h
+		      ON (h.country_uid = si.selected_uid OR (h.level = '1' AND h.org_unit_id = si.selected_uid))
 		     GROUP BY si.selected_uid
 
 		     UNION ALL
@@ -230,17 +249,18 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       su.selected_uid,
 		       su.selected_level,
 		       su.selected_name,
-		       h.dim_org_hierarchy_key
+		       COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid
 		     FROM selected_units su
-		     JOIN dwh.dim_org_hierarchy h
-		       ON h.is_current = true
-		      AND (
+		     JOIN hiv.organisation_unit h
+		      ON (
 		        (su.selected_level = '6' AND (h.facility_uid = su.selected_uid OR (h.level = '6' AND h.org_unit_id = su.selected_uid)))
 		        OR (su.selected_level = '2' AND h.region_uid = su.selected_uid)
 		        OR (su.selected_level = '3' AND h.district_uid = su.selected_uid)
 		        OR (su.selected_level = '5' AND (h.sub_county_uid = su.selected_uid OR (h.level = '5' AND h.org_unit_id = su.selected_uid)))
 		      )
 		     WHERE su.selected_level IN ('2', '3', '5', '6')
+		       AND COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
+		       ` + orgUnitFilterClause + `
 		   )
 		   SELECT
 		     x.org_unit_id,
@@ -286,7 +306,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       hs.dataelement
 		     FROM report.hmis_summary hs
 		     JOIN selected_facilities sf
-		       ON sf.dim_org_hierarchy_key = hs.dim_org_hierarchy_key
+		       ON sf.facility_uid = hs.org_unit_id
 		     ` + whereClause + `
 		     GROUP BY
 		       sf.selected_uid,
@@ -319,6 +339,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		     FROM report.hmis_summary hs
 		     JOIN selected_units su
 		       ON su.selected_level = '1'
+		     ` + countryOrgUnitFilterJoin + `
 		     ` + whereClause + `
 		     GROUP BY
 		       su.selected_uid,
@@ -339,6 +360,18 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 	} else {
 		aggregationLevel := r.resolveAggregationLevel(ctx, requestedLevel, req.OU)
 		orgUnitExpr, facilityExpr, levelExpr, regionExpr, districtExpr, subCountyExpr := aggregationExpressions(aggregationLevel)
+		orgUnitFilterJoin := ""
+		if orgUnitFilterClause != "" {
+			orgUnitFilterJoin = `
+	       JOIN (
+	         SELECT DISTINCT COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid
+	         FROM hiv.organisation_unit h
+	         WHERE COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
+	           ` + orgUnitFilterClause + `
+	       ) ou_filter
+	         ON ou_filter.facility_uid = hs.org_unit_id
+	       `
+		}
 
 		query = `
 		   SELECT 
@@ -359,6 +392,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 	          ` + subCountyExpr + ` AS sub_county,
 	          hs.dataelement
 	       FROM report.hmis_summary hs
+	       ` + orgUnitFilterJoin + `
 	       ` + whereClause + `
 	       GROUP BY 1, 2, 3, 4, 6, 7, 8, 9, 10, 11
 	       ORDER BY 
@@ -417,29 +451,27 @@ func (r *postgresRepository) resolveAggregationLevel(ctx context.Context, reques
 	query := `
 		SELECT CASE
 			WHEN EXISTS (
-				SELECT 1 FROM dwh.dim_org_hierarchy h
-				WHERE h.is_current = true
-				  AND h.facility_uid = ANY($1)
+				SELECT 1 FROM hiv.organisation_unit h
+				WHERE h.facility_uid = ANY($1)
+				   OR (h.level = '6' AND h.org_unit_id = ANY($1))
 			) THEN '6'
 			WHEN EXISTS (
-				SELECT 1 FROM dwh.dim_org_hierarchy h
-				WHERE h.is_current = true
-				  AND (h.sub_county_uid = ANY($1) OR h.org_unit_id = ANY($1))
+				SELECT 1 FROM hiv.organisation_unit h
+				WHERE h.sub_county_uid = ANY($1)
+				   OR (h.level = '5' AND h.org_unit_id = ANY($1))
 			) THEN '5'
 			WHEN EXISTS (
-				SELECT 1 FROM dwh.dim_org_hierarchy h
-				WHERE h.is_current = true
-				  AND h.district_uid = ANY($1)
+				SELECT 1 FROM hiv.organisation_unit h
+				WHERE h.district_uid = ANY($1)
 			) THEN '3'
 			WHEN EXISTS (
-				SELECT 1 FROM dwh.dim_org_hierarchy h
-				WHERE h.is_current = true
-				  AND h.region_uid = ANY($1)
+				SELECT 1 FROM hiv.organisation_unit h
+				WHERE h.region_uid = ANY($1)
 			) THEN '2'
 			WHEN EXISTS (
-				SELECT 1 FROM dwh.dim_org_hierarchy h
-				WHERE h.is_current = true
-				  AND h.country_uid = ANY($1)
+				SELECT 1 FROM hiv.organisation_unit h
+				WHERE h.country_uid = ANY($1)
+				   OR (h.level = '1' AND h.org_unit_id = ANY($1))
 			) THEN '1'
 			ELSE '6'
 		END

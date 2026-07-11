@@ -6,6 +6,7 @@ export * from "./branding";
 export * from "./shell";
 export * from "./overlays";
 export * from "./notifications";
+export * from "./accessibility";
 export { default as AppGridContent } from "./navigation/appmenu/AppGridContent";
 export { default as AppMenu } from "./navigation/appmenu/AppMenu.component";
 export { ClientSideNav, hasVisibleClientSideNav } from "./navigation/sidenav/ClientSideNav";

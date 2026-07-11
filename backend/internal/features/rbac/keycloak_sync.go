@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -20,6 +21,13 @@ type KeycloakSyncSource interface {
 	CreateRealmRole(ctx context.Context, roleName string, description string) error
 	CreateClientRole(ctx context.Context, clientID string, req *model.CreateClientRoleRequest) error
 	EnsureRealmRoleClientRoleComposite(ctx context.Context, realmRole string, clientID string, roleName string) error
+}
+
+type KeycloakGroupSyncSource interface {
+	ListGroups(ctx context.Context) ([]keycloak.GroupRep, error)
+	ListGroupMembers(ctx context.Context, groupID string) ([]keycloak.KeycloakUser, error)
+	ListGroupRealmRoles(ctx context.Context, groupID string) ([]keycloak.RoleRep, error)
+	ListGroupClientRoles(ctx context.Context, groupID string, clientID string) ([]keycloak.ClientRoleRep, error)
 }
 
 type KeycloakPushResult struct {
@@ -84,8 +92,108 @@ func (s *Service) ApplyLiveKeycloakSync(ctx context.Context, source KeycloakSync
 	if err != nil {
 		return SyncApplyResponse{}, err
 	}
-	response.Preview.Report.Warnings = append(response.Preview.Report.Warnings, warnings...)
+	if groupSource, ok := source.(KeycloakGroupSyncSource); ok {
+		groupsSynced, warnings := s.syncLiveKeycloakGroups(ctx, groupSource, discovered.Systems)
+		response.Preview.Report.Warnings = append(response.Preview.Report.Warnings, warnings...)
+		response.Preview.Report.Warnings = append(response.Preview.Report.Warnings, fmt.Sprintf("Groups synced from Keycloak: %d", groupsSynced))
+	}
 	return response, nil
+}
+
+func (s *Service) syncLiveKeycloakGroups(ctx context.Context, source KeycloakGroupSyncSource, systems []KeycloakDiscoveredSystem) (int, []string) {
+	groups, err := source.ListGroups(ctx)
+	if err != nil {
+		return 0, []string{fmt.Sprintf("Keycloak group sync skipped: %v", err)}
+	}
+
+	systemIDs := make([]string, 0, len(systems))
+	for _, system := range systems {
+		if strings.TrimSpace(system.ClientID) != "" {
+			systemIDs = append(systemIDs, system.ClientID)
+		}
+	}
+	sort.Strings(systemIDs)
+
+	warnings := make([]string, 0)
+	synced := 0
+	for _, kcGroup := range groups {
+		path := strings.TrimSpace(kcGroup.Path)
+		if path == "" {
+			path = "/" + strings.Trim(strings.TrimSpace(kcGroup.Name), "/")
+		}
+		group, err := s.repository.UpsertGroup(ctx, GroupInput{
+			KeycloakGroupID: kcGroup.ID,
+			Path:            path,
+			Name:            kcGroup.Name,
+			DisplayName:     kcGroup.Name,
+			Enabled:         enabledBoolPtr(true),
+		})
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("group %q metadata sync failed: %v", path, err))
+			continue
+		}
+
+		members, err := source.ListGroupMembers(ctx, kcGroup.ID)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("group %q member sync failed: %v", path, err))
+		} else {
+			groupMembers := make([]GroupMember, 0, len(members))
+			for _, member := range members {
+				groupMembers = append(groupMembers, GroupMember{
+					UserID:   member.ID,
+					Username: member.Username,
+					Email:    member.Email,
+				})
+			}
+			if err := s.repository.ReplaceGroupMembers(ctx, group.ID, groupMembers); err != nil {
+				warnings = append(warnings, fmt.Sprintf("group %q member persistence failed: %v", path, err))
+			}
+		}
+
+		realmRoles, err := source.ListGroupRealmRoles(ctx, kcGroup.ID)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("group %q realm role sync failed: %v", path, err))
+		} else {
+			for _, role := range realmRoles {
+				roleName := normalize(role.Name)
+				if roleName == "" {
+					continue
+				}
+				if err := s.repository.AssignGroupRealmRole(ctx, group.ID, roleName); err != nil {
+					warnings = append(warnings, fmt.Sprintf("group %q realm role %q persistence failed: %v", path, roleName, err))
+				}
+			}
+		}
+
+		for _, clientID := range systemIDs {
+			clientRoles, err := source.ListGroupClientRoles(ctx, kcGroup.ID, clientID)
+			if err != nil {
+				continue
+			}
+			for _, role := range clientRoles {
+				roleName := normalize(role.Name)
+				if roleName == "" {
+					continue
+				}
+				if err := s.repository.AssignGroupSystemRole(ctx, group.ID, clientID, roleName); err != nil {
+					warnings = append(warnings, fmt.Sprintf("group %q client role %q/%q persistence failed: %v", path, clientID, roleName, err))
+				}
+			}
+		}
+		synced++
+	}
+
+	if synced > 0 {
+		if err := s.recordAudit(ctx, "rbac.groups_synced", "sync", "live-keycloak-groups", "", "", "", map[string]any{"groups_synced": synced}); err != nil {
+			warnings = append(warnings, fmt.Sprintf("group sync audit failed: %v", err))
+		}
+	}
+	sort.Strings(warnings)
+	return synced, warnings
+}
+
+func enabledBoolPtr(value bool) *bool {
+	return &value
 }
 
 func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source KeycloakSyncSource) (KeycloakPushResult, error) {
@@ -130,17 +238,19 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 			"ui.displayInLauncher": fmt.Sprintf("%t", system.DisplayInLauncher),
 			"ui.displayInSideNav":  fmt.Sprintf("%t", system.DisplayInSideNav),
 			"ui.launchMode":        system.LaunchMode,
+			"ui.order":             fmt.Sprintf("%d", system.SortOrder),
 			"portal.system":        "true",
 			"portal.accessRoles":   strings.Join(detail.AccessRoles, ","),
 		}
 		discoveredSystem, ok := discoveredSystems[clientID]
 		if !ok {
+			clientURL := s.keycloakClientURL(system.LaunchURL)
 			if _, err := source.CreateClient(keycloak.CreateClientParams{
 				ClientID:    clientID,
 				Name:        system.DisplayName,
 				Description: system.Description,
-				BaseURL:     system.LaunchURL,
-				RootURL:     system.LaunchURL,
+				BaseURL:     clientURL,
+				RootURL:     clientURL,
 				Enabled:     system.Enabled,
 				Attributes:  attributes,
 			}); err != nil {
@@ -232,6 +342,51 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 	return result, nil
 }
 
+func (s *Service) keycloakClientURL(launchURL string) string {
+	launchURL = strings.TrimSpace(launchURL)
+	if launchURL == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(launchURL); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		return launchURL
+	}
+
+	base := strings.TrimSpace(s.frontendBaseURL)
+	if base == "" {
+		return ""
+	}
+	baseURL, err := url.Parse(base)
+	if err != nil || baseURL.Scheme == "" || baseURL.Host == "" {
+		return ""
+	}
+
+	relative, err := url.Parse(launchURL)
+	if err != nil {
+		return ""
+	}
+	if relative.IsAbs() {
+		return relative.String()
+	}
+
+	basePath := strings.TrimRight(baseURL.Path, "/")
+	path := relative.Path
+	if path == "" {
+		path = "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if basePath != "" && path != basePath && !strings.HasPrefix(path, basePath+"/") {
+		path = basePath + path
+	}
+
+	resolved := *baseURL
+	resolved.Path = path
+	resolved.RawQuery = relative.RawQuery
+	resolved.Fragment = relative.Fragment
+	return resolved.String()
+}
+
 func (s *Service) previewDiscoveredSync(ctx context.Context, source string, discovered discoveredRBAC) (SyncPreviewResponse, error) {
 	report, err := s.buildDriftReport(ctx, source, discovered)
 	if err != nil {
@@ -272,6 +427,7 @@ func (s *Service) applyDiscoveredSync(ctx context.Context, preview SyncPreviewRe
 			DisplayInLauncher: boolPointer(system.DisplayInLauncher),
 			DisplayInSideNav:  boolPointer(system.DisplayInSideNav),
 			LaunchMode:        system.LaunchMode,
+			SortOrder:         system.SortOrder,
 			Enabled:           &enabled,
 		}); err != nil {
 			return SyncApplyResponse{}, err
@@ -377,6 +533,7 @@ func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource, kn
 			DisplayInLauncher: *behavior.DisplayInLauncher,
 			DisplayInSideNav:  *behavior.DisplayInSideNav,
 			LaunchMode:        behavior.LaunchMode,
+			SortOrder:         int32Attribute(client.Attributes, "ui.order"),
 			AccessRoles:       splitAttributeList(client.Attributes["portal.accessRoles"]),
 			Enabled:           client.Enabled,
 			Roles:             make([]KeycloakDiscoveredRole, 0, len(roles)),
@@ -393,6 +550,9 @@ func discoverLiveKeycloakRBAC(ctx context.Context, source KeycloakSyncSource, kn
 
 	sort.Strings(discovered.RealmRoles)
 	sort.Slice(discovered.Systems, func(i, j int) bool {
+		if discovered.Systems[i].SortOrder != discovered.Systems[j].SortOrder {
+			return discovered.Systems[i].SortOrder < discovered.Systems[j].SortOrder
+		}
 		return discovered.Systems[i].ClientID < discovered.Systems[j].ClientID
 	})
 	for i := range discovered.Systems {

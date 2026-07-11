@@ -8,6 +8,8 @@ type Service interface {
 	UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error)
 	ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error)
 	ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error)
+	ImportValidationRules(ctx context.Context, inputs []validationRuleInput) (validationRuleImportResult, error)
+	ListValidationRules(ctx context.Context, limit int, offset int) ([]validationRuleResponse, error)
 }
 
 type service struct {
@@ -36,4 +38,12 @@ func (s *service) ResolveIssue(ctx context.Context, input resolveIssueInput) (is
 
 func (s *service) ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error) {
 	return s.repository.ListIssueResolutionTransactions(ctx, issueCode, limit, offset)
+}
+
+func (s *service) ImportValidationRules(ctx context.Context, inputs []validationRuleInput) (validationRuleImportResult, error) {
+	return s.repository.ImportValidationRules(ctx, inputs)
+}
+
+func (s *service) ListValidationRules(ctx context.Context, limit int, offset int) ([]validationRuleResponse, error) {
+	return s.repository.ListValidationRules(ctx, limit, offset)
 }

@@ -10,7 +10,7 @@ import (
 
 func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler, limiter *ratelimit.Limiter) {
 	surveillance := protected.Group("/surveillance")
-	surveillance.Use(middleware.RequireSystem(authz.SystemOutbreakManagement))
+	surveillance.Use(middleware.RequireSystem(authz.SystemDataStatistics))
 	{
 		read := middleware.RequirePermission(authz.PermissionSurveillanceRead)
 		importData := middleware.RequirePermission(authz.PermissionSurveillanceImport)

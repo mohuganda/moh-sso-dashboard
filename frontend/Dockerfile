@@ -1,14 +1,15 @@
 # ======================
 # Stage 1: Build
 # ======================
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 ENV FRONTEND_ASSET_BASE_URL=/portal
 ENV FRONTEND_BASE_PATH=/portal
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
 COPY . .
-RUN npm ci
+RUN npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000
 RUN node scripts/use-runtime-config.mjs production
 RUN npm run build:docker
 

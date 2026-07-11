@@ -2,6 +2,7 @@
   display: grid;
   gap: 1rem;
   padding: 1rem;
+  min-width: 0;
 }
 
 .moh-data-table-shell__title {
@@ -16,4 +17,55 @@
 .moh-data-table-shell__filters,
 .moh-data-table-shell__table {
   min-width: 0;
+}
+
+.moh-data-table-shell__filters {
+  overflow: hidden;
+}
+
+.moh-data-table-shell__table {
+  overflow: hidden;
+}
+
+.moh-data-table-shell__table-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.moh-data-table-shell__table-scroll > .cds--data-table-container,
+.moh-data-table-shell__table-scroll > .cds--data-table-content,
+.moh-data-table-shell__table-scroll table {
+  min-width: max-content;
+}
+
+.moh-data-table-shell__table-scroll .cds--pagination {
+  min-width: 38rem;
+}
+
+@media (max-width: 672px) {
+  .moh-data-table-shell {
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+  }
+
+  .moh-data-table-shell__header {
+    padding: 0 0.75rem;
+  }
+
+  .moh-data-table-shell__filters,
+  .moh-data-table-shell__table {
+    border-radius: 0;
+  }
+
+  .moh-data-table-shell__filters .cds--form-item,
+  .moh-data-table-shell__filters .cds--search,
+  .moh-data-table-shell__filters .cds--select,
+  .moh-data-table-shell__filters .cds--dropdown,
+  .moh-data-table-shell__filters .cds--multi-select {
+    width: 100%;
+    max-width: 100%;
+  }
 }

@@ -14,18 +14,24 @@ type Repository interface {
 	UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error)
 	ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error)
 	ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error)
+	ImportValidationRules(ctx context.Context, inputs []validationRuleInput) (validationRuleImportResult, error)
+	ListValidationRules(ctx context.Context, limit int, offset int) ([]validationRuleResponse, error)
 }
 
 type postgresRepository struct {
-	db *sql.DB
+	dwhDB     *sql.DB
+	primaryDB *sql.DB
 }
 
-func NewRepository(db *sql.DB) Repository {
-	return &postgresRepository{db: db}
+func NewRepository(dwhDB *sql.DB, primaryDB *sql.DB) Repository {
+	return &postgresRepository{
+		dwhDB:     dwhDB,
+		primaryDB: primaryDB,
+	}
 }
 
 func (r *postgresRepository) CreateIssue(ctx context.Context, input createIssueInput) (issueResponse, error) {
-	row := r.db.QueryRowContext(
+	row := r.dwhDB.QueryRowContext(
 		ctx,
 		`WITH next_issue AS (
 			SELECT nextval(pg_get_serial_sequence('hiv.issue', 'issue_id'))::bigint AS issue_id
@@ -61,7 +67,7 @@ func (r *postgresRepository) CreateIssue(ctx context.Context, input createIssueI
 }
 
 func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset int) ([]issueResponse, error) {
-	rows, err := r.db.QueryContext(
+	rows, err := r.dwhDB.QueryContext(
 		ctx,
 		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type,time_period
 		FROM hiv.issue
@@ -87,7 +93,7 @@ func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset i
 }
 
 func (r *postgresRepository) UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error) {
-	row := r.db.QueryRowContext(
+	row := r.dwhDB.QueryRowContext(
 		ctx,
 		`UPDATE hiv.issue
 		SET
@@ -124,7 +130,7 @@ func (r *postgresRepository) UpdateIssue(ctx context.Context, input updateIssueI
 }
 
 func (r *postgresRepository) ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.dwhDB.BeginTx(ctx, nil)
 	if err != nil {
 		return issueStageResponse{}, err
 	}
@@ -243,7 +249,7 @@ func (r *postgresRepository) ResolveIssue(ctx context.Context, input resolveIssu
 
 func (r *postgresRepository) ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error) {
 	var existingCode string
-	err := r.db.QueryRowContext(
+	err := r.dwhDB.QueryRowContext(
 		ctx,
 		`SELECT issue_code FROM hiv.issue WHERE issue_code = $1`,
 		issueCode,
@@ -252,7 +258,7 @@ func (r *postgresRepository) ListIssueResolutionTransactions(ctx context.Context
 		return nil, err
 	}
 
-	rows, err := r.db.QueryContext(
+	rows, err := r.dwhDB.QueryContext(
 		ctx,
 		`SELECT
 			id,
@@ -299,6 +305,161 @@ func (r *postgresRepository) ListIssueResolutionTransactions(ctx context.Context
 	}
 
 	return transactions, nil
+}
+
+func (r *postgresRepository) ImportValidationRules(ctx context.Context, inputs []validationRuleInput) (validationRuleImportResult, error) {
+	result := validationRuleImportResult{
+		Errors: []validationRuleRowError{},
+		Rules:  []validationRuleResponse{},
+	}
+
+	if len(inputs) == 0 {
+		return result, nil
+	}
+
+	tx, err := r.primaryDB.BeginTx(ctx, nil)
+	if err != nil {
+		return result, err
+	}
+	defer tx.Rollback()
+
+	for _, input := range inputs {
+		rule, created, err := upsertValidationRule(ctx, tx, input)
+		if err != nil {
+			return result, err
+		}
+
+		result.Imported++
+		if created {
+			result.Created++
+		} else {
+			result.Updated++
+		}
+		result.Rules = append(result.Rules, rule)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func (r *postgresRepository) ListValidationRules(ctx context.Context, limit int, offset int) ([]validationRuleResponse, error) {
+	rows, err := r.primaryDB.QueryContext(
+		ctx,
+		`SELECT
+			id,
+			table_id,
+			program,
+			category,
+			code,
+			severity,
+			description,
+			column_name,
+			operator,
+			value,
+			value_column,
+			is_active,
+			created_by,
+			updated_by,
+			created_at,
+			updated_at,
+			deleted_at
+		FROM data_quality_validation_rules
+		WHERE deleted_at IS NULL
+		ORDER BY updated_at DESC, id DESC
+		LIMIT $1 OFFSET $2`,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	rules := make([]validationRuleResponse, 0)
+	for rows.Next() {
+		rule, err := scanValidationRule(rows)
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, rule)
+	}
+
+	return rules, rows.Err()
+}
+
+func upsertValidationRule(ctx context.Context, tx *sql.Tx, input validationRuleInput) (validationRuleResponse, bool, error) {
+	row := tx.QueryRowContext(
+		ctx,
+		`INSERT INTO data_quality_validation_rules (
+			table_id,
+			program,
+			category,
+			code,
+			severity,
+			description,
+			column_name,
+			operator,
+			value,
+			value_column,
+			is_active,
+			created_by,
+			updated_by
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, $11, $11
+		)
+		ON CONFLICT (
+			COALESCE(table_id, ''),
+			COALESCE(program, ''),
+			COALESCE(category, ''),
+			code
+		)
+		WHERE deleted_at IS NULL
+		DO UPDATE SET
+			severity = EXCLUDED.severity,
+			description = EXCLUDED.description,
+			column_name = EXCLUDED.column_name,
+			operator = EXCLUDED.operator,
+			value = EXCLUDED.value,
+			value_column = EXCLUDED.value_column,
+			is_active = TRUE,
+			updated_by = EXCLUDED.updated_by,
+			updated_at = now()
+		RETURNING
+			id,
+			table_id,
+			program,
+			category,
+			code,
+			severity,
+			description,
+			column_name,
+			operator,
+			value,
+			value_column,
+			is_active,
+			created_by,
+			updated_by,
+			created_at,
+			updated_at,
+			deleted_at,
+			(xmax = 0) AS created`,
+		input.TableID,
+		input.Program,
+		input.Category,
+		input.Code,
+		input.Severity,
+		input.Description,
+		input.Column,
+		input.Op,
+		input.Value,
+		input.ValueColumn,
+		input.CreatedBy,
+	)
+
+	return scanValidationRuleWithCreated(row)
 }
 
 func isNotFound(err error) bool {

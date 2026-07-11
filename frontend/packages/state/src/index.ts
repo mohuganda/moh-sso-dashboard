@@ -1,7 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import { baseApi } from "@moh-sso/api";
-import { authReducer } from "@moh-sso/auth";
+import authReducer from "../../auth/src/auth/auth.slice";
 import clientsReducer from "./clients/clients.slice";
 
 export const store = configureStore({

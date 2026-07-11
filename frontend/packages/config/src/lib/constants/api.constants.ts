@@ -1,13 +1,33 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://dashboards.health.go.ug/ssobackend";
+type RuntimeAppConfig = {
+  API_BASE_URL?: string;
+};
+
+function getRuntimeApiBaseUrl() {
+  if (typeof globalThis === "undefined" || !("window" in globalThis)) {
+    return undefined;
+  }
+
+  return (globalThis.window as Window & { __APP_CONFIG__?: RuntimeAppConfig }).__APP_CONFIG__
+    ?.API_BASE_URL;
+}
+
+const API_BASE_URL =
+  getRuntimeApiBaseUrl() ||
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://dashboards.health.go.ug/ssobackend";
 
 const API_ROOT = `${API_BASE_URL}/api`;
 const API_VERSION = "v1";
 const API_BASE = `${API_ROOT}/${API_VERSION}`;
 
 export const API = {
+  serviceBase: API_BASE_URL,
   root: API_ROOT,
   version: API_VERSION,
   base: API_BASE,
+  build: {
+    version: () => `${API_BASE_URL}/version`,
+  },
 
   // --------------------------------------------------
   // Auth
@@ -66,13 +86,23 @@ export const API = {
     hierarchy: () => `${API_BASE}/visualizer/adminunits/hierarchy`,
     dataValues: () => `${API_BASE}/visualizer/datavalues`,
     datasets: () => `${API_BASE}/visualizer/datasets`,
-    dataElements: () => `${API_BASE}/visualizer/dataelements`
+    dataElements: () => `${API_BASE}/visualizer/dataelements`,
   },
   // --------------------------------------------------
   // Visualizer
   // --------------------------------------------------
   issue: {
     list: () => `${API_BASE}/issues`,
+  },
+
+  // --------------------------------------------------
+  // Data validation
+  // --------------------------------------------------
+  dataValidation: {
+    rules: {
+      list: () => `${API_BASE}/data-validation/rules`,
+      import: () => `${API_BASE}/data-validation/rules/import`,
+    },
   },
 
   // --------------------------------------------------
@@ -182,9 +212,23 @@ export const API = {
       countUnread: () => `${API_BASE}/admin/notifications/count/unread`,
       deleteOld: () => `${API_BASE}/admin/notifications/cleanup`,
       deliveries: (id: string) => `${API_BASE}/admin/notifications/${id}/deliveries`,
+      deliveryList: () => `${API_BASE}/admin/notifications/deliveries`,
+      deliveryMetrics: () => `${API_BASE}/admin/notifications/deliveries/metrics`,
+      deliveryById: (deliveryId: string) =>
+        `${API_BASE}/admin/notifications/deliveries/${deliveryId}`,
       retryDelivery: (deliveryId: string) =>
         `${API_BASE}/admin/notifications/deliveries/${deliveryId}/retry`,
+      cancelDelivery: (deliveryId: string) =>
+        `${API_BASE}/admin/notifications/deliveries/${deliveryId}/cancel`,
+      testSms: () => `${API_BASE}/admin/notifications/test-sms`,
     },
+  },
+
+  // --------------------------------------------------
+  // Notifications (authenticated user)
+  // --------------------------------------------------
+  notifications: {
+    preferences: () => `${API_BASE}/notifications/preferences`,
   },
 
   // --------------------------------------------------

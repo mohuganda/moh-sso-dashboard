@@ -1,9 +1,10 @@
 import { Button } from "@carbon/react";
 import { Close, Maximize, Minimize } from "@carbon/react/icons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { useFocusTrap } from "../../accessibility/useFocusTrap";
 import type { PanelSize } from "./header-panel.context";
-import "./reusable-header-panel.css";
+import "./reusable-header-panel.scss";
 
 type Props = {
   isOpen: boolean;
@@ -35,6 +36,14 @@ export function ReusableHeaderPanel({
   defaultMaximized = false,
 }: Props) {
   const [isMaximized, setIsMaximized] = useState(defaultMaximized);
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useFocusTrap({
+    active: isOpen,
+    containerRef: drawerRef,
+    initialFocusRef: closeButtonRef,
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -76,6 +85,7 @@ export function ReusableHeaderPanel({
       />
 
       <aside
+        ref={drawerRef}
         className={[
           "app-side-panel__drawer",
           `app-side-panel__drawer--${size}`,
@@ -84,6 +94,7 @@ export function ReusableHeaderPanel({
         role="dialog"
         aria-modal="true"
         aria-label={title ?? "Panel"}
+        tabIndex={-1}
       >
         <div className="app-side-panel__header">
           <h4 className="app-side-panel__title">{title}</h4>
@@ -102,6 +113,7 @@ export function ReusableHeaderPanel({
             )}
 
             <Button
+              ref={closeButtonRef}
               kind="ghost"
               hasIconOnly
               renderIcon={Close}

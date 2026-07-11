@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -14,6 +15,10 @@ import (
 type announcementsRepository struct {
 	db     db.Store
 	logger *logger.Logger
+}
+
+type rawDBStore interface {
+	DB() *sql.DB
 }
 
 func NewAnnouncementRepository(
@@ -82,6 +87,95 @@ func (r *announcementsRepository) Update(
 	}
 
 	return item, nil
+}
+
+func (r *announcementsRepository) rawDB() (*sql.DB, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("announcement repository database is nil")
+	}
+	store, ok := r.db.(rawDBStore)
+	if !ok || store.DB() == nil {
+		return nil, fmt.Errorf("announcement repository store does not expose raw database")
+	}
+	return store.DB(), nil
+}
+
+func (r *announcementsRepository) MarkSMSNotificationQueued(
+	ctx context.Context,
+	id uuid.UUID,
+) (db.Announcement, error) {
+	item, err := r.db.MarkAnnouncementSMSNotificationQueued(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to mark announcement SMS notification queued", err)
+		return db.Announcement{}, fmt.Errorf("mark announcement sms notification queued: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *announcementsRepository) ListSMSRecipientsForUsers(
+	ctx context.Context,
+	userIDs []uuid.UUID,
+) ([]AnnouncementSMSRecipient, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+
+	rawDB, err := r.rawDB()
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(userIDs))
+	for _, userID := range userIDs {
+		if userID != uuid.Nil {
+			ids = append(ids, userID.String())
+		}
+	}
+
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	rows, err := rawDB.QueryContext(ctx, `
+		SELECT user_id, phone_number
+		FROM notification_preferences
+		WHERE sms_enabled = TRUE
+		  AND phone_number IS NOT NULL
+		  AND trim(phone_number) <> ''
+		  AND user_id = ANY($1)
+		ORDER BY updated_at DESC
+	`, pq.Array(ids))
+	if err != nil {
+		r.logger.Error("failed to list announcement SMS recipients", err)
+		return nil, fmt.Errorf("list announcement sms recipients: %w", err)
+	}
+	defer rows.Close()
+
+	recipients := make([]AnnouncementSMSRecipient, 0)
+	for rows.Next() {
+		var userIDRaw string
+		var phoneNumber string
+		if err := rows.Scan(&userIDRaw, &phoneNumber); err != nil {
+			return nil, err
+		}
+
+		userID, err := uuid.Parse(userIDRaw)
+		if err != nil {
+			continue
+		}
+
+		recipients = append(recipients, AnnouncementSMSRecipient{
+			ID:          userID,
+			PhoneNumber: phoneNumber,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return recipients, nil
 }
 
 func (r *announcementsRepository) CreateAttachment(
@@ -655,6 +749,119 @@ func (r *announcementsRepository) ListUserAudience(
 	if err != nil {
 		r.logger.Error("failed to list user audience", err)
 		return nil, fmt.Errorf("list user audience: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *announcementsRepository) AddGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	groupID uuid.UUID,
+) error {
+	rawDB, err := r.rawDB()
+	if err != nil {
+		return err
+	}
+
+	_, err = rawDB.ExecContext(
+		ctx,
+		`INSERT INTO announcement_groups (announcement_id, group_id)
+		 VALUES ($1, $2)
+		 ON CONFLICT DO NOTHING`,
+		announcementID,
+		groupID,
+	)
+	if err != nil {
+		r.logger.Error("failed to add group audience", err)
+		return fmt.Errorf("add group audience: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ReplaceGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	groupIDs []uuid.UUID,
+) error {
+	rawDB, err := r.rawDB()
+	if err != nil {
+		return err
+	}
+
+	tx, err := rawDB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin group audience transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`DELETE FROM announcement_groups WHERE announcement_id = $1`,
+		announcementID,
+	); err != nil {
+		return fmt.Errorf("delete existing group audience: %w", err)
+	}
+
+	for _, groupID := range groupIDs {
+		if groupID == uuid.Nil {
+			continue
+		}
+
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO announcement_groups (announcement_id, group_id)
+			 VALUES ($1, $2)
+			 ON CONFLICT DO NOTHING`,
+			announcementID,
+			groupID,
+		); err != nil {
+			return fmt.Errorf("insert group audience [%s]: %w", groupID, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit group audience transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (r *announcementsRepository) ListGroupAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]uuid.UUID, error) {
+	rawDB, err := r.rawDB()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := rawDB.QueryContext(
+		ctx,
+		`SELECT group_id
+		 FROM announcement_groups
+		 WHERE announcement_id = $1
+		 ORDER BY created_at ASC`,
+		announcementID,
+	)
+	if err != nil {
+		r.logger.Error("failed to list group audience", err)
+		return nil, fmt.Errorf("list group audience: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var groupID uuid.UUID
+		if err := rows.Scan(&groupID); err != nil {
+			return nil, fmt.Errorf("scan group audience: %w", err)
+		}
+		items = append(items, groupID)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate group audience: %w", err)
 	}
 
 	return items, nil

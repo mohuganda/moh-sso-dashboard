@@ -2,7 +2,7 @@ import { Button, CodeSnippet, Tag } from "@carbon/react";
 import { Close } from "@carbon/react/icons";
 import type { ReactNode } from "react";
 
-import type { AuditLog } from "@moh-sso/types";
+import type { AuditLog } from "../types";
 
 import "./AuditLogDrawer.scss";
 

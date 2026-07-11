@@ -34,6 +34,8 @@
   color: var(--cds-text-secondary, #525252);
   font-size: 0.875rem;
   text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .moh-breadcrumbs__link:hover {
@@ -47,4 +49,11 @@
   color: var(--cds-text-primary, #161616);
   font-weight: 700;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 672px) {
+  .moh-breadcrumbs__item:not(:last-child):not(:first-child),
+  .moh-breadcrumbs__item:not(:last-child):not(:first-child) + .moh-breadcrumbs__separator {
+    display: none;
+  }
 }

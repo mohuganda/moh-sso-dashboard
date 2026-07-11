@@ -10,9 +10,8 @@ const LABEL_MAP: Record<string, string> = {
   "data-visualizer": "Data Visualizer",
   "data-validation": "Data Validation",
   dashboards: "Dashboards",
-  reports: "Reports",
-  exports: "Data Exports",
-  filesvr: "File Server",
+  documents: "Documents",
+  filesvr: "Documents",
   surveillance: "Surveillance",
   "issue-tracker": "Issue Tracker",
 

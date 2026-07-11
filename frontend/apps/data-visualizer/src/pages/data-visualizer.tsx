@@ -4,7 +4,7 @@ import DataModal from "./modals/data-model/DataModal.tsx";
 import PeriodModal from "./modals/period/PeriodModal.tsx";
 import OrgUnitModal from "./modals/orgunit/OrgUnitModal.tsx";
 
-import "./data-visualizer.css";
+import "./data-visualizer.scss";
 import { Button } from "@carbon/react";
 import { Download, FilterRemove, UpdateNow } from "@carbon/react/icons";
 

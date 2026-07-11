@@ -2,7 +2,7 @@
 
 The report browser app provides access to platform and DWH reports.
 
-It is a standalone React microfrontend exposed as `@moh-sso/report-browser` and mounted by the shell at `/apps/dwh/reports`.
+It is a standalone React microfrontend exposed as `@moh-sso/report-browser` and mounted by the shell at `/apps/dwh/dashboards`.
 
 ## Responsibilities
 

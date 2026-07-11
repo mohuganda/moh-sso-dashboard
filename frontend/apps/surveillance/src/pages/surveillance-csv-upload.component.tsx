@@ -10,8 +10,10 @@ import {
   Form,
   InlineLoading,
 } from "@carbon/react";
+import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useMemo, useState, type SyntheticEvent } from "react";
-import { useCreateImportBatchMutation } from "@moh-sso/api";
+import { useCreateImportBatchMutation } from "../api";
+import "./surveillance.scss";
 
 type UploadCSVModalProps = {
   onClose: () => void;
@@ -51,7 +53,24 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
+function UploadCSVAccessDenied({ onClose }: UploadCSVModalProps) {
+  return (
+    <div className="surveillance-upload">
+      <div className="surveillance-upload__header">
+        <h2>Access denied</h2>
+        <p>You need surveillance import access to upload surveillance files.</p>
+      </div>
+
+      <div className="surveillance-upload__actions">
+        <Button kind="secondary" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const UploadCSVModalContent: React.FC<UploadCSVModalProps> = ({ onClose }) => {
   const [file, setFile] = useState<File | null>(null);
   const [surveillanceFileType, setSurveillanceFileType] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +134,8 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
         err !== null &&
         "data" in err &&
         typeof (err as { data?: { message?: unknown } }).data?.message === "string"
-          ? ((err as { data?: { message?: string } }).data?.message ?? "Upload failed. Please try again.")
+          ? ((err as { data?: { message?: string } }).data?.message ??
+            "Upload failed. Please try again.")
           : "Upload failed. Please try again.";
 
       setError(message);
@@ -123,10 +143,10 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ margin: 0, marginBottom: "0.5rem" }}>Upload Surveillance File</h2>
-        <p style={{ margin: 0, color: "#6f6f6f" }}>
+    <div className="surveillance-upload">
+      <div className="surveillance-upload__header">
+        <h2>Upload Surveillance File</h2>
+        <p>
           Upload a CSV or Excel file and choose the surveillance dataset it belongs to.
         </p>
       </div>
@@ -154,17 +174,10 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
           </FormGroup>
 
           {file && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="surveillance-upload__selected-file">
               <Tag type="blue">Selected file</Tag>
               <span>{file.name}</span>
-              <span style={{ color: "#6f6f6f" }}>{formatFileSize(file.size)}</span>
+              <span className="surveillance-upload__file-size">{formatFileSize(file.size)}</span>
               <Button kind="ghost" size="sm" onClick={handleRemoveFile} disabled={isUploading}>
                 Remove
               </Button>
@@ -184,16 +197,7 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
             ))}
           </Select>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: "1rem",
-              marginTop: "0.5rem",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="surveillance-upload__actions">
             {isUploading && <InlineLoading description="Uploading file..." />}
 
             <Button kind="secondary" onClick={onClose} disabled={isUploading}>
@@ -207,5 +211,16 @@ export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
         </Stack>
       </Form>
     </div>
+  );
+};
+
+export const UploadCSVModal: React.FC<UploadCSVModalProps> = ({ onClose }) => {
+  return (
+    <PermissionGuard
+      permission={PERMISSIONS.surveillanceImport}
+      fallback={<UploadCSVAccessDenied onClose={onClose} />}
+    >
+      <UploadCSVModalContent onClose={onClose} />
+    </PermissionGuard>
   );
 };

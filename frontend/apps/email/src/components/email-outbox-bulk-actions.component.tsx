@@ -1,6 +1,7 @@
 import { Button, InlineLoading } from "@carbon/react";
 
-import type { EmailOutboxItem } from "@moh-sso/types";
+import type { EmailOutboxItem } from "../types";
+import "../pages/email-outbox.scss";
 
 type BulkAction = "retry" | "delete" | null;
 
@@ -23,25 +24,10 @@ export function EmailOutboxBulkActions({
   const isLoading = Boolean(loadingAction);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 8,
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingBlockEnd: 12,
-      }}
-    >
+    <div className="email-outbox-bulk-actions">
       <strong>{emails.length} selected</strong>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="email-outbox-bulk-actions__buttons">
         {isLoading && <InlineLoading description="Processing…" />}
 
         <Button size="sm" kind="secondary" disabled={isLoading} onClick={onRetry}>

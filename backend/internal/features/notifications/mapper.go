@@ -7,6 +7,7 @@ import (
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/model"
+	"github.com/moh-sso-dashboard/internal/service"
 	"github.com/sqlc-dev/pqtype"
 )
 
@@ -62,6 +63,10 @@ func toNotificationDeliveryResponse(delivery db.NotificationDelivery) Notificati
 		Attempts:       delivery.Attempts,
 		MaxAttempts:    delivery.MaxAttempts,
 		LastError:      nullStringValue(delivery.LastError),
+		Provider:       nullStringValue(delivery.Provider),
+		ProviderMsgID:  nullStringValue(delivery.ProviderMessageID),
+		ProviderStatus: nullStringValue(delivery.ProviderStatus),
+		ProviderMeta:   toNullRawMessageMap(delivery.ProviderResponse),
 		CreatedAt:      delivery.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:      delivery.UpdatedAt.UTC().Format(time.RFC3339),
 	}
@@ -73,6 +78,49 @@ func toNotificationDeliveryResponses(deliveries []db.NotificationDelivery) []Not
 		out = append(out, toNotificationDeliveryResponse(delivery))
 	}
 	return out
+}
+
+func toNotificationDeliveryMetricResponse(
+	metric db.ListNotificationDeliveryMetricsRow,
+) NotificationDeliveryMetricResponse {
+	return NotificationDeliveryMetricResponse{
+		Channel:              metric.Channel,
+		Provider:             metric.Provider,
+		Total:                metric.Total,
+		Pending:              metric.Pending,
+		Processing:           metric.Processing,
+		Sent:                 metric.Sent,
+		Failed:               metric.Failed,
+		Retry:                metric.Retry,
+		Cancelled:            metric.Cancelled,
+		AvgProcessingSeconds: metric.AvgProcessingSeconds,
+	}
+}
+
+func toNotificationDeliveryMetricResponses(
+	metrics []db.ListNotificationDeliveryMetricsRow,
+) []NotificationDeliveryMetricResponse {
+	out := make([]NotificationDeliveryMetricResponse, 0, len(metrics))
+	for _, metric := range metrics {
+		out = append(out, toNotificationDeliveryMetricResponse(metric))
+	}
+	return out
+}
+
+func toNotificationPreferencesResponse(
+	preferences service.NotificationPreferences,
+) NotificationPreferencesResponse {
+	return NotificationPreferencesResponse{
+		UserID:          preferences.UserID,
+		EmailEnabled:    preferences.EmailEnabled,
+		SMSEnabled:      preferences.SMSEnabled,
+		PhoneNumber:     preferences.PhoneNumber,
+		PhoneVerified:   preferences.PhoneVerified,
+		QuietHoursStart: preferences.QuietHoursStart,
+		QuietHoursEnd:   preferences.QuietHoursEnd,
+		CreatedAt:       timeValue(preferences.CreatedAt),
+		UpdatedAt:       timeValue(preferences.UpdatedAt),
+	}
 }
 
 func toNullRawMessageMap(raw pqtype.NullRawMessage) map[string]any {
@@ -100,4 +148,12 @@ func nullTimeValue(value sql.NullTime) string {
 		return ""
 	}
 	return value.Time.UTC().Format(time.RFC3339)
+}
+
+func timeValue(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+
+	return value.UTC().Format(time.RFC3339)
 }

@@ -1,5 +1,7 @@
 import { Button } from "@carbon/react";
 
+import "./eservice-components.scss";
+
 type EserviceEmptyStateProps = {
   title: string;
   description: string;
@@ -14,25 +16,10 @@ export function EserviceEmptyState({
   onActionClick,
 }: EserviceEmptyStateProps) {
   return (
-    <div
-      style={{
-        minHeight: 280,
-        display: "grid",
-        placeItems: "center",
-        textAlign: "center",
-        padding: "2rem",
-      }}
-    >
+    <div className="eservice-empty-state">
       <div>
-        <h4 style={{ margin: 0 }}>{title}</h4>
-        <p
-          style={{
-            marginTop: 8,
-            marginBottom: 20,
-            opacity: 0.75,
-            maxWidth: 520,
-          }}
-        >
+        <h4 className="eservice-empty-state__title">{title}</h4>
+        <p className="eservice-empty-state__description">
           {description}
         </p>
 

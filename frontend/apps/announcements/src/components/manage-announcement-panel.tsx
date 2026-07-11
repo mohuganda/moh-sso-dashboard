@@ -5,13 +5,14 @@ import type {
   Announcement,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
-} from "@moh-sso/types";
+} from "../types";
 
-import { useCreateAnnouncementMutation, useUpdateAnnouncementMutation } from "@moh-sso/api";
+import { useCreateAnnouncementMutation, useUpdateAnnouncementMutation } from "../api";
 
 import { AnnouncementForm } from "./announcements-form.component";
 import { AnnouncementAttachments } from "./announcement-attachments.component";
 import { useToast } from "@moh-sso/ui";
+import "./announcements.components.scss";
 
 type ManageAnnouncementsPanelProps = {
   mode: "create" | "edit";
@@ -70,14 +71,14 @@ export function ManageAnnouncementsPanel({
   };
 
   return (
-    <Tile style={{ padding: "1.5rem" }}>
+    <Tile className="manage-announcement-panel">
       <Stack gap={6}>
         <div>
-          <h3 style={{ margin: 0 }}>
+          <h3 className="manage-announcement-panel__title">
             {mode === "create" ? "Create Announcement" : "Edit Announcement"}
           </h3>
 
-          <p style={{ marginTop: "0.5rem", color: "#6f6f6f" }}>
+          <p className="manage-announcement-panel__subtitle">
             {mode === "create"
               ? "Publish announcements, alerts, and important updates for dashboard users."
               : "Update the announcement details, audience, status, schedule, and visibility."}
@@ -95,20 +96,14 @@ export function ManageAnnouncementsPanel({
         {mode === "edit" && (linkUrl || attachmentCount > 0) ? (
           <section
             aria-label="Announcement publishing assets"
-            style={{
-              display: "grid",
-              gap: "0.75rem",
-              padding: "1rem",
-              border: "1px solid var(--cds-border-subtle-01, #e0e0e0)",
-              background: "var(--cds-layer, #ffffff)",
-            }}
+            className="manage-announcement-panel__assets"
           >
-            <h4 style={{ margin: 0 }}>Publishing assets</h4>
+            <h4 className="manage-announcement-panel__asset-title">Publishing assets</h4>
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <div className="manage-announcement-panel__asset-tags">
               {linkUrl && (
                 <Tag type="blue" size="sm">
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span className="announcements-page__tag-content">
                     <LinkIcon size={12} />
                     Related link
                   </span>
@@ -117,7 +112,7 @@ export function ManageAnnouncementsPanel({
 
               {attachmentCount > 0 && (
                 <Tag type="cyan" size="sm">
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span className="announcements-page__tag-content">
                     <Attachment size={12} />
                     {attachmentCount === 1 ? "1 attachment" : `${attachmentCount} attachments`}
                   </span>

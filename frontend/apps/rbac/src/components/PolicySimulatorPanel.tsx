@@ -1,6 +1,6 @@
 import { Button, Tag, TextInput } from "@carbon/react";
 
-import type { RbacSimulationResult } from "@moh-sso/types";
+import type { RbacSimulationResult } from "../types";
 
 type PolicySimulatorPanelProps = {
   simulationRoles: string;

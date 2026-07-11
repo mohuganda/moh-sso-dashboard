@@ -119,4 +119,3 @@ func (w *DocumentWorker) processNext(ctx context.Context) error {
 func (w *DocumentWorker) idle(ctx context.Context) {
 	sleepWithContext(ctx, w.pollDelay)
 }
-

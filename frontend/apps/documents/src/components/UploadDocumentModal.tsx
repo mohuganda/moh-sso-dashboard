@@ -1,6 +1,8 @@
-import { useCallback, useMemo, useState, type SyntheticEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import {
   Button,
+  DatePicker,
+  DatePickerInput,
   FileUploaderDropContainer,
   Form,
   FormGroup,
@@ -10,24 +12,10 @@ import {
   SelectItem,
   Stack,
   Tag,
-  TextArea,
-  TextInput,
-  Toggle,
 } from "@carbon/react";
-import * as XLSX from "xlsx";
-import Papa from "papaparse";
+import { TrashCan } from "@carbon/react/icons";
 
-import { useCreateDocumentMutation, useListStorageLocationsQuery ,
-  useCreateTemplateStructureMutation,
-  useListActiveTemplatesQuery,
-} from "@moh-sso/api";
-
-
-import {
-  DOCUMENT_PROCESS_TYPE_OPTIONS,
-  type DocumentProcessType,
-} from "@moh-sso/types";
-
+import { PermissionGuard, PERMISSIONS } from "@moh-sso/auth";
 import {
   formatFileSize,
   getSuggestedProcessType,
@@ -37,66 +25,35 @@ import {
   validateProcessTypeAgainstFile,
 } from "@moh-sso/utils";
 
-type UploadMode = "document" | "template";
-
-type UploadDocumentModalProps = {
-  onClose: () => void;
-};
-
-type TemplateValidationConfig = {
-  label: string;
-  allowedExtensions: string[];
-  requiredHeaders: string[];
-};
-
-type DetectedSheet = {
-  name: string;
-  headers: string[];
-};
+import {
+  useCreateDocumentMutation,
+  useGetTemplateHasDataQuery,
+  useGetTemplateStructureQuery,
+  useListActiveTemplatesQuery,
+  useListDocumentsQuery,
+  useListStorageLocationsQuery,
+} from "../api";
+import "./documents-components.scss";
+import { DOCUMENT_PROCESS_TYPE_OPTIONS, type DocumentProcessType } from "../types";
 
 const CSV_HEADER_READ_BYTES = 64 * 1024;
 
 function getFileExtension(fileName: string): string {
   const index = fileName.lastIndexOf(".");
+
   return index >= 0 ? fileName.slice(index).toLowerCase() : "";
 }
 
-function normalizeHeader(value: unknown): string {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_");
+function normalizeForCompare(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, "_");
 }
 
-function normalizeTemplateCode(value: string): string {
-  return value
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Z0-9_]/g, "");
-}
-
-function getStringArrayFromConfig(
-  configuration: Record<string, unknown> | null | undefined,
-  keys: string[],
-): string[] {
-  if (!configuration) return [];
-
-  for (const key of keys) {
-    const value = configuration[key];
-
-    if (Array.isArray(value)) {
-      return value.map(String).filter(Boolean);
-    }
-  }
-
-  return [];
-}
-
-async function extractHeadersFromFile(file: File): Promise<string[]> {
+async function extractFileHeaders(file: File): Promise<string[]> {
   const extension = getFileExtension(file.name);
 
   if (extension === ".csv") {
+    const { default: Papa } = await import("papaparse");
+
     const text = await file.slice(0, CSV_HEADER_READ_BYTES).text();
 
     return new Promise((resolve, reject) => {
@@ -105,7 +62,11 @@ async function extractHeadersFromFile(file: File): Promise<string[]> {
         skipEmptyLines: true,
         preview: 1,
         complete: (results) => {
-          resolve((results.meta.fields ?? []).map(normalizeHeader).filter(Boolean));
+          resolve(
+            (results.meta.fields ?? [])
+              .map((header) => String(header ?? "").trim())
+              .filter(Boolean),
+          );
         },
         error: reject,
       });
@@ -113,240 +74,219 @@ async function extractHeadersFromFile(file: File): Promise<string[]> {
   }
 
   if (extension === ".xlsx" || extension === ".xls") {
-    const sheets = await extractSheetsFromFile(file);
-    return sheets[0]?.headers ?? [];
-  }
-
-  return [];
-}
-
-async function extractSheetsFromFile(file: File): Promise<DetectedSheet[]> {
-  const extension = getFileExtension(file.name);
-
-  if (extension === ".csv") {
-    const text = await file.slice(0, CSV_HEADER_READ_BYTES).text();
-
-    const headers = await new Promise<string[]>((resolve, reject) => {
-      Papa.parse<Record<string, unknown>>(text, {
-        header: true,
-        skipEmptyLines: true,
-        preview: 1,
-        complete: (results) => {
-          resolve((results.meta.fields ?? []).map(normalizeHeader).filter(Boolean));
-        },
-        error: reject,
-      });
-    });
-
-    return [
-      {
-        name: "CSV Data",
-        headers,
-      },
-    ];
-  }
-
-  if (extension === ".xlsx" || extension === ".xls") {
+    const XLSX = await import("xlsx");
     const buffer = await file.arrayBuffer();
 
     const workbook = XLSX.read(buffer, {
       type: "array",
-      sheetRows: 1,
+      sheetRows: 10,
     });
 
-    const visibleSheetNames = workbook.SheetNames.filter((index) => {
-      const sheetMeta = workbook.Workbook?.Sheets?.[index];
+    const visibleSheetNames = workbook.SheetNames.filter((_, index) => {
+      const metadata = workbook.Workbook?.Sheets?.[index];
 
-      return !sheetMeta?.Hidden;
+      return !metadata?.Hidden;
     });
 
-    return visibleSheetNames
-      .map((sheetName) => {
-        const worksheet = workbook.Sheets[sheetName];
+    const allHeaders: string[] = [];
 
-        const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(worksheet, {
-          header: 1,
-          defval: "",
-          blankrows: false,
-        });
+    for (const sheetName of visibleSheetNames) {
+      const worksheet = workbook.Sheets[sheetName];
 
-        const firstRow = Array.isArray(rows[0]) ? rows[0] : [];
+      if (!worksheet) {
+        continue;
+      }
 
-        return {
-          name: sheetName,
-          headers: firstRow.map(normalizeHeader).filter(Boolean),
-        };
-      })
-      .filter((sheet) => sheet.headers.length > 0);
+      const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(worksheet, {
+        header: 1,
+        defval: "",
+        blankrows: false,
+      });
+
+      let headerRowIndex = 0;
+
+      for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+        const nonEmptyCells = rows[rowIndex].filter((cell) => String(cell ?? "").trim() !== "");
+
+        if (nonEmptyCells.length >= 4) {
+          headerRowIndex = rowIndex;
+          break;
+        }
+      }
+
+      const headerRow = Array.isArray(rows[headerRowIndex]) ? rows[headerRowIndex] : [];
+
+      allHeaders.push(...headerRow.map((header) => String(header ?? "").trim()).filter(Boolean));
+    }
+
+    return allHeaders;
   }
 
   return [];
 }
 
-function validateHeadersAgainstTemplate(
-  headers: string[],
-  template: TemplateValidationConfig,
-  fileName: string,
-): string | null {
-  const extension = getFileExtension(fileName);
+export type UploadDocumentModalProps = {
+  onClose: () => void;
+};
 
-  if (template.allowedExtensions.length > 0 && !template.allowedExtensions.includes(extension)) {
-    return `${template.label} only supports ${template.allowedExtensions.join(", ")} files.`;
-  }
+type ColumnValidationResult = {
+  required: string[];
+  present: string[];
+  missing: string[];
+};
 
-  if (!headers.length) {
-    return "Could not read file headers. Please check the file format and try again.";
-  }
-
-  if (!template.requiredHeaders.length) {
-    return null;
-  }
-
-  const headerSet = new Set(headers);
-
-  const missingHeaders = template.requiredHeaders.filter(
-    (requiredHeader) => !headerSet.has(normalizeHeader(requiredHeader)),
-  );
-
-  if (missingHeaders.length > 0) {
-    return `The uploaded file does not match the selected template. Missing required columns: ${missingHeaders.join(", ")}.`;
-  }
-
-  return null;
-}
-
-export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClose }) => {
-  const [uploadMode, setUploadMode] = useState<UploadMode>("document");
+function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
-  const [detectedSheets, setDetectedSheets] = useState<DetectedSheet[]>([]);
+
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+
   const [storageLocation, setStorageLocation] = useState("");
+
   const [processType, setProcessType] = useState<DocumentProcessType | "">("");
+
   const [selectedTemplate, setSelectedTemplate] = useState("");
-  const [templateValidationMessage, setTemplateValidationMessage] = useState<string | null>(null);
-  const [isValidatingTemplate, setIsValidatingTemplate] = useState(false);
+
+  const [reportDate, setReportDate] = useState("");
+
+  const [reportDateTouched, setReportDateTouched] = useState(false);
+
+  const [isReadingFile, setIsReadingFile] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
-  const [templateCode, setTemplateCode] = useState("");
-  const [templateName, setTemplateName] = useState("");
-  const [templateDescription, setTemplateDescription] = useState("");
+  const [reuploadMode, setReuploadMode] = useState<"same" | "new" | null>(null);
 
-  const [createDocument, { isLoading: isUploadingDocument }] = useCreateDocumentMutation();
+  const todayString = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  const [createTemplateStructure, { isLoading: isUploadingTemplate }] =
-    useCreateTemplateStructureMutation();
+  const [createDocument, { isLoading: isUploading }] = useCreateDocumentMutation();
 
-  const { data: savedTemplatesResponse, isLoading: isTemplatesLoading } =
+  const { data: allDocuments = [] } = useListDocumentsQuery();
+
+  const { data: savedTemplates = [], isLoading: isTemplatesLoading } =
     useListActiveTemplatesQuery();
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const savedTemplates = Array.isArray(savedTemplatesResponse) ? savedTemplatesResponse : [];
+  const { data: templateStructure, isFetching: isFetchingStructure } = useGetTemplateStructureQuery(
+    selectedTemplate,
+    {
+      skip: !selectedTemplate,
+    },
+  );
 
-  const isUploading = isUploadingDocument || isUploadingTemplate;
+  useGetTemplateHasDataQuery(selectedTemplate, {
+    skip: !selectedTemplate || !processType,
+  });
 
-  const {
-    data: locations = [],
-    isLoading: isLocationsLoading,
-    isError: isLocationsError,
-  } = useListStorageLocationsQuery();
+  const { data: locations = [], isLoading: isLocationsLoading } = useListStorageLocationsQuery();
 
   const activeLocations = useMemo(
     () => locations.filter((location) => location.is_active),
     [locations],
   );
 
-  const hasStorageLocations = activeLocations.length > 0;
+  const localLocation = useMemo(
+    () => activeLocations.find((location) => location.provider === "local"),
+    [activeLocations],
+  );
+
+  useEffect(() => {
+    if (localLocation && !storageLocation) {
+      setStorageLocation(localLocation.id);
+    }
+  }, [localLocation, storageLocation]);
+
+  const previousUpload = useMemo(() => {
+    if (!file) {
+      return null;
+    }
+
+    const matches = allDocuments
+      .filter(
+        (document) => document.original_filename === file.name && document.metadata?.template_code,
+      )
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return matches[0] ?? null;
+  }, [file, allDocuments]);
+
+  const previousReportDate = previousUpload?.metadata?.report_date ?? null;
+
+  useEffect(() => {
+    if (previousUpload && previousReportDate) {
+      setReuploadMode("same");
+      setReportDate(previousReportDate);
+      setReportDateTouched(false);
+      return;
+    }
+
+    if (!previousUpload) {
+      setReuploadMode(null);
+    }
+  }, [previousUpload, previousReportDate]);
 
   const fileNeedsProcessing = useMemo(() => (file ? requiresProcessing(file) : false), [file]);
 
   const isPdf = useMemo(() => (file ? isPdfFile(file) : false), [file]);
 
-  const normalizedTemplateCode = useMemo(() => normalizeTemplateCode(templateCode), [templateCode]);
+  const columnValidation = useMemo<ColumnValidationResult | null>(() => {
+    if (!selectedTemplate || !templateStructure || !file || isPdf) {
+      return null;
+    }
 
-  const templateCodeExists = useMemo(
-    () => savedTemplates.some((template) => template.code === normalizedTemplateCode),
-    [savedTemplates, normalizedTemplateCode],
-  );
+    const requiredColumns = templateStructure.sheets.flatMap((sheet) =>
+      sheet.columns.filter((column) => column.required).map((column) => column.column_name),
+    );
 
-  const selectedTemplateConfig = useMemo<TemplateValidationConfig | null>(() => {
-    const template = savedTemplates.find((item) => item.code === selectedTemplate);
+    if (requiredColumns.length === 0) {
+      return null;
+    }
 
-    if (!template) return null;
+    const fileHeaderSet = new Set(fileHeaders.map(normalizeForCompare));
 
-    const allowedExtensions = getStringArrayFromConfig(template.configuration, [
-      "allowed_extensions",
-      "allowedExtensions",
-    ]);
+    const present: string[] = [];
+    const missing: string[] = [];
+
+    for (const columnName of requiredColumns) {
+      if (fileHeaderSet.has(normalizeForCompare(columnName))) {
+        present.push(columnName);
+      } else {
+        missing.push(columnName);
+      }
+    }
 
     return {
-      label: template.name,
-      allowedExtensions,
-      requiredHeaders: [],
+      required: requiredColumns,
+      present,
+      missing,
     };
-  }, [savedTemplates, selectedTemplate]);
+  }, [selectedTemplate, templateStructure, file, isPdf, fileHeaders]);
 
-  const isTemplateInvalid =
-    Boolean(selectedTemplateConfig) &&
-    Boolean(templateValidationMessage) &&
-    !templateValidationMessage?.startsWith("File matches");
+  const isTemplateValid = columnValidation === null || columnValidation.missing.length === 0;
 
-  const validateSelectedTemplate = useCallback(
-    async (nextFile: File, template: TemplateValidationConfig, headersFromState?: string[]) => {
-      if (isPdfFile(nextFile)) {
+  const handleFileChange = useCallback(
+    async (
+      _event: SyntheticEvent<HTMLElement, Event>,
+      {
+        addedFiles,
+      }: {
+        addedFiles: File[];
+      },
+    ) => {
+      const selectedFile = addedFiles[0];
+
+      if (!selectedFile) {
         return;
       }
 
-      try {
-        setIsValidatingTemplate(true);
-
-        const headers =
-          headersFromState && headersFromState.length > 0
-            ? headersFromState
-            : await extractHeadersFromFile(nextFile);
-
-        setDetectedHeaders(headers);
-
-        const validationError = validateHeadersAgainstTemplate(headers, template, nextFile.name);
-
-        setTemplateValidationMessage(
-          validationError ? validationError : `File matches the ${template.label}.`,
-        );
-      } catch {
-        setTemplateValidationMessage("Failed to validate file against the selected template.");
-      } finally {
-        setIsValidatingTemplate(false);
-      }
-    },
-    [],
-  );
-
-  const handleUploadModeChange = useCallback((checked: boolean) => {
-    setUploadMode(checked ? "template" : "document");
-    setError(null);
-    setTemplateValidationMessage(null);
-    setSelectedTemplate("");
-  }, []);
-
-  const processSelectedFiles = useCallback(
-    async (addedFiles: File[]) => {
-      const selectedFile = addedFiles[0];
-
-      if (!selectedFile) return;
-
-      setTemplateValidationMessage(null);
-      setDetectedHeaders([]);
-      setDetectedSheets([]);
-
       if (!isAcceptedFile(selectedFile)) {
         setFile(null);
-        setProcessType("");
-        setSelectedTemplate("");
+        setFileHeaders([]);
         setError("Only PDF, CSV, or Excel (.pdf, .csv, .xlsx, .xls) files are allowed.");
         return;
       }
 
       setError(null);
       setFile(selectedFile);
+      setFileHeaders([]);
 
       if (requiresProcessing(selectedFile)) {
         setProcessType((current) => current || getSuggestedProcessType(selectedFile));
@@ -358,78 +298,35 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
         return;
       }
 
-      if (uploadMode === "template" || selectedTemplateConfig) {
-        try {
-          setIsValidatingTemplate(true);
+      setIsReadingFile(true);
 
-          const sheets = await extractSheetsFromFile(selectedFile);
-          const headers = sheets.flatMap((sheet) => sheet.headers);
+      try {
+        const headers = await extractFileHeaders(selectedFile);
 
-          setDetectedSheets(sheets);
-          setDetectedHeaders(headers);
-
-          if (uploadMode === "template") {
-            setTemplateValidationMessage(
-              headers.length ? `Detected headers: ${headers.join(", ")}` : "No headers detected.",
-            );
-          }
-
-          if (selectedTemplateConfig && uploadMode === "document") {
-            const validationError = validateHeadersAgainstTemplate(
-              headers,
-              selectedTemplateConfig,
-              selectedFile.name,
-            );
-
-            setTemplateValidationMessage(
-              validationError
-                ? validationError
-                : `File matches the ${selectedTemplateConfig.label}.`,
-            );
-          }
-        } catch {
-          setTemplateValidationMessage("Failed to read file headers.");
-        } finally {
-          setIsValidatingTemplate(false);
-        }
+        setFileHeaders(headers);
+      } catch {
+        setError("Failed to read file headers.");
+      } finally {
+        setIsReadingFile(false);
       }
     },
-    [selectedTemplateConfig, uploadMode],
+    [],
   );
 
-  const handleFileChange = (
-    _event: SyntheticEvent<HTMLElement, Event>,
-    { addedFiles }: { addedFiles: File[] },
-  ): void => {
-    void processSelectedFiles(addedFiles);
-  };
-
-  const handleTemplateChange = async (templateCodeValue: string) => {
-    setSelectedTemplate(templateCodeValue);
-    setTemplateValidationMessage(null);
+  const handleClearFile = useCallback(() => {
+    setFile(null);
+    setFileHeaders([]);
+    setProcessType("");
+    setSelectedTemplate("");
+    setReportDate("");
+    setReportDateTouched(false);
+    setReuploadMode(null);
     setError(null);
+  }, []);
 
-    const template = savedTemplates.find((item) => item.code === templateCodeValue);
-
-    if (!template) return;
-
-    const config: TemplateValidationConfig = {
-      label: template.name,
-      requiredHeaders: [],
-      allowedExtensions: getStringArrayFromConfig(template.configuration, [
-        "allowed_extensions",
-        "allowedExtensions",
-      ]),
-    };
-
-    if (!file || isPdfFile(file)) return;
-
-    await validateSelectedTemplate(file, config, detectedHeaders);
-  };
-
-  const handleUpload = async () => {
+  async function handleUpload() {
     if (!file) {
-      setError("Please select a file to upload.");
+      setError("Please select a file.");
       return;
     }
 
@@ -438,29 +335,12 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       return;
     }
 
-    if (uploadMode === "template" && !templateName.trim()) {
-      setError("Please enter a template name.");
-      return;
-    }
-
-    if (uploadMode === "template" && !normalizedTemplateCode) {
-      setError("Please enter a template code.");
-      return;
-    }
-
-    if (uploadMode === "template" && templateCodeExists) {
-      setError(
-        `Template code "${normalizedTemplateCode}" already exists. Please use another code.`,
-      );
-      return;
-    }
-
-    if (uploadMode === "document" && requiresProcessing(file) && !processType) {
+    if (fileNeedsProcessing && !processType) {
       setError("Please select a process type.");
       return;
     }
 
-    if (uploadMode === "document" && requiresProcessing(file) && processType) {
+    if (fileNeedsProcessing && processType) {
       const validationError = validateProcessTypeAgainstFile(file, processType);
 
       if (validationError) {
@@ -469,126 +349,98 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
       }
     }
 
-    if (uploadMode === "document" && selectedTemplateConfig && !isPdfFile(file)) {
-      const headers = detectedHeaders.length ? detectedHeaders : await extractHeadersFromFile(file);
-      const templateError = validateHeadersAgainstTemplate(
-        headers,
-        selectedTemplateConfig,
-        file.name,
-      );
-
-      if (templateError) {
-        setError(templateError);
-        return;
-      }
+    if (!isTemplateValid) {
+      setError(`Missing required columns: ${columnValidation?.missing.join(", ") ?? ""}`);
+      return;
     }
+
+    if (selectedTemplate && fileNeedsProcessing && !reportDate) {
+      setReportDateTouched(true);
+      setError("Please select a report date.");
+      return;
+    }
+
+    if (reuploadMode === "new" && previousReportDate && reportDate === previousReportDate) {
+      setReportDateTouched(true);
+      setError(
+        `Report date cannot be the same as the previous upload (${previousReportDate}). Choose a different date or select "Yes, same report date" to replace it.`,
+      );
+      return;
+    }
+
+    setError(null);
+
+    const shouldReplace = Boolean(previousUpload && reuploadMode === "same");
+
+    const metadata = selectedTemplate
+      ? {
+          template_code: selectedTemplate,
+          ...(reportDate
+            ? {
+                report_date: reportDate,
+              }
+            : {}),
+          ...(shouldReplace
+            ? {
+                replace_document_id: previousUpload!.id,
+              }
+            : {}),
+        }
+      : undefined;
 
     try {
-      setError(null);
-
-      if (uploadMode === "template") {
-        const sheets = !isPdfFile(file)
-          ? detectedSheets.length
-            ? detectedSheets
-            : await extractSheetsFromFile(file)
-          : [];
-
-        const headers = sheets.flatMap((sheet) => sheet.headers);
-
-        const uploadedDocument = await createDocument({
-          file,
-          storageLocation,
-          isTemplate: true,
-          ...(requiresProcessing(file) && processType ? { processType } : {}),
-        }).unwrap();
-
-        const payload = {
-          template: {
-            document_id: uploadedDocument.id,
-            code: normalizedTemplateCode,
-            name: templateName.trim(),
-            description: templateDescription.trim(),
-            file_type: getFileExtension(file.name).replace(".", ""),
-            configuration: {
-              source_file_name: file.name,
-              allowed_extensions: [getFileExtension(file.name)],
-              required_headers: headers,
-              process_type: null,
-            },
-          },
-          sheets: sheets.map((sheet, sheetIndex) => ({
-            sheet: {
-              code: normalizeHeader(sheet.name),
-              name: sheet.name,
-              display_name: sheet.name,
-              required: true,
-              sheet_order: sheetIndex + 1,
-              header_row: 1,
-              start_row: 2,
-              allow_extra_columns: true,
-              allow_duplicate_headers: false,
-              configuration: {},
-            },
-            columns: sheet.headers.map((header, index) => ({
-              column_key: header,
-              column_name: header,
-              display_name: header,
-              data_type: "STRING",
-              required: false,
-              is_unique: false,
-              column_order: index + 1,
-              default_value: null,
-              allowed_values: [],
-              aliases: [],
-              configuration: {},
-            })),
-          })),
-        };
-
-        await createTemplateStructure(payload).unwrap();
-      } else {
-        await createDocument({
-          file,
-          storageLocation,
-          ...(requiresProcessing(file) && processType ? { processType } : {}),
-          ...(selectedTemplate ? { metadata: { template_code: selectedTemplate } } : {}),
-        }).unwrap();
-      }
+      await createDocument({
+        file,
+        storageLocation,
+        ...(fileNeedsProcessing && processType ? { processType } : {}),
+        ...(metadata ? { metadata } : {}),
+      }).unwrap();
 
       onClose();
-    } catch (err: unknown) {
-      const message =
-        typeof err === "object" &&
-        err !== null &&
-        "data" in err &&
-        typeof (err as { data?: { message?: unknown } }).data?.message === "string"
-          ? (err as { data?: { message?: string } }).data?.message
-          : "Upload failed. Please try again.";
+    } catch (caughtError: unknown) {
+      const responseMessage =
+        typeof caughtError === "object" &&
+        caughtError !== null &&
+        "data" in caughtError &&
+        typeof (
+          caughtError as {
+            data?: {
+              message?: unknown;
+            };
+          }
+        ).data?.message === "string"
+          ? (
+              caughtError as {
+                data?: {
+                  message?: string;
+                };
+              }
+            ).data?.message
+          : null;
 
-      setError(message!);
+      setError(responseMessage ?? "Upload failed. Please try again.");
     }
-  };
+  }
 
   const isSubmitDisabled =
     isUploading ||
-    isLocationsLoading ||
-    isValidatingTemplate ||
+    isReadingFile ||
+    isFetchingStructure ||
     !file ||
     !storageLocation ||
-    (uploadMode === "document" && fileNeedsProcessing && !processType) ||
-    (uploadMode === "template" &&
-      (!templateName.trim() || !normalizedTemplateCode || templateCodeExists)) ||
-    !hasStorageLocations ||
-    isTemplateInvalid;
+    (fileNeedsProcessing && !processType) ||
+    (selectedTemplate && fileNeedsProcessing && !reportDate) ||
+    (reuploadMode === "new" && !!previousReportDate && reportDate === previousReportDate) ||
+    !isTemplateValid;
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ margin: 0, marginBottom: "0.5rem" }}>Upload Document</h2>
+    <div className="document-upload-modal">
+      <div className="document-upload-modal__header">
+        <h2>Upload Document</h2>
 
-        <p style={{ margin: 0, color: "#6f6f6f" }}>
-          Upload a document for processing or upload a reusable template for validating future
-          files.
+        <p>
+          Upload a file for processing. Optionally select a template to validate the file&apos;s
+          columns before uploading.
         </p>
       </div>
 
@@ -604,125 +456,119 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
             />
           )}
 
-          {uploadMode === "template" && templateCodeExists && (
-            <InlineNotification
-              kind="warning"
-              title="Template code already exists"
-              subtitle={`Template code "${normalizedTemplateCode}" is already in use.`}
-              lowContrast
-            />
-          )}
-
-          {!isLocationsLoading && !hasStorageLocations && (
-            <InlineNotification
-              kind="warning"
-              title="No active storage locations"
-              subtitle="Activate or configure a storage location before uploading documents."
-              lowContrast
-            />
-          )}
-
-          {isLocationsError && (
-            <InlineNotification
-              kind="error"
-              title="Storage locations error"
-              subtitle="Failed to load storage locations."
-              lowContrast
-            />
-          )}
-
-          <Toggle
-            id="upload-mode"
-            labelText="Upload as template"
-            toggled={uploadMode === "template"}
-            onToggle={handleUploadModeChange}
-            disabled={isUploading || isValidatingTemplate}
-          />
-
           <FormGroup legendText="Document file">
             <FileUploaderDropContainer
-              labelText="Drag and drop a file here or click to browse"
+              labelText="Drag and drop a file here, or click to browse"
               accept={[".pdf", ".csv", ".xlsx", ".xls"]}
               multiple={false}
               onAddFiles={handleFileChange}
-              disabled={isUploading || isValidatingTemplate}
+              disabled={isUploading}
             />
           </FormGroup>
 
           {file && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <Tag type="blue">Selected file</Tag>
-              <span>{file.name}</span>
-              <span style={{ color: "#6f6f6f" }}>{formatFileSize(file.size)}</span>
+            <div className="document-upload-modal__file">
+              <Tag type="blue">Selected</Tag>
 
-              {isPdf ? (
-                <Tag type="cool-gray">No processing required</Tag>
-              ) : (
-                <Tag type={uploadMode === "template" ? "cyan" : "purple"}>
-                  {uploadMode === "template" ? "Template only" : "Processing required"}
-                </Tag>
+              <span className="document-upload-modal__file-name">{file.name}</span>
+
+              <span className="document-upload-modal__file-size">{formatFileSize(file.size)}</span>
+
+              {isPdf && <Tag type="cool-gray">No processing required</Tag>}
+
+              {isReadingFile && <InlineLoading description="Reading file headers..." />}
+
+              {!isReadingFile && (
+                <Button
+                  kind="ghost"
+                  size="sm"
+                  renderIcon={TrashCan}
+                  iconDescription="Remove file"
+                  onClick={handleClearFile}
+                  disabled={isUploading}
+                >
+                  Remove
+                </Button>
               )}
             </div>
           )}
 
-          {uploadMode === "template" && (
-            <>
-              <TextInput
-                id="template-code"
-                labelText="Template code"
-                placeholder="e.g NMS_STOCK_REPORT"
-                value={templateCode}
-                onChange={(e) => setTemplateCode(normalizeTemplateCode(e.target.value))}
-                invalid={templateCodeExists}
-                invalidText={`Template code "${normalizedTemplateCode}" already exists.`}
-                disabled={isUploading || isValidatingTemplate}
-              />
+          {previousUpload && fileNeedsProcessing && (
+            <div className="document-upload-modal__warning">
+              <p className="document-upload-modal__warning-title">
+                This filename was uploaded before
+              </p>
 
-              <TextInput
-                id="template-name"
-                labelText="Template name"
-                placeholder="e.g HIV Viral Load Template"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                disabled={isUploading || isValidatingTemplate}
-              />
+              <p className="document-upload-modal__warning-text">
+                Previous report date: <strong>{previousReportDate ?? "—"}</strong>
+              </p>
 
-              <TextArea
-                id="template-description"
-                labelText="Template description"
-                placeholder="Describe what this template is used for"
-                value={templateDescription}
-                onChange={(e) => setTemplateDescription(e.target.value)}
-                disabled={isUploading || isValidatingTemplate}
-              />
-            </>
+              <div className="document-upload-modal__radio-list">
+                <label className="document-upload-modal__radio">
+                  <input
+                    type="radio"
+                    name="reupload-mode"
+                    value="same"
+                    checked={reuploadMode === "same" || reuploadMode === null}
+                    onChange={() => {
+                      setReuploadMode("same");
+
+                      if (previousReportDate) {
+                        setReportDate(previousReportDate);
+                      }
+                    }}
+                  />
+
+                  <span className="document-upload-modal__radio-text">
+                    <strong>Yes, same report date</strong> — replace the previous upload
+                    {previousReportDate && (
+                      <span className="document-upload-modal__radio-note">
+                        {" "}
+                        ({previousReportDate})
+                      </span>
+                    )}
+                  </span>
+                </label>
+
+                <label className="document-upload-modal__radio">
+                  <input
+                    type="radio"
+                    name="reupload-mode"
+                    value="new"
+                    checked={reuploadMode === "new"}
+                    onChange={() => {
+                      setReuploadMode("new");
+                      setReportDate("");
+                      setReportDateTouched(false);
+                    }}
+                  />
+
+                  <span className="document-upload-modal__radio-text">
+                    <strong>No, different report date</strong> — add as a new upload
+                  </span>
+                </label>
+              </div>
+            </div>
           )}
 
           <Select
-            id="standard-template"
-            labelText="Saved template"
-            value={selectedTemplate}
-            onChange={(e) => void handleTemplateChange(e.target.value)}
-            disabled={
-              !file || isUploading || isValidatingTemplate || isPdf || uploadMode === "template"
+            id="saved-template"
+            labelText="Validate against template (optional)"
+            helperText={
+              isPdf
+                ? "Template validation is not applicable for PDF files."
+                : "Select a template to check that all required columns are present."
             }
+            value={selectedTemplate}
+            onChange={(event) => {
+              setSelectedTemplate(event.target.value);
+              setError(null);
+            }}
+            disabled={!file || isUploading || isReadingFile || isPdf}
           >
             <SelectItem
               value=""
-              text={
-                isTemplatesLoading
-                  ? "Loading saved templates..."
-                  : isPdf
-                    ? "Templates not applicable for PDF"
-                    : "Select saved template (optional)"
-              }
+              text={isTemplatesLoading ? "Loading templates..." : "No template (optional)"}
             />
 
             {savedTemplates.map((template) => (
@@ -734,52 +580,132 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
             ))}
           </Select>
 
-          {selectedTemplateConfig && (
-            <div>
-              <div style={{ marginBottom: "0.5rem", color: "#6f6f6f" }}>
-                Required columns:{" "}
-                {selectedTemplateConfig.requiredHeaders.length
-                  ? selectedTemplateConfig.requiredHeaders.join(", ")
-                  : "No required columns configured"}
-              </div>
+          {selectedTemplate && (
+            <>
+              {isFetchingStructure && <InlineLoading description="Loading template columns..." />}
 
-              {isValidatingTemplate && (
-                <InlineLoading description="Validating file against template..." />
-              )}
-
-              {!isValidatingTemplate && templateValidationMessage && (
+              {!isFetchingStructure && templateStructure && columnValidation === null && (
                 <InlineNotification
-                  kind={isTemplateInvalid ? "error" : "success"}
-                  title={
-                    isTemplateInvalid
-                      ? "Template validation failed"
-                      : "Template validation successful"
-                  }
-                  subtitle={templateValidationMessage}
+                  kind="info"
+                  title="No required columns"
+                  subtitle="This template has no required columns defined."
                   lowContrast
-                  onCloseButtonClick={() => setTemplateValidationMessage(null)}
                 />
               )}
-            </div>
+
+              {!isFetchingStructure &&
+                columnValidation !== null &&
+                fileHeaders.length === 0 &&
+                !isReadingFile && (
+                  <InlineNotification
+                    kind="warning"
+                    title="Waiting for file"
+                    subtitle="Select a file to validate its columns against the template."
+                    lowContrast
+                  />
+                )}
+
+              {!isFetchingStructure && columnValidation !== null && fileHeaders.length > 0 && (
+                <div>
+                  {columnValidation.missing.length > 0 ? (
+                    <InlineNotification
+                      kind="error"
+                      title="Required columns missing"
+                      subtitle={`The file is missing: ${columnValidation.missing.join(", ")}`}
+                      lowContrast
+                    />
+                  ) : (
+                    <InlineNotification
+                      kind="success"
+                      title="All required columns present"
+                      subtitle={`${columnValidation.present.length} required column${
+                        columnValidation.present.length !== 1 ? "s" : ""
+                      } validated successfully.`}
+                      lowContrast
+                    />
+                  )}
+
+                  <div className="document-upload-modal__section">
+                    <p className="document-upload-modal__section-title">Required columns</p>
+
+                    <div className="document-upload-modal__chip-list">
+                      {columnValidation.required.map((columnName) => {
+                        const isPresent = columnValidation.present.includes(columnName);
+
+                        return (
+                          <span
+                            key={columnName}
+                            className={
+                              isPresent
+                                ? "document-upload-modal__validation-chip document-upload-modal__validation-chip--present"
+                                : "document-upload-modal__validation-chip"
+                            }
+                          >
+                            {isPresent ? "✓" : "✗"} {columnName}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
-          {uploadMode === "template" && !selectedTemplateConfig && templateValidationMessage && (
-            <InlineNotification
-              kind={detectedHeaders.length ? "success" : "warning"}
-              title={detectedHeaders.length ? "Headers detected" : "Template warning"}
-              subtitle={templateValidationMessage}
-              lowContrast
-              onCloseButtonClick={() => setTemplateValidationMessage(null)}
-            />
+          {selectedTemplate && fileNeedsProcessing && (
+            <DatePicker
+              datePickerType="single"
+              dateFormat="Y-m-d"
+              maxDate={todayString}
+              value={reportDate}
+              onChange={(dates) => {
+                const selectedDate = dates[0];
+
+                setReportDateTouched(true);
+
+                if (selectedDate) {
+                  const localDate = new Date(
+                    selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60_000,
+                  )
+                    .toISOString()
+                    .split("T")[0];
+
+                  setReportDate(localDate);
+                } else {
+                  setReportDate("");
+                }
+              }}
+            >
+              <DatePickerInput
+                id="report-date"
+                labelText="Report date *"
+                helperText={
+                  reuploadMode === "same"
+                    ? "Locked to the previous upload's report date."
+                    : "Select the date this report covers. Cannot be a future date."
+                }
+                placeholder="YYYY-MM-DD"
+                disabled={isUploading || reuploadMode === "same"}
+                invalid={
+                  (reportDateTouched && !reportDate) ||
+                  (reuploadMode === "new" && !!reportDate && reportDate === previousReportDate)
+                }
+                invalidText={
+                  reuploadMode === "new" && reportDate === previousReportDate
+                    ? `Must differ from the previous report date (${previousReportDate}).`
+                    : "Report date is required."
+                }
+              />
+            </DatePicker>
           )}
 
-          {fileNeedsProcessing && uploadMode === "document" ? (
+          {fileNeedsProcessing && (
             <Select
               id="process-type"
               labelText="Process type"
               value={processType}
-              onChange={(e) => setProcessType(e.target.value as DocumentProcessType | "")}
-              disabled={isUploading || isValidatingTemplate}
+              onChange={(event) => setProcessType(event.target.value as DocumentProcessType | "")}
+              disabled={isUploading}
             >
               <SelectItem value="" text="Select process type" />
 
@@ -787,86 +713,71 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClos
                 <SelectItem key={option.value} value={option.value} text={option.label} />
               ))}
             </Select>
-          ) : (
-            file && (
-              <InlineNotification
-                kind="info"
-                title={uploadMode === "template" ? "Template upload" : "PDF upload"}
-                subtitle={
-                  uploadMode === "template"
-                    ? "This file will be stored as a template and will not create a processing job."
-                    : "This file will be uploaded and stored without any processing job."
-                }
-                lowContrast
-              />
-            )
+          )}
+
+          {!fileNeedsProcessing && file && (
+            <InlineNotification
+              kind="info"
+              title="No processing job"
+              subtitle="This file will be stored without creating a processing job."
+              lowContrast
+            />
           )}
 
           <Select
             id="storage-location"
             labelText="Storage location"
             value={storageLocation}
-            onChange={(e) => setStorageLocation(e.target.value)}
-            disabled={
-              isLocationsLoading || !hasStorageLocations || isUploading || isValidatingTemplate
-            }
+            onChange={() => undefined}
+            disabled
           >
-            <SelectItem
-              value=""
-              text={
-                isLocationsLoading
-                  ? "Loading locations..."
-                  : hasStorageLocations
-                    ? "Select storage location"
-                    : "No active locations available"
-              }
-            />
-
-            {activeLocations.map((location) => (
-              <SelectItem
-                key={location.id}
-                value={location.id}
-                text={`${location.name} (${location.provider.toUpperCase()})`}
-              />
-            ))}
+            {localLocation ? (
+              <SelectItem value={localLocation.id} text={localLocation.name} />
+            ) : (
+              <SelectItem value="" text={isLocationsLoading ? "Loading…" : "No local storage"} />
+            )}
           </Select>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: "1rem",
-              marginTop: "0.5rem",
-              flexWrap: "wrap",
-            }}
-          >
-            {(isUploading || isValidatingTemplate) && (
-              <InlineLoading
-                description={
-                  isUploading
-                    ? uploadMode === "template"
-                      ? "Uploading template..."
-                      : "Uploading document..."
-                    : "Reading file headers..."
-                }
-              />
-            )}
+          <div className="document-upload-modal__actions">
+            {isUploading && <InlineLoading description="Uploading document..." />}
 
-            <Button
-              kind="secondary"
-              onClick={onClose}
-              disabled={isUploading || isValidatingTemplate}
-            >
+            <Button kind="secondary" onClick={onClose} disabled={isUploading}>
               Cancel
             </Button>
 
-            <Button onClick={handleUpload} disabled={isSubmitDisabled}>
-              {uploadMode === "template" ? "Upload Template" : "Upload Document"}
+            <Button onClick={() => void handleUpload()} disabled={isSubmitDisabled}>
+              Upload Document
             </Button>
           </div>
         </Stack>
       </Form>
     </div>
+  );
+}
+
+export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({ onClose }) => {
+  return (
+    <PermissionGuard
+      permission={PERMISSIONS.documentsWrite}
+      fallback={
+        <div className="document-upload-modal">
+          <InlineNotification
+            kind="warning"
+            title="Access denied"
+            subtitle="You do not have permission to upload documents."
+            lowContrast
+            hideCloseButton
+          />
+
+          <div className="document-permission-fallback__actions">
+            <Button kind="secondary" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <UploadDocumentModalContent onClose={onClose} />
+    </PermissionGuard>
   );
 };

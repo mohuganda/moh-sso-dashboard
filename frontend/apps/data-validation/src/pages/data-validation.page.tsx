@@ -12,9 +12,11 @@ import {
 import { Add } from "@carbon/react/icons";
 import { useEffect, useMemo, useState } from "react";
 
+import { useImportValidationRulesMutation, useListValidationRulesQuery } from "../api";
 import {
   DataTablePagination,
   DataTableShell,
+  ErrorState,
   RowActionsCell,
   TableStatusTag,
   useHeaderPanel,
@@ -23,7 +25,7 @@ import {
 import { ValidationRuleActionsMenu } from "../components/validation-rule-actions-menu";
 import { ValidationRuleDetailsPanel } from "../components/validation-rule-details-panel";
 import { ValidationRulePanel } from "../components/validation-rule-panel";
-import type { ValidationRule } from "../types";
+import type { ValidationRule, ValidationRulePayload } from "../types";
 
 import "./data-validation.page.scss";
 
@@ -62,13 +64,42 @@ function normalize(value: string) {
   return value.trim().toLowerCase();
 }
 
+function toRulePayload(rule: ValidationRule): ValidationRulePayload {
+  const payload: ValidationRulePayload = {
+    table_id: rule.table || undefined,
+    category: "custom",
+    code: rule.code,
+    severity: rule.severity ?? "error",
+    description: rule.description,
+    column: rule.column ?? "",
+    op: rule.operator ?? "contains",
+  };
+
+  if (rule.compareTo === "column") {
+    payload.value_column = rule.value || undefined;
+  } else {
+    payload.value = rule.value || undefined;
+  }
+
+  return payload;
+}
+
 export default function DataValidationPage() {
   const { openPanel, closePanel } = useHeaderPanel();
   const toast = useToast();
-  const [rules, setRules] = useState<ValidationRule[]>(builtInRules);
+  const {
+    data: customRules = [],
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useListValidationRulesQuery();
+  const [importValidationRules, { isLoading: isSaving }] = useImportValidationRulesMutation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  const rules = useMemo(() => [...builtInRules, ...customRules], [customRules]);
 
   useEffect(() => {
     setPage(1);
@@ -133,10 +164,20 @@ export default function DataValidationPage() {
       content: (
         <ValidationRulePanel
           key={`validation-rule-${nextCustomCode}`}
+          isSubmitting={isSaving}
           initialCode={nextCustomCode}
-          onSubmit={(rule) => {
-            setRules((current) => [rule, ...current]);
-            toast.success("Validation rule added", `${rule.code} is now available.`);
+          onSubmit={async (rule) => {
+            try {
+              const result = await importValidationRules([toRulePayload(rule)]).unwrap();
+              if (result.skipped > 0) {
+                toast.error("Validation rule not saved", result.errors[0]?.message ?? "Check the rule.");
+                return;
+              }
+              toast.success("Validation rule added", `${rule.code} is now available.`);
+              closePanel();
+            } catch {
+              toast.error("Validation rule not saved", "Please try again.");
+            }
           }}
           onClose={closePanel}
         />
@@ -160,12 +201,20 @@ export default function DataValidationPage() {
         <ValidationRulePanel
           key={`edit-rule-${rule.id}`}
           mode="edit"
+          isSubmitting={isSaving}
           initialRule={rule}
-          onSubmit={(updatedRule) => {
-            setRules((current) =>
-              current.map((item) => (item.id === updatedRule.id ? updatedRule : item)),
-            );
-            toast.success("Validation rule updated", `${updatedRule.code} was saved.`);
+          onSubmit={async (updatedRule) => {
+            try {
+              const result = await importValidationRules([toRulePayload(updatedRule)]).unwrap();
+              if (result.skipped > 0) {
+                toast.error("Validation rule not saved", result.errors[0]?.message ?? "Check the rule.");
+                return;
+              }
+              toast.success("Validation rule updated", `${updatedRule.code} was saved.`);
+              closePanel();
+            } catch {
+              toast.error("Validation rule not saved", "Please try again.");
+            }
           }}
           onClose={closePanel}
         />
@@ -173,13 +222,16 @@ export default function DataValidationPage() {
     });
   };
 
-  const deleteRule = (rule: ValidationRule) => {
-    setRules((current) => current.filter((item) => item.id !== rule.id));
-    toast.success(
-      rule.type === "builtin" ? "Built-in rule hidden" : "Validation rule deleted",
-      `${rule.code} was removed from this view.`,
-    );
-  };
+  const tableState = isError ? (
+    <ErrorState
+      title="Unable to load validation rules"
+      description="Refresh the table and try again."
+      primaryAction={{
+        label: "Refresh",
+        onClick: refetch,
+      }}
+    />
+  ) : undefined;
 
   return (
     <div className="data-validation-page">
@@ -189,6 +241,8 @@ export default function DataValidationPage() {
         rows={rows}
         headers={headers}
         getRowId={(row) => row.id}
+        isLoading={isLoading || isFetching}
+        tableState={tableState}
         emptyTitle="No validation rules"
         emptyDescription="Try changing your search or add a custom rule."
         filters={
@@ -278,7 +332,6 @@ export default function DataValidationPage() {
                                     rule={rule}
                                     onView={() => openViewPanel(rule)}
                                     onEdit={() => openEditPanel(rule)}
-                                    onDelete={() => deleteRule(rule)}
                                   />
                                 </RowActionsCell>
                               );

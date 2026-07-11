@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   useGetUserAccessProfileQuery,
   useUpdateUserAccessMutation,
-} from "@moh-sso/api";
-import type { RbacAssignableSystemAccess, RbacPermission } from "@moh-sso/types";
+} from "@moh-sso/rbac/api";
+import type { RbacAssignableSystemAccess, RbacPermission } from "@moh-sso/rbac/types";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
+import "../user-components.scss";
 
 type Props = {
   userId: string;
@@ -29,8 +30,8 @@ export function UserAccessPanel({ userId }: Props) {
   useEffect(() => {
     if (!profile) return;
 
-    setRealmRoles(profile.effectiveAccess.realmRoles ?? []);
-    setClientRoles(profile.effectiveAccess.clientRoles ?? {});
+    setRealmRoles(profile.directAccess?.realmRoles ?? profile.effectiveAccess.realmRoles ?? []);
+    setClientRoles(profile.directAccess?.clientRoles ?? profile.effectiveAccess.clientRoles ?? {});
   }, [profile]);
 
   const realmRoleItems = useMemo<SelectItem[]>(
@@ -46,6 +47,14 @@ export function UserAccessPanel({ userId }: Props) {
     () => groupPermissions(profile?.effectiveAccess.permissions ?? []),
     [profile?.effectiveAccess.permissions],
   );
+  const inheritedSources = useMemo(
+    () =>
+      (profile?.effectiveAccess.grantSources ?? []).filter((source) =>
+        source.grantedByType.startsWith("group"),
+      ),
+    [profile?.effectiveAccess.grantSources],
+  );
+  const inheritedByGroup = useMemo(() => groupInheritedSources(inheritedSources), [inheritedSources]);
 
   const handleSystemRolesChange = (system: RbacAssignableSystemAccess, roles: string[]) => {
     setClientRoles((current) => ({
@@ -95,6 +104,7 @@ export function UserAccessPanel({ userId }: Props) {
       <Tile>
         <Stack gap={4}>
           <strong>Realm roles</strong>
+          <small>These are direct user realm roles. Group-derived roles are shown as inherited access below.</small>
           <MultiSelect
             id={`user-${userId}-realm-roles`}
             titleText="Realm roles"
@@ -112,6 +122,7 @@ export function UserAccessPanel({ userId }: Props) {
       <Tile>
         <Stack gap={5}>
           <strong>System roles and app access</strong>
+          <small>These are direct user system roles. Group-derived system roles are read-only in the inherited access section.</small>
           {profile.assignable.systems.map((system) => {
             const roleItems = system.roles.map((role) => ({
               id: role.name,
@@ -157,6 +168,36 @@ export function UserAccessPanel({ userId }: Props) {
 
       <Tile>
         <Stack gap={4}>
+          <strong>Groups and inherited access</strong>
+          {profile.effectiveAccess.groups && profile.effectiveAccess.groups.length > 0 ? (
+            <div className="user-access-group-list">
+              {profile.effectiveAccess.groups.map((group) => (
+                <div className="user-access-group" key={group.id || group.path}>
+                  <div>
+                    <strong>{group.displayName || group.name || group.path}</strong>
+                    <div>
+                      <small>{group.path}</small>
+                    </div>
+                  </div>
+                  <Tag size="sm" type="purple">
+                    Inherited
+                  </Tag>
+                  <small>
+                    Inherited from group {group.displayName || group.name || group.path}. Edit the
+                    group or Keycloak membership to change this access.
+                  </small>
+                  <InheritedSourceList sources={inheritedByGroup[group.id] ?? []} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <small>No Keycloak groups are synced for this user.</small>
+          )}
+        </Stack>
+      </Tile>
+
+      <Tile>
+        <Stack gap={4}>
           <strong>Effective permissions</strong>
           {Object.entries(effectivePermissions).map(([category, permissions]) => (
             <div key={category}>
@@ -187,10 +228,49 @@ function groupPermissions(permissions: RbacPermission[]) {
 
 function TagList({ values, type }: { values: string[]; type: "cyan" | "green" }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+    <div className="user-access-tag-list">
       {values.map((value) => (
         <Tag key={value} size="sm" type={type}>
           {value}
+        </Tag>
+      ))}
+    </div>
+  );
+}
+
+type InheritedSource = {
+  permissionKey: string;
+  grantedByType: string;
+  role: string;
+  systemClientId?: string;
+  systemName?: string;
+  groupId?: string;
+};
+
+function groupInheritedSources(sources: InheritedSource[]) {
+  return sources.reduce<Record<string, InheritedSource[]>>((groups, source) => {
+    const groupID = source.groupId || "unknown";
+    groups[groupID] = [...(groups[groupID] ?? []), source];
+    return groups;
+  }, {});
+}
+
+function InheritedSourceList({ sources }: { sources: InheritedSource[] }) {
+  if (sources.length === 0) {
+    return <small>Groups synced, but no group-derived permissions are mapped yet.</small>;
+  }
+
+  return (
+    <div className="user-access-inherited-list">
+      {sources.map((source) => (
+        <Tag
+          key={`${source.grantedByType}-${source.permissionKey}-${source.role}-${source.systemClientId ?? ""}`}
+          size="sm"
+          type="purple"
+        >
+          {source.permissionKey}
+          {source.role ? ` via ${source.role}` : ""}
+          {source.systemName || source.systemClientId ? ` (${source.systemName || source.systemClientId})` : ""}
         </Tag>
       ))}
     </div>

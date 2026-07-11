@@ -1,6 +1,8 @@
 import { Button, InlineLoading } from "@carbon/react";
 import React, { useState } from "react";
 
+import "./client-components.scss";
+
 type EnableClientModalProps = {
   clientName: string;
   enabled: boolean;
@@ -26,13 +28,13 @@ export const EnableClientModal: React.FC<EnableClientModalProps> = ({
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="client-confirm-modal">
       <p>
         Are you sure you want to <strong>{enabled ? "disable" : "enable"}</strong> the client
         <strong> {clientName}</strong>?
       </p>
 
-      <p style={{ opacity: 0.75 }}>
+      <p className="client-confirm-modal__description">
         {enabled
           ? "This client will no longer be able to authenticate or access applications."
           : "This client will regain access to authenticate and use assigned applications."}
@@ -42,13 +44,7 @@ export const EnableClientModal: React.FC<EnableClientModalProps> = ({
         <InlineLoading description={enabled ? "Disabling client…" : "Enabling client…"} />
       )}
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-        }}
-      >
+      <div className="client-confirm-modal__actions">
         <Button kind="secondary" onClick={onCancel} disabled={loading}>
           Cancel
         </Button>

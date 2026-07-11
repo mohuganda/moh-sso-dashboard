@@ -1,6 +1,7 @@
 import { Button } from "@carbon/react";
 
-import type { AuditLog } from "@moh-sso/types";
+import type { AuditLog } from "../types";
+import "./audit-components.scss";
 
 type AuditLogBulkActionsProps = {
   logs: AuditLog[];
@@ -12,25 +13,10 @@ export function AuditLogBulkActions({ logs, onExportCsv, onExportJson }: AuditLo
   if (logs.length === 0) return null;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 8,
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingBlockEnd: 12,
-      }}
-    >
+    <div className="audit-log-bulk-actions">
       <strong>{logs.length} selected</strong>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="audit-log-bulk-actions__buttons">
         <Button size="sm" kind="secondary" onClick={onExportCsv}>
           Export CSV
         </Button>

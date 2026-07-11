@@ -45,6 +45,9 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 		AudienceType:            normalizeAudienceType(model.AnnouncementAudienceType(interfaceToString(a.AudienceType))),
 		NotifyByEmail:           a.NotifyByEmail,
 		EmailNotificationSentAt: nullTimePtr(a.EmailNotificationSentAt),
+		NotifyBySMS:             a.NotifyBySms,
+		SMSMessage:              nullStringPtr(a.SmsMessage),
+		SMSNotificationQueuedAt: nullTimePtr(a.SmsNotificationQueuedAt),
 		CreatedBy:               a.CreatedBy.String(),
 		UpdatedBy:               nullUUIDString(a.UpdatedBy),
 		PublishedBy:             nullableUUID(a.PublishedBy),
@@ -82,6 +85,35 @@ func toAnnouncementResponseWithAttachmentBase(
 	res.Attachments = toAnnouncementAttachmentResponses(a.ID, attachments, downloadBasePath)
 	res.AttachmentCount = len(res.Attachments)
 	return res
+}
+
+func withAnnouncementAudience(
+	res AnnouncementResponse,
+	clientIDs []uuid.UUID,
+	roleNames []string,
+	userIDs []uuid.UUID,
+	groupIDs []uuid.UUID,
+) AnnouncementResponse {
+	res.ClientIDs = uuidStrings(clientIDs)
+	res.RoleNames = roleNames
+	res.UserIDs = uuidStrings(userIDs)
+	res.GroupIDs = uuidStrings(groupIDs)
+	return res
+}
+
+func uuidStrings(values []uuid.UUID) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if value != uuid.Nil {
+			out = append(out, value.String())
+		}
+	}
+
+	return out
 }
 
 func toAnnouncementAttachmentResponse(

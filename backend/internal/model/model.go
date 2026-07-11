@@ -390,6 +390,7 @@ const (
 	AnnouncementAudienceTypeSPECIFICCLIENTS AnnouncementAudienceType = "SPECIFIC_CLIENTS"
 	AnnouncementAudienceTypeSPECIFICROLES   AnnouncementAudienceType = "SPECIFIC_ROLES"
 	AnnouncementAudienceTypeSPECIFICUSERS   AnnouncementAudienceType = "SPECIFIC_USERS"
+	AnnouncementAudienceTypeSPECIFICGROUPS  AnnouncementAudienceType = "SPECIFIC_GROUPS"
 )
 
 type SurveillanceSubjectType string

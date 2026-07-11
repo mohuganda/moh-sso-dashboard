@@ -1,65 +1,60 @@
-import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+﻿import { useMemo, useState, type ReactNode } from "react";
+import { useSelector } from "react-redux";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
   Button,
-  DataTable,
-  ProgressBar,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableHeader,
-  TableRow,
+  FilterableMultiSelect,
+  InlineLoading,
+  InlineNotification,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  TableToolbarSearch,
+  Tabs,
   Tag,
-  Tile,
 } from "@carbon/react";
+import { Download, Renew, TrashCan } from "@carbon/react/icons";
+
+import { PermissionGuard, PERMISSIONS, selectUser } from "@moh-sso/auth";
+import { useModal, useToast } from "@moh-sso/ui";
+import { useGetUserQuery } from "@moh-sso/users/api";
 
 import {
   useDeleteDocumentMutation,
+  useGetDocumentDataPreviewQuery,
   useGetDocumentProcessesQuery,
   useGetDocumentQuery,
+  useGetTemplateStructureQuery,
   useLazyDownloadDocumentQuery,
-  useLazyViewDocumentQuery,
   useReprocessDocumentMutation,
-} from "@moh-sso/api";
-import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
-import type { DocumentProcess, DocumentResponse } from "@moh-sso/types";
-import { useToast } from "@moh-sso/ui";
+} from "../../../api";
+import type { DataPreviewSheet, DocumentProcess, DocumentResponse } from "../../../types";
+import "../../../components/documents-components.scss";
 
-function StatusTag({ status }: { status: string }) {
-  const colorMap: Record<string, "gray" | "blue" | "green" | "red" | "magenta"> = {
-    PENDING: "gray",
-    PROCESSING: "blue",
-    COMPLETED: "green",
-    FAILED: "red",
-    CANCELLED: "magenta",
-  };
-
-  return <Tag type={colorMap[status] || "gray"}>{status}</Tag>;
-}
-
-function requiresProcessing(document?: Partial<DocumentResponse>) {
-  if (!document) {
-    return false;
+function formatDateTime(iso?: string | null) {
+  if (!iso) {
+    return "—";
   }
 
-  const type = (document.content_type || "").toLowerCase();
+  const dateValue = new Date(iso);
 
-  const filename = (document.original_filename || "").toLowerCase();
-
-  if (
-    type === "text/csv" ||
-    type === "application/vnd.ms-excel" ||
-    type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  ) {
-    return true;
+  if (Number.isNaN(dateValue.getTime())) {
+    return "—";
   }
 
-  return filename.endsWith(".csv") || filename.endsWith(".xls") || filename.endsWith(".xlsx");
+  const date = dateValue.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const time = dateValue.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `${date} at ${time}`;
 }
 
 function formatFileSize(bytes?: number) {
@@ -67,7 +62,7 @@ function formatFileSize(bytes?: number) {
     return "0 B";
   }
 
-  const units = ["B", "KB", "MB", "GB", "TB"];
+  const units = ["B", "KB", "MB", "GB"];
   let value = bytes;
   let unitIndex = 0;
 
@@ -76,109 +71,597 @@ function formatFileSize(bytes?: number) {
     unitIndex += 1;
   }
 
-  return `${
-    value < 10 && unitIndex > 0 ? value.toFixed(1) : Math.round(value)
-  } ${units[unitIndex]}`;
+  const formattedValue = value < 10 && unitIndex > 0 ? value.toFixed(1) : Math.round(value);
+
+  return `${formattedValue} ${units[unitIndex]}`;
 }
 
-function formatDate(value?: string | null) {
-  if (!value) {
+function formatFileType(contentType: string, filename?: string) {
+  switch (contentType?.toLowerCase()) {
+    case "application/pdf":
+      return "PDF";
+
+    case "text/csv":
+      return "CSV";
+
+    case "application/vnd.ms-excel":
+      return "XLS";
+
+    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+      return "XLSX";
+
+    default:
+      break;
+  }
+
+  if (filename) {
+    const extension = filename.split(".").pop()?.toUpperCase();
+
+    if (extension && extension.length <= 5) {
+      return extension;
+    }
+  }
+
+  return contentType || "—";
+}
+
+function formatDuration(started?: string | null, finished?: string | null) {
+  if (!started || !finished) {
     return "—";
   }
 
-  const date = new Date(value);
+  const milliseconds = new Date(finished).getTime() - new Date(started).getTime();
 
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+  if (milliseconds < 0) {
+    return "—";
+  }
+
+  if (milliseconds < 1000) {
+    return `${milliseconds}ms`;
+  }
+
+  const seconds = Math.floor(milliseconds / 1000);
+
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }
 
-function getLatestProcess(processes?: DocumentProcess[]) {
-  if (!processes || processes.length === 0) {
+function formatCell(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return String(value);
+}
+
+function StatusTag({ status }: { status: string }) {
+  const statusTypeMap: Record<string, "gray" | "blue" | "green" | "red" | "magenta"> = {
+    PENDING: "gray",
+    PROCESSING: "blue",
+    COMPLETED: "green",
+    FAILED: "red",
+    CANCELLED: "magenta",
+  };
+
+  return <Tag type={statusTypeMap[status] ?? "gray"}>{status}</Tag>;
+}
+
+function getLatestProcess(processes: DocumentProcess[]) {
+  if (processes.length === 0) {
     return undefined;
   }
 
   return [...processes].sort(
-    (first, second) =>
-      new Date(second.created_at ?? 0).getTime() - new Date(first.created_at ?? 0).getTime(),
+    (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
   )[0];
 }
 
-function getEffectiveStatus(document?: DocumentResponse, latestProcess?: DocumentProcess) {
-  return String(latestProcess?.status || document?.status || "UNKNOWN").toUpperCase();
-}
-
-function getEffectiveProgress(document?: DocumentResponse, latestProcess?: DocumentProcess) {
-  if (typeof latestProcess?.progress === "number") {
-    return latestProcess.progress;
+function requiresProcessing(document?: Partial<DocumentResponse>) {
+  if (!document) {
+    return false;
   }
 
-  const status = getEffectiveStatus(document, latestProcess);
+  const contentType = (document.content_type || "").toLowerCase();
 
-  return status === "COMPLETED" ? 100 : 0;
+  const filename = (document.original_filename || "").toLowerCase();
+
+  return (
+    [
+      "text/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ].includes(contentType) ||
+    filename.endsWith(".csv") ||
+    filename.endsWith(".xls") ||
+    filename.endsWith(".xlsx")
+  );
 }
 
-export default function DocumentDetailsPage() {
+function exportCSV(columns: string[], rows: Record<string, unknown>[], filename: string) {
+  const escapeValue = (value: unknown) => {
+    const formatted = formatCell(value);
+
+    return formatted.includes(",") || formatted.includes('"') || formatted.includes("\n")
+      ? `"${formatted.replace(/"/g, '""')}"`
+      : formatted;
+  };
+
+  const header = columns.map(escapeValue).join(",");
+
+  const body = rows
+    .map((row) => columns.map((column) => escapeValue(row[column])).join(","))
+    .join("\n");
+
+  const blob = new Blob([`${header}\n${body}`], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = window.URL.createObjectURL(blob);
+
+  const anchor = window.document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+
+  window.document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  window.URL.revokeObjectURL(url);
+}
+
+const ROWS_PER_PAGE = 100;
+
+type SheetViewProps = {
+  sheet: DataPreviewSheet;
+  reportDate?: string;
+  filterableKeys: string[];
+};
+
+function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
+  const [search, setSearch] = useState("");
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(null);
+  const [page, setPage] = useState(0);
+
+  const activeFilterKeys = useMemo(
+    () => filterableKeys.filter((key) => sheet.columns.includes(key)),
+    [filterableKeys, sheet.columns],
+  );
+
+  const filterOptions = useMemo(() => {
+    const result: Record<
+      string,
+      {
+        id: string;
+        label: string;
+      }[]
+    > = {};
+
+    for (const key of activeFilterKeys) {
+      const uniqueValues = [
+        ...new Set(sheet.rows.map((row) => formatCell(row[key])).filter(Boolean)),
+      ].sort();
+
+      result[key] = uniqueValues.map((value) => ({
+        id: value,
+        label: value,
+      }));
+    }
+
+    return result;
+  }, [sheet.rows, activeFilterKeys]);
+
+  const filteredRows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    let rows = sheet.rows;
+
+    for (const key of activeFilterKeys) {
+      const selectedValues = selections[key] ?? [];
+
+      if (selectedValues.length === 0) {
+        continue;
+      }
+
+      const selectedSet = new Set(selectedValues);
+
+      rows = rows.filter((row) => selectedSet.has(formatCell(row[key])));
+    }
+
+    if (query) {
+      rows = rows.filter((row) =>
+        sheet.columns.some((column) => formatCell(row[column]).toLowerCase().includes(query)),
+      );
+    }
+
+    if (sortColumn && sortDirection) {
+      rows = [...rows].sort((a, b) => {
+        const firstValue = formatCell(a[sortColumn]);
+
+        const secondValue = formatCell(b[sortColumn]);
+
+        const bothNumeric =
+          firstValue !== "" &&
+          secondValue !== "" &&
+          !Number.isNaN(Number(firstValue)) &&
+          !Number.isNaN(Number(secondValue));
+
+        const comparison = bothNumeric
+          ? Number(firstValue) - Number(secondValue)
+          : firstValue.localeCompare(secondValue, undefined, {
+              sensitivity: "base",
+            });
+
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
+    return rows;
+  }, [sheet.rows, sheet.columns, search, selections, activeFilterKeys, sortColumn, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE));
+
+  const safePageIndex = Math.min(page, totalPages - 1);
+
+  const pageRows = filteredRows.slice(
+    safePageIndex * ROWS_PER_PAGE,
+    (safePageIndex + 1) * ROWS_PER_PAGE,
+  );
+
+  function handleSort(column: string) {
+    if (sortColumn !== column) {
+      setSortColumn(column);
+      setSortDirection("asc");
+    } else if (sortDirection === "asc") {
+      setSortDirection("desc");
+    } else {
+      setSortColumn(null);
+      setSortDirection(null);
+    }
+
+    setPage(0);
+  }
+
+  function clearFilters() {
+    setSearch("");
+    setSelections({});
+    setSortColumn(null);
+    setSortDirection(null);
+    setPage(0);
+  }
+
+  const hasActiveFilters =
+    Boolean(search) ||
+    Object.values(selections).some((selected) => selected.length > 0) ||
+    Boolean(sortColumn);
+
+  const csvFilename = `${sheet.name.replace(/\s+/g, "_")}${reportDate ? `_${reportDate}` : ""}${
+    hasActiveFilters ? "_filtered" : ""
+  }.csv`;
+
+  return (
+    <div className="document-sheet-view">
+      <div className="document-sheet-view__toolbar">
+        <div className="document-sheet-view__search">
+          <TableToolbarSearch
+            persistent
+            value={search}
+            placeholder="Search…"
+            onChange={(_, value) => {
+              setSearch(value ?? "");
+              setPage(0);
+            }}
+            labelText="Search"
+          />
+        </div>
+
+        {activeFilterKeys.map((key) => {
+          const options = filterOptions[key] ?? [];
+
+          if (options.length === 0) {
+            return null;
+          }
+
+          const label = key
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (character) => character.toUpperCase());
+
+          const selectedItems = (selections[key] ?? []).map((value) => ({
+            id: value,
+            label: value,
+          }));
+
+          return (
+            <div key={key} className="document-sheet-view__filter">
+              <FilterableMultiSelect
+                id={`filter-${sheet.name}-${key}`}
+                titleText={label}
+                placeholder="Type to search…"
+                items={options}
+                itemToString={(item) => item?.label ?? ""}
+                selectedItems={selectedItems}
+                onChange={({ selectedItems: changedItems }) => {
+                  setSelections((previous) => ({
+                    ...previous,
+                    [key]: (changedItems ?? []).map((item) => item.id),
+                  }));
+
+                  setPage(0);
+                }}
+                size="sm"
+              />
+            </div>
+          );
+        })}
+
+        {hasActiveFilters && (
+          <button type="button" onClick={clearFilters} className="document-sheet-view__clear">
+            Clear
+          </button>
+        )}
+
+        <div className="document-sheet-view__actions">
+          <span className="document-sheet-view__row-count">
+            {filteredRows.length.toLocaleString()} / {sheet.row_count.toLocaleString()} rows
+          </span>
+
+          <PermissionGuard permission={PERMISSIONS.documentsRead}>
+            <Button
+              renderIcon={Download}
+              kind="primary"
+              size="sm"
+              onClick={() => exportCSV(sheet.columns, filteredRows, csvFilename)}
+              disabled={filteredRows.length === 0}
+            >
+              {hasActiveFilters ? "Download filtered" : "Download all"}
+            </Button>
+          </PermissionGuard>
+        </div>
+      </div>
+
+      <div className="document-sheet-view__table-scroll">
+        <table className="document-sheet-view__table">
+          <thead>
+            <tr>
+              {sheet.columns.map((column) => {
+                const active = sortColumn === column;
+
+                const arrow = active ? (sortDirection === "asc" ? " ▲" : " ▼") : "";
+
+                const label = column
+                  .replace(/_/g, " ")
+                  .replace(/\b\w/g, (character) => character.toUpperCase());
+
+                return (
+                  <th
+                    key={column}
+                    onClick={() => handleSort(column)}
+                    title={`Sort by ${label}`}
+                    className={active ? "document-sheet-view__sort-header--active" : undefined}
+                  >
+                    {label}
+                    {arrow}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+
+          <tbody>
+            {pageRows.length === 0 ? (
+              <tr>
+                <td colSpan={sheet.columns.length} className="document-sheet-view__no-rows">
+                  No rows match the current filters.
+                </td>
+              </tr>
+            ) : (
+              pageRows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {sheet.columns.map((column) => {
+                    const value = formatCell(row[column]);
+
+                    return (
+                      <td
+                        key={column}
+                        className={!value ? "document-sheet-view__empty-cell" : undefined}
+                      >
+                        {value || "—"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="document-sheet-view__pagination">
+          <Button kind="ghost" size="sm" disabled={safePageIndex === 0} onClick={() => setPage(0)}>
+            «
+          </Button>
+
+          <Button
+            kind="ghost"
+            size="sm"
+            disabled={safePageIndex === 0}
+            onClick={() => setPage((current) => Math.max(current - 1, 0))}
+          >
+            ‹
+          </Button>
+
+          <span className="document-sheet-view__page-label">
+            Page {safePageIndex + 1} of {totalPages}
+            <span className="document-sheet-view__page-range">
+              ({(safePageIndex * ROWS_PER_PAGE + 1).toLocaleString()}–
+              {Math.min((safePageIndex + 1) * ROWS_PER_PAGE, filteredRows.length).toLocaleString()})
+            </span>
+          </span>
+
+          <Button
+            kind="ghost"
+            size="sm"
+            disabled={safePageIndex >= totalPages - 1}
+            onClick={() => setPage((current) => Math.min(current + 1, totalPages - 1))}
+          >
+            ›
+          </Button>
+
+          <Button
+            kind="ghost"
+            size="sm"
+            disabled={safePageIndex >= totalPages - 1}
+            onClick={() => setPage(totalPages - 1)}
+          >
+            »
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoItem({
+  label,
+  value,
+  isLast,
+  index,
+}: {
+  label: string;
+  value: ReactNode;
+  isLast: boolean;
+  index: number;
+}) {
+  void index;
+
+  return (
+    <div
+      className={["document-details-info-item", isLast ? "document-details-info-item--last" : ""]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span className="document-details-info-item__label">{label}</span>
+
+      <span className="document-details-info-item__value">{value}</span>
+    </div>
+  );
+}
+
+function DocumentDetailsPageContent() {
   const toast = useToast();
+  const { openModal, closeModal } = useModal();
+
   const { id } = useParams<{ id: string }>();
+
   const navigate = useNavigate();
 
   const {
     data: document,
-    isLoading: docLoading,
-    error: docError,
-  } = useGetDocumentQuery(id!, {
+    isLoading: documentLoading,
+    error: documentError,
+  } = useGetDocumentQuery(id ?? "", {
     skip: !id,
   });
 
   const processable = requiresProcessing(document);
 
+  const templateCode = document?.metadata?.template_code ?? "";
+
+  const reportDate = document?.metadata?.report_date ?? "";
+
   const { data: processes = [], isFetching: processesRefreshing } = useGetDocumentProcessesQuery(
-    id!,
+    id ?? "",
     {
       skip: !id || !processable,
       pollingInterval: processable ? 3000 : 0,
-      refetchOnFocus: true,
     },
   );
+
+  const {
+    data: preview,
+    isLoading: previewLoading,
+    isError: previewError,
+  } = useGetDocumentDataPreviewQuery(id ?? "", {
+    skip: !id || !templateCode,
+  });
+
+  const { data: structure } = useGetTemplateStructureQuery(templateCode, {
+    skip: !templateCode,
+  });
+
+  const filterableKeysBySheet = useMemo(() => {
+    const map: Record<string, string[]> = {};
+
+    if (!structure) {
+      return map;
+    }
+
+    for (const sheet of structure.sheets) {
+      const keys = sheet.columns
+        .filter((column) => column.configuration?.filterable === true)
+        .map((column) => column.column_key);
+
+      map[sheet.name] = keys;
+
+      if (sheet.display_name && sheet.display_name !== sheet.name) {
+        map[sheet.display_name] = keys;
+      }
+    }
+
+    return map;
+  }, [structure]);
+
+  const currentUser = useSelector(selectUser);
+
+  const isOwnUpload = Boolean(document) && currentUser?.id === document?.uploaded_by;
+
+  const { data: uploaderUser, isLoading: isLoadingUploader } = useGetUserQuery(
+    document?.uploaded_by ?? "",
+    {
+      skip: !document?.uploaded_by || isOwnUpload,
+    },
+  );
+
+  let uploaderName = "—";
+
+  if (isOwnUpload && currentUser) {
+    uploaderName =
+      [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") ||
+      currentUser.username ||
+      "—";
+  } else if (isLoadingUploader) {
+    uploaderName = "Loading…";
+  } else if (uploaderUser) {
+    uploaderName =
+      [uploaderUser.firstName, uploaderUser.lastName].filter(Boolean).join(" ") ||
+      uploaderUser.username ||
+      "—";
+  }
 
   const [deleteDocument, { isLoading: deleting }] = useDeleteDocumentMutation();
 
   const [triggerDownload] = useLazyDownloadDocumentQuery();
 
-  const [triggerView] = useLazyViewDocumentQuery();
-
   const [reprocessDocument, { isLoading: reprocessing }] = useReprocessDocumentMutation();
 
-  const latestProcess = useMemo(() => getLatestProcess(processes), [processes]);
+  const latest = useMemo(() => getLatestProcess(processes), [processes]);
 
-  const effectiveStatus = getEffectiveStatus(document, latestProcess);
+  const status = (latest?.status || document?.status || "UNKNOWN").toUpperCase();
 
-  const effectiveProgress = getEffectiveProgress(document, latestProcess);
-
-  const handleDelete = async () => {
-    if (!id) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Delete "${document?.original_filename ?? "this document"}"? This action cannot be undone.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await deleteDocument(id).unwrap();
-
-      toast.success("Document deleted", "The document was deleted successfully");
-
-      navigate(-1);
-    } catch (error: any) {
-      toast.error("Delete failed", error?.data?.error || "Failed to delete document");
-    }
-  };
-
-  const handleDownload = async () => {
+  async function handleDownloadFile() {
     if (!id || !document) {
       return;
     }
@@ -188,46 +671,37 @@ export default function DocumentDetailsPage() {
 
       const url = window.URL.createObjectURL(blob);
 
-      const link = window.document.createElement("a");
+      const anchor = window.document.createElement("a");
 
-      link.href = url;
-      link.download = document.original_filename;
-      link.click();
+      anchor.href = url;
+      anchor.download = document.original_filename;
+
+      window.document.body.appendChild(anchor);
+
+      anchor.click();
+      anchor.remove();
 
       window.URL.revokeObjectURL(url);
-    } catch (error: any) {
-      toast.error("Download failed", error?.data?.error || "Failed to download document");
+      toast.success("Download started", document.original_filename);
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" && error !== null && "data" in error
+          ? String(
+              (
+                error as {
+                  data?: {
+                    error?: unknown;
+                  };
+                }
+              ).data?.error ?? "Failed to download",
+            )
+          : "Failed to download";
+
+      toast.error("Download failed", message);
     }
-  };
+  }
 
-  const handlePreview = async () => {
-    if (!id) {
-      return;
-    }
-
-    try {
-      const blob = await triggerView(id).unwrap();
-      const url = window.URL.createObjectURL(blob);
-
-      const previewWindow = window.open(url, "_blank", "noopener,noreferrer");
-
-      if (!previewWindow) {
-        window.URL.revokeObjectURL(url);
-
-        toast.error("Preview blocked", "Allow pop-ups to preview this document.");
-
-        return;
-      }
-
-      window.setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 60_000);
-    } catch (error: any) {
-      toast.error("Preview failed", error?.data?.error || "Failed to preview document");
-    }
-  };
-
-  const handleReprocess = async () => {
+  async function handleReprocess() {
     if (!id) {
       return;
     }
@@ -235,298 +709,301 @@ export default function DocumentDetailsPage() {
     try {
       await reprocessDocument(id).unwrap();
 
-      toast.success("Reprocess started", "Reprocessing started successfully");
-    } catch (error: any) {
-      toast.error("Reprocess failed", error?.data?.error || "Failed to reprocess document");
+      toast.success("Reprocess started", "The document is being reprocessed.");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" && error !== null && "data" in error
+          ? String(
+              (
+                error as {
+                  data?: {
+                    error?: unknown;
+                  };
+                }
+              ).data?.error ?? "Failed to reprocess",
+            )
+          : "Failed to reprocess";
+
+      toast.error("Reprocess failed", message);
     }
-  };
-
-  if (docLoading) {
-    return <div>Loading...</div>;
   }
 
-  if (docError || !document) {
-    return <div>Failed to load document</div>;
+  async function handleDeleteConfirm() {
+    if (!id) {
+      return;
+    }
+
+    try {
+      await deleteDocument(id).unwrap();
+
+      closeModal();
+      toast.success("Deleted", "Document deleted successfully.");
+
+      navigate("..");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" && error !== null && "data" in error
+          ? String(
+              (
+                error as {
+                  data?: {
+                    error?: unknown;
+                  };
+                }
+              ).data?.error ?? "Failed to delete",
+            )
+          : "Failed to delete";
+
+      toast.error("Delete failed", message);
+    }
   }
 
-  const historyRows = processes.map((process, index) => ({
-    id: process.id,
-    attempt: index + 1,
-    status: process.status,
-    progress: process.progress,
-    started: formatDate(process.started_at || process.created_at),
-    finished: formatDate(process.finished_at),
-    message: process.message || "—",
-  }));
+  function handleDeleteRequest() {
+    if (!document) {
+      return;
+    }
 
-  const headers = [
+    openModal({
+      title: "Delete document",
+      onClose: closeModal,
+      content: (
+        <p>
+          Permanently delete <strong>{document.original_filename}</strong>? All imported rows will
+          also be removed. This cannot be undone.
+        </p>
+      ),
+      primaryAction: {
+        label: deleting ? "Deleting..." : "Delete",
+        kind: "danger",
+        disabled: deleting,
+        onClick: () => void handleDeleteConfirm(),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
+    });
+  }
+
+  if (documentLoading) {
+    return <InlineLoading description="Loading document…" className="documents-loading-block" />;
+  }
+
+  if (documentError || !document) {
+    return (
+      <InlineNotification
+        kind="error"
+        title="Not found"
+        subtitle="Document could not be loaded."
+        lowContrast
+      />
+    );
+  }
+
+  const isBusy = deleting || reprocessing;
+
+  const informationItems: {
+    label: string;
+    value: ReactNode;
+  }[] = [
     {
-      key: "attempt",
-      header: "Attempt",
+      label: "Status",
+      value: <StatusTag status={status} />,
     },
     {
-      key: "status",
-      header: "Status",
+      label: "Report Date",
+      value: reportDate || "—",
     },
     {
-      key: "progress",
-      header: "Progress",
+      label: "Template",
+      value: templateCode || "—",
     },
     {
-      key: "started",
-      header: "Started",
+      label: "File Type",
+      value: formatFileType(document.content_type, document.original_filename),
     },
     {
-      key: "finished",
-      header: "Finished",
+      label: "File Size",
+      value: formatFileSize(document.size_bytes),
     },
     {
-      key: "message",
-      header: "Message",
+      label: "Uploaded",
+      value: formatDateTime(document.created_at),
+    },
+    {
+      label: "Uploaded by",
+      value: uploaderName,
+    },
+    {
+      label: "Processing Time",
+      value: formatDuration(latest?.started_at, latest?.finished_at),
     },
   ];
 
-  const canDownload = effectiveStatus === "COMPLETED";
-
-  const canPreview = effectiveStatus === "COMPLETED";
-
-  const canReprocess = processable && effectiveStatus !== "PROCESSING";
+  if (status === "FAILED" && (latest?.error || latest?.message)) {
+    informationItems.push({
+      label: "Failure reason",
+      value: (
+        <span className="document-details-page__failure">{latest.error ?? latest.message}</span>
+      ),
+    });
+  }
 
   return (
-    <PermissionGuard permission={PERMISSIONS.documentsRead}>
-      <div>
-        <Breadcrumb style={{ marginBottom: "1rem" }}>
-          <BreadcrumbItem onClick={() => navigate(-1)}>Documents</BreadcrumbItem>
+    <>
+      <div className="document-details-page">
+        <div className="document-details-page__title-row">
+          <h2 className="document-details-page__title">{document.original_filename}</h2>
 
-          <BreadcrumbItem isCurrentPage>{document.original_filename}</BreadcrumbItem>
-        </Breadcrumb>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "1rem",
-            marginBottom: "2rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <h2
-              style={{
-                margin: 0,
-                marginBottom: "0.5rem",
-              }}
-            >
-              {document.original_filename}
-            </h2>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <StatusTag status={effectiveStatus} />
-
-              <span
-                style={{
-                  fontSize: "0.875rem",
-                  color: "#6f6f6f",
-                }}
-              >
-                {processable ? `Attempts: ${processes.length}` : "No processing required"}
-              </span>
-
-              {processesRefreshing && (
-                <span
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6f6f6f",
-                  }}
-                >
-                  Refreshing…
-                </span>
-              )}
-            </div>
-          </div>
+          {processesRefreshing && (
+            <span className="document-details-page__refreshing">Refreshing…</span>
+          )}
         </div>
 
-        <Tile style={{ marginBottom: "2rem" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "1rem",
-            }}
-          >
-            <InfoItem label="Status" value={effectiveStatus} />
+        <Tabs>
+          <TabList aria-label="Document detail tabs" contained>
+            {templateCode && <Tab>Data Preview</Tab>}
 
-            <InfoItem label="Content Type" value={document.content_type || "—"} />
+            <Tab>Document Info</Tab>
+          </TabList>
 
-            <InfoItem label="Size" value={formatFileSize(document.size_bytes)} />
+          <TabPanels>
+            {templateCode && (
+              <TabPanel className="document-details-page__tab-panel">
+                {previewLoading ? (
+                  <InlineLoading description="Loading imported data…" />
+                ) : previewError ? (
+                  <InlineNotification
+                    kind="error"
+                    title="Preview failed"
+                    subtitle="Could not load imported data."
+                    lowContrast
+                  />
+                ) : !preview || preview.sheets.length === 0 ? (
+                  <InlineNotification
+                    kind="info"
+                    title="No data available"
+                    subtitle="No imported rows found. The file may still be processing."
+                    lowContrast
+                  />
+                ) : (
+                  <Tabs>
+                    <TabList aria-label="Sheet tabs">
+                      {preview.sheets.map((sheet) => (
+                        <Tab key={sheet.name}>
+                          {sheet.name}
 
-            <InfoItem label="Object Key" value={document.object_key || "—"} />
-
-            <InfoItem label="Created At" value={formatDate(document.created_at)} />
-
-            <InfoItem label="Updated At" value={formatDate(document.updated_at)} />
-          </div>
-        </Tile>
-
-        <Tile style={{ marginBottom: "2rem" }}>
-          <h4 style={{ marginBottom: "1rem" }}>
-            {processable ? "Latest Processing Attempt" : "Document Status"}
-          </h4>
-
-          <Stack gap={4}>
-            <StatusTag status={effectiveStatus} />
-
-            <div style={{ width: 320 }}>
-              <ProgressBar value={effectiveProgress} max={100} label="" size="small" />
-            </div>
-
-            {latestProcess ? (
-              <div>
-                Last Update: {formatDate(latestProcess.updated_at || latestProcess.created_at)}
-              </div>
-            ) : (
-              <div>No processing history for this document.</div>
-            )}
-          </Stack>
-        </Tile>
-
-        <Stack
-          orientation="horizontal"
-          gap={4}
-          style={{
-            marginBottom: "2rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <PermissionGuard permission={PERMISSIONS.documentsRead}>
-            <Button kind="primary" disabled={!canDownload} onClick={handleDownload}>
-              Download
-            </Button>
-          </PermissionGuard>
-
-          <PermissionGuard permission={PERMISSIONS.documentsRead}>
-            <Button kind="secondary" disabled={!canPreview} onClick={handlePreview}>
-              Preview
-            </Button>
-          </PermissionGuard>
-
-          <PermissionGuard permission={PERMISSIONS.documentsProcess}>
-            <Button
-              kind="secondary"
-              disabled={!canReprocess || reprocessing}
-              onClick={handleReprocess}
-            >
-              {reprocessing ? "Reprocessing..." : "Reprocess"}
-            </Button>
-          </PermissionGuard>
-
-          <PermissionGuard permission={PERMISSIONS.documentsWrite}>
-            <Button kind="danger--tertiary" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Deleting..." : "Delete"}
-            </Button>
-          </PermissionGuard>
-        </Stack>
-
-        <h3 style={{ marginBottom: "1rem" }}>Process History</h3>
-
-        {!processable ? (
-          <Tile>No processing history is available for this document type.</Tile>
-        ) : historyRows.length === 0 ? (
-          <Tile>No process attempts found.</Tile>
-        ) : (
-          <DataTable rows={historyRows} headers={headers}>
-            {({ rows, headers: tableHeaders, getTableProps, getHeaderProps, getRowProps }) => (
-              <TableContainer>
-                <Table {...getTableProps()}>
-                  <TableHead>
-                    <TableRow>
-                      {tableHeaders.map((header) => (
-                        <TableHeader
-                          {...getHeaderProps({
-                            header,
-                          })}
-                        >
-                          {header.header}
-                        </TableHeader>
+                          <Tag type="gray" className="document-details-page__tab-tag">
+                            {sheet.row_count.toLocaleString()}
+                          </Tag>
+                        </Tab>
                       ))}
-                    </TableRow>
-                  </TableHead>
+                    </TabList>
 
-                  <TableBody>
-                    {rows.map((row) => (
-                      <TableRow {...getRowProps({ row })}>
-                        {row.cells.map((cell) => {
-                          if (cell.info.header === "status") {
-                            return (
-                              <TableCell key={cell.id}>
-                                <StatusTag status={String(cell.value)} />
-                              </TableCell>
-                            );
-                          }
-
-                          if (cell.info.header === "progress") {
-                            return (
-                              <TableCell key={cell.id}>
-                                <div
-                                  style={{
-                                    width: 150,
-                                  }}
-                                >
-                                  <ProgressBar
-                                    value={Number(cell.value) || 0}
-                                    max={100}
-                                    label=""
-                                    size="small"
-                                  />
-                                </div>
-                              </TableCell>
-                            );
-                          }
-
-                          return <TableCell key={cell.id}>{String(cell.value ?? "—")}</TableCell>;
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    <TabPanels>
+                      {preview.sheets.map((sheet) => (
+                        <TabPanel key={sheet.name} className="document-preview__tab-panel">
+                          <SheetView
+                            sheet={sheet}
+                            reportDate={reportDate}
+                            filterableKeys={filterableKeysBySheet[sheet.name] ?? []}
+                          />
+                        </TabPanel>
+                      ))}
+                    </TabPanels>
+                  </Tabs>
+                )}
+              </TabPanel>
             )}
-          </DataTable>
-        )}
+
+            <TabPanel className="document-details-page__tab-panel document-details-page__tab-panel--info">
+              <div className="document-details-page__info-list">
+                {informationItems.map((item, index) => (
+                  <InfoItem
+                    key={item.label}
+                    label={item.label}
+                    value={item.value}
+                    index={index}
+                    isLast={index === informationItems.length - 1}
+                  />
+                ))}
+              </div>
+
+              <div className="document-details-page__actions">
+                <PermissionGuard permission={PERMISSIONS.documentsRead}>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadFile()}
+                    disabled={status !== "COMPLETED" || isBusy}
+                    className="document-details-action document-details-action--primary"
+                  >
+                    <Download size={16} />
+
+                    <span className="document-details-action__label">Download</span>
+                  </button>
+                </PermissionGuard>
+
+                {processable && (
+                  <PermissionGuard permission={PERMISSIONS.documentsProcess}>
+                    <button
+                      type="button"
+                      onClick={() => void handleReprocess()}
+                      disabled={status !== "FAILED" || isBusy}
+                      className="document-details-action document-details-action--neutral"
+                    >
+                      <Renew size={16} />
+
+                      <span className="document-details-action__label">
+                        {reprocessing ? "Reprocessing…" : "Reprocess"}
+                      </span>
+                    </button>
+                  </PermissionGuard>
+                )}
+
+                <PermissionGuard permission={PERMISSIONS.documentsWrite}>
+                  <button
+                    type="button"
+                    onClick={handleDeleteRequest}
+                    disabled={isBusy}
+                    className="document-details-action document-details-action--danger"
+                  >
+                    <TrashCan size={16} />
+
+                    <span className="document-details-action__label">Delete</span>
+                  </button>
+                </PermissionGuard>
+              </div>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </div>
-    </PermissionGuard>
+    </>
   );
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+export default function DocumentDetailsPage() {
   return (
-    <div>
-      <div
-        style={{
-          fontSize: "0.75rem",
-          color: "#6f6f6f",
-          marginBottom: "0.25rem",
-        }}
-      >
-        {label}
-      </div>
+    <PermissionGuard
+      permission={PERMISSIONS.documentsRead}
+      fallback={
+        <div>
+          <InlineNotification
+            kind="warning"
+            title="Access denied"
+            subtitle="You do not have permission to view this document."
+            lowContrast
+            hideCloseButton
+          />
 
-      <div
-        style={{
-          fontWeight: 500,
-          wordBreak: "break-word",
-        }}
-      >
-        {value}
-      </div>
-    </div>
+          <div className="document-permission-fallback__actions">
+            <Button kind="secondary" as={RouterLink} to="..">
+              Back to Documents
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <DocumentDetailsPageContent />
+    </PermissionGuard>
   );
 }

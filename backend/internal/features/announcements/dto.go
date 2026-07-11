@@ -24,7 +24,10 @@ type createAnnouncementRequest struct {
 	ClientIDs     []string `json:"client_ids"`
 	RoleNames     []string `json:"role_names"`
 	UserIDs       []string `json:"user_ids"`
+	GroupIDs      []string `json:"group_ids"`
 	NotifyByEmail bool     `json:"notify_by_email"`
+	NotifyBySMS   bool     `json:"notify_by_sms"`
+	SMSMessage    *string  `json:"sms_message"`
 }
 
 type updateAnnouncementRequest struct {
@@ -43,7 +46,10 @@ type updateAnnouncementRequest struct {
 	ClientIDs     []string `json:"client_ids"`
 	RoleNames     []string `json:"role_names"`
 	UserIDs       []string `json:"user_ids"`
+	GroupIDs      []string `json:"group_ids"`
 	NotifyByEmail bool     `json:"notify_by_email"`
+	NotifyBySMS   bool     `json:"notify_by_sms"`
+	SMSMessage    *string  `json:"sms_message"`
 }
 
 type CreateAnnouncementInput struct {
@@ -61,6 +67,8 @@ type CreateAnnouncementInput struct {
 	ExpiresAt     sql.NullTime
 	AudienceType  string
 	NotifyByEmail bool
+	NotifyBySMS   bool
+	SMSMessage    sql.NullString
 	CreatedBy     uuid.UUID
 }
 
@@ -79,6 +87,8 @@ type UpdateAnnouncementInput struct {
 	ExpiresAt     sql.NullTime
 	AudienceType  string
 	NotifyByEmail bool
+	NotifyBySMS   bool
+	SMSMessage    sql.NullString
 	UpdatedBy     uuid.UUID
 }
 
@@ -97,8 +107,15 @@ type AnnouncementResponse struct {
 	PublishAt               *time.Time                       `json:"publish_at,omitempty"`
 	ExpiresAt               *time.Time                       `json:"expires_at,omitempty"`
 	AudienceType            string                           `json:"audience_type"`
+	ClientIDs               []string                         `json:"client_ids,omitempty"`
+	RoleNames               []string                         `json:"role_names,omitempty"`
+	UserIDs                 []string                         `json:"user_ids,omitempty"`
+	GroupIDs                []string                         `json:"group_ids,omitempty"`
 	NotifyByEmail           bool                             `json:"notify_by_email"`
 	EmailNotificationSentAt *time.Time                       `json:"email_notification_sent_at,omitempty"`
+	NotifyBySMS             bool                             `json:"notify_by_sms"`
+	SMSMessage              *string                          `json:"sms_message,omitempty"`
+	SMSNotificationQueuedAt *time.Time                       `json:"sms_notification_queued_at,omitempty"`
 	CreatedBy               string                           `json:"created_by"`
 	UpdatedBy               string                           `json:"updated_by"`
 	PublishedBy             *string                          `json:"published_by,omitempty"`
@@ -197,4 +214,11 @@ type AnnouncementEmailRecipient struct {
 	Email    string
 	Username string
 	FullName string
+}
+
+type AnnouncementSMSRecipient struct {
+	ID          uuid.UUID
+	PhoneNumber string
+	Username    string
+	FullName    string
 }

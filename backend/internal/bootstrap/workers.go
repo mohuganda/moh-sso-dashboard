@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/moh-sso-dashboard/internal/config"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	emailRepo "github.com/moh-sso-dashboard/internal/repository/email"
 	notificationDeliveryRepo "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
@@ -16,6 +17,7 @@ import (
 )
 
 type workerDependencies struct {
+	Config                         *config.Config
 	ProcessRepository              processRepo.ProcessRepository
 	ImportService                  *importSvc.Service
 	FileStorage                    storage.Storage
@@ -23,6 +25,8 @@ type workerDependencies struct {
 	SMTPService                    worker.EmailSender
 	NotificationDeliveryRepository notificationDeliveryRepo.NotificationDeliveryRepository
 	EmailService                   service.EmailService
+	SMSService                     service.SMSService
+	AuditService                   *service.AuditService
 	Logger                         *logger.Logger
 }
 
@@ -66,11 +70,23 @@ func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
 		}
 	}()
 
+	if deps.Config != nil && !deps.Config.NotificationDelivery.WorkerEnabled {
+		deps.Logger.Info("Notification delivery workers disabled")
+		return
+	}
+
+	notificationWorkerInterval := 3 * time.Second
+	notificationWorkerBatchSize := int32(20)
+	if deps.Config != nil {
+		notificationWorkerInterval = deps.Config.NotificationDelivery.WorkerInterval
+		notificationWorkerBatchSize = deps.Config.NotificationDelivery.BatchSize
+	}
+
 	notificationEmailDeliveryWorker, err := worker.NewNotificationEmailDeliveryWorker(
 		deps.NotificationDeliveryRepository,
 		deps.EmailService,
-		3*time.Second,
-		20,
+		notificationWorkerInterval,
+		notificationWorkerBatchSize,
 		3,
 		deps.Logger,
 	)
@@ -86,4 +102,30 @@ func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
 			deps.Logger.Error("Notification email delivery worker stopped with error: ", err)
 		}
 	}()
+
+	if deps.SMSService != nil && deps.SMSService.Enabled() {
+		notificationSMSDeliveryWorker, err := worker.NewNotificationSMSDeliveryWorker(
+			deps.NotificationDeliveryRepository,
+			deps.SMSService,
+			notificationWorkerInterval,
+			notificationWorkerBatchSize,
+			3,
+			deps.Logger,
+			deps.AuditService,
+		)
+		if err != nil {
+			deps.Logger.Fatal("Failed to initialize notification SMS delivery worker: ", err)
+		}
+
+		go func() {
+			deps.Logger.Info("Background notification SMS delivery worker started")
+
+			if err := notificationSMSDeliveryWorker.Start(ctx); err != nil &&
+				!errors.Is(err, context.Canceled) {
+				deps.Logger.Error("Notification SMS delivery worker stopped with error: ", err)
+			}
+		}()
+	} else {
+		deps.Logger.Info("Notification SMS delivery worker disabled")
+	}
 }

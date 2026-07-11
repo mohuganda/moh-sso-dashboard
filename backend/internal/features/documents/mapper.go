@@ -2,6 +2,7 @@ package documents
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -11,8 +12,13 @@ import (
 )
 
 func toDocumentResponse(doc db.Document, objectURL, viewURL, downloadURL string) DocumentResponse {
+	var metadata map[string]interface{}
+	if len(doc.Metadata) > 0 {
+		_ = json.Unmarshal(doc.Metadata, &metadata)
+	}
 	return DocumentResponse{
 		ID:               doc.ID,
+		Metadata:         metadata,
 		OriginalFilename: doc.OriginalFilename,
 		ContentType:      nullStringValue(doc.ContentType),
 		SizeBytes:        doc.SizeBytes,
@@ -81,6 +87,13 @@ func nullStringValue(ns sql.NullString) string {
 		return ""
 	}
 	return ns.String
+}
+
+func nullTimeRFC3339(nt sql.NullTime) string {
+	if !nt.Valid {
+		return ""
+	}
+	return nt.Time.UTC().Format(time.RFC3339)
 }
 
 func requiresProcessing(mimeType, fileName string) bool {

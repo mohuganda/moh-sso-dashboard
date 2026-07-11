@@ -1,6 +1,8 @@
 import { Button, InlineLoading } from "@carbon/react";
 import { useState } from "react";
 
+import "./user-components.scss";
+
 type ResetPasswordModalProps = {
   username: string;
   email?: string | null;
@@ -26,12 +28,12 @@ export function ResetPasswordModal({
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="user-confirm-modal">
       <p>
         This will initiate a password reset for <strong>{username}</strong>.
       </p>
 
-      <p style={{ opacity: 0.75 }}>
+      <p className="user-confirm-modal__description">
         {email
           ? `A password reset email will be sent to ${email}.`
           : "The user will be required to set a new password on next login."}
@@ -39,13 +41,7 @@ export function ResetPasswordModal({
 
       {loading && <InlineLoading description="Sending password reset…" />}
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-        }}
-      >
+      <div className="user-confirm-modal__actions">
         <Button kind="secondary" onClick={onCancel} disabled={loading}>
           Cancel
         </Button>

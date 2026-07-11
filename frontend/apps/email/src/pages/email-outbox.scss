@@ -3,6 +3,16 @@
   padding: 1.5rem;
 }
 
+.email-outbox-page__loading {
+  padding: 2rem;
+}
+
+.email-outbox-page__content {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
 .email-outbox-page__grid {
   padding-inline: 0;
 }
@@ -20,6 +30,15 @@
   justify-content: flex-end;
   gap: 1rem;
   flex-shrink: 0;
+}
+
+.email-outbox-page__heading {
+  margin: 0;
+}
+
+.email-outbox-page__description {
+  margin-top: 0.375rem;
+  opacity: 0.8;
 }
 
 .email-outbox-page__title {
@@ -56,6 +75,54 @@
   display: flex;
   gap: 0.25rem;
   align-items: center;
+}
+
+.email-outbox-page__toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.email-outbox-page__table-title {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.email-outbox-page__recipient-preview {
+  max-width: 22.5rem;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.75;
+}
+
+.email-outbox-page__empty-table {
+  padding: 2rem;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.email-outbox-filter-grid {
+  display: grid;
+  grid-template-columns: 2fr minmax(11.25rem, 16.25rem) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.email-outbox-bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-block-end: 0.75rem;
+}
+
+.email-outbox-bulk-actions__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .email-outbox-page__empty {
@@ -95,5 +162,14 @@
 
   .email-outbox-page__filters {
     max-width: 100%;
+  }
+
+  .email-outbox-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .email-outbox-bulk-actions {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

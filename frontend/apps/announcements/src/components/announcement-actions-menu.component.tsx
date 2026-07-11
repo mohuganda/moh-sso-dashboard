@@ -1,6 +1,6 @@
 import { OverflowMenu, OverflowMenuItem } from "@carbon/react";
 
-import type { Announcement } from "@moh-sso/types";
+import type { Announcement } from "../types";
 
 type AnnouncementActionsMenuProps = {
   announcement: Announcement;

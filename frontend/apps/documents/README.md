@@ -2,7 +2,7 @@
 
 The documents app handles document upload and document processing workflows.
 
-It is a standalone React microfrontend exposed as `@moh-sso/documents` and mounted by the shell at document-related routes such as `/apps/dwh/filesvr`.
+It is a standalone React microfrontend exposed as `@moh-sso/documents` and mounted by the shell at document-related routes such as `/apps/dwh/documents`.
 
 ## Responsibilities
 

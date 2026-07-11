@@ -226,6 +226,11 @@
   border-radius: 4px;
 }
 
+.issue-table-container .cds--data-table,
+.issue-table-container table {
+  min-width: max-content;
+}
+
 .issue-clickable-cell {
   padding: 0;
   color: #0f62fe;
@@ -410,6 +415,17 @@
     padding: 0.75rem;
   }
 
+  .issue-filters,
+  .issue-filters .filter-popovers,
+  .issue-filters .filter-buttons,
+  .issue-table-search-bar,
+  .issue-btn-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    width: 100%;
+  }
+
   .issue-filter-wrapper {
     width: 100%;
 
@@ -451,5 +467,24 @@
 
   .issue-label {
     @include type.type-style("heading-02");
+  }
+
+  .issue-empty-state {
+    min-height: 12rem;
+    padding: 1rem;
+  }
+
+  .org-filter-inner {
+    max-height: min(28rem, calc(100dvh - 8rem));
+  }
+
+  .import-preview-table-wrapper {
+    max-height: min(18rem, calc(100dvh - 12rem));
+  }
+}
+
+@media (max-width: 30rem) {
+  .popover-footer {
+    grid-template-columns: 1fr;
   }
 }

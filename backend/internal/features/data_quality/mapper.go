@@ -93,6 +93,94 @@ func toIssueStageResponses(stages []issueStageResponse) []issueStageResponse {
 	return out
 }
 
+func toValidationRuleResponses(rules []validationRuleResponse) []validationRuleResponse {
+	if rules == nil {
+		return []validationRuleResponse{}
+	}
+	return rules
+}
+
+func trimStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+
+	return &trimmed
+}
+
+func normalizeValidationRuleRequest(req validationRuleImportRequest, createdBy interface{}) (validationRuleInput, string) {
+	code := strings.TrimSpace(req.Code)
+	severity := strings.ToLower(strings.TrimSpace(req.Severity))
+	column := strings.TrimSpace(req.Column)
+	op := strings.ToLower(strings.TrimSpace(req.Op))
+
+	if code == "" {
+		return validationRuleInput{}, "code is required"
+	}
+	if !isValidValidationSeverity(severity) {
+		return validationRuleInput{}, "severity must be one of error, warning, info"
+	}
+	if column == "" {
+		return validationRuleInput{}, "column is required"
+	}
+	if !isValidValidationOperator(op) {
+		return validationRuleInput{}, "op must be one of contains, eq, gt, gte, isnull, lt, lte, ne, notnull"
+	}
+
+	value := trimStringPtr(req.Value)
+	valueColumn := trimStringPtr(req.ValueColumn)
+	if op != "isnull" && op != "notnull" {
+		if value == nil && valueColumn == nil {
+			return validationRuleInput{}, "value or value_column is required for this operator"
+		}
+		if value != nil && valueColumn != nil {
+			return validationRuleInput{}, "only one of value or value_column can be provided"
+		}
+	}
+
+	description := ""
+	if req.Description != nil {
+		description = strings.TrimSpace(*req.Description)
+	}
+
+	return validationRuleInput{
+		TableID:     dqNullableString(trimStringPtr(req.TableID)),
+		Program:     dqNullableString(trimStringPtr(req.Program)),
+		Category:    dqNullableString(trimStringPtr(req.Category)),
+		Code:        code,
+		Severity:    severity,
+		Description: description,
+		Column:      column,
+		Op:          op,
+		Value:       dqNullableString(value),
+		ValueColumn: dqNullableString(valueColumn),
+		CreatedBy:   createdBy,
+	}, ""
+}
+
+func isValidValidationSeverity(value string) bool {
+	switch value {
+	case "error", "warning", "info":
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidValidationOperator(value string) bool {
+	switch value {
+	case "contains", "eq", "gt", "gte", "isnull", "lt", "lte", "ne", "notnull":
+		return true
+	default:
+		return false
+	}
+}
+
 func scanIssue(scanner interface {
 	Scan(dest ...interface{}) error
 }) (issueResponse, error) {
@@ -202,4 +290,75 @@ func scanIssueStage(scanner interface {
 	row.DueDate = dqNullDatePtr(dueDate)
 
 	return row, nil
+}
+
+func scanValidationRule(scanner interface {
+	Scan(dest ...interface{}) error
+}) (validationRuleResponse, error) {
+	rule, _, err := scanValidationRuleInternal(scanner, false)
+	return rule, err
+}
+
+func scanValidationRuleWithCreated(scanner interface {
+	Scan(dest ...interface{}) error
+}) (validationRuleResponse, bool, error) {
+	return scanValidationRuleInternal(scanner, true)
+}
+
+func scanValidationRuleInternal(scanner interface {
+	Scan(dest ...interface{}) error
+}, includeCreated bool) (validationRuleResponse, bool, error) {
+	var (
+		rule        validationRuleResponse
+		tableID     sql.NullString
+		program     sql.NullString
+		category    sql.NullString
+		value       sql.NullString
+		valueColumn sql.NullString
+		createdBy   sql.NullString
+		updatedBy   sql.NullString
+		deletedAt   sql.NullTime
+		created     bool
+	)
+
+	dest := []interface{}{
+		&rule.ID,
+		&tableID,
+		&program,
+		&category,
+		&rule.Code,
+		&rule.Severity,
+		&rule.Description,
+		&rule.Column,
+		&rule.Op,
+		&value,
+		&valueColumn,
+		&rule.IsActive,
+		&createdBy,
+		&updatedBy,
+		&rule.CreatedAt,
+		&rule.UpdatedAt,
+		&deletedAt,
+	}
+
+	if includeCreated {
+		dest = append(dest, &created)
+	}
+
+	if err := scanner.Scan(dest...); err != nil {
+		return validationRuleResponse{}, false, err
+	}
+
+	rule.TableID = dqNullStringPtr(tableID)
+	rule.Program = dqNullStringPtr(program)
+	rule.Category = dqNullStringPtr(category)
+	rule.Value = dqNullStringPtr(value)
+	rule.ValueColumn = dqNullStringPtr(valueColumn)
+	rule.CreatedBy = dqNullStringPtr(createdBy)
+	rule.UpdatedBy = dqNullStringPtr(updatedBy)
+	if deletedAt.Valid {
+		rule.DeletedAt = &deletedAt.Time
+	}
+
+	return rule, created, nil
 }

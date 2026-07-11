@@ -79,8 +79,8 @@ frontend:
 postgresApp:
   enabled: true
   auth:
-    db: sso_dashboard
-    user: postgres
+    database: sso_dashboard
+    username: postgres
     password: postgres
 
   persistence:
@@ -93,8 +93,8 @@ postgresApp:
 postgresKeycloak:
   enabled: true
   auth:
-    db: keycloak
-    user: keycloak
+    database: keycloak
+    username: keycloak
     password: keycloak
 
   persistence:

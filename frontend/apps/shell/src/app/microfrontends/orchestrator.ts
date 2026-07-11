@@ -35,7 +35,7 @@ type SingleSpaModule = {
   registerApplication: (config: {
     name: string;
     app: () => Promise<MicrofrontendLifecycle>;
-    activeWhen: string[];
+    activeWhen: Array<(location: Location) => boolean>;
     customProps: Record<string, unknown>;
   }) => void;
   start: () => void;
@@ -75,12 +75,32 @@ function notifyOrchestrationState() {
   );
 }
 
-export function shouldUseSingleSpaOrchestration() {
+function getRuntimeConfig() {
   const runtimeConfig = (
     window as Window & {
       __APP_CONFIG__?: RuntimeMicrofrontendConfig;
     }
   ).__APP_CONFIG__;
+
+  const isLocalDevelopmentHost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "::1";
+
+  if (!isLocalDevelopmentHost) {
+    return runtimeConfig;
+  }
+
+  return {
+    ...runtimeConfig,
+    singleSpaOrchestration: false,
+    microfrontendMode: "local",
+    microfrontendMountMode: "hybrid",
+  };
+}
+
+export function shouldUseSingleSpaOrchestration() {
+  const runtimeConfig = getRuntimeConfig();
   const orchestrationEnabled =
     import.meta.env.VITE_SINGLE_SPA_ORCHESTRATION === "true" || runtimeConfig?.singleSpaOrchestration === true;
 
@@ -100,21 +120,23 @@ export function isSingleSpaOrchestrationUnavailable() {
 }
 
 function getMicrofrontendMode() {
-  const runtimeConfig = (
-    window as Window & {
-      __APP_CONFIG__?: RuntimeMicrofrontendConfig;
-    }
-  ).__APP_CONFIG__;
+  const runtimeConfig = getRuntimeConfig();
   return runtimeConfig?.microfrontendMode ?? import.meta.env.VITE_MICROFRONTEND_MODE ?? "local";
 }
 
 function getMicrofrontendMountMode(): MicrofrontendMountMode {
-  const runtimeConfig = (
-    window as Window & {
-      __APP_CONFIG__?: RuntimeMicrofrontendConfig;
-    }
-  ).__APP_CONFIG__;
+  const runtimeConfig = getRuntimeConfig();
   return runtimeConfig?.microfrontendMountMode ?? import.meta.env.VITE_MICROFRONTEND_MOUNT_MODE ?? "hybrid";
+}
+
+function pathMatches(pathname: string, basePath: string) {
+  const normalizedPathname = pathname.replace(/\/+$/, "") || "/";
+  const normalizedBasePath = basePath.replace(/\/+$/, "") || "/";
+
+  return (
+    normalizedPathname === normalizedBasePath ||
+    normalizedPathname.startsWith(`${normalizedBasePath}/`)
+  );
 }
 
 async function loadSingleSpa(): Promise<SingleSpaModule | null> {
@@ -128,9 +150,18 @@ async function loadSingleSpa(): Promise<SingleSpaModule | null> {
 function registerRoute(singleSpa: SingleSpaModule, route: MicrofrontendRoute) {
   const mode = getMicrofrontendMode();
   const routeBasename = resolveRuntimeBasename(route.path, import.meta.env.BASE_URL);
-  const activeWhen = (route.paths ?? [route.path]).map((path) =>
+  const excludedPaths = (route.excludedPaths ?? []).map((path) =>
     resolveRuntimeBasename(path, import.meta.env.BASE_URL),
   );
+  const activeWhen = (route.paths ?? [route.path])
+    .map((path) => resolveRuntimeBasename(path, import.meta.env.BASE_URL))
+    .map((activePath) => (location: Location) => {
+      if (!pathMatches(location.pathname, activePath)) {
+        return false;
+      }
+
+      return !excludedPaths.some((excludedPath) => pathMatches(location.pathname, excludedPath));
+    });
   const loader =
     mode === "remote"
       ? () => runtimeImport<MicrofrontendLifecycle>(route.appName)

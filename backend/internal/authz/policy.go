@@ -186,7 +186,91 @@ var systemRolePermissions = map[string]map[string][]Permission{
 		ReportBrowserViewer: {
 			PermissionReportBrowserRead,
 		},
+		SurveillanceViewer: {
+			PermissionSurveillanceRead,
+		},
+		SurveillanceOfficer: {
+			PermissionSurveillanceRead,
+			PermissionSurveillanceImport,
+			PermissionSurveillanceManageAlerts,
+		},
+		SurveillanceDataEntry: {
+			PermissionSurveillanceRead,
+			PermissionSurveillanceImport,
+		},
+		SurveillanceManager: {
+			PermissionSurveillanceRead,
+			PermissionSurveillanceImport,
+			PermissionSurveillanceManageLocations,
+			PermissionSurveillanceManageAlerts,
+		},
+		IssueTrackerViewer: {
+			PermissionIssueTrackerRead,
+		},
+		IssueTrackerContributor: {
+			PermissionIssueTrackerRead,
+			PermissionIssueTrackerComment,
+		},
+		IssueTrackerEditor: {
+			PermissionIssueTrackerRead,
+			PermissionIssueTrackerWrite,
+			PermissionIssueTrackerComment,
+		},
+		IssueTrackerManager: {
+			PermissionIssueTrackerRead,
+			PermissionIssueTrackerWrite,
+			PermissionIssueTrackerManage,
+			PermissionIssueTrackerAssign,
+			PermissionIssueTrackerClose,
+			PermissionIssueTrackerReopen,
+			PermissionIssueTrackerComment,
+		},
+		DocumentViewer: {
+			PermissionDocumentsRead,
+			PermissionDocumentTemplatesRead,
+			PermissionStorageLocationsRead,
+		},
+		DocumentEditor: {
+			PermissionDocumentsRead,
+			PermissionDocumentsWrite,
+			PermissionDocumentTemplatesRead,
+			PermissionStorageLocationsRead,
+		},
+		DocumentProcessor: {
+			PermissionDocumentsRead,
+			PermissionDocumentsProcess,
+			PermissionDocumentTemplatesRead,
+			PermissionStorageLocationsRead,
+		},
+		DocumentManager: {
+			PermissionDocumentsRead,
+			PermissionDocumentsWrite,
+			PermissionDocumentsProcess,
+			PermissionDocumentTemplatesRead,
+			PermissionDocumentTemplatesWrite,
+			PermissionDocumentTemplatesPublish,
+			PermissionStorageLocationsRead,
+		},
+		DocumentTemplateViewer: {
+			PermissionDocumentsRead,
+			PermissionDocumentTemplatesRead,
+			PermissionStorageLocationsRead,
+		},
+		DocumentTemplateEditor: {
+			PermissionDocumentsRead,
+			PermissionDocumentTemplatesRead,
+			PermissionDocumentTemplatesWrite,
+			PermissionStorageLocationsRead,
+		},
+		DocumentTemplatePublisher: {
+			PermissionDocumentsRead,
+			PermissionDocumentTemplatesRead,
+			PermissionDocumentTemplatesWrite,
+			PermissionDocumentTemplatesPublish,
+			PermissionStorageLocationsRead,
+		},
 	},
+
 	SystemUtilities: {
 		UtilitiesAccess: {
 			PermissionPortalAccess,
@@ -194,6 +278,7 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionSystemsLaunch,
 		},
 	},
+
 	SystemSettings: {
 		SettingsAccess: {
 			PermissionPortalAccess,
@@ -205,7 +290,12 @@ var systemRolePermissions = map[string]map[string][]Permission{
 
 var defaultSystemRolesForRealmRole = map[string]map[string][]string{
 	RoleUser: {
-		SystemDataStatistics: {DataStatisticsAccess},
+		SystemDataStatistics: {DataStatisticsAccess, DocumentViewer},
+		SystemUtilities:      {UtilitiesAccess},
+		SystemSettings:       {SettingsAccess},
+	},
+	RoleManager: {
+		SystemDataStatistics: {DataStatisticsAccess, SurveillanceManager, ReportBrowserManager, IssueTrackerManager, DocumentManager},
 		SystemUtilities:      {UtilitiesAccess},
 		SystemSettings:       {SettingsAccess},
 	},

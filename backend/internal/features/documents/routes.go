@@ -38,65 +38,22 @@ func RegisterProtectedRoutes(
 	)
 
 	{
-		documents.GET(
-			"",
-			readPermission,
-			handler.ListDocuments,
-		)
-
-		documents.POST(
-			"",
-			writePermission,
-			writeLimit,
-			handler.CreateDocument,
-		)
-
-		documents.GET(
-			"/:id",
-			readPermission,
-			handler.GetDocument,
-		)
-
-		documents.PUT(
-			"/:id",
-			writePermission,
-			writeLimit,
-			handler.EditDocument,
-		)
-
-		documents.DELETE(
-			"/:id",
-			writePermission,
-			writeLimit,
-			handler.DeleteDocument,
-		)
-
-		documents.GET(
-			"/:id/processes",
-			readPermission,
-			handler.ListDocumentProcesses,
-		)
-
-		documents.POST(
-			"/:id/reprocess",
-			processPermission,
-			processLimit,
-			handler.ReprocessDocument,
-		)
+		documents.GET("", readPermission, handler.ListDocuments)
+		documents.GET("/stats", readPermission, handler.GetDocumentStats)
+		documents.POST("", writePermission, writeLimit, handler.CreateDocument)
+		documents.POST("/scan-structure", writePermission, handler.ScanStructure)
+		documents.GET("/:id", readPermission, handler.GetDocument)
+		documents.PUT("/:id", writePermission, handler.EditDocument)
+		documents.DELETE("/:id", writePermission, handler.DeleteDocument)
+		documents.GET("/:id/processes", readPermission, handler.ListDocumentProcesses)
+		documents.POST("/:id/reprocess", processPermission, processLimit, handler.ReprocessDocument)
+		documents.GET("/:id/data-preview", readPermission, handler.DataPreview)
+		documents.GET("/:id/parse-structure", readPermission, handler.ParseStructure)
 	}
 
 	files := documents.Group("/files")
 	{
-		files.GET(
-			"/:id/view",
-			readPermission,
-			handler.ViewDocument,
-		)
-
-		files.GET(
-			"/:id/download",
-			readPermission,
-			handler.DownloadDocument,
-		)
+		files.GET("/:id/view", readPermission, handler.ViewDocument)
+		files.GET("/:id/download", readPermission, handler.DownloadDocument)
 	}
 }

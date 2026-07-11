@@ -24,11 +24,11 @@ import {
   useDeleteAnnouncementMutation,
   useSetAnnouncementPinnedMutation,
   useDraftAnnouncementMutation,
-} from "@moh-sso/api";
+} from "../api";
 
-import type { Announcement, AnnouncementLevel } from "@moh-sso/types";
+import type { Announcement, AnnouncementLevel } from "../types";
 
-import { ErrorState, useHeaderPanel, useToast } from "@moh-sso/ui";
+import { ErrorState, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
 
 import { formatDateTime, getStatusTagType, getTagType, isAnnouncementActive } from "@moh-sso/utils";
 
@@ -36,6 +36,7 @@ import { AnnouncementFilters } from "../components/announcement-filters.componen
 import { AnnouncementBulkActions } from "../components/announcement-bulk-actions.component";
 import { AnnouncementActionsMenu } from "../components/announcement-actions-menu.component";
 import { ManageAnnouncementsPanel } from "../components/manage-announcement-panel";
+import "./announcements.scss";
 
 function getApiErrorMessage(error: unknown, fallback: string) {
   if (!error || typeof error !== "object") {
@@ -115,6 +116,7 @@ const headers = [
 export function AnnouncementsPage() {
   const toast = useToast();
   const { openPanel, closePanel } = useHeaderPanel();
+  const { openModal, closeModal } = useModal();
 
   const [bulkAction, setBulkAction] = useState<
     "publish" | "draft" | "archive" | "pin" | "unpin" | "delete" | null
@@ -309,18 +311,84 @@ export function AnnouncementsPage() {
     });
   };
 
-  const handleDelete = async (announcement: Announcement) => {
-    const confirmed = window.confirm(
-      `Delete "${announcement.title}"? This action should only be used when you're sure.`,
-    );
+  const deleteOneAnnouncement = async (announcement: Announcement) => {
+    try {
+      await deleteAnnouncement(announcement.id).unwrap();
+      closeModal();
 
-    if (!confirmed) return;
+      toast.error({
+        title: "Announcement deleted",
+        subtitle: `${announcement.title} was deleted.`,
+      });
+    } catch {
+      toast.error({
+        title: "Delete failed",
+        subtitle: "The announcement could not be deleted.",
+      });
+    }
+  };
 
-    await deleteAnnouncement(announcement.id).unwrap();
+  const handleDelete = (announcement: Announcement) => {
+    openModal({
+      title: "Delete announcement",
+      onClose: closeModal,
+      content: (
+        <p>
+          Delete <strong>{announcement.title}</strong>? This action should only be used when you're
+          sure.
+        </p>
+      ),
+      primaryAction: {
+        label: "Delete",
+        kind: "danger",
+        onClick: () => void deleteOneAnnouncement(announcement),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
+    });
+  };
 
-    toast.error({
-      title: "Announcement deleted",
-      subtitle: `${announcement.title} was deleted.`,
+  const deleteSelectedAnnouncements = async (selectedAnnouncements: Announcement[]) => {
+    try {
+      setBulkAction("delete");
+
+      await Promise.all(selectedAnnouncements.map((item) => deleteAnnouncement(item.id).unwrap()));
+      closeModal();
+
+      toast.error({
+        title: "Announcements deleted",
+        subtitle: `${selectedAnnouncements.length} announcement(s) deleted.`,
+      });
+    } catch {
+      toast.error({
+        title: "Delete failed",
+        subtitle: "Some announcements could not be deleted.",
+      });
+    } finally {
+      setBulkAction(null);
+    }
+  };
+
+  const handleBulkDelete = (selectedAnnouncements: Announcement[]) => {
+    openModal({
+      title: "Delete announcements",
+      onClose: closeModal,
+      content: (
+        <p>
+          Delete <strong>{selectedAnnouncements.length}</strong> selected announcement(s)?
+        </p>
+      ),
+      primaryAction: {
+        label: "Delete",
+        kind: "danger",
+        onClick: () => void deleteSelectedAnnouncements(selectedAnnouncements),
+      },
+      secondaryAction: {
+        label: "Cancel",
+        onClick: closeModal,
+      },
     });
   };
 
@@ -329,7 +397,7 @@ export function AnnouncementsPage() {
    * ----------------------------- */
   if (isLoading) {
     return (
-      <div style={{ padding: "2rem" }}>
+      <div className="announcements-page__loading">
         <InlineLoading description="Loading announcements…" />
       </div>
     );
@@ -346,19 +414,12 @@ export function AnnouncementsPage() {
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 16 }}>
+    <div className="announcements-page">
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 16,
-          alignItems: "flex-start",
-        }}
-      >
+      <div className="announcements-page__header">
         <div>
-          <h3 style={{ margin: 0 }}>Announcements</h3>
-          <p style={{ marginTop: 6, opacity: 0.8 }}>
+          <h3 className="announcements-page__title">Announcements</h3>
+          <p className="announcements-page__subtitle">
             Manage platform notices, alerts, drafts, schedules, and archived updates.
           </p>
         </div>
@@ -524,31 +585,7 @@ export function AnnouncementsPage() {
                     }
                   }}
                   onDelete={async () => {
-                    const confirmed = window.confirm(
-                      `Delete ${selectedAnnouncements.length} selected announcement(s)?`,
-                    );
-
-                    if (!confirmed) return;
-
-                    try {
-                      setBulkAction("delete");
-
-                      await Promise.all(
-                        selectedAnnouncements.map((item) => deleteAnnouncement(item.id).unwrap()),
-                      );
-
-                      toast.error({
-                        title: "Announcements deleted",
-                        subtitle: `${selectedAnnouncements.length} announcement(s) deleted.`,
-                      });
-                    } catch {
-                      toast.error({
-                        title: "Delete failed",
-                        subtitle: "Some announcements could not be deleted.",
-                      });
-                    } finally {
-                      setBulkAction(null);
-                    }
+                    handleBulkDelete(selectedAnnouncements);
                   }}
                 />
 
@@ -594,20 +631,11 @@ export function AnnouncementsPage() {
 
                               return (
                                 <TableCell key={cell.id}>
-                                  <div style={{ display: "grid", gap: 4 }}>
+                                  <div className="announcements-page__table-title">
                                     <strong>{announcement.title}</strong>
 
                                     {announcement.summary && (
-                                      <span
-                                        style={{
-                                          maxWidth: 340,
-                                          overflow: "hidden",
-                                          textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                          opacity: 0.75,
-                                          fontSize: "0.8125rem",
-                                        }}
-                                      >
+                                      <span className="announcements-page__summary">
                                         {announcement.summary}
                                       </span>
                                     )}
@@ -621,16 +649,10 @@ export function AnnouncementsPage() {
                                     )}
 
                                     {(hasLink || attachmentCount > 0) && (
-                                      <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                      <span className="announcements-page__tag-list">
                                         {hasLink && (
                                           <Tag size="sm" type="blue">
-                                            <span
-                                              style={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 4,
-                                              }}
-                                            >
+                                            <span className="announcements-page__tag-content">
                                               <LinkIcon size={12} />
                                               Link
                                             </span>
@@ -639,13 +661,7 @@ export function AnnouncementsPage() {
 
                                         {attachmentCount > 0 && (
                                           <Tag size="sm" type="cyan">
-                                            <span
-                                              style={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 4,
-                                              }}
-                                            >
+                                            <span className="announcements-page__tag-content">
                                               <Attachment size={12} />
                                               {attachmentCount === 1
                                                 ? "1 attachment"
@@ -670,13 +686,7 @@ export function AnnouncementsPage() {
                                 <TableCell key={cell.id}>
                                   {attachmentCount > 0 ? (
                                     <Tag type="cyan" size="sm">
-                                      <span
-                                        style={{
-                                          display: "inline-flex",
-                                          alignItems: "center",
-                                          gap: 4,
-                                        }}
-                                      >
+                                      <span className="announcements-page__tag-content">
                                         <Attachment size={12} />
                                         {attachmentCount}
                                       </span>

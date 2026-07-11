@@ -17,6 +17,8 @@ type AnnouncementRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (db.Announcement, error)
 	Update(ctx context.Context, params db.UpdateAnnouncementParams) (db.Announcement, error)
 	MarkEmailNotificationSent(ctx context.Context, id uuid.UUID) (db.Announcement, error)
+	MarkSMSNotificationQueued(ctx context.Context, id uuid.UUID) (db.Announcement, error)
+	ListSMSRecipientsForUsers(ctx context.Context, userIDs []uuid.UUID) ([]AnnouncementSMSRecipient, error)
 	CreateAttachment(ctx context.Context, params db.CreateAnnouncementAttachmentParams) (db.AnnouncementAttachment, error)
 	ListAttachmentsByAnnouncementID(ctx context.Context, announcementID uuid.UUID) ([]db.AnnouncementAttachment, error)
 	ListEmailAttachments(ctx context.Context, announcementID uuid.UUID) ([]db.AnnouncementAttachment, error)
@@ -186,6 +188,23 @@ type AnnouncementRepository interface {
 	) error
 
 	ListUserAudience(
+		ctx context.Context,
+		announcementID uuid.UUID,
+	) ([]uuid.UUID, error)
+
+	AddGroupAudience(
+		ctx context.Context,
+		announcementID uuid.UUID,
+		groupID uuid.UUID,
+	) error
+
+	ReplaceGroupAudience(
+		ctx context.Context,
+		announcementID uuid.UUID,
+		groupIDs []uuid.UUID,
+	) error
+
+	ListGroupAudience(
 		ctx context.Context,
 		announcementID uuid.UUID,
 	) ([]uuid.UUID, error)

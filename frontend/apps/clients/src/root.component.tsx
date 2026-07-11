@@ -5,5 +5,9 @@ import ClientsPage from "./pages/client.component";
 export function ClientsRoot(props: MicrofrontendRuntimeProps) {
   void props;
 
-  return <ClientsPage />;
+  return (
+    <div className="moh-microfrontend-root">
+      <ClientsPage />
+    </div>
+  );
 }

@@ -29,8 +29,8 @@ import {
   useListUsersQuery,
   useResetUserPasswordMutation,
   useToggleUserMutation,
-} from "@moh-sso/api";
-import type { User } from "@moh-sso/types";
+} from "../api";
+import type { User } from "../types";
 
 import { UserActionsMenu } from "./user-actions-menu.component";
 import { UserBulkActions } from "./user-bulk-actions.component";

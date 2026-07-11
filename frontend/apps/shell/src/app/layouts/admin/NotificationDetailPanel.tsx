@@ -4,7 +4,7 @@ import { Renew } from "@carbon/react/icons";
 import {
   useGetNotificationDeliveriesQuery,
   useRetryNotificationDeliveryMutation,
-} from "@moh-sso/api";
+} from "../../api";
 import type { Notification, NotificationDelivery } from "@moh-sso/types";
 import { getSeverityTagType } from "@moh-sso/ui";
 

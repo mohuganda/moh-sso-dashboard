@@ -110,6 +110,52 @@
   padding: 1rem;
 }
 
+.rbac-group-detail__section {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.rbac-group-detail__section:last-child {
+  border-bottom: 0;
+}
+
+.rbac-group-detail__section-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rbac-group-detail__section h4,
+.rbac-group-detail__section-header p {
+  margin: 0;
+}
+
+.rbac-group-detail__section-header p {
+  margin-top: 0.25rem;
+  color: var(--cds-text-secondary);
+  font-size: 0.875rem;
+}
+
+.rbac-group-members__add {
+  align-items: end;
+}
+
+.rbac-group-members__add .cds--dropdown__wrapper {
+  min-width: min(28rem, 100%);
+}
+
+.rbac-group-members-table {
+  border: 1px solid var(--cds-border-subtle);
+}
+
+.rbac-group-members-table__empty {
+  padding: 1rem;
+  color: var(--cds-text-secondary);
+}
+
 .rbac-role-grid,
 .rbac-realm-layout {
   display: grid;
@@ -450,5 +496,123 @@
 
   .rbac-page__systems {
     position: static;
+  }
+}
+
+/* Mobile hardening for dense governance screens. */
+.rbac-page,
+.rbac-page__layout,
+.rbac-page__main,
+.rbac-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rbac-card {
+  overflow: hidden;
+}
+
+.rbac-system-list__item strong,
+.rbac-role-list__item strong,
+.rbac-system-list__item small,
+.rbac-role-list__item small,
+.rbac-permission-catalog__row,
+.rbac-tag-list,
+.rbac-effective-card,
+.rbac-audit-detail__meta dd {
+  overflow-wrap: anywhere;
+}
+
+.rbac-card .cds--text-input,
+.rbac-card .cds--search-input,
+.rbac-card .cds--list-box,
+.rbac-card .cds--dropdown,
+.rbac-card textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rbac-governance-tabs,
+.rbac-drift-table {
+  overflow-x: auto;
+}
+
+.rbac-governance-tabs .cds--tabs,
+.rbac-governance-tabs .cds--tab--list {
+  min-width: max-content;
+}
+
+.rbac-drift-row {
+  min-width: 54rem;
+}
+
+.rbac-tag-list .cds--tag {
+  max-width: 100%;
+}
+
+.rbac-tag-list .cds--tag__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rbac-audit-actions,
+.rbac-sync-actions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 672px) {
+  .rbac-page {
+    padding: 0.75rem;
+  }
+
+  .rbac-page__header,
+  .rbac-page__panel-header,
+  .rbac-group-detail__section-header,
+  .rbac-audit-detail__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rbac-page__header h1 {
+    font-size: 1.5rem;
+  }
+
+  .rbac-page__panel-header,
+  .rbac-form-grid,
+  .rbac-permission-matrix,
+  .rbac-governance-grid,
+  .rbac-sync-grid,
+  .rbac-drift,
+  .rbac-effective-search,
+  .rbac-effective-result {
+    padding: 0.75rem;
+  }
+
+  .rbac-inline-form,
+  .rbac-audit-actions,
+  .rbac-sync-actions,
+  .rbac-effective-user,
+  .rbac-effective-grant {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .rbac-inline-form .cds--btn,
+  .rbac-audit-actions .cds--btn,
+  .rbac-sync-actions .cds--btn,
+  .rbac-effective-search .cds--btn {
+    width: 100%;
+    max-width: none;
+  }
+
+  .rbac-drift-row {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .rbac-summary-tile strong {
+    font-size: 1.25rem;
   }
 }

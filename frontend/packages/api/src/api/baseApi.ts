@@ -7,7 +7,8 @@ import {
 } from "@reduxjs/toolkit/query/react";
 
 import { API } from "@moh-sso/config";
-import { loginSuccess, logout, type AuthUser } from "@moh-sso/auth";
+import { loginSuccess, logout } from "../../../auth/src/auth/auth.slice";
+import type { AuthUser } from "../../../auth/src/auth/auth.types";
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -192,6 +193,7 @@ export const baseApi = createApi({
     "DocumentSheets",
     "DocumentColumns",
     "RbacSystem",
+    "RbacGroup",
     "RbacPermission",
     "RbacRealmRole",
     "RbacAccessRequest",
@@ -199,6 +201,7 @@ export const baseApi = createApi({
     "RbacAudit",
     "Datasets",
     "DataElements",
+    "DataValidationRules",
   ],
 
   endpoints: () => ({}),

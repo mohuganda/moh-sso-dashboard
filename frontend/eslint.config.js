@@ -81,6 +81,7 @@ export default tseslint.config(
             "^@/",
             "^@moh-sso/",
             "^@vitejs/plugin-react$",
+            "^virtual:pwa-register$",
             "\\.(css|scss|png|jpg|jpeg|svg)$",
           ],
         },

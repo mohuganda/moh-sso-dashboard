@@ -34,11 +34,41 @@ type realmExportFile struct {
 		StandardFlowEnabled    bool              `json:"standardFlowEnabled"`
 		Attributes             map[string]string `json:"attributes"`
 	} `json:"clients"`
+	Groups []realmExportGroup `json:"groups"`
+	Users  []realmExportUser  `json:"users"`
+}
+
+type realmExportGroup struct {
+	Name        string              `json:"name"`
+	Path        string              `json:"path"`
+	Attributes  map[string][]string `json:"attributes"`
+	RealmRoles  []string            `json:"realmRoles"`
+	ClientRoles map[string][]string `json:"clientRoles"`
+	SubGroups   []realmExportGroup  `json:"subGroups"`
+}
+
+type realmExportUser struct {
+	ID       string   `json:"id"`
+	Username string   `json:"username"`
+	Email    string   `json:"email"`
+	Groups   []string `json:"groups"`
+}
+
+type discoveredGroup struct {
+	Path        string
+	Name        string
+	DisplayName string
+	Description string
+	RealmRoles  []string
+	ClientRoles map[string][]string
+	Permissions []string
+	Members     []GroupMember
 }
 
 type discoveredRBAC struct {
 	Systems    []KeycloakDiscoveredSystem
 	RealmRoles []string
+	Groups     []discoveredGroup
 }
 
 func (s *Service) DriftFromDefaultRealmExport(ctx context.Context) (RbacDriftReport, error) {
@@ -152,10 +182,64 @@ func (s *Service) ApplyRealmExportSync(ctx context.Context, payload []byte) (Syn
 		}
 	}
 
+	groupsSynced, err := s.applyDiscoveredGroups(ctx, discovered.Groups, "realm-export")
+	if err != nil {
+		return SyncApplyResponse{}, err
+	}
+	response.GroupsSynced = groupsSynced
+
 	if err := s.recordAudit(ctx, "rbac.sync_applied", "sync", "realm-export", "", "", "", map[string]any{"systemsSynced": response.SystemsSynced, "rolesSynced": response.RolesSynced, "accessRolesSynced": response.AccessRoles}); err != nil {
 		return SyncApplyResponse{}, err
 	}
 	return response, nil
+}
+
+func (s *Service) applyDiscoveredGroups(ctx context.Context, groups []discoveredGroup, source string) (int, error) {
+	if len(groups) == 0 {
+		return 0, nil
+	}
+
+	synced := 0
+	for _, discovered := range groups {
+		enabled := true
+		group, err := s.repository.UpsertGroup(ctx, GroupInput{
+			Path:        discovered.Path,
+			Name:        discovered.Name,
+			DisplayName: firstNonEmpty(discovered.DisplayName, discovered.Name),
+			Description: discovered.Description,
+			Enabled:     &enabled,
+		})
+		if err != nil {
+			return synced, err
+		}
+
+		if err := s.repository.ReplaceGroupMembers(ctx, group.ID, discovered.Members); err != nil {
+			return synced, err
+		}
+		for _, roleName := range discovered.RealmRoles {
+			if err := s.repository.AssignGroupRealmRole(ctx, group.ID, roleName); err != nil {
+				return synced, err
+			}
+		}
+		for clientID, roles := range discovered.ClientRoles {
+			for _, roleName := range roles {
+				if err := s.repository.AssignGroupSystemRole(ctx, group.ID, clientID, roleName); err != nil {
+					return synced, err
+				}
+			}
+		}
+		for _, permissionKey := range discovered.Permissions {
+			if err := s.repository.AssignGroupPermission(ctx, group.ID, permissionKey); err != nil {
+				return synced, err
+			}
+		}
+		synced++
+	}
+
+	if err := s.recordAudit(ctx, "rbac.groups_synced", "sync", source+"-groups", "", "", "", map[string]any{"groups_synced": synced}); err != nil {
+		return synced, err
+	}
+	return synced, nil
 }
 
 func (s *Service) buildDriftReport(ctx context.Context, source string, discovered discoveredRBAC) (RbacDriftReport, error) {
@@ -258,6 +342,7 @@ func parseRealmExport(payload []byte, knownSystems ...map[string]bool) (discover
 	discovered := discoveredRBAC{
 		Systems:    make([]KeycloakDiscoveredSystem, 0, len(export.Clients)),
 		RealmRoles: make([]string, 0, len(export.Roles.Realm)),
+		Groups:     make([]discoveredGroup, 0),
 	}
 
 	for _, role := range export.Roles.Realm {
@@ -302,6 +387,7 @@ func parseRealmExport(payload []byte, knownSystems ...map[string]bool) (discover
 			DisplayInLauncher: *behavior.DisplayInLauncher,
 			DisplayInSideNav:  *behavior.DisplayInSideNav,
 			LaunchMode:        behavior.LaunchMode,
+			SortOrder:         int32Attribute(client.Attributes, "ui.order"),
 			AccessRoles:       splitAttributeList(client.Attributes["portal.accessRoles"]),
 			Enabled:           client.Enabled,
 			Roles:             make([]KeycloakDiscoveredRole, 0, len(roles)),
@@ -316,7 +402,182 @@ func parseRealmExport(payload []byte, knownSystems ...map[string]bool) (discover
 		discovered.Systems = append(discovered.Systems, system)
 	}
 
+	discovered.Groups = discoverRealmExportGroups(export.Groups, export.Users)
+
 	return discovered, nil
+}
+
+func discoverRealmExportGroups(groups []realmExportGroup, users []realmExportUser) []discoveredGroup {
+	membersByPath := map[string][]GroupMember{}
+	for _, user := range users {
+		member := GroupMember{
+			UserID:   strings.TrimSpace(user.ID),
+			Username: strings.TrimSpace(user.Username),
+			Email:    strings.TrimSpace(user.Email),
+		}
+		for _, groupPath := range user.Groups {
+			path := normalizeGroupPath(groupPath)
+			if path == "" {
+				continue
+			}
+			membersByPath[path] = append(membersByPath[path], member)
+		}
+	}
+
+	discovered := make([]discoveredGroup, 0)
+	var walk func(values []realmExportGroup, parentPath string)
+	walk = func(values []realmExportGroup, parentPath string) {
+		for _, group := range values {
+			name := strings.TrimSpace(group.Name)
+			path := normalizeGroupPath(group.Path)
+			if path == "" {
+				path = normalizeGroupPath(parentPath + "/" + name)
+			}
+			if path == "" {
+				continue
+			}
+
+			realmRoles := make([]string, 0, len(group.RealmRoles))
+			for _, role := range group.RealmRoles {
+				if normalized := normalize(role); normalized != "" {
+					realmRoles = append(realmRoles, normalized)
+				}
+			}
+			sort.Strings(realmRoles)
+
+			clientRoles := map[string][]string{}
+			for clientID, roles := range group.ClientRoles {
+				clientID = strings.TrimSpace(clientID)
+				if clientID == "" {
+					continue
+				}
+				for _, role := range roles {
+					if normalized := normalize(role); normalized != "" {
+						clientRoles[clientID] = append(clientRoles[clientID], normalized)
+					}
+				}
+				sort.Strings(clientRoles[clientID])
+			}
+
+			discovered = append(discovered, discoveredGroup{
+				Path:        path,
+				Name:        name,
+				DisplayName: firstAttributeValue(group.Attributes, "display_name", name),
+				Description: firstAttributeValue(group.Attributes, "description", ""),
+				RealmRoles:  realmRoles,
+				ClientRoles: clientRoles,
+				Members:     membersByPath[path],
+			})
+			walk(group.SubGroups, path)
+		}
+	}
+	walk(groups, "")
+
+	sort.Slice(discovered, func(i, j int) bool { return discovered[i].Path < discovered[j].Path })
+	return discovered
+}
+
+func discoveredGroupsFromSeed(groups []systemrbac.SeedGroup, memberships []systemrbac.SeedGroupMembership) []discoveredGroup {
+	membersByPath := map[string][]GroupMember{}
+	for _, membership := range memberships {
+		member := GroupMember{
+			UserID:   firstNonEmpty(membership.UserID, membership.Username, membership.Email),
+			Username: strings.TrimSpace(membership.Username),
+			Email:    strings.TrimSpace(membership.Email),
+		}
+		if member.UserID == "" {
+			continue
+		}
+		for _, groupPath := range membership.Groups {
+			path := systemrbac.NormalizeGroupPath(groupPath)
+			if path == "" {
+				continue
+			}
+			membersByPath[path] = append(membersByPath[path], member)
+		}
+	}
+
+	discovered := make([]discoveredGroup, 0)
+	for _, group := range systemrbac.FlattenGroups(groups) {
+		path := systemrbac.NormalizeGroupPath(group.Path)
+		if path == "" {
+			continue
+		}
+		realmRoles := make([]string, 0, len(group.RealmRoles))
+		for _, roleName := range group.RealmRoles {
+			if normalized := normalize(roleName); normalized != "" {
+				realmRoles = append(realmRoles, normalized)
+			}
+		}
+		sort.Strings(realmRoles)
+
+		clientRoles := map[string][]string{}
+		for clientID, roles := range group.SystemRoles {
+			clientID = strings.TrimSpace(clientID)
+			if clientID == "" {
+				continue
+			}
+			for _, roleName := range roles {
+				if normalized := normalize(roleName); normalized != "" {
+					clientRoles[clientID] = append(clientRoles[clientID], normalized)
+				}
+			}
+			sort.Strings(clientRoles[clientID])
+		}
+
+		permissions := make([]string, 0, len(group.Permissions))
+		for _, permission := range group.Permissions {
+			permission = strings.TrimSpace(permission)
+			if permission != "" && permission != "*" {
+				permissions = append(permissions, permission)
+			}
+		}
+		sort.Strings(permissions)
+
+		discovered = append(discovered, discoveredGroup{
+			Path:        path,
+			Name:        strings.TrimSpace(group.Name),
+			DisplayName: firstNonEmpty(group.DisplayName, firstAttributeValue(group.Attributes, "display_name", "")),
+			Description: firstNonEmpty(group.Description, firstAttributeValue(group.Attributes, "description", "")),
+			RealmRoles:  realmRoles,
+			ClientRoles: clientRoles,
+			Permissions: permissions,
+			Members:     membersByPath[path],
+		})
+	}
+	sort.Slice(discovered, func(i, j int) bool { return discovered[i].Path < discovered[j].Path })
+	return discovered
+}
+
+func normalizeGroupPath(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "/" {
+		return ""
+	}
+	parts := strings.FieldsFunc(value, func(r rune) bool { return r == '/' })
+	cleaned := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			cleaned = append(cleaned, part)
+		}
+	}
+	if len(cleaned) == 0 {
+		return ""
+	}
+	return "/" + strings.Join(cleaned, "/")
+}
+
+func firstAttributeValue(attributes map[string][]string, key string, fallback string) string {
+	if len(attributes) == 0 {
+		return fallback
+	}
+	for _, value := range attributes[key] {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return fallback
 }
 
 func defaultRealmExportPath() (string, bool) {
@@ -377,6 +638,17 @@ func boolAttributePointer(attributes map[string]string, key string) *bool {
 	}
 	value := attributeBool(attributes, key, false)
 	return &value
+}
+
+func int32Attribute(attributes map[string]string, key string) int32 {
+	if attributes == nil {
+		return 0
+	}
+	value, err := strconv.ParseInt(strings.TrimSpace(attributes[key]), 10, 32)
+	if err != nil {
+		return 0
+	}
+	return int32(value)
 }
 
 func splitAttributeList(value string) []string {

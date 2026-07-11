@@ -65,6 +65,74 @@ type RealmRoleSystemRole struct {
 	RoleName  string `json:"roleName"`
 }
 
+type Group struct {
+	ID              string            `json:"id"`
+	KeycloakGroupID string            `json:"keycloakGroupId,omitempty"`
+	Path            string            `json:"path"`
+	Name            string            `json:"name"`
+	DisplayName     string            `json:"displayName,omitempty"`
+	Description     string            `json:"description,omitempty"`
+	Enabled         bool              `json:"enabled"`
+	MemberCount     int               `json:"memberCount"`
+	RealmRoles      []string          `json:"realmRoles"`
+	SystemRoles     []GroupSystemRole `json:"systemRoles"`
+	Permissions     []Permission      `json:"permissions"`
+}
+
+type GroupSummary struct {
+	ID              string `json:"id"`
+	KeycloakGroupID string `json:"keycloakGroupId,omitempty"`
+	Path            string `json:"path"`
+	Name            string `json:"name"`
+	DisplayName     string `json:"displayName,omitempty"`
+	Enabled         bool   `json:"enabled"`
+}
+
+type GroupSystemRole struct {
+	RoleID      string `json:"roleId"`
+	ClientID    string `json:"clientId"`
+	RoleName    string `json:"roleName"`
+	DisplayName string `json:"displayName,omitempty"`
+}
+
+type GroupMember struct {
+	UserID   string `json:"userId"`
+	Username string `json:"username,omitempty"`
+	Email    string `json:"email,omitempty"`
+}
+
+type GroupInput struct {
+	KeycloakGroupID string `json:"keycloakGroupId"`
+	Path            string `json:"path"`
+	Name            string `json:"name"`
+	DisplayName     string `json:"displayName"`
+	Description     string `json:"description"`
+	Enabled         *bool  `json:"enabled"`
+}
+
+type GroupMembersInput struct {
+	Members []GroupMember `json:"members"`
+}
+
+type GroupMemberInput struct {
+	UserID string `json:"userId" binding:"required"`
+}
+
+type GroupMembersSyncResponse struct {
+	Members     []GroupMember `json:"members"`
+	MemberCount int           `json:"memberCount"`
+	Warnings    []string      `json:"warnings,omitempty"`
+}
+
+type GroupRealmRoleInput struct {
+	RealmRole string `json:"realmRole" binding:"required"`
+}
+
+type GroupSystemRoleInput struct {
+	ClientID string `json:"clientId" binding:"required"`
+	RoleName string `json:"roleName" binding:"required"`
+}
+
 type UpsertSystemInput struct {
 	ClientID          string `json:"clientId"`
 	DisplayName       string `json:"displayName"`
@@ -120,6 +188,7 @@ type KeycloakDiscoveredSystem struct {
 	DisplayInLauncher bool                     `json:"displayInLauncher"`
 	DisplayInSideNav  bool                     `json:"displayInSideNav"`
 	LaunchMode        string                   `json:"launchMode"`
+	SortOrder         int32                    `json:"sortOrder"`
 	AccessRoles       []string                 `json:"accessRoles,omitempty"`
 	Enabled           bool                     `json:"enabled"`
 	Roles             []KeycloakDiscoveredRole `json:"roles"`
@@ -189,6 +258,7 @@ type SyncApplyResponse struct {
 	SystemsSynced int                 `json:"systemsSynced"`
 	RolesSynced   int                 `json:"rolesSynced"`
 	AccessRoles   int                 `json:"accessRolesSynced"`
+	GroupsSynced  int                 `json:"groupsSynced"`
 }
 
 type EffectiveAccessUser struct {
@@ -207,10 +277,14 @@ type PermissionGrantSource struct {
 	Role           string `json:"role"`
 	SystemClientID string `json:"systemClientId,omitempty"`
 	SystemName     string `json:"systemName,omitempty"`
+	GroupID        string `json:"groupId,omitempty"`
+	GroupPath      string `json:"groupPath,omitempty"`
+	GroupName      string `json:"groupName,omitempty"`
 }
 
 type EffectiveAccessResponse struct {
 	User              EffectiveAccessUser     `json:"user"`
+	Groups            []GroupSummary          `json:"groups,omitempty"`
 	RealmRoles        []string                `json:"realmRoles"`
 	ClientRoles       map[string][]string     `json:"clientRoles"`
 	Permissions       []Permission            `json:"permissions"`
@@ -254,7 +328,14 @@ type AssignableUserAccessResponse struct {
 
 type UserAccessProfileResponse struct {
 	EffectiveAccess EffectiveAccessResponse      `json:"effectiveAccess"`
+	DirectAccess    DirectUserAccessResponse     `json:"directAccess"`
 	Assignable      AssignableUserAccessResponse `json:"assignable"`
+}
+
+type DirectUserAccessResponse struct {
+	RealmRoles  []string            `json:"realmRoles"`
+	ClientRoles map[string][]string `json:"clientRoles"`
+	Permissions []Permission        `json:"permissions"`
 }
 
 type UpdateUserAccessRequest struct {
@@ -274,6 +355,7 @@ type SystemAccessSummary struct {
 	DisplayInLauncher bool     `json:"displayInLauncher"`
 	DisplayInSideNav  bool     `json:"displayInSideNav"`
 	LaunchMode        string   `json:"launchMode"`
+	SortOrder         int32    `json:"sortOrder"`
 	Roles             []string `json:"roles"`
 }
 
@@ -345,8 +427,9 @@ type ImportPreviewResponse struct {
 }
 
 type ImportApplyResponse struct {
-	Preview ImportPreviewResponse `json:"preview"`
-	Applied bool                  `json:"applied"`
+	Preview      ImportPreviewResponse `json:"preview"`
+	Applied      bool                  `json:"applied"`
+	GroupsSynced int                   `json:"groupsSynced"`
 }
 
 type RoleTemplate struct {

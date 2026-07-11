@@ -20,9 +20,15 @@ import {
 } from "@/app/microfrontends/registry";
 
 import NewsFeedPage from "@/app/newsfeed/pages/news_feed.component";
+import { SettingsLayout } from "@/app/settings/settings-layout";
 import MyProfilePage from "@/app/settings/pages/Profile/profile.component";
 import SecurityPage from "@/app/settings/pages/security/security.component";
 import ActiveSessionsPage from "@/app/settings/pages/sessions/active-sesssions.component";
+import SettingsHomePage from "@/app/settings/pages/SettingsHomePage";
+import NotificationSettingsPage from "@/app/settings/pages/NotificationSettingsPage";
+import PreferenceSettingsPage from "@/app/settings/pages/PreferenceSettingsPage";
+import AppSettingsPage from "@/app/settings/pages/AppSettingsPage";
+import AboutSettingsPage from "@/app/settings/pages/AboutSettingsPage";
 
 import { SingleSpaApp } from "@/app/microfrontends/SingleSpaApp";
 
@@ -114,7 +120,7 @@ export const userRoutes = (
         DWH
        ========================= */}
     <Route path="dwh">
-      <Route index element={<Navigate to="data-visualizer" replace />} />
+      <Route index element={<Navigate to="dashboards" replace />} />
 
       <Route
         path="data-visualizer/*"
@@ -141,38 +147,24 @@ export const userRoutes = (
       />
 
       <Route
-        path="dashboards"
-        element={userPage(
-          <ComingSoon title="Dashboards" />,
-          withSystemAccess(SYSTEMS.dataStatistics, PERMISSIONS.dataQualityRead),
-        )}
-      />
-      <Route
-        path="reports/*"
+        path="dashboards/*"
         element={userPage(
           <SingleSpaApp
             appName="@moh-sso/report-browser"
             lifecycles={reportBrowserLifecycles}
-            basename="/apps/dwh/reports"
+            basename="/apps/dwh/dashboards"
           />,
-          accessFromRoute(reportBrowserRoute),
-        )}
-      />
-      <Route
-        path="exports"
-        element={userPage(
-          <ComingSoon title="Data Exports" />,
-          withSystemAccess(SYSTEMS.dataStatistics, PERMISSIONS.dataQualityRead),
+          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(reportBrowserRoute)),
         )}
       />
 
       <Route
-        path="filesvr/*"
+        path="documents/*"
         element={userPage(
           <SingleSpaApp
             appName="@moh-sso/documents"
             lifecycles={documentsLifecycles}
-            basename="/apps/dwh/filesvr"
+            basename="/apps/dwh/documents"
           />,
           withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(documentsRoute)),
         )}
@@ -186,7 +178,7 @@ export const userRoutes = (
             lifecycles={surveillanceLifecycles}
             basename="/apps/dwh/surveillance"
           />,
-          accessFromRoute(surveillanceRoute),
+          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(surveillanceRoute)),
         )}
       />
 
@@ -197,7 +189,8 @@ export const userRoutes = (
             appName="@moh-sso/issue-tracker"
             lifecycles={issueTrackerLifecycles}
             basename="/apps/dwh/issue-tracker"
-          />
+          />,
+          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(issueTrackerRoute)),
         )}
       />
     </Route>
@@ -224,11 +217,17 @@ export const userRoutes = (
       <Route index element={<Navigate to="studies" replace />} />
       <Route
         path="studies"
-        element={userPage(<ComingSoon title="Studies" />, withSystemAccess(SYSTEMS.researchStudies))}
+        element={userPage(
+          <ComingSoon title="Studies" />,
+          withSystemAccess(SYSTEMS.researchStudies),
+        )}
       />
       <Route
         path="datasets"
-        element={userPage(<ComingSoon title="Datasets" />, withSystemAccess(SYSTEMS.researchStudies))}
+        element={userPage(
+          <ComingSoon title="Datasets" />,
+          withSystemAccess(SYSTEMS.researchStudies),
+        )}
       />
       <Route
         path="ethics"
@@ -382,22 +381,6 @@ export const userRoutes = (
             },
           )}
         />
-
-        <Route
-          path="service-access"
-          element={userPage(
-            <ComingSoon title="Service Access" />,
-            withSystemAccess(SYSTEMS.utilities),
-          )}
-        />
-
-        <Route
-          path="equipment-request"
-          element={userPage(
-            <ComingSoon title="Equipment Request" />,
-            withSystemAccess(SYSTEMS.utilities),
-          )}
-        />
       </Route>
 
       {/* Mount utilities once here */}
@@ -417,17 +400,18 @@ export const userRoutes = (
     {/* =========================
         SETTINGS
        ========================= */}
-    <Route path="settings">
-      <Route index element={<Navigate to="profile" replace />} />
-      <Route path="profile" element={userPage(<MyProfilePage />, withSystemAccess(SYSTEMS.settings))} />
-      <Route
-        path="sessions"
-        element={userPage(<ActiveSessionsPage />, withSystemAccess(SYSTEMS.settings))}
-      />
-      <Route
-        path="security"
-        element={userPage(<SecurityPage />, withSystemAccess(SYSTEMS.settings))}
-      />
+    <Route
+      path="settings"
+      element={userPage(<SettingsLayout />, withSystemAccess(SYSTEMS.settings))}
+    >
+      <Route index element={<SettingsHomePage />} />
+      <Route path="profile" element={<MyProfilePage />} />
+      <Route path="sessions" element={<ActiveSessionsPage />} />
+      <Route path="security" element={<SecurityPage />} />
+      <Route path="notifications" element={<NotificationSettingsPage />} />
+      <Route path="preferences" element={<PreferenceSettingsPage />} />
+      <Route path="apps" element={<AppSettingsPage />} />
+      <Route path="about" element={<AboutSettingsPage />} />
     </Route>
 
     {/* =========================

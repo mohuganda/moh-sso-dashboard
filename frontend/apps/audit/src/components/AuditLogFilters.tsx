@@ -9,6 +9,8 @@ import {
   OverflowMenuItem,
 } from "@carbon/react";
 
+import "./audit-components.scss";
+
 type SuccessFilter = "true" | "false";
 
 type SuccessOption = {
@@ -89,12 +91,7 @@ export function AuditLogFilters({
     <Stack
       orientation="horizontal"
       gap={5}
-      style={{
-        width: "100%",
-        justifyContent: "flex-end",
-        alignItems: "flex-end",
-        flexWrap: "wrap",
-      }}
+      className="audit-log-filters"
     >
       <DatePicker
         datePickerType="range"
@@ -119,7 +116,7 @@ export function AuditLogFilters({
         id="audit-action"
         titleText="Action"
         placeholder="Action"
-        style={{ width: 180 }}
+        className="audit-log-filters__field--lg"
         items={actions}
         itemToString={(item) => item?.label ?? ""}
         selectedItem={actions.find((item) => item.id === action) ?? null}
@@ -133,7 +130,7 @@ export function AuditLogFilters({
         id="audit-module"
         titleText="Module"
         placeholder="Module"
-        style={{ width: 170 }}
+        className="audit-log-filters__field--md"
         items={modules}
         itemToString={(item) => item?.label ?? ""}
         selectedItem={modules.find((item) => item.id === module) ?? null}
@@ -148,7 +145,7 @@ export function AuditLogFilters({
         labelText="Actor"
         placeholder="Actor"
         value={actor ?? ""}
-        style={{ width: 170 }}
+        className="audit-log-filters__field--md"
         onChange={(event) => {
           onActorChange(event.target.value || undefined);
         }}
@@ -159,7 +156,7 @@ export function AuditLogFilters({
         labelText="System"
         placeholder="System/client"
         value={clientId ?? ""}
-        style={{ width: 180 }}
+        className="audit-log-filters__field--lg"
         onChange={(event) => {
           onClientChange(event.target.value || undefined);
         }}
@@ -170,7 +167,7 @@ export function AuditLogFilters({
         labelText="User ID"
         placeholder="User ID"
         value={userId ?? ""}
-        style={{ width: 180 }}
+        className="audit-log-filters__field--lg"
         onChange={(event) => {
           onUserChange(event.target.value || undefined);
         }}
@@ -181,7 +178,7 @@ export function AuditLogFilters({
         labelText="IP address"
         placeholder="IP address"
         value={ip ?? ""}
-        style={{ width: 160 }}
+        className="audit-log-filters__field--sm"
         onChange={(event) => {
           onIpChange(event.target.value || undefined);
         }}
@@ -191,7 +188,7 @@ export function AuditLogFilters({
         id="audit-result"
         titleText="Outcome"
         placeholder="Outcome"
-        style={{ width: 160 }}
+        className="audit-log-filters__field--sm"
         items={SUCCESS_OPTIONS}
         itemToString={(item) => item?.label ?? ""}
         selectedItem={SUCCESS_OPTIONS.find((item) => item.id === success) ?? null}

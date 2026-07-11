@@ -2,12 +2,12 @@ name: Deploy Integrated Health Portal to Server
 
 on:
   workflow_run:
-    workflows: ["Build & Push Images"]
+    workflows: ["Backend Release", "Backend Release From PR"]
     types: [completed]
   workflow_dispatch:
     inputs:
       backend_tag:
-        description: "Immutable backend image tag, for example 1.2.3 or sha-abc1234"
+        description: "Immutable backend release tag, for example 1.2.3 or backend/v1.2.3"
         required: true
         type: string
       frontend_tag:
@@ -23,6 +23,10 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+  actions: read
+
 concurrency:
   group: production-deployment
   cancel-in-progress: false
@@ -31,12 +35,20 @@ jobs:
   deploy:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
 
     steps:
+      - name: Download release metadata
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: backend-release-metadata
+          path: ./release-metadata
+
       - name: Resolve immutable deployment metadata
         id: metadata
         shell: bash
@@ -53,18 +65,31 @@ jobs:
             FRONTEND_TAG="$INPUT_FRONTEND_TAG"
             EXPECTED_VERSION="${INPUT_VERSION#v}"
             EXPECTED_COMMIT="$INPUT_COMMIT"
+            if [[ "$BACKEND_TAG" =~ ^backend/v([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+              BACKEND_TAG="${BASH_REMATCH[1]}"
+            fi
           else
-            SHORT_SHA="${WORKFLOW_SHA:0:7}"
-            BACKEND_TAG="sha-${SHORT_SHA}"
-            FRONTEND_TAG="sha-${SHORT_SHA}"
-            EXPECTED_VERSION="0.0.0-dev.${SHORT_SHA}"
-            EXPECTED_COMMIT="$WORKFLOW_SHA"
+            if [[ ! -f release-metadata/release-metadata.json ]]; then
+              echo "Release metadata artifact was not found"
+              exit 1
+            fi
+
+            BACKEND_TAG="$(jq -r '.image_tag' release-metadata/release-metadata.json)"
+            BACKEND_RELEASE_TAG="$(jq -r '.release_tag' release-metadata/release-metadata.json)"
+            EXPECTED_VERSION="$(jq -r '.version' release-metadata/release-metadata.json)"
+            EXPECTED_COMMIT="$(jq -r '.commit' release-metadata/release-metadata.json)"
+            FRONTEND_TAG="sha-${WORKFLOW_SHA:0:7}"
           fi
           if [[ "$BACKEND_TAG" == "latest" || -z "$BACKEND_TAG" ]]; then
             echo "Mutable or empty backend tag is forbidden"
             exit 1
           fi
+          if [[ ! "$BACKEND_TAG" =~ ^([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|sha-[0-9a-f]{7,40})$ ]]; then
+            echo "Backend deployment must use an immutable image tag"
+            exit 1
+          fi
           echo "backend_tag=$BACKEND_TAG" >> "$GITHUB_OUTPUT"
+          echo "backend_release_tag=${BACKEND_RELEASE_TAG:-backend/v${EXPECTED_VERSION}}" >> "$GITHUB_OUTPUT"
           echo "frontend_tag=$FRONTEND_TAG" >> "$GITHUB_OUTPUT"
           echo "expected_version=$EXPECTED_VERSION" >> "$GITHUB_OUTPUT"
           echo "expected_commit=$EXPECTED_COMMIT" >> "$GITHUB_OUTPUT"
@@ -81,13 +106,14 @@ jobs:
           SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}
           DEPLOY_FOLDER: ${{ secrets.DEPLOY_FOLDER }}
           BACKEND_TAG: ${{ steps.metadata.outputs.backend_tag }}
+          BACKEND_RELEASE_TAG: ${{ steps.metadata.outputs.backend_release_tag }}
           FRONTEND_TAG: ${{ steps.metadata.outputs.frontend_tag }}
           EXPECTED_VERSION: ${{ steps.metadata.outputs.expected_version }}
           EXPECTED_COMMIT: ${{ steps.metadata.outputs.expected_commit }}
           ACTOR: ${{ github.actor }}
         run: |
           ssh "$SSH_TARGET" \
-            "DEPLOY_FOLDER='$DEPLOY_FOLDER' BACKEND_TAG='$BACKEND_TAG' FRONTEND_TAG='$FRONTEND_TAG' EXPECTED_VERSION='$EXPECTED_VERSION' EXPECTED_COMMIT='$EXPECTED_COMMIT' DEPLOY_ACTOR='$ACTOR' sh -s" <<'REMOTE'
+            "DEPLOY_FOLDER='$DEPLOY_FOLDER' BACKEND_TAG='$BACKEND_TAG' BACKEND_RELEASE_TAG='$BACKEND_RELEASE_TAG' FRONTEND_TAG='$FRONTEND_TAG' EXPECTED_VERSION='$EXPECTED_VERSION' EXPECTED_COMMIT='$EXPECTED_COMMIT' DEPLOY_ACTOR='$ACTOR' sh -s" <<'REMOTE'
           set -eu
           cd "$DEPLOY_FOLDER"
 
@@ -132,9 +158,9 @@ jobs:
           digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$backend_image" 2>/dev/null || true)"
           printf '%s\n' "$BACKEND_TAG" > .previous-backend-tag
           printf '%s\n' "$FRONTEND_TAG" > .previous-frontend-tag
-          printf '%s version=%s commit=%s digest=%s actor=%s\n' \
-            "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$EXPECTED_VERSION" "$EXPECTED_COMMIT" "$digest" "$DEPLOY_ACTOR" \
+          printf '%s release=%s version=%s commit=%s digest=%s actor=%s\n' \
+            "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$BACKEND_RELEASE_TAG" "$EXPECTED_VERSION" "$EXPECTED_COMMIT" "$digest" "$DEPLOY_ACTOR" \
             >> deployment-history.log
           trap - INT TERM HUP
-          echo "Deployment verified: version=$EXPECTED_VERSION commit=$EXPECTED_COMMIT digest=$digest"
+          echo "Deployment verified: release=$BACKEND_RELEASE_TAG version=$EXPECTED_VERSION commit=$EXPECTED_COMMIT digest=$digest"
           REMOTE

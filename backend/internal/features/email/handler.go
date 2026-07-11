@@ -20,6 +20,18 @@ func NewHandler(service *Service) *Handler {
 	}
 }
 
+func recipientValidationMessage(req SendEmailRequest, directRecipientCount int) string {
+	if len(req.ToGroups) == 0 && len(req.ToGroupPaths) == 0 && directRecipientCount == 0 {
+		return "Select at least one email address or recipient group"
+	}
+
+	if len(req.ToGroups) > 0 || len(req.ToGroupPaths) > 0 {
+		return "The selected groups contain no users with valid email addresses"
+	}
+
+	return "At least one valid recipient is required"
+}
+
 func (h *Handler) Send(c *gin.Context) {
 	var req SendEmailRequest
 
@@ -39,10 +51,40 @@ func (h *Handler) Send(c *gin.Context) {
 			c,
 			http.StatusBadRequest,
 			"INVALID_EMAIL_PAYLOAD",
-			"invalid email payload",
+			err.Error(),
 		)
 		return
 	}
+
+	directRecipientCount := len(msg.To)
+
+	msg, expandedRecipientCount, err := h.service.ExpandGroupRecipients(
+		c.Request.Context(),
+		msg,
+		req.ToGroups,
+		req.ToGroupPaths,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_RECIPIENT_GROUPS",
+			err.Error(),
+		)
+		return
+	}
+
+	if len(msg.To) == 0 {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			recipientValidationMessage(req, directRecipientCount),
+		)
+		return
+	}
+
+	_ = expandedRecipientCount
 
 	if err := h.service.Send(c.Request.Context(), msg); err != nil {
 		response.Fail(
@@ -54,7 +96,11 @@ func (h *Handler) Send(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, http.StatusOK, MessageResponse{Message: "email sent successfully"})
+	response.OK(
+		c,
+		http.StatusOK,
+		MessageResponse{Message: "email sent successfully"},
+	)
 }
 
 func (h *Handler) Queue(c *gin.Context) {
@@ -81,6 +127,34 @@ func (h *Handler) Queue(c *gin.Context) {
 		return
 	}
 
+	directRecipientCount := len(msg.To)
+
+	msg, _, err = h.service.ExpandGroupRecipients(
+		c.Request.Context(),
+		msg,
+		req.ToGroups,
+		req.ToGroupPaths,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_RECIPIENT_GROUPS",
+			"Failed to resolve recipient groups",
+		)
+		return
+	}
+
+	if len(msg.To) == 0 {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			recipientValidationMessage(req, directRecipientCount),
+		)
+		return
+	}
+
 	if err := h.service.Queue(c.Request.Context(), msg); err != nil {
 		response.Fail(
 			c,
@@ -92,6 +166,40 @@ func (h *Handler) Queue(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusAccepted, MessageResponse{Message: "email queued successfully"})
+}
+
+func (h *Handler) PreviewRecipients(c *gin.Context) {
+	var req EmailRecipientPreviewRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_FAILED",
+			"Invalid recipient preview payload",
+		)
+		return
+	}
+
+	recipients, err := h.service.ResolveGroupEmailRecipients(
+		c.Request.Context(),
+		req.ToGroups,
+		req.ToGroupPaths,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_RECIPIENT_GROUPS",
+			"Failed to resolve recipient groups",
+		)
+		return
+	}
+
+	response.OK(c, http.StatusOK, EmailRecipientPreviewResponse{
+		RecipientCount: len(recipients),
+		Recipients:     toAddressResponses(recipients),
+	})
 }
 
 func (h *Handler) List(c *gin.Context) {

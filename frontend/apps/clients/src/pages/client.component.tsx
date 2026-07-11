@@ -23,7 +23,7 @@ import {
   useToast,
 } from "@moh-sso/ui";
 import { ClientFormPanel } from "../components/client-form-panel";
-import { useListClientsQuery, useToggleClientMutation } from "@moh-sso/api";
+import { useListClientsQuery, useToggleClientMutation } from "../api";
 import type { Client } from "@moh-sso/types";
 
 import { ClientActionsMenu } from "./client-actions-menu.component";

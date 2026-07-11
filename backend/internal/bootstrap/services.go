@@ -14,6 +14,7 @@ import (
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
 	userfeature "github.com/moh-sso-dashboard/internal/features/users"
+	"github.com/moh-sso-dashboard/internal/keycloak"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/service"
 	importsvc "github.com/moh-sso-dashboard/internal/service/import"
@@ -26,6 +27,7 @@ type services struct {
 	Email                   service.EmailService
 	EmailFeature            *emailfeature.Service
 	SMTP                    worker.EmailSender
+	SMS                     service.SMSService
 	Notifications           service.NotificationsService
 	Auth                    service.AuthService
 	Metrics                 *service.MetricsService
@@ -52,14 +54,15 @@ type services struct {
 }
 
 type serviceDependencies struct {
-	Config       *config.Config
-	Store        storepkg.Store
-	Cache        *cache.RedisCache
-	CacheClient  *redis.Client
-	Databases    databases
-	Repositories repositories
-	FileStorage  storage.Storage
-	Logger       *logger.Logger
+	Config        *config.Config
+	Store         storepkg.Store
+	Cache         *cache.RedisCache
+	CacheClient   *redis.Client
+	Databases     databases
+	Repositories  repositories
+	FileStorage   storage.Storage
+	Logger        *logger.Logger
+	AdminKeycloak *keycloak.KeyAdminClient
 }
 
 func buildServices(deps serviceDependencies) services {
@@ -90,13 +93,28 @@ func buildServices(deps serviceDependencies) services {
 	}
 
 	deps.Logger.Info("Email application service initialized")
+
+	smsService, err := service.NewSMSService(deps.Config, deps.Logger)
+	if err != nil {
+		deps.Logger.Fatal("Failed to initialize SMS service: ", err)
+	}
+
+	if deps.Config.SMS.Enabled {
+		deps.Logger.Info("SMS service initialized", "provider", deps.Config.SMS.Provider)
+	} else {
+		deps.Logger.Info("SMS service initialized in disabled mode")
+	}
+
 	emailFeatureService := emailfeature.NewService(emailService, deps.Repositories.Email)
+	emailFeatureService.SetRBACRepository(deps.Repositories.RBAC)
+	emailFeatureService.SetUserRepository(deps.Repositories.Users)
 
 	publisher := cache.NewNotificationPublisher(deps.CacheClient)
 	notificationsService := service.NewNotificationsService(
 		deps.Config,
 		deps.Repositories.Notifications,
 		deps.Repositories.NotificationDelivery,
+		deps.Repositories.NotificationPreferences,
 		publisher,
 	)
 
@@ -143,6 +161,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.FileStorage,
 		deps.Config,
 	)
+	announcementService.SetRBACRepository(deps.Repositories.RBAC)
 
 	diseaseService := surveillancefeature.NewDiseaseService(
 		deps.Logger,
@@ -217,7 +236,7 @@ func buildServices(deps serviceDependencies) services {
 
 	importService := importsvc.NewService(
 		deps.Repositories.Documents,
-		deps.Repositories.DocumentStockImports,
+		deps.Repositories.DocumentTemplateImports,
 		deps.Repositories.Processes,
 		deps.Repositories.DocumentFiles,
 		deps.Repositories.Surveillance.Imports,
@@ -230,11 +249,14 @@ func buildServices(deps serviceDependencies) services {
 	)
 
 	rbacService := rbacfeature.NewService(deps.Repositories.RBAC, userService)
+	rbacService.SetKeycloakGroupMembershipManager(deps.AdminKeycloak)
+	rbacService.SetFrontendBaseURL(deps.Config.FrontendBaseURL)
 
 	return services{
 		Email:                   emailService,
 		EmailFeature:            emailFeatureService,
 		SMTP:                    smtpService,
+		SMS:                     smsService,
 		Notifications:           notificationsService,
 		Auth:                    authService,
 		Metrics:                 metricsService,

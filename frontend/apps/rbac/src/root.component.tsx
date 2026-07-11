@@ -4,5 +4,9 @@ import RbacManagementPage from "./pages/rbac-management.page";
 
 export function RbacRoot(props: MicrofrontendRuntimeProps) {
   void props;
-  return <RbacManagementPage />;
+  return (
+    <div className="moh-microfrontend-root">
+      <RbacManagementPage />
+    </div>
+  );
 }

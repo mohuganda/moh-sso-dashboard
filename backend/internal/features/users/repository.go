@@ -21,6 +21,11 @@ type UserRepository interface {
 		id uuid.UUID,
 	) (*models.User, error)
 
+	GetUserByUsername(
+		ctx context.Context,
+		username string,
+	) (*models.User, error)
+
 	ListUsers() ([]models.User, error)
 
 	SyncUsersFromKeycloak(
@@ -52,22 +57,16 @@ type UserRepository interface {
 	// USER EMAIL ACTIONS
 	// ----------------------------------------------------
 
-	// SendUserOnboardingEmail sends VERIFY_EMAIL + UPDATE_PASSWORD.
-	// Use this after creating a new user.
 	SendUserOnboardingEmail(
 		ctx context.Context,
 		userID string,
 	) error
 
-	// SendUserVerificationEmail sends VERIFY_EMAIL only.
-	// Use this when resending email verification.
 	SendUserVerificationEmail(
 		ctx context.Context,
 		userID string,
 	) error
 
-	// SendUserPasswordResetEmail sends UPDATE_PASSWORD only.
-	// Use this for admin-triggered password resets.
 	SendUserPasswordResetEmail(
 		ctx context.Context,
 		userID string,
