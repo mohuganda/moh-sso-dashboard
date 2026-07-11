@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import { readdirSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 
 const pathFromRoot = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
@@ -45,7 +46,68 @@ export default defineConfig(({ mode }) => ({
   root: pathFromRoot("./apps/shell"),
   publicDir: pathFromRoot("./public"),
 
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      base: "/portal/",
+      scope: "/portal/",
+      registerType: "prompt",
+      manifest: false,
+      devOptions: {
+        enabled: false,
+      },
+      includeAssets: [
+        "logo.png",
+        "manifest.webmanifest",
+        "offline.html",
+        "config.js",
+        "config.production.js",
+        "config.development.js",
+        "config.local-remote.js",
+        "import-map.json",
+        "import-map.local.json",
+        "version-manifest.json",
+        "icons/icon-192.png",
+        "icons/icon-512.png",
+        "icons/maskable-192.png",
+        "icons/maskable-512.png",
+      ],
+      workbox: {
+        navigateFallback: "/portal/index.html",
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest,json}"],
+        navigateFallbackDenylist: [/^\/api\//, /^\/realms\//, /^\/auth\//],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) =>
+              request.destination === "script" && url.pathname.startsWith("/portal/assets/"),
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "portal-static-assets",
+              expiration: {
+                maxEntries: 80,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith("/portal/mf/") ||
+              url.pathname.startsWith("/portal/packages/"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "portal-microfrontends",
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 120,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+            },
+          },
+        ],
+      },
+    }),
+  ],
 
   define: {
     "process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),

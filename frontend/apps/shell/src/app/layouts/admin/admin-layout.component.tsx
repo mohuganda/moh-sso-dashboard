@@ -31,7 +31,6 @@ import {
   HeaderPanelProvider,
   NotificationsPanel,
   PublicFooter,
-  ToastProvider,
   useHeaderPanel,
   useFocusTrap,
 } from "@moh-sso/ui";
@@ -432,74 +431,65 @@ export default function AdminLayout() {
   }, [isSideNavVisible]);
 
   return (
-    <ToastProvider>
-      <HeaderPanelProvider>
-        <div
-          className={`admin-layout${isSideNavVisible ? "" : " admin-layout--sidenav-hidden"}`}
-        >
-          <Header aria-label="MOH Integrated Health Portal" className="admin-layout__header">
-            <div className="admin-layout__brand">
-              <button
-                type="button"
-                className="admin-layout__brand-logo-button"
-                onClick={() => navigate("/admin")}
-                aria-label="Go to admin home"
-              >
-                <img
-                  src={imagePath}
-                  className="admin-layout__brand-logo"
-                  alt=""
-                  aria-hidden="true"
-                />
-              </button>
-
-              <HeaderName
-                prefix="MOH"
-                onClick={() => navigate("/admin")}
-                className="admin-layout__brand-name"
-              >
-                Integrated Health Portal
-              </HeaderName>
-            </div>
-
-            <HeaderGlobalBar>
-              <HeaderActions />
-            </HeaderGlobalBar>
-          </Header>
-
-          <AdminSideNav
-            visible={isSideNavVisible}
-            onToggleVisibility={() => setIsSideNavVisible((visible) => !visible)}
-            onNavigate={() => {
-              if (window.matchMedia("(max-width: 1056px)").matches) {
-                setIsSideNavVisible(false);
-              }
-            }}
-          />
-
-          {isSideNavVisible ? (
+    <HeaderPanelProvider>
+      <div className={`admin-layout${isSideNavVisible ? "" : " admin-layout--sidenav-hidden"}`}>
+        <Header aria-label="MOH Integrated Health Portal" className="admin-layout__header">
+          <div className="admin-layout__brand">
             <button
               type="button"
-              className="admin-layout__sidenav-backdrop"
-              aria-label="Close navigation"
-              onClick={() => setIsSideNavVisible(false)}
-            />
-          ) : null}
+              className="admin-layout__brand-logo-button"
+              onClick={() => navigate("/admin")}
+              aria-label="Go to admin home"
+            >
+              <img src={imagePath} className="admin-layout__brand-logo" alt="" aria-hidden="true" />
+            </button>
 
-          <div className="admin-layout__content-shell">
-            <RouteBreadcrumbBar />
-
-            <Content id="main-content" className="admin-layout__content">
-              <Outlet />
-            </Content>
+            <HeaderName
+              prefix="MOH"
+              onClick={() => navigate("/admin")}
+              className="admin-layout__brand-name"
+            >
+              Integrated Health Portal
+            </HeaderName>
           </div>
-          <PublicFooter
-            frontendVersion={versionInfo.frontend.version}
-            backendVersion={versionInfo.backend?.version}
-            backendUnavailable={!versionInfo.isLoading && !versionInfo.backend}
+
+          <HeaderGlobalBar>
+            <HeaderActions />
+          </HeaderGlobalBar>
+        </Header>
+
+        <AdminSideNav
+          visible={isSideNavVisible}
+          onToggleVisibility={() => setIsSideNavVisible((visible) => !visible)}
+          onNavigate={() => {
+            if (window.matchMedia("(max-width: 1056px)").matches) {
+              setIsSideNavVisible(false);
+            }
+          }}
+        />
+
+        {isSideNavVisible ? (
+          <button
+            type="button"
+            className="admin-layout__sidenav-backdrop"
+            aria-label="Close navigation"
+            onClick={() => setIsSideNavVisible(false)}
           />
+        ) : null}
+
+        <div className="admin-layout__content-shell">
+          <RouteBreadcrumbBar />
+
+          <Content id="main-content" className="admin-layout__content">
+            <Outlet />
+          </Content>
         </div>
-      </HeaderPanelProvider>
-    </ToastProvider>
+        <PublicFooter
+          frontendVersion={versionInfo.frontend.version}
+          backendVersion={versionInfo.backend?.version}
+          backendUnavailable={!versionInfo.isLoading && !versionInfo.backend}
+        />
+      </div>
+    </HeaderPanelProvider>
   );
 }

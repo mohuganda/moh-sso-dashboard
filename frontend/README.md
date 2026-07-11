@@ -158,6 +158,7 @@ More detail: [docs/build-and-deployment.md](docs/build-and-deployment.md).
 - [Development](docs/development.md)
 - [Microfrontends](docs/microfrontends.md)
 - [Import Maps](docs/import-maps.md)
+- [Progressive Web App](docs/pwa.md)
 - [Package Publishing](docs/package-publishing.md)
 - [Build And Deployment](docs/build-and-deployment.md)
 - [Versioning And Releases](docs/versioning.md)

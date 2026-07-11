@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline | MOH Integrated Health Portal</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family:
+          "IBM Plex Sans",
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background: #f4f4f4;
+        color: #161616;
+        display: grid;
+        place-items: center;
+      }
+
+      main {
+        width: min(90vw, 32rem);
+        padding: 2rem;
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+      }
+
+      img {
+        width: 48px;
+        height: auto;
+        margin-bottom: 1rem;
+      }
+
+      h1 {
+        margin: 0 0 0.75rem;
+        font-size: 1.75rem;
+      }
+
+      p {
+        margin: 0 0 1.5rem;
+        color: #525252;
+        line-height: 1.5;
+      }
+
+      button {
+        border: 0;
+        background: #0f62fe;
+        color: #ffffff;
+        padding: 0.875rem 1.25rem;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      button:focus {
+        outline: 2px solid #0f62fe;
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/portal/logo.png" alt="" />
+      <h1>You are offline</h1>
+      <p>
+        The portal shell is available, but authenticated services and live health system data
+        require an internet connection.
+      </p>
+      <button type="button" onclick="window.location.reload()">Retry</button>
+    </main>
+  </body>
+</html>
