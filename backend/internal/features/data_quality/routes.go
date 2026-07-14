@@ -28,6 +28,12 @@ func RegisterProtectedRoutes(
 			handler.ListIssues,
 		)
 
+		issues.GET(
+			"/summary-by-program",
+			middleware.RequirePermission(authz.PermissionIssueTrackerRead),
+			handler.ListIssueSummaryByProgram,
+		)
+
 		issues.PUT(
 			"/:issueCode",
 			middleware.RequirePermission(authz.PermissionIssueTrackerWrite),

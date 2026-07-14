@@ -4,7 +4,8 @@ import "context"
 
 type Service interface {
 	CreateIssue(ctx context.Context, input createIssueInput) (issueResponse, error)
-	ListIssues(ctx context.Context, limit int, offset int) ([]issueResponse, error)
+	ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error)
+	ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error)
 	UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error)
 	ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error)
 	ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error)
@@ -24,8 +25,12 @@ func (s *service) CreateIssue(ctx context.Context, input createIssueInput) (issu
 	return s.repository.CreateIssue(ctx, input)
 }
 
-func (s *service) ListIssues(ctx context.Context, limit int, offset int) ([]issueResponse, error) {
-	return s.repository.ListIssues(ctx, limit, offset)
+func (s *service) ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error) {
+	return s.repository.ListIssues(ctx, limit, offset, program)
+}
+
+func (s *service) ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error) {
+	return s.repository.ListIssueSummaryByProgram(ctx, limit, offset)
 }
 
 func (s *service) UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error) {

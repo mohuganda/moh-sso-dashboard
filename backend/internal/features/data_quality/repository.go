@@ -10,7 +10,8 @@ import (
 
 type Repository interface {
 	CreateIssue(ctx context.Context, input createIssueInput) (issueResponse, error)
-	ListIssues(ctx context.Context, limit int, offset int) ([]issueResponse, error)
+	ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error)
+	ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error)
 	UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error)
 	ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error)
 	ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error)
@@ -66,15 +67,17 @@ func (r *postgresRepository) CreateIssue(ctx context.Context, input createIssueI
 	return scanIssue(row)
 }
 
-func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset int) ([]issueResponse, error) {
+func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error) {
 	rows, err := r.dwhDB.QueryContext(
 		ctx,
 		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type,time_period
 		FROM hiv.issue
+		WHERE ($3 = '' OR LOWER(BTRIM(program)) = LOWER(BTRIM($3)))
 		ORDER BY date_reported DESC, issue_id DESC
 		LIMIT $1 OFFSET $2`,
 		limit,
 		offset,
+		program,
 	)
 	if err != nil {
 		return nil, err
@@ -90,6 +93,36 @@ func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset i
 		issues = append(issues, issue)
 	}
 	return issues, rows.Err()
+}
+
+func (r *postgresRepository) ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error) {
+	rows, err := r.dwhDB.QueryContext(
+		ctx,
+		`SELECT
+			COALESCE(NULLIF(BTRIM(program), ''), 'Unspecified') AS program,
+			COUNT(*)::bigint AS issue_count
+		FROM hiv.issue
+		GROUP BY 1
+		ORDER BY issue_count DESC, program ASC
+		LIMIT $1 OFFSET $2`,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	summary := make([]issueProgramSummaryResponse, 0)
+	for rows.Next() {
+		var row issueProgramSummaryResponse
+		if err := rows.Scan(&row.Program, &row.IssueCount); err != nil {
+			return nil, err
+		}
+		summary = append(summary, row)
+	}
+
+	return summary, rows.Err()
 }
 
 func (r *postgresRepository) UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error) {

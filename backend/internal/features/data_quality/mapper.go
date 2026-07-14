@@ -78,6 +78,13 @@ func toIssueResponses(issues []issueResponse) []issueResponse {
 	return out
 }
 
+func toIssueProgramSummaryResponses(rows []issueProgramSummaryResponse) []issueProgramSummaryResponse {
+	if rows == nil {
+		return []issueProgramSummaryResponse{}
+	}
+	return rows
+}
+
 func toIssueStageResponse(stage issueStageResponse) issueStageResponse {
 	return stage
 }

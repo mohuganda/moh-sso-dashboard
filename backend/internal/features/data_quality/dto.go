@@ -78,6 +78,11 @@ type issueStageResponse struct {
 	DueDate            *string `json:"due_date,omitempty"`
 }
 
+type issueProgramSummaryResponse struct {
+	Program    string `json:"program"`
+	IssueCount int64  `json:"issue_count"`
+}
+
 type createIssueInput struct {
 	Dataset     interface{}
 	DataElement interface{}
