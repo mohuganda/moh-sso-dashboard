@@ -270,7 +270,6 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		     x.org_unit_id,
 		     x.data_element_id,
 		     x."period",
-		     x.category_combo,
 		     x.value,
 		     x.facility,
 		     x."level",
@@ -285,29 +284,25 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       sf.selected_uid AS org_unit_id,
 		       hs.data_element_id,
 		       hs."period",
-		       hs.category_combo,
 		       SUM(
 		         CASE
 		           WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
 		           ELSE 0
 		         END
 		       )::bigint AS value,
-		       COALESCE(MAX(NULLIF(hs.facility, '')), sf.selected_name) AS facility,
+		       COALESCE(NULLIF(hs.facility, ''), sf.selected_name) AS facility,
 		       sf.selected_level AS "level",
 		       CASE
 		         WHEN sf.selected_level = '2' THEN sf.selected_name
-		         WHEN sf.selected_level IN ('3', '5', '6') THEN COALESCE(MAX(hs.region), '')
-		         ELSE ''
+		         ELSE COALESCE(NULLIF(hs.region, ''), '')
 		       END AS region,
 		       CASE
 		         WHEN sf.selected_level = '3' THEN sf.selected_name
-		         WHEN sf.selected_level IN ('5', '6') THEN COALESCE(MAX(hs.district), '')
-		         ELSE ''
+		         ELSE COALESCE(NULLIF(hs.district, ''), '')
 		       END AS district,
 		       CASE
 		         WHEN sf.selected_level = '5' THEN sf.selected_name
-		         WHEN sf.selected_level = '6' THEN COALESCE(MAX(hs.sub_county), '')
-		         ELSE ''
+		         ELSE COALESCE(NULLIF(hs.sub_county, ''), '')
 		       END AS sub_county,
 		       CASE
 		         WHEN COUNT(DISTINCT COALESCE(NULLIF(oa.level_of_care, ''), 'Unknown')) = 1
@@ -332,7 +327,19 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       sf.selected_level,
 		       hs.data_element_id,
 		       hs."period",
-		       hs.category_combo,
+		       COALESCE(NULLIF(hs.facility, ''), sf.selected_name),
+		       CASE
+		         WHEN sf.selected_level = '2' THEN sf.selected_name
+		         ELSE COALESCE(NULLIF(hs.region, ''), '')
+		       END,
+		       CASE
+		         WHEN sf.selected_level = '3' THEN sf.selected_name
+		         ELSE COALESCE(NULLIF(hs.district, ''), '')
+		       END,
+		       CASE
+		         WHEN sf.selected_level = '5' THEN sf.selected_name
+		         ELSE COALESCE(NULLIF(hs.sub_county, ''), '')
+		       END,
 		       hs.dataelement
 
 		     UNION ALL
@@ -341,14 +348,13 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       su.selected_uid AS org_unit_id,
 		       hs.data_element_id,
 		       hs."period",
-		       hs.category_combo,
 		       SUM(
 		         CASE
 		           WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
 		           ELSE 0
 		         END
 		       )::bigint AS value,
-		       COALESCE(MAX(NULLIF(hs.facility, '')), su.selected_name) AS facility,
+		       su.selected_name AS facility,
 		       su.selected_level AS "level",
 		       '' AS region,
 		       '' AS district,
@@ -377,15 +383,13 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		       su.selected_level,
 		       hs.data_element_id,
 		       hs."period",
-		       hs.category_combo,
 		       hs.dataelement
 		   ) x
 		   ORDER BY
 		     x."period",
 		     x."level",
 		     x.facility,
-		     x.data_element_id,
-		     x.category_combo
+		     x.data_element_id
 		`
 	} else {
 		aggregationLevel := r.resolveAggregationLevel(ctx, requestedLevel, req.OU)
@@ -408,7 +412,6 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		      ` + orgUnitExpr + ` AS org_unit_id,
 		      hs.data_element_id,
 		      hs."period",
-		      hs.category_combo,
 		      SUM(
 		        CASE
 		          WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
@@ -444,12 +447,11 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 	         ON oa.facility_uid = hs.org_unit_id
 	       ` + orgUnitFilterJoin + `
 	       ` + whereClause + `
-	       GROUP BY 1, 2, 3, 4, 6, 7, 8, 9, 10, 13
+	       GROUP BY 1, 2, 3, 5, 6, 7, 8, 9, 12
 	       ORDER BY 
 	          3,
 	          1,
-	          2,
-	          4
+	          2
 	    `
 	}
 
@@ -466,7 +468,6 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 			&row.OrgUnitID,
 			&row.DataElementID,
 			&row.Period,
-			&row.CategoryCombo,
 			&row.Value,
 			&row.Facility,
 			&row.Level,

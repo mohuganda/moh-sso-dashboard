@@ -41,7 +41,6 @@ type DataValueRowResponse struct {
 	OrgUnitID     string `json:"org_unit_id"`
 	DataElementID string `json:"data_element_id"`
 	Period        string `json:"period"`
-	CategoryCombo string `json:"category_combo"`
 	Value         int64  `json:"value"`
 	Facility      string `json:"facility"`
 	Level         string `json:"level"`
