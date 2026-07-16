@@ -131,6 +131,13 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		values = append(values, pq.Array(req.Ownership))
 		orgUnitFilterClause += fmt.Sprintf(" AND h.ownership = ANY($%d)", paramCounter)
 	}
+	aggregateAllCareAndOwnership := len(req.LevelOfCare) == 0 && len(req.Ownership) == 0
+	levelOfCareExpr := "COALESCE(NULLIF(oa.level_of_care, ''), 'ALL')"
+	ownershipExpr := "COALESCE(NULLIF(oa.ownership, ''), 'ALL')"
+	if aggregateAllCareAndOwnership {
+		levelOfCareExpr = "'ALL'"
+		ownershipExpr = "'ALL'"
+	}
 
 	whereClause := ""
 	if len(conditions) > 0 {
@@ -283,8 +290,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		         END
 		       )::bigint AS value,
 		       sf.selected_level AS "level",
-		       COALESCE(NULLIF(oa.level_of_care, ''), 'ALL') AS level_of_care,
-		       COALESCE(NULLIF(oa.ownership, ''), 'ALL') AS ownership,
+		       ` + levelOfCareExpr + ` AS level_of_care,
+		       ` + ownershipExpr + ` AS ownership,
 		       hs.dataelement
 		     FROM selected_facilities sf
 		     JOIN report.hmis_summary hs
@@ -292,15 +299,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		     LEFT JOIN org_unit_attrs oa
 		       ON oa.facility_uid = hs.org_unit_id
 		     ` + whereClause + `
-		     GROUP BY
-		       sf.selected_uid,
-		       sf.selected_name,
-		       sf.selected_level,
-		       hs.data_element_id,
-		       hs."period",
-		       COALESCE(NULLIF(oa.level_of_care, ''), 'ALL'),
-		       COALESCE(NULLIF(oa.ownership, ''), 'ALL'),
-		       hs.dataelement
+		     GROUP BY 1, 2, 3, 4, 6, 7, 8, 9
 		    
 		     UNION ALL
 
@@ -316,8 +315,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		         END
 		       )::bigint AS value,
 		       su.selected_level AS "level",
-		       COALESCE(NULLIF(oa.level_of_care, ''), 'ALL') AS level_of_care,
-		       COALESCE(NULLIF(oa.ownership, ''), 'ALL') AS ownership,
+		       ` + levelOfCareExpr + ` AS level_of_care,
+		       ` + ownershipExpr + ` AS ownership,
 		       hs.dataelement
 		     FROM selected_units su
 		     JOIN hiv.organisation_unit h
@@ -330,15 +329,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		     LEFT JOIN org_unit_attrs oa
 		       ON oa.facility_uid = hs.org_unit_id
 		     ` + countryWhereClause + `
-		     GROUP BY
-		       su.selected_uid,
-		       su.selected_name,
-		       su.selected_level,
-		       hs.data_element_id,
-		       hs."period",
-		       COALESCE(NULLIF(oa.level_of_care, ''), 'ALL'),
-		       COALESCE(NULLIF(oa.ownership, ''), 'ALL'),
-		       hs.dataelement
+		     GROUP BY 1, 2, 3, 4, 6, 7, 8, 9
 		   ) x
 		   ORDER BY
 		     x."period",
@@ -375,8 +366,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		        END
 		      )::bigint AS value,
 		      ` + levelExpr + ` AS "level",
-	          COALESCE(NULLIF(oa.level_of_care, ''), 'ALL') AS level_of_care,
-	          COALESCE(NULLIF(oa.ownership, ''), 'ALL') AS ownership,
+	          ` + levelOfCareExpr + ` AS level_of_care,
+	          ` + ownershipExpr + ` AS ownership,
 	          hs.dataelement
 	       FROM report.hmis_summary hs
 	       LEFT JOIN (
