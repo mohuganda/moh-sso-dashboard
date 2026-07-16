@@ -11,6 +11,49 @@ The `Backend Release` GitHub Actions workflow runs in two modes:
 
 Use this flow when you want a reviewed release branch before the tag and GitHub Release are created.
 
+### Command-Assisted Flow
+
+The backend Makefile includes release helpers so the common path does not require memorizing `gh` command syntax.
+
+From `backend/`:
+
+```bash
+make next-version BUMP=patch
+make release-check VERSION=1.2.3
+make release-pr VERSION=1.2.3
+make release-status VERSION=1.2.3
+```
+
+What those commands do:
+
+| Command | Purpose |
+| --- | --- |
+| `make next-version BUMP=patch` | Prints the next backend SemVer from existing `backend/v*` tags. `BUMP` can be `patch`, `minor`, or `major`. |
+| `make release-check VERSION=1.2.3` | Runs local release verification: version consistency, formatting check, vet, tests, architecture test, release binary build, and binary metadata verification. Requires a clean worktree. |
+| `make release-pr VERSION=1.2.3` | Creates or checks out `release/backend-v1.2.3`, pushes it, and opens a GitHub release PR. |
+| `make release-dispatch VERSION=1.2.3` | Runs the one-shot `backend-release.yml` workflow manually. Use this when you intentionally do not need a release PR. |
+| `make release-status VERSION=1.2.3` | Shows the GitHub release, recent release workflows, and Docker image manifest when Docker is available. |
+| `make verify-image IMAGE=ghcr.io/mohuganda/moh-sso-dashboard-backend:1.2.3 VERSION=1.2.3 COMMIT=<sha>` | Runs the backend image with `--version` and checks the embedded metadata. |
+
+The helper commands default to:
+
+```text
+REPO=mohuganda/moh-sso-dashboard
+BASE=main
+RELEASE_REMOTE=origin
+BACKEND_IMAGE=ghcr.io/mohuganda/moh-sso-dashboard-backend
+```
+
+Override them when needed:
+
+```bash
+make release-pr VERSION=1.2.3 REPO=my-org/my-fork BASE=main
+make release-pr VERSION=1.2.3 RELEASE_REMOTE=upstream
+make release-status VERSION=1.2.3 BACKEND_IMAGE=registry.example.go.ug/moh/backend
+```
+
+### Manual Commands
+
 1. Pick the next backend SemVer.
 
    Use the backend component tag format:
@@ -130,6 +173,13 @@ If you prefer a one-shot release without a PR, use the manual dispatch flow belo
 ## Manual Dispatch Flow
 
 Run the `Backend Release` workflow directly:
+
+```bash
+cd backend
+make release-dispatch VERSION=1.2.3
+```
+
+Equivalent raw `gh` command:
 
 ```bash
 gh workflow run backend-release.yml \
