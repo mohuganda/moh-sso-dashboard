@@ -39,14 +39,11 @@ type DataElementResponse struct {
 
 type DataValueRowResponse struct {
 	OrgUnitID     string `json:"org_unit_id"`
+	OrgUnitName   string `json:"org_unit_name"`
 	DataElementID string `json:"data_element_id"`
 	Period        string `json:"period"`
 	Value         int64  `json:"value"`
-	Facility      string `json:"facility"`
 	Level         string `json:"level"`
-	Region        string `json:"region"`
-	District      string `json:"district"`
-	SubCounty     string `json:"sub_county"`
 	LevelOfCare   string `json:"level_of_care"`
 	Ownership     string `json:"ownership"`
 	Dataelement   string `json:"dataelement"`
