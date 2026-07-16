@@ -61,6 +61,21 @@ backend:
     PORT: "9000"
     ALLOWED_ORIGINS: ""
 
+  storage:
+    provider: local
+    localBasePath: /data/uploads
+    nfsBasePath: /mnt/nfs/uploads
+    persistence:
+      enabled: true
+      existingClaim: ""
+      size: 10Gi
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: ""
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1000
+
   sms:
     enabled: false
     provider: mock

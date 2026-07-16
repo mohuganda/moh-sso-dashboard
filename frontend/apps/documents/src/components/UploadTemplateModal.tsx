@@ -75,6 +75,35 @@ function normalizeKey(value: string): string {
     .replace(/^_|_$/g, "");
 }
 
+function getApiError(caughtError: unknown): { code?: string; message?: string } | null {
+  if (typeof caughtError !== "object" || caughtError === null || !("data" in caughtError)) {
+    return null;
+  }
+
+  const data = (caughtError as { data?: unknown }).data;
+
+  if (typeof data !== "object" || data === null) {
+    return null;
+  }
+
+  if ("error" in data) {
+    const error = (data as { error?: unknown }).error;
+
+    if (typeof error === "object" && error !== null) {
+      return {
+        code: "code" in error ? String((error as { code?: unknown }).code ?? "") : undefined,
+        message:
+          "message" in error ? String((error as { message?: unknown }).message ?? "") : undefined,
+      };
+    }
+  }
+
+  return {
+    code: "code" in data ? String((data as { code?: unknown }).code ?? "") : undefined,
+    message: "message" in data ? String((data as { message?: unknown }).message ?? "") : undefined,
+  };
+}
+
 function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
   const currentUser = useSelector(selectUser);
 
@@ -203,8 +232,20 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
             })),
           })),
         );
-      } catch {
-        setError("Failed to read the file. Please check it is a valid Excel file and try again.");
+      } catch (caughtError: unknown) {
+        const apiError = getApiError(caughtError);
+
+        if (apiError?.code === "UPLOAD_FAILED") {
+          setError(
+            "Failed to upload the file to storage. Please contact support if this continues.",
+          );
+        } else {
+          setError(
+            apiError?.message ||
+              "Failed to read the file. Please check it is a valid Excel file and try again.",
+          );
+        }
+
         setFile(null);
         setPreUploadedDocId(null);
       } finally {
@@ -333,17 +374,7 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
 
       onClose();
     } catch (caughtError: unknown) {
-      const errorData =
-        typeof caughtError === "object" && caughtError !== null && "data" in caughtError
-          ? (
-              caughtError as {
-                data?: {
-                  message?: string;
-                  code?: string;
-                };
-              }
-            ).data
-          : null;
+      const errorData = getApiError(caughtError);
 
       let message = errorData?.message ?? "Upload failed. Please try again.";
 

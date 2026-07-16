@@ -26,6 +26,30 @@ Both compose files expect:
 - `./secrets/db_password.txt`
 - `./secrets/keycloak_admin_client_secret.txt`
 - `./secrets/keycloak_web_client_secret.txt`
+- a persistent `upload_data` volume mounted into the backend at `/data/uploads` when `STORAGE_PROVIDER=local`
+
+The backend document and announcement upload flows use the configured storage provider. For local filesystem storage, production Compose must include both:
+
+```yaml
+volumes:
+  upload_data:
+
+services:
+  backend:
+    volumes:
+      - ${APP_ENV_FILE:-./app.env}:/app/app.env:ro
+      - upload_data:/data/uploads
+```
+
+and `app.env` must include:
+
+```env
+STORAGE_PROVIDER=local
+LOCAL_BASE_PATH=/data/uploads
+APP_BASE_URL=https://dashboards.health.go.ug/ssobackend
+```
+
+If the server is still using an older Compose file that only mounts `./app.env`, uploads can fail in production with `UPLOAD_FAILED` even though they work locally.
 
 For syntax validation without real production values:
 
@@ -43,6 +67,21 @@ BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
 BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
   docker compose -f docker-compose-nginx.yml up -d
 ```
+
+After deployment, verify the backend can write to the upload volume:
+
+```bash
+docker compose -f docker-compose-nginx.yml exec backend sh -lc \
+  'mkdir -p /data/uploads/.healthcheck && echo ok > /data/uploads/.healthcheck/write-test && cat /data/uploads/.healthcheck/write-test'
+```
+
+Expected output:
+
+```text
+ok
+```
+
+If this fails with `permission denied`, recreate the volume with the current backend image or switch production uploads to S3/MinIO. If multiple backend containers are used, prefer S3/MinIO or a shared filesystem outside Compose; a named Docker volume is local to one Docker host.
 
 ## Automated Deployment
 
@@ -73,6 +112,14 @@ docker image inspect ghcr.io/mohuganda/moh-sso-dashboard-backend:1.2.3
 ```
 
 The binary metadata, OCI labels, requested tag, and expected Git commit must agree.
+
+For upload failures, match the frontend `requestId` to backend logs:
+
+```bash
+docker logs sso-backend 2>&1 | grep '50c50103-32ab-4887-9e18-8877af4484b5'
+```
+
+The backend logs storage upload failures with the storage provider, storage location ID, object key, filename, and file size.
 
 ## Database Migrations
 

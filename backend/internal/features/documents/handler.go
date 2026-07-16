@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
@@ -21,6 +20,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/storage"
+	"github.com/rs/zerolog/log"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -187,6 +187,16 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 		header.Size,
 		contentType,
 	); err != nil {
+		log.Error().
+			Err(err).
+			Str("request_id", c.GetString("request_id")).
+			Str("storage_provider", loc.Provider).
+			Str("storage_location_id", storageLocationStr).
+			Str("object_key", objectKey).
+			Str("filename", header.Filename).
+			Int64("size_bytes", header.Size).
+			Msg("document upload storage write failed")
+
 		response.Fail(
 			c,
 			http.StatusInternalServerError,
