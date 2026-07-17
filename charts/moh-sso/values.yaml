@@ -85,6 +85,11 @@ backend:
   probes:
     readinessPath: /health/ready
     livenessPath: /health/live
+    readinessInitialDelaySeconds: 8
+    livenessInitialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
 
   resources:
     requests:
@@ -119,6 +124,17 @@ frontend:
 
   service:
     port: 80
+
+  runtimeConfig:
+    enabled: true
+    mountPath: /usr/share/nginx/html/config.js
+
+  probes:
+    readinessPath: /
+    livenessPath: /
+    readinessInitialDelaySeconds: 5
+    livenessInitialDelaySeconds: 10
+    timeoutSeconds: 1
 
   baseUrl: "" # optional override
   apiBaseUrl: "" # optional override

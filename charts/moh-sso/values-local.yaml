@@ -32,13 +32,22 @@ backend:
     KEYCLOAK_ADMIN_CLIENT_SECRET: ""
     KEYCLOAK_WEB_CLIENT_SECRET: ""
 
+  probes:
+    readinessPath: /health/ready
+    livenessPath: /health/live
+    readinessInitialDelaySeconds: 90
+    livenessInitialDelaySeconds: 180
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 12
+
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 200m
+      memory: 256Mi
     limits:
-      cpu: 300m
-      memory: 512Mi
+      cpu: 1000m
+      memory: 1Gi
 
   hpa:
     enabled: false
@@ -57,15 +66,29 @@ frontend:
     tag: local
     pullPolicy: Never
 
+  service:
+    port: 3000
+
+  runtimeConfig:
+    enabled: false
+    mountPath: /app/public/config.js
+
+  probes:
+    readinessPath: /portal/
+    livenessPath: /portal/
+    readinessInitialDelaySeconds: 30
+    livenessInitialDelaySeconds: 45
+    timeoutSeconds: 5
+
   replicas: 1
 
   resources:
     requests:
-      cpu: 20m
-      memory: 64Mi
-    limits:
-      cpu: 150m
+      cpu: 100m
       memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
 
   hpa:
     enabled: false

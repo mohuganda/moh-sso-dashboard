@@ -115,6 +115,7 @@ APP_VERSION ?=
 
 BACKEND_IMAGE = moh-sso-dashboard-backend:local
 FRONTEND_IMAGE = moh-sso-dashboard-frontend:local
+KIND_CLUSTER ?= desktop
 
 .PHONY: local-namespace
 local-namespace:
@@ -137,6 +138,20 @@ local-build:
 		-t $(FRONTEND_IMAGE) \
 		--load \
 		./frontend
+	@if command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -qx "$(KIND_CLUSTER)"; then \
+		echo "📥 Loading local images into kind cluster '$(KIND_CLUSTER)'..."; \
+		kind load docker-image $(BACKEND_IMAGE) --name $(KIND_CLUSTER); \
+		kind load docker-image $(FRONTEND_IMAGE) --name $(KIND_CLUSTER); \
+	elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$(KIND_CLUSTER)-control-plane"; then \
+		echo "📥 Loading local images into Docker Desktop Kubernetes node '$(KIND_CLUSTER)-control-plane'..."; \
+		docker save $(BACKEND_IMAGE) | docker exec -i $(KIND_CLUSTER)-control-plane ctr -n k8s.io images import -; \
+		docker save $(FRONTEND_IMAGE) | docker exec -i $(KIND_CLUSTER)-control-plane ctr -n k8s.io images import -; \
+	else \
+		echo "ℹ️  Kubernetes node '$(KIND_CLUSTER)-control-plane' not detected. If pods show ErrImageNeverPull, install kind or load images manually:"; \
+		echo "   brew install kind"; \
+		echo "   kind load docker-image $(BACKEND_IMAGE) --name $(KIND_CLUSTER)"; \
+		echo "   kind load docker-image $(FRONTEND_IMAGE) --name $(KIND_CLUSTER)"; \
+	fi
 	@echo "✅ Local arm64 images built and loaded into containerd"
 
 
