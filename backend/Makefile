@@ -17,7 +17,7 @@ REPO ?= mohuganda/moh-sso-dashboard
 BASE ?= main
 BUMP ?= patch
 BACKEND_IMAGE ?= ghcr.io/mohuganda/moh-sso-dashboard-backend
-RELEASE_REMOTE ?= origin
+RELEASE_REMOTE ?= upstream
 
 LDFLAGS := -s -w \
 	-X '$(VERSION_PACKAGE).Version=$(VERSION)' \
@@ -134,7 +134,7 @@ release-check: ## Run local backend release verification: make release-check VER
 	@test "$(VERSION)" != "dev" || { echo "VERSION is required, for example make release-check VERSION=1.2.3"; exit 2; }
 	@./scripts/release-check.sh "$(VERSION)"
 
-release-pr: ## Create a backend release PR: make release-pr VERSION=1.2.3 [REPO=owner/repo] [BASE=main] [RELEASE_REMOTE=origin]
+release-pr: ## Create a backend release PR: make release-pr VERSION=1.2.3 [REPO=owner/repo] [BASE=main] [RELEASE_REMOTE=upstream]
 	@test "$(VERSION)" != "dev" || { echo "VERSION is required, for example make release-pr VERSION=1.2.3"; exit 2; }
 	@./scripts/create-release-pr.sh "$(VERSION)" "$(REPO)" "$(BASE)" "$(RELEASE_REMOTE)"
 

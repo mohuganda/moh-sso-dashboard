@@ -4,7 +4,7 @@ set -eu
 
 usage() {
   echo "usage: $0 <version> [repo] [base] [remote]" >&2
-  echo "example: $0 1.2.3 mohuganda/moh-sso-dashboard main origin" >&2
+  echo "example: $0 1.2.3 mohuganda/moh-sso-dashboard main upstream" >&2
 }
 
 remote_owner() {
@@ -41,7 +41,7 @@ version=${1#backend/v}
 version=${version#v}
 repo=${2:-mohuganda/moh-sso-dashboard}
 base=${3:-main}
-remote=${4:-origin}
+remote=${4:-upstream}
 
 if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
   echo "invalid backend semantic version: $version" >&2
@@ -101,6 +101,9 @@ git push -u "$remote" "$branch"
 head_owner=$(remote_owner "$remote")
 head_ref="$branch"
 if [ -n "$head_owner" ] && [ "$head_owner" != "${repo%%/*}" ]; then
+  echo "warning: release PR is being opened from fork owner '$head_owner' into '$repo'." >&2
+  echo "warning: GitHub will not allow the fork PR workflow token to create release tags in '$repo'." >&2
+  echo "warning: after merging this PR, run: make release-dispatch VERSION=$version REPO=$repo" >&2
   head_ref="$head_owner:$branch"
 fi
 

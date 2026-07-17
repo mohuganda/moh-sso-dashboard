@@ -130,6 +130,7 @@ jobs:
           echo "Manual dispatch and direct tag releases still run provenance attestation."
 
       - name: Create verified component tag
+        if: github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           TAG="backend/v${{ steps.version.outputs.version }}"
@@ -139,6 +140,7 @@ jobs:
           git push origin "$TAG"
 
       - name: Create GitHub release
+        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: softprops/action-gh-release@v2
         with:
           tag_name: backend/v${{ steps.version.outputs.version }}
@@ -149,6 +151,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Write release metadata
+        if: github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           cat > backend/dist/release-metadata.json <<EOF
@@ -163,7 +166,15 @@ jobs:
           EOF
 
       - name: Upload release metadata
+        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
           name: backend-release-metadata
           path: backend/dist/release-metadata.json
+
+      - name: Release publication requires upstream branch
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "Release verification completed for a fork PR."
+          echo "Tag creation and GitHub Release publication are skipped because fork PR tokens cannot write to ${{ github.repository }}."
+          echo "After merging this PR, run the Backend Release workflow manually with version ${{ steps.version.outputs.version }}."
