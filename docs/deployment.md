@@ -44,6 +44,48 @@ BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
   docker compose -f docker-compose-nginx.yml up -d
 ```
 
+## Helm Packaged Chart Deployment
+
+Kubernetes deployments can use the packaged Helm chart from `charts/moh-sso`.
+Compose remains supported; Helm is the portable Kubernetes packaging path.
+
+Validate chart changes locally:
+
+```bash
+make helm-lint
+make helm-template
+make helm-template-local
+make helm-template-dev
+BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 make helm-template-prod
+```
+
+Package the chart:
+
+```bash
+BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 make helm-package
+```
+
+This creates:
+
+```text
+dist/helm/moh-sso-<chart-version>.tgz
+dist/helm/checksums.txt
+```
+
+Install or upgrade from the package:
+
+```bash
+kubectl create namespace moh-sso --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade --install moh-sso-dashboard ./dist/helm/moh-sso-0.1.0.tgz \
+  -n moh-sso \
+  -f charts/moh-sso/values-prod.yaml \
+  --set backend.image.tag=1.2.3 \
+  --set frontend.image.tag=1.2.3
+```
+
+See [`docs/helm-packaging.md`](helm-packaging.md) for chart versioning, packaging, CI artifacts, OCI registry notes, and rollback commands.
+
 ## Automated Deployment
 
 The deployment workflow supports:

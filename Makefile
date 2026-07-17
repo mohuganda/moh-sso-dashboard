@@ -109,6 +109,9 @@ HELM_CHART = ./charts/moh-sso
 VALUES_LOCAL = charts/moh-sso/values-local.yaml
 VALUES_DEV = charts/moh-sso/values-dev.yaml
 VALUES_PROD = charts/moh-sso/values-prod.yaml
+HELM_OUT_DIR ?= dist/helm
+CHART_VERSION ?=
+APP_VERSION ?=
 
 BACKEND_IMAGE = moh-sso-dashboard-backend:local
 FRONTEND_IMAGE = moh-sso-dashboard-frontend:local
@@ -188,6 +191,11 @@ helm-lint:
 	@echo "🔎 Linting Helm chart..."
 	helm lint $(HELM_CHART)
 
+.PHONY: helm-template
+helm-template:
+	@echo "🧾 Rendering base Helm values..."
+	helm template $(HELM_RELEASE) $(HELM_CHART)
+
 .PHONY: helm-template-local
 helm-template-local:
 	@echo "🧾 Rendering local Helm values..."
@@ -208,12 +216,30 @@ helm-template-prod:
 		--set frontend.image.tag=$(FRONTEND_TAG)
 
 .PHONY: helm-check
-helm-check: helm-lint helm-template-local helm-template-dev
+helm-check: helm-lint helm-template helm-template-local helm-template-dev
 	@echo "✅ Helm chart checks passed"
 
 .PHONY: helm-check-prod
 helm-check-prod: helm-lint helm-template-prod
 	@echo "✅ Helm production chart checks passed"
+
+.PHONY: helm-package
+helm-package:
+	@test -n "$(BACKEND_TAG)" || (echo "BACKEND_TAG is required for helm-package" && exit 1)
+	@test -n "$(FRONTEND_TAG)" || (echo "FRONTEND_TAG is required for helm-package" && exit 1)
+	@echo "📦 Packaging Helm chart..."
+	BACKEND_TAG="$(BACKEND_TAG)" \
+	FRONTEND_TAG="$(FRONTEND_TAG)" \
+	CHART_VERSION="$(CHART_VERSION)" \
+	APP_VERSION="$(APP_VERSION)" \
+	HELM_RELEASE="$(HELM_RELEASE)" \
+	HELM_OUT_DIR="$(HELM_OUT_DIR)" \
+	CHART_DIR="$(HELM_CHART)" \
+	./scripts/package-helm-chart.sh
+
+.PHONY: helm-package-check
+helm-package-check: helm-package
+	@echo "✅ Helm chart package checks passed"
 
 # -----------------------------
 # Kubernetes DEV (Cluster)

@@ -221,9 +221,12 @@ make helm-lint
 make helm-check
 make helm-check-prod BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
 make helm-template-prod BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
+make helm-package BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
 ```
 
 These commands keep Helm changes easy to track locally and mirror the checks used in CI.
+
+Packaged chart deployment is documented in [`docs/helm-packaging.md`](docs/helm-packaging.md).
 
 ### Local M1 Helm Smoke Test
 
