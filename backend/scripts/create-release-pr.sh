@@ -7,6 +7,31 @@ usage() {
   echo "example: $0 1.2.3 mohuganda/moh-sso-dashboard main origin" >&2
 }
 
+remote_owner() {
+  remote_name=$1
+  remote_url=$(git remote get-url "$remote_name" 2>/dev/null || true)
+
+  case "$remote_url" in
+    git@github.com:*.git)
+      owner_repo=${remote_url#git@github.com:}
+      owner_repo=${owner_repo%.git}
+      printf '%s\n' "${owner_repo%%/*}"
+      ;;
+    https://github.com/*/*.git)
+      owner_repo=${remote_url#https://github.com/}
+      owner_repo=${owner_repo%.git}
+      printf '%s\n' "${owner_repo%%/*}"
+      ;;
+    https://github.com/*/*)
+      owner_repo=${remote_url#https://github.com/}
+      printf '%s\n' "${owner_repo%%/*}"
+      ;;
+    *)
+      printf '\n'
+      ;;
+  esac
+}
+
 if [ "$#" -lt 1 ] || [ "$#" -gt 4 ]; then
   usage
   exit 2
@@ -52,11 +77,36 @@ if [ "$current_branch" != "$branch" ]; then
   fi
 fi
 
+target_remote=${repo%%/*}
+base_ref="$base"
+if git show-ref --verify --quiet "refs/remotes/$target_remote/$base"; then
+  base_ref="$target_remote/$base"
+elif git show-ref --verify --quiet "refs/remotes/upstream/$base"; then
+  base_ref="upstream/$base"
+elif git show-ref --verify --quiet "refs/remotes/origin/$base"; then
+  base_ref="origin/$base"
+fi
+
+if git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+  commits_ahead=$(git rev-list --count "$base_ref..HEAD")
+  if [ "$commits_ahead" = "0" ]; then
+    git commit --allow-empty -m "Prepare backend v$version release"
+  fi
+else
+  echo "warning: could not resolve base ref '$base_ref'; skipping empty release marker check" >&2
+fi
+
 git push -u "$remote" "$branch"
+
+head_owner=$(remote_owner "$remote")
+head_ref="$branch"
+if [ -n "$head_owner" ] && [ "$head_owner" != "${repo%%/*}" ]; then
+  head_ref="$head_owner:$branch"
+fi
 
 gh pr create \
   --repo "$repo" \
   --base "$base" \
-  --head "$branch" \
+  --head "$head_ref" \
   --title "Release backend v$version" \
   --body "Prepares backend release $tag."
