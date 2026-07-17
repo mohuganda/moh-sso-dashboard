@@ -30,7 +30,7 @@ What those commands do:
 | --- | --- |
 | `make next-version BUMP=patch` | Prints the next backend SemVer from existing `backend/v*` tags. `BUMP` can be `patch`, `minor`, or `major`. |
 | `make release-check VERSION=1.2.3` | Runs local release verification: version consistency, formatting check, vet, tests, architecture test, release binary build, and binary metadata verification. Requires a clean worktree. |
-| `make release-pr VERSION=1.2.3` | Creates or checks out `release/backend-v1.2.3`, pushes it, and opens a GitHub release PR. |
+| `make release-pr VERSION=1.2.3` | Creates or checks out `release/backend-v1.2.3`, adds an empty release marker commit when the branch has no commits ahead of `main`, pushes it, and opens a GitHub release PR. |
 | `make release-dispatch VERSION=1.2.3` | Runs the one-shot `backend-release.yml` workflow manually. Use this when you intentionally do not need a release PR. |
 | `make release-status VERSION=1.2.3` | Shows the GitHub release, recent release workflows, and Docker image manifest when Docker is available. |
 | `make verify-image IMAGE=ghcr.io/mohuganda/moh-sso-dashboard-backend:1.2.3 VERSION=1.2.3 COMMIT=<sha>` | Runs the backend image with `--version` and checks the embedded metadata. |
@@ -51,6 +51,8 @@ make release-pr VERSION=1.2.3 REPO=my-org/my-fork BASE=main
 make release-pr VERSION=1.2.3 RELEASE_REMOTE=upstream
 make release-status VERSION=1.2.3 BACKEND_IMAGE=registry.example.go.ug/moh/backend
 ```
+
+When `RELEASE_REMOTE=origin` points to a fork, the helper opens the PR with a fork-qualified head such as `jabahum:release/backend-v1.2.3` against `mohuganda/moh-sso-dashboard`.
 
 ### Manual Commands
 
