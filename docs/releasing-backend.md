@@ -63,6 +63,8 @@ make release-dispatch VERSION=1.2.3
 
 Fork-based release PRs skip artifact provenance attestation, tag creation, GitHub Release publication, and release metadata upload because GitHub does not expose write-capable tokens or OIDC ID tokens to that workflow context. They still run formatting, vet, tests, architecture checks, version verification, SBOM generation, and checksums. Manual dispatch and direct tag releases still run the full release publication path.
 
+GitHub artifact attestations are controlled by `ENABLE_GITHUB_ARTIFACT_ATTESTATIONS` in the backend release workflows. It is currently disabled because GitHub returned `Feature not available for the mohuganda organization`. Keep checksums and SBOMs enabled; set `ENABLE_GITHUB_ARTIFACT_ATTESTATIONS=true` only after the repository/org supports GitHub artifact attestations.
+
 ### Manual Commands
 
 1. Pick the next backend SemVer.
