@@ -29,8 +29,22 @@ backend:
     ALLOWED_ORIGINS: "http://localhost:3000"
 
   secrets:
-    KEYCLOAK_ADMIN_CLIENT_SECRET: ""
-    KEYCLOAK_WEB_CLIENT_SECRET: ""
+    KEYCLOAK_ADMIN_CLIENT_SECRET: dashboard-admin-secret
+    KEYCLOAK_WEB_CLIENT_SECRET: dashboard-web-secret
+    TOKEN_SYMMETRIC_KEY: supersecretkey12345678901234567890
+
+  baseUrl: "http://localhost:9000"
+
+  storage:
+    provider: local
+    localBasePath: /data/uploads
+
+  notification:
+    adminDashboardUrl: http://localhost:3000/portal/admin/home
+
+  rbacStartupSync:
+    # Local Kubernetes should boot even while Keycloak/RBAC data is settling.
+    failOnError: false
 
   probes:
     readinessPath: /health/ready
@@ -44,10 +58,10 @@ backend:
   resources:
     requests:
       cpu: 200m
-      memory: 256Mi
+      memory: 512Mi
     limits:
       cpu: 1000m
-      memory: 1Gi
+      memory: 2Gi
 
   hpa:
     enabled: false

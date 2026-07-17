@@ -168,6 +168,12 @@ local-down:
 	@echo "🧯 Uninstalling local release..."
 	helm uninstall $(HELM_RELEASE) -n $(K8S_NAMESPACE) || true
 
+.PHONY: local-reset-data
+local-reset-data: local-down
+	@echo "⚠️  Deleting local persistent volumes in namespace $(K8S_NAMESPACE)..."
+	kubectl delete pvc --all -n $(K8S_NAMESPACE) || true
+	@echo "✅ Local persistent data reset. Run 'make local-up' to recreate the stack."
+
 .PHONY: local-restart
 local-restart:
 	@echo "🔄 Restarting backend & frontend..."

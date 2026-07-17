@@ -12,6 +12,8 @@ spec:
       app: {{ .Release.Name }}-backend
   template:
     metadata:
+      annotations:
+        checksum/backend-config: {{ include (print $.Template.BasePath "/backend-config.yaml") . | sha256sum }}
       labels:
         app: {{ .Release.Name }}-backend
         {{- include "moh-sso.labels" . | nindent 8 }}
@@ -94,8 +96,8 @@ spec:
 
       volumes:
         - name: app-config
-          configMap:
-            name: {{ .Release.Name }}-backend-config
+          secret:
+            secretName: {{ .Release.Name }}-backend-secret
             items:
               - key: app.env
                 path: app.env

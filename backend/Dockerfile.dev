@@ -1,5 +1,5 @@
 # Keep local development aligned with backend/go.mod.
-FROM golang:1.25.4-alpine
+FROM golang:1.25.4-alpine AS builder
 
 # Install necessary tools and CA utilities.
 # The 'ca-certificates' package is required for the Go application to trust the
@@ -16,10 +16,23 @@ RUN go mod download
 # Copy all source code
 COPY . .
 
+RUN go build -o /tmp/sso-server ./cmd/server
+
+# Runtime image used by local Kubernetes. Running a prebuilt binary avoids
+# compiling with `go run` inside the pod, which can exceed local memory limits.
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+COPY --from=builder /tmp/sso-server ./sso-server
+COPY --from=builder /app/internal/db/migrations ./internal/db/migrations
+COPY --from=builder /app/config ./config
+
+RUN mkdir -p /data/uploads
+
 # Expose backend port
 EXPOSE 9000
 
-# Use environment file if exists
-ENV $(cat app.env | xargs)
-# Start backend in dev mode
-CMD ["sh", "-c", "go run ./cmd/server"]
+CMD ["./sso-server"]

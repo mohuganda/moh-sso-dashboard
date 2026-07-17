@@ -56,10 +56,76 @@ backend:
   secrets:
     KEYCLOAK_ADMIN_CLIENT_SECRET: ""
     KEYCLOAK_WEB_CLIENT_SECRET: ""
+    TOKEN_SYMMETRIC_KEY: ""
 
   env:
     PORT: "9000"
     ALLOWED_ORIGINS: ""
+
+  remoteDatabase:
+    host: ""
+    port: "5432"
+    username: ""
+    password: ""
+    database: ""
+
+  dwhDatabase:
+    host: ""
+    port: "5432"
+    username: ""
+    password: ""
+    database: ""
+
+  storage:
+    provider: local
+    localBasePath: /data/uploads
+    nfsBasePath: /mnt/nfs/uploads
+    s3Region: us-east-1
+    s3Bucket: ""
+    s3AccessKeyId: ""
+    s3SecretAccessKey: ""
+    minioRegion: us-east-1
+    minioEndpoint: http://minio:9000
+    minioBucket: ""
+    minioAccessKeyId: ""
+    minioSecretAccessKey: ""
+
+  smtp:
+    host: mailhog
+    port: 1025
+    username: ""
+    password: ""
+    fromEmail: noreply@moh.go.ug
+    fromName: MOH Integrated Health Portal
+    connectTimeout: 10s
+    sendTimeout: 15s
+
+  email:
+    maxAttachments: 5
+    maxAttachmentBytes: 10485760
+    allowedAttachmentTypes: pdf,doc,docx,xls,xlsx,csv,png,jpg,jpeg
+
+  announcements:
+    maxAttachments: 10
+    maxAttachmentBytes: 10485760
+    allowedAttachmentTypes: pdf,doc,docx,xls,xlsx,csv,png,jpg,jpeg
+
+  notification:
+    platformName: MOH Integrated Health Portal
+    systemAdminEmail: admin@moh.go.ug
+    systemAdminName: System Administrator
+    adminDashboardUrl: ""
+
+  rbacStartupSync:
+    enabled: true
+    seedEnabled: true
+    seedPath: config/system-rbac.seed.yaml
+    realmExport: true
+    realmExportPath: ""
+    liveKeycloak: true
+    pushToKeycloak: true
+    syncUsers: true
+    failOnError: false
 
   sms:
     enabled: false
