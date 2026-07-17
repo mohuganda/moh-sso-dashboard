@@ -54,6 +54,8 @@ make release-status VERSION=1.2.3 BACKEND_IMAGE=registry.example.go.ug/moh/backe
 
 When `RELEASE_REMOTE=origin` points to a fork, the helper opens the PR with a fork-qualified head such as `jabahum:release/backend-v1.2.3` against `mohuganda/moh-sso-dashboard`.
 
+Fork-based release PRs skip the artifact provenance attestation step because GitHub does not expose OIDC ID tokens to that workflow context. The release still runs formatting, vet, tests, architecture checks, version verification, SBOM generation, checksums, tag creation, and GitHub Release creation. Manual dispatch and direct tag releases still run provenance attestation.
+
 ### Manual Commands
 
 1. Pick the next backend SemVer.

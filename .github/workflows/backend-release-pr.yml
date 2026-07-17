@@ -117,9 +117,17 @@ jobs:
           output-file: ./backend/dist/sbom.spdx.json
 
       - name: Attest release artifacts
+        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: backend/dist/moh-sso-dashboard-*
+
+      - name: Skip provenance attestation for fork release PR
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "Skipping provenance attestation because this release PR was opened from a fork."
+          echo "GitHub does not expose OIDC ID tokens to this workflow context."
+          echo "Manual dispatch and direct tag releases still run provenance attestation."
 
       - name: Create verified component tag
         shell: bash
