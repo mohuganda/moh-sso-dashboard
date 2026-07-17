@@ -24,7 +24,11 @@ if ! command -v gh >/dev/null 2>&1; then
 fi
 
 echo "GitHub release:"
-gh release view "$tag" --repo "$repo"
+if gh release view "$tag" --repo "$repo"; then
+  :
+else
+  echo "Release $tag has not been published yet."
+fi
 
 echo
 echo "Recent backend release workflow runs:"
@@ -37,7 +41,11 @@ gh run list --repo "$repo" --workflow backend-release-pr.yml --limit 5
 if command -v docker >/dev/null 2>&1; then
   echo
   echo "Docker image manifest:"
-  docker buildx imagetools inspect "$image:$version"
+  if docker buildx imagetools inspect "$image:$version"; then
+    :
+  else
+    echo "Image $image:$version is not available yet."
+  fi
 else
   echo
   echo "Docker CLI not found; skipping image manifest inspection."
