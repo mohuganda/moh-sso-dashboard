@@ -109,9 +109,13 @@ HELM_CHART = ./charts/moh-sso
 VALUES_LOCAL = charts/moh-sso/values-local.yaml
 VALUES_DEV = charts/moh-sso/values-dev.yaml
 VALUES_PROD = charts/moh-sso/values-prod.yaml
+HELM_OUT_DIR ?= dist/helm
+CHART_VERSION ?=
+APP_VERSION ?=
 
 BACKEND_IMAGE = moh-sso-dashboard-backend:local
 FRONTEND_IMAGE = moh-sso-dashboard-frontend:local
+KIND_CLUSTER ?= desktop
 
 .PHONY: local-namespace
 local-namespace:
@@ -119,22 +123,60 @@ local-namespace:
 	kubectl get namespace $(K8S_NAMESPACE) >/dev/null 2>&1 || kubectl create namespace $(K8S_NAMESPACE)
 
 .PHONY: local-build
-local-build:
-	@echo "🐳 Building backend (Dockerfile.dev) for arm64..."
+local-build: local-build-images local-load-images
+
+.PHONY: local-build-backend
+local-build-backend: local-build-backend-image local-load-backend-image
+
+.PHONY: local-build-backend-image
+local-build-backend-image:
+	@echo "🐳 Building backend (Dockerfile) for arm64..."
 	docker buildx build \
 		--platform linux/arm64 \
-		-f backend/Dockerfile.dev \
+		-f backend/Dockerfile \
 		-t $(BACKEND_IMAGE) \
 		--load \
 		./backend
+
+.PHONY: local-build-images
+local-build-images: local-build-backend-image
 	@echo "🐳 Building frontend (Dockerfile.dev) for arm64..."
 	docker buildx build \
 		--platform linux/arm64 \
-		-f frontend/Dockerfile.dev \
+		-f frontend/Dockerfile \
 		-t $(FRONTEND_IMAGE) \
 		--load \
 		./frontend
-	@echo "✅ Local arm64 images built and loaded into containerd"
+
+.PHONY: local-load-images
+local-load-images: local-load-backend-image
+	@if command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -qx "$(KIND_CLUSTER)"; then \
+		echo "📥 Loading frontend image into kind cluster '$(KIND_CLUSTER)'..."; \
+		kind load docker-image $(FRONTEND_IMAGE) --name $(KIND_CLUSTER); \
+	elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$(KIND_CLUSTER)-control-plane"; then \
+		echo "📥 Loading frontend image into Docker Desktop Kubernetes node '$(KIND_CLUSTER)-control-plane'..."; \
+		docker save $(FRONTEND_IMAGE) | docker exec -i $(KIND_CLUSTER)-control-plane ctr -n k8s.io images import -; \
+	else \
+		echo "ℹ️  Kubernetes node '$(KIND_CLUSTER)-control-plane' not detected. If pods show ErrImageNeverPull, install kind or load images manually:"; \
+		echo "   brew install kind"; \
+		echo "   kind load docker-image $(BACKEND_IMAGE) --name $(KIND_CLUSTER)"; \
+		echo "   kind load docker-image $(FRONTEND_IMAGE) --name $(KIND_CLUSTER)"; \
+	fi
+	@echo "✅ Local arm64 images loaded into containerd"
+
+.PHONY: local-load-backend-image
+local-load-backend-image:
+	@if command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -qx "$(KIND_CLUSTER)"; then \
+		echo "📥 Loading backend image into kind cluster '$(KIND_CLUSTER)'..."; \
+		kind load docker-image $(BACKEND_IMAGE) --name $(KIND_CLUSTER); \
+	elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$(KIND_CLUSTER)-control-plane"; then \
+		echo "📥 Loading backend image into Docker Desktop Kubernetes node '$(KIND_CLUSTER)-control-plane'..."; \
+		docker save $(BACKEND_IMAGE) | docker exec -i $(KIND_CLUSTER)-control-plane ctr -n k8s.io images import -; \
+	else \
+		echo "Kubernetes node '$(KIND_CLUSTER)-control-plane' was not detected."; \
+		exit 1; \
+	fi
+	@echo "✅ Local backend image loaded into containerd"
 
 
 .PHONY: local-up
@@ -149,6 +191,58 @@ local-up: local-namespace
 local-down:
 	@echo "🧯 Uninstalling local release..."
 	helm uninstall $(HELM_RELEASE) -n $(K8S_NAMESPACE) || true
+
+.PHONY: local-reset-data
+local-reset-data: local-down
+	@echo "⏳ Waiting for local release pods to release persistent volumes..."
+	kubectl wait --for=delete pod -l app.kubernetes.io/instance=$(HELM_RELEASE) -n $(K8S_NAMESPACE) --timeout=120s || true
+	@echo "⚠️ Deleting persistent volumes owned by release $(HELM_RELEASE)..."
+	kubectl delete pvc -l app.kubernetes.io/instance=$(HELM_RELEASE) -n $(K8S_NAMESPACE) --ignore-not-found=true
+	kubectl delete pvc $(HELM_RELEASE)-postgres-app-pvc $(HELM_RELEASE)-postgres-keycloak-pvc -n $(K8S_NAMESPACE) --ignore-not-found=true
+	@echo "🔎 Remaining PVCs in $(K8S_NAMESPACE):"
+	kubectl get pvc -n $(K8S_NAMESPACE) || true
+	@echo "✅ Local release data reset. Run 'make local-up' to recreate the stack."
+
+.PHONY: local-db-migration-status
+local-db-migration-status:
+	@echo "🧾 Current local app DB migration state..."
+	kubectl exec -n $(K8S_NAMESPACE) statefulset/$(HELM_RELEASE)-postgres-app -- \
+		sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "SELECT * FROM schema_migrations;"'
+
+.PHONY: local-db-repair-dirty-10
+local-db-repair-dirty-10:
+	@state=$$(kubectl exec -n $(K8S_NAMESPACE) statefulset/$(HELM_RELEASE)-postgres-app -- \
+		sh -c 'psql -At -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "SELECT version::text || chr(58) || dirty::text FROM schema_migrations;"'); \
+	if [ "$$state" != "10:true" ]; then \
+		echo "Refusing repair: expected migration state 10:true, found $$state" >&2; \
+		exit 1; \
+	fi
+	@echo "🛑 Scaling backend down before repairing migration state..."
+	kubectl scale deployment/$(HELM_RELEASE)-backend -n $(K8S_NAMESPACE) --replicas=0 || true
+	kubectl wait --for=delete pod -l app=$(HELM_RELEASE)-backend -n $(K8S_NAMESPACE) --timeout=120s || true
+	@echo "🧹 Repairing dirty migration 10 in local app DB..."
+	kubectl exec -n $(K8S_NAMESPACE) statefulset/$(HELM_RELEASE)-postgres-app -- \
+		sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" \
+			-c "DROP TABLE IF EXISTS facilities;" \
+			-c "UPDATE schema_migrations SET version = 9, dirty = false WHERE version = 10 AND dirty = true;" \
+			-c "SELECT * FROM schema_migrations;"'
+	@echo "▶️ Scaling backend back up so migration 10 can rerun cleanly..."
+	kubectl scale deployment/$(HELM_RELEASE)-backend -n $(K8S_NAMESPACE) --replicas=1
+
+.PHONY: local-migration-logs
+local-migration-logs:
+	@MIGRATION_POD=$$(kubectl get pods -n $(K8S_NAMESPACE) -l app=$(HELM_RELEASE)-backend -o jsonpath='{.items[0].metadata.name}'); \
+	if [ -z "$$MIGRATION_POD" ]; then \
+		echo "No backend pod found in $(K8S_NAMESPACE)."; \
+		exit 1; \
+	fi; \
+	echo "Migration logs from $$MIGRATION_POD:"; \
+	kubectl logs -n $(K8S_NAMESPACE) "$$MIGRATION_POD" -c migrate-database
+
+.PHONY: local-migration-status
+local-migration-status:
+	@kubectl get pods -n $(K8S_NAMESPACE) -l app=$(HELM_RELEASE)-backend
+	@kubectl get pods -n $(K8S_NAMESPACE) -l app=$(HELM_RELEASE)-backend -o jsonpath='{range .items[*].status.initContainerStatuses[*]}{.name}{"\t"}{.state}{"\n"}{end}'
 
 .PHONY: local-restart
 local-restart:
@@ -188,6 +282,11 @@ helm-lint:
 	@echo "🔎 Linting Helm chart..."
 	helm lint $(HELM_CHART)
 
+.PHONY: helm-template
+helm-template:
+	@echo "🧾 Rendering base Helm values..."
+	helm template $(HELM_RELEASE) $(HELM_CHART)
+
 .PHONY: helm-template-local
 helm-template-local:
 	@echo "🧾 Rendering local Helm values..."
@@ -208,12 +307,30 @@ helm-template-prod:
 		--set frontend.image.tag=$(FRONTEND_TAG)
 
 .PHONY: helm-check
-helm-check: helm-lint helm-template-local helm-template-dev
+helm-check: helm-lint helm-template helm-template-local helm-template-dev
 	@echo "✅ Helm chart checks passed"
 
 .PHONY: helm-check-prod
 helm-check-prod: helm-lint helm-template-prod
 	@echo "✅ Helm production chart checks passed"
+
+.PHONY: helm-package
+helm-package:
+	@test -n "$(BACKEND_TAG)" || (echo "BACKEND_TAG is required for helm-package" && exit 1)
+	@test -n "$(FRONTEND_TAG)" || (echo "FRONTEND_TAG is required for helm-package" && exit 1)
+	@echo "📦 Packaging Helm chart..."
+	BACKEND_TAG="$(BACKEND_TAG)" \
+	FRONTEND_TAG="$(FRONTEND_TAG)" \
+	CHART_VERSION="$(CHART_VERSION)" \
+	APP_VERSION="$(APP_VERSION)" \
+	HELM_RELEASE="$(HELM_RELEASE)" \
+	HELM_OUT_DIR="$(HELM_OUT_DIR)" \
+	CHART_DIR="$(HELM_CHART)" \
+	./scripts/package-helm-chart.sh
+
+.PHONY: helm-package-check
+helm-package-check: helm-package
+	@echo "✅ Helm chart package checks passed"
 
 # -----------------------------
 # Kubernetes DEV (Cluster)

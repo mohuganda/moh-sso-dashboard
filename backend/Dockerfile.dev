@@ -1,25 +1,20 @@
 # Keep local development aligned with backend/go.mod.
 FROM golang:1.25.4-alpine
 
-# Install necessary tools and CA utilities.
-# The 'ca-certificates' package is required for the Go application to trust the
-# mounted Keycloak certificate over HTTPS connections.
-RUN apk add --no-cache git bash ca-certificates
+RUN apk add --no-cache git bash ca-certificates tzdata
 
-# Set working directory
 WORKDIR /app
 
-# Copy go.mod and go.sum first (for caching dependencies)
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy all source code
+# Air is used only in the compose development image for hot reload.
+RUN go install github.com/air-verse/air@latest
+
 COPY . .
 
-# Expose backend port
+RUN mkdir -p /data/uploads tmp
+
 EXPOSE 9000
 
-# Use environment file if exists
-ENV $(cat app.env | xargs)
-# Start backend in dev mode
-CMD ["sh", "-c", "go run ./cmd/server"]
+CMD ["air", "-c", ".air.toml"]

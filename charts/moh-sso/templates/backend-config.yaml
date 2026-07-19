@@ -10,6 +10,7 @@ data:
   GIN_MODE: {{ include "moh-sso.ginMode" . | quote }}
 
   FRONTEND_BASE_URL: {{ include "moh-sso.frontend.baseUrl" . | quote }}
+  API_BASE_URL: {{ include "moh-sso.backend.publicUrl" . | quote }}
   LOGIN_URL: {{ include "moh-sso.keycloak.loginRedirectUri" . | quote }}
 
 
@@ -18,6 +19,7 @@ data:
   # --------------------------------------------------
   KEYCLOAK_EXTERNAL_URL: {{ include "moh-sso.keycloakPublicURL" . | quote }}
   KEYCLOAK_BASE_URL: {{ include "moh-sso.keycloak.baseUrl" . | quote }}
+  KEYCLOAK_INTERNAL_URL: {{ include "moh-sso.keycloak.baseUrl" . | quote }}
   KEYCLOAK_REALM: {{ include "moh-sso.keycloak.realm" . | quote }}
 
   KEYCLOAK_ADMIN_CLIENT_ID: "dashboard-admin"
@@ -28,6 +30,20 @@ data:
   # Server
   # --------------------------------------------------
   SERVER_PORT: {{ .Values.backend.service.port | quote }}
+  APP_BASE_URL: {{ include "moh-sso.backend.baseUrl" . | quote }}
+
+  # --------------------------------------------------
+  # RBAC startup sync
+  # --------------------------------------------------
+  RBAC_STARTUP_SYNC_ENABLED: {{ .Values.backend.rbacStartupSync.enabled | quote }}
+  RBAC_STARTUP_SEED_ENABLED: {{ .Values.backend.rbacStartupSync.seedEnabled | quote }}
+  RBAC_STARTUP_SEED_PATH: {{ .Values.backend.rbacStartupSync.seedPath | quote }}
+  RBAC_STARTUP_SYNC_REALM_EXPORT: {{ .Values.backend.rbacStartupSync.realmExport | quote }}
+  RBAC_STARTUP_SYNC_REALM_EXPORT_PATH: {{ .Values.backend.rbacStartupSync.realmExportPath | quote }}
+  RBAC_STARTUP_SYNC_LIVE_KEYCLOAK: {{ .Values.backend.rbacStartupSync.liveKeycloak | quote }}
+  RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK: {{ .Values.backend.rbacStartupSync.pushToKeycloak | quote }}
+  RBAC_STARTUP_SYNC_USERS: {{ .Values.backend.rbacStartupSync.syncUsers | quote }}
+  RBAC_STARTUP_SYNC_FAIL_ON_ERROR: {{ .Values.backend.rbacStartupSync.failOnError | quote }}
 
   # --------------------------------------------------
   # Database
@@ -36,15 +52,25 @@ data:
   DB_HOST: {{ printf "%s-postgres-app" .Release.Name | quote }}
   DB_PORT: "5432"
   DB_NAME: {{ .Values.postgresApp.auth.database | quote }}
-  DB_USER: {{ .Values.postgresApp.auth.username }}
-  DB_PASSWORD: {{ .Values.postgresApp.auth.password }}
+  DB_USER: {{ .Values.postgresApp.auth.username | quote }}
   DB_ENABLE_SSL: "false"
+
+  REMOTE_DB_HOST: {{ .Values.backend.remoteDatabase.host | default (printf "%s-postgres-app" .Release.Name) | quote }}
+  REMOTE_DB_PORT: {{ .Values.backend.remoteDatabase.port | default "5432" | quote }}
+  REMOTE_DB_USER: {{ .Values.backend.remoteDatabase.username | default .Values.postgresApp.auth.username | quote }}
+  REMOTE_DB_NAME: {{ .Values.backend.remoteDatabase.database | default .Values.postgresApp.auth.database | quote }}
+
+  DWH_HOST: {{ .Values.backend.dwhDatabase.host | default (printf "%s-postgres-app" .Release.Name) | quote }}
+  DWH_PORT: {{ .Values.backend.dwhDatabase.port | default "5432" | quote }}
+  DWH_USERNAME: {{ .Values.backend.dwhDatabase.username | default .Values.postgresApp.auth.username | quote }}
+  DWH_DB: {{ .Values.backend.dwhDatabase.database | default .Values.postgresApp.auth.database | quote }}
 
   # --------------------------------------------------
   # Redis
   # --------------------------------------------------
   REDIS_HOST: {{ printf "%s-redis" .Release.Name | quote }}
   REDIS_PORT: "6379"
+  REDIS_PASSWORD: {{ .Values.redis.auth.password | default "" | quote }}
 
   # --------------------------------------------------
   # Token Settings
@@ -53,6 +79,44 @@ data:
   REFRESH_TOKEN_DURATION: "720h"
 
   ENABLE_TLS: "false"
+  TLS_CERT: "/app/certs/server.crt"
+  TLS_KEY: "/app/certs/server.key"
+  TLS_KEYCLOAK_CA_CERT_PATH: "/usr/local/share/ca-certificates/keycloak.crt"
+
+  # --------------------------------------------------
+  # Storage
+  # --------------------------------------------------
+  STORAGE_PROVIDER: {{ .Values.backend.storage.provider | quote }}
+  LOCAL_BASE_PATH: {{ .Values.backend.storage.localBasePath | quote }}
+  NFS_BASE_PATH: {{ .Values.backend.storage.nfsBasePath | quote }}
+  S3_REGION: {{ .Values.backend.storage.s3Region | quote }}
+  S3_BUCKET: {{ .Values.backend.storage.s3Bucket | quote }}
+  MINIO_REGION: {{ .Values.backend.storage.minioRegion | quote }}
+  MINIO_ENDPOINT: {{ .Values.backend.storage.minioEndpoint | quote }}
+  MINIO_BUCKET: {{ .Values.backend.storage.minioBucket | quote }}
+
+  # --------------------------------------------------
+  # SMTP / notifications
+  # --------------------------------------------------
+  SMTP_HOST: {{ .Values.backend.smtp.host | quote }}
+  SMTP_PORT: {{ .Values.backend.smtp.port | quote }}
+  SMTP_USERNAME: {{ .Values.backend.smtp.username | quote }}
+  SMTP_FROM_EMAIL: {{ .Values.backend.smtp.fromEmail | quote }}
+  SMTP_FROM_NAME: {{ .Values.backend.smtp.fromName | quote }}
+  SMTP_CONNECT_TIMEOUT: {{ .Values.backend.smtp.connectTimeout | quote }}
+  SMTP_SEND_TIMEOUT: {{ .Values.backend.smtp.sendTimeout | quote }}
+  EMAIL_MAX_ATTACHMENTS: {{ .Values.backend.email.maxAttachments | quote }}
+  EMAIL_MAX_ATTACHMENT_BYTES: {{ .Values.backend.email.maxAttachmentBytes | int64 | quote }}
+  EMAIL_ALLOWED_ATTACHMENT_TYPES: {{ .Values.backend.email.allowedAttachmentTypes | quote }}
+  ANNOUNCEMENT_MAX_ATTACHMENTS: {{ .Values.backend.announcements.maxAttachments | quote }}
+  ANNOUNCEMENT_MAX_ATTACHMENT_BYTES: {{ .Values.backend.announcements.maxAttachmentBytes | int64 | quote }}
+  ANNOUNCEMENT_ALLOWED_ATTACHMENT_TYPES: {{ .Values.backend.announcements.allowedAttachmentTypes | quote }}
+  RETRY_MAX_ATTEMPTS: "3"
+  RETRY_BASE_DELAY: "2s"
+  PLATFORM_NAME: {{ .Values.backend.notification.platformName | quote }}
+  SYSTEM_ADMIN_EMAIL: {{ .Values.backend.notification.systemAdminEmail | quote }}
+  SYSTEM_ADMIN_NAME: {{ .Values.backend.notification.systemAdminName | quote }}
+  ADMIN_DASHBOARD_URL: {{ .Values.backend.notification.adminDashboardUrl | default (printf "%s/portal/admin/home" (include "moh-sso.frontend.baseUrl" . | trimSuffix "/")) | quote }}
 
   # --------------------------------------------------
   # SMS
@@ -70,30 +134,64 @@ data:
   AFRICASTALKING_API_KEY: {{ .Values.backend.sms.africasTalkingApiKey | quote }}
   AFRICASTALKING_SENDER_ID: {{ .Values.backend.sms.africasTalkingSenderId | quote }}
   TWILIO_ACCOUNT_SID: {{ .Values.backend.sms.twilioAccountSid | quote }}
-  TWILIO_AUTH_TOKEN: {{ .Values.backend.sms.twilioAuthToken | quote }}
   TWILIO_FROM_NUMBER: {{ .Values.backend.sms.twilioFromNumber | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-backend-secret
+  labels:
+    {{- include "moh-sso.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  TOKEN_SYMMETRIC_KEY: {{ .Values.backend.secrets.TOKEN_SYMMETRIC_KEY | default "supersecretkey12345678901234567890" | quote }}
+  KEYCLOAK_ADMIN_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_ADMIN_CLIENT_SECRET | quote }}
+  KEYCLOAK_WEB_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_WEB_CLIENT_SECRET | quote }}
 
-  # --------------------------------------------------
-  # app.env (Flat file format)
-  # --------------------------------------------------
+  DB_USER: {{ .Values.postgresApp.auth.username | quote }}
+  DB_PASSWORD: {{ .Values.postgresApp.auth.password | quote }}
+  REMOTE_DB_PASSWORD: {{ .Values.backend.remoteDatabase.password | default .Values.postgresApp.auth.password | quote }}
+  DWH_PASSWORD: {{ .Values.backend.dwhDatabase.password | default .Values.postgresApp.auth.password | quote }}
+  SMTP_PASSWORD: {{ .Values.backend.smtp.password | quote }}
+  S3_ACCESS_KEY_ID: {{ .Values.backend.storage.s3AccessKeyId | quote }}
+  S3_SECRET_ACCESS_KEY: {{ .Values.backend.storage.s3SecretAccessKey | quote }}
+  MINIO_ACCESS_KEY_ID: {{ .Values.backend.storage.minioAccessKeyId | quote }}
+  MINIO_SECRET_ACCESS_KEY: {{ .Values.backend.storage.minioSecretAccessKey | quote }}
+  TWILIO_AUTH_TOKEN: {{ .Values.backend.sms.twilioAuthToken | quote }}
+
+  # The backend loads config.LoadConfig(".") and expects /app/app.env.
+  # Keep this file complete so Kubernetes startup matches Docker/Compose startup.
   app.env: |
     ENVIRONMENT={{ include "moh-sso.environment" . }}
     GIN_MODE={{ include "moh-sso.ginMode" . }}
-
     FRONTEND_BASE_URL={{ include "moh-sso.frontend.baseUrl" . }}
-
+    FRONTEND_REDIRECT_URI={{ include "moh-sso.frontend.baseUrl" . }}
+    API_BASE_URL={{ include "moh-sso.backend.publicUrl" . }}
     LOGIN_URL={{ include "moh-sso.keycloak.loginRedirectUri" . }}
-
+    COOKIE_DOMAIN=
 
     KEYCLOAK_EXTERNAL_URL={{ include "moh-sso.keycloakPublicURL" . }}
     KEYCLOAK_BASE_URL={{ include "moh-sso.keycloak.baseUrl" . }}
+    KEYCLOAK_INTERNAL_URL={{ include "moh-sso.keycloak.baseUrl" . }}
     KEYCLOAK_REALM={{ include "moh-sso.keycloak.realm" . }}
-
     KEYCLOAK_ADMIN_CLIENT_ID=dashboard-admin
+    KEYCLOAK_ADMIN_CLIENT_SECRET={{ .Values.backend.secrets.KEYCLOAK_ADMIN_CLIENT_SECRET }}
     KEYCLOAK_WEB_CLIENT_ID=dashboard-web
+    KEYCLOAK_WEB_CLIENT_SECRET={{ .Values.backend.secrets.KEYCLOAK_WEB_CLIENT_SECRET }}
     KEYCLOAK_REDIRECT_URI={{ include "moh-sso.keycloak.redirectUri" . }}
 
     SERVER_PORT={{ .Values.backend.service.port }}
+    APP_BASE_URL={{ include "moh-sso.backend.baseUrl" . }}
+
+    RBAC_STARTUP_SYNC_ENABLED={{ .Values.backend.rbacStartupSync.enabled }}
+    RBAC_STARTUP_SEED_ENABLED={{ .Values.backend.rbacStartupSync.seedEnabled }}
+    RBAC_STARTUP_SEED_PATH={{ .Values.backend.rbacStartupSync.seedPath }}
+    RBAC_STARTUP_SYNC_REALM_EXPORT={{ .Values.backend.rbacStartupSync.realmExport }}
+    RBAC_STARTUP_SYNC_REALM_EXPORT_PATH={{ .Values.backend.rbacStartupSync.realmExportPath }}
+    RBAC_STARTUP_SYNC_LIVE_KEYCLOAK={{ .Values.backend.rbacStartupSync.liveKeycloak }}
+    RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK={{ .Values.backend.rbacStartupSync.pushToKeycloak }}
+    RBAC_STARTUP_SYNC_USERS={{ .Values.backend.rbacStartupSync.syncUsers }}
+    RBAC_STARTUP_SYNC_FAIL_ON_ERROR={{ .Values.backend.rbacStartupSync.failOnError }}
 
     DB_DRIVER=postgres
     DB_HOST={{ printf "%s-postgres-app" .Release.Name }}
@@ -103,13 +201,58 @@ data:
     DB_PASSWORD={{ .Values.postgresApp.auth.password }}
     DB_ENABLE_SSL=false
 
+    REMOTE_DB_HOST={{ .Values.backend.remoteDatabase.host | default (printf "%s-postgres-app" .Release.Name) }}
+    REMOTE_DB_PORT={{ .Values.backend.remoteDatabase.port | default "5432" }}
+    REMOTE_DB_USER={{ .Values.backend.remoteDatabase.username | default .Values.postgresApp.auth.username }}
+    REMOTE_DB_PASSWORD={{ .Values.backend.remoteDatabase.password | default .Values.postgresApp.auth.password }}
+    REMOTE_DB_NAME={{ .Values.backend.remoteDatabase.database | default .Values.postgresApp.auth.database }}
+
+    DWH_HOST={{ .Values.backend.dwhDatabase.host | default (printf "%s-postgres-app" .Release.Name) }}
+    DWH_PORT={{ .Values.backend.dwhDatabase.port | default "5432" }}
+    DWH_USERNAME={{ .Values.backend.dwhDatabase.username | default .Values.postgresApp.auth.username }}
+    DWH_PASSWORD={{ .Values.backend.dwhDatabase.password | default .Values.postgresApp.auth.password }}
+    DWH_DB={{ .Values.backend.dwhDatabase.database | default .Values.postgresApp.auth.database }}
+
     REDIS_HOST={{ printf "%s-redis" .Release.Name }}
     REDIS_PORT=6379
+    REDIS_PASSWORD={{ .Values.redis.auth.password | default "" }}
 
+    TOKEN_SYMMETRIC_KEY={{ .Values.backend.secrets.TOKEN_SYMMETRIC_KEY | default "supersecretkey12345678901234567890" }}
     ACCESS_TOKEN_DURATION=15m
     REFRESH_TOKEN_DURATION=720h
 
     ENABLE_TLS=false
+    TLS_CERT=/app/certs/server.crt
+    TLS_KEY=/app/certs/server.key
+    TLS_KEYCLOAK_CA_CERT_PATH=/usr/local/share/ca-certificates/keycloak.crt
+
+    STORAGE_PROVIDER={{ .Values.backend.storage.provider }}
+    LOCAL_BASE_PATH={{ .Values.backend.storage.localBasePath }}
+    NFS_BASE_PATH={{ .Values.backend.storage.nfsBasePath }}
+    S3_REGION={{ .Values.backend.storage.s3Region }}
+    S3_BUCKET={{ .Values.backend.storage.s3Bucket }}
+    S3_ACCESS_KEY_ID={{ .Values.backend.storage.s3AccessKeyId }}
+    S3_SECRET_ACCESS_KEY={{ .Values.backend.storage.s3SecretAccessKey }}
+    MINIO_REGION={{ .Values.backend.storage.minioRegion }}
+    MINIO_ENDPOINT={{ .Values.backend.storage.minioEndpoint }}
+    MINIO_BUCKET={{ .Values.backend.storage.minioBucket }}
+    MINIO_ACCESS_KEY_ID={{ .Values.backend.storage.minioAccessKeyId }}
+    MINIO_SECRET_ACCESS_KEY={{ .Values.backend.storage.minioSecretAccessKey }}
+
+    SMTP_HOST={{ .Values.backend.smtp.host }}
+    SMTP_PORT={{ .Values.backend.smtp.port }}
+    SMTP_USERNAME={{ .Values.backend.smtp.username }}
+    SMTP_PASSWORD={{ .Values.backend.smtp.password }}
+    SMTP_FROM_EMAIL={{ .Values.backend.smtp.fromEmail }}
+    SMTP_FROM_NAME={{ .Values.backend.smtp.fromName }}
+    SMTP_CONNECT_TIMEOUT={{ .Values.backend.smtp.connectTimeout }}
+    SMTP_SEND_TIMEOUT={{ .Values.backend.smtp.sendTimeout }}
+    EMAIL_MAX_ATTACHMENTS={{ .Values.backend.email.maxAttachments }}
+    EMAIL_MAX_ATTACHMENT_BYTES={{ .Values.backend.email.maxAttachmentBytes | int64 }}
+    EMAIL_ALLOWED_ATTACHMENT_TYPES={{ .Values.backend.email.allowedAttachmentTypes }}
+    ANNOUNCEMENT_MAX_ATTACHMENTS={{ .Values.backend.announcements.maxAttachments }}
+    ANNOUNCEMENT_MAX_ATTACHMENT_BYTES={{ .Values.backend.announcements.maxAttachmentBytes | int64 }}
+    ANNOUNCEMENT_ALLOWED_ATTACHMENT_TYPES={{ .Values.backend.announcements.allowedAttachmentTypes }}
 
     SMS_ENABLED={{ .Values.backend.sms.enabled }}
     SMS_PROVIDER={{ .Values.backend.sms.provider }}
@@ -126,18 +269,11 @@ data:
     TWILIO_ACCOUNT_SID={{ .Values.backend.sms.twilioAccountSid }}
     TWILIO_AUTH_TOKEN={{ .Values.backend.sms.twilioAuthToken }}
     TWILIO_FROM_NUMBER={{ .Values.backend.sms.twilioFromNumber }}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ .Release.Name }}-backend-secret
-  labels:
-    {{- include "moh-sso.labels" . | nindent 4 }}
-type: Opaque
-stringData:
-  KEYCLOAK_ADMIN_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_ADMIN_CLIENT_SECRET | quote }}
-  KEYCLOAK_WEB_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_WEB_CLIENT_SECRET | quote }}
 
-  DB_USER: {{ .Values.postgresApp.auth.username | quote }}
-  DB_PASSWORD: {{ .Values.postgresApp.auth.password | quote }}
+    RETRY_MAX_ATTEMPTS=3
+    RETRY_BASE_DELAY=2s
+    PLATFORM_NAME={{ .Values.backend.notification.platformName }}
+    SYSTEM_ADMIN_EMAIL={{ .Values.backend.notification.systemAdminEmail }}
+    SYSTEM_ADMIN_NAME={{ .Values.backend.notification.systemAdminName }}
+    ADMIN_DASHBOARD_URL={{ .Values.backend.notification.adminDashboardUrl | default (printf "%s/portal/admin/home" (include "moh-sso.frontend.baseUrl" . | trimSuffix "/")) }}
 {{- end }}

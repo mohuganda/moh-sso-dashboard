@@ -152,7 +152,9 @@ services:
       - "9000:9000"
     volumes:
       - ./backend:/app
-    command: sh -c "go run ./cmd/server"
+      - go_mod_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
+    command: air -c .air.toml
     depends_on:
       - backend-db
       - redis
@@ -223,6 +225,8 @@ volumes:
   keycloak_data:
   backend_data:
   remote_pg_data:
+  go_mod_cache:
+  go_build_cache:
 
 # --------------------------------------------------
 # Network

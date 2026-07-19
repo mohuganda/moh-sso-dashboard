@@ -221,9 +221,12 @@ make helm-lint
 make helm-check
 make helm-check-prod BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
 make helm-template-prod BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
+make helm-package BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3
 ```
 
 These commands keep Helm changes easy to track locally and mirror the checks used in CI.
+
+Packaged chart deployment is documented in [`docs/helm-packaging.md`](docs/helm-packaging.md).
 
 ### Local M1 Helm Smoke Test
 
@@ -253,6 +256,46 @@ This path is useful for confirming that:
 - arm64 local images build on M1
 - the full local stack starts cleanly
 - backend runtime metadata is reachable after deployment
+
+### Local Database Migrations
+
+The Helm deployment runs application migrations in the backend pod's
+`migrate-database` init container before starting the API. This keeps a schema
+failure separate from API, Redis, and Keycloak startup failures.
+
+Inspect migration state and logs with:
+
+```bash
+make local-migration-status
+make local-migration-logs
+make local-db-migration-status
+```
+
+If a previous interrupted local run left migration 10 dirty, use the scoped
+local repair after rebuilding and loading the corrected backend image, then
+inspect the migration container:
+
+```bash
+make local-build-backend
+make local-db-repair-dirty-10
+make local-migration-logs
+```
+
+The repair command refuses to run unless the current state is exactly
+`version=10, dirty=true`; it will not drop a healthy facilities table.
+
+For a completely fresh local stack, remove only this Helm release's persistent
+data and redeploy:
+
+```bash
+make local-reset-data
+make local-build
+make local-up
+```
+
+`local-reset-data` is destructive and must never be used against a production
+namespace. In production, back up PostgreSQL and investigate the failed SQL
+before repairing `schema_migrations`.
 
 ## Backend Documentation
 

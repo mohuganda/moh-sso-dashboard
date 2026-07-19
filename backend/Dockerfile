@@ -3,8 +3,10 @@
 # ======================
 FROM --platform=$BUILDPLATFORM golang:1.25.4-alpine AS builder
 
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+# BuildKit supplies these from --platform. Do not provide defaults here: a
+# default TARGETARCH=amd64 silently creates an amd64 binary in an arm64 image.
+ARG TARGETOS
+ARG TARGETARCH
 ARG VERSION=dev
 ARG COMMIT=none
 ARG BUILD_TIME=unknown
@@ -22,10 +24,10 @@ COPY . .
 RUN GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build \
   -trimpath \
   -ldflags="-s -w \
-    -X 'github.com/moh-sso-dashboard/internal/version.Version=${VERSION}' \
-    -X 'github.com/moh-sso-dashboard/internal/version.Commit=${COMMIT}' \
-    -X 'github.com/moh-sso-dashboard/internal/version.BuildTime=${BUILD_TIME}' \
-    -X 'github.com/moh-sso-dashboard/internal/version.Dirty=${DIRTY}'" \
+  -X 'github.com/moh-sso-dashboard/internal/version.Version=${VERSION}' \
+  -X 'github.com/moh-sso-dashboard/internal/version.Commit=${COMMIT}' \
+  -X 'github.com/moh-sso-dashboard/internal/version.BuildTime=${BUILD_TIME}' \
+  -X 'github.com/moh-sso-dashboard/internal/version.Dirty=${DIRTY}'" \
   -o sso-server ./cmd/server
 
 # ======================
@@ -51,6 +53,11 @@ WORKDIR /app
 COPY --from=builder /app/internal/db/migrations ./internal/db/migrations
 COPY --from=builder /app/config ./config
 COPY --from=builder /app/sso-server ./sso-server
+
+# Fail the image build if the runtime migration set is incomplete.
+RUN test -f ./internal/db/migrations/000001_initial_schema.up.sql \
+  && test -f ./internal/db/migrations/000010_create_schema_facilities.up.sql \
+  && test -f ./internal/db/migrations/000039_add_announcement_group_audience.up.sql
 
 RUN adduser -D appuser
 USER appuser

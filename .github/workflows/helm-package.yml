@@ -1,0 +1,69 @@
+name: Helm Package
+
+on:
+  pull_request:
+    paths:
+      - "charts/moh-sso/**"
+      - "scripts/package-helm-chart.sh"
+      - "Makefile"
+      - ".github/workflows/helm-package.yml"
+  push:
+    branches: [main]
+    paths:
+      - "charts/moh-sso/**"
+      - "scripts/package-helm-chart.sh"
+      - "Makefile"
+      - ".github/workflows/helm-package.yml"
+  workflow_dispatch:
+    inputs:
+      chart_version:
+        description: Optional chart SemVer override, for example 0.1.1
+        required: false
+        type: string
+      app_version:
+        description: Optional application version override, for example 1.2.3
+        required: false
+        type: string
+      backend_tag:
+        description: Immutable backend image tag used for production template validation
+        required: true
+        default: "1.2.3"
+        type: string
+      frontend_tag:
+        description: Immutable frontend image tag used for production template validation
+        required: true
+        default: "1.2.3"
+        type: string
+
+jobs:
+  package:
+    name: Lint, template, and package chart
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.0
+
+      - name: Package chart
+        env:
+          BACKEND_TAG: ${{ inputs.backend_tag || '1.2.3' }}
+          FRONTEND_TAG: ${{ inputs.frontend_tag || '1.2.3' }}
+          CHART_VERSION: ${{ inputs.chart_version || '' }}
+          APP_VERSION: ${{ inputs.app_version || '' }}
+        run: ./scripts/package-helm-chart.sh
+
+      - name: Upload chart package
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart-package
+          path: |
+            dist/helm/*.tgz
+            dist/helm/checksums.txt
+          if-no-files-found: error

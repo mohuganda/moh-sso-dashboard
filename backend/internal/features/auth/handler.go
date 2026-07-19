@@ -679,7 +679,7 @@ func (h *Handler) redirectAfterLogin(accessToken string) string {
 	)
 
 	if isAdmin {
-		redirectURL := baseURL + "/admin/home"
+		redirectURL := baseURL + "/portal/admin/home"
 
 		log.Printf(
 			"[AUTH REDIRECT] admin role matched, redirecting to %q",
@@ -690,7 +690,7 @@ func (h *Handler) redirectAfterLogin(accessToken string) string {
 	}
 
 	if isUser {
-		redirectURL := baseURL + "/apps/news"
+		redirectURL := baseURL + "/portal/apps/news"
 
 		log.Printf(
 			"[AUTH REDIRECT] user role matched, redirecting to %q",

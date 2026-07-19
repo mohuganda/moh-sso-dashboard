@@ -39,11 +39,13 @@ func (logger *Logger) Error(args ...interface{}) {
 }
 
 func (logger *Logger) Fatal(args ...interface{}) {
-	logger.Print(zerolog.FatalLevel, args...)
+	log.Fatal().Msg(fmt.Sprint(args...))
 }
+
 func (logger *Logger) Panic(args ...interface{}) {
-	logger.Print(zerolog.PanicLevel, args...)
+	log.Panic().Msg(fmt.Sprint(args...))
 }
+
 func (logger *Logger) Trace(args ...interface{}) {
 	logger.Print(zerolog.TraceLevel, args...)
 }

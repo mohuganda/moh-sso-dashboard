@@ -7,7 +7,7 @@ export function ForbiddenPage() {
       <Tile>
         <h1>Access denied</h1>
         <p>You do not have permission to open this area.</p>
-        <Button as={Link} to="/apps/news" kind="primary">
+        <Button as={Link} to="/portal/apps/news" kind="primary">
           Back to portal
         </Button>
       </Tile>

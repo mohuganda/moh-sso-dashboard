@@ -12,6 +12,8 @@ spec:
       app: {{ .Release.Name }}-backend
   template:
     metadata:
+      annotations:
+        checksum/backend-config: {{ include (print $.Template.BasePath "/backend-config.yaml") . | sha256sum }}
       labels:
         app: {{ .Release.Name }}-backend
         {{- include "moh-sso.labels" . | nindent 8 }}
@@ -36,15 +38,36 @@ spec:
               done
               echo "Database is ready!"
 
-        # 2. Wait for Keycloak (checking the Management Port 9000)
+        {{- if .Values.backend.migrations.enabled }}
+        # Apply schema migrations before the API, Redis, or Keycloak clients
+        # are initialized. Migration failures remain visible on this container.
+        - name: migrate-database
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["./sso-server", "migrate"]
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-backend-config
+            - secretRef:
+                name: {{ .Release.Name }}-backend-secret
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/app.env
+              subPath: app.env
+              readOnly: true
+          resources:
+            {{- toYaml .Values.backend.migrations.resources | nindent 12 }}
+        {{- end }}
+
+        # Wait for Keycloak realm endpoint on the public HTTP service port.
         - name: wait-for-keycloak
           image: curlimages/curl:8.10.1
           command:
             - sh
             - -c
             - |
-              echo "Waiting for Keycloak health endpoint..."
-              until curl -fsS "http://{{ .Release.Name }}-keycloak:{{ .Values.keycloak.service.port }}/health/live" >/dev/null; do
+              echo "Waiting for Keycloak realm endpoint..."
+              until curl -fsS "http://{{ .Release.Name }}-keycloak:{{ .Values.keycloak.service.port }}/realms/{{ include "moh-sso.keycloak.realm" . }}" >/dev/null; do
                 echo "Keycloak not ready yet - sleeping 5s"
                 sleep 5
               done
@@ -75,23 +98,27 @@ spec:
             httpGet:
               path: {{ .Values.backend.probes.readinessPath | default "/health/ready" }}
               port: {{ .Values.backend.service.port }}
-            initialDelaySeconds: 8
-            periodSeconds: 10
+            initialDelaySeconds: {{ .Values.backend.probes.readinessInitialDelaySeconds | default 8 }}
+            periodSeconds: {{ .Values.backend.probes.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.backend.probes.timeoutSeconds | default 1 }}
+            failureThreshold: {{ .Values.backend.probes.failureThreshold | default 3 }}
 
           livenessProbe:
             httpGet:
               path: {{ .Values.backend.probes.livenessPath | default "/health/live" }}
               port: {{ .Values.backend.service.port }}
-            initialDelaySeconds: 15
-            periodSeconds: 15
+            initialDelaySeconds: {{ .Values.backend.probes.livenessInitialDelaySeconds | default 15 }}
+            periodSeconds: {{ .Values.backend.probes.periodSeconds | default 15 }}
+            timeoutSeconds: {{ .Values.backend.probes.timeoutSeconds | default 1 }}
+            failureThreshold: {{ .Values.backend.probes.failureThreshold | default 3 }}
 
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
 
       volumes:
         - name: app-config
-          configMap:
-            name: {{ .Release.Name }}-backend-config
+          secret:
+            secretName: {{ .Release.Name }}-backend-secret
             items:
               - key: app.env
                 path: app.env

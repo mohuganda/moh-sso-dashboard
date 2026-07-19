@@ -23,7 +23,7 @@ export const defaultPortalPreferences: PortalPreferences = {
   timezone: "Africa/Kampala",
   dateFormat: "system",
   favoriteSystemIds: [],
-  defaultLandingPath: "/apps/news",
+  defaultLandingPath: "/portal/apps/news",
 };
 
 export function readPortalPreferences(): PortalPreferences {

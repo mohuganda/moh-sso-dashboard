@@ -50,7 +50,7 @@ func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
 		return databases{}, err
 	}
 
-	if err := db.MigrateDB(primaryDB, "file://internal/db/migrations"); err != nil {
+	if err := db.MigrateDB(primaryDB, migrationSource); err != nil {
 		primaryDB.Close()
 		remoteDB.Close()
 		dwhDB.Close()
