@@ -14,3 +14,16 @@ func TestVersionRequested(t *testing.T) {
 		}
 	}
 }
+
+func TestMigrationsRequested(t *testing.T) {
+	for _, args := range [][]string{{"migrate"}, {"--migrate-only"}} {
+		if !migrationsRequested(args) {
+			t.Fatalf("migrationsRequested(%v) = false", args)
+		}
+	}
+	for _, args := range [][]string{nil, {"serve"}, {"migrate", "extra"}} {
+		if migrationsRequested(args) {
+			t.Fatalf("migrationsRequested(%v) = true", args)
+		}
+	}
+}

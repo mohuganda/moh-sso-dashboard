@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -80,6 +81,10 @@ func MigrateDB(db *sql.DB, migrateDir string) error {
 		if err == migrate.ErrNoChange {
 			log.Info().Msg("No new migrations to apply")
 		} else {
+			var dirtyErr migrate.ErrDirty
+			if errors.As(err, &dirtyErr) {
+				return fmt.Errorf("migration failed: dirty database version %d; repair the migration state before restarting the backend (inspect with `make local-db-migration-status`; for local dirty version 10 run `make local-db-repair-dirty-10`; otherwise reset local PVCs with `make local-reset-data`): %w", dirtyErr.Version, err)
+			}
 			return fmt.Errorf("migration failed: %w", err)
 		}
 	}
