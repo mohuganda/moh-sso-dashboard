@@ -93,7 +93,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.watch
+      dockerfile: Dockerfile.dev
     container_name: sso-backend
     environment:
       SERVER_PORT: 9000

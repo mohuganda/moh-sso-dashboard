@@ -123,28 +123,38 @@ local-namespace:
 	kubectl get namespace $(K8S_NAMESPACE) >/dev/null 2>&1 || kubectl create namespace $(K8S_NAMESPACE)
 
 .PHONY: local-build
-local-build:
-	@echo "🐳 Building backend (Dockerfile.dev) for arm64..."
+local-build: local-build-images local-load-images
+
+.PHONY: local-build-backend
+local-build-backend: local-build-backend-image local-load-backend-image
+
+.PHONY: local-build-backend-image
+local-build-backend-image:
+	@echo "🐳 Building backend (Dockerfile) for arm64..."
 	docker buildx build \
 		--platform linux/arm64 \
-		-f backend/Dockerfile.dev \
+		-f backend/Dockerfile \
 		-t $(BACKEND_IMAGE) \
 		--load \
 		./backend
+
+.PHONY: local-build-images
+local-build-images: local-build-backend-image
 	@echo "🐳 Building frontend (Dockerfile.dev) for arm64..."
 	docker buildx build \
 		--platform linux/arm64 \
-		-f frontend/Dockerfile.dev \
+		-f frontend/Dockerfile \
 		-t $(FRONTEND_IMAGE) \
 		--load \
 		./frontend
+
+.PHONY: local-load-images
+local-load-images: local-load-backend-image
 	@if command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -qx "$(KIND_CLUSTER)"; then \
-		echo "📥 Loading local images into kind cluster '$(KIND_CLUSTER)'..."; \
-		kind load docker-image $(BACKEND_IMAGE) --name $(KIND_CLUSTER); \
+		echo "📥 Loading frontend image into kind cluster '$(KIND_CLUSTER)'..."; \
 		kind load docker-image $(FRONTEND_IMAGE) --name $(KIND_CLUSTER); \
 	elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$(KIND_CLUSTER)-control-plane"; then \
-		echo "📥 Loading local images into Docker Desktop Kubernetes node '$(KIND_CLUSTER)-control-plane'..."; \
-		docker save $(BACKEND_IMAGE) | docker exec -i $(KIND_CLUSTER)-control-plane ctr -n k8s.io images import -; \
+		echo "📥 Loading frontend image into Docker Desktop Kubernetes node '$(KIND_CLUSTER)-control-plane'..."; \
 		docker save $(FRONTEND_IMAGE) | docker exec -i $(KIND_CLUSTER)-control-plane ctr -n k8s.io images import -; \
 	else \
 		echo "ℹ️  Kubernetes node '$(KIND_CLUSTER)-control-plane' not detected. If pods show ErrImageNeverPull, install kind or load images manually:"; \
@@ -152,7 +162,21 @@ local-build:
 		echo "   kind load docker-image $(BACKEND_IMAGE) --name $(KIND_CLUSTER)"; \
 		echo "   kind load docker-image $(FRONTEND_IMAGE) --name $(KIND_CLUSTER)"; \
 	fi
-	@echo "✅ Local arm64 images built and loaded into containerd"
+	@echo "✅ Local arm64 images loaded into containerd"
+
+.PHONY: local-load-backend-image
+local-load-backend-image:
+	@if command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -qx "$(KIND_CLUSTER)"; then \
+		echo "📥 Loading backend image into kind cluster '$(KIND_CLUSTER)'..."; \
+		kind load docker-image $(BACKEND_IMAGE) --name $(KIND_CLUSTER); \
+	elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$(KIND_CLUSTER)-control-plane"; then \
+		echo "📥 Loading backend image into Docker Desktop Kubernetes node '$(KIND_CLUSTER)-control-plane'..."; \
+		docker save $(BACKEND_IMAGE) | docker exec -i $(KIND_CLUSTER)-control-plane ctr -n k8s.io images import -; \
+	else \
+		echo "Kubernetes node '$(KIND_CLUSTER)-control-plane' was not detected."; \
+		exit 1; \
+	fi
+	@echo "✅ Local backend image loaded into containerd"
 
 
 .PHONY: local-up
@@ -170,9 +194,55 @@ local-down:
 
 .PHONY: local-reset-data
 local-reset-data: local-down
-	@echo "⚠️  Deleting local persistent volumes in namespace $(K8S_NAMESPACE)..."
-	kubectl delete pvc --all -n $(K8S_NAMESPACE) || true
-	@echo "✅ Local persistent data reset. Run 'make local-up' to recreate the stack."
+	@echo "⏳ Waiting for local release pods to release persistent volumes..."
+	kubectl wait --for=delete pod -l app.kubernetes.io/instance=$(HELM_RELEASE) -n $(K8S_NAMESPACE) --timeout=120s || true
+	@echo "⚠️ Deleting persistent volumes owned by release $(HELM_RELEASE)..."
+	kubectl delete pvc -l app.kubernetes.io/instance=$(HELM_RELEASE) -n $(K8S_NAMESPACE) --ignore-not-found=true
+	kubectl delete pvc $(HELM_RELEASE)-postgres-app-pvc $(HELM_RELEASE)-postgres-keycloak-pvc -n $(K8S_NAMESPACE) --ignore-not-found=true
+	@echo "🔎 Remaining PVCs in $(K8S_NAMESPACE):"
+	kubectl get pvc -n $(K8S_NAMESPACE) || true
+	@echo "✅ Local release data reset. Run 'make local-up' to recreate the stack."
+
+.PHONY: local-db-migration-status
+local-db-migration-status:
+	@echo "🧾 Current local app DB migration state..."
+	kubectl exec -n $(K8S_NAMESPACE) statefulset/$(HELM_RELEASE)-postgres-app -- \
+		sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "SELECT * FROM schema_migrations;"'
+
+.PHONY: local-db-repair-dirty-10
+local-db-repair-dirty-10:
+	@state=$$(kubectl exec -n $(K8S_NAMESPACE) statefulset/$(HELM_RELEASE)-postgres-app -- \
+		sh -c 'psql -At -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "SELECT version::text || chr(58) || dirty::text FROM schema_migrations;"'); \
+	if [ "$$state" != "10:true" ]; then \
+		echo "Refusing repair: expected migration state 10:true, found $$state" >&2; \
+		exit 1; \
+	fi
+	@echo "🛑 Scaling backend down before repairing migration state..."
+	kubectl scale deployment/$(HELM_RELEASE)-backend -n $(K8S_NAMESPACE) --replicas=0 || true
+	kubectl wait --for=delete pod -l app=$(HELM_RELEASE)-backend -n $(K8S_NAMESPACE) --timeout=120s || true
+	@echo "🧹 Repairing dirty migration 10 in local app DB..."
+	kubectl exec -n $(K8S_NAMESPACE) statefulset/$(HELM_RELEASE)-postgres-app -- \
+		sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" \
+			-c "DROP TABLE IF EXISTS facilities;" \
+			-c "UPDATE schema_migrations SET version = 9, dirty = false WHERE version = 10 AND dirty = true;" \
+			-c "SELECT * FROM schema_migrations;"'
+	@echo "▶️ Scaling backend back up so migration 10 can rerun cleanly..."
+	kubectl scale deployment/$(HELM_RELEASE)-backend -n $(K8S_NAMESPACE) --replicas=1
+
+.PHONY: local-migration-logs
+local-migration-logs:
+	@MIGRATION_POD=$$(kubectl get pods -n $(K8S_NAMESPACE) -l app=$(HELM_RELEASE)-backend -o jsonpath='{.items[0].metadata.name}'); \
+	if [ -z "$$MIGRATION_POD" ]; then \
+		echo "No backend pod found in $(K8S_NAMESPACE)."; \
+		exit 1; \
+	fi; \
+	echo "Migration logs from $$MIGRATION_POD:"; \
+	kubectl logs -n $(K8S_NAMESPACE) "$$MIGRATION_POD" -c migrate-database
+
+.PHONY: local-migration-status
+local-migration-status:
+	@kubectl get pods -n $(K8S_NAMESPACE) -l app=$(HELM_RELEASE)-backend
+	@kubectl get pods -n $(K8S_NAMESPACE) -l app=$(HELM_RELEASE)-backend -o jsonpath='{range .items[*].status.initContainerStatuses[*]}{.name}{"\t"}{.state}{"\n"}{end}'
 
 .PHONY: local-restart
 local-restart:

@@ -257,6 +257,46 @@ This path is useful for confirming that:
 - the full local stack starts cleanly
 - backend runtime metadata is reachable after deployment
 
+### Local Database Migrations
+
+The Helm deployment runs application migrations in the backend pod's
+`migrate-database` init container before starting the API. This keeps a schema
+failure separate from API, Redis, and Keycloak startup failures.
+
+Inspect migration state and logs with:
+
+```bash
+make local-migration-status
+make local-migration-logs
+make local-db-migration-status
+```
+
+If a previous interrupted local run left migration 10 dirty, use the scoped
+local repair after rebuilding and loading the corrected backend image, then
+inspect the migration container:
+
+```bash
+make local-build-backend
+make local-db-repair-dirty-10
+make local-migration-logs
+```
+
+The repair command refuses to run unless the current state is exactly
+`version=10, dirty=true`; it will not drop a healthy facilities table.
+
+For a completely fresh local stack, remove only this Helm release's persistent
+data and redeploy:
+
+```bash
+make local-reset-data
+make local-build
+make local-up
+```
+
+`local-reset-data` is destructive and must never be used against a production
+namespace. In production, back up PostgreSQL and investigate the failed SQL
+before repairing `schema_migrations`.
+
 ## Backend Documentation
 
 Backend-specific development, architecture, and operations notes live in:

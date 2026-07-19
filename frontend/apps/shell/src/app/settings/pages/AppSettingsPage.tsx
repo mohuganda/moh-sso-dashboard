@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { Button, Checkbox, InlineNotification, RadioButton, RadioButtonGroup, Tile } from "@carbon/react";
+import {
+  Button,
+  Checkbox,
+  InlineNotification,
+  RadioButton,
+  RadioButtonGroup,
+  Tile,
+} from "@carbon/react";
 import { Application, Save } from "@carbon/react/icons";
 
 import { useAuthorization } from "@moh-sso/auth";
@@ -58,10 +65,13 @@ export default function AppSettingsPage() {
   };
 
   const handleSave = () => {
-    const allowedPaths = new Set(["/apps/news", ...systems.map((system) => system.launchPath)]);
+    const allowedPaths = new Set([
+      "/portal/apps/news",
+      ...systems.map((system) => system.launchPath),
+    ]);
     const safeDefaultLandingPath = allowedPaths.has(preferences.defaultLandingPath)
       ? preferences.defaultLandingPath
-      : "/apps/news";
+      : "/portal/apps/news";
 
     savePortalPreferences({
       ...preferences,
@@ -126,7 +136,11 @@ export default function AppSettingsPage() {
           valueSelected={preferences.defaultLandingPath}
           onChange={(value) => setDefaultLanding(String(value))}
         >
-          <RadioButton id="settings-default-news" value="/apps/news" labelText="News & Updates" />
+          <RadioButton
+            id="settings-default-news"
+            value="/portal/apps/news"
+            labelText="News & Updates"
+          />
           {systems.map((system) => (
             <RadioButton
               key={system.clientId}
