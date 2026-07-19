@@ -1,38 +1,20 @@
 # Keep local development aligned with backend/go.mod.
-FROM golang:1.25.4-alpine AS builder
+FROM golang:1.25.4-alpine
 
-# Install necessary tools and CA utilities.
-# The 'ca-certificates' package is required for the Go application to trust the
-# mounted Keycloak certificate over HTTPS connections.
-RUN apk add --no-cache git bash ca-certificates
+RUN apk add --no-cache git bash ca-certificates tzdata
 
-# Set working directory
 WORKDIR /app
 
-# Copy go.mod and go.sum first (for caching dependencies)
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy all source code
+# Air is used only in the compose development image for hot reload.
+RUN go install github.com/air-verse/air@latest
+
 COPY . .
 
-RUN go build -o /tmp/sso-server ./cmd/server
+RUN mkdir -p /data/uploads tmp
 
-# Runtime image used by local Kubernetes. Running a prebuilt binary avoids
-# compiling with `go run` inside the pod, which can exceed local memory limits.
-FROM alpine:3.19
-
-RUN apk --no-cache add ca-certificates tzdata
-
-WORKDIR /app
-
-COPY --from=builder /tmp/sso-server ./sso-server
-COPY --from=builder /app/internal/db/migrations ./internal/db/migrations
-COPY --from=builder /app/config ./config
-
-RUN mkdir -p /data/uploads
-
-# Expose backend port
 EXPOSE 9000
 
-CMD ["./sso-server"]
+CMD ["air", "-c", ".air.toml"]
