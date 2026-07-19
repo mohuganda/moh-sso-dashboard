@@ -22,6 +22,16 @@ backend:
     tag: local
     pullPolicy: Never
 
+  migrations:
+    enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
   replicas: 1
 
   env:
@@ -44,6 +54,7 @@ backend:
 
   rbacStartupSync:
     # Local Kubernetes should boot even while Keycloak/RBAC data is settling.
+    liveKeycloak: false
     failOnError: false
 
   probes:

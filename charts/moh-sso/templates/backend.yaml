@@ -38,7 +38,28 @@ spec:
               done
               echo "Database is ready!"
 
-        # 2. Wait for Keycloak realm endpoint on the public HTTP service port.
+        {{- if .Values.backend.migrations.enabled }}
+        # Apply schema migrations before the API, Redis, or Keycloak clients
+        # are initialized. Migration failures remain visible on this container.
+        - name: migrate-database
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["./sso-server", "migrate"]
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-backend-config
+            - secretRef:
+                name: {{ .Release.Name }}-backend-secret
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/app.env
+              subPath: app.env
+              readOnly: true
+          resources:
+            {{- toYaml .Values.backend.migrations.resources | nindent 12 }}
+        {{- end }}
+
+        # Wait for Keycloak realm endpoint on the public HTTP service port.
         - name: wait-for-keycloak
           image: curlimages/curl:8.10.1
           command:

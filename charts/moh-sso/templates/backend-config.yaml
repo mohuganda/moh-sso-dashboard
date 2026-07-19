@@ -10,6 +10,7 @@ data:
   GIN_MODE: {{ include "moh-sso.ginMode" . | quote }}
 
   FRONTEND_BASE_URL: {{ include "moh-sso.frontend.baseUrl" . | quote }}
+  API_BASE_URL: {{ include "moh-sso.backend.publicUrl" . | quote }}
   LOGIN_URL: {{ include "moh-sso.keycloak.loginRedirectUri" . | quote }}
 
 
@@ -78,6 +79,9 @@ data:
   REFRESH_TOKEN_DURATION: "720h"
 
   ENABLE_TLS: "false"
+  TLS_CERT: "/app/certs/server.crt"
+  TLS_KEY: "/app/certs/server.key"
+  TLS_KEYCLOAK_CA_CERT_PATH: "/usr/local/share/ca-certificates/keycloak.crt"
 
   # --------------------------------------------------
   # Storage
@@ -162,6 +166,7 @@ stringData:
     GIN_MODE={{ include "moh-sso.ginMode" . }}
     FRONTEND_BASE_URL={{ include "moh-sso.frontend.baseUrl" . }}
     FRONTEND_REDIRECT_URI={{ include "moh-sso.frontend.baseUrl" . }}
+    API_BASE_URL={{ include "moh-sso.backend.publicUrl" . }}
     LOGIN_URL={{ include "moh-sso.keycloak.loginRedirectUri" . }}
     COOKIE_DOMAIN=
 
@@ -217,6 +222,9 @@ stringData:
     REFRESH_TOKEN_DURATION=720h
 
     ENABLE_TLS=false
+    TLS_CERT=/app/certs/server.crt
+    TLS_KEY=/app/certs/server.key
+    TLS_KEYCLOAK_CA_CERT_PATH=/usr/local/share/ca-certificates/keycloak.crt
 
     STORAGE_PROVIDER={{ .Values.backend.storage.provider }}
     LOCAL_BASE_PATH={{ .Values.backend.storage.localBasePath }}

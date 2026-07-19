@@ -38,3 +38,12 @@ Then open:
   Keycloak: http://localhost:8081
 
 {{- end }}
+
+Database migrations:
+{{- if .Values.backend.migrations.enabled }}
+  Schema migrations run in the backend pod's "migrate-database" init container.
+  Inspect them with:
+  kubectl logs -n {{ .Release.Namespace }} deployment/{{ .Release.Name }}-backend -c migrate-database
+{{- else }}
+  The dedicated migration init container is disabled.
+{{- end }}

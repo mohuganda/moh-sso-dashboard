@@ -50,6 +50,16 @@ backend:
     tag: "" # injected by CI; production must supply an immutable tag
     pullPolicy: Always
 
+  migrations:
+    enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
   service:
     port: 9000
 
