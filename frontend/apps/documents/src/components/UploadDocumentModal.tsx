@@ -195,19 +195,20 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
   }, [localLocation, storageLocation]);
 
   const previousUpload = useMemo(() => {
-    if (!file) {
+    if (!file || !selectedTemplate) {
       return null;
     }
 
     const matches = allDocuments
       .filter(
-        (document) => document.original_filename === file.name && document.metadata?.template_code,
+        (document) =>
+          document.original_filename === file.name &&
+          document.metadata?.template_code === selectedTemplate,
       )
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return matches[0] ?? null;
-  }, [file, allDocuments]);
-
+  }, [file, selectedTemplate, allDocuments]);
   const previousReportDate = previousUpload?.metadata?.report_date ?? null;
 
   useEffect(() => {
@@ -335,12 +336,12 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
       return;
     }
 
-    if (fileNeedsProcessing && !processType) {
+    if (selectedTemplate && fileNeedsProcessing && !processType) {
       setError("Please select a process type.");
       return;
     }
 
-    if (fileNeedsProcessing && processType) {
+    if (selectedTemplate && fileNeedsProcessing && processType) {
       const validationError = validateProcessTypeAgainstFile(file, processType);
 
       if (validationError) {
@@ -392,7 +393,7 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
       await createDocument({
         file,
         storageLocation,
-        ...(fileNeedsProcessing && processType ? { processType } : {}),
+        ...(selectedTemplate && fileNeedsProcessing && processType ? { processType } : {}),
         ...(metadata ? { metadata } : {}),
       }).unwrap();
 
@@ -404,19 +405,20 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
         "data" in caughtError &&
         typeof (
           caughtError as {
-            data?: {
-              message?: unknown;
-            };
+            data?: { error?: { message?: unknown }; message?: unknown };
           }
-        ).data?.message === "string"
+        ).data?.error?.message === "string"
           ? (
               caughtError as {
-                data?: {
-                  message?: string;
-                };
+                data?: { error?: { message?: string } };
               }
-            ).data?.message
-          : null;
+            ).data?.error?.message
+          : typeof caughtError === "object" &&
+              caughtError !== null &&
+              "data" in caughtError &&
+              typeof (caughtError as { data?: { message?: unknown } }).data?.message === "string"
+            ? (caughtError as { data?: { message?: string } }).data?.message
+            : null;
 
       setError(responseMessage ?? "Upload failed. Please try again.");
     }
@@ -428,7 +430,7 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
     isFetchingStructure ||
     !file ||
     !storageLocation ||
-    (fileNeedsProcessing && !processType) ||
+    (selectedTemplate && fileNeedsProcessing && !processType) ||
     (selectedTemplate && fileNeedsProcessing && !reportDate) ||
     (reuploadMode === "new" && !!previousReportDate && reportDate === previousReportDate) ||
     !isTemplateValid;
@@ -699,7 +701,7 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
             </DatePicker>
           )}
 
-          {fileNeedsProcessing && (
+          {selectedTemplate && fileNeedsProcessing && (
             <Select
               id="process-type"
               labelText="Process type"
@@ -713,6 +715,16 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
                 <SelectItem key={option.value} value={option.value} text={option.label} />
               ))}
             </Select>
+          )}
+
+          {file && fileNeedsProcessing && !selectedTemplate && (
+            <InlineNotification
+              kind="info"
+              title="Stored without processing"
+              subtitle="Without a template, this file will be stored as a completed document. Select a template to validate and import its data."
+              lowContrast
+              hideCloseButton
+            />
           )}
 
           {!fileNeedsProcessing && file && (
