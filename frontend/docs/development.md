@@ -88,7 +88,12 @@ npm run remote:preview:all
 - `VITE_SINGLE_SPA_ORCHESTRATION`: set to `true` to enable single-spa registration.
 - `VITE_MICROFRONTEND_MODE`: `local` uses workspace imports; `remote` uses import maps/runtime imports.
 - `VITE_MICROFRONTEND_MOUNT_MODE`: `hybrid` by default; `orchestrated` enables true `registerApplication` mode.
+- `VITE_VISUALIZER_API_BASE`: optional override for visualizer and issue-tracker API calls. Use `/visualizer-proxy` for local proxying.
+- `VITE_VISUALIZER_PROXY_TARGET`: optional Vite dev proxy target. When unset, `/visualizer-proxy` is not created.
+- `VITE_VISUALIZER_PROXY_COOKIE`: optional cookie header forwarded by the local Vite proxy. Keep this in `.env.local`, not source control.
 - `FRONTEND_DEV_COMMAND`: Docker dev command override.
+
+For local-only visualizer proxying, copy `frontend/.env.example` to `frontend/.env.local` and set the cookie there if needed.
 
 ## Runtime Config
 

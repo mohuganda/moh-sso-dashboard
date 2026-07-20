@@ -13,6 +13,11 @@ COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || printf 'none')
 BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 DIRTY ?= $(shell if [ -n "$$(git status --porcelain 2>/dev/null)" ]; then printf 'true'; else printf 'false'; fi)
 VERSION_PACKAGE = github.com/moh-sso-dashboard/internal/version
+REPO ?= mohuganda/moh-sso-dashboard
+BASE ?= main
+BUMP ?= patch
+BACKEND_IMAGE ?= ghcr.io/mohuganda/moh-sso-dashboard-backend
+RELEASE_REMOTE ?= upstream
 
 LDFLAGS := -s -w \
 	-X '$(VERSION_PACKAGE).Version=$(VERSION)' \
@@ -122,6 +127,30 @@ verify-version: ## Build and verify deterministic linker metadata
 	@$(MAKE) build VERSION=1.2.3 COMMIT=abc123 BUILD_TIME=2026-06-19T12:00:00Z DIRTY=false
 	@./scripts/verify-version.sh "$(BIN_DIR)/$(APP_NAME)" "1.2.3" "abc123" "false"
 
+next-version: ## Print the next backend version: make next-version BUMP=patch|minor|major
+	@./scripts/next-backend-version.sh "$(BUMP)"
+
+release-check: ## Run local backend release verification: make release-check VERSION=1.2.3
+	@test "$(VERSION)" != "dev" || { echo "VERSION is required, for example make release-check VERSION=1.2.3"; exit 2; }
+	@./scripts/release-check.sh "$(VERSION)"
+
+release-pr: ## Create a backend release PR: make release-pr VERSION=1.2.3 [REPO=owner/repo] [BASE=main] [RELEASE_REMOTE=upstream]
+	@test "$(VERSION)" != "dev" || { echo "VERSION is required, for example make release-pr VERSION=1.2.3"; exit 2; }
+	@./scripts/create-release-pr.sh "$(VERSION)" "$(REPO)" "$(BASE)" "$(RELEASE_REMOTE)"
+
+release-dispatch: ## Dispatch backend release workflow: make release-dispatch VERSION=1.2.3 [REPO=owner/repo]
+	@test "$(VERSION)" != "dev" || { echo "VERSION is required, for example make release-dispatch VERSION=1.2.3"; exit 2; }
+	@./scripts/dispatch-release.sh "$(VERSION)" "$(REPO)"
+
+release-status: ## Inspect GitHub release/workflows/image: make release-status VERSION=1.2.3
+	@test "$(VERSION)" != "dev" || { echo "VERSION is required, for example make release-status VERSION=1.2.3"; exit 2; }
+	@./scripts/release-status.sh "$(VERSION)" "$(REPO)" "$(BACKEND_IMAGE)"
+
+verify-image: ## Verify backend Docker image metadata: make verify-image IMAGE=repo/image:tag VERSION=1.2.3 [COMMIT=sha]
+	@test -n "$(IMAGE)" || { echo "IMAGE is required, for example make verify-image IMAGE=ghcr.io/mohuganda/moh-sso-dashboard-backend:1.2.3 VERSION=1.2.3"; exit 2; }
+	@test -n "$(VERSION)" || { echo "VERSION is required, for example make verify-image IMAGE=... VERSION=1.2.3"; exit 2; }
+	@./scripts/verify-backend-image.sh "$(IMAGE)" "$(VERSION)" "$(COMMIT)"
+
 # ============================================================
 #        🐳 Docker Commands
 # ============================================================
@@ -181,6 +210,7 @@ migratedown1: ## Rollback one migration
 # Make everything phony
 # ============================================================
 .PHONY: help tidy fmt lint test architecture build build-release build-cli run clean version verify-version \
+        next-version release-check release-pr release-dispatch release-status verify-image \
         postgres createdb backupdb restoredb \
         docker-up docker-down docker-logs docker-restart \
         create_migration migrateup migrateup1 migratedown migratedown1 \

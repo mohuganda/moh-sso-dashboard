@@ -1,11 +1,11 @@
 import {Button, Modal, NumberInput, Select, SelectItem} from "@carbon/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import { getAvailablePeriods, getPeriodType, periodType } from "../../Constants.tsx";
 import "./period.scss";
 import Panel from "../../components/panel/panel.component.tsx";
 
-export default function PeriodModal({ onClose, selected, onSave }) {
+export default function PeriodModal({ onClose, selected, onSave, updateTrigger }) {
   const CURRENT_YEAR = new Date().getFullYear();
   const initialPeriodType = selected?.length > 0 ? getPeriodType(selected[0]?.id) : "Monthly";
   const initialSelectedYear = selected?.length > 0 ? Number(selected[0]?.id?.slice(0,4)) : CURRENT_YEAR;
@@ -22,8 +22,42 @@ export default function PeriodModal({ onClose, selected, onSave }) {
   const [selectedPeriodType, setSelectedPeriodType] = useState(initialPeriodType);
   const [selectedYear, setSelectedYear] = useState(initialSelectedYear);
 
+  useEffect(() => {
+    const itemIds = selectedPeriods.map((item) => item.id);
+    const propIds = (selected ?? []).map((item) => item.id);
+    const isSame = [...itemIds].sort().join(",") === [...propIds].sort().join(",");
+    if (!isSame) {
+      setSelectedPeriods(selected ?? []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const itemIds = selectedPeriods.map((item) => item.id);
+
+    if (itemIds.length > 0) {
+      params.set("pe", itemIds.join(","));
+    } else {
+      params.delete("pe");
+    }
+
+    const newSearch = params.toString();
+    const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : "");
+    window.history.replaceState(null, "", newUrl);
+
+    const propIds = (selected ?? []).map((item) => item.id);
+    const hasChanged = [...itemIds].sort().join(",") !== [...propIds].sort().join(",");
+    if (hasChanged) {
+      onSave(selectedPeriods);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPeriods, selected, onSave]);
+
   const save = () => {
-    onSave(selectedPeriods);
+    if (updateTrigger) {
+      updateTrigger();
+    }
     onClose();
   };
 

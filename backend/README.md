@@ -220,6 +220,17 @@ GOCACHE=/private/tmp/moh-sso-go-build make verify-version
 
 Production deployments must set `BACKEND_TAG` to an immutable semantic or SHA image tag. They must not use `latest`.
 
+Release helper commands:
+
+```bash
+make next-version BUMP=patch
+make release-check VERSION=1.2.3
+make release-pr VERSION=1.2.3
+make release-dispatch VERSION=1.2.3
+make release-status VERSION=1.2.3
+make verify-image IMAGE=ghcr.io/mohuganda/moh-sso-dashboard-backend:1.2.3 VERSION=1.2.3
+```
+
 See:
 
 - [`../docs/versioning.md`](../docs/versioning.md)

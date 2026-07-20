@@ -19,6 +19,7 @@ permissions:
 env:
   APP_NAME: moh-sso-dashboard
   VERSION_PACKAGE: github.com/moh-sso-dashboard/internal/version
+  ENABLE_GITHUB_ARTIFACT_ATTESTATIONS: "false"
 
 jobs:
   release:
@@ -131,9 +132,16 @@ jobs:
           output-file: ./backend/dist/sbom.spdx.json
 
       - name: Attest release artifacts
+        if: env.ENABLE_GITHUB_ARTIFACT_ATTESTATIONS == 'true'
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: backend/dist/moh-sso-dashboard-*
+
+      - name: Skip GitHub artifact attestation
+        if: env.ENABLE_GITHUB_ARTIFACT_ATTESTATIONS != 'true'
+        run: |
+          echo "Skipping GitHub artifact attestation."
+          echo "Set ENABLE_GITHUB_ARTIFACT_ATTESTATIONS=true after GitHub attestations are available for this org/repository."
 
       - name: Create verified component tag
         if: github.event_name == 'workflow_dispatch'

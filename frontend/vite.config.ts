@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { readdirSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 const pathFromRoot = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -41,10 +41,15 @@ const dynamicAliases = [
   })),
 ];
 
-export default defineConfig(({ mode }) => ({
-  base: "/portal/",
-  root: pathFromRoot("./apps/shell"),
-  publicDir: pathFromRoot("./public"),
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const visualizerProxyTarget = env.VITE_VISUALIZER_PROXY_TARGET?.trim();
+  const visualizerProxyCookie = env.VITE_VISUALIZER_PROXY_COOKIE?.trim();
+
+  return {
+    base: "/portal/",
+    root: pathFromRoot("./apps/shell"),
+    publicDir: pathFromRoot("./public"),
 
   plugins: [
     react(),
@@ -109,70 +114,89 @@ export default defineConfig(({ mode }) => ({
     }),
   ],
 
-  define: {
-    "process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),
-  },
-
-  resolve: {
-    dedupe: [
-      "react",
-      "react-dom",
-      "react-router-dom",
-      "react-redux",
-      "@reduxjs/toolkit",
-      "@carbon/react",
-      "single-spa",
-      "single-spa-react",
-    ],
-
-    alias: [
-      {
-        find: "@/config",
-        replacement: pathFromRoot("./packages/config/src"),
-      },
-      {
-        find: "@/types",
-        replacement: pathFromRoot("./packages/types/src/global"),
-      },
-      ...dynamicAliases,
-      {
-        find: "@",
-        replacement: pathFromRoot("./apps/shell/src"),
-      },
-    ],
-  },
-
-  server: {
-    host: true,
-    port: 3000,
-  },
-
-  optimizeDeps: {
-    include: [
-      "react",
-      "react-dom",
-      "react-dom/client",
-      "react/jsx-runtime",
-      "react/jsx-dev-runtime",
-      "react-redux",
-      "react-router-dom",
-      "@reduxjs/toolkit",
-      "@carbon/react",
-      "@carbon/react/icons",
-      "single-spa",
-      "single-spa-react",
-      "react-pivottable/PivotTableUI",
-    ],
-  },
-
-  build: {
-    outDir: pathFromRoot("./apps/shell/dist"),
-    emptyOutDir: true,
-    sourcemap: true,
-
-    commonjsOptions: {
-      include: [/react-pivottable/, /node_modules/],
-      transformMixedEsModules: true,
+    define: {
+      "process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),
     },
-  },
-}));
+
+    resolve: {
+      dedupe: [
+        "react",
+        "react-dom",
+        "react-router-dom",
+        "react-redux",
+        "@reduxjs/toolkit",
+        "@carbon/react",
+        "single-spa",
+        "single-spa-react",
+      ],
+
+      alias: [
+        {
+          find: "@/config",
+          replacement: pathFromRoot("./packages/config/src"),
+        },
+        {
+          find: "@/types",
+          replacement: pathFromRoot("./packages/types/src/global"),
+        },
+        ...dynamicAliases,
+        {
+          find: "@",
+          replacement: pathFromRoot("./apps/shell/src"),
+        },
+      ],
+    },
+
+    server: {
+      host: true,
+      port: 3000,
+      proxy: visualizerProxyTarget
+        ? {
+            "/visualizer-proxy": {
+              target: visualizerProxyTarget,
+              changeOrigin: true,
+              secure: false,
+              rewrite: (path) => path.replace(/^\/visualizer-proxy/, ""),
+              cookieDomainRewrite: {
+                "dashboards.health.go.ug": "localhost",
+              },
+              headers: visualizerProxyCookie
+                ? {
+                    Cookie: visualizerProxyCookie,
+                  }
+                : undefined,
+            },
+          }
+        : undefined,
+    },
+
+    optimizeDeps: {
+      include: [
+        "react",
+        "react-dom",
+        "react-dom/client",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+        "react-redux",
+        "react-router-dom",
+        "@reduxjs/toolkit",
+        "@carbon/react",
+        "@carbon/react/icons",
+        "single-spa",
+        "single-spa-react",
+        "react-pivottable/PivotTableUI",
+      ],
+    },
+
+    build: {
+      outDir: pathFromRoot("./apps/shell/dist"),
+      emptyOutDir: true,
+      sourcemap: true,
+
+      commonjsOptions: {
+        include: [/react-pivottable/, /node_modules/],
+        transformMixedEsModules: true,
+      },
+    },
+  };
+});

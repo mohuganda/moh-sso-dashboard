@@ -12,7 +12,10 @@ export default function GeneralModal({
   selectedPeriods,
   onSavePeriods,
   selectedOrgUnits,
+  selectedLevelOfCare,
+  selectedOwnership,
   onSaveOrgUnits,
+  updateTrigger,
 }) {
   const [selectedDimension, setSelectedDimension] = useState("data");
 
@@ -42,13 +45,20 @@ export default function GeneralModal({
 
         <div className={`dimension-modal-selection`}>
           {selectedDimension === "data" && (
-            <DataModal onClose={close} selected={selectedData} onSave={onSaveData} />
+            <DataModal onClose={onClose} selected={selectedData} onSave={onSaveData} updateTrigger={updateTrigger} />
           )}
           {selectedDimension === "period" && (
-            <PeriodModal onClose={close} selected={selectedPeriods} onSave={onSavePeriods} />
+            <PeriodModal onClose={onClose} selected={selectedPeriods} onSave={onSavePeriods} updateTrigger={updateTrigger} />
           )}
           {selectedDimension === "orgunit" && (
-            <OrgUnitModal onClose={close} selected={selectedOrgUnits} onSave={onSaveOrgUnits} />
+            <OrgUnitModal
+              onClose={onClose}
+              selected={selectedOrgUnits}
+              selectedLevelOfCare={selectedLevelOfCare}
+              selectedOwnership={selectedOwnership}
+              onSave={onSaveOrgUnits}
+              updateTrigger={updateTrigger}
+            />
           )}
         </div>
       </Modal>
