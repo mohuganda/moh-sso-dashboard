@@ -49,12 +49,14 @@ function getAppName(RootComponent: ComponentType<MicrofrontendRuntimeProps>) {
 function withProviders(children: ReactNode, options: Required<ReactLifecycleOptions>) {
   let tree = children;
 
-  if (options.withModal) {
-    tree = <ModalProvider>{tree}</ModalProvider>;
-  }
-
+  // Panel content is rendered alongside the application children by the
+  // provider, so contexts used by panel components must wrap this provider.
   if (options.withHeaderPanel) {
     tree = <HeaderPanelProvider>{tree}</HeaderPanelProvider>;
+  }
+
+  if (options.withModal) {
+    tree = <ModalProvider>{tree}</ModalProvider>;
   }
 
   if (options.withToast) {
