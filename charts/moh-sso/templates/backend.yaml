@@ -1,4 +1,24 @@
 {{- if .Values.backend.enabled }}
+{{- $storageProvider := lower (default "" .Values.backend.storage.provider) -}}
+{{- $filesystemStorage := or (eq $storageProvider "local") (eq $storageProvider "nfs") -}}
+{{- if and $filesystemStorage .Values.backend.storage.persistence.enabled (not .Values.backend.storage.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-backend-uploads-pvc
+  labels:
+    {{- include "moh-sso.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.backend.storage.persistence.accessModes | nindent 4 }}
+  {{- if .Values.backend.storage.persistence.storageClassName }}
+  storageClassName: {{ .Values.backend.storage.persistence.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.storage.persistence.size | quote }}
+---
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,6 +40,10 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
+      {{- if and $filesystemStorage .Values.backend.storage.podSecurityContext.enabled }}
+      securityContext:
+        fsGroup: {{ .Values.backend.storage.podSecurityContext.fsGroup }}
+      {{- end }}
 
       initContainers:
         # 1. Wait for Postgres first
@@ -36,7 +60,8 @@ spec:
               done
               echo "Database is ready!"
 
-        # 2. Wait for Keycloak (checking the Management Port 9000)
+        {{- if .Values.keycloak.enabled }}
+        # 2. Wait for bundled Keycloak
         - name: wait-for-keycloak
           image: curlimages/curl:8.10.1
           command:
@@ -50,6 +75,7 @@ spec:
               done
 
               echo "Keycloak is responding! Handing off to backend..."
+        {{- end }}
 
       containers:
         - name: api
@@ -70,6 +96,10 @@ spec:
               mountPath: /app/app.env
               subPath: app.env
               readOnly: true
+            {{- if $filesystemStorage }}
+            - name: uploads
+              mountPath: {{ ternary .Values.backend.storage.nfsBasePath .Values.backend.storage.localBasePath (eq $storageProvider "nfs") | quote }}
+            {{- end }}
 
           readinessProbe:
             httpGet:
@@ -95,6 +125,15 @@ spec:
             items:
               - key: app.env
                 path: app.env
+        {{- if $filesystemStorage }}
+        - name: uploads
+          {{- if .Values.backend.storage.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-backend-uploads-pvc" .Release.Name) .Values.backend.storage.persistence.existingClaim | quote }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

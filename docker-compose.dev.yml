@@ -117,6 +117,14 @@ services:
 
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
       LOGIN_URL: ${LOGIN_URL:-http://localhost:9000/api/v1/auth/login}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:9000}
+
+      # --------------------------------------------------
+      # Storage - keep dev aligned with production local storage
+      # --------------------------------------------------
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      LOCAL_BASE_PATH: ${LOCAL_BASE_PATH:-/data/uploads}
+      NFS_BASE_PATH: ${NFS_BASE_PATH:-/mnt/nfs/uploads}
 
       # --------------------------------------------------
       # Email SMTP - MailHog
@@ -152,6 +160,7 @@ services:
       - "9000:9000"
     volumes:
       - ./backend:/app
+      - upload_data:/data/uploads
     command: sh -c "go run ./cmd/server"
     depends_on:
       - backend-db
@@ -222,6 +231,7 @@ services:
 volumes:
   keycloak_data:
   backend_data:
+  upload_data:
   remote_pg_data:
 
 # --------------------------------------------------

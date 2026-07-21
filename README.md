@@ -582,6 +582,21 @@ Production compose expects:
 - secret files in `./secrets/*`
 - persistent named volumes for Postgres, Redis, and local uploads
 
+When `STORAGE_PROVIDER=local`, the backend must mount the upload volume at the same path as `LOCAL_BASE_PATH`:
+
+```yaml
+volumes:
+  upload_data:
+
+services:
+  backend:
+    volumes:
+      - ${APP_ENV_FILE:-./app.env}:/app/app.env:ro
+      - upload_data:/data/uploads
+```
+
+Production uploads will fail with `UPLOAD_FAILED` if the server is still using an older Compose file that does not mount `/data/uploads`.
+
 Prepare the server once:
 
 ```bash

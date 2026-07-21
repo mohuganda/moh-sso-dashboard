@@ -55,6 +55,14 @@ data:
   ENABLE_TLS: "false"
 
   # --------------------------------------------------
+  # Storage
+  # --------------------------------------------------
+  STORAGE_PROVIDER: {{ .Values.backend.storage.provider | quote }}
+  LOCAL_BASE_PATH: {{ .Values.backend.storage.localBasePath | quote }}
+  NFS_BASE_PATH: {{ .Values.backend.storage.nfsBasePath | quote }}
+  APP_BASE_URL: {{ include "moh-sso.backend.baseUrl" . | quote }}
+
+  # --------------------------------------------------
   # SMS
   # --------------------------------------------------
   SMS_ENABLED: {{ .Values.backend.sms.enabled | quote }}
@@ -110,6 +118,11 @@ data:
     REFRESH_TOKEN_DURATION=720h
 
     ENABLE_TLS=false
+
+    STORAGE_PROVIDER={{ .Values.backend.storage.provider }}
+    LOCAL_BASE_PATH={{ .Values.backend.storage.localBasePath }}
+    NFS_BASE_PATH={{ .Values.backend.storage.nfsBasePath }}
+    APP_BASE_URL={{ include "moh-sso.backend.baseUrl" . }}
 
     SMS_ENABLED={{ .Values.backend.sms.enabled }}
     SMS_PROVIDER={{ .Values.backend.sms.provider }}
