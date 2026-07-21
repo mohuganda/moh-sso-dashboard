@@ -120,11 +120,16 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 		contentType = "application/octet-stream"
 	}
 
-	fileNeedsProcessing := requiresProcessing(contentType, header.Filename)
+	queueProcessing := shouldQueueProcessing(
+		contentType,
+		header.Filename,
+		isTemplate,
+		templateCode,
+	)
 
 	var processType model.ProcessType
 
-	if fileNeedsProcessing && !isTemplate {
+	if queueProcessing {
 
 		processTypeValue := strings.TrimSpace(c.PostForm("process_type"))
 
@@ -150,16 +155,6 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 		}
 
 		processType = parsedProcessType
-
-		if templateCode == "" {
-			response.Fail(
-				c,
-				http.StatusBadRequest,
-				"TEMPLATE_CODE_REQUIRED",
-				"template code is required for processable document uploads",
-			)
-			return
-		}
 	}
 
 	loc, err := h.storageLocationService.GetByID(ctx, storageLocationStr)
@@ -198,7 +193,7 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 	checksumStr := hex.EncodeToString(hasher.Sum(nil))
 
 	status := DocumentStatusCompleted
-	if fileNeedsProcessing && !isTemplate {
+	if queueProcessing {
 		status = DocumentStatusPending
 	}
 
@@ -216,10 +211,11 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 		UploadedBy:       userID,
 		Status:           status,
 		IsTemplate:       isTemplate,
+		QueueProcessing:  queueProcessing,
 		Metadata:         metadata,
 	}
 
-	if fileNeedsProcessing && !isTemplate {
+	if queueProcessing {
 		input.ProcessType = processType
 	}
 

@@ -28,6 +28,7 @@ type CreateDocumentInput struct {
 	ObjectKey        string
 	UploadedBy       uuid.UUID
 	ProcessType      models.ProcessType
+	QueueProcessing  bool
 	Status           string
 	IsTemplate       bool
 	Metadata         map[string]any
@@ -110,18 +111,23 @@ func (s *Service) CreateDocument(
 		}
 	}
 
-	needsProcessing := requiresProcessing(input.ContentType, input.OriginalFilename)
+	processable := requiresProcessing(input.ContentType, input.OriginalFilename)
+	queueProcessing := input.QueueProcessing && processable && !input.IsTemplate
+
+	if input.QueueProcessing && !queueProcessing {
+		return db.Document{}, errors.New("processing can only be queued for processable non-template documents")
+	}
 
 	status := db.DocumentStatus(input.Status)
 	if input.Status == "" {
-		if needsProcessing && !input.IsTemplate {
+		if queueProcessing {
 			status = db.DocumentStatusPENDING
 		} else {
 			status = db.DocumentStatusCOMPLETED
 		}
 	}
 
-	if needsProcessing && !input.IsTemplate && !input.ProcessType.IsValid() {
+	if queueProcessing && !input.ProcessType.IsValid() {
 		return db.Document{}, errors.New("invalid process type for processable document")
 	}
 
@@ -158,7 +164,7 @@ func (s *Service) CreateDocument(
 		return db.Document{}, fmt.Errorf("create document: %w", err)
 	}
 
-	if needsProcessing && !input.IsTemplate {
+	if queueProcessing {
 		_, err = s.processRepo.CreateProcess(ctx, db.CreateProcessParams{
 			ID:          uuid.New(),
 			DocumentID:  doc.ID,
@@ -175,7 +181,7 @@ func (s *Service) CreateDocument(
 		Type:       string(nt),
 		Title:      nt.Title(),
 		Severity:   nt.Severity(),
-		Message:    buildDocumentCreatedMessage(doc, needsProcessing, input.IsTemplate),
+		Message:    buildDocumentCreatedMessage(doc, queueProcessing, input.IsTemplate),
 		TargetRole: "admin",
 		UserID:     input.UploadedBy.String(),
 		Metadata: utils.MustJSON(map[string]any{
@@ -187,7 +193,7 @@ func (s *Service) CreateDocument(
 			"object_key":        doc.ObjectKey,
 			"uploaded_by":       input.UploadedBy.String(),
 			"is_template":       doc.IsTemplate,
-			"needs_processing":  needsProcessing,
+			"needs_processing":  queueProcessing,
 			"process_type":      string(input.ProcessType),
 			"storage_location":  input.StorageLocation.String(),
 			"checksum_provided": checksum.Valid,
@@ -196,7 +202,7 @@ func (s *Service) CreateDocument(
 
 	// Email only when the document has been queued for processing.
 	// Simple uploads and template uploads remain in-app only.
-	if needsProcessing && !input.IsTemplate {
+	if queueProcessing {
 		s.attachAdminEmailDelivery(
 			&notification,
 			"document-created",
