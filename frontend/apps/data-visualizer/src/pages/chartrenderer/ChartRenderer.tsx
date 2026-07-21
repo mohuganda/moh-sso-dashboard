@@ -48,13 +48,9 @@ const ChartRenderer = ({
 
         const mappedPivotData =
           rows?.map((item) => ({
-            "Age-Sex Disaggregation": item.category_combo,
-            District: item.district,
-            "Data Element": item.dataelement,
-            "Facility Name": item.facility,
-            Period: periods.find((period) => period.id === item.period)?.label ?? "",
-            Region: item.region,
-            SubCounty: item.sub_county,
+            "Data Element": item?.dataelement,
+            "Facility Name": item?.org_unit_name,
+            Period: periods?.find((period) => period?.id === item?.period)?.label ?? "",
             Value: item?.value,
             "Level of Care": item?.level_of_care,
             Ownership: item?.ownership
