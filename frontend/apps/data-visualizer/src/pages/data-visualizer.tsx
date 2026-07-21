@@ -16,29 +16,43 @@ type VisualizerQuery = {
   dx: string[];
   pe: string[];
   ou: string[];
+  levelOfCare: string[];
+  ownership: string[];
 };
 
 const DataVisualizer = () => {
   const [selectedData, setSelectedData] = useState([]);
   const [selectedPeriods, setSelectedPeriods] = useState([]);
   const [selectedOrgUnits, setSelectedOrgUnits] = useState([]);
+  const [selectedLevelOfCare, setSelectedLevelOfCare] = useState<string[]>([]);
+  const [selectedOwnership, setSelectedOwnership] = useState<string[]>([]);
   const [loadedChartData, setLoadedChartData] = useState([]);
   const [pivotChartData, setPivotChartData] = useState([]);
   const [showModal, setShowModal] = useState(null);
   const [appliedQuery, setAppliedQuery] = useState<VisualizerQuery | null>(null);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [updateTrigger, setUpdateTrigger] = useState(0);
 
-  // Load saved state from localStorage on component mount
+  // Load saved state from localStorage and URL query strings on component mount
   React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ouParam = params.get("ou");
+    const levelOfCareParam = params.get("levelOfCare");
+    const ownershipParam = params.get("ownership");
+
     const savedData = localStorage.getItem("selectedData");
     const savedPeriods = localStorage.getItem("selectedPeriods");
-    const savedOrgUnits = localStorage.getItem("selectedOrgUnits");
+    const savedOrgUnits = ouParam ? ouParam.split(",").filter(Boolean) : JSON.parse(localStorage.getItem("selectedOrgUnits") || "[]");
+    const savedLevelOfCare = levelOfCareParam ? levelOfCareParam.split(",").filter(Boolean) : JSON.parse(localStorage.getItem("selectedLevelOfCare") || "[]");
+    const savedOwnership = ownershipParam ? ownershipParam.split(",").filter(Boolean) : JSON.parse(localStorage.getItem("selectedOwnership") || "[]");
     const savedLoadedData = localStorage.getItem("loadedChartData");
     const savedPivotData = localStorage.getItem("pivotChartData");
 
     if (savedData) setSelectedData(JSON.parse(savedData));
     if (savedPeriods) setSelectedPeriods(JSON.parse(savedPeriods));
-    if (savedOrgUnits) setSelectedOrgUnits(JSON.parse(savedOrgUnits));
+    setSelectedOrgUnits(savedOrgUnits);
+    setSelectedLevelOfCare(savedLevelOfCare);
+    setSelectedOwnership(savedOwnership);
     if (savedLoadedData) setLoadedChartData(JSON.parse(savedLoadedData));
     if (savedPivotData) setPivotChartData(JSON.parse(savedPivotData));
   }, []);
@@ -55,6 +69,14 @@ const DataVisualizer = () => {
   React.useEffect(() => {
     localStorage.setItem("selectedOrgUnits", JSON.stringify(selectedOrgUnits));
   }, [selectedOrgUnits]);
+
+  React.useEffect(() => {
+    localStorage.setItem("selectedLevelOfCare", JSON.stringify(selectedLevelOfCare));
+  }, [selectedLevelOfCare]);
+
+  React.useEffect(() => {
+    localStorage.setItem("selectedOwnership", JSON.stringify(selectedOwnership));
+  }, [selectedOwnership]);
 
   React.useEffect(() => {
     localStorage.setItem("loadedChartData", JSON.stringify(loadedChartData));
@@ -76,23 +98,48 @@ const DataVisualizer = () => {
     setSelectedData([]);
     setSelectedPeriods([]);
     setSelectedOrgUnits([]);
+    setSelectedLevelOfCare([]);
+    setSelectedOwnership([]);
     setPivotChartData([]);
     setLoadedChartData([]);
     setAppliedQuery(null);
     setIsClearModalOpen(false);
   };
 
+  const saveOrgUnitFilters = (orgUnits, levelOfCare, ownership) => {
+    setSelectedOrgUnits(orgUnits);
+    setSelectedLevelOfCare(levelOfCare);
+    setSelectedOwnership(ownership);
+  };
+
   // Function to check if all required dimensions are selected
   const isDataReady =
     selectedData?.length > 0 && selectedPeriods?.length > 0 && selectedOrgUnits?.length > 0;
 
-  const query: VisualizerQuery | null = isDataReady
-    ? {
-        dx: selectedData.map((item: any) => item.data_element_id),
-        pe: selectedPeriods.map((item: any) => item.id),
-        ou: selectedOrgUnits,
-      }
-    : null;
+  const query = React.useMemo<VisualizerQuery | null>(() => {
+    return isDataReady
+      ? {
+          dx: selectedData.map((item: any) => item.data_element_id),
+          pe: selectedPeriods.map((item: any) => item.id),
+          ou: selectedOrgUnits,
+          levelOfCare: selectedLevelOfCare,
+          ownership: selectedOwnership,
+        }
+      : null;
+  }, [selectedData, selectedPeriods, selectedOrgUnits, selectedLevelOfCare, selectedOwnership, isDataReady]);
+
+  React.useEffect(() => {
+    setAppliedQuery(query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateTrigger]);
+
+  React.useEffect(() => {
+    if (appliedQuery && JSON.stringify(query) !== JSON.stringify(appliedQuery)) {
+      setLoadedChartData([]);
+      setPivotChartData([]);
+      setAppliedQuery(null);
+    }
+  }, [query, appliedQuery]);
 
   const getDynamicFileName = (baseName = "Data_Report") => {
     const now = new Date();
@@ -198,7 +245,7 @@ const DataVisualizer = () => {
             className={`dwh-btn-width`}
             // onClick={() => open("general")}
             onClick={() => {
-              if (query) setAppliedQuery(query);
+              setUpdateTrigger((prev) => prev + 1);
             }}
           >
             Update
@@ -335,6 +382,7 @@ const DataVisualizer = () => {
                 loadedData={loadedChartData}
                 pivotData={pivotChartData}
                 periods={selectedPeriods}
+                updateTrigger={updateTrigger}
               />
             ) : (
               <div className="dv-canvas-placeholder">
@@ -351,13 +399,30 @@ const DataVisualizer = () => {
       </div>
 
       {showModal === "data" && (
-        <DataModal onClose={close} selected={selectedData} onSave={setSelectedData} />
+        <DataModal
+          onClose={close}
+          selected={selectedData}
+          onSave={setSelectedData}
+          updateTrigger={() => setUpdateTrigger((prev) => prev + 1)}
+        />
       )}
       {showModal === "period" && (
-        <PeriodModal onClose={close} selected={selectedPeriods} onSave={setSelectedPeriods} />
+        <PeriodModal
+          onClose={close}
+          selected={selectedPeriods}
+          onSave={setSelectedPeriods}
+          updateTrigger={() => setUpdateTrigger((prev) => prev + 1)}
+        />
       )}
       {showModal === "orgunit" && (
-        <OrgUnitModal onClose={close} selected={selectedOrgUnits} onSave={setSelectedOrgUnits} />
+        <OrgUnitModal
+          onClose={close}
+          selected={selectedOrgUnits}
+          selectedLevelOfCare={selectedLevelOfCare}
+          selectedOwnership={selectedOwnership}
+          onSave={saveOrgUnitFilters}
+          updateTrigger={() => setUpdateTrigger((prev) => prev + 1)}
+        />
       )}
       {showModal === "general" && (
         <GeneralModal
@@ -367,7 +432,10 @@ const DataVisualizer = () => {
           selectedPeriods={selectedPeriods}
           onSavePeriods={setSelectedPeriods}
           selectedOrgUnits={selectedOrgUnits}
-          onSaveOrgUnits={setSelectedOrgUnits}
+          selectedLevelOfCare={selectedLevelOfCare}
+          selectedOwnership={selectedOwnership}
+          onSaveOrgUnits={saveOrgUnitFilters}
+          updateTrigger={() => setUpdateTrigger((prev) => prev + 1)}
         />
       )}
       {isClearModalOpen && (

@@ -380,3 +380,24 @@ export const getAvailablePeriods = (periodType, year) => {
 
   return availablePeriodArray;
 };
+
+export const levelOfCareOptions = [
+    { id: "NRH", label: "NRH" },
+    { id: "RRH", label: "RRH" },
+    { id: "General Hospital", label: "General Hospital" },
+    { id: "HCIV", label: "HC IV" },
+    { id: "HC III", label: "HC III" },
+    { id: "HCII", label: "HCII" },
+    { id: "BCDP", label: "BCDP" },
+    { id: "RBB", label: "RBB" },
+    { id: "Clinic", label: "Clinic" },
+    { id: "Drug Shop", label: "Drug Shop" },
+    { id: "NBB", label: "NBB" },
+
+];
+
+export const ownershipOptions = [
+  { id: "GOV", label: "GOV" },
+  { id: "PFP", label: "PFP" },
+  { id: "PNFP", label: "PNFP" },
+];

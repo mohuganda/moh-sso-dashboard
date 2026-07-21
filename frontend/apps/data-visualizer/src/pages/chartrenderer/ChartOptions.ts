@@ -21,7 +21,7 @@ export type row = {
 
 export const dataValuesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getDataValues: builder.query<DataItem[], void>({
+    getDataValues: builder.query<any, void>({
       query: (bodyParams) => ({
         url: API.visualizer.dataValues(),
         method: "POST",
@@ -29,6 +29,7 @@ export const dataValuesApi = baseApi.injectEndpoints({
         credentials: "include",
       }),
       keepUnusedDataFor: 0,
+      transformResponse: (response: any) => response?.data,
     }),
   }),
 });

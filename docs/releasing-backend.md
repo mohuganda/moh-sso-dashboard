@@ -11,6 +11,62 @@ The `Backend Release` GitHub Actions workflow runs in two modes:
 
 Use this flow when you want a reviewed release branch before the tag and GitHub Release are created.
 
+### Command-Assisted Flow
+
+The backend Makefile includes release helpers so the common path does not require memorizing `gh` command syntax.
+
+From `backend/`:
+
+```bash
+make next-version BUMP=patch
+make release-check VERSION=1.2.3
+make release-pr VERSION=1.2.3
+make release-status VERSION=1.2.3
+```
+
+What those commands do:
+
+| Command | Purpose |
+| --- | --- |
+| `make next-version BUMP=patch` | Prints the next backend SemVer from existing `backend/v*` tags. `BUMP` can be `patch`, `minor`, or `major`. |
+| `make release-check VERSION=1.2.3` | Runs local release verification: version consistency, formatting check, vet, tests, architecture test, release binary build, and binary metadata verification. Requires a clean worktree. |
+| `make release-pr VERSION=1.2.3` | Creates or checks out `release/backend-v1.2.3`, adds an empty release marker commit when the branch has no commits ahead of `main`, pushes it, and opens a GitHub release PR. |
+| `make release-dispatch VERSION=1.2.3` | Runs the one-shot `backend-release.yml` workflow manually. Use this when you intentionally do not need a release PR. |
+| `make release-status VERSION=1.2.3` | Shows the GitHub release, recent release workflows, and Docker image manifest when Docker is available. |
+| `make verify-image IMAGE=ghcr.io/mohuganda/moh-sso-dashboard-backend:1.2.3 VERSION=1.2.3 COMMIT=<sha>` | Runs the backend image with `--version` and checks the embedded metadata. |
+
+The helper commands default to:
+
+```text
+REPO=mohuganda/moh-sso-dashboard
+BASE=main
+RELEASE_REMOTE=upstream
+BACKEND_IMAGE=ghcr.io/mohuganda/moh-sso-dashboard-backend
+```
+
+Override them when needed:
+
+```bash
+make release-pr VERSION=1.2.3 REPO=my-org/my-fork BASE=main
+make release-pr VERSION=1.2.3 RELEASE_REMOTE=origin
+make release-status VERSION=1.2.3 BACKEND_IMAGE=registry.example.go.ug/moh/backend
+```
+
+For release PRs that should create the `backend/v<version>` tag automatically, push the release branch to `upstream`, not a fork. GitHub does not allow a fork PR workflow token to create tags in `mohuganda/moh-sso-dashboard`.
+
+When `RELEASE_REMOTE=origin` points to a fork, the helper opens the PR with a fork-qualified head such as `jabahum:release/backend-v1.2.3` against `mohuganda/moh-sso-dashboard`. That is useful for review, but it cannot create the release tag after merge. After that fork PR is merged, run:
+
+```bash
+cd backend
+make release-dispatch VERSION=1.2.3
+```
+
+Fork-based release PRs skip artifact provenance attestation, tag creation, GitHub Release publication, and release metadata upload because GitHub does not expose write-capable tokens or OIDC ID tokens to that workflow context. They still run formatting, vet, tests, architecture checks, version verification, SBOM generation, and checksums. Manual dispatch and direct tag releases still run the full release publication path.
+
+GitHub artifact attestations are controlled by `ENABLE_GITHUB_ARTIFACT_ATTESTATIONS` in the backend release workflows. It is currently disabled because GitHub returned `Feature not available for the mohuganda organization`. Keep checksums and SBOMs enabled; set `ENABLE_GITHUB_ARTIFACT_ATTESTATIONS=true` only after the repository/org supports GitHub artifact attestations.
+
+### Manual Commands
+
 1. Pick the next backend SemVer.
 
    Use the backend component tag format:
@@ -130,6 +186,13 @@ If you prefer a one-shot release without a PR, use the manual dispatch flow belo
 ## Manual Dispatch Flow
 
 Run the `Backend Release` workflow directly:
+
+```bash
+cd backend
+make release-dispatch VERSION=1.2.3
+```
+
+Equivalent raw `gh` command:
 
 ```bash
 gh workflow run backend-release.yml \

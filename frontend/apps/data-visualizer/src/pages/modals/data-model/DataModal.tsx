@@ -8,7 +8,7 @@ import {
   useLazyGetDataSetElementsQuery,
 } from "./data-model.ts";
 
-export default function DataModal({ onClose, selected, onSave }) {
+export default function DataModal({ onClose, selected, onSave, updateTrigger }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDataset, setSelectedDataset] = useState("");
   const [datasets, setDatasets] = useState<Dataset[] | undefined>([]);
@@ -27,6 +27,38 @@ export default function DataModal({ onClose, selected, onSave }) {
       console.error("Error Encountered while fetching datasets:: " + error);
     }
   }, [error, isLoading, themes]);
+
+  useEffect(() => {
+    const itemIds = selectedItems.map((item) => item.data_element_id);
+    const propIds = (selected ?? []).map((item) => item.data_element_id);
+    const isSame = [...itemIds].sort().join(",") === [...propIds].sort().join(",");
+    if (!isSame) {
+      setSelectedItems(selected ?? []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const itemIds = selectedItems.map((item) => item.data_element_id);
+
+    if (itemIds.length > 0) {
+      params.set("dx", itemIds.join(","));
+    } else {
+      params.delete("dx");
+    }
+
+    const newSearch = params.toString();
+    const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : "");
+    window.history.replaceState(null, "", newUrl);
+
+    const propIds = (selected ?? []).map((item) => item.data_element_id);
+    const hasChanged = [...itemIds].sort().join(",") !== [...propIds].sort().join(",");
+    if (hasChanged) {
+      onSave(selectedItems);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedItems, selected, onSave]);
 
   const addItem = (item) => {
     const updatedAvailableParameters = availableDataSetElements.filter(
@@ -68,7 +100,9 @@ export default function DataModal({ onClose, selected, onSave }) {
   };
 
   const save = () => {
-    onSave(selectedItems);
+    if (updateTrigger) {
+      updateTrigger();
+    }
     onClose();
   };
 

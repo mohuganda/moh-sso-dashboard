@@ -20,6 +20,10 @@ const API_ROOT = `${API_BASE_URL}/api`;
 const API_VERSION = "v1";
 const API_BASE = `${API_ROOT}/${API_VERSION}`;
 
+// Use local proxy for visualizer endpoints in development if VITE_VISUALIZER_API_BASE is configured
+const VISUALIZER_API_BASE =
+  import.meta.env.VITE_VISUALIZER_API_BASE || API_BASE;
+
 export const API = {
   serviceBase: API_BASE_URL,
   root: API_ROOT,
@@ -81,18 +85,18 @@ export const API = {
   // Visualizer
   // --------------------------------------------------
   visualizer: {
-    themes: () => `${API_BASE}/visualizer/themes`,
-    theme: () => `${API_BASE}/visualizer/dataelements/theme`,
-    hierarchy: () => `${API_BASE}/visualizer/adminunits/hierarchy`,
-    dataValues: () => `${API_BASE}/visualizer/datavalues`,
-    datasets: () => `${API_BASE}/visualizer/datasets`,
-    dataElements: () => `${API_BASE}/visualizer/dataelements`,
+    themes: () => `${VISUALIZER_API_BASE}/visualizer/themes`,
+    theme: () => `${VISUALIZER_API_BASE}/visualizer/dataelements/theme`,
+    hierarchy: () => `${VISUALIZER_API_BASE}/visualizer/adminunits/hierarchy`,
+    dataValues: () => `${VISUALIZER_API_BASE}/visualizer/datavalues`,
+    datasets: () => `${VISUALIZER_API_BASE}/visualizer/datasets`,
+    dataElements: () => `${VISUALIZER_API_BASE}/visualizer/dataelements`,
   },
   // --------------------------------------------------
   // Visualizer
   // --------------------------------------------------
   issue: {
-    list: () => `${API_BASE}/issues`,
+    list: () => `${VISUALIZER_API_BASE}/issues`,
   },
 
   // --------------------------------------------------

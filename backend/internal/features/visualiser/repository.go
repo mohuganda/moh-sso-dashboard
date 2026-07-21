@@ -131,6 +131,13 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		values = append(values, pq.Array(req.Ownership))
 		orgUnitFilterClause += fmt.Sprintf(" AND h.ownership = ANY($%d)", paramCounter)
 	}
+	aggregateAllCareAndOwnership := len(req.LevelOfCare) == 0 && len(req.Ownership) == 0
+	levelOfCareExpr := "COALESCE(NULLIF(oa.level_of_care, ''), 'ALL')"
+	ownershipExpr := "COALESCE(NULLIF(oa.ownership, ''), 'ALL')"
+	if aggregateAllCareAndOwnership {
+		levelOfCareExpr = "'ALL'"
+		ownershipExpr = "'ALL'"
+	}
 
 	whereClause := ""
 	if len(conditions) > 0 {
@@ -145,19 +152,12 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 			values = append(values, *requestedLevel)
 			selectedLevelClause = fmt.Sprintf("WHERE su.selected_level = $%d", paramCounter)
 		}
-		countryOrgUnitFilterJoin := ""
-		if orgUnitFilterClause != "" {
-			countryOrgUnitFilterJoin = `
-		     JOIN (
-		       SELECT DISTINCT COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid
-		       FROM hiv.organisation_unit h
-		       WHERE COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
-		         ` + orgUnitFilterClause + `
-		     ) ou_filter
-		       ON ou_filter.facility_uid = hs.org_unit_id
-		     `
+		countryWhereClause := whereClause
+		if countryWhereClause == "" {
+			countryWhereClause = " WHERE su.selected_level = '1'"
+		} else {
+			countryWhereClause += " AND su.selected_level = '1'"
 		}
-
 		query = `
 		   WITH org_unit_attrs AS (
 		     SELECT
@@ -257,7 +257,8 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		     FROM selected_units su
 		     JOIN hiv.organisation_unit h
 		      ON (
-		        (su.selected_level = '6' AND (h.facility_uid = su.selected_uid OR (h.level = '6' AND h.org_unit_id = su.selected_uid)))
+		        (su.selected_level = '1' AND (h.country_uid = su.selected_uid OR (h.level = '1' AND h.org_unit_id = su.selected_uid)))
+		        OR (su.selected_level = '6' AND (h.facility_uid = su.selected_uid OR (h.level = '6' AND h.org_unit_id = su.selected_uid)))
 		        OR (su.selected_level = '2' AND h.region_uid = su.selected_uid)
 		        OR (su.selected_level = '3' AND h.district_uid = su.selected_uid)
 		        OR (su.selected_level = '5' AND (h.sub_county_uid = su.selected_uid OR (h.level = '5' AND h.org_unit_id = su.selected_uid)))
@@ -268,128 +269,77 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		   )
 		   SELECT
 		     x.org_unit_id,
+		     x.org_unit_name,
 		     x.data_element_id,
 		     x."period",
-		     x.category_combo,
 		     x.value,
-		     x.facility,
 		     x."level",
-		     x.region,
-		     x.district,
-		     x.sub_county,
 		     x.level_of_care,
 		     x.ownership,
 		     x.dataelement
 		   FROM (
 		     SELECT
 		       sf.selected_uid AS org_unit_id,
+		       sf.selected_name AS org_unit_name,
 		       hs.data_element_id,
 		       hs."period",
-		       hs.category_combo,
 		       SUM(
 		         CASE
 		           WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
 		           ELSE 0
 		         END
 		       )::bigint AS value,
-		       COALESCE(MAX(NULLIF(hs.facility, '')), sf.selected_name) AS facility,
 		       sf.selected_level AS "level",
-		       CASE
-		         WHEN sf.selected_level = '2' THEN sf.selected_name
-		         WHEN sf.selected_level IN ('3', '5', '6') THEN COALESCE(MAX(hs.region), '')
-		         ELSE ''
-		       END AS region,
-		       CASE
-		         WHEN sf.selected_level = '3' THEN sf.selected_name
-		         WHEN sf.selected_level IN ('5', '6') THEN COALESCE(MAX(hs.district), '')
-		         ELSE ''
-		       END AS district,
-		       CASE
-		         WHEN sf.selected_level = '5' THEN sf.selected_name
-		         WHEN sf.selected_level = '6' THEN COALESCE(MAX(hs.sub_county), '')
-		         ELSE ''
-		       END AS sub_county,
-		       CASE
-		         WHEN COUNT(DISTINCT COALESCE(NULLIF(oa.level_of_care, ''), 'Unknown')) = 1
-		           THEN MAX(COALESCE(NULLIF(oa.level_of_care, ''), 'Unknown'))
-		         ELSE 'ALL'
-		       END AS level_of_care,
-		       CASE
-		         WHEN COUNT(DISTINCT COALESCE(NULLIF(oa.ownership, ''), 'Unknown')) = 1
-		           THEN MAX(COALESCE(NULLIF(oa.ownership, ''), 'Unknown'))
-		         ELSE 'ALL'
-		       END AS ownership,
+		       ` + levelOfCareExpr + ` AS level_of_care,
+		       ` + ownershipExpr + ` AS ownership,
 		       hs.dataelement
-		     FROM report.hmis_summary hs
-		     JOIN selected_facilities sf
-		       ON sf.facility_uid = hs.org_unit_id
+		     FROM selected_facilities sf
+		     JOIN report.hmis_summary hs
+		       ON hs.org_unit_id = sf.facility_uid
 		     LEFT JOIN org_unit_attrs oa
 		       ON oa.facility_uid = hs.org_unit_id
 		     ` + whereClause + `
-		     GROUP BY
-		       sf.selected_uid,
-		       sf.selected_name,
-		       sf.selected_level,
-		       hs.data_element_id,
-		       hs."period",
-		       hs.category_combo,
-		       hs.dataelement
-
+		     GROUP BY 1, 2, 3, 4, 6, 7, 8, 9
+		    
 		     UNION ALL
 
 		     SELECT
 		       su.selected_uid AS org_unit_id,
+		       su.selected_name AS org_unit_name,
 		       hs.data_element_id,
 		       hs."period",
-		       hs.category_combo,
 		       SUM(
 		         CASE
 		           WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
 		           ELSE 0
 		         END
 		       )::bigint AS value,
-		       COALESCE(MAX(NULLIF(hs.facility, '')), su.selected_name) AS facility,
 		       su.selected_level AS "level",
-		       '' AS region,
-		       '' AS district,
-		       '' AS sub_county,
-		       CASE
-		         WHEN COUNT(DISTINCT COALESCE(NULLIF(oa.level_of_care, ''), 'Unknown')) = 1
-		           THEN MAX(COALESCE(NULLIF(oa.level_of_care, ''), 'Unknown'))
-		         ELSE 'ALL'
-		       END AS level_of_care,
-		       CASE
-		         WHEN COUNT(DISTINCT COALESCE(NULLIF(oa.ownership, ''), 'Unknown')) = 1
-		           THEN MAX(COALESCE(NULLIF(oa.ownership, ''), 'Unknown'))
-		         ELSE 'ALL'
-		       END AS ownership,
+		       ` + levelOfCareExpr + ` AS level_of_care,
+		       ` + ownershipExpr + ` AS ownership,
 		       hs.dataelement
-		     FROM report.hmis_summary hs
-		     JOIN selected_units su
-		       ON su.selected_level = '1'
+		     FROM selected_units su
+		     JOIN hiv.organisation_unit h
+		       ON (
+		         h.country_uid = su.selected_uid
+		         OR (h.level = '1' AND h.org_unit_id = su.selected_uid)
+		       )
+		     JOIN report.hmis_summary hs
+		       ON hs.org_unit_id = COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id)
 		     LEFT JOIN org_unit_attrs oa
 		       ON oa.facility_uid = hs.org_unit_id
-		     ` + countryOrgUnitFilterJoin + `
-		     ` + whereClause + `
-		     GROUP BY
-		       su.selected_uid,
-		       su.selected_name,
-		       su.selected_level,
-		       hs.data_element_id,
-		       hs."period",
-		       hs.category_combo,
-		       hs.dataelement
+		     ` + countryWhereClause + `
+		     GROUP BY 1, 2, 3, 4, 6, 7, 8, 9
 		   ) x
 		   ORDER BY
 		     x."period",
 		     x."level",
-		     x.facility,
-		     x.data_element_id,
-		     x.category_combo
+		     x.org_unit_name,
+		     x.data_element_id
 		`
 	} else {
 		aggregationLevel := r.resolveAggregationLevel(ctx, requestedLevel, req.OU)
-		orgUnitExpr, facilityExpr, levelExpr, regionExpr, districtExpr, subCountyExpr := aggregationExpressions(aggregationLevel)
+		orgUnitExpr, facilityExpr, levelExpr, _, _, _ := aggregationExpressions(aggregationLevel)
 		orgUnitFilterJoin := ""
 		if orgUnitFilterClause != "" {
 			orgUnitFilterJoin = `
@@ -406,30 +356,18 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		query = `
 		   SELECT 
 		      ` + orgUnitExpr + ` AS org_unit_id,
+		      ` + facilityExpr + ` AS org_unit_name,
 		      hs.data_element_id,
 		      hs."period",
-		      hs.category_combo,
 		      SUM(
 		        CASE
 		          WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
 		          ELSE 0
 		        END
 		      )::bigint AS value,
-		      ` + facilityExpr + ` AS facility,
 		      ` + levelExpr + ` AS "level",
-		      ` + regionExpr + ` AS region,
-	          ` + districtExpr + ` AS district,
-	          ` + subCountyExpr + ` AS sub_county,
-	          CASE
-	            WHEN COUNT(DISTINCT COALESCE(NULLIF(oa.level_of_care, ''), 'Unknown')) = 1
-	              THEN MAX(COALESCE(NULLIF(oa.level_of_care, ''), 'Unknown'))
-	            ELSE 'ALL'
-	          END AS level_of_care,
-	          CASE
-	            WHEN COUNT(DISTINCT COALESCE(NULLIF(oa.ownership, ''), 'Unknown')) = 1
-	              THEN MAX(COALESCE(NULLIF(oa.ownership, ''), 'Unknown'))
-	            ELSE 'ALL'
-	          END AS ownership,
+	          ` + levelOfCareExpr + ` AS level_of_care,
+	          ` + ownershipExpr + ` AS ownership,
 	          hs.dataelement
 	       FROM report.hmis_summary hs
 	       LEFT JOIN (
@@ -444,12 +382,11 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 	         ON oa.facility_uid = hs.org_unit_id
 	       ` + orgUnitFilterJoin + `
 	       ` + whereClause + `
-	       GROUP BY 1, 2, 3, 4, 6, 7, 8, 9, 10, 13
+	       GROUP BY 1, 2, 3, 4, 6, 7, 8
 	       ORDER BY 
-	          3,
+	          4,
 	          1,
-	          2,
-	          4
+	          3
 	    `
 	}
 
@@ -464,15 +401,11 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		var row DataValueRowResponse
 		if err := rows.Scan(
 			&row.OrgUnitID,
+			&row.OrgUnitName,
 			&row.DataElementID,
 			&row.Period,
-			&row.CategoryCombo,
 			&row.Value,
-			&row.Facility,
 			&row.Level,
-			&row.Region,
-			&row.District,
-			&row.SubCounty,
 			&row.LevelOfCare,
 			&row.Ownership,
 			&row.Dataelement,
