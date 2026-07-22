@@ -87,6 +87,15 @@ compose-down:
 	@echo "🧯 Stopping services..."
 	docker compose down
 
+.PHONY: backend-dev
+backend-dev:
+	@echo "⚡ Starting the backend with automatic reload..."
+	docker compose -f docker-compose.dev.yml up --build backend
+
+.PHONY: backend-dev-logs
+backend-dev-logs:
+	docker compose -f docker-compose.dev.yml logs -f backend
+
 # -----------------------------
 # Utility Commands
 # -----------------------------
