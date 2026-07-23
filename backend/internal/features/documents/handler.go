@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -561,6 +564,7 @@ func (h *Handler) ReprocessDocument(c *gin.Context) {
 // ── Data Preview ──────────────────────────────────────────────────────────────
 
 type previewSheet struct {
+	Code     string                   `json:"code"`
 	Name     string                   `json:"name"`
 	RowCount int                      `json:"row_count"`
 	Columns  []string                 `json:"columns"`
@@ -596,11 +600,11 @@ func (h *Handler) DataPreview(c *gin.Context) {
 	templateCode := strings.ToUpper(strings.TrimSpace(meta["template_code"]))
 	reportDate := meta["report_date"]
 
-	if templateCode == "" {
-		response.OK(c, http.StatusOK, dataPreviewResponse{Sheets: []previewSheet{}})
-		return
-	}
-
+	// No early return when templateCode is empty: ad-hoc (no-template) CSV
+	// uploads still have real rows in import.custom_data_files, keyed by
+	// document_id rather than template_code. The query below is already
+	// scoped by document_id, and the "no sheets found" branch further down
+	// already returns an empty preview correctly when there's truly no data.
 	if h.remoteDB == nil {
 		response.Fail(c, http.StatusServiceUnavailable, "NO_REMOTE_DB", "remote database not configured")
 		return
@@ -609,8 +613,8 @@ func (h *Handler) DataPreview(c *gin.Context) {
 	// Distinct sheet codes present for this document, ordered by first row_number seen
 	sheetCodeRows, err := h.remoteDB.QueryContext(ctx, `
 		SELECT sheet_code
-		FROM import.template_row_data
-		WHERE document_id = $1 AND is_valid = TRUE
+		FROM import.custom_data_files
+		WHERE document_id = $1 AND is_current = 'Y'
 		GROUP BY sheet_code
 		ORDER BY MIN(row_number)
 	`, documentID)
@@ -669,20 +673,23 @@ func (h *Handler) DataPreview(c *gin.Context) {
 		}
 	}
 
+	const previewRowLimit = 500
+
 	result := dataPreviewResponse{TemplateCode: templateCode, ReportDate: reportDate}
 
 	for _, sheetCode := range sheetCodes {
 		var totalCount int
 		_ = h.remoteDB.QueryRowContext(ctx, `
-			SELECT COUNT(*) FROM import.template_row_data
-			WHERE document_id = $1 AND sheet_code = $2 AND is_valid = TRUE
+			SELECT COUNT(*) FROM import.custom_data_files
+			WHERE document_id = $1 AND sheet_code = $2 AND is_current = 'Y'
 		`, documentID, sheetCode).Scan(&totalCount)
 
 		dataRows, err := h.remoteDB.QueryContext(ctx, `
-			SELECT data FROM import.template_row_data
-			WHERE document_id = $1 AND sheet_code = $2 AND is_valid = TRUE
+			SELECT file_data, row_hash FROM import.custom_data_files
+			WHERE document_id = $1 AND sheet_code = $2 AND is_current = 'Y'
 			ORDER BY row_number
-		`, documentID, sheetCode)
+			LIMIT $3
+		`, documentID, sheetCode, previewRowLimit)
 		if err != nil {
 			continue
 		}
@@ -691,7 +698,8 @@ func (h *Handler) DataPreview(c *gin.Context) {
 		var fallbackColumns []string
 		for dataRows.Next() {
 			var raw []byte
-			if err := dataRows.Scan(&raw); err != nil {
+			var rowHash sql.NullString
+			if err := dataRows.Scan(&raw, &rowHash); err != nil {
 				continue
 			}
 			var rowData map[string]interface{}
@@ -703,6 +711,11 @@ func (h *Handler) DataPreview(c *gin.Context) {
 				for k := range rowData {
 					fallbackColumns = append(fallbackColumns, k)
 				}
+			}
+			// Reserved key for row identity (selection/export); never added to
+			// the visible column list above, so it stays hidden from the table.
+			if rowHash.Valid {
+				rowData["_row_hash"] = rowHash.String
 			}
 			rows = append(rows, rowData)
 		}
@@ -725,6 +738,7 @@ func (h *Handler) DataPreview(c *gin.Context) {
 		}
 
 		result.Sheets = append(result.Sheets, previewSheet{
+			Code:     sheetCode,
 			Name:     displayName,
 			RowCount: totalCount,
 			Columns:  columns,
@@ -733,6 +747,139 @@ func (h *Handler) DataPreview(c *gin.Context) {
 	}
 
 	response.OK(c, http.StatusOK, result)
+}
+
+/* =========================================================
+ * ExportDataPreview — download rows matching the caller's
+ * current preview filter/search criteria as CSV. Runs against
+ * the full server-side dataset (no row cap), unlike DataPreview.
+ * ========================================================= */
+
+var columnKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
+type exportDataPreviewRequest struct {
+	SheetCode string              `json:"sheet_code"`
+	Columns   []string            `json:"columns"`
+	Search    []string            `json:"search"`
+	Filters   map[string][]string `json:"filters"`
+}
+
+func (h *Handler) ExportDataPreview(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	documentID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ID", "invalid document id")
+		return
+	}
+
+	var req exportDataPreviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid export request")
+		return
+	}
+
+	sheetCode := strings.TrimSpace(req.SheetCode)
+	if sheetCode == "" {
+		response.Fail(c, http.StatusBadRequest, "MISSING_SHEET_CODE", "sheet_code is required")
+		return
+	}
+
+	if h.remoteDB == nil {
+		response.Fail(c, http.StatusServiceUnavailable, "NO_REMOTE_DB", "remote database not configured")
+		return
+	}
+
+	// Only allow-listed column keys (from the caller-supplied columns list)
+	// are interpolated into the JSONB path expressions below — column keys
+	// can't be parameterized like values, so this character check plus
+	// deriving the list only from the caller's own request is what keeps
+	// this safe from injection.
+	var columns []string
+	for _, col := range req.Columns {
+		if columnKeyPattern.MatchString(col) {
+			columns = append(columns, col)
+		}
+	}
+	if len(columns) == 0 {
+		response.Fail(c, http.StatusBadRequest, "MISSING_COLUMNS", "at least one valid column is required")
+		return
+	}
+	allowedColumns := make(map[string]bool, len(columns))
+	for _, col := range columns {
+		allowedColumns[col] = true
+	}
+
+	query := strings.Builder{}
+	query.WriteString(`SELECT file_data FROM import.custom_data_files WHERE document_id = $1 AND sheet_code = $2 AND is_current = 'Y'`)
+	args := []any{documentID, sheetCode}
+
+	if len(req.Search) > 0 {
+		args = append(args, pq.Array(req.Search))
+		idx := len(args)
+		clauses := make([]string, len(columns))
+		for i, col := range columns {
+			clauses[i] = fmt.Sprintf(`file_data->>'%s' = ANY($%d)`, col, idx)
+		}
+		query.WriteString(" AND (" + strings.Join(clauses, " OR ") + ")")
+	}
+
+	for key, values := range req.Filters {
+		if !allowedColumns[key] || len(values) == 0 {
+			continue
+		}
+		args = append(args, pq.Array(values))
+		query.WriteString(fmt.Sprintf(` AND file_data->>'%s' = ANY($%d)`, key, len(args)))
+	}
+
+	query.WriteString(" ORDER BY row_number")
+
+	rows, err := h.remoteDB.QueryContext(ctx, query.String(), args...)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "QUERY_FAILED", err.Error())
+		return
+	}
+	defer rows.Close()
+
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-export.csv"`, sheetCode))
+	c.Status(http.StatusOK)
+
+	writer := csv.NewWriter(c.Writer)
+
+	if err := writer.Write(columns); err != nil {
+		return
+	}
+
+	for rows.Next() {
+		var raw []byte
+		if err := rows.Scan(&raw); err != nil {
+			continue
+		}
+		var rowData map[string]interface{}
+		if err := json.Unmarshal(raw, &rowData); err != nil {
+			continue
+		}
+		record := make([]string, len(columns))
+		for i, col := range columns {
+			record[i] = formatCSVValue(rowData[col])
+		}
+		if err := writer.Write(record); err != nil {
+			return
+		}
+	}
+
+	writer.Flush()
+}
+
+func formatCSVValue(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprint(v)
 }
 
 /* =========================================================

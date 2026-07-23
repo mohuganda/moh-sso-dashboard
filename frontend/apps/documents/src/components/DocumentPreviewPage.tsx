@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import Papa from "papaparse";
 import {
   Button,
+  Checkbox,
   FilterableMultiSelect,
   InlineLoading,
   InlineNotification,
@@ -9,7 +11,6 @@ import {
   TabList,
   TabPanel,
   TabPanels,
-  TableToolbarSearch,
   Tabs,
   Tag,
 } from "@carbon/react";
@@ -21,6 +22,7 @@ import {
   useGetDocumentQuery,
   useGetDocumentDataPreviewQuery,
   useLazyDownloadDocumentQuery,
+  useExportDataPreviewMutation,
   useGetTemplateStructureQuery,
 } from "../api";
 import type { DataPreviewSheet } from "../types";
@@ -44,22 +46,42 @@ function formatDateTime(iso?: string) {
   return `${date} at ${time}`;
 }
 
+function getRowHash(row: Record<string, unknown>): string | undefined {
+  const value = row._row_hash;
+  return typeof value === "string" ? value : undefined;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const link = window.document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.URL.revokeObjectURL(url);
+}
+
 type SortDir = "asc" | "desc" | null;
 
 // ── Sheet view ────────────────────────────────────────────────────────────────
 
 function SheetView({
+  documentId,
   sheet,
   filterableKeys,
 }: {
+  documentId: string;
   sheet: DataPreviewSheet;
   filterableKeys: string[];
 }) {
-  const [search, setSearch] = useState("");
+  const toast = useToast();
+  const [exportDataPreview, { isLoading: isExporting }] = useExportDataPreviewMutation();
+
+  const [searchValues, setSearchValues] = useState<string[]>([]);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [page, setPage] = useState(0);
+  const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set());
 
   const activeFilterKeys = useMemo(
     () => filterableKeys.filter((k) => sheet.columns.includes(k)),
@@ -75,8 +97,18 @@ function SheetView({
     return result;
   }, [sheet.rows, activeFilterKeys]);
 
+  const searchOptions = useMemo(() => {
+    const unique = new Set<string>();
+    for (const row of sheet.rows) {
+      for (const col of sheet.columns) {
+        const value = formatCell(row[col]);
+        if (value) unique.add(value);
+      }
+    }
+    return [...unique].sort().map((v) => ({ id: v, label: v }));
+  }, [sheet.rows, sheet.columns]);
+
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     let rows = sheet.rows;
 
     for (const key of activeFilterKeys) {
@@ -86,10 +118,9 @@ function SheetView({
       rows = rows.filter((r) => set.has(formatCell(r[key])));
     }
 
-    if (q) {
-      rows = rows.filter((r) =>
-        sheet.columns.some((col) => formatCell(r[col]).toLowerCase().includes(q)),
-      );
+    if (searchValues.length > 0) {
+      const set = new Set(searchValues);
+      rows = rows.filter((r) => sheet.columns.some((col) => set.has(formatCell(r[col]))));
     }
 
     if (sortCol && sortDir) {
@@ -105,10 +136,76 @@ function SheetView({
     }
 
     return rows;
-  }, [sheet.rows, sheet.columns, search, selections, activeFilterKeys, sortCol, sortDir]);
+  }, [sheet.rows, sheet.columns, searchValues, selections, activeFilterKeys, sortCol, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
   const pageRows = filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
+
+  const pageHashes = useMemo(
+    () => pageRows.map(getRowHash).filter((h): h is string => !!h),
+    [pageRows],
+  );
+  const allPageSelected = pageHashes.length > 0 && pageHashes.every((h) => selectedHashes.has(h));
+  const somePageSelected = pageHashes.some((h) => selectedHashes.has(h));
+
+  function toggleRow(hash: string | undefined) {
+    if (!hash) return;
+    setSelectedHashes((prev) => {
+      const next = new Set(prev);
+      if (next.has(hash)) next.delete(hash);
+      else next.add(hash);
+      return next;
+    });
+  }
+
+  function togglePage() {
+    setSelectedHashes((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        for (const h of pageHashes) next.delete(h);
+      } else {
+        for (const h of pageHashes) next.add(h);
+      }
+      return next;
+    });
+  }
+
+  function downloadSelected() {
+    const selectedRows = sheet.rows.filter((r) => {
+      const hash = getRowHash(r);
+      return hash && selectedHashes.has(hash);
+    });
+    if (selectedRows.length === 0) return;
+
+    const csv = Papa.unparse({
+      fields: sheet.columns,
+      data: selectedRows.map((row) => sheet.columns.map((col) => formatCell(row[col]))),
+    });
+    downloadBlob(
+      new Blob([csv], { type: "text/csv;charset=utf-8;" }),
+      `${sheet.code || sheet.name}-selected.csv`,
+    );
+    toast.success("Download started", `${selectedRows.length} selected rows`);
+  }
+
+  async function downloadAllMatching() {
+    const activeFilters = Object.fromEntries(
+      Object.entries(selections).filter(([, values]) => values.length > 0),
+    );
+    try {
+      const blob = await exportDataPreview({
+        id: documentId,
+        sheetCode: sheet.code || sheet.name,
+        columns: sheet.columns,
+        search: searchValues.length > 0 ? searchValues : undefined,
+        filters: Object.keys(activeFilters).length > 0 ? activeFilters : undefined,
+      }).unwrap();
+      downloadBlob(blob, `${sheet.code || sheet.name}-export.csv`);
+      toast.success("Export started", "All matching rows from the server");
+    } catch {
+      toast.error("Export failed", "Please try again.");
+    }
+  }
 
   function handleSort(col: string) {
     if (sortCol !== col) {
@@ -123,7 +220,7 @@ function SheetView({
   }
 
   function clearFilters() {
-    setSearch("");
+    setSearchValues([]);
     setSelections({});
     setSortCol(null);
     setSortDir(null);
@@ -131,7 +228,7 @@ function SheetView({
   }
 
   const hasActiveFilters = !!(
-    search ||
+    searchValues.length > 0 ||
     Object.values(selections).some((s) => s.length > 0) ||
     sortCol
   );
@@ -141,15 +238,17 @@ function SheetView({
       {/* ── Toolbar ── */}
       <div className="document-preview__toolbar">
         <div className="document-preview__search">
-          <TableToolbarSearch
-            persistent
-            value={search}
-            placeholder="Search all columns…"
-            onChange={(_, v) => {
-              setSearch(v ?? "");
+          <FilterableMultiSelect
+            id={`search-${sheet.name}`}
+            titleText="Search values"
+            placeholder="Type to search…"
+            items={searchOptions}
+            itemToString={(item) => item?.label ?? ""}
+            selectedItems={searchValues.map((v) => ({ id: v, label: v }))}
+            onChange={({ selectedItems }) => {
+              setSearchValues((selectedItems ?? []).map((i) => i.id));
               setPage(0);
             }}
-            labelText="Search"
           />
         </div>
 
@@ -196,11 +295,55 @@ function SheetView({
         </div>
       </div>
 
+      {/* ── Selection actions ── */}
+      <div className="document-preview__selection-bar">
+        <span className="document-preview__selection-count">
+          {selectedHashes.size > 0
+            ? `${selectedHashes.size.toLocaleString()} row${selectedHashes.size === 1 ? "" : "s"} selected`
+            : "Select rows to download only those"}
+        </span>
+
+        <Button
+          kind="secondary"
+          size="sm"
+          renderIcon={Download}
+          disabled={selectedHashes.size === 0}
+          onClick={downloadSelected}
+        >
+          Download selected
+        </Button>
+
+        <Button
+          kind="ghost"
+          size="sm"
+          renderIcon={Download}
+          disabled={isExporting}
+          onClick={() => void downloadAllMatching()}
+        >
+          {isExporting
+            ? "Exporting…"
+            : hasActiveFilters
+              ? "Export all rows matching filters"
+              : "Export all rows"}
+        </Button>
+      </div>
+
       {/* ── Table ── */}
       <div className="document-preview__table-scroll">
         <table className="document-preview__table">
           <thead>
             <tr>
+              <th className="document-preview__checkbox-cell">
+                <Checkbox
+                  id={`select-page-${sheet.name}`}
+                  labelText="Select all rows on this page"
+                  hideLabel
+                  checked={allPageSelected}
+                  indeterminate={!allPageSelected && somePageSelected}
+                  onChange={togglePage}
+                  disabled={pageHashes.length === 0}
+                />
+              </th>
               {sheet.columns.map((col) => {
                 const isActive = sortCol === col;
                 const arrow = isActive ? (sortDir === "asc" ? " ▲" : " ▼") : "";
@@ -221,27 +364,44 @@ function SheetView({
           <tbody>
             {pageRows.length === 0 ? (
               <tr>
-                <td colSpan={sheet.columns.length} className="document-preview__no-rows">
+                <td colSpan={sheet.columns.length + 1} className="document-preview__no-rows">
                   No rows match the current filters.
                 </td>
               </tr>
             ) : (
-              pageRows.map((row, idx) => (
-                <tr key={idx}>
-                  {sheet.columns.map((col) => {
-                    const val = formatCell(row[col]);
-                    return (
-                      <td
-                        key={col}
-                        className={val ? undefined : "document-preview__empty-cell"}
-                        title={val || "—"}
-                      >
-                        {val || "—"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
+              pageRows.map((row, idx) => {
+                const hash = getRowHash(row);
+                const isSelected = !!hash && selectedHashes.has(hash);
+                return (
+                  <tr
+                    key={hash ?? idx}
+                    className={isSelected ? "document-preview__row--selected" : undefined}
+                  >
+                    <td className="document-preview__checkbox-cell">
+                      <Checkbox
+                        id={`select-row-${sheet.name}-${hash ?? idx}`}
+                        labelText="Select row"
+                        hideLabel
+                        checked={isSelected}
+                        onChange={() => toggleRow(hash)}
+                        disabled={!hash}
+                      />
+                    </td>
+                    {sheet.columns.map((col) => {
+                      const val = formatCell(row[col]);
+                      return (
+                        <td
+                          key={col}
+                          className={val ? undefined : "document-preview__empty-cell"}
+                          title={val || "—"}
+                        >
+                          {val || "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -294,12 +454,29 @@ export default function DocumentPreviewPage() {
   const toast = useToast();
   const [triggerDownload] = useLazyDownloadDocumentQuery();
 
-  const { data: document, isLoading: isLoadingDoc } = useGetDocumentQuery(id!, { skip: !id });
+  // While the document is still PENDING/PROCESSING, its background import
+  // job hasn't necessarily written rows yet — poll both queries so the page
+  // picks up the real data (and status) once processing finishes, instead of
+  // holding on to a "no data yet" response fetched too early.
+  const [isProcessing, setIsProcessing] = useState(true);
+
+  const { data: document, isLoading: isLoadingDoc } = useGetDocumentQuery(id!, {
+    skip: !id,
+    pollingInterval: isProcessing ? 3000 : 0,
+  });
   const {
     data: preview,
     isLoading: isLoadingPreview,
     isError,
-  } = useGetDocumentDataPreviewQuery(id!, { skip: !id });
+  } = useGetDocumentDataPreviewQuery(id!, {
+    skip: !id,
+    pollingInterval: isProcessing ? 3000 : 0,
+  });
+
+  useEffect(() => {
+    const status = document?.status?.toUpperCase();
+    setIsProcessing(status === "PENDING" || status === "PROCESSING");
+  }, [document?.status]);
 
   const templateCode = (document?.metadata?.template_code as string | undefined) ?? "";
   const { data: structure } = useGetTemplateStructureQuery(templateCode, { skip: !templateCode });
@@ -321,12 +498,7 @@ export default function DocumentPreviewPage() {
     if (!id || !document) return;
     try {
       const blob = await triggerDownload(id).unwrap();
-      const url = window.URL.createObjectURL(blob);
-      const link = window.document.createElement("a");
-      link.href = url;
-      link.download = document.original_filename;
-      link.click();
-      window.URL.revokeObjectURL(url);
+      downloadBlob(blob, document.original_filename);
       toast.success("Download started", document.original_filename);
     } catch {
       toast.error("Download failed", "Please try again.");
@@ -411,7 +583,11 @@ export default function DocumentPreviewPage() {
           <TabPanels>
             {preview.sheets.map((sheet) => (
               <TabPanel key={sheet.name} className="document-preview__tab-panel">
-                <SheetView sheet={sheet} filterableKeys={filterableKeysBySheet[sheet.name] ?? []} />
+                <SheetView
+                  documentId={id!}
+                  sheet={sheet}
+                  filterableKeys={filterableKeysBySheet[sheet.name] ?? []}
+                />
               </TabPanel>
             ))}
           </TabPanels>

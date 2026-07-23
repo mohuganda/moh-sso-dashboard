@@ -26,6 +26,7 @@ WHERE id = $1;
 -- name: ListDocuments :many
 SELECT *
 FROM documents
+WHERE is_template = FALSE
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
 

@@ -29,6 +29,7 @@ import type { DocumentResponse } from "../types";
 
 const TABLE_HEADERS = [
   { key: "filename", header: "Filename" },
+  { key: "template", header: "Template" },
   { key: "report_date", header: "Report Date" },
   { key: "uploaded_by", header: "Uploaded by" },
   { key: "uploaded", header: "Uploaded" },

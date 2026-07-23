@@ -27,7 +27,7 @@ import (
 type ExcelProcessor struct {
 	documentRepository      documentRepository.DocumentRepository
 	documentTemplateService documenttemplates.Service
-	templateImportRepo      documentRepository.TemplateImportRepository
+	fileRepository          documentRepository.FileRepository
 	processRepository       processRepository.ProcessRepository
 	storage                 storage.Storage
 	remoteDB                *sql.DB
@@ -35,7 +35,7 @@ type ExcelProcessor struct {
 
 func NewExcelProcessor(
 	documentRepository documentRepository.DocumentRepository,
-	templateImportRepo documentRepository.TemplateImportRepository,
+	fileRepository documentRepository.FileRepository,
 	processRepository processRepository.ProcessRepository,
 	documentTemplateService documenttemplates.Service,
 	storage storage.Storage,
@@ -43,7 +43,7 @@ func NewExcelProcessor(
 ) *ExcelProcessor {
 	return &ExcelProcessor{
 		documentRepository:      documentRepository,
-		templateImportRepo:      templateImportRepo,
+		fileRepository:          fileRepository,
 		processRepository:       processRepository,
 		documentTemplateService: documentTemplateService,
 		storage:                 storage,
@@ -115,20 +115,20 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 	}
 	defer tx.Rollback()
 
-	// If replacing a previous upload, invalidate its rows and upload record first.
+	// If replacing a previous upload, invalidate its rows and file record first.
 	if replaceDocumentID != nil {
-		if err := c.templateImportRepo.InvalidateByDocument(ctx, tx, *replaceDocumentID); err != nil {
+		if err := c.fileRepository.InvalidateByDocument(ctx, tx, *replaceDocumentID); err != nil {
 			return fmt.Errorf("invalidate previous document rows: %w", err)
 		}
-		if err := c.templateImportRepo.InvalidateUpload(ctx, tx, *replaceDocumentID); err != nil {
-			return fmt.Errorf("invalidate previous upload record: %w", err)
+		if err := c.fileRepository.InvalidateFile(ctx, tx, *replaceDocumentID); err != nil {
+			return fmt.Errorf("invalidate previous file record: %w", err)
 		}
 	}
 
-	// Create the upload record once per document.
-	uploadID, err := c.templateImportRepo.CreateUpload(ctx, tx, document.ID, templateCode, reportDate)
+	// Create the file record once per document.
+	fileKey, err := c.fileRepository.CreateFile(ctx, tx, document.ID, templateCode, document.OriginalFilename, document.ObjectKey, reportDate)
 	if err != nil {
-		return fmt.Errorf("create template upload record: %w", err)
+		return fmt.Errorf("create custom file record: %w", err)
 	}
 
 	// sheetHashes tracks hashes per sheet_code for the post-commit soft-delete pass.
@@ -159,27 +159,26 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 
 		const batchSize = 1000
 
-		importRows := make([]documentRepository.TemplateImportRow, 0, len(rows))
+		importRows := make([]documentRepository.CustomImportRow, 0, len(rows))
 		for _, row := range rows {
-			importRows = append(importRows, documentRepository.TemplateImportRow{
-				UploadID:     uploadID,
+			importRows = append(importRows, documentRepository.CustomImportRow{
+				FileKey:      fileKey,
 				DocumentID:   document.ID,
 				TemplateCode: templateCode,
 				SheetCode:    sheetCode,
 				RowNumber:    row.RowNumber,
 				ReportDate:   reportDate,
 				Data:         row.Data,
-				RawData:      row.RawData,
 				RowHash:      hashRawData(row.RawData),
 			})
 		}
 
-		importRows = deduplicateByHash(importRows, func(r documentRepository.TemplateImportRow) string {
+		importRows = deduplicateByHash(importRows, func(r documentRepository.CustomImportRow) string {
 			return r.RowHash
 		})
 
 		for _, batch := range chunkSlice(importRows, batchSize) {
-			if err := c.templateImportRepo.UpsertRowsBatch(ctx, tx, batch); err != nil {
+			if err := c.fileRepository.UpsertRowsBatch(ctx, tx, batch); err != nil {
 				return fmt.Errorf("upsert rows for sheet %q: %w", sheet.Name, err)
 			}
 		}
@@ -211,7 +210,7 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 	defer sdTx.Rollback()
 
 	for sheetCode, hashes := range sheetHashes {
-		if err := c.templateImportRepo.SoftDeleteBySheet(ctx, sdTx, templateCode, sheetCode, hashes); err != nil {
+		if err := c.fileRepository.SoftDeleteBySheet(ctx, sdTx, templateCode, sheetCode, hashes); err != nil {
 			return fmt.Errorf("soft-delete sheet %q: %w", sheetCode, err)
 		}
 	}
@@ -921,6 +920,28 @@ func getReportDateFromDocument(document db.Document) (*time.Time, error) {
 	return &parsed, nil
 }
 
+// getOptionalReportDateFromDocument mirrors getReportDateFromDocument but
+// returns nil instead of an error when report_date is absent or unparsable.
+func getOptionalReportDateFromDocument(document db.Document) *time.Time {
+	if len(document.Metadata) == 0 {
+		return nil
+	}
+	var metadata struct {
+		ReportDate string `json:"report_date"`
+	}
+	if err := json.Unmarshal(document.Metadata, &metadata); err != nil {
+		return nil
+	}
+	if metadata.ReportDate == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02", metadata.ReportDate)
+	if err != nil {
+		return nil
+	}
+	return &parsed
+}
+
 func getTemplateCodeFromDocument(document db.Document) (string, error) {
 	if len(document.Metadata) == 0 {
 		return "", fmt.Errorf("document metadata missing template_code")
@@ -934,6 +955,35 @@ func getTemplateCodeFromDocument(document db.Document) (string, error) {
 	templateCode := strings.TrimSpace(metadata.TemplateCode)
 	if templateCode == "" {
 		return "", fmt.Errorf("template_code is required in document metadata")
+	}
+	return templateCode, nil
+}
+
+// adHocTemplateCode is the sentinel template_code used for CSV uploads with
+// no template selected. It's a fixed value (not per-document) because
+// reconciliation for these uploads is scoped by document_id via
+// InvalidateByDocument, not by template_code+sheet_code, so sharing the
+// sentinel across unrelated ad-hoc uploads is safe.
+const adHocTemplateCode = "_ADHOC"
+
+// getTemplateCodeOrAdHoc is like getTemplateCodeFromDocument but falls back
+// to adHocTemplateCode instead of erroring when no template_code is set.
+// Malformed metadata is still a real error. Only CSV imports may use this
+// fallback — Excel still requires a real template to know how to parse the
+// workbook.
+func getTemplateCodeOrAdHoc(document db.Document) (string, error) {
+	if len(document.Metadata) == 0 {
+		return adHocTemplateCode, nil
+	}
+	var metadata struct {
+		TemplateCode string `json:"template_code"`
+	}
+	if err := json.Unmarshal(document.Metadata, &metadata); err != nil {
+		return "", fmt.Errorf("decode document metadata: %w", err)
+	}
+	templateCode := strings.TrimSpace(metadata.TemplateCode)
+	if templateCode == "" {
+		return adHocTemplateCode, nil
 	}
 	return templateCode, nil
 }

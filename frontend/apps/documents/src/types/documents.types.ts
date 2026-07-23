@@ -38,6 +38,7 @@ export type DocumentResponse = {
 };
 
 export type DataPreviewSheet = {
+  code: string;
   name: string;
   row_count: number;
   columns: string[];

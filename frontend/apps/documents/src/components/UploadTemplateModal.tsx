@@ -23,7 +23,8 @@ import { formatFileSize } from "@moh-sso/utils";
 import {
   useCreateDocumentMutation,
   useCreateTemplateStructureMutation,
-  useLazyParseDocumentStructureQuery,
+  useDeleteDocumentMutation,
+  useScanDocumentStructureMutation,
   useListStorageLocationsQuery,
 } from "../api";
 import "./documents-components.scss";
@@ -83,7 +84,6 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [storageLocation, setStorageLocation] = useState("");
-  const [preUploadedDocId, setPreUploadedDocId] = useState<string | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,7 +92,9 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
   const [createTemplateStructure, { isLoading: isCreatingStructure }] =
     useCreateTemplateStructureMutation();
 
-  const [triggerParseStructure] = useLazyParseDocumentStructureQuery();
+  const [scanStructure] = useScanDocumentStructureMutation();
+
+  const [deleteDocument] = useDeleteDocumentMutation();
 
   const { data: locations = [], isLoading: isLocationsLoading } = useListStorageLocationsQuery();
 
@@ -164,26 +166,20 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
       setSheets([]);
       setTemplateName("");
       setTemplateDescription("");
-      setPreUploadedDocId(null);
       setIsDetecting(true);
 
+      // Structure detection uses the transient scan endpoint — it parses the
+      // file without creating a document record, so browsing/dropping a file
+      // (or retrying after a bad file) never leaves an orphaned upload behind.
+      // The real document is only created on final "Save Template" submit.
       try {
-        const uploaded = await createDocument({
-          file: selectedFile,
-          storageLocation,
-          isTemplate: true,
-        }).unwrap();
-
-        setPreUploadedDocId(uploaded.id);
-
-        const result = await triggerParseStructure(uploaded.id).unwrap();
+        const result = await scanStructure(selectedFile).unwrap();
 
         if (result.sheets.length === 0) {
           setError(
             "No usable sheets found. Make sure visible sheets have at least 4 column headers.",
           );
           setFile(null);
-          setPreUploadedDocId(null);
           return;
         }
 
@@ -206,18 +202,16 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
       } catch {
         setError("Failed to read the file. Please check it is a valid Excel file and try again.");
         setFile(null);
-        setPreUploadedDocId(null);
       } finally {
         setIsDetecting(false);
       }
     },
-    [storageLocation, createDocument, triggerParseStructure],
+    [storageLocation, scanStructure],
   );
 
   const handleClearFile = useCallback(() => {
     setFile(null);
     setSheets([]);
-    setPreUploadedDocId(null);
     setTemplateName("");
     setTemplateDescription("");
     setError(null);
@@ -260,7 +254,7 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
   );
 
   async function handleUpload() {
-    if (!file || !preUploadedDocId) {
+    if (!file) {
       setError("Please select a file.");
       return;
     }
@@ -287,10 +281,23 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
 
     setError(null);
 
+    let uploadedDocId: string | undefined;
+
     try {
+      // The document backing this template is only created here, at the
+      // point the user has actually committed to saving — never as a side
+      // effect of browsing/dropping a file during structure detection.
+      const uploaded = await createDocument({
+        file,
+        storageLocation,
+        isTemplate: true,
+      }).unwrap();
+
+      uploadedDocId = uploaded.id;
+
       await createTemplateStructure({
         template: {
-          document_id: preUploadedDocId,
+          document_id: uploaded.id,
           code: templateCode,
           name: templateName.trim(),
           description: templateDescription.trim(),
@@ -333,6 +340,12 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
 
       onClose();
     } catch (caughtError: unknown) {
+      // If the template file was uploaded but saving its structure failed
+      // (e.g. duplicate code), don't leave the orphaned document behind.
+      if (uploadedDocId) {
+        void deleteDocument(uploadedDocId);
+      }
+
       const errorData =
         typeof caughtError === "object" && caughtError !== null && "data" in caughtError
           ? (
@@ -358,7 +371,6 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
   const isSubmitDisabled =
     isSubmitting ||
     !file ||
-    !preUploadedDocId ||
     !storageLocation ||
     !templateName.trim() ||
     !templateCode ||
@@ -456,7 +468,7 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
 
           {isDetecting && (
             <InlineLoading
-              description={isUploadingFile ? "Uploading file…" : "Detecting columns from file…"}
+              description="Detecting columns from file…"
             />
           )}
 
@@ -645,7 +657,11 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
           </Select>
 
           <div className="document-upload-modal__actions">
-            {isCreatingStructure && <InlineLoading description="Saving template structure…" />}
+            {(isUploadingFile || isCreatingStructure) && (
+              <InlineLoading
+                description={isUploadingFile ? "Uploading file…" : "Saving template structure…"}
+              />
+            )}
 
             <Button kind="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel

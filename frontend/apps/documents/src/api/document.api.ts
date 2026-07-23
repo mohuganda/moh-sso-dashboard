@@ -218,6 +218,32 @@ export const documentsApi = baseApi.injectEndpoints({
     }),
 
     // -----------------------------
+    // EXPORT DATA PREVIEW (CSV of rows matching filter/search, full dataset)
+    // -----------------------------
+    exportDataPreview: builder.mutation<
+      Blob,
+      {
+        id: string;
+        sheetCode: string;
+        columns: string[];
+        search?: string[];
+        filters?: Record<string, string[]>;
+      }
+    >({
+      query: ({ id, sheetCode, columns, search, filters }) => ({
+        url: `/documents/${id}/data-preview/export`,
+        method: "POST",
+        body: {
+          sheet_code: sheetCode,
+          columns,
+          search,
+          filters,
+        },
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
+
+    // -----------------------------
     // PARSE STRUCTURE (server-side detection from stored document)
     // -----------------------------
     parseDocumentStructure: builder.query<{
@@ -288,6 +314,7 @@ export const {
   useListDocumentTemplatesQuery,
   useGetDocumentDataPreviewQuery,
   useLazyGetDocumentDataPreviewQuery,
+  useExportDataPreviewMutation,
   useGetDocumentStatsQuery,
   useLazyParseDocumentStructureQuery,
   useScanDocumentStructureMutation,

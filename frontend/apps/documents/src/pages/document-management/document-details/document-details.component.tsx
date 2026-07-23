@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
   Button,
+  Checkbox,
   FilterableMultiSelect,
   InlineLoading,
   InlineNotification,
@@ -10,7 +11,6 @@ import {
   TabList,
   TabPanel,
   TabPanels,
-  TableToolbarSearch,
   Tabs,
   Tag,
 } from "@carbon/react";
@@ -22,6 +22,7 @@ import { useGetUserQuery } from "@moh-sso/users/api";
 
 import {
   useDeleteDocumentMutation,
+  useExportDataPreviewMutation,
   useGetDocumentDataPreviewQuery,
   useGetDocumentProcessesQuery,
   useGetDocumentQuery,
@@ -223,17 +224,38 @@ function exportCSV(columns: string[], rows: Record<string, unknown>[], filename:
 const ROWS_PER_PAGE = 100;
 
 type SheetViewProps = {
+  documentId: string;
   sheet: DataPreviewSheet;
   reportDate?: string;
   filterableKeys: string[];
 };
 
-function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
-  const [search, setSearch] = useState("");
+function getRowHash(row: Record<string, unknown>): string | undefined {
+  const value = row._row_hash;
+  return typeof value === "string" ? value : undefined;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const anchor = window.document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  window.document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function SheetView({ documentId, sheet, reportDate, filterableKeys }: SheetViewProps) {
+  const toast = useToast();
+  const [exportDataPreview, { isLoading: isExporting }] = useExportDataPreviewMutation();
+
+  const [searchValues, setSearchValues] = useState<string[]>([]);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(null);
   const [page, setPage] = useState(0);
+  const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set());
 
   const activeFilterKeys = useMemo(
     () => filterableKeys.filter((key) => sheet.columns.includes(key)),
@@ -263,9 +285,18 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
     return result;
   }, [sheet.rows, activeFilterKeys]);
 
-  const filteredRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  const searchOptions = useMemo(() => {
+    const unique = new Set<string>();
+    for (const row of sheet.rows) {
+      for (const column of sheet.columns) {
+        const value = formatCell(row[column]);
+        if (value) unique.add(value);
+      }
+    }
+    return [...unique].sort().map((value) => ({ id: value, label: value }));
+  }, [sheet.rows, sheet.columns]);
 
+  const filteredRows = useMemo(() => {
     let rows = sheet.rows;
 
     for (const key of activeFilterKeys) {
@@ -280,9 +311,10 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
       rows = rows.filter((row) => selectedSet.has(formatCell(row[key])));
     }
 
-    if (query) {
+    if (searchValues.length > 0) {
+      const searchSet = new Set(searchValues);
       rows = rows.filter((row) =>
-        sheet.columns.some((column) => formatCell(row[column]).toLowerCase().includes(query)),
+        sheet.columns.some((column) => searchSet.has(formatCell(row[column]))),
       );
     }
 
@@ -309,7 +341,15 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
     }
 
     return rows;
-  }, [sheet.rows, sheet.columns, search, selections, activeFilterKeys, sortColumn, sortDirection]);
+  }, [
+    sheet.rows,
+    sheet.columns,
+    searchValues,
+    selections,
+    activeFilterKeys,
+    sortColumn,
+    sortDirection,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE));
 
@@ -319,6 +359,35 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
     safePageIndex * ROWS_PER_PAGE,
     (safePageIndex + 1) * ROWS_PER_PAGE,
   );
+
+  const pageHashes = useMemo(
+    () => pageRows.map(getRowHash).filter((hash): hash is string => !!hash),
+    [pageRows],
+  );
+  const allPageSelected = pageHashes.length > 0 && pageHashes.every((h) => selectedHashes.has(h));
+  const somePageSelected = pageHashes.some((h) => selectedHashes.has(h));
+
+  function toggleRow(hash: string | undefined) {
+    if (!hash) return;
+    setSelectedHashes((prev) => {
+      const next = new Set(prev);
+      if (next.has(hash)) next.delete(hash);
+      else next.add(hash);
+      return next;
+    });
+  }
+
+  function togglePage() {
+    setSelectedHashes((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        for (const h of pageHashes) next.delete(h);
+      } else {
+        for (const h of pageHashes) next.add(h);
+      }
+      return next;
+    });
+  }
 
   function handleSort(column: string) {
     if (sortColumn !== column) {
@@ -335,7 +404,7 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
   }
 
   function clearFilters() {
-    setSearch("");
+    setSearchValues([]);
     setSelections({});
     setSortColumn(null);
     setSortDirection(null);
@@ -343,27 +412,57 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
   }
 
   const hasActiveFilters =
-    Boolean(search) ||
+    searchValues.length > 0 ||
     Object.values(selections).some((selected) => selected.length > 0) ||
     Boolean(sortColumn);
 
-  const csvFilename = `${sheet.name.replace(/\s+/g, "_")}${reportDate ? `_${reportDate}` : ""}${
-    hasActiveFilters ? "_filtered" : ""
-  }.csv`;
+  const baseFilename = `${sheet.name.replace(/\s+/g, "_")}${reportDate ? `_${reportDate}` : ""}`;
+
+  function downloadSelected() {
+    const selectedRows = sheet.rows.filter((row) => {
+      const hash = getRowHash(row);
+      return hash && selectedHashes.has(hash);
+    });
+    if (selectedRows.length === 0) return;
+
+    exportCSV(sheet.columns, selectedRows, `${baseFilename}_selected.csv`);
+    toast.success("Download started", `${selectedRows.length} selected rows`);
+  }
+
+  async function downloadAllMatching() {
+    const activeFilters = Object.fromEntries(
+      Object.entries(selections).filter(([, values]) => values.length > 0),
+    );
+    try {
+      const blob = await exportDataPreview({
+        id: documentId,
+        sheetCode: sheet.code || sheet.name,
+        columns: sheet.columns,
+        search: searchValues.length > 0 ? searchValues : undefined,
+        filters: Object.keys(activeFilters).length > 0 ? activeFilters : undefined,
+      }).unwrap();
+      downloadBlob(blob, `${baseFilename}_export.csv`);
+      toast.success("Export started", "All matching rows from the server");
+    } catch {
+      toast.error("Export failed", "Please try again.");
+    }
+  }
 
   return (
     <div className="document-sheet-view">
       <div className="document-sheet-view__toolbar">
         <div className="document-sheet-view__search">
-          <TableToolbarSearch
-            persistent
-            value={search}
-            placeholder="Search…"
-            onChange={(_, value) => {
-              setSearch(value ?? "");
+          <FilterableMultiSelect
+            id={`search-${sheet.name}`}
+            titleText="Search values"
+            placeholder="Type to search…"
+            items={searchOptions}
+            itemToString={(item) => item?.label ?? ""}
+            selectedItems={searchValues.map((value) => ({ id: value, label: value }))}
+            onChange={({ selectedItems }) => {
+              setSearchValues((selectedItems ?? []).map((item) => item.id));
               setPage(0);
             }}
-            labelText="Search"
           />
         </div>
 
@@ -416,25 +515,58 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
           <span className="document-sheet-view__row-count">
             {filteredRows.length.toLocaleString()} / {sheet.row_count.toLocaleString()} rows
           </span>
-
-          <PermissionGuard permission={PERMISSIONS.documentsRead}>
-            <Button
-              renderIcon={Download}
-              kind="primary"
-              size="sm"
-              onClick={() => exportCSV(sheet.columns, filteredRows, csvFilename)}
-              disabled={filteredRows.length === 0}
-            >
-              {hasActiveFilters ? "Download filtered" : "Download all"}
-            </Button>
-          </PermissionGuard>
         </div>
+      </div>
+
+      <div className="document-preview__selection-bar">
+        <span className="document-preview__selection-count">
+          {selectedHashes.size > 0
+            ? `${selectedHashes.size.toLocaleString()} row${selectedHashes.size === 1 ? "" : "s"} selected`
+            : "Select rows to download only those"}
+        </span>
+
+        <PermissionGuard permission={PERMISSIONS.documentsRead}>
+          <Button
+            kind="secondary"
+            size="sm"
+            renderIcon={Download}
+            disabled={selectedHashes.size === 0}
+            onClick={downloadSelected}
+          >
+            Download selected
+          </Button>
+
+          <Button
+            kind="ghost"
+            size="sm"
+            renderIcon={Download}
+            disabled={isExporting}
+            onClick={() => void downloadAllMatching()}
+          >
+            {isExporting
+              ? "Exporting…"
+              : hasActiveFilters
+                ? "Export all rows matching filters"
+                : "Export all rows"}
+          </Button>
+        </PermissionGuard>
       </div>
 
       <div className="document-sheet-view__table-scroll">
         <table className="document-sheet-view__table">
           <thead>
             <tr>
+              <th className="document-preview__checkbox-cell">
+                <Checkbox
+                  id={`select-page-${sheet.name}`}
+                  labelText="Select all rows on this page"
+                  hideLabel
+                  checked={allPageSelected}
+                  indeterminate={!allPageSelected && somePageSelected}
+                  onChange={togglePage}
+                  disabled={pageHashes.length === 0}
+                />
+              </th>
               {sheet.columns.map((column) => {
                 const active = sortColumn === column;
 
@@ -462,27 +594,44 @@ function SheetView({ sheet, reportDate, filterableKeys }: SheetViewProps) {
           <tbody>
             {pageRows.length === 0 ? (
               <tr>
-                <td colSpan={sheet.columns.length} className="document-sheet-view__no-rows">
+                <td colSpan={sheet.columns.length + 1} className="document-sheet-view__no-rows">
                   No rows match the current filters.
                 </td>
               </tr>
             ) : (
-              pageRows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {sheet.columns.map((column) => {
-                    const value = formatCell(row[column]);
+              pageRows.map((row, rowIndex) => {
+                const hash = getRowHash(row);
+                const isSelected = !!hash && selectedHashes.has(hash);
+                return (
+                  <tr
+                    key={hash ?? rowIndex}
+                    className={isSelected ? "document-preview__row--selected" : undefined}
+                  >
+                    <td className="document-preview__checkbox-cell">
+                      <Checkbox
+                        id={`select-row-${sheet.name}-${hash ?? rowIndex}`}
+                        labelText="Select row"
+                        hideLabel
+                        checked={isSelected}
+                        onChange={() => toggleRow(hash)}
+                        disabled={!hash}
+                      />
+                    </td>
+                    {sheet.columns.map((column) => {
+                      const value = formatCell(row[column]);
 
-                    return (
-                      <td
-                        key={column}
-                        className={!value ? "document-sheet-view__empty-cell" : undefined}
-                      >
-                        {value || "—"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
+                      return (
+                        <td
+                          key={column}
+                          className={!value ? "document-sheet-view__empty-cell" : undefined}
+                        >
+                          {value || "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -590,12 +739,18 @@ function DocumentDetailsPageContent() {
     },
   );
 
+  const latest = useMemo(() => getLatestProcess(processes), [processes]);
+
+  const status = (latest?.status || document?.status || "UNKNOWN").toUpperCase();
+  const isProcessing = status === "PENDING" || status === "PROCESSING";
+
   const {
     data: preview,
     isLoading: previewLoading,
     isError: previewError,
   } = useGetDocumentDataPreviewQuery(id ?? "", {
-    skip: !id || !templateCode,
+    skip: !id || !processable,
+    pollingInterval: isProcessing ? 3000 : 0,
   });
 
   const { data: structure } = useGetTemplateStructureQuery(templateCode, {
@@ -656,10 +811,6 @@ function DocumentDetailsPageContent() {
   const [triggerDownload] = useLazyDownloadDocumentQuery();
 
   const [reprocessDocument, { isLoading: reprocessing }] = useReprocessDocumentMutation();
-
-  const latest = useMemo(() => getLatestProcess(processes), [processes]);
-
-  const status = (latest?.status || document?.status || "UNKNOWN").toUpperCase();
 
   async function handleDownloadFile() {
     if (!id || !document) {
@@ -862,13 +1013,13 @@ function DocumentDetailsPageContent() {
 
         <Tabs>
           <TabList aria-label="Document detail tabs" contained>
-            {templateCode && <Tab>Data Preview</Tab>}
+            {processable && <Tab>Data Preview</Tab>}
 
             <Tab>Document Info</Tab>
           </TabList>
 
           <TabPanels>
-            {templateCode && (
+            {processable && (
               <TabPanel className="document-details-page__tab-panel">
                 {previewLoading ? (
                   <InlineLoading description="Loading imported data…" />
@@ -904,6 +1055,7 @@ function DocumentDetailsPageContent() {
                       {preview.sheets.map((sheet) => (
                         <TabPanel key={sheet.name} className="document-preview__tab-panel">
                           <SheetView
+                            documentId={id ?? ""}
                             sheet={sheet}
                             reportDate={reportDate}
                             filterableKeys={filterableKeysBySheet[sheet.name] ?? []}

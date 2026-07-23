@@ -108,6 +108,7 @@ export function DocumentRow({ document }: Props) {
   const status = (latest?.status || document.status || "UNKNOWN").toUpperCase();
 
   const reportDate = document.metadata?.report_date ?? "—";
+  const templateCode = document.metadata?.template_code || "No template";
   const isBusy = isDeleting || isReprocessing;
 
   // ── Uploader name ──
@@ -196,6 +197,9 @@ export function DocumentRow({ document }: Props) {
           {" · "}
           {formatFileSize(document.size_bytes)}
         </div>
+      </TableCell>
+      <TableCell className={templateCode === "No template" ? "documents-muted-cell" : undefined}>
+        {templateCode}
       </TableCell>
       <TableCell className={reportDate === "—" ? "documents-muted-cell" : undefined}>
         {reportDate}

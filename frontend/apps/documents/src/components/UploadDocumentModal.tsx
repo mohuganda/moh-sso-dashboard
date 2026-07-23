@@ -228,6 +228,18 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
 
   const isPdf = useMemo(() => (file ? isPdfFile(file) : false), [file]);
 
+  // CSV is the only format that can be imported without a template — it
+  // needs no template-defined structure to parse (unlike Excel, which
+  // relies on the template to know header row / column layout / types).
+  // Mirrors the backend's isCSV check (mapper.go): MIME type OR extension,
+  // not extension alone — a mismatch here means the frontend could decide
+  // not to send process_type while the backend still expects one.
+  const isCsvFile = useMemo(() => {
+    if (!file) return false;
+    return file.type?.toLowerCase().trim() === "text/csv" || getFileExtension(file.name) === ".csv";
+  }, [file]);
+  const canProcessAdHoc = fileNeedsProcessing && isCsvFile;
+
   const columnValidation = useMemo<ColumnValidationResult | null>(() => {
     if (!selectedTemplate || !templateStructure || !file || isPdf) {
       return null;
@@ -336,12 +348,12 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
       return;
     }
 
-    if (selectedTemplate && fileNeedsProcessing && !processType) {
+    if ((selectedTemplate || canProcessAdHoc) && fileNeedsProcessing && !processType) {
       setError("Please select a process type.");
       return;
     }
 
-    if (selectedTemplate && fileNeedsProcessing && processType) {
+    if ((selectedTemplate || canProcessAdHoc) && fileNeedsProcessing && processType) {
       const validationError = validateProcessTypeAgainstFile(file, processType);
 
       if (validationError) {
@@ -393,7 +405,9 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
       await createDocument({
         file,
         storageLocation,
-        ...(selectedTemplate && fileNeedsProcessing && processType ? { processType } : {}),
+        ...((selectedTemplate || canProcessAdHoc) && fileNeedsProcessing && processType
+          ? { processType }
+          : {}),
         ...(metadata ? { metadata } : {}),
       }).unwrap();
 
@@ -430,7 +444,7 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
     isFetchingStructure ||
     !file ||
     !storageLocation ||
-    (selectedTemplate && fileNeedsProcessing && !processType) ||
+    ((selectedTemplate || canProcessAdHoc) && fileNeedsProcessing && !processType) ||
     (selectedTemplate && fileNeedsProcessing && !reportDate) ||
     (reuploadMode === "new" && !!previousReportDate && reportDate === previousReportDate) ||
     !isTemplateValid;
@@ -717,7 +731,17 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
             </Select>
           )}
 
-          {file && fileNeedsProcessing && !selectedTemplate && (
+          {file && fileNeedsProcessing && !selectedTemplate && canProcessAdHoc && (
+            <InlineNotification
+              kind="info"
+              title="Imported without a template"
+              subtitle="No template selected, so column headers won't be validated. The file's rows will still be imported and available in the data preview."
+              lowContrast
+              hideCloseButton
+            />
+          )}
+
+          {file && fileNeedsProcessing && !selectedTemplate && !canProcessAdHoc && (
             <InlineNotification
               kind="info"
               title="Stored without processing"

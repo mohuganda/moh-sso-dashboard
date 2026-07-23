@@ -18,11 +18,10 @@ import (
 )
 
 type Service struct {
-	documentRepo       documentRepo.DocumentRepository
-	templateImportRepo documentRepo.TemplateImportRepository
-	processRepo        processRepo.ProcessRepository
-	fileRepository     documentRepo.FileRepository
-	importRepository   surveillancefeature.ImportRepository
+	documentRepo     documentRepo.DocumentRepository
+	processRepo      processRepo.ProcessRepository
+	fileRepository   documentRepo.FileRepository
+	importRepository surveillancefeature.ImportRepository
 
 	documentTemplateService documenttemplates.Service
 	facilityMetricsService  *surveillancefeature.FacilityWeeklyMetricsService
@@ -36,7 +35,6 @@ type Service struct {
 }
 
 func NewService(documentRepo documentRepo.DocumentRepository,
-	templateImportRepo documentRepo.TemplateImportRepository,
 	processRepo processRepo.ProcessRepository,
 	fileRepository documentRepo.FileRepository,
 	importRepository surveillancefeature.ImportRepository,
@@ -49,7 +47,6 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 
 	s := &Service{
 		documentRepo:            documentRepo,
-		templateImportRepo:      templateImportRepo,
 		processRepo:             processRepo,
 		fileRepository:          fileRepository,
 		importRepository:        importRepository,
@@ -69,7 +66,7 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 
 	reg.Register(model.ProcessTypeCSVImport, NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))
 
-	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, templateImportRepo, processRepo, documentTemplateService, storage, remote))
+	reg.Register(model.ProcessTypeExcelImport, NewExcelProcessor(documentRepo, fileRepository, processRepo, documentTemplateService, storage, remote))
 
 	reg.Register(model.ProcessTypeFHIRImport, NewFhirBundlerProcessor(documentRepo, storage))
 

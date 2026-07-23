@@ -46,11 +46,23 @@ func (c *CSVProcessor) Process(
 		return err
 	}
 
-	templateCode, err := getTemplateCodeFromDocument(doc)
+	templateCode, err := getTemplateCodeOrAdHoc(doc)
 	if err != nil {
 		return fmt.Errorf("csv processor: %w", err)
 	}
 	templateCode = strings.ToUpper(strings.TrimSpace(templateCode))
+	isAdHoc := templateCode == adHocTemplateCode
+
+	// report_date is required for Excel imports but stays optional here: CSV
+	// uploads have not historically been required to set it.
+	reportDate := getOptionalReportDateFromDocument(doc)
+
+	replaceDocumentID, err := getReplaceDocumentIDFromDocument(doc)
+	if err != nil {
+		return fmt.Errorf("csv processor: %w", err)
+	}
+
+	const sheetCode = "default"
 
 	msg := "Opening file"
 	_ = c.processRepository.UpdateProgress(ctx, p.ID, 5, &msg)
@@ -80,7 +92,34 @@ func (c *CSVProcessor) Process(
 		headers[i] = strings.TrimSpace(headers[i])
 	}
 
-	// 4. Create file record
+	// 4. If replacing a previous upload, invalidate its rows and file record first.
+	// Ad-hoc (no-template) uploads have no cross-document reconciliation step
+	// (see 7 below), so also invalidate this document's own prior rows here —
+	// covers reprocessing the same document without leaving stale duplicates.
+	if replaceDocumentID != nil || isAdHoc {
+		invalidateID := doc.ID
+		if replaceDocumentID != nil {
+			invalidateID = *replaceDocumentID
+		}
+		tx, err := c.remoteDB.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if err := c.fileRepository.InvalidateByDocument(ctx, tx, invalidateID); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("invalidate previous document rows: %w", err)
+		}
+		if err := c.fileRepository.InvalidateFile(ctx, tx, invalidateID); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("invalidate previous file record: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	// 5. Create file record
 	var fileKey int64
 	{
 		tx, err := c.remoteDB.BeginTx(ctx, nil)
@@ -88,13 +127,14 @@ func (c *CSVProcessor) Process(
 			return err
 		}
 
-		fileKey, err = c.fileRepository.CreateCustomFile(
+		fileKey, err = c.fileRepository.CreateFile(
 			ctx,
 			tx,
+			doc.ID,
+			templateCode,
 			doc.OriginalFilename,
 			doc.ObjectKey,
-			templateCode,
-			doc.ID.String(),
+			reportDate,
 		)
 		if err != nil {
 			_ = tx.Rollback()
@@ -107,12 +147,12 @@ func (c *CSVProcessor) Process(
 		}
 	}
 
-	// 5. Batch upsert rows, collecting all hashes for soft-delete
+	// 6. Batch upsert rows, collecting all hashes for soft-delete
 	const batchSize = 2000
 	rowCount := 0
 	lastProgressUpdate := time.Now()
 
-	batch := make([]documentRepository.UpsertRow, 0, batchSize)
+	batch := make([]documentRepository.CustomImportRow, 0, batchSize)
 	allHashes := make([]string, 0, 10000)
 
 	flushBatch := func() error {
@@ -125,7 +165,7 @@ func (c *CSVProcessor) Process(
 			return err
 		}
 
-		if err := c.fileRepository.UpsertCustomDataBatch(ctx, tx, fileKey, templateCode, batch); err != nil {
+		if err := c.fileRepository.UpsertRowsBatch(ctx, tx, batch); err != nil {
 			_ = tx.Rollback()
 			return err
 		}
@@ -165,9 +205,23 @@ func (c *CSVProcessor) Process(
 		sum := sha256.Sum256(jsonBytes)
 		hash := hex.EncodeToString(sum[:])
 
-		batch = append(batch, documentRepository.UpsertRow{Data: jsonBytes, Hash: hash})
-		allHashes = append(allHashes, hash)
+		rowData := make(map[string]any, len(rowJSON))
+		for k, v := range rowJSON {
+			rowData[k] = v
+		}
+
 		rowCount++
+		batch = append(batch, documentRepository.CustomImportRow{
+			FileKey:      fileKey,
+			DocumentID:   doc.ID,
+			TemplateCode: templateCode,
+			SheetCode:    sheetCode,
+			RowNumber:    rowCount,
+			ReportDate:   reportDate,
+			Data:         rowData,
+			RowHash:      hash,
+		})
+		allHashes = append(allHashes, hash)
 
 		if len(batch) >= batchSize {
 			if err := flushBatch(); err != nil {
@@ -190,14 +244,19 @@ func (c *CSVProcessor) Process(
 		return err
 	}
 
-	// 6. Soft-delete rows from previous uploads that are no longer in this file
-	{
+	// 7. Soft-delete rows from previous uploads that are no longer in this file.
+	// Only meaningful for template-driven uploads, where template_code+sheet_code
+	// groups successive uploads against the same template. Ad-hoc uploads share
+	// a single sentinel template_code across unrelated documents, so this
+	// cross-document reconciliation would incorrectly touch other documents'
+	// rows — step 4 already handled reconciliation scoped to this document.
+	if !isAdHoc {
 		tx, err := c.remoteDB.BeginTx(ctx, nil)
 		if err != nil {
 			return err
 		}
 
-		if err := c.fileRepository.SoftDeleteRemovedRows(ctx, tx, templateCode, allHashes); err != nil {
+		if err := c.fileRepository.SoftDeleteBySheet(ctx, tx, templateCode, sheetCode, allHashes); err != nil {
 			_ = tx.Rollback()
 			return err
 		}

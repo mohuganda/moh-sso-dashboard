@@ -180,6 +180,24 @@
   color: #e78c21;
 }
 
+.document-preview__selection-bar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.document-preview__selection-count {
+  color: var(--cds-text-secondary);
+  font-size: 0.875rem;
+  margin-right: auto;
+}
+
+.document-preview__checkbox-cell {
+  width: 2.5rem;
+  text-align: center;
+}
+
 .document-preview__table-scroll {
   overflow-x: auto;
 }
@@ -223,6 +241,15 @@
 
 .document-preview__table tbody tr:nth-child(odd) {
   background: var(--cds-background);
+}
+
+.document-preview__table tbody tr.document-preview__row--selected {
+  background: var(--cds-background-selected);
+  box-shadow: inset 3px 0 0 var(--cds-focus);
+}
+
+.document-preview__table tbody tr.document-preview__row--selected:hover {
+  background: var(--cds-background-selected-hover);
 }
 
 .document-preview__table td {

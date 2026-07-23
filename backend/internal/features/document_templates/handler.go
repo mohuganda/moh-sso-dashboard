@@ -544,8 +544,8 @@ func (h *Handler) HasData(c *gin.Context) {
 
 	err := h.remoteDB.QueryRowContext(ctx, `
 		SELECT EXISTS(
-			SELECT 1 FROM import.template_row_data
-			WHERE template_code = $1 AND is_valid = TRUE
+			SELECT 1 FROM import.custom_data_files
+			WHERE template_code = $1 AND is_current = 'Y'
 		)
 	`, strings.ToUpper(strings.TrimSpace(code))).Scan(&hasData)
 

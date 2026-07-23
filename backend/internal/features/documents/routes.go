@@ -48,6 +48,7 @@ func RegisterProtectedRoutes(
 		documents.GET("/:id/processes", readPermission, handler.ListDocumentProcesses)
 		documents.POST("/:id/reprocess", processPermission, processLimit, handler.ReprocessDocument)
 		documents.GET("/:id/data-preview", readPermission, handler.DataPreview)
+		documents.POST("/:id/data-preview/export", readPermission, handler.ExportDataPreview)
 		documents.GET("/:id/parse-structure", readPermission, handler.ParseStructure)
 	}
 

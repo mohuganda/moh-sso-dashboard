@@ -3,9 +3,12 @@ package documents
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
@@ -15,124 +18,129 @@ func NewFileRepository() FileRepository {
 	return &fileRepository{}
 }
 
-func (r *fileRepository) CreateCustomFile(
+func (r *fileRepository) CreateFile(
 	ctx context.Context,
 	tx *sql.Tx,
-	fileName, filePath, templateCode, documentID string,
+	documentID uuid.UUID,
+	templateCode, fileName, filePath string,
+	reportDate *time.Time,
 ) (int64, error) {
 	var fileKey int64
 	err := tx.QueryRowContext(ctx, `
 		INSERT INTO import.custom_files
-			(file_name, file_path, template_code, document_id, effective_start_date)
-		VALUES ($1, $2, $3, $4, NOW())
+			(document_id, template_code, file_name, file_path, report_date, effective_start_date)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (document_id) DO UPDATE
+		  SET template_code    = EXCLUDED.template_code,
+		      file_name        = EXCLUDED.file_name,
+		      file_path        = EXCLUDED.file_path,
+		      report_date      = EXCLUDED.report_date,
+		      is_current       = 'Y',
+		      last_update_date = NOW()
 		RETURNING file_key
-	`, fileName, filePath, templateCode, documentID).Scan(&fileKey)
-	if err != nil {
-		return 0, err
-	}
-	return fileKey, nil
+	`, documentID, templateCode, fileName, filePath, reportDate).Scan(&fileKey)
+	return fileKey, err
 }
 
-func (r *fileRepository) InsertCustomData(
+func (r *fileRepository) UpsertRowsBatch(
 	ctx context.Context,
 	tx *sql.Tx,
-	fileKey int64,
-	data []byte,
-) error {
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO import.custom_data_files
-			(file_data, file_key, effective_start_date)
-		VALUES ($1, $2, NOW())
-	`, data, fileKey)
-	return err
-}
-
-func (r *fileRepository) InsertCustomDataBatch(
-	ctx context.Context,
-	tx *sql.Tx,
-	fileKey int64,
-	data [][]byte,
-) error {
-	if len(data) == 0 {
-		return nil
-	}
-
-	var (
-		args         = make([]any, 0, len(data)*2)
-		valueStrings = make([]string, 0, len(data))
-	)
-
-	for i, row := range data {
-		valueStrings = append(
-			valueStrings,
-			fmt.Sprintf("($%d, $%d, NOW())", i*2+1, i*2+2),
-		)
-		args = append(args, row, fileKey)
-	}
-
-	query := fmt.Sprintf(`
-		INSERT INTO import.custom_data_files
-			(file_data, file_key, effective_start_date)
-		VALUES %s
-	`, strings.Join(valueStrings, ","))
-
-	_, err := tx.ExecContext(ctx, query, args...)
-	return err
-}
-
-func (r *fileRepository) UpsertCustomDataBatch(
-	ctx context.Context,
-	tx *sql.Tx,
-	fileKey int64,
-	templateCode string,
-	rows []UpsertRow,
+	rows []CustomImportRow,
 ) error {
 	if len(rows) == 0 {
 		return nil
 	}
 
-	// 4 params per row: file_data, file_key, template_code, row_hash
-	args := make([]any, 0, len(rows)*4)
-	valueStrings := make([]string, 0, len(rows))
+	const colsPerRow = 8 // file_key, document_id, template_code, sheet_code, row_number, report_date, file_data, row_hash
+
+	args := make([]any, 0, len(rows)*colsPerRow)
+	placeholderSets := make([]string, 0, len(rows))
 
 	for i, row := range rows {
-		base := i * 4
-		valueStrings = append(
-			valueStrings,
-			fmt.Sprintf("($%d, $%d, $%d, $%d, NOW())", base+1, base+2, base+3, base+4),
+		dataJSON, err := json.Marshal(row.Data)
+		if err != nil {
+			return fmt.Errorf("marshal data row %d: %w", row.RowNumber, err)
+		}
+
+		base := i * colsPerRow
+		set := make([]string, colsPerRow)
+		for j := range set {
+			set[j] = fmt.Sprintf("$%d", base+j+1)
+		}
+		placeholderSets = append(placeholderSets, "("+strings.Join(set, ",")+", NOW())")
+
+		args = append(args,
+			row.FileKey,
+			row.DocumentID,
+			row.TemplateCode,
+			row.SheetCode,
+			row.RowNumber,
+			row.ReportDate,
+			dataJSON,
+			row.RowHash,
 		)
-		args = append(args, row.Data, fileKey, templateCode, row.Hash)
 	}
 
 	query := fmt.Sprintf(`
 		INSERT INTO import.custom_data_files
-			(file_data, file_key, template_code, row_hash, effective_start_date)
+			(file_key, document_id, template_code, sheet_code, row_number, report_date, file_data, row_hash, effective_start_date)
 		VALUES %s
-		ON CONFLICT (template_code, row_hash)
-		DO UPDATE SET
-			file_data    = EXCLUDED.file_data,
-			file_key     = EXCLUDED.file_key,
-			last_updated = NOW(),
-			is_valid     = TRUE
-	`, strings.Join(valueStrings, ","))
+		ON CONFLICT (row_hash) DO UPDATE SET
+			file_key         = EXCLUDED.file_key,
+			document_id      = EXCLUDED.document_id,
+			template_code    = EXCLUDED.template_code,
+			sheet_code       = EXCLUDED.sheet_code,
+			row_number       = EXCLUDED.row_number,
+			report_date      = EXCLUDED.report_date,
+			file_data        = EXCLUDED.file_data,
+			is_current       = 'Y',
+			last_update_date = NOW()
+	`, strings.Join(placeholderSets, ","))
 
 	_, err := tx.ExecContext(ctx, query, args...)
 	return err
 }
 
-func (r *fileRepository) SoftDeleteRemovedRows(
+func (r *fileRepository) SoftDeleteBySheet(
 	ctx context.Context,
 	tx *sql.Tx,
-	templateCode string,
+	templateCode, sheetCode string,
 	keepHashes []string,
 ) error {
 	_, err := tx.ExecContext(ctx, `
 		UPDATE import.custom_data_files
-		SET is_valid = FALSE, last_updated = NOW()
+		SET is_current = 'N', last_update_date = NOW()
 		WHERE template_code = $1
-		  AND is_valid = TRUE
+		  AND sheet_code    = $2
+		  AND is_current    = 'Y'
 		  AND row_hash IS NOT NULL
-		  AND NOT (row_hash = ANY($2))
-	`, templateCode, pq.Array(keepHashes))
+		  AND NOT (row_hash = ANY($3))
+	`, templateCode, sheetCode, pq.Array(keepHashes))
+	return err
+}
+
+func (r *fileRepository) InvalidateByDocument(
+	ctx context.Context,
+	tx *sql.Tx,
+	documentID uuid.UUID,
+) error {
+	_, err := tx.ExecContext(ctx, `
+		UPDATE import.custom_data_files
+		SET is_current = 'N', last_update_date = NOW()
+		WHERE document_id = $1 AND is_current = 'Y'
+	`, documentID)
+	return err
+}
+
+func (r *fileRepository) InvalidateFile(
+	ctx context.Context,
+	tx *sql.Tx,
+	documentID uuid.UUID,
+) error {
+	_, err := tx.ExecContext(ctx, `
+		UPDATE import.custom_files
+		SET is_current = 'N', last_update_date = NOW()
+		WHERE document_id = $1 AND is_current = 'Y'
+	`, documentID)
 	return err
 }

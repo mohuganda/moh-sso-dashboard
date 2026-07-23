@@ -8,7 +8,13 @@ func shouldQueueProcessing(
 	isTemplate bool,
 	templateCode string,
 ) bool {
-	return !isTemplate &&
-		strings.TrimSpace(templateCode) != "" &&
-		requiresProcessing(contentType, filename)
+	if isTemplate || !requiresProcessing(contentType, filename) {
+		return false
+	}
+	if strings.TrimSpace(templateCode) != "" {
+		return true
+	}
+	// No template selected: only CSV can still be queued, since it needs no
+	// template-defined structure to parse (unlike Excel).
+	return isCSV(contentType, filename)
 }

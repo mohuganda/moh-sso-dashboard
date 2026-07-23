@@ -83,7 +83,7 @@ services:
     volumes:
       - backend_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5436:5432"
     networks:
       - sso_network
 
