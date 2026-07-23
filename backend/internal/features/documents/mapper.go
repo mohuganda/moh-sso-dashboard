@@ -117,10 +117,6 @@ func requiresProcessing(mimeType, fileName string) bool {
 	}
 }
 
-// isCSV reports whether the file is specifically CSV (not Excel). Unlike
-// Excel, CSV import needs no template-defined sheet/column structure to
-// parse, so it's the only format that can be queued for processing without
-// a template_code.
 func isCSV(mimeType, fileName string) bool {
 	if strings.ToLower(strings.TrimSpace(mimeType)) == "text/csv" {
 		return true

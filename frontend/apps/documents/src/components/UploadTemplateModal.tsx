@@ -168,10 +168,6 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
       setTemplateDescription("");
       setIsDetecting(true);
 
-      // Structure detection uses the transient scan endpoint — it parses the
-      // file without creating a document record, so browsing/dropping a file
-      // (or retrying after a bad file) never leaves an orphaned upload behind.
-      // The real document is only created on final "Save Template" submit.
       try {
         const result = await scanStructure(selectedFile).unwrap();
 
@@ -284,9 +280,6 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
     let uploadedDocId: string | undefined;
 
     try {
-      // The document backing this template is only created here, at the
-      // point the user has actually committed to saving — never as a side
-      // effect of browsing/dropping a file during structure detection.
       const uploaded = await createDocument({
         file,
         storageLocation,
@@ -340,8 +333,6 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
 
       onClose();
     } catch (caughtError: unknown) {
-      // If the template file was uploaded but saving its structure failed
-      // (e.g. duplicate code), don't leave the orphaned document behind.
       if (uploadedDocId) {
         void deleteDocument(uploadedDocId);
       }

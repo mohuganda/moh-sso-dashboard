@@ -1,9 +1,3 @@
--- Consolidates the two parallel import storage models (template_uploads /
--- template_row_data for Excel, custom_files / custom_data_files for CSV)
--- into a single pair of tables. The original custom_files / custom_data_files
--- columns are preserved as-is (existing external pipelines read these by
--- name) — this migration only adds the columns needed to also support
--- template-driven (Excel) imports.
 DROP TABLE IF EXISTS import.template_row_data;
 DROP TABLE IF EXISTS import.template_uploads;
 

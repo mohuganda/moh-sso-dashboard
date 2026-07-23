@@ -217,9 +217,6 @@ export const documentsApi = baseApi.injectEndpoints({
       providesTags: (_res, _err, id) => [{ type: "Document", id }],
     }),
 
-    // -----------------------------
-    // EXPORT DATA PREVIEW (CSV of rows matching filter/search, full dataset)
-    // -----------------------------
     exportDataPreview: builder.mutation<
       Blob,
       {

@@ -600,11 +600,6 @@ func (h *Handler) DataPreview(c *gin.Context) {
 	templateCode := strings.ToUpper(strings.TrimSpace(meta["template_code"]))
 	reportDate := meta["report_date"]
 
-	// No early return when templateCode is empty: ad-hoc (no-template) CSV
-	// uploads still have real rows in import.custom_data_files, keyed by
-	// document_id rather than template_code. The query below is already
-	// scoped by document_id, and the "no sheets found" branch further down
-	// already returns an empty preview correctly when there's truly no data.
 	if h.remoteDB == nil {
 		response.Fail(c, http.StatusServiceUnavailable, "NO_REMOTE_DB", "remote database not configured")
 		return
@@ -712,8 +707,6 @@ func (h *Handler) DataPreview(c *gin.Context) {
 					fallbackColumns = append(fallbackColumns, k)
 				}
 			}
-			// Reserved key for row identity (selection/export); never added to
-			// the visible column list above, so it stays hidden from the table.
 			if rowHash.Valid {
 				rowData["_row_hash"] = rowHash.String
 			}
@@ -748,12 +741,6 @@ func (h *Handler) DataPreview(c *gin.Context) {
 
 	response.OK(c, http.StatusOK, result)
 }
-
-/* =========================================================
- * ExportDataPreview — download rows matching the caller's
- * current preview filter/search criteria as CSV. Runs against
- * the full server-side dataset (no row cap), unlike DataPreview.
- * ========================================================= */
 
 var columnKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
@@ -790,11 +777,6 @@ func (h *Handler) ExportDataPreview(c *gin.Context) {
 		return
 	}
 
-	// Only allow-listed column keys (from the caller-supplied columns list)
-	// are interpolated into the JSONB path expressions below — column keys
-	// can't be parameterized like values, so this character check plus
-	// deriving the list only from the caller's own request is what keeps
-	// this safe from injection.
 	var columns []string
 	for _, col := range req.Columns {
 		if columnKeyPattern.MatchString(col) {

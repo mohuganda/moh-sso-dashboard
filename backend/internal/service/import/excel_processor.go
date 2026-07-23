@@ -920,8 +920,6 @@ func getReportDateFromDocument(document db.Document) (*time.Time, error) {
 	return &parsed, nil
 }
 
-// getOptionalReportDateFromDocument mirrors getReportDateFromDocument but
-// returns nil instead of an error when report_date is absent or unparsable.
 func getOptionalReportDateFromDocument(document db.Document) *time.Time {
 	if len(document.Metadata) == 0 {
 		return nil
@@ -959,18 +957,8 @@ func getTemplateCodeFromDocument(document db.Document) (string, error) {
 	return templateCode, nil
 }
 
-// adHocTemplateCode is the sentinel template_code used for CSV uploads with
-// no template selected. It's a fixed value (not per-document) because
-// reconciliation for these uploads is scoped by document_id via
-// InvalidateByDocument, not by template_code+sheet_code, so sharing the
-// sentinel across unrelated ad-hoc uploads is safe.
 const adHocTemplateCode = "_ADHOC"
 
-// getTemplateCodeOrAdHoc is like getTemplateCodeFromDocument but falls back
-// to adHocTemplateCode instead of erroring when no template_code is set.
-// Malformed metadata is still a real error. Only CSV imports may use this
-// fallback — Excel still requires a real template to know how to parse the
-// workbook.
 func getTemplateCodeOrAdHoc(document db.Document) (string, error) {
 	if len(document.Metadata) == 0 {
 		return adHocTemplateCode, nil

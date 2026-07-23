@@ -228,12 +228,6 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
 
   const isPdf = useMemo(() => (file ? isPdfFile(file) : false), [file]);
 
-  // CSV is the only format that can be imported without a template — it
-  // needs no template-defined structure to parse (unlike Excel, which
-  // relies on the template to know header row / column layout / types).
-  // Mirrors the backend's isCSV check (mapper.go): MIME type OR extension,
-  // not extension alone — a mismatch here means the frontend could decide
-  // not to send process_type while the backend still expects one.
   const isCsvFile = useMemo(() => {
     if (!file) return false;
     return file.type?.toLowerCase().trim() === "text/csv" || getFileExtension(file.name) === ".csv";

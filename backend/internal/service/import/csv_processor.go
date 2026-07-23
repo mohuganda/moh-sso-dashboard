@@ -53,8 +53,6 @@ func (c *CSVProcessor) Process(
 	templateCode = strings.ToUpper(strings.TrimSpace(templateCode))
 	isAdHoc := templateCode == adHocTemplateCode
 
-	// report_date is required for Excel imports but stays optional here: CSV
-	// uploads have not historically been required to set it.
 	reportDate := getOptionalReportDateFromDocument(doc)
 
 	replaceDocumentID, err := getReplaceDocumentIDFromDocument(doc)
@@ -93,9 +91,6 @@ func (c *CSVProcessor) Process(
 	}
 
 	// 4. If replacing a previous upload, invalidate its rows and file record first.
-	// Ad-hoc (no-template) uploads have no cross-document reconciliation step
-	// (see 7 below), so also invalidate this document's own prior rows here —
-	// covers reprocessing the same document without leaving stale duplicates.
 	if replaceDocumentID != nil || isAdHoc {
 		invalidateID := doc.ID
 		if replaceDocumentID != nil {
@@ -245,11 +240,6 @@ func (c *CSVProcessor) Process(
 	}
 
 	// 7. Soft-delete rows from previous uploads that are no longer in this file.
-	// Only meaningful for template-driven uploads, where template_code+sheet_code
-	// groups successive uploads against the same template. Ad-hoc uploads share
-	// a single sentinel template_code across unrelated documents, so this
-	// cross-document reconciliation would incorrectly touch other documents'
-	// rows — step 4 already handled reconciliation scoped to this document.
 	if !isAdHoc {
 		tx, err := c.remoteDB.BeginTx(ctx, nil)
 		if err != nil {
