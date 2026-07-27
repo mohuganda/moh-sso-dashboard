@@ -36,6 +36,32 @@ In this mode:
 
 This lets one app or shared package be rolled forward or back by changing package versions, without requiring every app to become independently hosted on day one.
 
+Production package mode requires exact versions for all 22 published
+workspaces. Floating ranges and npm dist-tags are rejected.
+
+```bash
+export MOH_SSO_NPM_MODULES="$(npm run --silent npm:module-specs)"
+
+DOCKER_BUILDKIT=1 docker build \
+  --secret id=npmrc,src="$HOME/.npmrc" \
+  --build-arg MOH_SSO_NPM_MODULES="$MOH_SSO_NPM_MODULES" \
+  -f Dockerfile.npm-modules \
+  -t moh-sso-dashboard-frontend:npm .
+```
+
+The npm credential is mounted only during dependency installation. It is not
+copied into an image layer or the final nginx image.
+
+Before building a production image, verify the selected versions:
+
+```bash
+npm view @moh-sso/users@0.1.1 version
+npm view @moh-sso/ui@0.1.1 version
+```
+
+The generated `version-manifest.json` records `deploymentMode: "npm"` and the
+installed app/package versions.
+
 ## Version Control
 
 Changesets owns package versions:
@@ -89,4 +115,6 @@ Versioned remote import maps can point to versioned asset paths:
 /packages/api/0.2.0/index.js
 ```
 
-Default production should remain source mode until npm package publishing and npm-module Docker builds are stable in CI.
+Source mode remains the fallback and local-development default. npm mode may be
+enabled after the first package release and a successful npm-based image smoke
+test.

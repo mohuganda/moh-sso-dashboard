@@ -1,9 +1,10 @@
 /* global console, process */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const modulesRoot = process.env.MOH_SSO_NPM_INSTALL_ROOT ?? join(root, "node_modules");
 const basePath = (process.env.FRONTEND_BASE_PATH ?? "/").replace(/^\/?/, "/").replace(/\/$/, "");
 
 const apps = [
@@ -24,9 +25,26 @@ const apps = [
 ];
 
 const packages = ["api", "auth", "config", "microfrontend", "state", "types", "ui", "utils"];
+const expectedPackages = [...apps, ...packages];
+const requestedSpecs = (process.env.MOH_SSO_NPM_MODULES ?? "").trim().split(/\s+/).filter(Boolean);
+const requestedVersions = new Map();
+
+for (const spec of requestedSpecs) {
+  const match = spec.match(/^@moh-sso\/([^@]+)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/);
+  if (!match) {
+    throw new Error(`npm deployment requires an exact SemVer package spec, received: ${spec}`);
+  }
+  requestedVersions.set(match[1], match[2]);
+}
+
+for (const name of expectedPackages) {
+  if (!requestedVersions.has(name)) {
+    throw new Error(`MOH_SSO_NPM_MODULES is missing an exact version for @moh-sso/${name}`);
+  }
+}
 
 function packageDist(name) {
-  return join(root, "node_modules", "@moh-sso", name, "dist");
+  return join(modulesRoot, "@moh-sso", name, "dist");
 }
 
 function assertRequired(path) {
@@ -63,12 +81,26 @@ copyDirectory(join(root, "apps", "shell", "dist"), join(root, "dist"));
 
 for (const app of apps) {
   const dist = packageDist(app);
+  const installed = JSON.parse(
+    readFileSync(join(modulesRoot, "@moh-sso", app, "package.json"), "utf8"),
+  );
+  if (installed.version !== requestedVersions.get(app)) {
+    throw new Error(`Installed ${installed.name}@${installed.version}, expected ${requestedVersions.get(app)}`);
+  }
   assertRequired(join(dist, "single-spa.js"));
   copyDirectory(dist, join(root, "dist", "mf", app));
 }
 
 for (const packageName of packages) {
   const dist = packageDist(packageName);
+  const installed = JSON.parse(
+    readFileSync(join(modulesRoot, "@moh-sso", packageName, "package.json"), "utf8"),
+  );
+  if (installed.version !== requestedVersions.get(packageName)) {
+    throw new Error(
+      `Installed ${installed.name}@${installed.version}, expected ${requestedVersions.get(packageName)}`,
+    );
+  }
   assertRequired(join(dist, "index.js"));
   copyDirectory(dist, join(root, "dist", "packages", packageName));
 }

@@ -31,7 +31,6 @@ This is configured in `.changeset/config.json` through the `fixed` package group
 
 Apps version independently because they are future deployable units:
 
-- `@moh-sso/shell`
 - `@moh-sso/announcements`
 - `@moh-sso/audit`
 - `@moh-sso/clients`
@@ -46,6 +45,9 @@ Apps version independently because they are future deployable units:
 - `@moh-sso/surveillance`
 - `@moh-sso/users`
 - `@moh-sso/utilities`
+
+`@moh-sso/shell` remains private. It is versioned as the frontend Docker/runtime
+deployment and is never published to npm.
 
 Examples:
 

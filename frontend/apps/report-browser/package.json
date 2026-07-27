@@ -31,7 +31,8 @@
     "preview": "vite preview --config vite.config.ts"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
     "@moh-sso/microfrontend": "0.1.0"
@@ -42,5 +43,10 @@
     "react-dom": "^19.2.0",
     "react-redux": "^9.2.0",
     "single-spa": "^6.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mohuganda/moh-sso-dashboard.git",
+    "directory": "frontend/apps/report-browser"
   }
 }

@@ -18,8 +18,12 @@ export function listDirs(path) {
     .sort((a, b) => a.localeCompare(b));
 }
 
+export function listWorkspaceDirs(path) {
+  return listDirs(path).filter((name) => fileExists(join(path, name, "package.json")));
+}
+
 export function listApps() {
-  return listDirs(join(root, "apps"));
+  return listWorkspaceDirs(join(root, "apps"));
 }
 
 export function listStandaloneApps() {
@@ -27,7 +31,7 @@ export function listStandaloneApps() {
 }
 
 export function listPackages() {
-  return listDirs(join(root, "packages"));
+  return listWorkspaceDirs(join(root, "packages"));
 }
 
 export function walkFiles(path, predicate = () => true, files = []) {

@@ -24,7 +24,8 @@
     }
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
     "@moh-sso/types": "0.1.0"
@@ -37,5 +38,10 @@
   "private": false,
   "devDependencies": {
     "@ladle/react": "^5.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mohuganda/moh-sso-dashboard.git",
+    "directory": "frontend/packages/ui"
   }
 }

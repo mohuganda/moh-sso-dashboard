@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # ======================
 # Stage 1: Build shell and stage published modules
 # ======================
@@ -9,7 +11,9 @@ ENV FRONTEND_BASE_PATH=/portal
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
 COPY . .
-RUN npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=secret,id=npmrc,target=/root/.npmrc,required=false \
+    npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000
 RUN node scripts/use-runtime-config.mjs production
 
 # Optional example:
@@ -18,7 +22,15 @@ RUN node scripts/use-runtime-config.mjs production
 # This image path is intentionally optional. The default production Dockerfile
 # still builds apps/packages from source.
 ARG MOH_SSO_NPM_MODULES=""
-RUN if [ -n "$MOH_SSO_NPM_MODULES" ]; then npm install --no-save --workspaces=false $MOH_SSO_NPM_MODULES; fi
+ENV FRONTEND_MODULE_SOURCE=npm
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=secret,id=npmrc,target=/root/.npmrc,required=false \
+    if [ -n "$MOH_SSO_NPM_MODULES" ]; then \
+      npm install --no-save --workspaces=false $MOH_SSO_NPM_MODULES; \
+    else \
+      echo "MOH_SSO_NPM_MODULES must contain exact @moh-sso package versions" >&2; \
+      exit 1; \
+    fi
 
 RUN npm run build:shell
 RUN npm run generate:import-map
@@ -33,7 +45,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN npm install -g serve
+RUN --mount=type=cache,target=/root/.npm npm install -g serve
 
 COPY --from=build /app/dist ./dist
 
