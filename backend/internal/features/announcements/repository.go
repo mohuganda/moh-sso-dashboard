@@ -209,6 +209,25 @@ type AnnouncementRepository interface {
 		announcementID uuid.UUID,
 	) ([]uuid.UUID, error)
 
+	ReplaceHealthContextAudience(
+		ctx context.Context,
+		announcementID uuid.UUID,
+		contextIDs []uuid.UUID,
+		includeDescendants bool,
+	) error
+
+	ListHealthContextAudience(
+		ctx context.Context,
+		announcementID uuid.UUID,
+	) ([]AnnouncementHealthContextAudience, error)
+
+	SaveAudienceSnapshot(
+		ctx context.Context,
+		announcementID uuid.UUID,
+		channel string,
+		recipientUserIDs []string,
+	) error
+
 	// ---------------------------------
 	// End-user targeting queries
 	// ---------------------------------

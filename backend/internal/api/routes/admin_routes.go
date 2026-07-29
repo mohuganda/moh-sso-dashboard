@@ -6,6 +6,7 @@ import (
 	announcementfeature "github.com/moh-sso-dashboard/internal/features/announcements"
 	auditfeature "github.com/moh-sso-dashboard/internal/features/audit"
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
+	healthcontextfeature "github.com/moh-sso-dashboard/internal/features/health_context"
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
@@ -22,6 +23,11 @@ func RegisterAdminRoutes(protected *gin.RouterGroup, deps Dependencies) {
 	registerAdminNotificationRoutes(admin, deps)
 	registerAdminAnnouncementRoutes(admin, deps)
 	registerAdminRBACRoutes(admin, deps)
+	registerAdminHealthContextRoutes(admin, deps)
+}
+
+func registerAdminHealthContextRoutes(admin *gin.RouterGroup, deps Dependencies) {
+	healthcontextfeature.RegisterAdminRoutes(admin, deps.HealthContexts)
 }
 
 func registerAdminUserRoutes(admin *gin.RouterGroup, deps Dependencies) {

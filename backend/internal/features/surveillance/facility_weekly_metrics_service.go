@@ -146,6 +146,17 @@ func (s *FacilityWeeklyMetricsService) ListFacilityWeeklyDiseaseMetricsByWeek(
 	return items, nil
 }
 
+func (s *FacilityWeeklyMetricsService) ListFacilityWeeklyDiseaseMetricsByWeekInHealthContext(
+	ctx context.Context,
+	epiWeekID uuid.UUID,
+	scope HealthContextScope,
+) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekRow, error) {
+	if epiWeekID == uuid.Nil {
+		return []db.ListFacilityWeeklyDiseaseMetricsByWeekRow{}, errors.New("epi week id is required")
+	}
+	return s.facilityWeeklyMetricsRepo.ListDiseaseMetricsByWeekInHealthContext(ctx, epiWeekID, scope)
+}
+
 func (s *FacilityWeeklyMetricsService) ListFacilityWeeklyIndicatorMetricsByWeek(
 	ctx context.Context,
 	epiWeekID uuid.UUID,
@@ -276,6 +287,25 @@ func (s *FacilityWeeklyMetricsService) ListFacilityDiseaseMetricsByWeekAndDiseas
 	return rows, nil
 }
 
+func (s *FacilityWeeklyMetricsService) ListFacilityDiseaseMetricsByWeekAndDiseaseInHealthContext(
+	ctx context.Context,
+	epiWeekID, diseaseID uuid.UUID,
+	scope HealthContextScope,
+) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow, error) {
+	if epiWeekID == uuid.Nil {
+		return []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow{}, errors.New("epi week id is required")
+	}
+	if diseaseID == uuid.Nil {
+		return []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow{}, errors.New("disease id is required")
+	}
+	return s.facilityWeeklyMetricsRepo.ListDiseaseMetricsByWeekAndDiseaseInHealthContext(
+		ctx,
+		epiWeekID,
+		diseaseID,
+		scope,
+	)
+}
+
 func (s *FacilityWeeklyMetricsService) ListDiseaseWeeklyTrendAggregated(
 	ctx context.Context,
 	epiYear int32,
@@ -335,6 +365,40 @@ func (s *FacilityWeeklyMetricsService) ListDiseaseWeeklyTrendAggregated(
 	}
 
 	return rows, nil
+}
+
+func (s *FacilityWeeklyMetricsService) ListDiseaseWeeklyTrendAggregatedInHealthContext(
+	ctx context.Context,
+	epiYear int32,
+	diseaseID uuid.UUID,
+	regionID *uuid.UUID,
+	districtID *uuid.UUID,
+	scope HealthContextScope,
+) ([]db.ListDiseaseWeeklyTrendAggregatedRow, error) {
+	if epiYear == 0 {
+		return []db.ListDiseaseWeeklyTrendAggregatedRow{}, errors.New("epi year is required")
+	}
+	if diseaseID == uuid.Nil {
+		return []db.ListDiseaseWeeklyTrendAggregatedRow{}, errors.New("disease id is required")
+	}
+	arg := db.ListDiseaseWeeklyTrendAggregatedParams{
+		EpiYear: epiYear,
+		DiseaseID: uuid.NullUUID{
+			UUID:  diseaseID,
+			Valid: true,
+		},
+	}
+	if regionID != nil && *regionID != uuid.Nil {
+		arg.RegionID = uuid.NullUUID{UUID: *regionID, Valid: true}
+	}
+	if districtID != nil && *districtID != uuid.Nil {
+		arg.DistrictID = uuid.NullUUID{UUID: *districtID, Valid: true}
+	}
+	return s.facilityWeeklyMetricsRepo.ListDiseaseWeeklyTrendAggregatedInHealthContext(
+		ctx,
+		arg,
+		scope,
+	)
 }
 
 func (s *FacilityWeeklyMetricsService) UpsertFacilityWeeklyDiseaseMetric(

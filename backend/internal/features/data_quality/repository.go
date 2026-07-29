@@ -4,25 +4,30 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
 type Repository interface {
-	CreateIssue(ctx context.Context, input createIssueInput) (issueResponse, error)
-	ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error)
-	ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error)
-	UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error)
-	ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error)
-	ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error)
+	CreateIssue(ctx context.Context, input createIssueInput, scope healthContextScope) (issueResponse, error)
+	ListIssues(ctx context.Context, limit int, offset int, program string, scope healthContextScope) ([]issueResponse, error)
+	ListIssueSummaryByProgram(ctx context.Context, limit int, offset int, scope healthContextScope) ([]issueProgramSummaryResponse, error)
+	UpdateIssue(ctx context.Context, input updateIssueInput, scope healthContextScope) (issueResponse, error)
+	ResolveIssue(ctx context.Context, input resolveIssueInput, scope healthContextScope) (issueStageResponse, error)
+	ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int, scope healthContextScope) ([]issueStageResponse, error)
 	ImportValidationRules(ctx context.Context, inputs []validationRuleInput) (validationRuleImportResult, error)
 	ListValidationRules(ctx context.Context, limit int, offset int) ([]validationRuleResponse, error)
-	CountIssues(ctx context.Context, program string) (int64, error)
+	CountIssues(ctx context.Context, program string, scope healthContextScope) (int64, error)
 }
 
 type postgresRepository struct {
-	dwhDB     *sql.DB
-	primaryDB *sql.DB
+	dwhDB                 *sql.DB
+	primaryDB             *sql.DB
+	ownershipBackfillMu   sync.Mutex
+	ownershipBackfilledAt time.Time
 }
 
 func NewRepository(dwhDB *sql.DB, primaryDB *sql.DB) Repository {
@@ -32,7 +37,7 @@ func NewRepository(dwhDB *sql.DB, primaryDB *sql.DB) Repository {
 	}
 }
 
-func (r *postgresRepository) CreateIssue(ctx context.Context, input createIssueInput) (issueResponse, error) {
+func (r *postgresRepository) CreateIssue(ctx context.Context, input createIssueInput, scope healthContextScope) (issueResponse, error) {
 	row := r.dwhDB.QueryRowContext(
 		ctx,
 		`WITH next_issue AS (
@@ -65,21 +70,41 @@ func (r *postgresRepository) CreateIssue(ctx context.Context, input createIssueI
 		input.ReportedBy,
 		input.TimePeriod,
 	)
-	return scanIssue(row)
+	issue, err := scanIssue(row)
+	if err != nil {
+		return issueResponse{}, err
+	}
+	if issue.IssueCode == nil {
+		return issueResponse{}, errors.New("created issue has no issue code")
+	}
+	contextID, err := r.contextForNewIssue(ctx, scope)
+	if err != nil {
+		r.deleteIssueAfterOwnershipFailure(ctx, *issue.IssueCode)
+		return issueResponse{}, err
+	}
+	if err := r.upsertIssueOwnership(ctx, *issue.IssueCode, contextID); err != nil {
+		r.deleteIssueAfterOwnershipFailure(ctx, *issue.IssueCode)
+		return issueResponse{}, err
+	}
+	issue.HealthContextID = &contextID
+	return issue, nil
 }
 
-func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error) {
-	rows, err := r.dwhDB.QueryContext(
-		ctx,
-		`SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type,time_period
+func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset int, program string, scope healthContextScope) ([]issueResponse, error) {
+	ownerships, err := r.issueOwnershipsInScope(ctx, scope)
+	if err != nil {
+		return nil, err
+	}
+	query := `SELECT issue_id, issue_code, dataset, data_element, org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type,time_period
 		FROM hiv.issue
-		WHERE ($3 = '' OR LOWER(BTRIM(program)) = LOWER(BTRIM($3)))
-		ORDER BY date_reported DESC, issue_id DESC
-		LIMIT $1 OFFSET $2`,
-		limit,
-		offset,
-		program,
-	)
+		WHERE ($3 = '' OR LOWER(BTRIM(program)) = LOWER(BTRIM($3)))`
+	args := []any{limit, offset, program}
+	if scope.ContextID != uuid.Nil {
+		query += ` AND issue_code = ANY($4)`
+		args = append(args, pq.Array(ownershipCodes(ownerships)))
+	}
+	query += ` ORDER BY date_reported DESC, issue_id DESC LIMIT $1 OFFSET $2`
+	rows, err := r.dwhDB.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -91,26 +116,38 @@ func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset i
 		if err != nil {
 			return nil, err
 		}
+		if issue.IssueCode != nil {
+			if contextID, ok := ownerships[*issue.IssueCode]; ok {
+				id := contextID
+				issue.HealthContextID = &id
+			}
+		}
 		issues = append(issues, issue)
 	}
 	return issues, rows.Err()
 }
 
-func (r *postgresRepository) ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error) {
-	rows, err := r.dwhDB.QueryContext(
-		ctx,
-		`SELECT
+func (r *postgresRepository) ListIssueSummaryByProgram(ctx context.Context, limit int, offset int, scope healthContextScope) ([]issueProgramSummaryResponse, error) {
+	ownerships, err := r.issueOwnershipsInScope(ctx, scope)
+	if err != nil {
+		return nil, err
+	}
+	query := `SELECT
 			COALESCE(NULLIF(BTRIM(program), ''), 'Unspecified') AS program,
 			COUNT(*)::bigint AS issue_count,
 			COUNT(CASE WHEN UPPER(BTRIM(status)) NOT IN ('RESOLVED', 'CLOSED') THEN 1 END)::bigint AS open_count,
 			COUNT(CASE WHEN UPPER(BTRIM(status)) IN ('RESOLVED', 'CLOSED') THEN 1 END)::bigint AS resolved_count
-		FROM hiv.issue
+		FROM hiv.issue`
+	args := []any{limit, offset}
+	if scope.ContextID != uuid.Nil {
+		query += ` WHERE issue_code = ANY($3)`
+		args = append(args, pq.Array(ownershipCodes(ownerships)))
+	}
+	query += `
 		GROUP BY 1
 		ORDER BY issue_count DESC, program ASC
-		LIMIT $1 OFFSET $2`,
-		limit,
-		offset,
-	)
+		LIMIT $1 OFFSET $2`
+	rows, err := r.dwhDB.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +165,10 @@ func (r *postgresRepository) ListIssueSummaryByProgram(ctx context.Context, limi
 	return summary, rows.Err()
 }
 
-func (r *postgresRepository) UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error) {
+func (r *postgresRepository) UpdateIssue(ctx context.Context, input updateIssueInput, scope healthContextScope) (issueResponse, error) {
+	if err := r.requireIssueInScope(ctx, input.IssueCode, scope); err != nil {
+		return issueResponse{}, err
+	}
 	row := r.dwhDB.QueryRowContext(
 		ctx,
 		`UPDATE hiv.issue
@@ -165,7 +205,10 @@ func (r *postgresRepository) UpdateIssue(ctx context.Context, input updateIssueI
 	return scanIssue(row)
 }
 
-func (r *postgresRepository) ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error) {
+func (r *postgresRepository) ResolveIssue(ctx context.Context, input resolveIssueInput, scope healthContextScope) (issueStageResponse, error) {
+	if err := r.requireIssueInScope(ctx, input.IssueCode, scope); err != nil {
+		return issueStageResponse{}, err
+	}
 	tx, err := r.dwhDB.BeginTx(ctx, nil)
 	if err != nil {
 		return issueStageResponse{}, err
@@ -283,7 +326,10 @@ func (r *postgresRepository) ResolveIssue(ctx context.Context, input resolveIssu
 	return stageRow, nil
 }
 
-func (r *postgresRepository) ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error) {
+func (r *postgresRepository) ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int, scope healthContextScope) ([]issueStageResponse, error) {
+	if err := r.requireIssueInScope(ctx, issueCode, scope); err != nil {
+		return nil, err
+	}
 	var existingCode string
 	err := r.dwhDB.QueryRowContext(
 		ctx,
@@ -511,12 +557,18 @@ func isUniqueViolation(err error) bool {
 	return string(pqErr.Code) == "23505"
 }
 
-func (r *postgresRepository) CountIssues(ctx context.Context, program string) (int64, error) {
+func (r *postgresRepository) CountIssues(ctx context.Context, program string, scope healthContextScope) (int64, error) {
+	ownerships, err := r.issueOwnershipsInScope(ctx, scope)
+	if err != nil {
+		return 0, err
+	}
 	var count int64
-	err := r.dwhDB.QueryRowContext(
-		ctx,
-		`SELECT COUNT(*)::bigint FROM hiv.issue WHERE ($1 = '' OR LOWER(BTRIM(program)) = LOWER(BTRIM($1)))`,
-		program,
-	).Scan(&count)
+	query := `SELECT COUNT(*)::bigint FROM hiv.issue WHERE ($1 = '' OR LOWER(BTRIM(program)) = LOWER(BTRIM($1)))`
+	args := []any{program}
+	if scope.ContextID != uuid.Nil {
+		query += ` AND issue_code = ANY($2)`
+		args = append(args, pq.Array(ownershipCodes(ownerships)))
+	}
+	err = r.dwhDB.QueryRowContext(ctx, query, args...).Scan(&count)
 	return count, err
 }

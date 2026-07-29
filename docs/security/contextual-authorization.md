@@ -1,0 +1,56 @@
+# Contextual Authorization
+
+## Decision sequence
+
+Every scoped operation must evaluate:
+
+1. Authentication.
+2. Functional permission.
+3. Access to the owning portal system/client.
+4. Direct and group-derived health-context assignments.
+5. Assignment validity, node status, and scope mode.
+6. Resource ownership or authorized query predicate.
+
+Authenticated actors outside the resource scope receive `403`. Malformed
+context identifiers receive `400`. Detailed database and hierarchy errors stay
+in server logs.
+
+## Least privilege
+
+- Super-admin is not an implicit context bypass.
+- Disabled nodes and expired assignments grant no access.
+- Group-derived permission and group-derived context are evaluated and
+  explained separately.
+- Frontend visibility never substitutes for backend enforcement.
+- Exports and downloads use the same predicates as list and detail endpoints.
+- Aggregates must not reveal restricted lower-level data.
+
+## Resource checks
+
+Use middleware only to validate a selected context when that is sufficient.
+For contextual route groups, the middleware fails closed when an assigned user
+omits the context header. It allows a missing header only when the user has no
+effective health-context assignments.
+When ownership is known only after loading a resource, enforce access in the
+feature service. Repositories should accept already-authorized context IDs and
+include them in SQL predicates.
+
+Emergency or delegated access is not enabled by default. A future implementation
+must require a reason, approval, explicit expiry, audit events, and administrator
+notification.
+
+## Temporary and emergency access
+
+The assignment model already supports `valid_from` and `valid_until`, so
+time-bound access can be represented without adding a bypass. There is
+currently no emergency override switch and no hidden super-admin exception.
+Before enabling delegated or emergency workflows, add an approval record,
+mandatory reason, approver separation, expiry enforcement, administrator
+notification, and dedicated audit events. Expiry must be enforced by effective
+context queries, not by a background cleanup job alone.
+
+## Denial logging
+
+Context middleware emits structured denial events with request ID, feature,
+reason, and context type when known. Logs do not include patient data, resource
+payloads, user contact details, or context-specific metric labels.

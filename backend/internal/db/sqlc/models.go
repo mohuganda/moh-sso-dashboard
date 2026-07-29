@@ -319,10 +319,32 @@ type AnnouncementAttachment struct {
 	DeletedBy        uuid.NullUUID  `json:"deleted_by"`
 }
 
+type AnnouncementAudienceSnapshot struct {
+	ID               uuid.UUID       `json:"id"`
+	AnnouncementID   uuid.UUID       `json:"announcement_id"`
+	Channel          string          `json:"channel"`
+	RecipientCount   int32           `json:"recipient_count"`
+	RecipientUserIds json.RawMessage `json:"recipient_user_ids"`
+	CreatedAt        time.Time       `json:"created_at"`
+}
+
 type AnnouncementClient struct {
 	AnnouncementID uuid.UUID `json:"announcement_id"`
 	ClientID       uuid.UUID `json:"client_id"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+type AnnouncementGroup struct {
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+	GroupID        uuid.UUID `json:"group_id"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type AnnouncementHealthContext struct {
+	AnnouncementID     uuid.UUID `json:"announcement_id"`
+	ContextNodeID      uuid.UUID `json:"context_node_id"`
+	IncludeDescendants bool      `json:"include_descendants"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 type AnnouncementRole struct {
@@ -369,6 +391,34 @@ type ClientSecret struct {
 	SecretHash string       `json:"secret_hash"`
 	CreatedAt  sql.NullTime `json:"created_at"`
 	ExpiresAt  sql.NullTime `json:"expires_at"`
+}
+
+// Portal-owned health-context ownership for issues stored in the external DWH database.
+type DataQualityIssueContext struct {
+	IssueCode       string    `json:"issue_code"`
+	HealthContextID uuid.UUID `json:"health_context_id"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type DataQualityValidationRule struct {
+	ID          int64          `json:"id"`
+	TableID     sql.NullString `json:"table_id"`
+	Program     sql.NullString `json:"program"`
+	Category    sql.NullString `json:"category"`
+	Code        string         `json:"code"`
+	Severity    string         `json:"severity"`
+	Description string         `json:"description"`
+	ColumnName  string         `json:"column_name"`
+	Operator    string         `json:"operator"`
+	Value       sql.NullString `json:"value"`
+	ValueColumn sql.NullString `json:"value_column"`
+	IsActive    bool           `json:"is_active"`
+	CreatedBy   sql.NullString `json:"created_by"`
+	UpdatedBy   sql.NullString `json:"updated_by"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   sql.NullTime   `json:"deleted_at"`
 }
 
 type Disease struct {
@@ -420,6 +470,7 @@ type Document struct {
 	CreatedAt          time.Time       `json:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at"`
 	DeletedAt          sql.NullTime    `json:"deleted_at"`
+	HealthContextID    uuid.NullUUID   `json:"health_context_id"`
 }
 
 type DocumentTemplate struct {
@@ -503,12 +554,12 @@ type EmailOutbox struct {
 }
 
 type EpiWeek struct {
-	ID            uuid.UUID    `json:"id"`
-	EpiYear       int32        `json:"epi_year"`
-	EpiWeek       int32        `json:"epi_week"`
-	WeekStartDate sql.NullTime `json:"week_start_date"`
-	WeekEndDate   sql.NullTime `json:"week_end_date"`
-	CreatedAt     time.Time    `json:"created_at"`
+	ID            uuid.UUID `json:"id"`
+	EpiYear       int32     `json:"epi_year"`
+	EpiWeek       int32     `json:"epi_week"`
+	WeekStartDate time.Time `json:"week_start_date"`
+	WeekEndDate   time.Time `json:"week_end_date"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type Facility struct {
@@ -538,6 +589,46 @@ type FacilityWeeklyMetric struct {
 	SourceName     sql.NullString `json:"source_name"`
 	ImportedAt     time.Time      `json:"imported_at"`
 	CreatedAt      time.Time      `json:"created_at"`
+}
+
+type GroupHealthContextAssignment struct {
+	ID            uuid.UUID      `json:"id"`
+	GroupID       uuid.UUID      `json:"group_id"`
+	ContextNodeID uuid.UUID      `json:"context_node_id"`
+	ScopeMode     string         `json:"scope_mode"`
+	Source        string         `json:"source"`
+	CreatedBy     sql.NullString `json:"created_by"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+}
+
+type HealthContextAlias struct {
+	ID            uuid.UUID       `json:"id"`
+	ContextNodeID uuid.UUID       `json:"context_node_id"`
+	Namespace     string          `json:"namespace"`
+	ExternalID    string          `json:"external_id"`
+	Metadata      json.RawMessage `json:"metadata"`
+	CreatedAt     time.Time       `json:"created_at"`
+}
+
+type HealthContextClosure struct {
+	AncestorID   uuid.UUID `json:"ancestor_id"`
+	DescendantID uuid.UUID `json:"descendant_id"`
+	Depth        int32     `json:"depth"`
+}
+
+type HealthContextNode struct {
+	ID          uuid.UUID       `json:"id"`
+	Code        string          `json:"code"`
+	Name        string          `json:"name"`
+	ContextType string          `json:"context_type"`
+	ParentID    uuid.NullUUID   `json:"parent_id"`
+	Source      string          `json:"source"`
+	Metadata    json.RawMessage `json:"metadata"`
+	Enabled     bool            `json:"enabled"`
+	Version     int32           `json:"version"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 type IhpAccessRequest struct {
@@ -616,6 +707,42 @@ type IhpRbacChangeRequestEvent struct {
 	Action      string         `json:"action"`
 	Note        sql.NullString `json:"note"`
 	CreatedAt   time.Time      `json:"created_at"`
+}
+
+type IhpRbacGroup struct {
+	ID              uuid.UUID       `json:"id"`
+	KeycloakGroupID sql.NullString  `json:"keycloak_group_id"`
+	Path            string          `json:"path"`
+	Name            string          `json:"name"`
+	DisplayName     sql.NullString  `json:"display_name"`
+	Description     sql.NullString  `json:"description"`
+	Enabled         bool            `json:"enabled"`
+	Metadata        json.RawMessage `json:"metadata"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
+
+type IhpRbacGroupMember struct {
+	GroupID   uuid.UUID      `json:"group_id"`
+	UserID    string         `json:"user_id"`
+	Username  sql.NullString `json:"username"`
+	Email     sql.NullString `json:"email"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+type IhpRbacGroupPermission struct {
+	GroupID      uuid.UUID `json:"group_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
+}
+
+type IhpRbacGroupRealmRole struct {
+	GroupID   uuid.UUID `json:"group_id"`
+	RealmRole string    `json:"realm_role"`
+}
+
+type IhpRbacGroupSystemRole struct {
+	GroupID      uuid.UUID `json:"group_id"`
+	SystemRoleID uuid.UUID `json:"system_role_id"`
 }
 
 type IhpRealmRolePermission struct {
@@ -872,10 +999,31 @@ type User struct {
 	LastLoginAt sql.NullTime   `json:"last_login_at"`
 }
 
+type UserActiveHealthContext struct {
+	UserID        string    `json:"user_id"`
+	ContextNodeID uuid.UUID `json:"context_node_id"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 type UserClientAccess struct {
 	UserID    uuid.UUID    `json:"user_id"`
 	ClientID  uuid.UUID    `json:"client_id"`
 	GrantedAt sql.NullTime `json:"granted_at"`
+}
+
+type UserHealthContextAssignment struct {
+	ID              uuid.UUID      `json:"id"`
+	UserID          string         `json:"user_id"`
+	ContextNodeID   uuid.UUID      `json:"context_node_id"`
+	ScopeMode       string         `json:"scope_mode"`
+	IsDefault       bool           `json:"is_default"`
+	ValidFrom       sql.NullTime   `json:"valid_from"`
+	ValidUntil      sql.NullTime   `json:"valid_until"`
+	Source          string         `json:"source"`
+	SourceReference sql.NullString `json:"source_reference"`
+	CreatedBy       sql.NullString `json:"created_by"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 type UserRole struct {

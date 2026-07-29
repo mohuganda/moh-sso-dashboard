@@ -1,5 +1,7 @@
 import type {
   Announcement,
+  AnnouncementAudiencePreview,
+  AnnouncementAudiencePreviewRequest,
   AnnouncementAttachment,
   AnnouncementStats,
   CreateAnnouncementRequest,
@@ -57,6 +59,19 @@ export const announcementApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: ApiEnvelope<AnnouncementStats>) => response.data,
       providesTags: [{ type: "Announcements", id: "STATS" }],
+    }),
+
+    previewAnnouncementAudience: builder.mutation<
+      AnnouncementAudiencePreview,
+      AnnouncementAudiencePreviewRequest
+    >({
+      query: (body) => ({
+        url: "/admin/announcements/audience-preview",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: ApiEnvelope<AnnouncementAudiencePreview>) =>
+        response.data,
     }),
 
     createAnnouncement: builder.mutation<Announcement, CreateAnnouncementRequest>({
@@ -353,6 +368,7 @@ export const {
   useListAnnouncementsAdminQuery,
   useGetAnnouncementByIdQuery,
   useGetAnnouncementStatsQuery,
+  usePreviewAnnouncementAudienceMutation,
   useCreateAnnouncementMutation,
   useUpdateAnnouncementMutation,
   useDeleteAnnouncementMutation,

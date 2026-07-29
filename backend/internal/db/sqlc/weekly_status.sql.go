@@ -631,6 +631,233 @@ func (q *Queries) ListWeeklyStatusesDetailed(ctx context.Context, arg ListWeekly
 	return items, nil
 }
 
+const listWeeklyStatusesDetailedInHealthContext = `-- name: ListWeeklyStatusesDetailedInHealthContext :many
+SELECT
+  ws.id,
+  ws.region_id,
+  ws.district_id,
+  ws.sub_county_id,
+  ws.disease_id,
+  ws.indicator_id,
+  ws.epi_week_id,
+  ws.status,
+  ws.source_name,
+  ws.imported_at,
+  ws.created_at,
+  r.name AS region_name,
+  d.name AS district_name,
+  sc.name AS sub_county_name,
+  dis.name AS disease_name,
+  i.name AS indicator_name
+FROM weekly_status ws
+LEFT JOIN regions r ON ws.region_id = r.id
+LEFT JOIN districts d ON ws.district_id = d.id
+LEFT JOIN sub_counties sc ON ws.sub_county_id = sc.id
+LEFT JOIN diseases dis ON ws.disease_id = dis.id
+LEFT JOIN indicators i ON ws.indicator_id = i.id
+WHERE
+  ($1::uuid IS NULL OR ws.epi_week_id = $1::uuid)
+  AND ($2::uuid IS NULL OR ws.region_id = $2::uuid)
+  AND ($3::uuid IS NULL OR ws.district_id = $3::uuid)
+  AND ($4::uuid IS NULL OR ws.sub_county_id = $4::uuid)
+  AND ($5::uuid IS NULL OR ws.disease_id = $5::uuid)
+  AND ($6::uuid IS NULL OR ws.indicator_id = $6::uuid)
+  AND ($7::risk_level IS NULL OR ws.status = $7::risk_level)
+  AND (
+    CASE
+      WHEN ws.sub_county_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-sub-county', ws.sub_county_id::text, $8::uuid,
+        $9::boolean
+      )
+      WHEN ws.district_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-district', ws.district_id::text, $8::uuid,
+        $9::boolean
+      )
+      WHEN ws.region_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-region', ws.region_id::text, $8::uuid,
+        $9::boolean
+      )
+      ELSE EXISTS (
+        SELECT 1 FROM health_context_nodes n
+        WHERE n.id = $8::uuid AND n.code = 'UG'
+      )
+    END
+  )
+ORDER BY ws.created_at DESC
+`
+
+type ListWeeklyStatusesDetailedInHealthContextParams struct {
+	EpiWeekID          uuid.NullUUID `json:"epi_week_id"`
+	RegionID           uuid.NullUUID `json:"region_id"`
+	DistrictID         uuid.NullUUID `json:"district_id"`
+	SubCountyID        uuid.NullUUID `json:"sub_county_id"`
+	DiseaseID          uuid.NullUUID `json:"disease_id"`
+	IndicatorID        uuid.NullUUID `json:"indicator_id"`
+	Status             NullRiskLevel `json:"status"`
+	HealthContextID    uuid.UUID     `json:"health_context_id"`
+	IncludeDescendants bool          `json:"include_descendants"`
+}
+
+type ListWeeklyStatusesDetailedInHealthContextRow struct {
+	ID            uuid.UUID      `json:"id"`
+	RegionID      uuid.NullUUID  `json:"region_id"`
+	DistrictID    uuid.NullUUID  `json:"district_id"`
+	SubCountyID   uuid.NullUUID  `json:"sub_county_id"`
+	DiseaseID     uuid.NullUUID  `json:"disease_id"`
+	IndicatorID   uuid.NullUUID  `json:"indicator_id"`
+	EpiWeekID     uuid.UUID      `json:"epi_week_id"`
+	Status        RiskLevel      `json:"status"`
+	SourceName    sql.NullString `json:"source_name"`
+	ImportedAt    time.Time      `json:"imported_at"`
+	CreatedAt     time.Time      `json:"created_at"`
+	RegionName    sql.NullString `json:"region_name"`
+	DistrictName  sql.NullString `json:"district_name"`
+	SubCountyName sql.NullString `json:"sub_county_name"`
+	DiseaseName   sql.NullString `json:"disease_name"`
+	IndicatorName sql.NullString `json:"indicator_name"`
+}
+
+func (q *Queries) ListWeeklyStatusesDetailedInHealthContext(ctx context.Context, arg ListWeeklyStatusesDetailedInHealthContextParams) ([]ListWeeklyStatusesDetailedInHealthContextRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWeeklyStatusesDetailedInHealthContext,
+		arg.EpiWeekID,
+		arg.RegionID,
+		arg.DistrictID,
+		arg.SubCountyID,
+		arg.DiseaseID,
+		arg.IndicatorID,
+		arg.Status,
+		arg.HealthContextID,
+		arg.IncludeDescendants,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWeeklyStatusesDetailedInHealthContextRow{}
+	for rows.Next() {
+		var i ListWeeklyStatusesDetailedInHealthContextRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RegionID,
+			&i.DistrictID,
+			&i.SubCountyID,
+			&i.DiseaseID,
+			&i.IndicatorID,
+			&i.EpiWeekID,
+			&i.Status,
+			&i.SourceName,
+			&i.ImportedAt,
+			&i.CreatedAt,
+			&i.RegionName,
+			&i.DistrictName,
+			&i.SubCountyName,
+			&i.DiseaseName,
+			&i.IndicatorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWeeklyStatusesInHealthContext = `-- name: ListWeeklyStatusesInHealthContext :many
+SELECT id, region_id, district_id, sub_county_id, disease_id, indicator_id, epi_week_id, status, source_name, imported_at, created_at
+FROM weekly_status
+WHERE
+  ($1::uuid IS NULL OR epi_week_id = $1::uuid)
+  AND ($2::uuid IS NULL OR region_id = $2::uuid)
+  AND ($3::uuid IS NULL OR district_id = $3::uuid)
+  AND ($4::uuid IS NULL OR sub_county_id = $4::uuid)
+  AND ($5::uuid IS NULL OR disease_id = $5::uuid)
+  AND ($6::uuid IS NULL OR indicator_id = $6::uuid)
+  AND ($7::risk_level IS NULL OR status = $7::risk_level)
+  AND (
+    CASE
+      WHEN sub_county_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-sub-county', sub_county_id::text, $8::uuid,
+        $9::boolean
+      )
+      WHEN district_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-district', district_id::text, $8::uuid,
+        $9::boolean
+      )
+      WHEN region_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-region', region_id::text, $8::uuid,
+        $9::boolean
+      )
+      ELSE EXISTS (
+        SELECT 1 FROM health_context_nodes n
+        WHERE n.id = $8::uuid AND n.code = 'UG'
+      )
+    END
+  )
+ORDER BY created_at DESC
+`
+
+type ListWeeklyStatusesInHealthContextParams struct {
+	EpiWeekID          uuid.NullUUID `json:"epi_week_id"`
+	RegionID           uuid.NullUUID `json:"region_id"`
+	DistrictID         uuid.NullUUID `json:"district_id"`
+	SubCountyID        uuid.NullUUID `json:"sub_county_id"`
+	DiseaseID          uuid.NullUUID `json:"disease_id"`
+	IndicatorID        uuid.NullUUID `json:"indicator_id"`
+	Status             NullRiskLevel `json:"status"`
+	HealthContextID    uuid.UUID     `json:"health_context_id"`
+	IncludeDescendants bool          `json:"include_descendants"`
+}
+
+func (q *Queries) ListWeeklyStatusesInHealthContext(ctx context.Context, arg ListWeeklyStatusesInHealthContextParams) ([]WeeklyStatus, error) {
+	rows, err := q.db.QueryContext(ctx, listWeeklyStatusesInHealthContext,
+		arg.EpiWeekID,
+		arg.RegionID,
+		arg.DistrictID,
+		arg.SubCountyID,
+		arg.DiseaseID,
+		arg.IndicatorID,
+		arg.Status,
+		arg.HealthContextID,
+		arg.IncludeDescendants,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WeeklyStatus{}
+	for rows.Next() {
+		var i WeeklyStatus
+		if err := rows.Scan(
+			&i.ID,
+			&i.RegionID,
+			&i.DistrictID,
+			&i.SubCountyID,
+			&i.DiseaseID,
+			&i.IndicatorID,
+			&i.EpiWeekID,
+			&i.Status,
+			&i.SourceName,
+			&i.ImportedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertDistrictDiseaseWeeklyStatus = `-- name: UpsertDistrictDiseaseWeeklyStatus :one
 INSERT INTO weekly_status (
   region_id,

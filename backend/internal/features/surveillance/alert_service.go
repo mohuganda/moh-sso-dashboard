@@ -193,6 +193,17 @@ func (s *AlertService) ListAlertsFromParams(
 	})
 }
 
+func (s *AlertService) ListAlertsFromParamsInHealthContext(
+	ctx context.Context,
+	params AlertListParams,
+	scope HealthContextScope,
+) ([]db.ListAlertsRow, error) {
+	return s.alertRepo.ListAlertsInHealthContext(ctx, db.ListAlertsParams{
+		EpiWeekID: uuidNull(params.EpiWeekID), DiseaseID: uuidNull(params.DiseaseID),
+		DistrictID: uuidNull(params.DistrictID), RegionID: uuidNull(params.RegionID),
+	}, scope)
+}
+
 func (s *AlertService) ProcessAlerts(ctx context.Context, batchID uuid.UUID) error {
 	if err := requireUUID("batch id", batchID); err != nil {
 		return err

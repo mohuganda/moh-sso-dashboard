@@ -101,6 +101,193 @@
   grid-column: 1 / -1;
 }
 
+.health-context-admin {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  min-height: 32rem;
+}
+
+.health-context-admin__browser {
+  border-right: 1px solid var(--cds-border-subtle);
+}
+
+.health-context-admin__nodes {
+  display: grid;
+  max-height: 42rem;
+  overflow-y: auto;
+}
+
+.health-context-admin__nodes > button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+  width: 100%;
+  min-height: 3.75rem;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--cds-border-subtle);
+  color: var(--cds-text-primary);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.health-context-admin__nodes > button:hover {
+  background: var(--cds-layer-hover);
+}
+
+.health-context-admin__nodes > button.is-active {
+  box-shadow: inset 0.25rem 0 var(--cds-border-interactive);
+  background: var(--cds-layer-selected);
+}
+
+.health-context-admin__nodes small {
+  grid-column: 1;
+  color: var(--cds-text-secondary);
+}
+
+.health-context-admin__nodes .cds--tag {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.health-context-admin__detail {
+  min-width: 0;
+}
+
+.health-context-admin__empty {
+  padding: 2rem;
+  color: var(--cds-text-secondary);
+}
+
+.health-context-aliases,
+.health-context-assignments {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-top: 1px solid var(--cds-border-subtle);
+}
+
+.health-context-aliases h4,
+.health-context-assignments h4 {
+  margin: 0;
+}
+
+.health-context-aliases__form,
+.health-context-assignments__add {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.health-context-aliases__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.health-context-admin__assignment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.health-context-admin__assignment-grid > :first-child {
+  border-right: 1px solid var(--cds-border-subtle);
+}
+
+.health-context-drift {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 1rem;
+  border-top: 1px solid var(--cds-border-subtle);
+}
+
+.health-context-drift__summary,
+.health-context-drift__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-inline: 1rem;
+}
+
+.health-context-drift__items {
+  display: grid;
+  margin-inline: 1rem;
+  border: 1px solid var(--cds-border-subtle);
+}
+
+.health-context-drift__item {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(13rem, 0.75fr) minmax(12rem, 0.6fr);
+  gap: 1rem;
+  align-items: end;
+  padding: 1rem;
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.health-context-drift__item:last-child {
+  border-bottom: 0;
+}
+
+.health-context-drift__item > div {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.health-context-drift__item strong,
+.health-context-drift__item p {
+  margin: 0;
+}
+
+.health-context-drift__item p {
+  color: var(--cds-text-secondary);
+  font-size: 0.875rem;
+}
+
+.health-context-drift__item .cds--tag {
+  width: fit-content;
+}
+
+.health-context-drift__actions {
+  padding-bottom: 1rem;
+}
+
+.health-context-assignments__list {
+  display: grid;
+  border: 1px solid var(--cds-border-subtle);
+}
+
+.health-context-assignments__list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3rem;
+  padding-left: 0.75rem;
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.health-context-assignments__list > div:last-child {
+  border-bottom: 0;
+}
+
+.health-context-assignments__list span {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.health-context-assignments__list small,
+.health-context-assignments__list p {
+  color: var(--cds-text-secondary);
+}
+
+.health-context-assignments__list p {
+  margin: 0;
+  padding: 1rem;
+}
+
 .rbac-navigation-preview {
   display: grid;
   gap: 0.5rem;
@@ -514,12 +701,23 @@
   .rbac-realm-layout,
   .rbac-form-grid,
   .rbac-drift-row,
-  .rbac-effective-search {
+  .rbac-effective-search,
+  .health-context-admin,
+  .health-context-admin__assignment-grid {
     grid-template-columns: 1fr;
   }
 
   .rbac-page__systems {
     position: static;
+  }
+
+  .health-context-admin__browser,
+  .health-context-admin__assignment-grid > :first-child {
+    border-right: 0;
+  }
+
+  .health-context-admin__browser {
+    border-bottom: 1px solid var(--cds-border-subtle);
   }
 }
 
@@ -616,7 +814,9 @@
   .rbac-audit-actions,
   .rbac-sync-actions,
   .rbac-effective-user,
-  .rbac-effective-grant {
+  .rbac-effective-grant,
+  .health-context-aliases__form,
+  .health-context-assignments__add {
     display: grid;
     grid-template-columns: 1fr;
     align-items: stretch;
@@ -630,10 +830,35 @@
     max-width: none;
   }
 
+  .health-context-aliases__form .cds--btn,
+  .health-context-assignments__add .cds--btn {
+    width: 100%;
+    max-width: none;
+  }
+
   .rbac-drift-row {
     min-width: 0;
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .health-context-drift__item {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .health-context-drift__summary,
+  .health-context-drift__actions {
+    padding-inline: 0.75rem;
+  }
+
+  .health-context-drift__items {
+    margin-inline: 0.75rem;
+  }
+
+  .health-context-drift__actions .cds--btn {
+    width: 100%;
+    max-width: none;
   }
 
   .rbac-summary-tile strong {

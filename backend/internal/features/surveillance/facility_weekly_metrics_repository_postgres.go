@@ -86,11 +86,73 @@ func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseMetricsByWeek(
 	return r.db.ListFacilityWeeklyDiseaseMetricsByWeek(ctx, epiWeekID)
 }
 
+func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseMetricsByWeekInHealthContext(
+	ctx context.Context,
+	epiWeekID uuid.UUID,
+	scope HealthContextScope,
+) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekRow, error) {
+	rows, err := r.db.ListFacilityWeeklyDiseaseMetricsByWeekInHealthContext(
+		ctx,
+		db.ListFacilityWeeklyDiseaseMetricsByWeekInHealthContextParams{
+			EpiWeekID: epiWeekID, HealthContextID: scope.ID,
+			IncludeDescendants: scope.IncludeDescendants,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]db.ListFacilityWeeklyDiseaseMetricsByWeekRow, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, db.ListFacilityWeeklyDiseaseMetricsByWeekRow{
+			ID: row.ID, SourceRecordID: row.SourceRecordID, FacilityID: row.FacilityID,
+			DiseaseID: row.DiseaseID, IndicatorID: row.IndicatorID, EpiWeekID: row.EpiWeekID,
+			MetricValue: row.MetricValue, SourceName: row.SourceName, ImportedAt: row.ImportedAt,
+			CreatedAt: row.CreatedAt, FacilityName: row.FacilityName, SubCountyID: row.SubCountyID,
+			SubCountyName: row.SubCountyName, DistrictID: row.DistrictID,
+			DistrictName: row.DistrictName, RegionID: row.RegionID, RegionName: row.RegionName,
+			DiseaseName: row.DiseaseName, EpiYear: row.EpiYear, EpiWeek: row.EpiWeek,
+		})
+	}
+	return items, nil
+}
+
 func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseMetricsByWeekAndDisease(
 	ctx context.Context,
 	arg db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseParams,
 ) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow, error) {
 	return r.db.ListFacilityWeeklyDiseaseMetricsByWeekAndDisease(ctx, arg)
+}
+
+func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseMetricsByWeekAndDiseaseInHealthContext(
+	ctx context.Context,
+	epiWeekID uuid.UUID,
+	diseaseID uuid.UUID,
+	scope HealthContextScope,
+) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow, error) {
+	rows, err := r.db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContext(
+		ctx,
+		db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContextParams{
+			EpiWeekID:       epiWeekID,
+			DiseaseID:       uuid.NullUUID{UUID: diseaseID, Valid: diseaseID != uuid.Nil},
+			HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow{
+			ID: row.ID, SourceRecordID: row.SourceRecordID, FacilityID: row.FacilityID,
+			DiseaseID: row.DiseaseID, IndicatorID: row.IndicatorID, EpiWeekID: row.EpiWeekID,
+			MetricValue: row.MetricValue, SourceName: row.SourceName, ImportedAt: row.ImportedAt,
+			CreatedAt: row.CreatedAt, FacilityName: row.FacilityName, SubCountyID: row.SubCountyID,
+			SubCountyName: row.SubCountyName, DistrictID: row.DistrictID,
+			DistrictName: row.DistrictName, RegionID: row.RegionID, RegionName: row.RegionName,
+			DiseaseName: row.DiseaseName, EpiYear: row.EpiYear, EpiWeek: row.EpiWeek,
+		})
+	}
+	return items, nil
 }
 
 func (r *postgresFacilityWeeklyMetricsRepository) ListIndicatorMetricsByWeek(
@@ -135,6 +197,29 @@ func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseWeeklyTrendAggregat
 ) ([]db.ListDiseaseWeeklyTrendAggregatedRow, error) {
 
 	return r.db.ListDiseaseWeeklyTrendAggregated(ctx, arg)
+}
+
+func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseWeeklyTrendAggregatedInHealthContext(
+	ctx context.Context,
+	arg db.ListDiseaseWeeklyTrendAggregatedParams,
+	scope HealthContextScope,
+) ([]db.ListDiseaseWeeklyTrendAggregatedRow, error) {
+	rows, err := r.db.ListDiseaseWeeklyTrendAggregatedInHealthContext(
+		ctx,
+		db.ListDiseaseWeeklyTrendAggregatedInHealthContextParams{
+			DiseaseID: arg.DiseaseID, HealthContextID: scope.ID,
+			IncludeDescendants: scope.IncludeDescendants, EpiYear: arg.EpiYear,
+			RegionID: arg.RegionID, DistrictID: arg.DistrictID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]db.ListDiseaseWeeklyTrendAggregatedRow, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, db.ListDiseaseWeeklyTrendAggregatedRow(row))
+	}
+	return items, nil
 }
 
 func (r *postgresFacilityWeeklyMetricsRepository) DeleteByWeek(

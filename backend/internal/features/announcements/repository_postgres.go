@@ -3,7 +3,9 @@ package announcements
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -865,6 +867,94 @@ func (r *announcementsRepository) ListGroupAudience(
 	}
 
 	return items, nil
+}
+
+func (r *announcementsRepository) ReplaceHealthContextAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	contextIDs []uuid.UUID,
+	includeDescendants bool,
+) error {
+	rawStore, ok := r.db.(rawDBStore)
+	if !ok || rawStore.DB() == nil {
+		return fmt.Errorf("store does not expose a database connection")
+	}
+	tx, err := rawStore.DB().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM announcement_health_contexts WHERE announcement_id = $1`,
+		announcementID,
+	); err != nil {
+		return err
+	}
+	for _, contextID := range contextIDs {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO announcement_health_contexts (
+				announcement_id, context_node_id, include_descendants
+			) VALUES ($1, $2, $3)
+			ON CONFLICT (announcement_id, context_node_id)
+			DO UPDATE SET include_descendants = EXCLUDED.include_descendants
+		`, announcementID, contextID, includeDescendants); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (r *announcementsRepository) ListHealthContextAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]AnnouncementHealthContextAudience, error) {
+	rawStore, ok := r.db.(rawDBStore)
+	if !ok || rawStore.DB() == nil {
+		return nil, fmt.Errorf("store does not expose a database connection")
+	}
+	rows, err := rawStore.DB().QueryContext(ctx, `
+		SELECT context_node_id, include_descendants
+		FROM announcement_health_contexts
+		WHERE announcement_id = $1
+		ORDER BY created_at, context_node_id
+	`, announcementID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]AnnouncementHealthContextAudience, 0)
+	for rows.Next() {
+		var item AnnouncementHealthContextAudience
+		if err := rows.Scan(&item.ContextNodeID, &item.IncludeDescendants); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
+func (r *announcementsRepository) SaveAudienceSnapshot(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	channel string,
+	recipientUserIDs []string,
+) error {
+	rawStore, ok := r.db.(rawDBStore)
+	if !ok || rawStore.DB() == nil {
+		return fmt.Errorf("store does not expose a database connection")
+	}
+	payload, err := json.Marshal(recipientUserIDs)
+	if err != nil {
+		return err
+	}
+	_, err = rawStore.DB().ExecContext(ctx, `
+		INSERT INTO announcement_audience_snapshots (
+			announcement_id, channel, recipient_count, recipient_user_ids
+		) VALUES ($1, $2, $3, $4)
+	`, announcementID, strings.ToUpper(strings.TrimSpace(channel)), len(recipientUserIDs), payload)
+	return err
 }
 
 // ---------------------------------

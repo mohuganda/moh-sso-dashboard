@@ -12,6 +12,11 @@ type SubCountyRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (db.SubCounty, error)
 	GetByNameAndDistrict(ctx context.Context, arg db.GetSubCountyByNameAndDistrictParams) (db.SubCounty, error)
 	ListByDistrict(ctx context.Context, districtID uuid.UUID) ([]db.SubCounty, error)
+	ListByDistrictInHealthContext(
+		ctx context.Context,
+		districtID uuid.UUID,
+		scope HealthContextScope,
+	) ([]db.SubCounty, error)
 	Upsert(ctx context.Context, arg db.UpsertSubCountyParams) (db.SubCounty, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }

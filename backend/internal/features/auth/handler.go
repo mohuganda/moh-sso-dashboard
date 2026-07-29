@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"net/url"
@@ -38,12 +39,21 @@ const (
 )
 
 type Handler struct {
-	authService         service.AuthService
-	auditService        *service.AuditService
-	notificationService service.NotificationsService
-	sessions            *authsession.Store
-	config              *config.Config
-	authzResolver       authz.PermissionResolver
+	authService           service.AuthService
+	auditService          *service.AuditService
+	notificationService   service.NotificationsService
+	sessions              *authsession.Store
+	config                *config.Config
+	authzResolver         authz.PermissionResolver
+	healthContextResolver interface {
+		ResolveAuthAccess(context.Context, string) ([]authz.HealthContextAccess, *authz.HealthContextAccess, error)
+	}
+}
+
+func (h *Handler) SetHealthContextResolver(resolver interface {
+	ResolveAuthAccess(context.Context, string) ([]authz.HealthContextAccess, *authz.HealthContextAccess, error)
+}) {
+	h.healthContextResolver = resolver
 }
 
 func NewHandler(
@@ -181,6 +191,15 @@ func (h *Handler) HandleAuthGetMe(c *gin.Context) {
 	userID := user.ID
 	if userID == "" {
 		userID = utils.ExtractUserIDFromJWT(accessToken)
+	}
+	if h.healthContextResolver != nil && userID != "" {
+		contexts, active, resolveErr := h.healthContextResolver.ResolveAuthAccess(c.Request.Context(), userID)
+		if resolveErr != nil {
+			log.Printf("[AUTH ME] health context resolution failed: user_id=%s err=%v", userID, resolveErr)
+		} else {
+			user.HealthContexts = contexts
+			user.ActiveHealthContext = active
+		}
 	}
 
 	_ = h.auditService.Log(

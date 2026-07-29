@@ -17,28 +17,32 @@ type EmailAttachmentRequest struct {
 }
 
 type SendEmailRequest struct {
-	ID           string                   `json:"id,omitempty"`
-	From         *EmailAddressRequest     `json:"from,omitempty"`
-	To           []EmailAddressRequest    `json:"to,omitempty"`
-	ToGroups     []string                 `json:"to_groups,omitempty"`
-	ToGroupPaths []string                 `json:"to_group_paths,omitempty"`
-	Cc           []EmailAddressRequest    `json:"cc,omitempty"`
-	Bcc          []EmailAddressRequest    `json:"bcc,omitempty"`
-	ReplyTo      []EmailAddressRequest    `json:"reply_to,omitempty"`
-	Subject      string                   `json:"subject" binding:"required"`
-	TextBody     string                   `json:"text_body,omitempty"`
-	HTMLBody     string                   `json:"html_body,omitempty"`
-	TemplateName string                   `json:"template_name,omitempty"`
-	TemplateData map[string]any           `json:"template_data,omitempty"`
-	Attachments  []EmailAttachmentRequest `json:"attachments,omitempty"`
-	Headers      map[string]string        `json:"headers,omitempty"`
-	Metadata     map[string]string        `json:"metadata,omitempty"`
-	ScheduledAt  *string                  `json:"scheduled_at,omitempty"`
+	ID                              string                   `json:"id,omitempty"`
+	From                            *EmailAddressRequest     `json:"from,omitempty"`
+	To                              []EmailAddressRequest    `json:"to,omitempty"`
+	ToGroups                        []string                 `json:"to_groups,omitempty"`
+	ToGroupPaths                    []string                 `json:"to_group_paths,omitempty"`
+	ToHealthContexts                []string                 `json:"to_health_contexts,omitempty"`
+	IncludeHealthContextDescendants bool                     `json:"include_health_context_descendants,omitempty"`
+	Cc                              []EmailAddressRequest    `json:"cc,omitempty"`
+	Bcc                             []EmailAddressRequest    `json:"bcc,omitempty"`
+	ReplyTo                         []EmailAddressRequest    `json:"reply_to,omitempty"`
+	Subject                         string                   `json:"subject" binding:"required"`
+	TextBody                        string                   `json:"text_body,omitempty"`
+	HTMLBody                        string                   `json:"html_body,omitempty"`
+	TemplateName                    string                   `json:"template_name,omitempty"`
+	TemplateData                    map[string]any           `json:"template_data,omitempty"`
+	Attachments                     []EmailAttachmentRequest `json:"attachments,omitempty"`
+	Headers                         map[string]string        `json:"headers,omitempty"`
+	Metadata                        map[string]string        `json:"metadata,omitempty"`
+	ScheduledAt                     *string                  `json:"scheduled_at,omitempty"`
 }
 
 type EmailRecipientPreviewRequest struct {
-	ToGroups     []string `json:"to_groups,omitempty"`
-	ToGroupPaths []string `json:"to_group_paths,omitempty"`
+	ToGroups                        []string `json:"to_groups,omitempty"`
+	ToGroupPaths                    []string `json:"to_group_paths,omitempty"`
+	ToHealthContexts                []string `json:"to_health_contexts,omitempty"`
+	IncludeHealthContextDescendants bool     `json:"include_health_context_descendants,omitempty"`
 }
 
 type EmailRecipientPreviewResponse struct {

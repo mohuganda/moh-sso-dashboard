@@ -428,6 +428,118 @@ func (q *Queries) ListAlertsByWeek(ctx context.Context, epiWeekID uuid.NullUUID)
 	return items, nil
 }
 
+const listAlertsInHealthContext = `-- name: ListAlertsInHealthContext :many
+SELECT
+  a.id,
+  a.external_id,
+  a.disease_id,
+  ds.name AS disease_name,
+  a.district_id,
+  d.name AS district_name,
+  d.region_id,
+  a.epi_week_id,
+  a.occurred_on,
+  a.created_on,
+  a.narrative,
+  a.submitted_by,
+  a.status,
+  a.source_name,
+  a.imported_at,
+  a.created_at,
+  a.updated_at
+FROM alerts a
+LEFT JOIN diseases ds ON ds.id = a.disease_id
+LEFT JOIN districts d ON d.id = a.district_id
+WHERE
+  ($1::uuid IS NULL OR a.epi_week_id = $1::uuid)
+  AND ($2::uuid IS NULL OR a.disease_id = $2::uuid)
+  AND ($3::uuid IS NULL OR a.district_id = $3::uuid)
+  AND ($4::uuid IS NULL OR d.region_id = $4::uuid)
+  AND a.district_id IS NOT NULL
+  AND health_context_alias_in_scope(
+    'surveillance-district', a.district_id::text, $5::uuid,
+    $6::boolean
+  )
+ORDER BY a.created_at DESC
+`
+
+type ListAlertsInHealthContextParams struct {
+	EpiWeekID          uuid.NullUUID `json:"epi_week_id"`
+	DiseaseID          uuid.NullUUID `json:"disease_id"`
+	DistrictID         uuid.NullUUID `json:"district_id"`
+	RegionID           uuid.NullUUID `json:"region_id"`
+	HealthContextID    uuid.UUID     `json:"health_context_id"`
+	IncludeDescendants bool          `json:"include_descendants"`
+}
+
+type ListAlertsInHealthContextRow struct {
+	ID           uuid.UUID      `json:"id"`
+	ExternalID   sql.NullString `json:"external_id"`
+	DiseaseID    uuid.UUID      `json:"disease_id"`
+	DiseaseName  sql.NullString `json:"disease_name"`
+	DistrictID   uuid.NullUUID  `json:"district_id"`
+	DistrictName sql.NullString `json:"district_name"`
+	RegionID     uuid.NullUUID  `json:"region_id"`
+	EpiWeekID    uuid.NullUUID  `json:"epi_week_id"`
+	OccurredOn   sql.NullTime   `json:"occurred_on"`
+	CreatedOn    sql.NullTime   `json:"created_on"`
+	Narrative    string         `json:"narrative"`
+	SubmittedBy  sql.NullString `json:"submitted_by"`
+	Status       AlertStatus    `json:"status"`
+	SourceName   sql.NullString `json:"source_name"`
+	ImportedAt   time.Time      `json:"imported_at"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) ListAlertsInHealthContext(ctx context.Context, arg ListAlertsInHealthContextParams) ([]ListAlertsInHealthContextRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAlertsInHealthContext,
+		arg.EpiWeekID,
+		arg.DiseaseID,
+		arg.DistrictID,
+		arg.RegionID,
+		arg.HealthContextID,
+		arg.IncludeDescendants,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAlertsInHealthContextRow{}
+	for rows.Next() {
+		var i ListAlertsInHealthContextRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.DiseaseID,
+			&i.DiseaseName,
+			&i.DistrictID,
+			&i.DistrictName,
+			&i.RegionID,
+			&i.EpiWeekID,
+			&i.OccurredOn,
+			&i.CreatedOn,
+			&i.Narrative,
+			&i.SubmittedBy,
+			&i.Status,
+			&i.SourceName,
+			&i.ImportedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateAlertStatus = `-- name: UpdateAlertStatus :one
 UPDATE alerts
 SET

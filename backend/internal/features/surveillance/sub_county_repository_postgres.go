@@ -31,6 +31,20 @@ func (r *postgresSubCountyRepository) ListByDistrict(ctx context.Context, distri
 	return r.db.ListSubCountiesByDistrict(ctx, districtID)
 }
 
+func (r *postgresSubCountyRepository) ListByDistrictInHealthContext(
+	ctx context.Context,
+	districtID uuid.UUID,
+	scope HealthContextScope,
+) ([]db.SubCounty, error) {
+	return r.db.ListSubCountiesByDistrictInHealthContext(
+		ctx,
+		db.ListSubCountiesByDistrictInHealthContextParams{
+			DistrictID:      districtID,
+			HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+		},
+	)
+}
+
 func (r *postgresSubCountyRepository) Upsert(ctx context.Context, arg db.UpsertSubCountyParams) (db.SubCounty, error) {
 	return r.db.UpsertSubCounty(ctx, arg)
 }

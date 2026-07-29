@@ -13,7 +13,17 @@ type WeeklyStatusRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	List(ctx context.Context, arg db.ListWeeklyStatusesParams) ([]db.WeeklyStatus, error)
+	ListInHealthContext(
+		ctx context.Context,
+		arg db.ListWeeklyStatusesParams,
+		scope HealthContextScope,
+	) ([]db.WeeklyStatus, error)
 	ListDetailed(ctx context.Context, arg db.ListWeeklyStatusesDetailedParams) ([]db.ListWeeklyStatusesDetailedRow, error)
+	ListDetailedInHealthContext(
+		ctx context.Context,
+		arg db.ListWeeklyStatusesDetailedParams,
+		scope HealthContextScope,
+	) ([]db.ListWeeklyStatusesDetailedRow, error)
 
 	ListByWeek(ctx context.Context, epiWeekID uuid.UUID) ([]db.WeeklyStatus, error)
 	ListByRegion(ctx context.Context, regionID uuid.UUID) ([]db.WeeklyStatus, error)

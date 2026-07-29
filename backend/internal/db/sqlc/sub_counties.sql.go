@@ -161,6 +161,55 @@ func (q *Queries) ListSubCountiesByDistrict(ctx context.Context, districtID uuid
 	return items, nil
 }
 
+const listSubCountiesByDistrictInHealthContext = `-- name: ListSubCountiesByDistrictInHealthContext :many
+SELECT id, name, district_id, code, created_at, updated_at
+FROM sub_counties
+WHERE district_id = $1
+  AND health_context_alias_related_to_scope(
+    'surveillance-sub-county',
+    id::text,
+    $2::uuid,
+    $3::boolean
+  )
+ORDER BY name ASC
+`
+
+type ListSubCountiesByDistrictInHealthContextParams struct {
+	DistrictID         uuid.UUID `json:"district_id"`
+	HealthContextID    uuid.UUID `json:"health_context_id"`
+	IncludeDescendants bool      `json:"include_descendants"`
+}
+
+func (q *Queries) ListSubCountiesByDistrictInHealthContext(ctx context.Context, arg ListSubCountiesByDistrictInHealthContextParams) ([]SubCounty, error) {
+	rows, err := q.db.QueryContext(ctx, listSubCountiesByDistrictInHealthContext, arg.DistrictID, arg.HealthContextID, arg.IncludeDescendants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SubCounty{}
+	for rows.Next() {
+		var i SubCounty
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DistrictID,
+			&i.Code,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertSubCounty = `-- name: UpsertSubCounty :one
 INSERT INTO sub_counties (
   name,

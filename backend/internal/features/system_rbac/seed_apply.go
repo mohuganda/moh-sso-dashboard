@@ -98,8 +98,138 @@ func ApplySeed(ctx context.Context, db *sql.DB, seed SeedFile) error {
 	if err := applySeedGroups(ctx, tx, seed, permissionIDs); err != nil {
 		return err
 	}
+	if err := applySeedHealthContexts(ctx, tx, seed); err != nil {
+		return err
+	}
 
 	return tx.Commit()
+}
+
+func applySeedHealthContexts(ctx context.Context, tx *sql.Tx, seed SeedFile) error {
+	pending := append([]SeedHealthContext(nil), seed.HealthContexts...)
+	contextIDs := make(map[string]string, len(pending))
+
+	for len(pending) > 0 {
+		next := make([]SeedHealthContext, 0)
+		progressed := false
+		for _, item := range pending {
+			code := strings.ToUpper(strings.TrimSpace(item.Code))
+			parentCode := strings.ToUpper(strings.TrimSpace(item.ParentCode))
+			var parentID any
+			if parentCode != "" {
+				value, ok := contextIDs[parentCode]
+				if !ok {
+					next = append(next, item)
+					continue
+				}
+				parentID = value
+			}
+			enabled := true
+			if item.Enabled != nil {
+				enabled = *item.Enabled
+			}
+			metadataValue := item.Metadata
+			if metadataValue == nil {
+				metadataValue = map[string]any{}
+			}
+			metadata, err := json.Marshal(metadataValue)
+			if err != nil {
+				return fmt.Errorf("marshal health context %q metadata: %w", code, err)
+			}
+			var id string
+			err = tx.QueryRowContext(ctx, `
+				INSERT INTO health_context_nodes (
+					code, name, context_type, parent_id, source, metadata, enabled
+				) VALUES ($1, $2, $3, $4::uuid, $5, $6, $7)
+				ON CONFLICT (code) DO UPDATE SET
+					name = EXCLUDED.name,
+					context_type = EXCLUDED.context_type,
+					source = EXCLUDED.source,
+					metadata = EXCLUDED.metadata,
+					enabled = EXCLUDED.enabled,
+					version = CASE
+						WHEN (
+							health_context_nodes.name,
+							health_context_nodes.context_type,
+							health_context_nodes.source,
+							health_context_nodes.metadata,
+							health_context_nodes.enabled
+						) IS DISTINCT FROM (
+							EXCLUDED.name,
+							EXCLUDED.context_type,
+							EXCLUDED.source,
+							EXCLUDED.metadata,
+							EXCLUDED.enabled
+						)
+						THEN health_context_nodes.version + 1
+						ELSE health_context_nodes.version
+					END,
+					updated_at = CASE
+						WHEN (
+							health_context_nodes.name,
+							health_context_nodes.context_type,
+							health_context_nodes.source,
+							health_context_nodes.metadata,
+							health_context_nodes.enabled
+						) IS DISTINCT FROM (
+							EXCLUDED.name,
+							EXCLUDED.context_type,
+							EXCLUDED.source,
+							EXCLUDED.metadata,
+							EXCLUDED.enabled
+						)
+						THEN now()
+						ELSE health_context_nodes.updated_at
+					END
+				RETURNING id::text
+			`, code, strings.TrimSpace(item.Name), strings.ToUpper(strings.TrimSpace(item.Type)),
+				parentID, defaultSeedValue(item.Source, "SEED"), metadata, enabled).Scan(&id)
+			if err != nil {
+				return fmt.Errorf("seed health context %q: %w", code, err)
+			}
+			contextIDs[code] = id
+			progressed = true
+		}
+		if !progressed {
+			return fmt.Errorf("health context seed contains unresolved parent references")
+		}
+		pending = next
+	}
+
+	for _, mapping := range seed.GroupContextMappings {
+		contextID := contextIDs[strings.ToUpper(strings.TrimSpace(mapping.ContextCode))]
+		result, err := tx.ExecContext(ctx, `
+			INSERT INTO group_health_context_assignments (
+				group_id, context_node_id, scope_mode, source
+			)
+			SELECT id, $2::uuid, $3, 'SEED'
+			FROM ihp_rbac_groups
+			WHERE path = $1
+			ON CONFLICT (group_id, context_node_id) DO UPDATE SET
+				scope_mode = EXCLUDED.scope_mode,
+				source = EXCLUDED.source,
+				updated_at = now()
+		`, strings.TrimSpace(mapping.GroupPath), contextID,
+			strings.ToUpper(strings.TrimSpace(mapping.ScopeMode)))
+		if err != nil {
+			return fmt.Errorf("seed group context mapping %q: %w", mapping.GroupPath, err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if affected == 0 {
+			return fmt.Errorf("seed group context mapping references unknown group %q", mapping.GroupPath)
+		}
+	}
+	return nil
+}
+
+func defaultSeedValue(value string, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return strings.TrimSpace(value)
 }
 
 func collectPermissions(seed SeedFile) []string {

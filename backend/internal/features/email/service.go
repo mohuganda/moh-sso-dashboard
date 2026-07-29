@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	healthcontextfeature "github.com/moh-sso-dashboard/internal/features/health_context"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	userRepository "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -15,10 +16,11 @@ import (
 )
 
 type Service struct {
-	email    sharedservice.EmailService
-	repo     repository.EmailRepository
-	rbacRepo rbacfeature.Repository
-	userRepo userRepository.UserRepository
+	email          sharedservice.EmailService
+	repo           repository.EmailRepository
+	rbacRepo       rbacfeature.Repository
+	userRepo       userRepository.UserRepository
+	healthContexts *healthcontextfeature.Service
 }
 
 func NewService(email sharedservice.EmailService, repo repository.EmailRepository) *Service {
@@ -40,6 +42,13 @@ func (s *Service) SetUserRepository(repo userRepository.UserRepository) {
 		return
 	}
 	s.userRepo = repo
+}
+
+func (s *Service) SetHealthContextService(service *healthcontextfeature.Service) {
+	if s == nil {
+		return
+	}
+	s.healthContexts = service
 }
 
 func (s *Service) Send(ctx context.Context, msg model.Message) error {
@@ -84,6 +93,87 @@ func (s *Service) ExpandGroupRecipients(
 	}
 
 	return msg, added, nil
+}
+
+func (s *Service) ResolveHealthContextEmailRecipients(
+	ctx context.Context,
+	actorID string,
+	rawContextIDs []string,
+	includeDescendants bool,
+) ([]model.Address, error) {
+	if len(rawContextIDs) == 0 {
+		return nil, nil
+	}
+	if s == nil || s.healthContexts == nil || s.userRepo == nil {
+		return nil, errors.New("health context recipient resolution is unavailable")
+	}
+	contextIDs := make([]uuid.UUID, 0, len(rawContextIDs))
+	for _, rawID := range rawContextIDs {
+		contextID, err := uuid.Parse(strings.TrimSpace(rawID))
+		if err != nil || contextID == uuid.Nil {
+			return nil, fmt.Errorf("invalid health context id %q", rawID)
+		}
+		contextIDs = append(contextIDs, contextID)
+	}
+	userIDs, err := s.healthContexts.ResolveAudienceUserIDs(
+		ctx,
+		actorID,
+		contextIDs,
+		includeDescendants,
+	)
+	if err != nil {
+		return nil, err
+	}
+	wanted := make(map[string]struct{}, len(userIDs))
+	for _, userID := range userIDs {
+		wanted[strings.TrimSpace(userID)] = struct{}{}
+	}
+	users, err := s.userRepo.ListUsers()
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]model.Address)
+	for _, user := range users {
+		if !user.Enabled {
+			continue
+		}
+		if _, ok := wanted[strings.TrimSpace(user.ID)]; !ok {
+			continue
+		}
+		email := strings.ToLower(strings.TrimSpace(user.Email))
+		if email == "" {
+			continue
+		}
+		name := strings.TrimSpace(user.FullName)
+		if name == "" {
+			name = strings.TrimSpace(user.Username)
+		}
+		seen[email] = model.Address{Name: name, Email: email}
+	}
+	result := make([]model.Address, 0, len(seen))
+	for _, address := range seen {
+		result = append(result, address)
+	}
+	return result, nil
+}
+
+func addUniqueAddresses(message model.Message, recipients []model.Address) model.Message {
+	seen := make(map[string]struct{}, len(message.To)+len(recipients))
+	for _, recipient := range message.To {
+		seen[strings.ToLower(strings.TrimSpace(recipient.Email))] = struct{}{}
+	}
+	for _, recipient := range recipients {
+		key := strings.ToLower(strings.TrimSpace(recipient.Email))
+		if key == "" {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		message.To = append(message.To, recipient)
+		seen[key] = struct{}{}
+	}
+	return message
 }
 
 func (s *Service) ResolveGroupEmailRecipients(

@@ -6,6 +6,7 @@ import { API } from "@moh-sso/config";
 import { UserHeader } from "@moh-sso/ui";
 
 import { ConnectedAppMenu } from "./ConnectedAppMenu";
+import { HealthContextSelector } from "./HealthContextSelector";
 
 export function ConnectedUserHeader() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export function ConnectedUserHeader() {
   return (
     <UserHeader
       username={user?.username}
+      contextSelector={<HealthContextSelector />}
       appMenu={<ConnectedAppMenu />}
       onNavigateHome={() => navigate("/apps")}
       onLogout={handleLogout}

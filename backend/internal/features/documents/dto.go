@@ -32,6 +32,7 @@ type DocumentResponse struct {
 	DownloadURL      string                 `json:"download_url,omitempty"`
 	CreatedAt        string                 `json:"created_at"`
 	UpdatedAt        string                 `json:"updated_at"`
+	HealthContextID  *uuid.UUID             `json:"health_context_id,omitempty"`
 }
 
 type ProcessResponse struct {

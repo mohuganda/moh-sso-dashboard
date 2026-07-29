@@ -108,6 +108,40 @@ ORDER BY r.name ASC NULLS LAST,
          f.name ASC,
          d.name ASC;
 
+-- name: ListFacilityWeeklyDiseaseMetricsByWeekInHealthContext :many
+SELECT
+  m.*,
+  f.name AS facility_name,
+  sc.id AS sub_county_id,
+  sc.name AS sub_county_name,
+  dct.id AS district_id,
+  dct.name AS district_name,
+  r.id AS region_id,
+  r.name AS region_name,
+  d.name AS disease_name,
+  ew.epi_year,
+  ew.epi_week
+FROM facility_weekly_metrics m
+JOIN facilities f ON f.id = m.facility_id
+LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
+LEFT JOIN districts dct ON dct.id = sc.district_id
+LEFT JOIN regions r ON r.id = dct.region_id
+JOIN diseases d ON d.id = m.disease_id
+JOIN epi_weeks ew ON ew.id = m.epi_week_id
+WHERE m.epi_week_id = sqlc.arg('epi_week_id')
+  AND m.disease_id IS NOT NULL
+  AND health_context_alias_in_scope(
+    'surveillance-facility',
+    f.id::text,
+    sqlc.arg('health_context_id')::uuid,
+    sqlc.arg('include_descendants')::boolean
+  )
+ORDER BY r.name ASC NULLS LAST,
+         dct.name ASC NULLS LAST,
+         sc.name ASC NULLS LAST,
+         f.name ASC,
+         d.name ASC;
+
 -- name: ListFacilityWeeklyIndicatorMetricsByWeek :many
 SELECT
   m.*,
@@ -272,6 +306,42 @@ WHERE ew.epi_year = sqlc.arg('epi_year')
 GROUP BY ew.id, ew.epi_year, ew.epi_week
 ORDER BY ew.epi_year ASC, ew.epi_week ASC;
 
+-- name: ListDiseaseWeeklyTrendAggregatedInHealthContext :many
+SELECT
+  ew.id AS epi_week_id,
+  ew.epi_year,
+  ew.epi_week,
+  COALESCE(SUM(m.metric_value), 0)::bigint AS total_cases
+FROM epi_weeks ew
+LEFT JOIN facility_weekly_metrics m
+  ON m.epi_week_id = ew.id
+  AND m.disease_id = sqlc.narg('disease_id')
+  AND health_context_alias_in_scope(
+    'surveillance-facility',
+    m.facility_id::text,
+    sqlc.arg('health_context_id')::uuid,
+    sqlc.arg('include_descendants')::boolean
+  )
+LEFT JOIN facilities f
+  ON f.id = m.facility_id
+LEFT JOIN sub_counties sc
+  ON sc.id = f.sub_county_id
+LEFT JOIN districts dct
+  ON dct.id = sc.district_id
+LEFT JOIN regions r
+  ON r.id = dct.region_id
+WHERE ew.epi_year = sqlc.arg('epi_year')
+  AND (
+    sqlc.narg('region_id')::uuid IS NULL
+    OR r.id = sqlc.narg('region_id')::uuid
+  )
+  AND (
+    sqlc.narg('district_id')::uuid IS NULL
+    OR dct.id = sqlc.narg('district_id')::uuid
+  )
+GROUP BY ew.id, ew.epi_year, ew.epi_week
+ORDER BY ew.epi_year ASC, ew.epi_week ASC;
+
 -- name: ListFacilityWeeklyDiseaseMetricsByWeekAndDisease :many
 SELECT
   m.*,
@@ -294,6 +364,40 @@ JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = sqlc.arg('epi_week_id')
   AND m.disease_id = sqlc.arg('disease_id')
+ORDER BY r.name ASC NULLS LAST,
+         dct.name ASC NULLS LAST,
+         sc.name ASC NULLS LAST,
+         f.name ASC,
+         d.name ASC;
+
+-- name: ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContext :many
+SELECT
+  m.*,
+  f.name AS facility_name,
+  sc.id AS sub_county_id,
+  sc.name AS sub_county_name,
+  dct.id AS district_id,
+  dct.name AS district_name,
+  r.id AS region_id,
+  r.name AS region_name,
+  d.name AS disease_name,
+  ew.epi_year,
+  ew.epi_week
+FROM facility_weekly_metrics m
+JOIN facilities f ON f.id = m.facility_id
+LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
+LEFT JOIN districts dct ON dct.id = sc.district_id
+LEFT JOIN regions r ON r.id = dct.region_id
+JOIN diseases d ON d.id = m.disease_id
+JOIN epi_weeks ew ON ew.id = m.epi_week_id
+WHERE m.epi_week_id = sqlc.arg('epi_week_id')
+  AND m.disease_id = sqlc.arg('disease_id')
+  AND health_context_alias_in_scope(
+    'surveillance-facility',
+    f.id::text,
+    sqlc.arg('health_context_id')::uuid,
+    sqlc.arg('include_descendants')::boolean
+  )
 ORDER BY r.name ASC NULLS LAST,
          dct.name ASC NULLS LAST,
          sc.name ASC NULLS LAST,

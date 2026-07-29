@@ -18,12 +18,14 @@ import { Add, Save, Send } from "@carbon/react/icons";
 
 import type {
   Announcement,
+  AnnouncementAudiencePreviewRequest,
   AnnouncementAudienceType,
   AnnouncementLevel,
   AnnouncementStatus,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
 } from "../types";
+import { useAvailableHealthContexts } from "@moh-sso/auth";
 import { useToast } from "@moh-sso/ui";
 import {
   useListRbacGroupsQuery,
@@ -31,6 +33,7 @@ import {
   useListRealmRolePermissionsQuery,
 } from "@moh-sso/rbac";
 import { useListUsersQuery } from "@moh-sso/users";
+import { usePreviewAnnouncementAudienceMutation } from "../api";
 import "./announcements.components.scss";
 
 export interface AnnouncementFormValues {
@@ -49,6 +52,7 @@ export interface AnnouncementFormValues {
   role_names: string[];
   user_ids: string[];
   group_ids: string[];
+  health_context_ids: string[];
   publish_at: string;
   expires_at: string;
 
@@ -87,6 +91,7 @@ const initialForm: AnnouncementFormValues = {
   role_names: [],
   user_ids: [],
   group_ids: [],
+  health_context_ids: [],
   publish_at: "",
   expires_at: "",
   notify_by_email: false,
@@ -123,6 +128,10 @@ function normalizeInitialValues(
     role_names: "role_names" in values && Array.isArray(values.role_names) ? values.role_names : [],
     user_ids: "user_ids" in values && Array.isArray(values.user_ids) ? values.user_ids : [],
     group_ids: "group_ids" in values && Array.isArray(values.group_ids) ? values.group_ids : [],
+    health_context_ids:
+      "health_context_ids" in values && Array.isArray(values.health_context_ids)
+        ? values.health_context_ids
+        : [],
     publish_at: toIsoString(values.publish_at),
     expires_at: toIsoString(values.expires_at),
     notify_by_email: Boolean(values.notify_by_email),
@@ -140,6 +149,7 @@ export function AnnouncementForm({
   submitLabel,
 }: AnnouncementFormProps) {
   const toast = useToast();
+  const healthContexts = useAvailableHealthContexts();
   const [form, setForm] = useState<AnnouncementFormValues>(normalizeInitialValues(initialValues));
   const { data: systems = [], isLoading: systemsLoading, isError: systemsError } = useListRbacSystemsQuery();
   const {
@@ -153,6 +163,7 @@ export function AnnouncementForm({
     isLoading: groupsLoading,
     isError: groupsError,
   } = useListRbacGroupsQuery();
+  const [previewAudience, audiencePreview] = usePreviewAnnouncementAudienceMutation();
 
   useEffect(() => {
     setForm(normalizeInitialValues(initialValues));
@@ -198,6 +209,17 @@ export function AnnouncementForm({
     [groups],
   );
 
+  const healthContextItems = useMemo(
+    () =>
+      healthContexts
+        .filter((context) => context.enabled)
+        .map((context) => ({
+          id: context.id,
+          text: `${context.name} (${context.contextType.toLowerCase()})`,
+        })),
+    [healthContexts],
+  );
+
   const isValid = useMemo(() => {
     if (form.title.trim().length === 0 || form.message.trim().length === 0) {
       return false;
@@ -217,6 +239,13 @@ export function AnnouncementForm({
 
     if (form.audience_type === "SPECIFIC_GROUPS") {
       return form.group_ids.length > 0;
+    }
+
+    if (
+      form.audience_type === "SPECIFIC_HEALTH_CONTEXTS" ||
+      form.audience_type === "HEALTH_CONTEXT_AND_DESCENDANTS"
+    ) {
+      return form.health_context_ids.length > 0;
     }
 
     return true;
@@ -263,6 +292,13 @@ export function AnnouncementForm({
 
     if (form.audience_type === "SPECIFIC_GROUPS") {
       payload.group_ids = form.group_ids;
+    }
+
+    if (
+      form.audience_type === "SPECIFIC_HEALTH_CONTEXTS" ||
+      form.audience_type === "HEALTH_CONTEXT_AND_DESCENDANTS"
+    ) {
+      payload.health_context_ids = form.health_context_ids;
     }
 
     if (form.summary.trim()) {
@@ -398,6 +434,11 @@ export function AnnouncementForm({
             <SelectItem value="SPECIFIC_ROLES" text="SPECIFIC_ROLES" />
             <SelectItem value="SPECIFIC_USERS" text="SPECIFIC_USERS" />
             <SelectItem value="SPECIFIC_GROUPS" text="SPECIFIC_GROUPS" />
+            <SelectItem value="SPECIFIC_HEALTH_CONTEXTS" text="SPECIFIC_HEALTH_CONTEXTS" />
+            <SelectItem
+              value="HEALTH_CONTEXT_AND_DESCENDANTS"
+              text="HEALTH_CONTEXT_AND_DESCENDANTS"
+            />
           </Select>
 
           <TextInput
@@ -579,6 +620,68 @@ export function AnnouncementForm({
                     )
                   }
                 />
+              </>
+            )}
+
+            {(form.audience_type === "SPECIFIC_HEALTH_CONTEXTS" ||
+              form.audience_type === "HEALTH_CONTEXT_AND_DESCENDANTS") && (
+              <>
+                <MultiSelect
+                  id="announcement-health-context-audience"
+                  titleText="Health contexts"
+                  label="Select health contexts"
+                  items={healthContextItems}
+                  itemToString={(item) => item?.text ?? ""}
+                  selectedItems={healthContextItems.filter((item) =>
+                    form.health_context_ids.includes(item.id),
+                  )}
+                  invalid={form.health_context_ids.length === 0}
+                  invalidText="Select at least one health context."
+                  onChange={({ selectedItems }) => {
+                    updateForm(
+                      "health_context_ids",
+                      (selectedItems ?? []).map((item) => item.id),
+                    );
+                    audiencePreview.reset();
+                  }}
+                />
+                <div className="announcement-form__audience-preview">
+                  <Button
+                    type="button"
+                    kind="tertiary"
+                    size="sm"
+                    disabled={
+                      form.health_context_ids.length === 0 ||
+                      audiencePreview.isLoading
+                    }
+                    onClick={async () => {
+                      try {
+                        const request: AnnouncementAudiencePreviewRequest = {
+                          audience_type:
+                            form.audience_type as AnnouncementAudiencePreviewRequest["audience_type"],
+                          health_context_ids: form.health_context_ids,
+                        };
+                        await previewAudience(request).unwrap();
+                      } catch (error) {
+                        toast.error(
+                          "Unable to preview audience",
+                          "Confirm that you can access every selected health context.",
+                        );
+                      }
+                    }}
+                  >
+                    Preview recipients
+                  </Button>
+                  {audiencePreview.isLoading ? (
+                    <InlineLoading description="Resolving recipients" />
+                  ) : null}
+                  {audiencePreview.data ? (
+                    <p className="announcement-form__hint" aria-live="polite">
+                      {audiencePreview.data.recipient_count} eligible recipient
+                      {audiencePreview.data.recipient_count === 1 ? "" : "s"}.
+                    </p>
+                  ) : null}
+                </div>
               </>
             )}
           </Stack>

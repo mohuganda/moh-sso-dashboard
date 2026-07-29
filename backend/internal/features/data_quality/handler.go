@@ -95,7 +95,7 @@ func (h *Handler) CreateIssue(c *gin.Context) {
 		IssueType:   dqNullableString(req.IssueType),
 		ReportedBy:  reportedBy,
 		TimePeriod:  dqNullableString(req.TimePeriod),
-	})
+	}, healthContextScopeFromRequest(c))
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "CREATE_ISSUE_FAILED", issueDBErrorMessage(err, "failed to create issue"))
 		return
@@ -109,13 +109,14 @@ func (h *Handler) ListIssues(c *gin.Context) {
 	offset := parseListOffset(c)
 	program := strings.TrimSpace(c.Query("program"))
 
-	issues, err := h.service.ListIssues(c.Request.Context(), limit, offset, program)
+	scope := healthContextScopeFromRequest(c)
+	issues, err := h.service.ListIssues(c.Request.Context(), limit, offset, program, scope)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUES_FAILED", issueDBErrorMessage(err, "failed to list issues"))
 		return
 	}
 
-	total, err := h.service.CountIssues(c.Request.Context(), program)
+	total, err := h.service.CountIssues(c.Request.Context(), program, scope)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUES_FAILED", issueDBErrorMessage(err, "failed to count issues"))
 		return
@@ -131,7 +132,12 @@ func (h *Handler) ListIssueSummaryByProgram(c *gin.Context) {
 	limit := parseListLimit(c, 50, 500)
 	offset := parseListOffset(c)
 
-	summary, err := h.service.ListIssueSummaryByProgram(c.Request.Context(), limit, offset)
+	summary, err := h.service.ListIssueSummaryByProgram(
+		c.Request.Context(),
+		limit,
+		offset,
+		healthContextScopeFromRequest(c),
+	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_SUMMARY_FAILED", issueDBErrorMessage(err, "failed to list issue summary"))
 		return
@@ -251,8 +257,12 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 		UpdatedBy:    updatedByParam,
 		IssueType:    issueTypeParam,
 		TimePeriod:   optionalTrimmedParam(req.TimePeriod, false),
-	})
+	}, healthContextScopeFromRequest(c))
 	if err != nil {
+		if errors.Is(err, errIssueOutsideHealthContext) {
+			response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "issue is outside the selected health context")
+			return
+		}
 		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return
@@ -340,8 +350,12 @@ func (h *Handler) ResolveIssue(c *gin.Context) {
 		ProcessChange:      optionalTrimmedParam(req.ProcessChange, true),
 		PreventiveOwner:    optionalTrimmedParam(req.PreventiveOwner, true),
 		DueDate:            dueDateParam,
-	})
+	}, healthContextScopeFromRequest(c))
 	if err != nil {
+		if errors.Is(err, errIssueOutsideHealthContext) {
+			response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "issue is outside the selected health context")
+			return
+		}
 		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return
@@ -363,8 +377,18 @@ func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
 	limit := parseListLimit(c, 20, 100)
 	offset := parseListOffset(c)
 
-	transactions, err := h.service.ListIssueResolutionTransactions(c.Request.Context(), issueCode, limit, offset)
+	transactions, err := h.service.ListIssueResolutionTransactions(
+		c.Request.Context(),
+		issueCode,
+		limit,
+		offset,
+		healthContextScopeFromRequest(c),
+	)
 	if err != nil {
+		if errors.Is(err, errIssueOutsideHealthContext) {
+			response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "issue is outside the selected health context")
+			return
+		}
 		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return

@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/moh-sso-dashboard/internal/http/response"
+	"github.com/moh-sso-dashboard/internal/model"
 )
 
 type Handler struct {
@@ -21,8 +22,9 @@ func NewHandler(service *Service) *Handler {
 }
 
 func recipientValidationMessage(req SendEmailRequest, directRecipientCount int) string {
-	if len(req.ToGroups) == 0 && len(req.ToGroupPaths) == 0 && directRecipientCount == 0 {
-		return "Select at least one email address or recipient group"
+	if len(req.ToGroups) == 0 && len(req.ToGroupPaths) == 0 &&
+		len(req.ToHealthContexts) == 0 && directRecipientCount == 0 {
+		return "Select at least one email address, recipient group, or health context"
 	}
 
 	if len(req.ToGroups) > 0 || len(req.ToGroupPaths) > 0 {
@@ -73,6 +75,17 @@ func (h *Handler) Send(c *gin.Context) {
 		)
 		return
 	}
+	contextRecipients, err := h.service.ResolveHealthContextEmailRecipients(
+		c.Request.Context(),
+		c.GetString("user_id"),
+		req.ToHealthContexts,
+		req.IncludeHealthContextDescendants,
+	)
+	if err != nil {
+		response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "One or more selected health contexts are not accessible")
+		return
+	}
+	msg = addUniqueAddresses(msg, contextRecipients)
 
 	if len(msg.To) == 0 {
 		response.Fail(
@@ -144,6 +157,17 @@ func (h *Handler) Queue(c *gin.Context) {
 		)
 		return
 	}
+	contextRecipients, err := h.service.ResolveHealthContextEmailRecipients(
+		c.Request.Context(),
+		c.GetString("user_id"),
+		req.ToHealthContexts,
+		req.IncludeHealthContextDescendants,
+	)
+	if err != nil {
+		response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "One or more selected health contexts are not accessible")
+		return
+	}
+	msg = addUniqueAddresses(msg, contextRecipients)
 
 	if len(msg.To) == 0 {
 		response.Fail(
@@ -195,10 +219,21 @@ func (h *Handler) PreviewRecipients(c *gin.Context) {
 		)
 		return
 	}
+	contextRecipients, err := h.service.ResolveHealthContextEmailRecipients(
+		c.Request.Context(),
+		c.GetString("user_id"),
+		req.ToHealthContexts,
+		req.IncludeHealthContextDescendants,
+	)
+	if err != nil {
+		response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "One or more selected health contexts are not accessible")
+		return
+	}
+	previewMessage := addUniqueAddresses(model.Message{To: recipients}, contextRecipients)
 
 	response.OK(c, http.StatusOK, EmailRecipientPreviewResponse{
-		RecipientCount: len(recipients),
-		Recipients:     toAddressResponses(recipients),
+		RecipientCount: len(previewMessage.To),
+		Recipients:     toAddressResponses(previewMessage.To),
 	})
 }
 

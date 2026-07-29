@@ -66,7 +66,25 @@ const (
 	PermissionRBACWrite            Permission = "rbac:write"
 	PermissionRBACRolesWrite       Permission = "rbac:roles:write"
 	PermissionRBACPermissionsWrite Permission = "rbac:permissions:write"
+
+	PermissionHealthContextsRead   Permission = "health_contexts:read"
+	PermissionHealthContextsWrite  Permission = "health_contexts:write"
+	PermissionHealthContextsAssign Permission = "health_contexts:assign"
+	PermissionHealthContextsSync   Permission = "health_contexts:sync"
+	PermissionHealthContextsAudit  Permission = "health_contexts:audit"
 )
+
+type HealthContextAccess struct {
+	ID              string  `json:"id"`
+	Code            string  `json:"code"`
+	Name            string  `json:"name"`
+	Type            string  `json:"type"`
+	ScopeMode       string  `json:"scopeMode"`
+	Source          string  `json:"source"`
+	SourceGroupPath *string `json:"sourceGroupPath,omitempty"`
+	IsDefault       bool    `json:"isDefault"`
+	IsActive        bool    `json:"isActive"`
+}
 
 var AllPermissions = []Permission{
 	PermissionPortalAccess,
@@ -132,4 +150,10 @@ var AllPermissions = []Permission{
 	PermissionRBACWrite,
 	PermissionRBACRolesWrite,
 	PermissionRBACPermissionsWrite,
+
+	PermissionHealthContextsRead,
+	PermissionHealthContextsWrite,
+	PermissionHealthContextsAssign,
+	PermissionHealthContextsSync,
+	PermissionHealthContextsAudit,
 }

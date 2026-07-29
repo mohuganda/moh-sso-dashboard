@@ -25,6 +25,17 @@ SELECT *
 FROM regions
 ORDER BY name ASC;
 
+-- name: ListRegionsInHealthContext :many
+SELECT *
+FROM regions
+WHERE health_context_alias_related_to_scope(
+  'surveillance-region',
+  id::text,
+  sqlc.arg('health_context_id')::uuid,
+  sqlc.arg('include_descendants')::boolean
+)
+ORDER BY name ASC;
+
 -- name: UpsertRegion :one
 INSERT INTO regions (
   name,

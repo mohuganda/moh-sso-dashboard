@@ -39,6 +39,39 @@ WHERE
   AND (sqlc.narg(status)::risk_level IS NULL OR status = sqlc.narg(status)::risk_level)
 ORDER BY created_at DESC;
 
+-- name: ListWeeklyStatusesInHealthContext :many
+SELECT *
+FROM weekly_status
+WHERE
+  (sqlc.narg(epi_week_id)::uuid IS NULL OR epi_week_id = sqlc.narg(epi_week_id)::uuid)
+  AND (sqlc.narg(region_id)::uuid IS NULL OR region_id = sqlc.narg(region_id)::uuid)
+  AND (sqlc.narg(district_id)::uuid IS NULL OR district_id = sqlc.narg(district_id)::uuid)
+  AND (sqlc.narg(sub_county_id)::uuid IS NULL OR sub_county_id = sqlc.narg(sub_county_id)::uuid)
+  AND (sqlc.narg(disease_id)::uuid IS NULL OR disease_id = sqlc.narg(disease_id)::uuid)
+  AND (sqlc.narg(indicator_id)::uuid IS NULL OR indicator_id = sqlc.narg(indicator_id)::uuid)
+  AND (sqlc.narg(status)::risk_level IS NULL OR status = sqlc.narg(status)::risk_level)
+  AND (
+    CASE
+      WHEN sub_county_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-sub-county', sub_county_id::text, sqlc.arg(health_context_id)::uuid,
+        sqlc.arg(include_descendants)::boolean
+      )
+      WHEN district_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-district', district_id::text, sqlc.arg(health_context_id)::uuid,
+        sqlc.arg(include_descendants)::boolean
+      )
+      WHEN region_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-region', region_id::text, sqlc.arg(health_context_id)::uuid,
+        sqlc.arg(include_descendants)::boolean
+      )
+      ELSE EXISTS (
+        SELECT 1 FROM health_context_nodes n
+        WHERE n.id = sqlc.arg(health_context_id)::uuid AND n.code = 'UG'
+      )
+    END
+  )
+ORDER BY created_at DESC;
+
 
 -- name: ListWeeklyStatusesByWeek :many
 SELECT *
@@ -401,4 +434,58 @@ WHERE
   AND (sqlc.narg(disease_id)::uuid IS NULL OR ws.disease_id = sqlc.narg(disease_id)::uuid)
   AND (sqlc.narg(indicator_id)::uuid IS NULL OR ws.indicator_id = sqlc.narg(indicator_id)::uuid)
   AND (sqlc.narg(status)::risk_level IS NULL OR ws.status = sqlc.narg(status)::risk_level)
+ORDER BY ws.created_at DESC;
+
+-- name: ListWeeklyStatusesDetailedInHealthContext :many
+SELECT
+  ws.id,
+  ws.region_id,
+  ws.district_id,
+  ws.sub_county_id,
+  ws.disease_id,
+  ws.indicator_id,
+  ws.epi_week_id,
+  ws.status,
+  ws.source_name,
+  ws.imported_at,
+  ws.created_at,
+  r.name AS region_name,
+  d.name AS district_name,
+  sc.name AS sub_county_name,
+  dis.name AS disease_name,
+  i.name AS indicator_name
+FROM weekly_status ws
+LEFT JOIN regions r ON ws.region_id = r.id
+LEFT JOIN districts d ON ws.district_id = d.id
+LEFT JOIN sub_counties sc ON ws.sub_county_id = sc.id
+LEFT JOIN diseases dis ON ws.disease_id = dis.id
+LEFT JOIN indicators i ON ws.indicator_id = i.id
+WHERE
+  (sqlc.narg(epi_week_id)::uuid IS NULL OR ws.epi_week_id = sqlc.narg(epi_week_id)::uuid)
+  AND (sqlc.narg(region_id)::uuid IS NULL OR ws.region_id = sqlc.narg(region_id)::uuid)
+  AND (sqlc.narg(district_id)::uuid IS NULL OR ws.district_id = sqlc.narg(district_id)::uuid)
+  AND (sqlc.narg(sub_county_id)::uuid IS NULL OR ws.sub_county_id = sqlc.narg(sub_county_id)::uuid)
+  AND (sqlc.narg(disease_id)::uuid IS NULL OR ws.disease_id = sqlc.narg(disease_id)::uuid)
+  AND (sqlc.narg(indicator_id)::uuid IS NULL OR ws.indicator_id = sqlc.narg(indicator_id)::uuid)
+  AND (sqlc.narg(status)::risk_level IS NULL OR ws.status = sqlc.narg(status)::risk_level)
+  AND (
+    CASE
+      WHEN ws.sub_county_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-sub-county', ws.sub_county_id::text, sqlc.arg(health_context_id)::uuid,
+        sqlc.arg(include_descendants)::boolean
+      )
+      WHEN ws.district_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-district', ws.district_id::text, sqlc.arg(health_context_id)::uuid,
+        sqlc.arg(include_descendants)::boolean
+      )
+      WHEN ws.region_id IS NOT NULL THEN health_context_alias_in_scope(
+        'surveillance-region', ws.region_id::text, sqlc.arg(health_context_id)::uuid,
+        sqlc.arg(include_descendants)::boolean
+      )
+      ELSE EXISTS (
+        SELECT 1 FROM health_context_nodes n
+        WHERE n.id = sqlc.arg(health_context_id)::uuid AND n.code = 'UG'
+      )
+    END
+  )
 ORDER BY ws.created_at DESC;

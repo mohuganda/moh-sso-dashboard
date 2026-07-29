@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	db "github.com/moh-sso-dashboard/internal/db/sqlc"
+	healthcontext "github.com/moh-sso-dashboard/internal/features/health_context"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
@@ -18,6 +20,7 @@ type Handler struct {
 	weeklyStatusService          *WeeklyStatusService
 	alertService                 *AlertService
 	importService                *ImportService
+	healthContextService         *healthcontext.Service
 }
 
 func NewHandler(
@@ -28,7 +31,7 @@ func NewHandler(
 	weeklyStatusService *WeeklyStatusService,
 	alertService *AlertService,
 	importService *ImportService,
-
+	healthContextService *healthcontext.Service,
 ) *Handler {
 	return &Handler{
 		epiWeekService:               epiWeekService,
@@ -38,7 +41,41 @@ func NewHandler(
 		weeklyStatusService:          weeklyStatusService,
 		alertService:                 alertService,
 		importService:                importService,
+		healthContextService:         healthContextService,
 	}
+}
+
+func healthContextScopeFromRequest(c *gin.Context) (HealthContextScope, bool) {
+	value, ok := c.Get("health_context_id")
+	if !ok {
+		return HealthContextScope{}, false
+	}
+	id, ok := value.(uuid.UUID)
+	if !ok || id == uuid.Nil {
+		return HealthContextScope{}, false
+	}
+	scopeMode, _ := c.Get("health_context_scope_mode")
+	return HealthContextScope{
+		ID:                 id,
+		IncludeDescendants: scopeMode == healthcontext.ScopeNodeAndDescendants,
+	}, true
+}
+
+func (h *Handler) requireAliasInHealthContext(
+	c *gin.Context,
+	namespace string,
+	externalID uuid.UUID,
+) bool {
+	scope, scoped := healthContextScopeFromRequest(c)
+	if !scoped {
+		return true
+	}
+	allowed, err := scope.containsAlias(c.Request.Context(), h.healthContextService, namespace, externalID)
+	if err != nil || !allowed {
+		response.Fail(c, http.StatusForbidden, "resource is outside the selected health context", "access denied")
+		return false
+	}
+	return true
 }
 
 func parseWeeklyStatusListInput(c *gin.Context, validateStatus bool) (WeeklyStatusListInput, bool) {
@@ -196,7 +233,16 @@ func (h *Handler) ListDiseases(c *gin.Context) {
 func (h *Handler) ListRegions(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	data, err := h.locationService.ListRegions(ctx)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var (
+		data []db.Region
+		err  error
+	)
+	if scoped {
+		data, err = h.locationService.ListRegionsInHealthContext(ctx, scope)
+	} else {
+		data, err = h.locationService.ListRegions(ctx)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list regions", "request failed")
 		return
@@ -208,7 +254,16 @@ func (h *Handler) ListRegions(c *gin.Context) {
 func (h *Handler) ListDistricts(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	data, err := h.locationService.ListDistricts(ctx)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var (
+		data []db.ListDistrictsRow
+		err  error
+	)
+	if scoped {
+		data, err = h.locationService.ListDistrictsInHealthContext(ctx, scope)
+	} else {
+		data, err = h.locationService.ListDistricts(ctx)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list districts", "request failed")
 		return
@@ -231,8 +286,17 @@ func (h *Handler) ListDistrictsByRegion(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, "invalid region id", "request failed")
 		return
 	}
+	if !h.requireAliasInHealthContext(c, healthContextNamespaceRegion, regionID) {
+		return
+	}
 
-	data, err := h.locationService.ListDistrictsByRegion(ctx, regionID)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var data []db.District
+	if scoped {
+		data, err = h.locationService.ListDistrictsByRegionInHealthContext(ctx, regionID, scope)
+	} else {
+		data, err = h.locationService.ListDistrictsByRegion(ctx, regionID)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list districts by region", "request failed")
 		return
@@ -254,8 +318,17 @@ func (h *Handler) ListSubcountiesByDistrict(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
 		return
 	}
+	if !h.requireAliasInHealthContext(c, healthContextNamespaceDistrict, districtID) {
+		return
+	}
 
-	data, err := h.locationService.ListSubcountiesByDistrict(ctx, districtID)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var data []db.SubCounty
+	if scoped {
+		data, err = h.locationService.ListSubcountiesByDistrictInHealthContext(ctx, districtID, scope)
+	} else {
+		data, err = h.locationService.ListSubcountiesByDistrict(ctx, districtID)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list subcounties", "request failed")
 		return
@@ -276,6 +349,9 @@ func (h *Handler) GetSubcountyByID(c *gin.Context) {
 	id, err := uuid.Parse(idParam)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid id", "request failed")
+		return
+	}
+	if !h.requireAliasInHealthContext(c, healthContextNamespaceSubCounty, id) {
 		return
 	}
 
@@ -367,7 +443,14 @@ func (h *Handler) ListFacilityWeeklyMetricsByWeek(c *gin.Context) {
 		return
 	}
 
-	diseaseMetrics, err := h.facilityWeeklyMetricsService.ListFacilityWeeklyDiseaseMetricsByWeek(ctx, epiWeekID)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var diseaseMetrics []db.ListFacilityWeeklyDiseaseMetricsByWeekRow
+	if scoped {
+		diseaseMetrics, err = h.facilityWeeklyMetricsService.
+			ListFacilityWeeklyDiseaseMetricsByWeekInHealthContext(ctx, epiWeekID, scope)
+	} else {
+		diseaseMetrics, err = h.facilityWeeklyMetricsService.ListFacilityWeeklyDiseaseMetricsByWeek(ctx, epiWeekID)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list facility weekly disease metrics by week", "request failed")
 		return
@@ -391,6 +474,9 @@ func (h *Handler) ListFacilityWeeklyMetricsByFacility(c *gin.Context) {
 	facilityID, err := uuid.Parse(facilityIDParam)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid facilityID", "request failed")
+		return
+	}
+	if !h.requireAliasInHealthContext(c, healthContextNamespaceFacility, facilityID) {
 		return
 	}
 
@@ -421,6 +507,9 @@ func (h *Handler) ListFacilityDiseaseMetricsTrend(c *gin.Context) {
 	facilityID, err := uuid.Parse(facilityIDParam)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid facilityID", "request failed")
+		return
+	}
+	if !h.requireAliasInHealthContext(c, healthContextNamespaceFacility, facilityID) {
 		return
 	}
 
@@ -457,6 +546,9 @@ func (h *Handler) ListFacilityIndicatorMetricsTrend(c *gin.Context) {
 	facilityID, err := uuid.Parse(facilityIDParam)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid facilityID", "request failed")
+		return
+	}
+	if !h.requireAliasInHealthContext(c, healthContextNamespaceFacility, facilityID) {
 		return
 	}
 
@@ -502,7 +594,15 @@ func (h *Handler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.Context) {
 		return
 	}
 
-	rows, err := h.facilityWeeklyMetricsService.ListFacilityDiseaseMetricsByWeekAndDisease(ctx, epiWeekID, diseaseID)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var rows []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow
+	if scoped {
+		rows, err = h.facilityWeeklyMetricsService.
+			ListFacilityDiseaseMetricsByWeekAndDiseaseInHealthContext(ctx, epiWeekID, diseaseID, scope)
+	} else {
+		rows, err = h.facilityWeeklyMetricsService.
+			ListFacilityDiseaseMetricsByWeekAndDisease(ctx, epiWeekID, diseaseID)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list facility disease metrics by week and disease", "request failed")
 		return
@@ -563,13 +663,17 @@ func (h *Handler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 		districtID = &parsedDistrictID
 	}
 
-	data, err := h.facilityWeeklyMetricsService.ListDiseaseWeeklyTrendAggregated(
-		ctx,
-		int32(epiYear64),
-		diseaseID,
-		regionID,
-		districtID,
-	)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var data []db.ListDiseaseWeeklyTrendAggregatedRow
+	if scoped {
+		data, err = h.facilityWeeklyMetricsService.ListDiseaseWeeklyTrendAggregatedInHealthContext(
+			ctx, int32(epiYear64), diseaseID, regionID, districtID, scope,
+		)
+	} else {
+		data, err = h.facilityWeeklyMetricsService.ListDiseaseWeeklyTrendAggregated(
+			ctx, int32(epiYear64), diseaseID, regionID, districtID,
+		)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list aggregated disease weekly trend", "request failed")
 		return
@@ -595,7 +699,13 @@ func (h *Handler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	data, err := h.weeklyStatusService.ListDistrictByWeek(ctx, epiWeekID)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var data []db.WeeklyStatus
+	if scoped {
+		data, err = h.weeklyStatusService.ListLevelByWeekInHealthContext(ctx, epiWeekID, "district", scope)
+	} else {
+		data, err = h.weeklyStatusService.ListDistrictByWeek(ctx, epiWeekID)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list district weekly statuses by week", "request failed")
 		return
@@ -614,7 +724,28 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 		return
 	}
 
-	data, err := h.weeklyStatusService.ListFromInput(ctx, params)
+	if params.RegionID != uuid.Nil &&
+		!h.requireAliasInHealthContext(c, healthContextNamespaceRegion, params.RegionID) {
+		return
+	}
+	if params.DistrictID != uuid.Nil &&
+		!h.requireAliasInHealthContext(c, healthContextNamespaceDistrict, params.DistrictID) {
+		return
+	}
+	if params.SubCountyID != uuid.Nil &&
+		!h.requireAliasInHealthContext(c, healthContextNamespaceSubCounty, params.SubCountyID) {
+		return
+	}
+	scope, scoped := healthContextScopeFromRequest(c)
+	var (
+		data []db.WeeklyStatus
+		err  error
+	)
+	if scoped {
+		data, err = h.weeklyStatusService.ListFromInputInHealthContext(ctx, params, scope)
+	} else {
+		data, err = h.weeklyStatusService.ListFromInput(ctx, params)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses", "request failed")
 		return
@@ -631,7 +762,28 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 		return
 	}
 
-	rows, err := h.weeklyStatusService.ListDetailedFromInput(ctx, params)
+	if params.RegionID != uuid.Nil &&
+		!h.requireAliasInHealthContext(c, healthContextNamespaceRegion, params.RegionID) {
+		return
+	}
+	if params.DistrictID != uuid.Nil &&
+		!h.requireAliasInHealthContext(c, healthContextNamespaceDistrict, params.DistrictID) {
+		return
+	}
+	if params.SubCountyID != uuid.Nil &&
+		!h.requireAliasInHealthContext(c, healthContextNamespaceSubCounty, params.SubCountyID) {
+		return
+	}
+	scope, scoped := healthContextScopeFromRequest(c)
+	var (
+		rows []db.ListWeeklyStatusesDetailedRow
+		err  error
+	)
+	if scoped {
+		rows, err = h.weeklyStatusService.ListDetailedFromInputInHealthContext(ctx, params, scope)
+	} else {
+		rows, err = h.weeklyStatusService.ListDetailedFromInput(ctx, params)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list weekly statuses detailed", "request failed")
 		return
@@ -662,7 +814,13 @@ func (h *Handler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	data, err := h.weeklyStatusService.ListRegionByWeek(ctx, epiWeekID)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var data []db.WeeklyStatus
+	if scoped {
+		data, err = h.weeklyStatusService.ListLevelByWeekInHealthContext(ctx, epiWeekID, "region", scope)
+	} else {
+		data, err = h.weeklyStatusService.ListRegionByWeek(ctx, epiWeekID)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list region weekly statuses by week", "request failed")
 		return
@@ -688,7 +846,13 @@ func (h *Handler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	data, err := h.weeklyStatusService.ListNationalByWeek(ctx, epiWeekID)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var data []db.WeeklyStatus
+	if scoped {
+		data, err = h.weeklyStatusService.ListLevelByWeekInHealthContext(ctx, epiWeekID, "national", scope)
+	} else {
+		data, err = h.weeklyStatusService.ListNationalByWeek(ctx, epiWeekID)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list national weekly statuses by week", "request failed")
 		return
@@ -726,6 +890,9 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 			response.Fail(c, http.StatusBadRequest, "invalid districtID", "request failed")
 			return
 		}
+		if !h.requireAliasInHealthContext(c, healthContextNamespaceDistrict, params.DistrictID) {
+			return
+		}
 	}
 
 	if value := c.Query("regionID"); value != "" {
@@ -734,9 +901,18 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 			response.Fail(c, http.StatusBadRequest, "invalid regionID", "request failed")
 			return
 		}
+		if !h.requireAliasInHealthContext(c, healthContextNamespaceRegion, params.RegionID) {
+			return
+		}
 	}
 
-	data, err := h.alertService.ListAlertsFromParams(ctx, params)
+	scope, scoped := healthContextScopeFromRequest(c)
+	var data []db.ListAlertsRow
+	if scoped {
+		data, err = h.alertService.ListAlertsFromParamsInHealthContext(ctx, params, scope)
+	} else {
+		data, err = h.alertService.ListAlertsFromParams(ctx, params)
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "failed to list alerts", "request failed")
 		return

@@ -11,6 +11,7 @@ import (
 	documentsfeature "github.com/moh-sso-dashboard/internal/features/documents"
 	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
 	geojsonfeature "github.com/moh-sso-dashboard/internal/features/geojson"
+	healthcontextfeature "github.com/moh-sso-dashboard/internal/features/health_context"
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
@@ -45,6 +46,7 @@ type Dependencies struct {
 	GeoJSON                 *geojsonfeature.Handler
 	Email                   *emailfeature.Handler
 	RBAC                    *rbacfeature.Handler
+	HealthContexts          *healthcontextfeature.Handler
 
 	AuthenticatedRateLimitPerMin  int
 	AuthLoginRateLimitPerMin      int

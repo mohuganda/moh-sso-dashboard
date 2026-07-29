@@ -31,6 +31,16 @@ func (r *postgresRegionRepository) List(ctx context.Context) ([]db.Region, error
 	return r.db.ListRegions(ctx)
 }
 
+func (r *postgresRegionRepository) ListInHealthContext(
+	ctx context.Context,
+	scope HealthContextScope,
+) ([]db.Region, error) {
+	return r.db.ListRegionsInHealthContext(ctx, db.ListRegionsInHealthContextParams{
+		HealthContextID:    scope.ID,
+		IncludeDescendants: scope.IncludeDescendants,
+	})
+}
+
 func (r *postgresRegionRepository) Upsert(ctx context.Context, arg db.UpsertRegionParams) (db.Region, error) {
 	return r.db.UpsertRegion(ctx, arg)
 }
