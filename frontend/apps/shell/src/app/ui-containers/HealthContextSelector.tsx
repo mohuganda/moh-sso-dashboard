@@ -8,10 +8,8 @@ import "./health-context-selector.scss";
 export function HealthContextSelector() {
   const { contexts, activeContext, isLoading, isUpdating, selectContext } = useHealthContext();
   const toast = useToast();
-
-  if (!isLoading && contexts.length <= 1) {
-    return null;
-  }
+  const hasMultipleContexts = contexts.length > 1;
+  const value = activeContext?.id ?? "";
 
   return (
     <div className="health-context-selector">
@@ -20,16 +18,18 @@ export function HealthContextSelector() {
         labelText="Health context"
         hideLabel
         size="sm"
-        value={activeContext?.id ?? ""}
-        disabled={isLoading || isUpdating || contexts.length === 0}
+        value={value}
+        disabled={isLoading || isUpdating || !hasMultipleContexts}
         onChange={(event) => {
           void selectContext(event.target.value).catch(() => {
             toast.error("Context change failed", "Your previous health context remains active.");
           });
         }}
       >
-        {contexts.length === 0 ? (
-          <SelectItem value="" text="No health context" />
+        {isLoading ? (
+          <SelectItem value="" text="Loading health contexts..." />
+        ) : contexts.length === 0 ? (
+          <SelectItem value="" text="No health context assigned" />
         ) : null}
         {contexts.map((context) => (
           <SelectItem

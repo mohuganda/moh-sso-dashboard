@@ -598,6 +598,7 @@ realmRoles:
       - portal:access
       - systems:read
       - systems:launch
+      - health_contexts:read
       - data_quality:read
       - issue_tracker:read
       - documents:read
@@ -617,6 +618,7 @@ realmRoles:
       - portal:access
       - systems:read
       - systems:launch
+      - health_contexts:read
       - users:read
       - clients:read
       - announcements:read
