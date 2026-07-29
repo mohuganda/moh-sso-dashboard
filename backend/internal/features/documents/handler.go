@@ -36,6 +36,34 @@ type Handler struct {
 	remoteDB               *sql.DB
 }
 
+func selectedHealthContextScope(c *gin.Context) *HealthContextScope {
+	value, exists := c.Get("health_context_id")
+	if !exists {
+		return nil
+	}
+	contextID, ok := value.(uuid.UUID)
+	if !ok || contextID == uuid.Nil {
+		return nil
+	}
+
+	scopeMode, _ := c.Get("health_context_scope_mode")
+	return &HealthContextScope{
+		ID: contextID,
+		IncludeDescendants: strings.EqualFold(
+			strings.TrimSpace(fmt.Sprint(scopeMode)),
+			"NODE_AND_DESCENDANTS",
+		),
+	}
+}
+
+func selectedHealthContextID(c *gin.Context) *uuid.UUID {
+	scope := selectedHealthContextScope(c)
+	if scope == nil {
+		return nil
+	}
+	return &scope.ID
+}
+
 func NewHandler(
 	documentService *Service,
 	auditService *sharedservice.AuditService,
@@ -216,6 +244,7 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 		IsTemplate:       isTemplate,
 		QueueProcessing:  queueProcessing,
 		Metadata:         metadata,
+		HealthContextID:  selectedHealthContextID(c),
 	}
 
 	if queueProcessing {
@@ -256,7 +285,7 @@ func (h *Handler) GetDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.documentService.GetDocument(ctx, id)
+	doc, err := h.documentService.GetDocumentInScope(ctx, id, selectedHealthContextScope(c))
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "request failed")
 		return
@@ -302,11 +331,11 @@ func (h *Handler) EditDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.documentService.EditDocument(ctx, EditDocumentInput{
+	doc, err := h.documentService.EditDocumentInScope(ctx, EditDocumentInput{
 		ID:               id,
 		OriginalFilename: *req.OriginalFilename,
 		ContentType:      *req.ContentType,
-	})
+	}, selectedHealthContextScope(c))
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "UPDATE_FAILED", "request failed")
 		return
@@ -340,7 +369,11 @@ func (h *Handler) DeleteDocument(c *gin.Context) {
 		return
 	}
 
-	if err := h.documentService.DeleteDocument(c.Request.Context(), id); err != nil {
+	if err := h.documentService.DeleteDocumentInScope(
+		c.Request.Context(),
+		id,
+		selectedHealthContextScope(c),
+	); err != nil {
 		response.Fail(c, http.StatusInternalServerError, "DELETE_FAILED", "request failed")
 		return
 	}
@@ -360,7 +393,7 @@ func (h *Handler) DownloadDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.documentService.GetDocument(ctx, uid)
+	doc, err := h.documentService.GetDocumentInScope(ctx, uid, selectedHealthContextScope(c))
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "document not found")
 		return
@@ -406,7 +439,7 @@ func (h *Handler) ViewDocument(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.documentService.GetDocument(ctx, uid)
+	doc, err := h.documentService.GetDocumentInScope(ctx, uid, selectedHealthContextScope(c))
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "document not found")
 		return
@@ -445,7 +478,7 @@ func (h *Handler) ViewDocument(c *gin.Context) {
 func (h *Handler) GetDocumentStats(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	row := h.db.QueryRowContext(ctx, `
+	query := `
 		SELECT
 			COUNT(*)                                              AS total,
 			COALESCE(SUM(size_bytes), 0)                         AS total_size,
@@ -455,7 +488,26 @@ func (h *Handler) GetDocumentStats(c *gin.Context) {
 			COUNT(*) FILTER (WHERE status = 'FAILED')            AS failed
 		FROM documents
 		WHERE is_template = false
-	`)
+	`
+	args := []any{}
+	if scope := selectedHealthContextScope(c); scope != nil {
+		query += `
+			AND (
+				health_context_id = $1
+				OR (
+					$2::boolean
+					AND EXISTS (
+						SELECT 1
+						FROM health_context_closure hc
+						WHERE hc.ancestor_id = $1
+						  AND hc.descendant_id = documents.health_context_id
+					)
+				)
+			)
+		`
+		args = append(args, scope.ID, scope.IncludeDescendants)
+	}
+	row := h.db.QueryRowContext(ctx, query, args...)
 
 	var stats struct {
 		Total      int64 `json:"total"`
@@ -492,7 +544,7 @@ func (h *Handler) ListDocuments(c *gin.Context) {
 		Offset: int32(offset),
 	}
 
-	docs, err := h.documentService.ListDocuments(ctx, page)
+	docs, err := h.documentService.ListDocumentsInScope(ctx, selectedHealthContextScope(c), page)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_FAILED", "failed to list documents")
 		return
@@ -529,7 +581,11 @@ func (h *Handler) ListDocumentProcesses(c *gin.Context) {
 		return
 	}
 
-	processes, err := h.documentService.ListProcessesByDocument(ctx, idParam)
+	processes, err := h.documentService.ListProcessesByDocumentInScope(
+		ctx,
+		idParam,
+		selectedHealthContextScope(c),
+	)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "PROCESS_LIST_FAILED", "failed to list processes")
 		return
@@ -550,7 +606,11 @@ func (h *Handler) ReprocessDocument(c *gin.Context) {
 		return
 	}
 
-	err = h.documentService.Reprocess(c.Request.Context(), documentID)
+	err = h.documentService.ReprocessInScope(
+		c.Request.Context(),
+		documentID,
+		selectedHealthContextScope(c),
+	)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "error", "request failed")
 		return
@@ -586,7 +646,11 @@ func (h *Handler) DataPreview(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.documentService.GetDocument(ctx, documentID)
+	doc, err := h.documentService.GetDocumentInScope(
+		ctx,
+		documentID,
+		selectedHealthContextScope(c),
+	)
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "document not found")
 		return
@@ -907,7 +971,7 @@ func (h *Handler) ParseStructure(c *gin.Context) {
 		return
 	}
 
-	doc, err := h.documentService.GetDocument(ctx, uid)
+	doc, err := h.documentService.GetDocumentInScope(ctx, uid, selectedHealthContextScope(c))
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "document not found")
 		return

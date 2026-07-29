@@ -80,6 +80,40 @@ WHERE
   AND (sqlc.narg(region_id)::uuid IS NULL OR d.region_id = sqlc.narg(region_id)::uuid)
 ORDER BY a.created_at DESC;
 
+-- name: ListAlertsInHealthContext :many
+SELECT
+  a.id,
+  a.external_id,
+  a.disease_id,
+  ds.name AS disease_name,
+  a.district_id,
+  d.name AS district_name,
+  d.region_id,
+  a.epi_week_id,
+  a.occurred_on,
+  a.created_on,
+  a.narrative,
+  a.submitted_by,
+  a.status,
+  a.source_name,
+  a.imported_at,
+  a.created_at,
+  a.updated_at
+FROM alerts a
+LEFT JOIN diseases ds ON ds.id = a.disease_id
+LEFT JOIN districts d ON d.id = a.district_id
+WHERE
+  (sqlc.narg(epi_week_id)::uuid IS NULL OR a.epi_week_id = sqlc.narg(epi_week_id)::uuid)
+  AND (sqlc.narg(disease_id)::uuid IS NULL OR a.disease_id = sqlc.narg(disease_id)::uuid)
+  AND (sqlc.narg(district_id)::uuid IS NULL OR a.district_id = sqlc.narg(district_id)::uuid)
+  AND (sqlc.narg(region_id)::uuid IS NULL OR d.region_id = sqlc.narg(region_id)::uuid)
+  AND a.district_id IS NOT NULL
+  AND health_context_alias_in_scope(
+    'surveillance-district', a.district_id::text, sqlc.arg(health_context_id)::uuid,
+    sqlc.arg(include_descendants)::boolean
+  )
+ORDER BY a.created_at DESC;
+
 -- name: ListAlertsByDisease :many
 SELECT
   a.*,

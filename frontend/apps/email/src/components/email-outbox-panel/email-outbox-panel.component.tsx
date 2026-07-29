@@ -19,6 +19,7 @@ import { useQueueEmailMutation, useSendEmailMutation } from "../../api";
 import type { EmailAttachment } from "../../types";
 import { useToast } from "@moh-sso/ui";
 import { useListRbacGroupsQuery } from "@moh-sso/rbac";
+import { useAvailableHealthContexts } from "@moh-sso/auth";
 import "./email-outbox-panel.scss";
 
 type DeliveryMode = "send" | "queue";
@@ -252,6 +253,8 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
   const [recipient, setRecipient] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientGroupIds, setRecipientGroupIds] = useState<string[]>([]);
+  const [recipientHealthContextIds, setRecipientHealthContextIds] = useState<string[]>([]);
+  const [includeHealthContextDescendants, setIncludeHealthContextDescendants] = useState(false);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
   const [subject, setSubject] = useState("");
@@ -277,6 +280,7 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
     isLoading: groupsLoading,
     isError: groupsError,
   } = useListRbacGroupsQuery();
+  const healthContexts = useAvailableHealthContexts();
 
   const isSubmitting = sendState.isLoading || queueState.isLoading;
   const groupItems = useMemo(
@@ -289,11 +293,23 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
         })),
     [groups],
   );
+  const healthContextItems = useMemo(
+    () =>
+      healthContexts
+        .filter((context) => context.enabled)
+        .map((context) => ({
+          id: context.id,
+          text: `${context.name} (${context.contextType.toLowerCase()})`,
+        })),
+    [healthContexts],
+  );
   const hasDirectRecipient = recipient.trim().length > 0;
   const hasGroupRecipients = recipientGroupIds.length > 0;
+  const hasHealthContextRecipients = recipientHealthContextIds.length > 0;
 
   const recipientError = submitted && hasDirectRecipient && !isValidEmail(recipient);
-  const recipientRequiredError = submitted && !hasDirectRecipient && !hasGroupRecipients;
+  const recipientRequiredError =
+    submitted && !hasDirectRecipient && !hasGroupRecipients && !hasHealthContextRecipients;
   const subjectError = submitted && subject.trim().length === 0;
   const messageError = submitted && message.trim().length === 0;
   const templateError = submitted && useTemplate && templateName === "";
@@ -303,7 +319,7 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
 
   const canSubmit = useMemo(() => {
     return (
-      (hasDirectRecipient || hasGroupRecipients) &&
+      (hasDirectRecipient || hasGroupRecipients || hasHealthContextRecipients) &&
       (!hasDirectRecipient || isValidEmail(recipient)) &&
       subject.trim().length > 0 &&
       message.trim().length > 0 &&
@@ -317,6 +333,7 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
     recipient,
     hasDirectRecipient,
     hasGroupRecipients,
+    hasHealthContextRecipients,
     subject,
     message,
     cc,
@@ -331,6 +348,8 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
     setRecipient("");
     setRecipientName("");
     setRecipientGroupIds([]);
+    setRecipientHealthContextIds([]);
+    setIncludeHealthContextDescendants(false);
     setCc("");
     setBcc("");
     setSubject("");
@@ -463,6 +482,10 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
           ]
         : undefined,
       to_groups: recipientGroupIds.length > 0 ? recipientGroupIds : undefined,
+      to_health_contexts:
+        recipientHealthContextIds.length > 0 ? recipientHealthContextIds : undefined,
+      include_health_context_descendants:
+        recipientHealthContextIds.length > 0 ? includeHealthContextDescendants : undefined,
       cc: cc.trim() ? parseEmailList(cc) : undefined,
       bcc: bcc.trim() ? parseEmailList(bcc) : undefined,
       subject: subject.trim(),
@@ -587,7 +610,7 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
                     invalid={recipientError || recipientRequiredError}
                     invalidText={
                       recipientRequiredError
-                        ? "Enter a recipient email or select at least one group."
+                        ? "Enter a recipient email or select at least one group or health context."
                         : "Enter a valid recipient email address"
                     }
                     disabled={isSubmitting}
@@ -602,11 +625,40 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
                     selectedItems={groupItems.filter((item) => recipientGroupIds.includes(item.id))}
                     disabled={isSubmitting || groupsLoading || groupsError}
                     invalid={recipientRequiredError}
-                    invalidText="Enter a recipient email or select at least one group."
+                    invalidText="Enter a recipient email or select at least one group or health context."
                     onChange={({ selectedItems }) =>
                       setRecipientGroupIds((selectedItems ?? []).map((item) => item.id))
                     }
                   />
+
+                  <MultiSelect
+                    id="recipient-health-contexts"
+                    titleText="Recipient health contexts"
+                    label="Select health contexts"
+                    items={healthContextItems}
+                    itemToString={(item) => item?.text ?? ""}
+                    selectedItems={healthContextItems.filter((item) =>
+                      recipientHealthContextIds.includes(item.id),
+                    )}
+                    disabled={isSubmitting}
+                    invalid={recipientRequiredError}
+                    invalidText="Enter a recipient email or select at least one group or health context."
+                    onChange={({ selectedItems }) =>
+                      setRecipientHealthContextIds((selectedItems ?? []).map((item) => item.id))
+                    }
+                  />
+
+                  {hasHealthContextRecipients ? (
+                    <Checkbox
+                      id="recipient-health-context-descendants"
+                      labelText="Include users assigned to descendant health contexts"
+                      checked={includeHealthContextDescendants}
+                      onChange={(_, { checked }) =>
+                        setIncludeHealthContextDescendants(Boolean(checked))
+                      }
+                      disabled={isSubmitting}
+                    />
+                  ) : null}
 
                   <TextInput
                     id="cc"

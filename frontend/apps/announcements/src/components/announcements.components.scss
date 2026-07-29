@@ -84,6 +84,13 @@
   line-height: 1.4;
 }
 
+.announcement-form__audience-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .announcement-form__actions {
   display: flex;
   flex-wrap: wrap;

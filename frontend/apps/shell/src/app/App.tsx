@@ -1,4 +1,5 @@
 import { ModalProvider, MohThemeProvider, ToastProvider } from "@moh-sso/ui";
+import { HealthContextProvider } from "@moh-sso/auth";
 import { PwaLifecycle } from "./pwa/PwaLifecycle";
 import AppRouter from "./routes/AppRouter";
 
@@ -7,8 +8,10 @@ function App() {
     <MohThemeProvider theme="white">
       <ToastProvider>
         <ModalProvider>
-          <PwaLifecycle />
-          <AppRouter />
+          <HealthContextProvider>
+            <PwaLifecycle />
+            <AppRouter />
+          </HealthContextProvider>
         </ModalProvider>
       </ToastProvider>
     </MohThemeProvider>

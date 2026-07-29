@@ -18,6 +18,8 @@ export type SendEmailRequest = {
   to?: EmailAddress[];
   to_groups?: string[];
   to_group_paths?: string[];
+  to_health_contexts?: string[];
+  include_health_context_descendants?: boolean;
   cc?: EmailAddress[];
   bcc?: EmailAddress[];
   reply_to?: EmailAddress[];
@@ -35,6 +37,8 @@ export type SendEmailRequest = {
 export type EmailRecipientPreviewRequest = {
   to_groups?: string[];
   to_group_paths?: string[];
+  to_health_contexts?: string[];
+  include_health_context_descendants?: boolean;
 };
 
 export type EmailRecipientPreviewResponse = {

@@ -44,6 +44,17 @@ export const API = {
     logout: () => `${API_BASE}/auth/logout`,
     me: () => `${API_BASE}/auth/me`,
   },
+  healthContexts: {
+    mine: () => `${API_BASE}/me/health-contexts`,
+    explanation: (contextId: string) =>
+      `${API_BASE}/me/health-contexts/${contextId}/explanation`,
+    select: () => `${API_BASE}/me/health-contexts/select`,
+    admin: () => `${API_BASE}/admin/health-contexts`,
+    userAssignments: (userId: string) =>
+      `${API_BASE}/admin/users/${userId}/health-contexts`,
+    groupAssignments: (groupId: string) =>
+      `${API_BASE}/admin/rbac/groups/${groupId}/health-contexts`,
+  },
 
   // --------------------------------------------------
   // Clients

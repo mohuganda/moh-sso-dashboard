@@ -1,4 +1,7 @@
-ALTER TYPE announcement_audience_type ADD VALUE IF NOT EXISTS 'SPECIFIC_GROUPS';
+DO $$
+BEGIN
+    ALTER TYPE announcement_audience_type ADD VALUE IF NOT EXISTS 'SPECIFIC_GROUPS';
+END $$;
 
 CREATE TABLE IF NOT EXISTS announcement_groups (
     announcement_id UUID NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,

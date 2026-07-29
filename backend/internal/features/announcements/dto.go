@@ -8,48 +8,50 @@ import (
 )
 
 type createAnnouncementRequest struct {
-	Title         string   `json:"title" binding:"required"`
-	Message       string   `json:"message" binding:"required"`
-	Summary       *string  `json:"summary"`
-	Level         string   `json:"level" binding:"required"`
-	Tag           *string  `json:"tag"`
-	LinkURL       *string  `json:"link_url"`
-	LinkLabel     *string  `json:"link_label"`
-	Priority      int32    `json:"priority"`
-	IsPinned      bool     `json:"is_pinned"`
-	Status        string   `json:"status"`
-	PublishAt     *string  `json:"publish_at"`
-	ExpiresAt     *string  `json:"expires_at"`
-	AudienceType  string   `json:"audience_type"`
-	ClientIDs     []string `json:"client_ids"`
-	RoleNames     []string `json:"role_names"`
-	UserIDs       []string `json:"user_ids"`
-	GroupIDs      []string `json:"group_ids"`
-	NotifyByEmail bool     `json:"notify_by_email"`
-	NotifyBySMS   bool     `json:"notify_by_sms"`
-	SMSMessage    *string  `json:"sms_message"`
+	Title            string   `json:"title" binding:"required"`
+	Message          string   `json:"message" binding:"required"`
+	Summary          *string  `json:"summary"`
+	Level            string   `json:"level" binding:"required"`
+	Tag              *string  `json:"tag"`
+	LinkURL          *string  `json:"link_url"`
+	LinkLabel        *string  `json:"link_label"`
+	Priority         int32    `json:"priority"`
+	IsPinned         bool     `json:"is_pinned"`
+	Status           string   `json:"status"`
+	PublishAt        *string  `json:"publish_at"`
+	ExpiresAt        *string  `json:"expires_at"`
+	AudienceType     string   `json:"audience_type"`
+	ClientIDs        []string `json:"client_ids"`
+	RoleNames        []string `json:"role_names"`
+	UserIDs          []string `json:"user_ids"`
+	GroupIDs         []string `json:"group_ids"`
+	HealthContextIDs []string `json:"health_context_ids"`
+	NotifyByEmail    bool     `json:"notify_by_email"`
+	NotifyBySMS      bool     `json:"notify_by_sms"`
+	SMSMessage       *string  `json:"sms_message"`
 }
 
 type updateAnnouncementRequest struct {
-	Title         string   `json:"title" binding:"required"`
-	Message       string   `json:"message" binding:"required"`
-	Summary       *string  `json:"summary"`
-	Level         string   `json:"level" binding:"required"`
-	Tag           *string  `json:"tag"`
-	LinkURL       *string  `json:"link_url"`
-	LinkLabel     *string  `json:"link_label"`
-	Priority      int32    `json:"priority"`
-	IsPinned      bool     `json:"is_pinned"`
-	PublishAt     *string  `json:"publish_at"`
-	ExpiresAt     *string  `json:"expires_at"`
-	AudienceType  string   `json:"audience_type"`
-	ClientIDs     []string `json:"client_ids"`
-	RoleNames     []string `json:"role_names"`
-	UserIDs       []string `json:"user_ids"`
-	GroupIDs      []string `json:"group_ids"`
-	NotifyByEmail bool     `json:"notify_by_email"`
-	NotifyBySMS   bool     `json:"notify_by_sms"`
-	SMSMessage    *string  `json:"sms_message"`
+	Title            string   `json:"title" binding:"required"`
+	Message          string   `json:"message" binding:"required"`
+	Summary          *string  `json:"summary"`
+	Level            string   `json:"level" binding:"required"`
+	Tag              *string  `json:"tag"`
+	LinkURL          *string  `json:"link_url"`
+	LinkLabel        *string  `json:"link_label"`
+	Priority         int32    `json:"priority"`
+	IsPinned         bool     `json:"is_pinned"`
+	PublishAt        *string  `json:"publish_at"`
+	ExpiresAt        *string  `json:"expires_at"`
+	AudienceType     string   `json:"audience_type"`
+	ClientIDs        []string `json:"client_ids"`
+	RoleNames        []string `json:"role_names"`
+	UserIDs          []string `json:"user_ids"`
+	GroupIDs         []string `json:"group_ids"`
+	HealthContextIDs []string `json:"health_context_ids"`
+	NotifyByEmail    bool     `json:"notify_by_email"`
+	NotifyBySMS      bool     `json:"notify_by_sms"`
+	SMSMessage       *string  `json:"sms_message"`
 }
 
 type CreateAnnouncementInput struct {
@@ -93,42 +95,44 @@ type UpdateAnnouncementInput struct {
 }
 
 type AnnouncementResponse struct {
-	ID                      string                           `json:"id"`
-	Title                   string                           `json:"title"`
-	Message                 string                           `json:"message"`
-	Summary                 *string                          `json:"summary,omitempty"`
-	Level                   string                           `json:"level"`
-	Tag                     *string                          `json:"tag,omitempty"`
-	LinkURL                 *string                          `json:"link_url,omitempty"`
-	LinkLabel               *string                          `json:"link_label,omitempty"`
-	Priority                int32                            `json:"priority"`
-	IsPinned                bool                             `json:"is_pinned"`
-	Status                  string                           `json:"status"`
-	PublishAt               *time.Time                       `json:"publish_at,omitempty"`
-	ExpiresAt               *time.Time                       `json:"expires_at,omitempty"`
-	AudienceType            string                           `json:"audience_type"`
-	ClientIDs               []string                         `json:"client_ids,omitempty"`
-	RoleNames               []string                         `json:"role_names,omitempty"`
-	UserIDs                 []string                         `json:"user_ids,omitempty"`
-	GroupIDs                []string                         `json:"group_ids,omitempty"`
-	NotifyByEmail           bool                             `json:"notify_by_email"`
-	EmailNotificationSentAt *time.Time                       `json:"email_notification_sent_at,omitempty"`
-	NotifyBySMS             bool                             `json:"notify_by_sms"`
-	SMSMessage              *string                          `json:"sms_message,omitempty"`
-	SMSNotificationQueuedAt *time.Time                       `json:"sms_notification_queued_at,omitempty"`
-	CreatedBy               string                           `json:"created_by"`
-	UpdatedBy               string                           `json:"updated_by"`
-	PublishedBy             *string                          `json:"published_by,omitempty"`
-	ArchivedBy              *string                          `json:"archived_by,omitempty"`
-	CreatedAt               time.Time                        `json:"created_at"`
-	UpdatedAt               time.Time                        `json:"updated_at"`
-	PublishedAt             *time.Time                       `json:"published_at,omitempty"`
-	ArchivedAt              *time.Time                       `json:"archived_at,omitempty"`
-	DeletedAt               *time.Time                       `json:"deleted_at,omitempty"`
-	DeletedBy               *string                          `json:"deleted_by,omitempty"`
-	Version                 int32                            `json:"version"`
-	Attachments             []AnnouncementAttachmentResponse `json:"attachments,omitempty"`
-	AttachmentCount         int                              `json:"attachment_count"`
+	ID                        string                           `json:"id"`
+	Title                     string                           `json:"title"`
+	Message                   string                           `json:"message"`
+	Summary                   *string                          `json:"summary,omitempty"`
+	Level                     string                           `json:"level"`
+	Tag                       *string                          `json:"tag,omitempty"`
+	LinkURL                   *string                          `json:"link_url,omitempty"`
+	LinkLabel                 *string                          `json:"link_label,omitempty"`
+	Priority                  int32                            `json:"priority"`
+	IsPinned                  bool                             `json:"is_pinned"`
+	Status                    string                           `json:"status"`
+	PublishAt                 *time.Time                       `json:"publish_at,omitempty"`
+	ExpiresAt                 *time.Time                       `json:"expires_at,omitempty"`
+	AudienceType              string                           `json:"audience_type"`
+	ClientIDs                 []string                         `json:"client_ids,omitempty"`
+	RoleNames                 []string                         `json:"role_names,omitempty"`
+	UserIDs                   []string                         `json:"user_ids,omitempty"`
+	GroupIDs                  []string                         `json:"group_ids,omitempty"`
+	HealthContextIDs          []string                         `json:"health_context_ids,omitempty"`
+	IncludeContextDescendants bool                             `json:"include_context_descendants,omitempty"`
+	NotifyByEmail             bool                             `json:"notify_by_email"`
+	EmailNotificationSentAt   *time.Time                       `json:"email_notification_sent_at,omitempty"`
+	NotifyBySMS               bool                             `json:"notify_by_sms"`
+	SMSMessage                *string                          `json:"sms_message,omitempty"`
+	SMSNotificationQueuedAt   *time.Time                       `json:"sms_notification_queued_at,omitempty"`
+	CreatedBy                 string                           `json:"created_by"`
+	UpdatedBy                 string                           `json:"updated_by"`
+	PublishedBy               *string                          `json:"published_by,omitempty"`
+	ArchivedBy                *string                          `json:"archived_by,omitempty"`
+	CreatedAt                 time.Time                        `json:"created_at"`
+	UpdatedAt                 time.Time                        `json:"updated_at"`
+	PublishedAt               *time.Time                       `json:"published_at,omitempty"`
+	ArchivedAt                *time.Time                       `json:"archived_at,omitempty"`
+	DeletedAt                 *time.Time                       `json:"deleted_at,omitempty"`
+	DeletedBy                 *string                          `json:"deleted_by,omitempty"`
+	Version                   int32                            `json:"version"`
+	Attachments               []AnnouncementAttachmentResponse `json:"attachments,omitempty"`
+	AttachmentCount           int                              `json:"attachment_count"`
 }
 
 type AnnouncementAttachmentResponse struct {
@@ -221,4 +225,18 @@ type AnnouncementSMSRecipient struct {
 	PhoneNumber string
 	Username    string
 	FullName    string
+}
+
+type AnnouncementHealthContextAudience struct {
+	ContextNodeID      uuid.UUID
+	IncludeDescendants bool
+}
+
+type AnnouncementAudiencePreviewResponse struct {
+	RecipientCount int `json:"recipient_count"`
+}
+
+type announcementAudiencePreviewRequest struct {
+	AudienceType     string   `json:"audience_type" binding:"required"`
+	HealthContextIDs []string `json:"health_context_ids"`
 }

@@ -3,7 +3,12 @@ import React from "react";
 import ReactDOMClient, { type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 
-import { authLoaded, loginSuccess, type AuthUser } from "@moh-sso/auth";
+import {
+  authLoaded,
+  HealthContextProvider,
+  loginSuccess,
+  type AuthUser,
+} from "@moh-sso/auth";
 import { store } from "@moh-sso/state";
 import {
   HeaderPanelProvider,
@@ -64,7 +69,11 @@ function withProviders(children: ReactNode, options: Required<ReactLifecycleOpti
   }
 
   if (options.withRedux) {
-    tree = <Provider store={store}>{tree}</Provider>;
+    tree = (
+      <Provider store={store}>
+        <HealthContextProvider>{tree}</HealthContextProvider>
+      </Provider>
+    );
   }
 
   return <MohThemeProvider theme="white">{tree}</MohThemeProvider>;

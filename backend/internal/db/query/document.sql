@@ -10,9 +10,10 @@ INSERT INTO documents (
     uploaded_by,
     status,
     metadata,
-    is_template
+    is_template,
+    health_context_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
 RETURNING *;
 
@@ -22,6 +23,23 @@ SELECT *
 FROM documents
 WHERE id = $1;
 
+-- name: GetDocumentByIDInHealthContext :one
+SELECT d.*
+FROM documents d
+WHERE d.id = sqlc.arg(id)
+  AND (
+      d.health_context_id = sqlc.arg(health_context_id)
+      OR (
+          sqlc.arg(include_descendants)::boolean
+          AND EXISTS (
+              SELECT 1
+              FROM health_context_closure hc
+              WHERE hc.ancestor_id = sqlc.arg(health_context_id)
+                AND hc.descendant_id = d.health_context_id
+          )
+      )
+  );
+
 
 -- name: ListDocuments :many
 SELECT *
@@ -29,6 +47,25 @@ FROM documents
 WHERE is_template = FALSE
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
+
+-- name: ListDocumentsInHealthContext :many
+SELECT d.*
+FROM documents d
+WHERE d.is_template = FALSE
+  AND (
+      d.health_context_id = sqlc.arg(health_context_id)
+      OR (
+          sqlc.arg(include_descendants)::boolean
+          AND EXISTS (
+              SELECT 1
+              FROM health_context_closure hc
+              WHERE hc.ancestor_id = sqlc.arg(health_context_id)
+                AND hc.descendant_id = d.health_context_id
+          )
+      )
+  )
+ORDER BY d.created_at DESC
+LIMIT sqlc.arg(result_limit) OFFSET sqlc.arg(result_offset);
 
 
 -- name: ListDocumentsByUser :many

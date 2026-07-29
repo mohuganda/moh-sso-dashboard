@@ -1,3 +1,13 @@
+healthContexts:
+  - code: UG
+    name: Uganda
+    type: NATIONAL
+    source: SYSTEM
+    enabled: true
+groupContextMappings:
+  - groupPath: /MOH/Platform Administrators
+    contextCode: UG
+    scopeMode: NODE_AND_DESCENDANTS
 systems:
   - clientId: dashboard-web
     displayName: Integrated Health Portal
@@ -22,6 +32,7 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
+          - health_contexts:read
       - name: portal_admin
         displayName: Portal Admin
         description: Portal administrator access
@@ -42,6 +53,7 @@ systems:
           - surveillance:read
           - report_browser:read
           - notifications:read
+          - health_contexts:read
       - name: portal_user
         displayName: Portal User
         description: Standard portal user access
@@ -49,6 +61,7 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
+          - health_contexts:read
   - clientId: outbreak-management
     displayName: Outbreak Management
     description: Signals, alerts, surveillance, points of entry, and case management.

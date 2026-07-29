@@ -31,6 +31,7 @@
     "access": "restricted"
   },
   "dependencies": {
+    "@moh-sso/auth": "0.1.0",
     "@moh-sso/state": "0.1.0",
     "@moh-sso/ui": "0.1.0"
   },

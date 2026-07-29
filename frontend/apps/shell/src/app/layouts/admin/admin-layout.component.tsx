@@ -48,6 +48,7 @@ import type { Permission } from "@moh-sso/auth";
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
 import { useVersionInfo } from "@/app/version/useVersionInfo";
 import { NotificationDetailPanel } from "./NotificationDetailPanel";
+import { HealthContextSelector } from "@/app/ui-containers/HealthContextSelector";
 
 import "./admin-layout.scss";
 
@@ -253,6 +254,7 @@ function HeaderActions() {
 
   return (
     <>
+      <HealthContextSelector />
       <HeaderGlobalAction
         aria-label={
           safeUnreadCount > 0 ? `Notifications, ${safeUnreadCount} unread` : "Notifications"

@@ -14,9 +14,13 @@ import (
 const modulePath = "github.com/moh-sso-dashboard/internal/features/"
 
 var allowedFeatureImports = map[string]map[string]string{
+	"admin_units": {
+		"health_context": "admin-unit responses apply the shared contextual scope policy",
+	},
 	"announcements": {
-		"users": "announcement audiences can resolve Keycloak users through the users repository port",
-		"rbac":  "announcement group audiences resolve members through the RBAC repository port",
+		"users":          "announcement audiences can resolve Keycloak users through the users repository port",
+		"rbac":           "announcement group audiences resolve members through the RBAC repository port",
+		"health_context": "announcement audiences validate and resolve contextual recipients",
 	},
 	"auth": {
 		"authsession": "auth owns the authsession backing store as an implementation detail",
@@ -24,12 +28,22 @@ var allowedFeatureImports = map[string]map[string]string{
 	"documents": {
 		"storage_locations": "document upload flows validate configured storage locations",
 	},
+	"data_quality": {
+		"health_context": "data-quality issues enforce ownership through the shared contextual scope policy",
+	},
 	"email": {
-		"rbac":  "email group targeting resolves recipients through the RBAC repository port",
-		"users": "email group targeting filters resolved members through the users repository port",
+		"rbac":           "email group targeting resolves recipients through the RBAC repository port",
+		"users":          "email group targeting filters resolved members through the users repository port",
+		"health_context": "email audiences validate and resolve contextual recipients",
 	},
 	"rbac": {
 		"system_rbac": "RBAC sync applies the system RBAC seed format",
+	},
+	"surveillance": {
+		"health_context": "surveillance resources use aliases and the shared contextual scope policy",
+	},
+	"visualiser": {
+		"health_context": "visualiser queries constrain organisation units through health-context aliases",
 	},
 }
 

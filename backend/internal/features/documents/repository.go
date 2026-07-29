@@ -25,8 +25,20 @@ type DocumentRepository interface {
 		id uuid.UUID,
 	) (db.Document, error)
 
+	GetDocumentInHealthContext(
+		ctx context.Context,
+		id uuid.UUID,
+		scope HealthContextScope,
+	) (db.Document, error)
+
 	ListDocuments(
 		ctx context.Context,
+		page model.Pagination,
+	) ([]db.Document, error)
+
+	ListDocumentsInHealthContext(
+		ctx context.Context,
+		scope HealthContextScope,
 		page model.Pagination,
 	) ([]db.Document, error)
 

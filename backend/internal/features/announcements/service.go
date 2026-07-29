@@ -14,6 +14,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	emailutil "github.com/moh-sso-dashboard/internal/email"
+	healthcontextfeature "github.com/moh-sso-dashboard/internal/features/health_context"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	userRepository "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/keycloak"
@@ -24,12 +25,13 @@ import (
 )
 
 type Service struct {
-	repo          Repository
-	userRepo      userRepository.UserRepository
-	rbacRepo      rbacfeature.Repository
-	notifications sharedservice.NotificationsService
-	storage       storage.Storage
-	cfg           *config.Config
+	repo           Repository
+	userRepo       userRepository.UserRepository
+	rbacRepo       rbacfeature.Repository
+	healthContexts *healthcontextfeature.Service
+	notifications  sharedservice.NotificationsService
+	storage        storage.Storage
+	cfg            *config.Config
 }
 
 type AnnouncementEmailOptions struct {
@@ -74,6 +76,13 @@ func (s *Service) SetRBACRepository(repo rbacfeature.Repository) {
 	s.rbacRepo = repo
 }
 
+func (s *Service) SetHealthContextService(service *healthcontextfeature.Service) {
+	if s == nil {
+		return
+	}
+	s.healthContexts = service
+}
+
 func (s *Service) ValidateGroupAudience(ctx context.Context, groupIDs []uuid.UUID) error {
 	if len(groupIDs) == 0 {
 		return nil
@@ -104,6 +113,109 @@ func (s *Service) ValidateGroupAudience(ctx context.Context, groupIDs []uuid.UUI
 	}
 
 	return nil
+}
+
+func (s *Service) ResolveHealthContextRecipients(
+	ctx context.Context,
+	actorID string,
+	contextIDs []uuid.UUID,
+	includeDescendants bool,
+) ([]AnnouncementEmailRecipient, error) {
+	if s == nil || s.healthContexts == nil {
+		return nil, errors.New("health context service is required for contextual audience resolution")
+	}
+	userIDs, err := s.healthContexts.ResolveAudienceUserIDs(
+		ctx,
+		actorID,
+		contextIDs,
+		includeDescendants,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("resolve health context audience: %w", err)
+	}
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+
+	wanted := make(map[string]struct{}, len(userIDs))
+	for _, userID := range userIDs {
+		wanted[strings.TrimSpace(userID)] = struct{}{}
+	}
+	users, err := s.userRepo.ListUsers()
+	if err != nil {
+		return nil, fmt.Errorf("list health context audience users: %w", err)
+	}
+	seen := make(map[string]AnnouncementEmailRecipient)
+	for _, user := range users {
+		if _, ok := wanted[strings.TrimSpace(user.ID)]; !ok {
+			continue
+		}
+		recipient, ok := announcementRecipientFromUser(user)
+		if !ok {
+			continue
+		}
+		seen[strings.ToLower(recipient.Email)] = recipient
+	}
+	return announcementRecipientMapToSlice(seen), nil
+}
+
+func (s *Service) resolveStoredHealthContextRecipients(
+	ctx context.Context,
+	audience []AnnouncementHealthContextAudience,
+) ([]AnnouncementEmailRecipient, error) {
+	if s.healthContexts == nil || len(audience) == 0 {
+		return nil, errors.New("health context audience is unavailable")
+	}
+	contextIDs := make([]uuid.UUID, 0, len(audience))
+	includeDescendants := false
+	for _, item := range audience {
+		contextIDs = append(contextIDs, item.ContextNodeID)
+		includeDescendants = includeDescendants || item.IncludeDescendants
+	}
+	userIDs, err := s.healthContexts.ListAudienceUserIDs(ctx, contextIDs, includeDescendants)
+	if err != nil {
+		return nil, err
+	}
+	wanted := make(map[string]struct{}, len(userIDs))
+	for _, userID := range userIDs {
+		wanted[strings.TrimSpace(userID)] = struct{}{}
+	}
+	users, err := s.userRepo.ListUsers()
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]AnnouncementEmailRecipient)
+	for _, user := range users {
+		if _, ok := wanted[strings.TrimSpace(user.ID)]; !ok {
+			continue
+		}
+		recipient, ok := announcementRecipientFromUser(user)
+		if ok {
+			seen[strings.ToLower(recipient.Email)] = recipient
+		}
+	}
+	return announcementRecipientMapToSlice(seen), nil
+}
+
+func (s *Service) ReplaceHealthContextAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+	contextIDs []uuid.UUID,
+	includeDescendants bool,
+) error {
+	return s.repo.ReplaceHealthContextAudience(
+		ctx,
+		announcementID,
+		contextIDs,
+		includeDescendants,
+	)
+}
+
+func (s *Service) ListHealthContextAudience(
+	ctx context.Context,
+	announcementID uuid.UUID,
+) ([]AnnouncementHealthContextAudience, error) {
+	return s.repo.ListHealthContextAudience(ctx, announcementID)
 }
 
 // ---------------------------------
@@ -870,6 +982,14 @@ func (s *Service) PublishAnnouncementNow(
 		}
 
 		if len(recipients) > 0 {
+			if err := s.repo.SaveAudienceSnapshot(
+				ctx,
+				item.ID,
+				"EMAIL",
+				announcementRecipientUserIDs(recipients),
+			); err != nil {
+				return item, fmt.Errorf("save announcement email audience snapshot: %w", err)
+			}
 			emailOptions, err := s.normalizeAnnouncementEmailOptions(options...)
 			if err != nil {
 				return item, err
@@ -990,6 +1110,14 @@ func (s *Service) ScheduleAnnouncement(
 		}
 
 		if len(recipients) > 0 {
+			if err := s.repo.SaveAudienceSnapshot(
+				ctx,
+				item.ID,
+				"EMAIL",
+				announcementRecipientUserIDs(recipients),
+			); err != nil {
+				return item, fmt.Errorf("save scheduled announcement email audience snapshot: %w", err)
+			}
 			emailOptions, err := s.normalizeAnnouncementEmailOptions(options...)
 			if err != nil {
 				return item, err
@@ -1647,6 +1775,13 @@ func (s *Service) resolveAnnouncementEmailRecipients(
 
 		return s.resolveUsersByRBACGroups(ctx, groupIDs)
 
+	case "SPECIFIC_HEALTH_CONTEXTS", "HEALTH_CONTEXT_AND_DESCENDANTS":
+		audience, err := s.repo.ListHealthContextAudience(ctx, item.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list announcement health context audience: %w", err)
+		}
+		return s.resolveStoredHealthContextRecipients(ctx, audience)
+
 	default:
 		return nil, fmt.Errorf("unsupported announcement audience type: %s", audienceType)
 	}
@@ -1946,6 +2081,26 @@ func repositorySafeFullName(firstName string, lastName string) string {
 	)
 }
 
+func announcementRecipientUserIDs(recipients []AnnouncementEmailRecipient) []string {
+	result := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		if recipient.ID != uuid.Nil {
+			result = append(result, recipient.ID.String())
+		}
+	}
+	return result
+}
+
+func announcementSMSRecipientUserIDs(recipients []AnnouncementSMSRecipient) []string {
+	result := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		if recipient.ID != uuid.Nil {
+			result = append(result, recipient.ID.String())
+		}
+	}
+	return result
+}
+
 // ---------------------------------
 // Notification helpers
 // ---------------------------------
@@ -2040,6 +2195,15 @@ func (s *Service) attachAnnouncementSMSDelivery(
 
 	if len(recipients) == 0 {
 		return nil
+	}
+
+	if err := s.repo.SaveAudienceSnapshot(
+		ctx,
+		item.ID,
+		string(models.NotificationChannelSMS),
+		announcementSMSRecipientUserIDs(recipients),
+	); err != nil {
+		return fmt.Errorf("save announcement sms audience snapshot: %w", err)
 	}
 
 	if len(notification.Deliveries) == 0 {

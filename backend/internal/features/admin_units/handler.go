@@ -2,26 +2,32 @@ package admin_units
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/moh-sso-dashboard/internal/config"
+	healthcontext "github.com/moh-sso-dashboard/internal/features/health_context"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type Handler struct {
-	service Service
+	service        Service
+	healthContexts *healthcontext.Service
 }
 
 func NewHandler(
 	config *config.Config,
 	db *sql.DB,
+	healthContexts *healthcontext.Service,
 ) *Handler {
 	_ = config
 	return &Handler{
-		service: NewService(NewRepository(db)),
+		service:        NewService(NewRepository(db)),
+		healthContexts: healthContexts,
 	}
 }
 
@@ -29,6 +35,11 @@ func (h *Handler) GetOrgUnits(c *gin.Context) {
 	results, err := h.service.ListOrgUnits(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ORG_UNITS_FAILED", "failed to list organizational units")
+		return
+	}
+	results, err = h.scopeOrgUnits(c, results)
+	if err != nil {
+		h.handleScopeError(c, err)
 		return
 	}
 
@@ -42,6 +53,11 @@ func (h *Handler) GetFacilities(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "LIST_FACILITIES_FAILED", "failed to list facilities")
 		return
 	}
+	results, err = h.scopeFacilities(c, results)
+	if err != nil {
+		h.handleScopeError(c, err)
+		return
+	}
 
 	response.OK(c, http.StatusOK, toFacilityResponses(results))
 }
@@ -51,6 +67,11 @@ func (h *Handler) GetDistricts(c *gin.Context) {
 	results, err := h.service.ListDistricts(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_DISTRICTS_FAILED", "failed to list districts")
+		return
+	}
+	results, err = h.scopeSimpleOrgUnits(c, results)
+	if err != nil {
+		h.handleScopeError(c, err)
 		return
 	}
 
@@ -74,6 +95,11 @@ func (h *Handler) GetSubCounties(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "LIST_SUBCOUNTIES_FAILED", "failed to list subcounties")
 		return
 	}
+	results, err = h.scopeSimpleOrgUnits(c, results)
+	if err != nil {
+		h.handleScopeError(c, err)
+		return
+	}
 
 	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
@@ -92,6 +118,11 @@ func (h *Handler) GetLocalGovt(c *gin.Context) {
 	results, err := h.service.ListLocalGovt(c.Request.Context(), req.District)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_LOCAL_GOVT_FAILED", "failed to list local governments")
+		return
+	}
+	results, err = h.scopeSimpleOrgUnits(c, results)
+	if err != nil {
+		h.handleScopeError(c, err)
 		return
 	}
 
@@ -114,6 +145,11 @@ func (h *Handler) GetDistrictsByRegion(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "LIST_REGIONS_FAILED", "failed to list regions")
 		return
 	}
+	results, err = h.scopeSimpleOrgUnits(c, results)
+	if err != nil {
+		h.handleScopeError(c, err)
+		return
+	}
 
 	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
@@ -123,6 +159,11 @@ func (h *Handler) GetRegions(c *gin.Context) {
 	results, err := h.service.ListRegions(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_NATIONAL_FAILED", "failed to list national hierarchy")
+		return
+	}
+	results, err = h.scopeSimpleOrgUnits(c, results)
+	if err != nil {
+		h.handleScopeError(c, err)
 		return
 	}
 
@@ -136,19 +177,142 @@ func (h *Handler) GetNational(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "LIST_HIERARCHY_FAILED", "failed to list hierarchy")
 		return
 	}
+	results, err = h.scopeSimpleOrgUnits(c, results)
+	if err != nil {
+		h.handleScopeError(c, err)
+		return
+	}
 
 	response.OK(c, http.StatusOK, toOrgUnitSimpleResponses(results))
 }
 
 // GetHierarchy gets the full organizational hierarchy as a tree structure
 func (h *Handler) GetHierarchy(c *gin.Context) {
-	tree, err := h.service.GetHierarchy(c.Request.Context())
+	data, err := h.service.ListOrgUnits(c.Request.Context())
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_HIERARCHY_FAILED", "failed to list hierarchy")
 		return
 	}
+	data, err = h.scopeOrgUnits(c, data)
+	if err != nil {
+		h.handleScopeError(c, err)
+		return
+	}
+	orgUnits := make([]OrgUnit, 0, len(data))
+	for _, item := range data {
+		orgUnits = append(orgUnits, OrgUnit{
+			DimOrgHierarchyKey: item.DimOrgHierarchyKey,
+			OrgUnitID:          item.OrgUnitID, OrgUnitName: item.OrgUnitName, Level: item.Level,
+			CountryUID: item.CountryUID, RegionUID: item.RegionUID, Region: item.Region,
+			DistrictUID: item.DistrictUID, District: item.District,
+			SubCountyUID: item.SubCountyUID, SubCounty: item.SubCounty,
+			DivisionUID: item.DivisionUID, Division: item.Division,
+			FacilityUID: item.FacilityUID, FacilityName: item.FacilityName,
+		})
+	}
+	tree := buildHierarchyTree(orgUnits)
 
 	response.OK(c, http.StatusOK, toTreeNodeResponses(tree))
+}
+
+func (h *Handler) allowedOrgUnitIDs(c *gin.Context) (map[string]struct{}, bool, error) {
+	rawID, exists := c.Get("health_context_id")
+	if !exists {
+		return nil, false, nil
+	}
+	contextID, ok := rawID.(uuid.UUID)
+	if !ok || contextID == uuid.Nil || h.healthContexts == nil {
+		return nil, true, healthcontext.ErrContextForbidden
+	}
+	node, err := h.healthContexts.GetNode(c.Request.Context(), contextID)
+	if err != nil {
+		return nil, true, err
+	}
+	mode, _ := c.Get("health_context_scope_mode")
+	includeDescendants, _ := mode.(healthcontext.ScopeMode)
+	descendants := includeDescendants == healthcontext.ScopeNodeAndDescendants
+	if node.Code == "UG" && descendants {
+		return nil, false, nil
+	}
+	aliases, err := h.healthContexts.ListAliasesInScope(c.Request.Context(), contextID, descendants)
+	if err != nil {
+		return nil, true, err
+	}
+	allowed := make(map[string]struct{})
+	for _, alias := range aliases {
+		if alias.Namespace != "dwh-org-unit" {
+			continue
+		}
+		if id := strings.TrimSpace(alias.ExternalID); id != "" {
+			allowed[id] = struct{}{}
+		}
+	}
+	if len(allowed) == 0 {
+		return nil, true, errors.New("selected health context has no DWH organisation-unit mapping")
+	}
+	return allowed, true, nil
+}
+
+func (h *Handler) scopeOrgUnits(c *gin.Context, items []OrgUnitFull) ([]OrgUnitFull, error) {
+	allowed, scoped, err := h.allowedOrgUnitIDs(c)
+	if err != nil || !scoped {
+		return items, err
+	}
+	result := make([]OrgUnitFull, 0, len(items))
+	for _, item := range items {
+		if orgUnitMatches(allowed, item.OrgUnitID, item.CountryUID, item.RegionUID, item.DistrictUID, item.SubCountyUID, item.DivisionUID, item.FacilityUID) {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+
+func (h *Handler) scopeFacilities(c *gin.Context, items []Facility) ([]Facility, error) {
+	allowed, scoped, err := h.allowedOrgUnitIDs(c)
+	if err != nil || !scoped {
+		return items, err
+	}
+	result := make([]Facility, 0, len(items))
+	for _, item := range items {
+		if orgUnitMatches(allowed, item.OrgUnitID, item.CountryUID, item.RegionUID, item.DistrictUID, item.SubCountyUID, item.DivisionUID, item.FacilityUID) {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+
+func (h *Handler) scopeSimpleOrgUnits(c *gin.Context, items []OrgUnitSimple) ([]OrgUnitSimple, error) {
+	allowed, scoped, err := h.allowedOrgUnitIDs(c)
+	if err != nil || !scoped {
+		return items, err
+	}
+	result := make([]OrgUnitSimple, 0, len(items))
+	for _, item := range items {
+		if orgUnitMatches(allowed, item.OrgUnitID) {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+
+func orgUnitMatches(allowed map[string]struct{}, ids ...*string) bool {
+	for _, id := range ids {
+		if id == nil {
+			continue
+		}
+		if _, ok := allowed[strings.TrimSpace(*id)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handler) handleScopeError(c *gin.Context, err error) {
+	if errors.Is(err, healthcontext.ErrContextForbidden) {
+		response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "health context access denied")
+		return
+	}
+	response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_MAPPING_REQUIRED", "selected health context is not mapped to the data hierarchy")
 }
 
 func buildHierarchyTree(data []OrgUnit) []TreeNode {

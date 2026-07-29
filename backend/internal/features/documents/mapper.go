@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 )
 
@@ -32,6 +33,7 @@ func toDocumentResponse(doc db.Document, objectURL, viewURL, downloadURL string)
 		DownloadURL:      downloadURL,
 		CreatedAt:        doc.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        doc.UpdatedAt.Format(time.RFC3339),
+		HealthContextID:  nullUUIDPtr(doc.HealthContextID),
 	}
 }
 
@@ -80,6 +82,20 @@ func nullTimePtr(nt sql.NullTime) *time.Time {
 		return nil
 	}
 	return &nt.Time
+}
+
+func nullUUIDPtr(value uuid.NullUUID) *uuid.UUID {
+	if !value.Valid {
+		return nil
+	}
+	return &value.UUID
+}
+
+func nullableUUID(value *uuid.UUID) uuid.NullUUID {
+	if value == nil || *value == uuid.Nil {
+		return uuid.NullUUID{}
+	}
+	return uuid.NullUUID{UUID: *value, Valid: true}
 }
 
 func nullStringValue(ns sql.NullString) string {

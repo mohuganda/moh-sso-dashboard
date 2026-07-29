@@ -126,6 +126,52 @@ func (q *Queries) ListRegions(ctx context.Context) ([]Region, error) {
 	return items, nil
 }
 
+const listRegionsInHealthContext = `-- name: ListRegionsInHealthContext :many
+SELECT id, name, code, created_at, updated_at
+FROM regions
+WHERE health_context_alias_related_to_scope(
+  'surveillance-region',
+  id::text,
+  $1::uuid,
+  $2::boolean
+)
+ORDER BY name ASC
+`
+
+type ListRegionsInHealthContextParams struct {
+	HealthContextID    uuid.UUID `json:"health_context_id"`
+	IncludeDescendants bool      `json:"include_descendants"`
+}
+
+func (q *Queries) ListRegionsInHealthContext(ctx context.Context, arg ListRegionsInHealthContextParams) ([]Region, error) {
+	rows, err := q.db.QueryContext(ctx, listRegionsInHealthContext, arg.HealthContextID, arg.IncludeDescendants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Region{}
+	for rows.Next() {
+		var i Region
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Code,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertRegion = `-- name: UpsertRegion :one
 INSERT INTO regions (
   name,

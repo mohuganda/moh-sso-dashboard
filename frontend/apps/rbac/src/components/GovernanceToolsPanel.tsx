@@ -23,6 +23,7 @@ import { ImportExportPanel } from "./ImportExportPanel";
 import { PermissionCatalogPanel } from "./PermissionCatalogPanel";
 import { PolicySimulatorPanel } from "./PolicySimulatorPanel";
 import { RoleTemplatesPanel } from "./RoleTemplatesPanel";
+import { HealthContextsPanel } from "./HealthContextsPanel";
 
 type GovernanceSection =
   | "permissions"
@@ -31,6 +32,7 @@ type GovernanceSection =
   | "changes"
   | "access"
   | "audit"
+  | "health-contexts"
   | "simulator";
 
 type GovernanceToolsPanelProps = {
@@ -170,7 +172,7 @@ export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelPro
       <div className="rbac-page__panel-header">
         <div>
           <h2>Governance Tools</h2>
-          <p>Catalog, import/export, audit, requests, approvals, templates, and simulation.</p>
+          <p>Catalog, contextual access, audit, requests, approvals, templates, and simulation.</p>
         </div>
       </div>
 
@@ -196,6 +198,7 @@ export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelPro
           <Switch name="changes" text="Changes" />
           <Switch name="access" text="Access" />
           <Switch name="audit" text="Audit" />
+          <Switch name="health-contexts" text="Health contexts" />
           <Switch name="simulator" text="Simulator" />
         </ContentSwitcher>
       </div>
@@ -239,6 +242,7 @@ export function GovernanceToolsPanel({ activeClientId }: GovernanceToolsPanelPro
         )}
         {activeSection === "access" && <AccessRequestsPanel accessRequests={accessRequests} />}
         {activeSection === "audit" && <AuditTrailPanel />}
+        {activeSection === "health-contexts" && <HealthContextsPanel />}
         {activeSection === "simulator" && (
           <PolicySimulatorPanel
             simulationRoles={simulationRoles}

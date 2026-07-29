@@ -125,6 +125,19 @@ func (s *WeeklyStatusService) ListFromInput(
 	})
 }
 
+func (s *WeeklyStatusService) ListFromInputInHealthContext(
+	ctx context.Context,
+	input WeeklyStatusListInput,
+	scope HealthContextScope,
+) ([]db.WeeklyStatus, error) {
+	return s.repo.ListInHealthContext(ctx, db.ListWeeklyStatusesParams{
+		EpiWeekID: uuidNull(input.EpiWeekID), RegionID: uuidNull(input.RegionID),
+		DistrictID: uuidNull(input.DistrictID), SubCountyID: uuidNull(input.SubCountyID),
+		DiseaseID: uuidNull(input.DiseaseID), IndicatorID: uuidNull(input.IndicatorID),
+		Status: riskLevelNull(input.Status),
+	}, scope)
+}
+
 func (s *WeeklyStatusService) ListDetailed(
 	ctx context.Context,
 	arg db.ListWeeklyStatusesDetailedParams,
@@ -154,6 +167,47 @@ func (s *WeeklyStatusService) ListDetailedFromInput(
 		IndicatorID: uuidNull(input.IndicatorID),
 		Status:      riskLevelNull(input.Status),
 	})
+}
+
+func (s *WeeklyStatusService) ListDetailedFromInputInHealthContext(
+	ctx context.Context,
+	input WeeklyStatusListInput,
+	scope HealthContextScope,
+) ([]db.ListWeeklyStatusesDetailedRow, error) {
+	return s.repo.ListDetailedInHealthContext(ctx, db.ListWeeklyStatusesDetailedParams{
+		EpiWeekID: uuidNull(input.EpiWeekID), RegionID: uuidNull(input.RegionID),
+		DistrictID: uuidNull(input.DistrictID), SubCountyID: uuidNull(input.SubCountyID),
+		DiseaseID: uuidNull(input.DiseaseID), IndicatorID: uuidNull(input.IndicatorID),
+		Status: riskLevelNull(input.Status),
+	}, scope)
+}
+
+func (s *WeeklyStatusService) ListLevelByWeekInHealthContext(
+	ctx context.Context,
+	epiWeekID uuid.UUID,
+	level string,
+	scope HealthContextScope,
+) ([]db.WeeklyStatus, error) {
+	rows, err := s.ListFromInputInHealthContext(ctx, WeeklyStatusListInput{EpiWeekID: epiWeekID}, scope)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]db.WeeklyStatus, 0, len(rows))
+	for _, row := range rows {
+		matches := false
+		switch level {
+		case "national":
+			matches = !row.RegionID.Valid && !row.DistrictID.Valid && !row.SubCountyID.Valid
+		case "region":
+			matches = row.RegionID.Valid && !row.DistrictID.Valid && !row.SubCountyID.Valid
+		case "district":
+			matches = row.RegionID.Valid && row.DistrictID.Valid && !row.SubCountyID.Valid
+		}
+		if matches {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered, nil
 }
 
 func (s *WeeklyStatusService) ListByWeek(

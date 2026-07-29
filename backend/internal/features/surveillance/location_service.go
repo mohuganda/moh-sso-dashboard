@@ -77,6 +77,16 @@ func (s *LocationService) ListRegions(ctx context.Context) ([]db.Region, error) 
 	return items, nil
 }
 
+func (s *LocationService) ListRegionsInHealthContext(
+	ctx context.Context,
+	scope HealthContextScope,
+) ([]db.Region, error) {
+	if scope.ID == uuid.Nil {
+		return nil, errors.New("health context id is required")
+	}
+	return s.regionRepo.ListInHealthContext(ctx, scope)
+}
+
 func (s *LocationService) GetRegionByID(
 	ctx context.Context,
 	id uuid.UUID,
@@ -219,6 +229,16 @@ func (s *LocationService) ListDistricts(
 	return items, nil
 }
 
+func (s *LocationService) ListDistrictsInHealthContext(
+	ctx context.Context,
+	scope HealthContextScope,
+) ([]db.ListDistrictsRow, error) {
+	if scope.ID == uuid.Nil {
+		return nil, errors.New("health context id is required")
+	}
+	return s.districtRepo.ListInHealthContext(ctx, scope)
+}
+
 func (s *LocationService) ListDistrictsByRegion(
 	ctx context.Context,
 	regionID uuid.UUID,
@@ -249,6 +269,17 @@ func (s *LocationService) ListDistrictsByRegion(
 	}
 
 	return items, nil
+}
+
+func (s *LocationService) ListDistrictsByRegionInHealthContext(
+	ctx context.Context,
+	regionID uuid.UUID,
+	scope HealthContextScope,
+) ([]db.District, error) {
+	if scope.ID == uuid.Nil {
+		return nil, errors.New("health context id is required")
+	}
+	return s.districtRepo.ListByRegionInHealthContext(ctx, regionID, scope)
 }
 
 func (s *LocationService) GetDistrictByID(
@@ -417,6 +448,17 @@ func (s *LocationService) ListSubcountiesByDistrict(
 	}
 
 	return items, nil
+}
+
+func (s *LocationService) ListSubcountiesByDistrictInHealthContext(
+	ctx context.Context,
+	districtID uuid.UUID,
+	scope HealthContextScope,
+) ([]db.SubCounty, error) {
+	if scope.ID == uuid.Nil {
+		return nil, errors.New("health context id is required")
+	}
+	return s.subCountyRepo.ListByDistrictInHealthContext(ctx, districtID, scope)
 }
 
 func (s *LocationService) GetSubcountyByID(

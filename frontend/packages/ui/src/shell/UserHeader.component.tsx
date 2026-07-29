@@ -17,6 +17,7 @@ import imagePath from "../assets/logo.png";
 type UserHeaderProps = {
   username?: string | null;
   appMenu?: ReactNode;
+  contextSelector?: ReactNode;
   onNavigateHome?: () => void;
   onLogout?: () => void;
 };
@@ -24,6 +25,7 @@ type UserHeaderProps = {
 const UserHeader: React.FC<UserHeaderProps> = ({
   username,
   appMenu,
+  contextSelector,
   onNavigateHome,
   onLogout,
 }) => {
@@ -37,6 +39,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({
       </HeaderName>
 
       <HeaderGlobalBar>
+        {contextSelector}
         {appMenu ?? <AppMenuAction />}
         <HeaderGlobalAction
           aria-label={`Signed in as ${username ?? "user"}`}

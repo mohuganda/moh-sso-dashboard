@@ -1,23 +1,33 @@
 package data_quality
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type issueResponse struct {
-	IssueID      int64   `json:"issue_id"`
-	IssueCode    *string `json:"issue_code,omitempty"`
-	Dataset      *string `json:"dataset,omitempty"`
-	DataElement  *string `json:"data_element,omitempty"`
-	OrgUnit      *string `json:"org_unit,omitempty"`
-	Issue        *string `json:"issue,omitempty"`
-	IssueType    *string `json:"issue_type,omitempty"`
-	DateReported string  `json:"date_reported"`
-	ReportedBy   *string `json:"reported_by,omitempty"`
-	Status       *string `json:"status,omitempty"`
-	Priority     *string `json:"priority,omitempty"`
-	Severity     *string `json:"severity,omitempty"`
-	UpdatedDate  *string `json:"updated_date,omitempty"`
-	UpdatedBy    *string `json:"updated_by,omitempty"`
-	TimePeriod   *string `json:"time_Period,omitempty"`
+	IssueID         int64      `json:"issue_id"`
+	IssueCode       *string    `json:"issue_code,omitempty"`
+	Dataset         *string    `json:"dataset,omitempty"`
+	DataElement     *string    `json:"data_element,omitempty"`
+	OrgUnit         *string    `json:"org_unit,omitempty"`
+	Issue           *string    `json:"issue,omitempty"`
+	IssueType       *string    `json:"issue_type,omitempty"`
+	DateReported    string     `json:"date_reported"`
+	ReportedBy      *string    `json:"reported_by,omitempty"`
+	Status          *string    `json:"status,omitempty"`
+	Priority        *string    `json:"priority,omitempty"`
+	Severity        *string    `json:"severity,omitempty"`
+	UpdatedDate     *string    `json:"updated_date,omitempty"`
+	UpdatedBy       *string    `json:"updated_by,omitempty"`
+	TimePeriod      *string    `json:"time_Period,omitempty"`
+	HealthContextID *uuid.UUID `json:"health_context_id,omitempty"`
+}
+
+type healthContextScope struct {
+	ContextID          uuid.UUID
+	IncludeDescendants bool
 }
 
 type createIssueRequest struct {

@@ -93,11 +93,19 @@ func withAnnouncementAudience(
 	roleNames []string,
 	userIDs []uuid.UUID,
 	groupIDs []uuid.UUID,
+	contextAudience []AnnouncementHealthContextAudience,
 ) AnnouncementResponse {
 	res.ClientIDs = uuidStrings(clientIDs)
 	res.RoleNames = roleNames
 	res.UserIDs = uuidStrings(userIDs)
 	res.GroupIDs = uuidStrings(groupIDs)
+	res.HealthContextIDs = make([]string, 0, len(contextAudience))
+	for _, context := range contextAudience {
+		res.HealthContextIDs = append(res.HealthContextIDs, context.ContextNodeID.String())
+		if context.IncludeDescendants {
+			res.IncludeContextDescendants = true
+		}
+	}
 	return res
 }
 

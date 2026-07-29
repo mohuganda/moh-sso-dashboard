@@ -82,6 +82,23 @@ func (r *documentRepository) GetDocument(
 	return doc, nil
 }
 
+func (r *documentRepository) GetDocumentInHealthContext(
+	ctx context.Context,
+	id uuid.UUID,
+	scope HealthContextScope,
+) (db.Document, error) {
+	doc, err := r.db.GetDocumentByIDInHealthContext(ctx, db.GetDocumentByIDInHealthContextParams{
+		ID:                 id,
+		HealthContextID:    uuid.NullUUID{UUID: scope.ID, Valid: true},
+		IncludeDescendants: scope.IncludeDescendants,
+	})
+	if err != nil {
+		return db.Document{}, err
+	}
+
+	return doc, nil
+}
+
 func (r *documentRepository) ListDocuments(
 	ctx context.Context,
 	page model.Pagination,
@@ -94,6 +111,29 @@ func (r *documentRepository) ListDocuments(
 	docs, err := r.db.ListDocuments(ctx, db.ListDocumentsParams{
 		Limit:  limit,
 		Offset: page.Offset,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return docs, nil
+}
+
+func (r *documentRepository) ListDocumentsInHealthContext(
+	ctx context.Context,
+	scope HealthContextScope,
+	page model.Pagination,
+) ([]db.Document, error) {
+	limit := page.Limit
+	if limit <= 0 {
+		limit = 25
+	}
+
+	docs, err := r.db.ListDocumentsInHealthContext(ctx, db.ListDocumentsInHealthContextParams{
+		HealthContextID:    uuid.NullUUID{UUID: scope.ID, Valid: true},
+		IncludeDescendants: scope.IncludeDescendants,
+		ResultLimit:        limit,
+		ResultOffset:       page.Offset,
 	})
 	if err != nil {
 		return nil, err

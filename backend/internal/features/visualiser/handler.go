@@ -2,6 +2,7 @@ package visualiser
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -9,20 +10,24 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/config"
+	healthcontext "github.com/moh-sso-dashboard/internal/features/health_context"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type Handler struct {
-	service Service
+	service        Service
+	healthContexts *healthcontext.Service
 }
 
 func NewHandler(
 	config *config.Config,
 	db *sql.DB,
+	healthContexts *healthcontext.Service,
 ) *Handler {
 	_ = config
 	return &Handler{
-		service: NewService(NewRepository(db)),
+		service:        NewService(NewRepository(db)),
+		healthContexts: healthContexts,
 	}
 }
 
@@ -56,6 +61,20 @@ func (h *Handler) GetDataValues(c *gin.Context) {
 	var req DataValuesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "invalid JSON")
+		return
+	}
+	req, err := h.scopeDataValuesRequest(c, req)
+	if err != nil {
+		if errors.Is(err, errHealthContextAliasMissing) {
+			response.Fail(
+				c,
+				http.StatusForbidden,
+				"HEALTH_CONTEXT_MAPPING_REQUIRED",
+				"selected health context is not mapped to a DWH organisation unit",
+			)
+			return
+		}
+		response.Fail(c, http.StatusServiceUnavailable, "HEALTH_CONTEXT_UNAVAILABLE", "health context could not be resolved")
 		return
 	}
 

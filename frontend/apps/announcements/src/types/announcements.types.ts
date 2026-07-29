@@ -8,7 +8,9 @@ export type AnnouncementAudienceType =
   | "SPECIFIC_CLIENTS"
   | "SPECIFIC_ROLES"
   | "SPECIFIC_USERS"
-  | "SPECIFIC_GROUPS";
+  | "SPECIFIC_GROUPS"
+  | "SPECIFIC_HEALTH_CONTEXTS"
+  | "HEALTH_CONTEXT_AND_DESCENDANTS";
 
 export interface Announcement {
   id: string;
@@ -29,6 +31,8 @@ export interface Announcement {
   role_names?: string[];
   user_ids?: string[];
   group_ids?: string[];
+  health_context_ids?: string[];
+  include_context_descendants?: boolean;
   notify_by_email: boolean;
   email_notification_sent_at: string | null;
   notify_by_sms: boolean;
@@ -74,6 +78,7 @@ export interface CreateAnnouncementRequest {
   role_names?: string[];
   user_ids?: string[];
   group_ids?: string[];
+  health_context_ids?: string[];
   notify_by_email?: boolean;
   notify_by_sms?: boolean;
   sms_message?: string | null;
@@ -149,6 +154,7 @@ export interface UpdateAnnouncementRequest {
   role_names?: string[];
   user_ids?: string[];
   group_ids?: string[];
+  health_context_ids?: string[];
 
   /**
    * User-controlled email notification preference.
@@ -171,6 +177,18 @@ export interface SetAnnouncementPinnedRequest {
 
 export interface SetAnnouncementPriorityRequest {
   priority: number;
+}
+
+export interface AnnouncementAudiencePreviewRequest {
+  audience_type: Extract<
+    AnnouncementAudienceType,
+    "SPECIFIC_HEALTH_CONTEXTS" | "HEALTH_CONTEXT_AND_DESCENDANTS"
+  >;
+  health_context_ids: string[];
+}
+
+export interface AnnouncementAudiencePreview {
+  recipient_count: number;
 }
 
 export interface AnnouncementStats {

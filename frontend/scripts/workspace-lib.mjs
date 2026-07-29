@@ -19,7 +19,8 @@ export function listDirs(path) {
 }
 
 export function listApps() {
-  return listDirs(join(root, "apps"));
+  const appsRoot = join(root, "apps");
+  return listDirs(appsRoot).filter((app) => existsSync(join(appsRoot, app, "package.json")));
 }
 
 export function listStandaloneApps() {

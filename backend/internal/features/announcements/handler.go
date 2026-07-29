@@ -90,39 +90,48 @@ func parseAnnouncementAudienceSelection(
 	clientIDValues []string,
 	userIDValues []string,
 	groupIDValues []string,
-) ([]uuid.UUID, []uuid.UUID, []uuid.UUID, bool) {
+	healthContextIDValues []string,
+) ([]uuid.UUID, []uuid.UUID, []uuid.UUID, []uuid.UUID, bool) {
 	clientIDs, err := parseUUIDList(clientIDValues)
 	if err != nil {
-		return nil, nil, nil, false
+		return nil, nil, nil, nil, false
 	}
 
 	userIDs, err := parseUUIDList(userIDValues)
 	if err != nil {
-		return nil, nil, nil, false
+		return nil, nil, nil, nil, false
 	}
 
 	groupIDs, err := parseUUIDList(groupIDValues)
 	if err != nil {
-		return nil, nil, nil, false
+		return nil, nil, nil, nil, false
+	}
+	healthContextIDs, err := parseUUIDList(healthContextIDValues)
+	if err != nil {
+		return nil, nil, nil, nil, false
 	}
 
 	audienceType := strings.ToUpper(strings.TrimSpace(reqAudienceType))
 	switch audienceType {
 	case "SPECIFIC_CLIENTS":
 		if len(clientIDs) == 0 {
-			return nil, nil, nil, false
+			return nil, nil, nil, nil, false
 		}
 	case "SPECIFIC_USERS":
 		if len(userIDs) == 0 {
-			return nil, nil, nil, false
+			return nil, nil, nil, nil, false
 		}
 	case "SPECIFIC_GROUPS":
 		if len(groupIDs) == 0 {
-			return nil, nil, nil, false
+			return nil, nil, nil, nil, false
+		}
+	case "SPECIFIC_HEALTH_CONTEXTS", "HEALTH_CONTEXT_AND_DESCENDANTS":
+		if len(healthContextIDs) == 0 {
+			return nil, nil, nil, nil, false
 		}
 	}
 
-	return clientIDs, userIDs, groupIDs, true
+	return clientIDs, userIDs, groupIDs, healthContextIDs, true
 }
 
 func getCurrentUserID(c *gin.Context) (uuid.UUID, bool) {
@@ -186,7 +195,11 @@ func (h *Handler) attachAnnouncementAudience(
 		return
 	}
 
-	*res = withAnnouncementAudience(*res, clientIDs, roleNames, userIDs, groupIDs)
+	contextAudience, err := h.announcementService.ListHealthContextAudience(c.Request.Context(), announcementID)
+	if err != nil {
+		contextAudience = nil
+	}
+	*res = withAnnouncementAudience(*res, clientIDs, roleNames, userIDs, groupIDs, contextAudience)
 }
 
 func (h *Handler) ListAnnouncementsAdmin(c *gin.Context) {
@@ -276,11 +289,12 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 		return
 	}
 
-	clientIDs, userIDs, groupIDs, ok := parseAnnouncementAudienceSelection(
+	clientIDs, userIDs, groupIDs, healthContextIDs, ok := parseAnnouncementAudienceSelection(
 		req.AudienceType,
 		req.ClientIDs,
 		req.UserIDs,
 		req.GroupIDs,
+		req.HealthContextIDs,
 	)
 	if !ok {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "selected announcement audience is invalid or empty")
@@ -291,6 +305,25 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more selected groups do not exist")
 			return
 		}
+	}
+	includeContextDescendants := strings.EqualFold(req.AudienceType, "HEALTH_CONTEXT_AND_DESCENDANTS")
+	healthContextRecipientCount := 0
+	if len(healthContextIDs) > 0 {
+		recipients, err := h.announcementService.ResolveHealthContextRecipients(
+			c.Request.Context(),
+			userID.String(),
+			healthContextIDs,
+			includeContextDescendants,
+		)
+		if err != nil {
+			response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "one or more selected health contexts are not accessible")
+			return
+		}
+		if len(recipients) == 0 {
+			response.Fail(c, http.StatusBadRequest, "EMPTY_AUDIENCE", "selected health contexts contain no eligible recipients")
+			return
+		}
+		healthContextRecipientCount = len(recipients)
 	}
 
 	input := CreateAnnouncementInput{
@@ -346,6 +379,15 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 			return
 		}
 	}
+	if err := h.announcementService.ReplaceHealthContextAudience(
+		c.Request.Context(),
+		item.ID,
+		healthContextIDs,
+		includeContextDescendants,
+	); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to save health context audience")
+		return
+	}
 
 	if h.auditService != nil {
 		_ = h.auditService.Log(
@@ -353,14 +395,17 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 			uuid.NullUUID{UUID: userID, Valid: true},
 			"ANNOUNCEMENT_CREATED",
 			map[string]any{
-				"announcement_id": item.ID.String(),
-				"title":           item.Title,
-				"level":           item.Level,
-				"priority":        item.Priority,
-				"status":          item.Status,
-				"is_pinned":       item.IsPinned,
-				"notify_by_email": item.NotifyByEmail,
-				"notify_by_sms":   req.NotifyBySMS,
+				"announcement_id":                  item.ID.String(),
+				"title":                            item.Title,
+				"level":                            item.Level,
+				"priority":                         item.Priority,
+				"status":                           item.Status,
+				"is_pinned":                        item.IsPinned,
+				"notify_by_email":                  item.NotifyByEmail,
+				"notify_by_sms":                    req.NotifyBySMS,
+				"health_context_ids":               uuidStrings(healthContextIDs),
+				"include_context_descendants":      includeContextDescendants,
+				"resolved_context_recipient_count": healthContextRecipientCount,
 			},
 		)
 	}
@@ -368,6 +413,76 @@ func (h *Handler) CreateAnnouncement(c *gin.Context) {
 	res := toAnnouncementResponse(item)
 	h.attachAnnouncementAudience(c, item.ID, &res)
 	response.OK(c, http.StatusCreated, res)
+}
+
+func (h *Handler) PreviewAnnouncementAudience(c *gin.Context) {
+	var request announcementAudiencePreviewRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_INPUT", "invalid audience preview")
+		return
+	}
+
+	includeDescendants := strings.EqualFold(
+		request.AudienceType,
+		"HEALTH_CONTEXT_AND_DESCENDANTS",
+	)
+	if !includeDescendants &&
+		!strings.EqualFold(request.AudienceType, "SPECIFIC_HEALTH_CONTEXTS") {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_AUDIENCE_TYPE",
+			"audience preview currently supports health-context audiences",
+		)
+		return
+	}
+
+	contextIDs, err := parseUUIDList(request.HealthContextIDs)
+	if err != nil || len(contextIDs) == 0 {
+		response.Fail(
+			c,
+			http.StatusBadRequest,
+			"INVALID_HEALTH_CONTEXT",
+			"select at least one valid health context",
+		)
+		return
+	}
+
+	recipients, err := h.announcementService.ResolveHealthContextRecipients(
+		c.Request.Context(),
+		c.GetString("user_id"),
+		contextIDs,
+		includeDescendants,
+	)
+	if err != nil {
+		response.Fail(
+			c,
+			http.StatusForbidden,
+			"HEALTH_CONTEXT_FORBIDDEN",
+			"one or more selected health contexts are not accessible",
+		)
+		return
+	}
+
+	if h.auditService != nil {
+		actorID, actorErr := uuid.Parse(strings.TrimSpace(c.GetString("user_id")))
+		if actorErr == nil {
+			_ = h.auditService.Log(
+				c.Request.Context(),
+				uuid.NullUUID{UUID: actorID, Valid: true},
+				"ANNOUNCEMENT_AUDIENCE_PREVIEWED",
+				map[string]any{
+					"health_context_ids":          uuidStrings(contextIDs),
+					"include_context_descendants": includeDescendants,
+					"resolved_recipient_count":    len(recipients),
+				},
+			)
+		}
+	}
+
+	response.OK(c, http.StatusOK, AnnouncementAudiencePreviewResponse{
+		RecipientCount: len(recipients),
+	})
 }
 
 func (h *Handler) UpdateAnnouncement(c *gin.Context) {
@@ -399,11 +514,12 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
-	clientIDs, userIDs, groupIDs, ok := parseAnnouncementAudienceSelection(
+	clientIDs, userIDs, groupIDs, healthContextIDs, ok := parseAnnouncementAudienceSelection(
 		req.AudienceType,
 		req.ClientIDs,
 		req.UserIDs,
 		req.GroupIDs,
+		req.HealthContextIDs,
 	)
 	if !ok {
 		response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "selected announcement audience is invalid or empty")
@@ -414,6 +530,25 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 			response.Fail(c, http.StatusBadRequest, "BAD_REQUEST", "one or more selected groups do not exist")
 			return
 		}
+	}
+	includeContextDescendants := strings.EqualFold(req.AudienceType, "HEALTH_CONTEXT_AND_DESCENDANTS")
+	healthContextRecipientCount := 0
+	if len(healthContextIDs) > 0 {
+		recipients, err := h.announcementService.ResolveHealthContextRecipients(
+			c.Request.Context(),
+			userID.String(),
+			healthContextIDs,
+			includeContextDescendants,
+		)
+		if err != nil {
+			response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "one or more selected health contexts are not accessible")
+			return
+		}
+		if len(recipients) == 0 {
+			response.Fail(c, http.StatusBadRequest, "EMPTY_AUDIENCE", "selected health contexts contain no eligible recipients")
+			return
+		}
+		healthContextRecipientCount = len(recipients)
 	}
 
 	input := UpdateAnnouncementInput{
@@ -461,6 +596,15 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update group audience")
 		return
 	}
+	if err := h.announcementService.ReplaceHealthContextAudience(
+		c.Request.Context(),
+		item.ID,
+		healthContextIDs,
+		includeContextDescendants,
+	); err != nil {
+		response.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update health context audience")
+		return
+	}
 
 	if h.auditService != nil {
 		_ = h.auditService.Log(
@@ -468,14 +612,17 @@ func (h *Handler) UpdateAnnouncement(c *gin.Context) {
 			uuid.NullUUID{UUID: userID, Valid: true},
 			"ANNOUNCEMENT_UPDATED",
 			map[string]any{
-				"announcement_id": item.ID.String(),
-				"title":           item.Title,
-				"level":           item.Level,
-				"priority":        item.Priority,
-				"status":          item.Status,
-				"is_pinned":       item.IsPinned,
-				"notify_by_email": item.NotifyByEmail,
-				"notify_by_sms":   req.NotifyBySMS,
+				"announcement_id":                  item.ID.String(),
+				"title":                            item.Title,
+				"level":                            item.Level,
+				"priority":                         item.Priority,
+				"status":                           item.Status,
+				"is_pinned":                        item.IsPinned,
+				"notify_by_email":                  item.NotifyByEmail,
+				"notify_by_sms":                    req.NotifyBySMS,
+				"health_context_ids":               uuidStrings(healthContextIDs),
+				"include_context_descendants":      includeContextDescendants,
+				"resolved_context_recipient_count": healthContextRecipientCount,
 			},
 		)
 	}

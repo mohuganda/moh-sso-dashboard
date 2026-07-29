@@ -13,10 +13,28 @@ import (
 )
 
 type SeedFile struct {
-	Systems          []SeedSystem          `json:"systems" yaml:"systems"`
-	RealmRoles       []SeedRealmRole       `json:"realmRoles" yaml:"realmRoles"`
-	Groups           []SeedGroup           `json:"groups,omitempty" yaml:"groups,omitempty"`
-	GroupMemberships []SeedGroupMembership `json:"groupMemberships,omitempty" yaml:"groupMemberships,omitempty"`
+	Systems              []SeedSystem              `json:"systems" yaml:"systems"`
+	RealmRoles           []SeedRealmRole           `json:"realmRoles" yaml:"realmRoles"`
+	Groups               []SeedGroup               `json:"groups,omitempty" yaml:"groups,omitempty"`
+	GroupMemberships     []SeedGroupMembership     `json:"groupMemberships,omitempty" yaml:"groupMemberships,omitempty"`
+	HealthContexts       []SeedHealthContext       `json:"healthContexts,omitempty" yaml:"healthContexts,omitempty"`
+	GroupContextMappings []SeedGroupContextMapping `json:"groupContextMappings,omitempty" yaml:"groupContextMappings,omitempty"`
+}
+
+type SeedHealthContext struct {
+	Code       string         `json:"code" yaml:"code"`
+	Name       string         `json:"name" yaml:"name"`
+	Type       string         `json:"type" yaml:"type"`
+	ParentCode string         `json:"parentCode,omitempty" yaml:"parentCode,omitempty"`
+	Source     string         `json:"source,omitempty" yaml:"source,omitempty"`
+	Enabled    *bool          `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+}
+
+type SeedGroupContextMapping struct {
+	GroupPath   string `json:"groupPath" yaml:"groupPath"`
+	ContextCode string `json:"contextCode" yaml:"contextCode"`
+	ScopeMode   string `json:"scopeMode" yaml:"scopeMode"`
 }
 
 type SeedSystem struct {
@@ -198,6 +216,31 @@ func ValidateSeed(seed SeedFile) error {
 	seenSystems := map[string]bool{}
 	systemRoles := map[string]map[string]bool{}
 	systemAccessRoles := map[string]map[string]bool{}
+	contextCodes := map[string]bool{}
+	for _, healthContext := range seed.HealthContexts {
+		code := strings.ToUpper(strings.TrimSpace(healthContext.Code))
+		if code == "" || strings.TrimSpace(healthContext.Name) == "" ||
+			!validHealthContextType(healthContext.Type) {
+			return fmt.Errorf("invalid health context %q", healthContext.Code)
+		}
+		if contextCodes[code] {
+			return fmt.Errorf("duplicate health context code %q", code)
+		}
+		contextCodes[code] = true
+	}
+	for _, healthContext := range seed.HealthContexts {
+		parentCode := strings.ToUpper(strings.TrimSpace(healthContext.ParentCode))
+		if parentCode != "" && !contextCodes[parentCode] {
+			return fmt.Errorf("health context %q references unknown parent %q", healthContext.Code, parentCode)
+		}
+	}
+	for _, mapping := range seed.GroupContextMappings {
+		if strings.TrimSpace(mapping.GroupPath) == "" ||
+			!contextCodes[strings.ToUpper(strings.TrimSpace(mapping.ContextCode))] ||
+			!validHealthContextScope(mapping.ScopeMode) {
+			return fmt.Errorf("invalid group health context mapping for %q", mapping.GroupPath)
+		}
+	}
 	for _, system := range seed.Systems {
 		system = NormalizeSystemBehavior(system)
 		clientID := strings.ToLower(strings.TrimSpace(system.ClientID))
@@ -317,6 +360,26 @@ func ValidateSeed(seed SeedFile) error {
 	}
 
 	return nil
+}
+
+func validHealthContextType(value string) bool {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "NATIONAL", "REGION", "DISTRICT", "CITY", "DIVISION", "MUNICIPALITY",
+		"COUNTY", "SUB_COUNTY", "PARISH", "FACILITY", "PROGRAM", "DEPARTMENT",
+		"TEAM", "CUSTOM":
+		return true
+	default:
+		return false
+	}
+}
+
+func validHealthContextScope(value string) bool {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "NODE_ONLY", "NODE_AND_DESCENDANTS":
+		return true
+	default:
+		return false
+	}
 }
 
 func FlattenGroups(groups []SeedGroup) []SeedGroup {
@@ -560,6 +623,18 @@ func DefaultSeed() SeedFile {
 	enabled := true
 
 	seed := SeedFile{
+		HealthContexts: []SeedHealthContext{
+			{
+				Code: "UG", Name: "Uganda", Type: "NATIONAL",
+				Source: "SYSTEM", Enabled: &enabled,
+			},
+		},
+		GroupContextMappings: []SeedGroupContextMapping{
+			{
+				GroupPath: "/MOH/Platform Administrators", ContextCode: "UG",
+				ScopeMode: "NODE_AND_DESCENDANTS",
+			},
+		},
 		Systems: []SeedSystem{
 			{
 				ClientID:               authz.SystemDashboardWeb,

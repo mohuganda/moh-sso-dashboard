@@ -32,6 +32,12 @@ type CreateDocumentInput struct {
 	Status           string
 	IsTemplate       bool
 	Metadata         map[string]any
+	HealthContextID  *uuid.UUID
+}
+
+type HealthContextScope struct {
+	ID                 uuid.UUID
+	IncludeDescendants bool
 }
 
 type EditDocumentInput struct {
@@ -158,6 +164,7 @@ func (s *Service) CreateDocument(
 			Status:            status,
 			Metadata:          metadata,
 			IsTemplate:        input.IsTemplate,
+			HealthContextID:   nullableUUID(input.HealthContextID),
 		},
 	)
 	if err != nil {
@@ -230,6 +237,24 @@ func (s *Service) CreateDocument(
 
 	s.notify(ctx, notification)
 
+	return doc, nil
+}
+
+func (s *Service) GetDocumentInScope(
+	ctx context.Context,
+	id uuid.UUID,
+	scope *HealthContextScope,
+) (db.Document, error) {
+	if scope == nil {
+		return s.GetDocument(ctx, id)
+	}
+	if scope.ID == uuid.Nil {
+		return db.Document{}, errors.New("health context id is required")
+	}
+	doc, err := s.repo.GetDocumentInHealthContext(ctx, id, *scope)
+	if err != nil {
+		return db.Document{}, fmt.Errorf("get document in health context: %w", err)
+	}
 	return doc, nil
 }
 
@@ -308,6 +333,17 @@ func (s *Service) EditDocument(
 	return doc, nil
 }
 
+func (s *Service) EditDocumentInScope(
+	ctx context.Context,
+	input EditDocumentInput,
+	scope *HealthContextScope,
+) (db.Document, error) {
+	if _, err := s.GetDocumentInScope(ctx, input.ID, scope); err != nil {
+		return db.Document{}, err
+	}
+	return s.EditDocument(ctx, input)
+}
+
 func (s *Service) DeleteDocument(
 	ctx context.Context,
 	id uuid.UUID,
@@ -354,6 +390,17 @@ func (s *Service) DeleteDocument(
 	return nil
 }
 
+func (s *Service) DeleteDocumentInScope(
+	ctx context.Context,
+	id uuid.UUID,
+	scope *HealthContextScope,
+) error {
+	if _, err := s.GetDocumentInScope(ctx, id, scope); err != nil {
+		return err
+	}
+	return s.DeleteDocument(ctx, id)
+}
+
 func (s *Service) ListDocuments(
 	ctx context.Context,
 	page models.Pagination,
@@ -367,6 +414,20 @@ func (s *Service) ListDocuments(
 	}
 
 	return s.repo.ListDocuments(ctx, page)
+}
+
+func (s *Service) ListDocumentsInScope(
+	ctx context.Context,
+	scope *HealthContextScope,
+	page models.Pagination,
+) ([]db.Document, error) {
+	if scope == nil {
+		return s.ListDocuments(ctx, page)
+	}
+	if scope.ID == uuid.Nil {
+		return nil, errors.New("health context id is required")
+	}
+	return s.repo.ListDocumentsInHealthContext(ctx, *scope, page)
 }
 
 func (s *Service) ListProcessesByDocument(
@@ -391,6 +452,21 @@ func (s *Service) ListProcessesByDocument(
 		return nil, fmt.Errorf("get document before listing processes: %w", err)
 	}
 
+	return s.repo.ListProcessesByDocument(ctx, docUUID)
+}
+
+func (s *Service) ListProcessesByDocumentInScope(
+	ctx context.Context,
+	documentID string,
+	scope *HealthContextScope,
+) ([]db.Process, error) {
+	docUUID, err := uuid.Parse(documentID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid document id: %w", err)
+	}
+	if _, err = s.GetDocumentInScope(ctx, docUUID, scope); err != nil {
+		return nil, err
+	}
 	return s.repo.ListProcessesByDocument(ctx, docUUID)
 }
 
@@ -493,6 +569,17 @@ func (s *Service) Reprocess(
 	s.notify(ctx, notification)
 
 	return nil
+}
+
+func (s *Service) ReprocessInScope(
+	ctx context.Context,
+	documentID uuid.UUID,
+	scope *HealthContextScope,
+) error {
+	if _, err := s.GetDocumentInScope(ctx, documentID, scope); err != nil {
+		return err
+	}
+	return s.Reprocess(ctx, documentID)
 }
 
 func (s *Service) MarkDocumentProcessing(

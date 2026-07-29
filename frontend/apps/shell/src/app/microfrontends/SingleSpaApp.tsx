@@ -7,7 +7,7 @@ import {
   type MicrofrontendLifecycle,
   type MicrofrontendRuntimeProps,
 } from "@moh-sso/microfrontend";
-import { selectAuthenticated, selectUser } from "@moh-sso/auth";
+import { selectAuthenticated, selectUser, useHealthContext } from "@moh-sso/auth";
 import { MicrofrontendErrorBoundary } from "@moh-sso/ui";
 import { microfrontendContainerId } from "./containers";
 import {
@@ -29,6 +29,7 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
   const location = useLocation();
   const shellUser = useSelector(selectUser);
   const shellAuthenticated = useSelector(selectAuthenticated);
+  const shellHealthContext = useHealthContext();
   const { apiBaseUrl, eventBus } = runtimeProps;
   const auth = useMemo(
     () =>
@@ -37,6 +38,20 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
         user: shellUser ?? undefined,
       },
     [runtimeProps.auth, shellAuthenticated, shellUser],
+  );
+  const healthContext = useMemo(
+    () =>
+      runtimeProps.healthContext ?? {
+        activeContext: shellHealthContext.activeContext,
+        contexts: shellHealthContext.contexts,
+        selectContext: shellHealthContext.selectContext,
+      },
+    [
+      runtimeProps.healthContext,
+      shellHealthContext.activeContext,
+      shellHealthContext.contexts,
+      shellHealthContext.selectContext,
+    ],
   );
   const orchestrationRequested = shouldUseSingleSpaOrchestration();
   const [orchestrationState, setOrchestrationState] = useState(() => ({
@@ -71,13 +86,17 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
 
   useEffect(() => {
     window.__MOH_SSO_AUTH__ = auth;
+    window.__MOH_SSO_HEALTH_CONTEXT__ = healthContext;
 
     return () => {
       if (window.__MOH_SSO_AUTH__ === auth) {
         delete window.__MOH_SSO_AUTH__;
       }
+      if (window.__MOH_SSO_HEALTH_CONTEXT__ === healthContext) {
+        delete window.__MOH_SSO_HEALTH_CONTEXT__;
+      }
     };
-  }, [auth]);
+  }, [auth, healthContext]);
 
   useEffect(() => {
     if (orchestrationRequested && !orchestrationState.started && !orchestrationState.unavailable) {
@@ -96,7 +115,7 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
     }
 
     let disposed = false;
-    const props = { apiBaseUrl, auth, basename, eventBus, domElement };
+    const props = { apiBaseUrl, auth, basename, eventBus, healthContext, domElement };
     let mountedLifecycles: MicrofrontendLifecycle | null = null;
 
     const loadAndMount = async () => {
@@ -137,7 +156,16 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
         domElement.innerHTML = "";
       }
     };
-  }, [apiBaseUrl, appName, auth, basename, eventBus, lifecycles, shouldMountLocally]);
+  }, [
+    apiBaseUrl,
+    appName,
+    auth,
+    basename,
+    eventBus,
+    healthContext,
+    lifecycles,
+    shouldMountLocally,
+  ]);
 
   return (
     <MicrofrontendErrorBoundary appName={appName}>

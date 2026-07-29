@@ -17,6 +17,23 @@ export type MicrofrontendRuntimeProps = {
   };
   apiBaseUrl?: string;
   eventBus?: EventBus;
+  healthContext?: {
+    activeContext?: {
+      id: string;
+      code: string;
+      name: string;
+      contextType: string;
+    };
+    contexts: Array<{
+      id: string;
+      code: string;
+      name: string;
+      contextType: string;
+      scopeMode: string;
+      assignmentType: string;
+    }>;
+    selectContext?: (contextId: string) => Promise<void>;
+  };
 };
 
 export type MicrofrontendMountProps = MicrofrontendRuntimeProps & {
@@ -26,5 +43,6 @@ export type MicrofrontendMountProps = MicrofrontendRuntimeProps & {
 declare global {
   interface Window {
     __MOH_SSO_AUTH__?: MicrofrontendRuntimeProps["auth"];
+    __MOH_SSO_HEALTH_CONTEXT__?: MicrofrontendRuntimeProps["healthContext"];
   }
 }

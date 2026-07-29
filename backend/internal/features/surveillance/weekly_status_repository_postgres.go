@@ -45,11 +45,46 @@ func (r *postgresWeeklyStatusRepository) List(
 	return r.db.ListWeeklyStatuses(ctx, arg)
 }
 
+func (r *postgresWeeklyStatusRepository) ListInHealthContext(
+	ctx context.Context,
+	arg db.ListWeeklyStatusesParams,
+	scope HealthContextScope,
+) ([]db.WeeklyStatus, error) {
+	return r.db.ListWeeklyStatusesInHealthContext(ctx, db.ListWeeklyStatusesInHealthContextParams{
+		EpiWeekID: arg.EpiWeekID, RegionID: arg.RegionID, DistrictID: arg.DistrictID,
+		SubCountyID: arg.SubCountyID, DiseaseID: arg.DiseaseID, IndicatorID: arg.IndicatorID,
+		Status: arg.Status, HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+	})
+}
+
 func (r *postgresWeeklyStatusRepository) ListDetailed(
 	ctx context.Context,
 	arg db.ListWeeklyStatusesDetailedParams,
 ) ([]db.ListWeeklyStatusesDetailedRow, error) {
 	return r.db.ListWeeklyStatusesDetailed(ctx, arg)
+}
+
+func (r *postgresWeeklyStatusRepository) ListDetailedInHealthContext(
+	ctx context.Context,
+	arg db.ListWeeklyStatusesDetailedParams,
+	scope HealthContextScope,
+) ([]db.ListWeeklyStatusesDetailedRow, error) {
+	rows, err := r.db.ListWeeklyStatusesDetailedInHealthContext(
+		ctx,
+		db.ListWeeklyStatusesDetailedInHealthContextParams{
+			EpiWeekID: arg.EpiWeekID, RegionID: arg.RegionID, DistrictID: arg.DistrictID,
+			SubCountyID: arg.SubCountyID, DiseaseID: arg.DiseaseID, IndicatorID: arg.IndicatorID,
+			Status: arg.Status, HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]db.ListWeeklyStatusesDetailedRow, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, db.ListWeeklyStatusesDetailedRow(row))
+	}
+	return items, nil
 }
 
 func (r *postgresWeeklyStatusRepository) ListByWeek(

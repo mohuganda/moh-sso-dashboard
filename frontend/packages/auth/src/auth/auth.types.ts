@@ -18,6 +18,45 @@ export interface AuthUser {
   lastLoginAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  healthContexts?: EffectiveHealthContext[];
+  activeHealthContext?: EffectiveHealthContext;
+}
+
+export type HealthContextType =
+  | "NATIONAL"
+  | "REGION"
+  | "DISTRICT"
+  | "CITY"
+  | "DIVISION"
+  | "MUNICIPALITY"
+  | "COUNTY"
+  | "SUB_COUNTY"
+  | "PARISH"
+  | "FACILITY"
+  | "PROGRAM"
+  | "DEPARTMENT"
+  | "TEAM"
+  | "CUSTOM";
+
+export type HealthContextScopeMode = "NODE_ONLY" | "NODE_AND_DESCENDANTS";
+
+export interface EffectiveHealthContext {
+  id: string;
+  code: string;
+  name: string;
+  contextType: HealthContextType;
+  parentId?: string;
+  source: string;
+  metadata: Record<string, unknown>;
+  enabled: boolean;
+  version: number;
+  scopeMode: HealthContextScopeMode;
+  assignmentType: "DIRECT" | "GROUP";
+  assignmentId: string;
+  sourceGroupId?: string;
+  sourceGroupPath?: string;
+  isDefault: boolean;
+  isActive: boolean;
 }
 
 export interface SystemAccess {

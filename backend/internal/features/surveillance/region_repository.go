@@ -12,6 +12,7 @@ type RegionRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (db.Region, error)
 	GetByName(ctx context.Context, name string) (db.Region, error)
 	List(ctx context.Context) ([]db.Region, error)
+	ListInHealthContext(ctx context.Context, scope HealthContextScope) ([]db.Region, error)
 	Upsert(ctx context.Context, arg db.UpsertRegionParams) (db.Region, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }

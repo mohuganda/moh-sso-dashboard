@@ -25,11 +25,12 @@ INSERT INTO documents (
     uploaded_by,
     status,
     metadata,
-    is_template
+    is_template,
+    health_context_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
-RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 `
 
 type CreateDocumentParams struct {
@@ -44,6 +45,7 @@ type CreateDocumentParams struct {
 	Status            DocumentStatus  `json:"status"`
 	Metadata          json.RawMessage `json:"metadata"`
 	IsTemplate        bool            `json:"is_template"`
+	HealthContextID   uuid.NullUUID   `json:"health_context_id"`
 }
 
 func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error) {
@@ -59,6 +61,7 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		arg.Status,
 		arg.Metadata,
 		arg.IsTemplate,
+		arg.HealthContextID,
 	)
 	var i Document
 	err := row.Scan(
@@ -81,6 +84,7 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.HealthContextID,
 	)
 	return i, err
 }
@@ -96,7 +100,7 @@ func (q *Queries) DeleteDocument(ctx context.Context, id uuid.UUID) error {
 }
 
 const getDocumentByID = `-- name: GetDocumentByID :one
-SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 FROM documents
 WHERE id = $1
 `
@@ -124,12 +128,65 @@ func (q *Queries) GetDocumentByID(ctx context.Context, id uuid.UUID) (Document, 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.HealthContextID,
+	)
+	return i, err
+}
+
+const getDocumentByIDInHealthContext = `-- name: GetDocumentByIDInHealthContext :one
+SELECT d.id, d.original_filename, d.normalized_filename, d.content_type, d.extension, d.size_bytes, d.checksum_sha256, d.storage_location_id, d.object_key, d.uploaded_by, d.status, d.version, d.parent_document_id, d.metadata, d.tags, d.is_template, d.created_at, d.updated_at, d.deleted_at, d.health_context_id
+FROM documents d
+WHERE d.id = $1
+  AND (
+      d.health_context_id = $2
+      OR (
+          $3::boolean
+          AND EXISTS (
+              SELECT 1
+              FROM health_context_closure hc
+              WHERE hc.ancestor_id = $2
+                AND hc.descendant_id = d.health_context_id
+          )
+      )
+  )
+`
+
+type GetDocumentByIDInHealthContextParams struct {
+	ID                 uuid.UUID     `json:"id"`
+	HealthContextID    uuid.NullUUID `json:"health_context_id"`
+	IncludeDescendants bool          `json:"include_descendants"`
+}
+
+func (q *Queries) GetDocumentByIDInHealthContext(ctx context.Context, arg GetDocumentByIDInHealthContextParams) (Document, error) {
+	row := q.db.QueryRowContext(ctx, getDocumentByIDInHealthContext, arg.ID, arg.HealthContextID, arg.IncludeDescendants)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalFilename,
+		&i.NormalizedFilename,
+		&i.ContentType,
+		&i.Extension,
+		&i.SizeBytes,
+		&i.ChecksumSha256,
+		&i.StorageLocationID,
+		&i.ObjectKey,
+		&i.UploadedBy,
+		&i.Status,
+		&i.Version,
+		&i.ParentDocumentID,
+		&i.Metadata,
+		&i.Tags,
+		&i.IsTemplate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.HealthContextID,
 	)
 	return i, err
 }
 
 const listDocuments = `-- name: ListDocuments :many
-SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 FROM documents
 WHERE is_template = FALSE
 ORDER BY created_at DESC
@@ -170,6 +227,7 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.HealthContextID,
 		); err != nil {
 			return nil, err
 		}
@@ -185,7 +243,7 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 }
 
 const listDocumentsByStatus = `-- name: ListDocumentsByStatus :many
-SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 FROM documents
 WHERE status = $1
 ORDER BY created_at DESC
@@ -227,6 +285,7 @@ func (q *Queries) ListDocumentsByStatus(ctx context.Context, arg ListDocumentsBy
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.HealthContextID,
 		); err != nil {
 			return nil, err
 		}
@@ -242,7 +301,7 @@ func (q *Queries) ListDocumentsByStatus(ctx context.Context, arg ListDocumentsBy
 }
 
 const listDocumentsByUser = `-- name: ListDocumentsByUser :many
-SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+SELECT id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 FROM documents
 WHERE uploaded_by = $1
 ORDER BY created_at DESC
@@ -284,6 +343,83 @@ func (q *Queries) ListDocumentsByUser(ctx context.Context, arg ListDocumentsByUs
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.HealthContextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDocumentsInHealthContext = `-- name: ListDocumentsInHealthContext :many
+SELECT d.id, d.original_filename, d.normalized_filename, d.content_type, d.extension, d.size_bytes, d.checksum_sha256, d.storage_location_id, d.object_key, d.uploaded_by, d.status, d.version, d.parent_document_id, d.metadata, d.tags, d.is_template, d.created_at, d.updated_at, d.deleted_at, d.health_context_id
+FROM documents d
+WHERE d.is_template = FALSE
+  AND (
+      d.health_context_id = $1
+      OR (
+          $2::boolean
+          AND EXISTS (
+              SELECT 1
+              FROM health_context_closure hc
+              WHERE hc.ancestor_id = $1
+                AND hc.descendant_id = d.health_context_id
+          )
+      )
+  )
+ORDER BY d.created_at DESC
+LIMIT $4 OFFSET $3
+`
+
+type ListDocumentsInHealthContextParams struct {
+	HealthContextID    uuid.NullUUID `json:"health_context_id"`
+	IncludeDescendants bool          `json:"include_descendants"`
+	ResultOffset       int32         `json:"result_offset"`
+	ResultLimit        int32         `json:"result_limit"`
+}
+
+func (q *Queries) ListDocumentsInHealthContext(ctx context.Context, arg ListDocumentsInHealthContextParams) ([]Document, error) {
+	rows, err := q.db.QueryContext(ctx, listDocumentsInHealthContext,
+		arg.HealthContextID,
+		arg.IncludeDescendants,
+		arg.ResultOffset,
+		arg.ResultLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Document{}
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.OriginalFilename,
+			&i.NormalizedFilename,
+			&i.ContentType,
+			&i.Extension,
+			&i.SizeBytes,
+			&i.ChecksumSha256,
+			&i.StorageLocationID,
+			&i.ObjectKey,
+			&i.UploadedBy,
+			&i.Status,
+			&i.Version,
+			&i.ParentDocumentID,
+			&i.Metadata,
+			&i.Tags,
+			&i.IsTemplate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.HealthContextID,
 		); err != nil {
 			return nil, err
 		}
@@ -303,7 +439,7 @@ UPDATE documents
 SET status = 'COMPLETED',
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 `
 
 func (q *Queries) MarkDocumentCompleted(ctx context.Context, id uuid.UUID) (Document, error) {
@@ -329,6 +465,7 @@ func (q *Queries) MarkDocumentCompleted(ctx context.Context, id uuid.UUID) (Docu
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.HealthContextID,
 	)
 	return i, err
 }
@@ -338,7 +475,7 @@ UPDATE documents
 SET status = 'FAILED',
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 `
 
 func (q *Queries) MarkDocumentFailed(ctx context.Context, id uuid.UUID) (Document, error) {
@@ -364,6 +501,7 @@ func (q *Queries) MarkDocumentFailed(ctx context.Context, id uuid.UUID) (Documen
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.HealthContextID,
 	)
 	return i, err
 }
@@ -373,7 +511,7 @@ UPDATE documents
 SET status = 'PENDING',
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 `
 
 func (q *Queries) MarkDocumentPending(ctx context.Context, id uuid.UUID) (Document, error) {
@@ -399,6 +537,7 @@ func (q *Queries) MarkDocumentPending(ctx context.Context, id uuid.UUID) (Docume
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.HealthContextID,
 	)
 	return i, err
 }
@@ -408,7 +547,7 @@ UPDATE documents
 SET status = 'PROCESSING',
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 `
 
 func (q *Queries) MarkDocumentProcessing(ctx context.Context, id uuid.UUID) (Document, error) {
@@ -434,6 +573,7 @@ func (q *Queries) MarkDocumentProcessing(ctx context.Context, id uuid.UUID) (Doc
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.HealthContextID,
 	)
 	return i, err
 }
@@ -444,7 +584,7 @@ SET original_filename = $2,
     content_type = $3,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 `
 
 type UpdateDocumentParams struct {
@@ -476,6 +616,7 @@ func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.HealthContextID,
 	)
 	return i, err
 }
@@ -485,7 +626,7 @@ UPDATE documents
 SET status = $2,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at
+RETURNING id, original_filename, normalized_filename, content_type, extension, size_bytes, checksum_sha256, storage_location_id, object_key, uploaded_by, status, version, parent_document_id, metadata, tags, is_template, created_at, updated_at, deleted_at, health_context_id
 `
 
 type UpdateDocumentStatusParams struct {
@@ -516,6 +657,7 @@ func (q *Queries) UpdateDocumentStatus(ctx context.Context, arg UpdateDocumentSt
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.HealthContextID,
 	)
 	return i, err
 }
