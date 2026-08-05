@@ -37,6 +37,7 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
   const [orgUnits, setOrgUnits] = useState<any>({});
   const { data: hierarchyData, isLoading, error:hierarchyDataError} = useGetHierarchyQuery();
   const [orgSearchTerm, setOrgSearchTerm] = useState("");
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
   const [availablePeriods, setAvailablePeriods] = useState(getAvailablePeriods(initialPeriodType, CURRENT_YEAR));
   const [selectedPeriodType, setSelectedPeriodType] = useState(!isEdit ? initialPeriodType : "");
@@ -122,10 +123,22 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
   },[]);
 
   const handleSelect = (name: string) => {
-    setSelectedOrgUnit(name);
+    setSelectedOrgUnit((prev) => (prev === name ? "" : name));
     setOrgSearchTerm("");
     setTimeout(() => setIsOrgExpanded(false), 150);
   };
+
+  const handleToggleNode = useCallback((nodeId: string, isExpanded: boolean) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (isExpanded) {
+        next.add(nodeId);
+      } else {
+        next.delete(nodeId);
+      }
+      return next;
+    });
+  }, []);
 
   const renderRecursive = (nodes: any[], idPrefix: string = "modal-org") => {
     if (!nodes || !Array.isArray(nodes)) return [];
@@ -138,7 +151,9 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
                 node={node}
                 searchTerm={orgSearchTerm}
                 selectedOrgUnit={selectedOrgUnit}
+                expandedNodes={expandedNodes}
                 onSelect={handleSelect}
+                onToggleNode={handleToggleNode}
                 renderRecursive={renderRecursive}
                 idPrefix={idPrefix}
             />

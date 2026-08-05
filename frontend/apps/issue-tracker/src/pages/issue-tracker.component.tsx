@@ -171,6 +171,8 @@ const IssueTracker = () => {
 
   const [orgSearchTerm, setOrgSearchTerm] = useState("");
 
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
   const [isOrgPopoverOpen, setIsOrgPopoverOpen] = useState(false);
 
   const orgPopoverRef = useRef<HTMLDivElement>(null);
@@ -350,13 +352,51 @@ const IssueTracker = () => {
   }, [data, error, isLoading]);
 
   const filteredIssues = useMemo(() => {
+    let result = issues;
+
+    if (selectedOrgUnit) {
+      const targetOrg = selectedOrgUnit.trim().toLowerCase();
+      result = result.filter(
+        (issue) => issue.org_unit?.trim().toLowerCase() === targetOrg,
+      );
+    }
+
+    if (selectedDataset) {
+      const targetDataset = selectedDataset.trim().toLowerCase();
+      result = result.filter(
+        (issue) => issue.dataset?.trim().toLowerCase() === targetDataset,
+      );
+    }
+
+    if (selectedDataElement) {
+      const targetElement = selectedDataElement.trim().toLowerCase();
+      result = result.filter(
+        (issue) => issue.data_element?.trim().toLowerCase() === targetElement,
+      );
+    }
+
+    if (selectedPeriod) {
+      const targetPeriod = selectedPeriod.trim().toLowerCase();
+      result = result.filter(
+        (issue) =>
+          issue.time_period?.trim().toLowerCase() === targetPeriod ||
+          issue.time_Period?.trim().toLowerCase() === targetPeriod,
+      );
+    } else if (selectedYear && selectedYear !== currentYear) {
+      const yearStr = String(selectedYear);
+      result = result.filter(
+        (issue) =>
+          issue.time_period?.includes(yearStr) || issue.time_Period?.includes(yearStr),
+      );
+    }
+
     const searchTerm = tableSearchTerm.trim().toLowerCase();
 
     if (!searchTerm) {
-      return issues;
+      return result;
     }
 
-    return issues.filter((issue) =>
+    return result.filter((issue) =>
       [
         issue.issue_code,
         issue.dataset,
@@ -370,7 +410,16 @@ const IssueTracker = () => {
         issue.severity,
       ].some((field) => containsSearchTerm(field, searchTerm)),
     );
-  }, [issues, tableSearchTerm]);
+  }, [
+    issues,
+    selectedOrgUnit,
+    selectedDataset,
+    selectedDataElement,
+    selectedPeriod,
+    selectedYear,
+    currentYear,
+    tableSearchTerm,
+  ]);
 
   const handleIssueClick = (row: { id?: string }) => {
     const selectedItem = issues.find((item) => String(item.issue_id) === String(row.id ?? ""));
@@ -454,8 +503,20 @@ const IssueTracker = () => {
   }, []);
 
   const handleOrgSelect = (name: string) => {
-    setSelectedOrgUnit(name);
+    setSelectedOrgUnit((prev) => (prev === name ? "" : name));
   };
+
+  const handleToggleNode = useCallback((nodeId: string, isExpanded: boolean) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (isExpanded) {
+        next.add(nodeId);
+      } else {
+        next.delete(nodeId);
+      }
+      return next;
+    });
+  }, []);
 
   const renderRecursive = (nodes: OrgUnit[], idPrefix = "filter-org"): ReactNode[] => {
     if (!Array.isArray(nodes)) {
@@ -470,7 +531,9 @@ const IssueTracker = () => {
           node={node}
           searchTerm={orgSearchTerm}
           selectedOrgUnit={selectedOrgUnit}
+          expandedNodes={expandedNodes}
           onSelect={handleOrgSelect}
+          onToggleNode={handleToggleNode}
           renderRecursive={renderRecursive}
           idPrefix={idPrefix}
         />
@@ -486,6 +549,8 @@ const IssueTracker = () => {
       orgUnit?: string;
     } = {},
   ) => {
+    closeAllPopovers();
+
     const sourceRows = data as Issue[] | undefined;
 
     if (!sourceRows) {
@@ -915,7 +980,7 @@ const IssueTracker = () => {
             <DataList
               columns={headers}
               data={filteredIssues}
-              totalItems={data?.totalCount ?? 0}
+              totalItems={hasActiveFilters || Boolean(tableSearchTerm) ? filteredIssues.length : (data?.totalCount ?? 0)}
               currentPage={page}
               currentPageSize={pageSize}
               onPageChange={(newPage, newPageSize) => {
