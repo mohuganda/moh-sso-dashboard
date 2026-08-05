@@ -33,6 +33,7 @@ type FileRepository interface {
 	SoftDeleteBySheet(
 		ctx context.Context,
 		tx *sql.Tx,
+		documentID uuid.UUID,
 		templateCode, sheetCode string,
 		keepHashes []string,
 	) error

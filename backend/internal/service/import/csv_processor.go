@@ -2,11 +2,8 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/csv"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -192,20 +189,14 @@ func (c *CSVProcessor) Process(
 			}
 		}
 
-		jsonBytes, err := json.Marshal(rowJSON)
-		if err != nil {
-			return err
-		}
-
-		sum := sha256.Sum256(jsonBytes)
-		hash := hex.EncodeToString(sum[:])
-
 		rowData := make(map[string]any, len(rowJSON))
 		for k, v := range rowJSON {
 			rowData[k] = v
 		}
 
 		rowCount++
+		hash := hashRawData(doc.ID, sheetCode, rowCount, rowData)
+
 		batch = append(batch, documentRepository.CustomImportRow{
 			FileKey:      fileKey,
 			DocumentID:   doc.ID,
@@ -246,7 +237,7 @@ func (c *CSVProcessor) Process(
 			return err
 		}
 
-		if err := c.fileRepository.SoftDeleteBySheet(ctx, tx, templateCode, sheetCode, allHashes); err != nil {
+		if err := c.fileRepository.SoftDeleteBySheet(ctx, tx, doc.ID, templateCode, sheetCode, allHashes); err != nil {
 			_ = tx.Rollback()
 			return err
 		}

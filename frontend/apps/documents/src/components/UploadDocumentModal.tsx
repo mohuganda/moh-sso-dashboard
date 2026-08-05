@@ -405,6 +405,7 @@ function UploadDocumentModalContent({ onClose }: UploadDocumentModalProps) {
         ...(metadata ? { metadata } : {}),
       }).unwrap();
 
+      handleClearFile();
       onClose();
     } catch (caughtError: unknown) {
       const responseMessage =

@@ -331,6 +331,7 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
         })),
       }).unwrap();
 
+      handleClearFile();
       onClose();
     } catch (caughtError: unknown) {
       if (uploadedDocId) {
