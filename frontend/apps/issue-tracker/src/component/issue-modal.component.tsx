@@ -112,6 +112,28 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
     }
   };
 
+  const findAncestorsInTree = (
+    nodes: any[],
+    targetName: string,
+    path: any[] = [],
+  ): any[] | null => {
+    if (!nodes || !Array.isArray(nodes) || !targetName) return null;
+    const targetLower = targetName.trim().toLowerCase();
+
+    for (const node of nodes) {
+      const currentPath = [...path, node];
+      if (node.name?.trim().toLowerCase() === targetLower) {
+        return currentPath;
+      }
+      if (node.children && Array.isArray(node.children)) {
+        const found = findAncestorsInTree(node.children, targetName, currentPath);
+        if (found) return found;
+      }
+    }
+
+    return null;
+  };
+
   const nodeMatchesSearch = useCallback((node: any, term: string): boolean => {
     if (node.name.toLowerCase().includes(term.toLowerCase())) {
       return true;
@@ -180,6 +202,21 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
     setSelectedPeriod(event?.selectedItem);
   }
 
+  const getResolvedRegionAndDistrict = () => {
+    const ancestors = findAncestorsInTree(hierarchyData || [], selectedOrgUnit);
+    let region = "";
+    let district = "";
+
+    if (ancestors && ancestors.length > 1) {
+      region = ancestors[1]?.name ?? "";
+    }
+    if (ancestors && ancestors.length > 2) {
+      district = ancestors[2]?.name ?? "";
+    }
+
+    return { region, district };
+  };
+
   return (
       <Modal
           aria-label="issue-modal"
@@ -188,19 +225,23 @@ export const IssueModal = ({ onClose, selectedIssue }: { onClose: () => void, se
           primaryButtonText={(isCreating || isUpdating) ? "Saving..." : "Submit Issue"}
           secondaryButtonText="Cancel"
           onRequestClose={onClose}
-          onRequestSubmit={() => handleSubmit({
-            dataset: selectedDataset,
-            data_element: selectedDataElement,
-            org_unit: selectedOrgUnit,
-            issue: description,
-            issue_type: selectedIssueType,
-            reported_by: user?.username,
-            updated_by: isEdit ? user?.username : "",
-            priority: isEdit ? priority : "",
-            severity: isEdit ? severity : "",
-            time_period: selectedPeriod
-
-          })}
+          onRequestSubmit={() => {
+            const { region, district } = getResolvedRegionAndDistrict();
+            handleSubmit({
+              dataset: selectedDataset,
+              data_element: selectedDataElement,
+              org_unit: selectedOrgUnit,
+              region,
+              district,
+              issue: description,
+              issue_type: selectedIssueType,
+              reported_by: user?.username,
+              updated_by: isEdit ? user?.username : "",
+              priority: isEdit ? priority : "",
+              severity: isEdit ? severity : "",
+              time_period: selectedPeriod,
+            });
+          }}
       >
         <p style={{ marginBottom: '2rem' }}>
           Register a new issue relating to any data anomalies, the causes to it if they are known.

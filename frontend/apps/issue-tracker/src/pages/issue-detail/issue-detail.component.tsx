@@ -240,6 +240,18 @@ const IssueDetail = ({
                   <strong>Organization Unit:</strong> {selectedIssue?.org_unit}
                 </p>
 
+                {selectedIssue?.region && (
+                  <p className="issue-p-top">
+                    <strong>Region:</strong> {selectedIssue.region}
+                  </p>
+                )}
+
+                {selectedIssue?.district && (
+                  <p className="issue-p-top">
+                    <strong>District:</strong> {selectedIssue.district}
+                  </p>
+                )}
+
                 <p className="issue-p-top">
                   <strong>Dataset:</strong> {selectedIssue?.dataset}
                 </p>

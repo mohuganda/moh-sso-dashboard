@@ -39,6 +39,8 @@ export type Issue = {
   dataset: string;
   data_element: string;
   org_unit: string;
+  region?: string;
+  district?: string;
   issue: string;
   date_reported: string;
   reported_by: string;
@@ -80,6 +82,48 @@ function containsSearchTerm(value: unknown, searchTerm: string): boolean {
   return String(value ?? "")
     .toLowerCase()
     .includes(searchTerm);
+}
+
+function findNodeAndCollectSubtreeNames(
+  nodes: OrgUnit[],
+  targetName: string,
+): Set<string> {
+  const result = new Set<string>();
+  const targetLower = targetName.trim().toLowerCase();
+
+  const collectAll = (node: OrgUnit) => {
+    if (node.name) {
+      result.add(node.name.trim().toLowerCase());
+    }
+    if (node.children && Array.isArray(node.children)) {
+      node.children.forEach(collectAll);
+    }
+  };
+
+  const searchAndCollect = (nodeList: OrgUnit[]): boolean => {
+    for (const node of nodeList) {
+      if (node.name?.trim().toLowerCase() === targetLower) {
+        collectAll(node);
+        return true;
+      }
+      if (node.children && Array.isArray(node.children)) {
+        if (searchAndCollect(node.children)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  if (Array.isArray(nodes)) {
+    searchAndCollect(nodes);
+  }
+
+  if (result.size === 0) {
+    result.add(targetLower);
+  }
+
+  return result;
 }
 
 const PROGRAM_COLORS = [
@@ -229,6 +273,8 @@ const IssueTracker = () => {
    * ----------------------------- */
   const EXPORT_COLUMNS: { key: string; header: string }[] = [
     ...headers,
+    { key: "region", header: "Region" },
+    { key: "district", header: "District" },
     { key: "time_period", header: "Reporting Period" },
     { key: "issue_type", header: "Issue Type" },
     { key: "priority", header: "Priority" },
@@ -245,6 +291,8 @@ const IssueTracker = () => {
         "Example Dataset",
         "Example Data Element",
         "Example Org Unit",
+        "Central Region",
+        "Kampala District",
         "Example issue description",
         "Outliers",
         "High",
@@ -355,10 +403,22 @@ const IssueTracker = () => {
     let result = issues;
 
     if (selectedOrgUnit) {
-      const targetOrg = selectedOrgUnit.trim().toLowerCase();
-      result = result.filter(
-        (issue) => issue.org_unit?.trim().toLowerCase() === targetOrg,
+      const targetNamesSet = findNodeAndCollectSubtreeNames(
+        hierarchyData as OrgUnit[],
+        selectedOrgUnit,
       );
+
+      result = result.filter((issue) => {
+        const issueOrg = issue.org_unit?.trim().toLowerCase();
+        const issueRegion = issue.region?.trim().toLowerCase();
+        const issueDistrict = issue.district?.trim().toLowerCase();
+
+        return (
+          (issueOrg && targetNamesSet.has(issueOrg)) ||
+          (issueRegion && targetNamesSet.has(issueRegion)) ||
+          (issueDistrict && targetNamesSet.has(issueDistrict))
+        );
+      });
     }
 
     if (selectedDataset) {
@@ -412,6 +472,7 @@ const IssueTracker = () => {
     );
   }, [
     issues,
+    hierarchyData,
     selectedOrgUnit,
     selectedDataset,
     selectedDataElement,
