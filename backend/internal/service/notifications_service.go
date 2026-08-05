@@ -618,6 +618,10 @@ func (s *notificationsService) NotifySystemStartup(
 	ctx context.Context,
 	version string,
 ) {
+	if s == nil || s.notificationsRepo == nil {
+		return
+	}
+
 	nt := model.SystemStartup
 
 	title := nt.Title()
