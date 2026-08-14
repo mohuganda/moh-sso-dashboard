@@ -108,7 +108,7 @@ services:
       - "9000:9000"
     volumes:
       - ./backend:/app
-    command: sh -c "go run ./cmd/server"
+    command: air -c .air.toml
     depends_on:
       - backend-db
       - redis

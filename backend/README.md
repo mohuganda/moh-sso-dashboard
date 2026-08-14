@@ -85,6 +85,38 @@ The same check runs inside `go test ./...`. Approved cross-feature imports are d
 
 Keep new construction logic in bootstrap. Feature code should receive dependencies through constructors, not create infrastructure directly.
 
+## Local Development With Auto-Reload
+
+The development backend image includes [Air](https://github.com/air-verse/air), configured by `backend/.air.toml`. Both development Compose variants bind-mount `backend/` into `/app`, so changing a Go file automatically rebuilds and restarts the API process inside the existing container.
+
+Start the full local stack:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Or use the development stack connected to an external Keycloak instance:
+
+```bash
+docker compose -f docker-compose-without-keycloak.yml up --build
+```
+
+Follow backend rebuild and application logs:
+
+```bash
+docker compose -f docker-compose.dev.yml logs -f backend
+```
+
+Air watches Go, template, and YAML files. Test files are excluded, while generated sqlc Go files remain watched so regenerated database code reloads the API. A compile error leaves the container running and Air rebuilds again when the source is corrected.
+
+When `Dockerfile.dev`, `.air.toml`, `go.mod`, or `go.sum` changes, rebuild the development image:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --build backend
+```
+
+This behavior is development-only. The production `backend/Dockerfile` continues to build and run an immutable compiled binary.
+
 ## API Response Rules
 
 Handlers should return feature-owned DTOs, not raw SQL rows or database models.
