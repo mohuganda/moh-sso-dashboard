@@ -11,15 +11,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/http/response"
+	"github.com/moh-sso-dashboard/internal/keycloak"
 )
 
 type Handler struct {
-	service Service
+	service        Service
+	keyAdminClient *keycloak.KeyAdminClient
 }
 
-func NewHandler(dwhDB *sql.DB, primaryDB *sql.DB) *Handler {
+func NewHandler(dwhDB *sql.DB, primaryDB *sql.DB, keyAdminClient *keycloak.KeyAdminClient) *Handler {
 	return &Handler{
-		service: NewService(NewRepository(dwhDB, primaryDB)),
+		service:        NewService(NewRepository(dwhDB, primaryDB)),
+		keyAdminClient: keyAdminClient,
 	}
 }
 
@@ -466,4 +469,118 @@ func optionalRequestUserID(c *gin.Context) interface{} {
 		return nil
 	}
 	return userID
+}
+
+func (h *Handler) ListKeycloakGroups(c *gin.Context) {
+	if h.keyAdminClient == nil {
+		response.OK(c, http.StatusOK, []keycloakGroupResponse{})
+		return
+	}
+
+	groups, err := h.keyAdminClient.ListGroups(c.Request.Context())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "KEYCLOAK_GROUPS_FAILED", "failed to fetch Keycloak groups")
+		return
+	}
+
+	out := make([]keycloakGroupResponse, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, keycloakGroupResponse{
+			ID:   g.ID,
+			Name: g.Name,
+			Path: g.Path,
+		})
+	}
+
+	response.OK(c, http.StatusOK, out)
+}
+
+func (h *Handler) ListKeycloakGroupMembers(c *gin.Context) {
+	groupID := strings.TrimSpace(c.Param("groupId"))
+	if groupID == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_GROUP_ID", "group ID is required")
+		return
+	}
+
+	if h.keyAdminClient == nil {
+		response.OK(c, http.StatusOK, []keycloakGroupMemberResponse{})
+		return
+	}
+
+	members, err := h.keyAdminClient.ListGroupMembers(c.Request.Context(), groupID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "KEYCLOAK_MEMBERS_FAILED", "failed to fetch Keycloak group members")
+		return
+	}
+
+	out := make([]keycloakGroupMemberResponse, 0, len(members))
+	for _, m := range members {
+		out = append(out, keycloakGroupMemberResponse{
+			ID:        m.ID,
+			Username:  m.Username,
+			Email:     m.Email,
+			FirstName: m.FirstName,
+			LastName:  m.LastName,
+		})
+	}
+
+	response.OK(c, http.StatusOK, out)
+}
+
+func (h *Handler) AssignIssues(c *gin.Context) {
+	var req assignIssuesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid request payload")
+		return
+	}
+
+	assignedTo := strings.TrimSpace(req.AssignedTo)
+	if assignedTo == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "assigned_to (user email) is required")
+		return
+	}
+
+	issueCodes := make([]string, 0)
+	for _, code := range req.IssueCodes {
+		trimmed := strings.TrimSpace(code)
+		if trimmed != "" {
+			issueCodes = append(issueCodes, trimmed)
+		}
+	}
+	if len(issueCodes) == 0 {
+		paramCode := strings.TrimSpace(c.Param("issueCode"))
+		if paramCode != "" {
+			issueCodes = append(issueCodes, paramCode)
+		} else if req.IssueCode != nil && strings.TrimSpace(*req.IssueCode) != "" {
+			issueCodes = append(issueCodes, strings.TrimSpace(*req.IssueCode))
+		}
+	}
+
+	if len(issueCodes) == 0 {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "at least one issue code is required")
+		return
+	}
+
+	assignedBy := strings.TrimSpace(c.GetString("user_id"))
+	if assignedBy == "" {
+		assignedBy = "System"
+	}
+
+	comment := ""
+	if req.Comment != nil {
+		comment = strings.TrimSpace(*req.Comment)
+	}
+
+	results, err := h.service.AssignIssues(c.Request.Context(), assignIssuesInput{
+		IssueCodes: issueCodes,
+		AssignedTo: assignedTo,
+		AssignedBy: assignedBy,
+		Comment:    comment,
+	})
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "ASSIGN_ISSUES_FAILED", issueDBErrorMessage(err, "failed to assign issue(s)"))
+		return
+	}
+
+	response.OK(c, http.StatusOK, toIssueStageResponses(results))
 }

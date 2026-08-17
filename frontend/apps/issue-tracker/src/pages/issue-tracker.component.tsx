@@ -26,6 +26,7 @@ import { useGetHierarchyQuery } from "../../../data-visualizer/src/pages/modals/
 
 import { IssueModal } from "../component/issue-modal.component.tsx";
 import { ImportIssuesModal } from "../component/import-issues-modal.component.tsx";
+import { AssignModal } from "../component/assign-modal.component.tsx";
 import { OrgUnitNode } from "../component/tree-node.component.tsx";
 import { headers, IMPORT_TEMPLATE_HEADERS } from "../lib/constants.ts";
 import IssueDetail from "./issue-detail/issue-detail.component.tsx";
@@ -50,6 +51,7 @@ export type Issue = {
   severity?: string;
   time_period?: string;
   time_Period?: string;
+  assigned_to?: string;
 };
 
 type SelectEvent<T> = {
@@ -98,6 +100,8 @@ const IssueTracker = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
   const [issues, setIssues] = useState<Issue[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<Issue>();
@@ -368,9 +372,38 @@ const IssueTracker = () => {
         issue.issue_type,
         issue.priority,
         issue.severity,
+        issue.assigned_to,
       ].some((field) => containsSearchTerm(field, searchTerm)),
     );
   }, [issues, tableSearchTerm]);
+
+  const handleSelectRow = useCallback((rowId: string, checked: boolean) => {
+    setSelectedRowIds((prev) => {
+      if (checked) {
+        return prev.includes(rowId) ? prev : [...prev, rowId];
+      }
+      return prev.filter((id) => id !== rowId);
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(
+    (checked: boolean) => {
+      if (checked) {
+        const allIds = filteredIssues.map((item) => String(item.id ?? item.issue_id));
+        setSelectedRowIds(allIds);
+      } else {
+        setSelectedRowIds([]);
+      }
+    },
+    [filteredIssues],
+  );
+
+  const selectedIssueCodes = useMemo(() => {
+    return issues
+      .filter((item) => selectedRowIds.includes(String(item.id ?? item.issue_id)))
+      .map((item) => item.issue_code)
+      .filter(Boolean);
+  }, [issues, selectedRowIds]);
 
   const handleIssueClick = (row: { id?: string }) => {
     const selectedItem = issues.find((item) => String(item.issue_id) === String(row.id ?? ""));
@@ -625,6 +658,17 @@ const IssueTracker = () => {
           </div>
 
           <div className="issue-toolbar-actions">
+            <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
+              <Button
+                size="md"
+                kind="tertiary"
+                disabled={selectedIssueCodes.length === 0}
+                onClick={() => setShowAssignModal(true)}
+              >
+                Assign Selected {selectedIssueCodes.length > 0 ? `(${selectedIssueCodes.length})` : ""}
+              </Button>
+            </PermissionGuard>
+
             <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
               <Button size="md" kind="ghost" renderIcon={Download} onClick={downloadTemplate}>
                 Template
@@ -927,6 +971,9 @@ const IssueTracker = () => {
                 setSelectedIssue(undefined);
                 setIsViewIssueDetail(false);
               }}
+              selectedRowIds={selectedRowIds}
+              onSelectRow={handleSelectRow}
+              onSelectAll={handleSelectAll}
             />
 
         {showModal && (
@@ -938,6 +985,16 @@ const IssueTracker = () => {
         {showImportModal && (
           <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
             <ImportIssuesModal onClose={closeImportModal} />
+          </PermissionGuard>
+        )}
+
+        {showAssignModal && selectedIssueCodes.length > 0 && (
+          <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
+            <AssignModal
+              issueCodes={selectedIssueCodes}
+              onClose={() => setShowAssignModal(false)}
+              onSuccess={() => setSelectedRowIds([])}
+            />
           </PermissionGuard>
         )}
       </>

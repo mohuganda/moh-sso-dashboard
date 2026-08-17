@@ -20,6 +20,7 @@ type issueResponse struct {
 	UpdatedDate  *string `json:"updated_date,omitempty"`
 	UpdatedBy    *string `json:"updated_by,omitempty"`
 	TimePeriod   *string `json:"time_Period,omitempty"`
+	AssignedTo   *string `json:"assigned_to,omitempty"`
 }
 
 type createIssueRequest struct {
@@ -45,6 +46,7 @@ type updateIssueRequest struct {
 	Severity     *string `json:"severity"`
 	UpdatedBy    *string `json:"updated_by"`
 	TimePeriod   *string `json:"time_Period"`
+	AssignedTo   *string `json:"assigned_to"`
 }
 
 type createIssueResolutionRequest struct {
@@ -60,6 +62,7 @@ type createIssueResolutionRequest struct {
 	ProcessChange      *string `json:"process_change"`
 	PreventiveOwner    *string `json:"preventive_owner"`
 	DueDate            *string `json:"due_date"`
+	AssignedTo         *string `json:"assigned_to"`
 }
 
 type issueStageResponse struct {
@@ -78,6 +81,35 @@ type issueStageResponse struct {
 	ProcessChange      *string `json:"process_change,omitempty"`
 	PreventiveOwner    *string `json:"preventive_owner,omitempty"`
 	DueDate            *string `json:"due_date,omitempty"`
+	AssignedTo         *string `json:"assigned_to,omitempty"`
+}
+
+type assignIssuesRequest struct {
+	IssueCodes []string `json:"issue_codes"`
+	IssueCode  *string  `json:"issue_code"`
+	AssignedTo string   `json:"assigned_to"`
+	Comment    *string  `json:"comment"`
+}
+
+type assignIssuesInput struct {
+	IssueCodes []string
+	AssignedTo string
+	AssignedBy string
+	Comment    string
+}
+
+type keycloakGroupResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+type keycloakGroupMemberResponse struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
 }
 
 type issueProgramSummaryResponse struct {

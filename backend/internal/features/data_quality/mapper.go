@@ -209,6 +209,7 @@ func scanIssue(scanner interface {
 		updatedBy    sql.NullString
 		issueType    sql.NullString
 		timePeriod   sql.NullString
+		assignedTo   sql.NullString
 	)
 
 	if err := scanner.Scan(
@@ -229,6 +230,7 @@ func scanIssue(scanner interface {
 		&updatedBy,
 		&issueType,
 		&timePeriod,
+		&assignedTo,
 	); err != nil {
 		return issueResponse{}, err
 	}
@@ -251,6 +253,7 @@ func scanIssue(scanner interface {
 		UpdatedDate:  dqNullDatePtr(updatedDate),
 		UpdatedBy:    dqNullStringPtr(updatedBy),
 		TimePeriod:   dqNullStringPtr(timePeriod),
+		AssignedTo:   dqNullStringPtr(assignedTo),
 	}, nil
 }
 
@@ -269,6 +272,7 @@ func scanIssueStage(scanner interface {
 	var processChange sql.NullString
 	var preventiveOwner sql.NullString
 	var dueDate sql.NullTime
+	var assignedTo sql.NullString
 
 	if err := scanner.Scan(
 		&row.ID,
@@ -285,6 +289,7 @@ func scanIssueStage(scanner interface {
 		&processChange,
 		&preventiveOwner,
 		&dueDate,
+		&assignedTo,
 	); err != nil {
 		return issueStageResponse{}, err
 	}
@@ -301,6 +306,7 @@ func scanIssueStage(scanner interface {
 	row.ProcessChange = dqNullStringPtr(processChange)
 	row.PreventiveOwner = dqNullStringPtr(preventiveOwner)
 	row.DueDate = dqNullDatePtr(dueDate)
+	row.AssignedTo = dqNullStringPtr(assignedTo)
 
 	return row, nil
 }

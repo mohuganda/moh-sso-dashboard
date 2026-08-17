@@ -7,6 +7,9 @@ import type {
   IssueProgramSummary,
   GetIssuesParams,
   GetIssuesResponse,
+  KeycloakGroup,
+  KeycloakGroupMember,
+  AssignIssuesPayload,
 } from "../types";
 
 import { baseApi } from "@moh-sso/api";
@@ -112,6 +115,35 @@ export const issuesApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiEnvelope<IssueTransaction>) => res.data,
       invalidatesTags: ["Transactions", "Issues"],
     }),
+
+    getKeycloakGroups: builder.query<KeycloakGroup[], void>({
+      query: () => ({
+        url: `${API.issue.list()}/keycloak-groups`,
+        method: "GET",
+        credentials: "include",
+      }),
+      transformResponse: (res: ApiEnvelope<KeycloakGroup[]>) => res.data ?? [],
+    }),
+
+    getKeycloakGroupMembers: builder.query<KeycloakGroupMember[], string>({
+      query: (groupId) => ({
+        url: `${API.issue.list()}/keycloak-groups/${groupId}/members`,
+        method: "GET",
+        credentials: "include",
+      }),
+      transformResponse: (res: ApiEnvelope<KeycloakGroupMember[]>) => res.data ?? [],
+    }),
+
+    assignIssues: builder.mutation<IssueTransaction[], AssignIssuesPayload>({
+      query: (body) => ({
+        url: `${API.issue.list()}/assign`,
+        method: "POST",
+        body,
+        credentials: "include",
+      }),
+      transformResponse: (res: ApiEnvelope<IssueTransaction[]>) => res.data,
+      invalidatesTags: ["Issues", "Transactions"],
+    }),
   }),
 });
 
@@ -123,4 +155,7 @@ export const {
   useUpdateIssueMutation,
   useGetTransactionsQuery,
   useCreateTransactionMutation,
+  useGetKeycloakGroupsQuery,
+  useGetKeycloakGroupMembersQuery,
+  useAssignIssuesMutation,
 } = issuesApi;

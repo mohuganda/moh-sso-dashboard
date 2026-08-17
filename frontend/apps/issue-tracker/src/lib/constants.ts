@@ -28,6 +28,10 @@ export const headers = [
     header: "Status",
   },
   {
+    key: "assigned_to",
+    header: "Assigned To",
+  },
+  {
     key: "date_reported",
     header: "Date Reported",
   },

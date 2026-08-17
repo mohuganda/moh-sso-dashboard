@@ -13,6 +13,7 @@ import { PERMISSIONS, PermissionGuard, selectUser } from "@moh-sso/auth";
 import "./issue-detail.scss";
 import type { Issue } from "../issue-tracker.component.tsx";
 import { IssueModal } from "../../component/issue-modal.component.tsx";
+import { AssignModal } from "../../component/assign-modal.component.tsx";
 
 type ModalMode = "resolve" | "close" | "comment" | null;
 
@@ -35,6 +36,7 @@ const IssueDetail = ({
 
   const [comment, setComment] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [isViewModalResolution, setIsViewModalResolution] = useState(false);
 
@@ -286,6 +288,12 @@ const IssueDetail = ({
                           <div style={{ color: "#525252" }}>
                             {transaction?.resolution_action || "No comment provided"}
                           </div>
+
+                          {transaction?.assigned_to && (
+                            <div style={{ marginTop: "0.25rem", fontSize: "0.8125rem", color: "#0f62fe" }}>
+                              <strong>Assigned To:</strong> {transaction.assigned_to}
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -312,6 +320,15 @@ const IssueDetail = ({
                 </p>
 
                 <p>
+                  <strong>Assigned To:</strong>{" "}
+                  {selectedIssue?.assigned_to ? (
+                    <span style={{ color: "#0f62fe", fontWeight: 600 }}>{selectedIssue.assigned_to}</span>
+                  ) : (
+                    <em style={{ color: "#6f6f6f" }}>Unassigned</em>
+                  )}
+                </p>
+
+                <p>
                   <strong>Reported By:</strong> {selectedIssue?.reported_by}
                 </p>
 
@@ -322,6 +339,18 @@ const IssueDetail = ({
             </Tile>
 
             <Tile className="issue-tile issue-actions-container">
+              {!isFinalStatus && (
+                <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
+                  <Button
+                    className="btn-issue btn-full-width"
+                    kind="tertiary"
+                    onClick={() => setIsAssignModalOpen(true)}
+                  >
+                    Assign Issue
+                  </Button>
+                </PermissionGuard>
+              )}
+
               {!isFinalStatus && (
                 <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
                   <Button
@@ -376,6 +405,15 @@ const IssueDetail = ({
         <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
           {isEditModalOpen && (
             <IssueModal onClose={() => setIsEditModalOpen(false)} selectedIssue={selectedIssue} />
+          )}
+        </PermissionGuard>
+
+        <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
+          {isAssignModalOpen && selectedIssue?.issue_code && (
+            <AssignModal
+              issueCodes={[selectedIssue.issue_code]}
+              onClose={() => setIsAssignModalOpen(false)}
+            />
           )}
         </PermissionGuard>
       </>

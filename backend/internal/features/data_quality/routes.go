@@ -55,6 +55,38 @@ func RegisterProtectedRoutes(
 			middleware.RequirePermission(authz.PermissionIssueTrackerRead),
 			handler.ListIssueResolutionTransactions,
 		)
+
+		issues.GET(
+			"/keycloak-groups",
+			middleware.RequirePermission(authz.PermissionIssueTrackerRead),
+			handler.ListKeycloakGroups,
+		)
+
+		issues.GET(
+			"/keycloak-groups/:groupId/members",
+			middleware.RequirePermission(authz.PermissionIssueTrackerRead),
+			handler.ListKeycloakGroupMembers,
+		)
+
+		issues.POST(
+			"/assign",
+			middleware.RequireAnyPermission(
+				authz.PermissionIssueTrackerAssign,
+				authz.PermissionIssueTrackerManage,
+				authz.PermissionIssueTrackerWrite,
+			),
+			handler.AssignIssues,
+		)
+
+		issues.POST(
+			"/:issueCode/assign",
+			middleware.RequireAnyPermission(
+				authz.PermissionIssueTrackerAssign,
+				authz.PermissionIssueTrackerManage,
+				authz.PermissionIssueTrackerWrite,
+			),
+			handler.AssignIssues,
+		)
 	}
 }
 

@@ -10,6 +10,8 @@ import {
   TableExpandHeader,
   TableExpandRow,
   TableExpandedRow,
+  TableSelectAll,
+  TableSelectRow,
 } from "@carbon/react";
 import { DataTablePagination } from "@moh-sso/ui";
 import IssueDetail from "../../../../../issue-tracker/src/pages/issue-detail/issue-detail.component.tsx";
@@ -25,6 +27,9 @@ interface ListProps {
   currentPage?: number;
   currentPageSize?: number;
   onPageChange?: (page: number, pageSize: number) => void;
+  selectedRowIds?: string[];
+  onSelectRow?: (rowId: string, checked: boolean) => void;
+  onSelectAll?: (checked: boolean) => void;
 }
 
 const DataList: React.FC<ListProps> = ({
@@ -36,6 +41,9 @@ const DataList: React.FC<ListProps> = ({
   currentPage,
   currentPageSize,
   onPageChange,
+  selectedRowIds,
+  onSelectRow,
+  onSelectAll,
 }) => {
   /* -----------------------------
    * Pagination
@@ -73,6 +81,11 @@ const DataList: React.FC<ListProps> = ({
 
   const total = isServerSide ? (totalItems ?? 0) : data.length;
 
+  const isAllSelected =
+    Boolean(onSelectAll) &&
+    paginatedData.length > 0 &&
+    paginatedData.every((item: any) => selectedRowIds?.includes(String(item.id)));
+
   return (
     <>
       <DataTable rows={paginatedData} headers={columns}>
@@ -88,6 +101,15 @@ const DataList: React.FC<ListProps> = ({
               <TableHead>
                 <TableRow>
                   <TableExpandHeader {...getExpandHeaderProps()} />
+                  {onSelectAll && (
+                    <TableSelectAll
+                      id="select-all-issues"
+                      name="select-all-issues"
+                      aria-label="Select all issues"
+                      checked={isAllSelected}
+                      onSelect={(e: any) => onSelectAll(e.target.checked)}
+                    />
+                  )}
                   {headers.map((header) => {
                     const { key: headerKey, ...headerProps } = getHeaderProps({ header });
                     return (
@@ -100,11 +122,21 @@ const DataList: React.FC<ListProps> = ({
               </TableHead>
               <TableBody>
                 {rows.map((row) => {
-                  const issue = data.find((item: any) => item.id === row.id);
+                  const issue = data.find((item: any) => String(item.id) === String(row.id));
                   const { key: rowKey, ...rowProps } = getRowProps({ row });
+                  const isSelected = selectedRowIds?.includes(String(row.id));
                   return (
                       <React.Fragment key={row.id}>
                         <TableExpandRow key={rowKey} {...rowProps}>
+                          {onSelectRow && (
+                            <TableSelectRow
+                              id={`select-issue-${row.id}`}
+                              name={`select-issue-${row.id}`}
+                              aria-label={`Select issue ${row.id}`}
+                              checked={isSelected}
+                              onSelect={(e: any) => onSelectRow(String(row.id), e.target.checked)}
+                            />
+                          )}
                           {row.cells.map((cell) => {
                             if (cell.info.header === "issue") {
                               return (
@@ -119,10 +151,10 @@ const DataList: React.FC<ListProps> = ({
                                   </TableCell>
                               );
                             }
-                            return <TableCell key={cell.id}>{cell.value}</TableCell>;
+                            return <TableCell key={cell.id}>{cell.value ?? "-"}</TableCell>;
                           })}
                         </TableExpandRow>
-                        <TableExpandedRow colSpan={headers.length + 1}>
+                        <TableExpandedRow colSpan={headers.length + (onSelectRow ? 2 : 1)}>
                           {row.isExpanded && (
                               <section>
                                 <IssueDetail selectedIssue={issue} goToBack={closeView} showBack={false}/>

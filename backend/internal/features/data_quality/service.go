@@ -8,6 +8,7 @@ type Service interface {
 	ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error)
 	UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error)
 	ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error)
+	AssignIssues(ctx context.Context, input assignIssuesInput) ([]issueStageResponse, error)
 	ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error)
 	ImportValidationRules(ctx context.Context, inputs []validationRuleInput) (validationRuleImportResult, error)
 	ListValidationRules(ctx context.Context, limit int, offset int) ([]validationRuleResponse, error)
@@ -40,6 +41,10 @@ func (s *service) UpdateIssue(ctx context.Context, input updateIssueInput) (issu
 
 func (s *service) ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error) {
 	return s.repository.ResolveIssue(ctx, input)
+}
+
+func (s *service) AssignIssues(ctx context.Context, input assignIssuesInput) ([]issueStageResponse, error) {
+	return s.repository.AssignIssues(ctx, input)
 }
 
 func (s *service) ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error) {
