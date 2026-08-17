@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/keycloak"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 )
 
 type Handler struct {
@@ -19,9 +20,13 @@ type Handler struct {
 	keyAdminClient *keycloak.KeyAdminClient
 }
 
-func NewHandler(dwhDB *sql.DB, primaryDB *sql.DB, keyAdminClient *keycloak.KeyAdminClient) *Handler {
+func NewHandler(dwhDB *sql.DB, primaryDB *sql.DB, keyAdminClient *keycloak.KeyAdminClient, emailService ...sharedservice.EmailService) *Handler {
+	var emailSvc sharedservice.EmailService
+	if len(emailService) > 0 {
+		emailSvc = emailService[0]
+	}
 	return &Handler{
-		service:        NewService(NewRepository(dwhDB, primaryDB)),
+		service:        NewService(NewRepository(dwhDB, primaryDB), emailSvc),
 		keyAdminClient: keyAdminClient,
 	}
 }
