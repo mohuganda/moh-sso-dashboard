@@ -42,6 +42,8 @@ export const IMPORT_TEMPLATE_HEADERS = [
   "dataset",
   "data_element",
   "org_unit",
+  "region",
+  "district",
   "issue",
   "issue_type",
   "priority",

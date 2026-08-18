@@ -5,6 +5,8 @@ export type Issue = {
   dataset: string;
   data_element: string;
   org_unit: string;
+  region?: string;
+  district?: string;
   issue: string;
   date_reported: string;
   reported_by: string;
@@ -23,6 +25,8 @@ export type IssuePayload = {
   dataset: string;
   data_element: string;
   org_unit: string;
+  region?: string;
+  district?: string;
   issue: string;
   issue_type: string;
   reported_by?: string;

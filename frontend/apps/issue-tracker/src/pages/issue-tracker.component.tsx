@@ -40,6 +40,8 @@ export type Issue = {
   dataset: string;
   data_element: string;
   org_unit: string;
+  region?: string;
+  district?: string;
   issue: string;
   date_reported: string;
   reported_by: string;
@@ -82,6 +84,48 @@ function containsSearchTerm(value: unknown, searchTerm: string): boolean {
   return String(value ?? "")
     .toLowerCase()
     .includes(searchTerm);
+}
+
+function findNodeAndCollectSubtreeNames(
+  nodes: OrgUnit[],
+  targetName: string,
+): Set<string> {
+  const result = new Set<string>();
+  const targetLower = targetName.trim().toLowerCase();
+
+  const collectAll = (node: OrgUnit) => {
+    if (node.name) {
+      result.add(node.name.trim().toLowerCase());
+    }
+    if (node.children && Array.isArray(node.children)) {
+      node.children.forEach(collectAll);
+    }
+  };
+
+  const searchAndCollect = (nodeList: OrgUnit[]): boolean => {
+    for (const node of nodeList) {
+      if (node.name?.trim().toLowerCase() === targetLower) {
+        collectAll(node);
+        return true;
+      }
+      if (node.children && Array.isArray(node.children)) {
+        if (searchAndCollect(node.children)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  if (Array.isArray(nodes)) {
+    searchAndCollect(nodes);
+  }
+
+  if (result.size === 0) {
+    result.add(targetLower);
+  }
+
+  return result;
 }
 
 const PROGRAM_COLORS = [
@@ -175,6 +219,8 @@ const IssueTracker = () => {
 
   const [orgSearchTerm, setOrgSearchTerm] = useState("");
 
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
   const [isOrgPopoverOpen, setIsOrgPopoverOpen] = useState(false);
 
   const orgPopoverRef = useRef<HTMLDivElement>(null);
@@ -231,6 +277,8 @@ const IssueTracker = () => {
    * ----------------------------- */
   const EXPORT_COLUMNS: { key: string; header: string }[] = [
     ...headers,
+    { key: "region", header: "Region" },
+    { key: "district", header: "District" },
     { key: "time_period", header: "Reporting Period" },
     { key: "issue_type", header: "Issue Type" },
     { key: "priority", header: "Priority" },
@@ -247,6 +295,8 @@ const IssueTracker = () => {
         "Example Dataset",
         "Example Data Element",
         "Example Org Unit",
+        "Central Region",
+        "Kampala District",
         "Example issue description",
         "Outliers",
         "High",
@@ -354,13 +404,63 @@ const IssueTracker = () => {
   }, [data, error, isLoading]);
 
   const filteredIssues = useMemo(() => {
+    let result = issues;
+
+    if (selectedOrgUnit) {
+      const targetNamesSet = findNodeAndCollectSubtreeNames(
+        hierarchyData as OrgUnit[],
+        selectedOrgUnit,
+      );
+
+      result = result.filter((issue) => {
+        const issueOrg = issue.org_unit?.trim().toLowerCase();
+        const issueRegion = issue.region?.trim().toLowerCase();
+        const issueDistrict = issue.district?.trim().toLowerCase();
+
+        return (
+          (issueOrg && targetNamesSet.has(issueOrg)) ||
+          (issueRegion && targetNamesSet.has(issueRegion)) ||
+          (issueDistrict && targetNamesSet.has(issueDistrict))
+        );
+      });
+    }
+
+    if (selectedDataset) {
+      const targetDataset = selectedDataset.trim().toLowerCase();
+      result = result.filter(
+        (issue) => issue.dataset?.trim().toLowerCase() === targetDataset,
+      );
+    }
+
+    if (selectedDataElement) {
+      const targetElement = selectedDataElement.trim().toLowerCase();
+      result = result.filter(
+        (issue) => issue.data_element?.trim().toLowerCase() === targetElement,
+      );
+    }
+
+    if (selectedPeriod) {
+      const targetPeriod = selectedPeriod.trim().toLowerCase();
+      result = result.filter(
+        (issue) =>
+          issue.time_period?.trim().toLowerCase() === targetPeriod ||
+          issue.time_Period?.trim().toLowerCase() === targetPeriod,
+      );
+    } else if (selectedYear && selectedYear !== currentYear) {
+      const yearStr = String(selectedYear);
+      result = result.filter(
+        (issue) =>
+          issue.time_period?.includes(yearStr) || issue.time_Period?.includes(yearStr),
+      );
+    }
+
     const searchTerm = tableSearchTerm.trim().toLowerCase();
 
     if (!searchTerm) {
-      return issues;
+      return result;
     }
 
-    return issues.filter((issue) =>
+    return result.filter((issue) =>
       [
         issue.issue_code,
         issue.dataset,
@@ -375,7 +475,17 @@ const IssueTracker = () => {
         issue.assigned_to,
       ].some((field) => containsSearchTerm(field, searchTerm)),
     );
-  }, [issues, tableSearchTerm]);
+  }, [
+    issues,
+    hierarchyData,
+    selectedOrgUnit,
+    selectedDataset,
+    selectedDataElement,
+    selectedPeriod,
+    selectedYear,
+    currentYear,
+    tableSearchTerm,
+  ]);
 
   const handleSelectRow = useCallback((rowId: string, checked: boolean) => {
     setSelectedRowIds((prev) => {
@@ -487,8 +597,20 @@ const IssueTracker = () => {
   }, []);
 
   const handleOrgSelect = (name: string) => {
-    setSelectedOrgUnit(name);
+    setSelectedOrgUnit((prev) => (prev === name ? "" : name));
   };
+
+  const handleToggleNode = useCallback((nodeId: string, isExpanded: boolean) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (isExpanded) {
+        next.add(nodeId);
+      } else {
+        next.delete(nodeId);
+      }
+      return next;
+    });
+  }, []);
 
   const renderRecursive = (nodes: OrgUnit[], idPrefix = "filter-org"): ReactNode[] => {
     if (!Array.isArray(nodes)) {
@@ -503,7 +625,9 @@ const IssueTracker = () => {
           node={node}
           searchTerm={orgSearchTerm}
           selectedOrgUnit={selectedOrgUnit}
+          expandedNodes={expandedNodes}
           onSelect={handleOrgSelect}
+          onToggleNode={handleToggleNode}
           renderRecursive={renderRecursive}
           idPrefix={idPrefix}
         />
@@ -519,6 +643,8 @@ const IssueTracker = () => {
       orgUnit?: string;
     } = {},
   ) => {
+    closeAllPopovers();
+
     const sourceRows = data as Issue[] | undefined;
 
     if (!sourceRows) {
@@ -959,7 +1085,7 @@ const IssueTracker = () => {
             <DataList
               columns={headers}
               data={filteredIssues}
-              totalItems={data?.totalCount ?? 0}
+              totalItems={hasActiveFilters || Boolean(tableSearchTerm) ? filteredIssues.length : (data?.totalCount ?? 0)}
               currentPage={page}
               currentPageSize={pageSize}
               onPageChange={(newPage, newPageSize) => {

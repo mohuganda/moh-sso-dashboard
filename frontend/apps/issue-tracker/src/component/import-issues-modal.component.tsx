@@ -106,6 +106,8 @@ export const ImportIssuesModal = ({ onClose }: { onClose: () => void }) => {
       dataset: String(row["dataset"] ?? ""),
       data_element: String(row["data_element"] ?? ""),
       org_unit: String(row["org_unit"] ?? ""),
+      region: String(row["region"] ?? ""),
+      district: String(row["district"] ?? ""),
       issue: String(row["issue"] ?? ""),
       issue_type: String(row["issue_type"] ?? ""),
       priority: String(row["priority"] ?? ""),
