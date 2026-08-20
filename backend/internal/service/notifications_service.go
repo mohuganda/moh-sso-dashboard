@@ -140,8 +140,18 @@ func (s *notificationsService) Notify(
 		return nil, err
 	}
 
+	if n == nil {
+		return nil, errors.New("created notification is nil")
+	}
+
 	if s.publisher != nil {
 		go func(saved model.Notification) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("recovered from panic in notification publish goroutine: %v", r)
+				}
+			}()
+
 			channel := cache.ResolveNotificationChannel(saved)
 
 			if err := s.publisher.Publish(ctx, channel, saved); err != nil {
@@ -786,6 +796,10 @@ func (s *notificationsService) ListNotifications(
 	limit int32,
 	offset int32,
 ) ([]model.Notification, error) {
+	if s == nil || s.notificationsRepo == nil {
+		return nil, errors.New("notifications service or repository is nil")
+	}
+
 	if limit <= 0 {
 		limit = 20
 	}
@@ -801,6 +815,10 @@ func (s *notificationsService) GetNotificationByID(
 	ctx context.Context,
 	notificationID string,
 ) (*model.Notification, error) {
+	if s == nil || s.notificationsRepo == nil {
+		return nil, errors.New("notifications service or repository is nil")
+	}
+
 	id, err := uuid.Parse(notificationID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid notification id: %w", err)
@@ -813,6 +831,10 @@ func (s *notificationsService) MarkNotificationAsRead(
 	ctx context.Context,
 	notificationID string,
 ) error {
+	if s == nil || s.notificationsRepo == nil {
+		return errors.New("notifications service or repository is nil")
+	}
+
 	id, err := uuid.Parse(notificationID)
 	if err != nil {
 		return err
@@ -825,6 +847,10 @@ func (s *notificationsService) DeleteNotification(
 	ctx context.Context,
 	notificationID string,
 ) error {
+	if s == nil || s.notificationsRepo == nil {
+		return errors.New("notifications service or repository is nil")
+	}
+
 	id, err := uuid.Parse(notificationID)
 	if err != nil {
 		return err
@@ -834,6 +860,10 @@ func (s *notificationsService) DeleteNotification(
 }
 
 func (s *notificationsService) DeleteOldNotifications(ctx context.Context) error {
+	if s == nil || s.notificationsRepo == nil {
+		return errors.New("notifications service or repository is nil")
+	}
+
 	return s.notificationsRepo.DeleteOldNotifications(ctx)
 }
 
@@ -841,6 +871,10 @@ func (s *notificationsService) CountUnreadNotificationsCount(
 	ctx context.Context,
 	targetRole string,
 ) (int64, error) {
+	if s == nil || s.notificationsRepo == nil {
+		return 0, errors.New("notifications service or repository is nil")
+	}
+
 	return s.notificationsRepo.CountUnreadNotifications(ctx, targetRole)
 }
 
@@ -848,6 +882,10 @@ func (s *notificationsService) CountNotifications(
 	ctx context.Context,
 	targetRole string,
 ) (int64, error) {
+	if s == nil || s.notificationsRepo == nil {
+		return 0, errors.New("notifications service or repository is nil")
+	}
+
 	return s.notificationsRepo.CountNotifications(ctx, targetRole)
 }
 

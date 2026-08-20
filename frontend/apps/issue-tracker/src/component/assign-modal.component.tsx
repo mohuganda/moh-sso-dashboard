@@ -73,7 +73,7 @@ export const AssignModal = ({ issueCodes, onClose, onSuccess }: AssignModalProps
   };
 
   const isMultiple = issueCodes.length > 1;
-  const heading = isMultiple ? `Assign ${issueCodes.length} Issues` : `Assign Issue ${issueCodes[0] ?? ""}`;
+  const heading = isMultiple ? `Assign ${issueCodes.length} Issues` : `Assign Issue [${issueCodes[0] ?? ""}]`;
 
   return (
     <Modal
@@ -96,21 +96,20 @@ export const AssignModal = ({ issueCodes, onClose, onSuccess }: AssignModalProps
         )}
 
         <p style={{ color: "#525252" }}>
-          Select a Keycloak group and choose a team member to assign {isMultiple ? "these issues" : "this issue"} to.
-          The user's email will be recorded in the issue transaction history.
+          Select a user group and choose a team member to assign {isMultiple ? "these issues" : "this issue"} to.
         </p>
 
         <ComboBox
-          id="keycloak-group-select"
-          titleText="Keycloak Group"
-          placeholder={isLoadingGroups ? "Loading Keycloak groups..." : "Select Keycloak Group"}
+          id="user-group-select"
+          titleText="User Group"
+          placeholder={isLoadingGroups ? "Loading user groups..." : "Select User Group"}
           items={groups}
           selectedItem={selectedGroup}
           itemToString={(item: KeycloakGroup | null) => (item ? `${item.name} (${item.path})` : "")}
           onChange={handleGroupChange}
           disabled={isLoadingGroups || isAssigning}
           warn={Boolean(groupsError)}
-          warnText={groupsError ? "Failed to load Keycloak groups" : undefined}
+          warnText={groupsError ? "Failed to load User groups" : undefined}
         />
 
         <ComboBox
@@ -118,7 +117,7 @@ export const AssignModal = ({ issueCodes, onClose, onSuccess }: AssignModalProps
           titleText="Assignee (User)"
           placeholder={
             !selectedGroupId
-              ? "First select a Keycloak group"
+              ? "First select a user group"
               : isLoadingMembers
                 ? "Loading group members..."
                 : "Select User"

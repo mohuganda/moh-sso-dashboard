@@ -11,6 +11,7 @@ import (
 type Repository interface {
 	CreateIssue(ctx context.Context, input createIssueInput) (issueResponse, error)
 	ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error)
+	GetIssuesByCodes(ctx context.Context, issueCodes []string) ([]issueResponse, error)
 	ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error)
 	UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error)
 	ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error)
@@ -99,6 +100,33 @@ func (r *postgresRepository) ListIssues(ctx context.Context, limit int, offset i
 	defer rows.Close()
 
 	issues := make([]issueResponse, 0)
+	for rows.Next() {
+		issue, err := scanIssue(rows)
+		if err != nil {
+			return nil, err
+		}
+		issues = append(issues, issue)
+	}
+	return issues, rows.Err()
+}
+
+func (r *postgresRepository) GetIssuesByCodes(ctx context.Context, issueCodes []string) ([]issueResponse, error) {
+	if len(issueCodes) == 0 {
+		return nil, nil
+	}
+	rows, err := r.dwhDB.QueryContext(
+		ctx,
+		`SELECT issue_id, issue_code, dataset, data_element, COALESCE(org.region, ''), COALESCE(org.district, ''), org_unit, issue, date_reported, reported_by, status, priority, severity, updated_date, updated_by, issue_type, time_period, hiv.issue.assigned_to
+		FROM hiv.issue LEFT JOIN hiv.organisation_unit org ON org.org_unit_name = hiv.issue.org_unit
+		WHERE issue_code = ANY($1)`,
+		pq.Array(issueCodes),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	issues := make([]issueResponse, 0, len(issueCodes))
 	for rows.Next() {
 		issue, err := scanIssue(rows)
 		if err != nil {

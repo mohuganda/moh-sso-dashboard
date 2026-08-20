@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
@@ -20,13 +21,19 @@ type Handler struct {
 	keyAdminClient *keycloak.KeyAdminClient
 }
 
-func NewHandler(dwhDB *sql.DB, primaryDB *sql.DB, keyAdminClient *keycloak.KeyAdminClient, emailService ...sharedservice.EmailService) *Handler {
-	var emailSvc sharedservice.EmailService
-	if len(emailService) > 0 {
-		emailSvc = emailService[0]
+func NewHandler(
+	dwhDB *sql.DB,
+	primaryDB *sql.DB,
+	keyAdminClient *keycloak.KeyAdminClient,
+	emailService sharedservice.EmailService,
+	cfg ...*config.Config,
+) *Handler {
+	var appCfg *config.Config
+	if len(cfg) > 0 {
+		appCfg = cfg[0]
 	}
 	return &Handler{
-		service:        NewService(NewRepository(dwhDB, primaryDB), emailSvc),
+		service:        NewService(NewRepository(dwhDB, primaryDB), emailService, appCfg),
 		keyAdminClient: keyAdminClient,
 	}
 }

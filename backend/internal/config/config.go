@@ -145,6 +145,7 @@ type Config struct {
 	// SMTP / Retry / Notifications
 	// ==================================================
 	SMTP                 SMTPConfig                 `mapstructure:",squash"`
+	SMTPGM               SMTPGMConfig               `mapstructure:",squash"`
 	Email                EmailConfig                `mapstructure:",squash"`
 	Announcement         AnnouncementConfig         `mapstructure:",squash"`
 	Retry                RetryConfig                `mapstructure:",squash"`
@@ -162,6 +163,17 @@ type SMTPConfig struct {
 	FromName       string        `mapstructure:"SMTP_FROM_NAME"`
 	ConnectTimeout time.Duration `mapstructure:"SMTP_CONNECT_TIMEOUT"`
 	SendTimeout    time.Duration `mapstructure:"SMTP_SEND_TIMEOUT"`
+}
+
+type SMTPGMConfig struct {
+	Host           string        `mapstructure:"SMTP_HOST_GM"`
+	Port           int           `mapstructure:"SMTP_PORT_GM"`
+	Username       string        `mapstructure:"SMTP_USERNAME_GM"`
+	Password       string        `mapstructure:"SMTP_PASSWORD_GM"`
+	FromEmail      string        `mapstructure:"SMTP_FROM_EMAIL_GM"`
+	FromName       string        `mapstructure:"SMTP_FROM_NAME_GM"`
+	ConnectTimeout time.Duration `mapstructure:"SMTP_CONNECT_TIMEOUT_GM"`
+	SendTimeout    time.Duration `mapstructure:"SMTP_SEND_TIMEOUT_GM"`
 }
 
 type EmailConfig struct {
@@ -416,6 +428,14 @@ func envBindings() map[string]string {
 		"SMTP_FROM_NAME":                        "SMTP_FROM_NAME",
 		"SMTP_CONNECT_TIMEOUT":                  "SMTP_CONNECT_TIMEOUT",
 		"SMTP_SEND_TIMEOUT":                     "SMTP_SEND_TIMEOUT",
+		"SMTP_HOST_GM":                          "SMTP_HOST_GM",
+		"SMTP_PORT_GM":                          "SMTP_PORT_GM",
+		"SMTP_USERNAME_GM":                      "SMTP_USERNAME_GM",
+		"SMTP_PASSWORD_GM":                      "SMTP_PASSWORD_GM",
+		"SMTP_FROM_EMAIL_GM":                    "SMTP_FROM_EMAIL_GM",
+		"SMTP_FROM_NAME_GM":                     "SMTP_FROM_NAME_GM",
+		"SMTP_CONNECT_TIMEOUT_GM":               "SMTP_CONNECT_TIMEOUT_GM",
+		"SMTP_SEND_TIMEOUT_GM":                  "SMTP_SEND_TIMEOUT_GM",
 		"EMAIL_MAX_ATTACHMENTS":                 "EMAIL_MAX_ATTACHMENTS",
 		"EMAIL_MAX_ATTACHMENT_BYTES":            "EMAIL_MAX_ATTACHMENT_BYTES",
 		"EMAIL_ALLOWED_ATTACHMENT_TYPES":        "EMAIL_ALLOWED_ATTACHMENT_TYPES",
