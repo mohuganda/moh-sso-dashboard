@@ -6,8 +6,10 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/email"
+	"github.com/moh-sso-dashboard/internal/keycloak"
 	"github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 )
@@ -39,20 +41,27 @@ type Service interface {
 }
 
 type service struct {
-	repository   Repository
-	emailService sharedservice.EmailService
-	cfg          *config.Config
+	repository     Repository
+	emailService   sharedservice.EmailService
+	keyAdminClient *keycloak.KeyAdminClient
+	cfg            *config.Config
 }
 
-func NewService(repository Repository, emailService sharedservice.EmailService, cfg ...*config.Config) Service {
+func NewService(
+	repository Repository,
+	emailService sharedservice.EmailService,
+	keyAdminClient *keycloak.KeyAdminClient,
+	cfg ...*config.Config,
+) Service {
 	var appCfg *config.Config
 	if len(cfg) > 0 {
 		appCfg = cfg[0]
 	}
 	return &service{
-		repository:   repository,
-		emailService: emailService,
-		cfg:          appCfg,
+		repository:     repository,
+		emailService:   emailService,
+		keyAdminClient: keyAdminClient,
+		cfg:            appCfg,
 	}
 }
 
@@ -73,7 +82,178 @@ func (s *service) UpdateIssue(ctx context.Context, input updateIssueInput) (issu
 }
 
 func (s *service) ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error) {
-	return s.repository.ResolveIssue(ctx, input)
+	result, err := s.repository.ResolveIssue(ctx, input)
+	if err != nil {
+		return issueStageResponse{}, err
+	}
+
+	go s.sendApprovalEmailToGroupMembers(context.Background(), input, result)
+
+	return result, nil
+}
+
+func dqInterfaceString(val interface{}) string {
+	if val == nil {
+		return ""
+	}
+	if s, ok := val.(string); ok {
+		return strings.TrimSpace(s)
+	}
+	if ptr, ok := val.(*string); ok && ptr != nil {
+		return strings.TrimSpace(*ptr)
+	}
+	return strings.TrimSpace(fmt.Sprintf("%v", val))
+}
+
+func (s *service) sendApprovalEmailToGroupMembers(ctx context.Context, input resolveIssueInput, result issueStageResponse) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Prevent panic from crashing background goroutine
+		}
+	}()
+
+	if isNilInterface(s.keyAdminClient) {
+		return
+	}
+
+	approverIdentifier := dqInterfaceString(input.ResolvedBy)
+	if approverIdentifier == "" {
+		return
+	}
+
+	// 1. Resolve Keycloak user ID for the approver
+	userID := approverIdentifier
+	if _, err := uuid.Parse(approverIdentifier); err != nil {
+		users, err := s.keyAdminClient.FindUsers(ctx, approverIdentifier, true)
+		if err != nil || len(users) == 0 {
+			users, err = s.keyAdminClient.FindUsers(ctx, approverIdentifier, false)
+		}
+		if len(users) > 0 {
+			userID = users[0].ID
+		} else {
+			return
+		}
+	}
+
+	// 2. Retrieve all Keycloak groups where the approver belongs
+	groups, err := s.keyAdminClient.GetUserGroups(ctx, userID)
+	if err != nil || len(groups) == 0 {
+		return
+	}
+
+	// 3. For each group, retrieve members and collect recipient emails
+	recipientEmailsMap := make(map[string]struct{})
+	for _, grp := range groups {
+		members, err := s.keyAdminClient.ListGroupMembers(ctx, grp.ID)
+		if err != nil {
+			continue
+		}
+		for _, member := range members {
+			emailAddr := strings.ToLower(strings.TrimSpace(member.Email))
+			if emailAddr != "" {
+				recipientEmailsMap[emailAddr] = struct{}{}
+			}
+		}
+	}
+
+	if len(recipientEmailsMap) == 0 {
+		return
+	}
+
+	recipientAddresses := make([]model.Address, 0, len(recipientEmailsMap))
+	for emailAddr := range recipientEmailsMap {
+		recipientAddresses = append(recipientAddresses, model.Address{Email: emailAddr})
+	}
+
+	// 4. Fetch issue details for description and metadata
+	issueCode := input.IssueCode
+	fetchedIssues, _ := s.repository.GetIssuesByCodes(ctx, []string{issueCode})
+	var issueDetail issueResponse
+	if len(fetchedIssues) > 0 {
+		issueDetail = fetchedIssues[0]
+	}
+
+	desc := "No description provided"
+	if issueDetail.Issue != nil && strings.TrimSpace(*issueDetail.Issue) != "" {
+		desc = strings.TrimSpace(*issueDetail.Issue)
+	}
+
+	datasetStr := ""
+	if issueDetail.Dataset != nil {
+		datasetStr = *issueDetail.Dataset
+	}
+
+	orgUnitStr := ""
+	if issueDetail.OrgUnit != nil {
+		orgUnitStr = *issueDetail.OrgUnit
+	}
+
+	statusStr := input.Status
+	if statusStr == "" {
+		statusStr = "RESOLVED"
+	}
+
+	resolutionAction := dqInterfaceString(input.ResolutionAction)
+
+	// Determine portal link
+	portalURL := "https://dashboards.health.go.ug/portal"
+	if s.cfg != nil && strings.TrimSpace(s.cfg.FrontendBaseURL) != "" {
+		portalURL = strings.TrimRight(strings.TrimSpace(s.cfg.FrontendBaseURL), "/")
+	}
+
+	subject := fmt.Sprintf("[MOH Issue Tracker] Issue %s Resolved by %s", issueCode, approverIdentifier)
+
+	var bodyBuilder strings.Builder
+	var textBuilder strings.Builder
+	bodyBuilder.WriteString(fmt.Sprintf("<p>Hello,</p><p>Issue <strong>%s</strong> has been <strong>resolved</strong> by team member <strong>%s</strong>:</p>", issueCode, approverIdentifier))
+
+	bodyBuilder.WriteString("<div style='border: 1px solid #e0e0e0; border-left: 4px solid #198038; padding: 12px 16px; margin-bottom: 16px; background-color: #f8f9fa; border-radius: 4px;'>")
+	bodyBuilder.WriteString(fmt.Sprintf("<div style='font-size: 15px; font-weight: bold; color: #198038;'>Issue Code: %s &nbsp; (Status: %s)</div>", issueCode, statusStr))
+	bodyBuilder.WriteString(fmt.Sprintf("<div style='margin-top: 6px; font-size: 14px; color: #161616;'><strong>Description:</strong> %s</div>", desc))
+
+	metaParts := make([]string, 0, 2)
+	if datasetStr != "" {
+		metaParts = append(metaParts, fmt.Sprintf("<strong>Dataset:</strong> %s", datasetStr))
+	}
+	if orgUnitStr != "" {
+		metaParts = append(metaParts, fmt.Sprintf("<strong>Organization Unit:</strong> %s", orgUnitStr))
+	}
+	if len(metaParts) > 0 {
+		bodyBuilder.WriteString(fmt.Sprintf("<div style='margin-top: 6px; font-size: 12px; color: #525252;'>%s</div>", strings.Join(metaParts, " &nbsp;|&nbsp; ")))
+	}
+	bodyBuilder.WriteString("</div>")
+
+	if resolutionAction != "" {
+		bodyBuilder.WriteString(fmt.Sprintf("<div style='background-color: #defbe6; border: 1px solid #a7f0ba; padding: 10px 14px; border-radius: 4px; margin-bottom: 16px;'><strong>Resolution Notes:</strong> %s</div>", resolutionAction))
+	}
+
+	bodyBuilder.WriteString(fmt.Sprintf("<p style='margin-top: 20px;'><a href='%s' style='background-color: #198038; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;'>View in MOH Dashboard Portal &rarr;</a></p>", portalURL))
+	bodyBuilder.WriteString(fmt.Sprintf("<p style='font-size: 13px; color: #6f6f6f; margin-top: 12px;'>Or visit the portal directly: <a href='%s' style='color: #198038;'>%s</a></p>", portalURL, portalURL))
+	bodyBuilder.WriteString("<hr style='border: none; border-top: 1px solid #e0e0e0; margin-top: 24px;'/>")
+	bodyBuilder.WriteString("<p style='font-size: 12px; color: #777;'>This is an automated group notification from the MOH Issue Tracker.</p>")
+
+	textBuilder.WriteString(fmt.Sprintf("Hello,\n\nIssue %s has been resolved by: %s:\n\n", issueCode, approverIdentifier))
+	textBuilder.WriteString(fmt.Sprintf("• Issue Code: %s\n  Status: %s\n  Description: %s\n  Dataset: %s | Organization Unit: %s\n\n", issueCode, statusStr, desc, datasetStr, orgUnitStr))
+
+	if resolutionAction != "" {
+		textBuilder.WriteString(fmt.Sprintf("Resolution Notes: %s\n\n", resolutionAction))
+	}
+
+	textBuilder.WriteString(fmt.Sprintf("View in MOH Integrated Portal:\n%s\n", portalURL))
+
+	msg := model.Message{
+		To:       recipientAddresses,
+		Subject:  subject,
+		HTMLBody: bodyBuilder.String(),
+		TextBody: textBuilder.String(),
+	}
+
+	// Send notification using dedicated GM/Gmail SMTP config function
+	if err := email.SendEmailViaGM(ctx, msg, s.cfg); err != nil {
+		if !isNilInterface(s.emailService) {
+			_ = s.emailService.Send(ctx, msg)
+		}
+	}
 }
 
 func (s *service) AssignIssues(ctx context.Context, input assignIssuesInput) ([]issueStageResponse, error) {

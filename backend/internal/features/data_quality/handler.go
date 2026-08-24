@@ -33,7 +33,7 @@ func NewHandler(
 		appCfg = cfg[0]
 	}
 	return &Handler{
-		service:        NewService(NewRepository(dwhDB, primaryDB), emailService, appCfg),
+		service:        NewService(NewRepository(dwhDB, primaryDB), emailService, keyAdminClient, appCfg),
 		keyAdminClient: keyAdminClient,
 	}
 }

@@ -831,6 +831,31 @@ func (c *KeyAdminClient) ListUsers() ([]UserInfo, error) {
 	return users, nil
 }
 
+func (c *KeyAdminClient) GetUserGroups(ctx context.Context, userID string) ([]GroupRep, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+
+	res, err := c.GetWithContext(ctx, "users/"+url.PathEscape(userID)+"/groups")
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("failed to get user groups: status=%d body=%s", res.StatusCode, string(body))
+	}
+
+	var groups []GroupRep
+	if err := json.NewDecoder(res.Body).Decode(&groups); err != nil {
+		return nil, fmt.Errorf("decode user groups failed: %w", err)
+	}
+
+	return groups, nil
+}
+
 func (c *KeyAdminClient) ListGroups(ctx context.Context) ([]GroupRep, error) {
 	roots, err := c.listGroupsPage(ctx, "groups", "failed to list groups")
 	if err != nil {
