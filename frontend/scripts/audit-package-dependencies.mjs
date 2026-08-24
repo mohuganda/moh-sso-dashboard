@@ -4,7 +4,11 @@ import { join } from "node:path";
 
 const root = process.cwd();
 const sourceRoots = ["apps", "packages"];
-const ignoredSpecifiers = new Set(["react/jsx-runtime"]);
+const ignoredSpecifiers = new Set([
+  "react/jsx-runtime",
+  "react/jsx-dev-runtime",
+  "virtual:pwa-register",
+]);
 const ignoredPackages = new Set(["node:fs", "node:path", "node:url"]);
 
 function readJson(path) {

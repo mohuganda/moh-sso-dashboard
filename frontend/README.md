@@ -105,6 +105,9 @@ npm run build:apps
 npm run build:all
 npm run generate:versions
 npm run build:docker
+npm run pack:all
+npm run verify:tarballs
+npm run verify:consumer-install
 ```
 
 `npm run audit:packages` verifies that every app/package declares the packages it imports. Run it after changing imports or package manifests.
@@ -121,6 +124,11 @@ Shared packages release together as a fixed release train, while apps version in
 
 More detail: [docs/versioning.md](docs/versioning.md).
 
+The 14 standalone apps and 8 shared packages are published as restricted
+`@moh-sso/*` packages. The shell remains private. See
+[Package Publishing](docs/package-publishing.md) for npm organization setup,
+trusted publishing, release, rollback, and consumer installation.
+
 ## Docker
 
 From the repository root:
@@ -129,6 +137,11 @@ From the repository root:
 docker build -f frontend/Dockerfile.nginx frontend
 docker build -f frontend/Dockerfile.dev frontend
 ```
+
+Production can build either directly from workspace source or from exact
+published npm versions. npm mode uses a BuildKit secret for registry
+credentials; credentials are never embedded in the image. See
+[Module Source Strategy](docs/module-source-strategy.md).
 
 Docker dev defaults to shell-only mode. To run all remote dev servers in Docker:
 

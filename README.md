@@ -112,7 +112,7 @@ frontend/
 
 | App | Package | Purpose |
 | --- | --- | --- |
-| Shell | `@moh-sso/shell` | Portal host, global routes, layouts, providers, auth bootstrap, and microfrontend orchestration. |
+| Shell | `@moh-sso/shell` | Private portal host, global routes, layouts, providers, auth bootstrap, and microfrontend orchestration. It is not published to npm. |
 | Announcements | `@moh-sso/announcements` | Admin announcement management and public/news feed announcement UI integration. |
 | Audit | `@moh-sso/audit` | Audit log search, filtering, metrics, export, and detail views. |
 | Clients | `@moh-sso/clients` | Keycloak client/system management and client role administration. |
@@ -210,6 +210,9 @@ Run these from `frontend/`.
 | `npm run build:docker:npm-modules` | Build shell and stage apps/packages from npm package artifacts. |
 | `npm run audit:import-map` | Validate import map consistency. |
 | `npm run audit:publishability` | Check npm publish readiness for apps/packages. |
+| `npm run pack:all` | Pack all 22 publishable workspaces into local npm tarballs. |
+| `npm run verify:tarballs` | Reject missing or unsafe tarball contents. |
+| `npm run verify:consumer-install` | Install all tarballs into a clean temporary consumer. |
 | `npm run release:check` | Full release readiness check. |
 
 ### Helm Chart Checks
@@ -553,15 +556,19 @@ npm run build:docker
 
 ### NPM-Package-Based Frontend Deployment
 
-Use this when apps/packages have been published and deployment should stage app bundles from npm package artifacts:
+Use this when apps/packages have been published and deployment should stage app
+bundles from npm package artifacts. Exact versions for all 22 publishable
+workspaces must be provided through `MOH_SSO_NPM_MODULES`; npm credentials are
+passed to Docker as a BuildKit secret.
 
 ```bash
 cd frontend
-source ~/.nvm/nvm.sh
-nvm use v20.20.1
-npm ci
-npm run config:prod
-npm run build:docker:npm-modules
+export MOH_SSO_NPM_MODULES="$(npm run --silent npm:module-specs)"
+DOCKER_BUILDKIT=1 docker build \
+  --secret id=npmrc,src="$HOME/.npmrc" \
+  --build-arg MOH_SSO_NPM_MODULES="$MOH_SSO_NPM_MODULES" \
+  -f Dockerfile.npm-modules \
+  -t moh-sso-dashboard-frontend:npm .
 ```
 
 ### Production Compose

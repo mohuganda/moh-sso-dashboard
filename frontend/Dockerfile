@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # ======================
 # Stage 1: Build
 # ======================
@@ -9,7 +11,8 @@ ENV FRONTEND_BASE_PATH=/portal
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
 COPY . .
-RUN npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000
 RUN node scripts/use-runtime-config.mjs production
 RUN npm run build:docker
 
@@ -20,7 +23,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN npm install -g serve
+RUN --mount=type=cache,target=/root/.npm npm install -g serve
 
 COPY --from=build /app/dist ./dist
 

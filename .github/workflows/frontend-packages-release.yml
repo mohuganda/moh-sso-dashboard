@@ -1,0 +1,98 @@
+name: Frontend Packages Release
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "frontend/apps/**"
+      - "frontend/packages/**"
+      - "frontend/scripts/**"
+      - "frontend/.changeset/**"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - ".github/workflows/frontend-packages-release.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/apps/**"
+      - "frontend/packages/**"
+      - "frontend/scripts/**"
+      - "frontend/.changeset/**"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - ".github/workflows/frontend-packages-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-packages-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.repository == 'mohuganda/moh-sso-dashboard'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm install --global npm@11.5.1
+      - run: npm ci
+      - run: npm run release:check
+      - run: npm run verify:consumer-install
+
+  release:
+    if: >-
+      github.repository == 'mohuganda/moh-sso-dashboard' &&
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: npm-production
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm install --global npm@11.5.1
+      - run: npm ci
+
+      - name: Create version PR or publish packages
+        uses: changesets/action@v1
+        with:
+          cwd: frontend
+          version: npm run version:packages
+          publish: npm run release:packages
+          title: "chore(frontend): release npm packages"
+          commit: "chore(frontend): release npm packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

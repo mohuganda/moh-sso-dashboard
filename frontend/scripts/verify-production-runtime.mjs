@@ -26,9 +26,9 @@ check(existsSync(htmlPath), "dist/index.html is missing", failures);
 
 if (existsSync(htmlPath)) {
   const html = readFileSync(htmlPath, "utf8");
-  check(html.includes('configFile = isLocal ? "config.development.js" : "config.js"') ||
-    html.includes("configFile = isLocal ? 'config.development.js' : 'config.js'"),
-    "dist/index.html should select config.development.js locally and config.js otherwise",
+  check(html.includes('configFile = isLocal ? "config.development.js" : "config.production.js"') ||
+    html.includes("configFile = isLocal ? 'config.development.js' : 'config.production.js'"),
+    "dist/index.html should select development config locally and production config otherwise",
     failures,
   );
   check(html.includes('/portal/\' + configFile') || html.includes('/portal/" + configFile'),
@@ -57,10 +57,25 @@ if (existsSync(importMapPath)) {
 check(existsSync(join(root, "dist", "portal", "version-manifest.json")), "dist/portal/version-manifest.json is missing", failures);
 const portalConfigPath = join(root, "dist", "portal", "config.js");
 check(existsSync(portalConfigPath), "dist/portal/config.js is missing", failures);
+check(
+  existsSync(join(root, "dist", "portal", "config.production.js")),
+  "dist/portal/config.production.js is missing",
+  failures,
+);
 
 if (existsSync(portalConfigPath)) {
   const config = readFileSync(portalConfigPath, "utf8");
-  check(config.includes('API_BASE_URL: "/api"'), "production config should use API_BASE_URL /api", failures);
+  const apiBaseUrl = config.match(/API_BASE_URL:\s*"([^"]+)"/)?.[1] ?? "";
+  check(
+    apiBaseUrl.startsWith("/") || apiBaseUrl.startsWith("https://"),
+    "production API_BASE_URL should be an absolute HTTPS URL or same-origin path",
+    failures,
+  );
+  check(
+    !/localhost|127\.0\.0\.1|\[?::1\]?/.test(apiBaseUrl),
+    "production API_BASE_URL must not target localhost",
+    failures,
+  );
   check(config.includes('microfrontendMode: "remote"'), "production config should use remote microfrontend mode", failures);
   check(config.includes("singleSpaOrchestration: true"), "production config should enable single-spa orchestration", failures);
   check(config.includes('microfrontendMountMode: "orchestrated"'), "production config should use orchestrated mount mode", failures);

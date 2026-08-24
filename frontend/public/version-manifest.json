@@ -1,5 +1,14 @@
 {
-  "generatedAt": "2026-06-29T11:30:29.017Z",
+  "build": {
+    "commit": "386d42a5c184",
+    "buildTime": "2026-07-27T08:08:37.539Z",
+    "deploymentMode": "source",
+    "importMapSha256": "7bfe13dc1a1bd6df045edf0e1f3c64aabfec3bc74fea46549380c1ae2bb94433"
+  },
+  "shell": {
+    "name": "@moh-sso/shell",
+    "version": "0.1.0"
+  },
   "apps": {
     "announcements": {
       "name": "@moh-sso/announcements",
@@ -43,10 +52,6 @@
     },
     "report-browser": {
       "name": "@moh-sso/report-browser",
-      "version": "0.1.0"
-    },
-    "shell": {
-      "name": "@moh-sso/shell",
       "version": "0.1.0"
     },
     "surveillance": {
