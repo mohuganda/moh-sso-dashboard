@@ -7,9 +7,13 @@ import {
   PopoverContent,
   Search,
   TreeView,
+  Tabs,
+  TabList,
+  Tab,
 } from "@carbon/react";
-import { Add, ChevronDown, Download, Filter, Upload } from "@carbon/react/icons";
+import { Add, ChevronDown, Download, Filter, Upload, User, List } from "@carbon/react/icons";
 import * as XLSX from "xlsx";
+import { useSelector } from "react-redux";
 
 import {
   useGetIssuesQuery,
@@ -17,7 +21,7 @@ import {
   useGetIssuesSummaryByProgramQuery,
   useGetIssueByCodeQuery,
 } from "../api";
-import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
+import { PERMISSIONS, PermissionGuard, selectUser } from "@moh-sso/auth";
 
 function getIssueCodeFromUrl(): string {
   if (typeof window === "undefined") return "";
@@ -160,12 +164,15 @@ const PROGRAM_COLORS = [
 ];
 
 const IssueTracker = () => {
+  const user = useSelector(selectUser);
   const currentYear = new Date().getFullYear();
 
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+
+  const [activeTab, setActiveTab] = useState<"assigned_to_me" | "all_issues">("assigned_to_me");
 
   const [issues, setIssues] = useState<Issue[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<Issue>();
@@ -521,6 +528,37 @@ const IssueTracker = () => {
     tableSearchTerm,
   ]);
 
+  const isAssignedToUser = useCallback(
+    (issue: Issue) => {
+      if (!issue?.assigned_to || !user) return false;
+      const target = issue.assigned_to.trim().toLowerCase();
+      const userEmail = (user.email ?? "").trim().toLowerCase();
+      const username = (user.username ?? "").trim().toLowerCase();
+      const userId = (user.id ?? "").trim().toLowerCase();
+      return (
+        (userEmail !== "" && target === userEmail) ||
+        (username !== "" && target === username) ||
+        (userId !== "" && target === userId)
+      );
+    },
+    [user],
+  );
+
+  const assignedToMeCount = useMemo(() => {
+    return issues.filter(isAssignedToUser).length;
+  }, [issues, isAssignedToUser]);
+
+  const allIssuesCount = useMemo(() => {
+    return issues.length;
+  }, [issues]);
+
+  const tabFilteredIssues = useMemo(() => {
+    if (activeTab === "assigned_to_me") {
+      return filteredIssues.filter(isAssignedToUser);
+    }
+    return filteredIssues;
+  }, [activeTab, filteredIssues, isAssignedToUser]);
+
   const handleSelectRow = useCallback((rowId: string, checked: boolean) => {
     setSelectedRowIds((prev) => {
       if (checked) {
@@ -533,18 +571,18 @@ const IssueTracker = () => {
   const handleSelectAll = useCallback(
     (checked: boolean) => {
       if (checked) {
-        const allIds = filteredIssues.map((item) => String(item.id ?? item.issue_id));
+        const allIds = tabFilteredIssues.map((item) => String(item.id ?? item.issue_id));
         setSelectedRowIds(allIds);
       } else {
         setSelectedRowIds([]);
       }
     },
-    [filteredIssues],
+    [tabFilteredIssues],
   );
 
   const selectedIssueObjects = useMemo(() => {
-    return issues.filter((item) => selectedRowIds.includes(String(item.id ?? item.issue_id)));
-  }, [issues, selectedRowIds]);
+    return tabFilteredIssues.filter((item) => selectedRowIds.includes(String(item.id ?? item.issue_id)));
+  }, [tabFilteredIssues, selectedRowIds]);
 
   const selectedIssueCodes = useMemo(() => {
     return selectedIssueObjects
@@ -847,6 +885,25 @@ const IssueTracker = () => {
               })}
             </div>
           )}
+        </div>
+
+        <div style={{ marginTop: "1.5rem", marginBottom: "1rem" }}>
+          <Tabs
+            selectedIndex={activeTab === "assigned_to_me" ? 0 : 1}
+            onChange={({ selectedIndex }) => {
+              setActiveTab(selectedIndex === 0 ? "assigned_to_me" : "all_issues");
+              setSelectedRowIds([]);
+            }}
+          >
+            <TabList aria-label="Issue tracker view options" contained>
+              <Tab renderIcon={User}>
+                Assigned to me ({assignedToMeCount})
+              </Tab>
+              <Tab renderIcon={List}>
+                All Issues ({allIssuesCount})
+              </Tab>
+            </TabList>
+          </Tabs>
         </div>
 
         <div className="dv-toolbar issue-label-container">
@@ -1154,10 +1211,26 @@ const IssueTracker = () => {
               </div>
             </div>
 
+            {activeTab === "assigned_to_me" && tabFilteredIssues.length === 0 && !isLoading && (
+              <div
+                style={{
+                  padding: "1.25rem 1.5rem",
+                  marginBottom: "1.25rem",
+                  backgroundColor: "#edf5ff",
+                  borderRadius: "4px",
+                  borderLeft: "4px solid #0f62fe",
+                  color: "#161616",
+                  fontSize: "0.875rem",
+                }}
+              >
+                <strong>No issues currently assigned to you.</strong> Switch to the <em>All Issues</em> tab to view all registered issues.
+              </div>
+            )}
+
             <DataList
               columns={headers}
-              data={filteredIssues}
-              totalItems={hasActiveFilters || Boolean(tableSearchTerm) ? filteredIssues.length : (data?.totalCount ?? 0)}
+              data={tabFilteredIssues}
+              totalItems={hasActiveFilters || Boolean(tableSearchTerm) || activeTab === "assigned_to_me" ? tabFilteredIssues.length : (data?.totalCount ?? 0)}
               currentPage={page}
               currentPageSize={pageSize}
               onPageChange={(newPage, newPageSize) => {
