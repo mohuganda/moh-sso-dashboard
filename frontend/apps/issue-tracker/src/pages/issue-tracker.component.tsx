@@ -11,8 +11,28 @@ import {
 import { Add, ChevronDown, Download, Filter, Upload } from "@carbon/react/icons";
 import * as XLSX from "xlsx";
 
-import { useGetIssuesQuery, useLazyGetIssuesQuery, useGetIssuesSummaryByProgramQuery } from "../api";
+import {
+  useGetIssuesQuery,
+  useLazyGetIssuesQuery,
+  useGetIssuesSummaryByProgramQuery,
+  useGetIssueByCodeQuery,
+} from "../api";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
+
+function getIssueCodeFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const codeParam = params.get("issueCode") || params.get("issue") || params.get("code");
+  if (codeParam && codeParam.trim()) {
+    return codeParam.trim();
+  }
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && /^HMIS-\d+$/i.test(lastPart)) {
+    return lastPart.trim();
+  }
+  return "";
+}
 
 import DataList from "../../../data-visualizer/src/pages/components/data-table/data-table.component.tsx";
 import { getAvailablePeriods, periodType } from "../../../data-visualizer/src/pages/Constants.tsx";
@@ -150,6 +170,20 @@ const IssueTracker = () => {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<Issue>();
   const [isViewIssueDetail, setIsViewIssueDetail] = useState(false);
+
+  const [urlIssueCode, setUrlIssueCode] = useState<string>(() => getIssueCodeFromUrl());
+
+  const { data: directIssueData, isLoading: isLoadingDirectIssue } = useGetIssueByCodeQuery(
+    urlIssueCode,
+    { skip: !urlIssueCode },
+  );
+
+  useEffect(() => {
+    if (directIssueData && urlIssueCode) {
+      setSelectedIssue(directIssueData);
+      setIsViewIssueDetail(true);
+    }
+  }, [directIssueData, urlIssueCode]);
 
   const [tableSearchTerm, setTableSearchTerm] = useState("");
 
@@ -534,6 +568,12 @@ const IssueTracker = () => {
 
     setSelectedIssue(selectedItem);
     setIsViewIssueDetail(true);
+
+    if (selectedItem.issue_code && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("issueCode", selectedItem.issue_code);
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
   };
 
   const handleYearChange = ({ selectedItem }: SelectEvent<number>) => {
@@ -721,15 +761,36 @@ const IssueTracker = () => {
     closeAllPopovers();
   };
 
+  const handleBackFromDetail = () => {
+    setSelectedIssue(undefined);
+    setIsViewIssueDetail(false);
+    setUrlIssueCode("");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("issueCode");
+      url.searchParams.delete("issue");
+      url.searchParams.delete("code");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  };
+
+  if (isLoadingDirectIssue && urlIssueCode && !selectedIssue) {
+    return (
+      <PermissionGuard permission={PERMISSIONS.issueTrackerRead}>
+        <div style={{ padding: "3rem 2rem", textAlign: "center", color: "#525252" }}>
+          <h4>Loading Issue Details...</h4>
+          <p style={{ marginTop: "0.5rem" }}>Fetching issue [{urlIssueCode}] from server.</p>
+        </div>
+      </PermissionGuard>
+    );
+  }
+
   if (isViewIssueDetail && selectedIssue) {
     return (
       <PermissionGuard permission={PERMISSIONS.issueTrackerRead}>
         <IssueDetail
           selectedIssue={selectedIssue}
-          goToBack={() => {
-            setSelectedIssue(undefined);
-            setIsViewIssueDetail(false);
-          }}
+          goToBack={handleBackFromDetail}
         />
       </PermissionGuard>
     );

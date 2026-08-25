@@ -156,6 +156,26 @@ func (h *Handler) ListIssues(c *gin.Context) {
 	response.OK(c, http.StatusOK, toIssueResponses(issues))
 }
 
+func (h *Handler) GetIssueByCode(c *gin.Context) {
+	issueCode := strings.TrimSpace(c.Param("issueCode"))
+	if issueCode == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ISSUE_CODE", "issue code is required")
+		return
+	}
+
+	issue, err := h.service.GetIssueByCode(c.Request.Context(), issueCode)
+	if err != nil {
+		if isNotFound(err) {
+			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
+			return
+		}
+		response.Fail(c, http.StatusInternalServerError, "GET_ISSUE_FAILED", issueDBErrorMessage(err, "failed to get issue"))
+		return
+	}
+
+	response.OK(c, http.StatusOK, toIssueResponse(issue))
+}
+
 func (h *Handler) ListIssueSummaryByProgram(c *gin.Context) {
 	limit := parseListLimit(c, 50, 500)
 	offset := parseListOffset(c)

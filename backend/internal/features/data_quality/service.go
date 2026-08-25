@@ -30,6 +30,7 @@ func isNilInterface(i interface{}) bool {
 type Service interface {
 	CreateIssue(ctx context.Context, input createIssueInput) (issueResponse, error)
 	ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error)
+	GetIssueByCode(ctx context.Context, issueCode string) (issueResponse, error)
 	ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error)
 	UpdateIssue(ctx context.Context, input updateIssueInput) (issueResponse, error)
 	ResolveIssue(ctx context.Context, input resolveIssueInput) (issueStageResponse, error)
@@ -71,6 +72,17 @@ func (s *service) CreateIssue(ctx context.Context, input createIssueInput) (issu
 
 func (s *service) ListIssues(ctx context.Context, limit int, offset int, program string) ([]issueResponse, error) {
 	return s.repository.ListIssues(ctx, limit, offset, program)
+}
+
+func (s *service) GetIssueByCode(ctx context.Context, issueCode string) (issueResponse, error) {
+	issues, err := s.repository.GetIssuesByCodes(ctx, []string{issueCode})
+	if err != nil {
+		return issueResponse{}, err
+	}
+	if len(issues) == 0 {
+		return issueResponse{}, fmt.Errorf("issue not found: %s", issueCode)
+	}
+	return issues[0], nil
 }
 
 func (s *service) ListIssueSummaryByProgram(ctx context.Context, limit int, offset int) ([]issueProgramSummaryResponse, error) {
@@ -227,8 +239,10 @@ func (s *service) sendApprovalEmailToGroupMembers(ctx context.Context, input res
 		bodyBuilder.WriteString(fmt.Sprintf("<div style='background-color: #defbe6; border: 1px solid #a7f0ba; padding: 10px 14px; border-radius: 4px; margin-bottom: 16px;'><strong>Resolution Notes:</strong> %s</div>", resolutionAction))
 	}
 
-	bodyBuilder.WriteString(fmt.Sprintf("<p style='margin-top: 20px;'><a href='%s' style='background-color: #198038; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;'>View in MOH Dashboard Portal &rarr;</a></p>", portalURL))
-	bodyBuilder.WriteString(fmt.Sprintf("<p style='font-size: 13px; color: #6f6f6f; margin-top: 12px;'>Or visit the portal directly: <a href='%s' style='color: #198038;'>%s</a></p>", portalURL, portalURL))
+	issueLink := fmt.Sprintf("%s/apps/dwh/issue-tracker?issueCode=%s", portalURL, issueCode)
+
+	bodyBuilder.WriteString(fmt.Sprintf("<p style='margin-top: 20px;'><a href='%s' style='background-color: #198038; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;'>View Issue Details in MOH Portal &rarr;</a></p>", issueLink))
+	bodyBuilder.WriteString(fmt.Sprintf("<p style='font-size: 13px; color: #6f6f6f; margin-top: 12px;'>Or visit directly: <a href='%s' style='color: #198038;'>%s</a></p>", issueLink, issueLink))
 	bodyBuilder.WriteString("<hr style='border: none; border-top: 1px solid #e0e0e0; margin-top: 24px;'/>")
 	bodyBuilder.WriteString("<p style='font-size: 12px; color: #777;'>This is an automated group notification from the MOH Issue Tracker.</p>")
 
@@ -239,7 +253,7 @@ func (s *service) sendApprovalEmailToGroupMembers(ctx context.Context, input res
 		textBuilder.WriteString(fmt.Sprintf("Resolution Notes: %s\n\n", resolutionAction))
 	}
 
-	textBuilder.WriteString(fmt.Sprintf("View in MOH Integrated Portal:\n%s\n", portalURL))
+	textBuilder.WriteString(fmt.Sprintf("View Issue Details in MOH Integrated Portal:\n%s\n", issueLink))
 
 	msg := model.Message{
 		To:       recipientAddresses,
@@ -370,12 +384,15 @@ func (s *service) sendAssignmentEmail(ctx context.Context, input assignIssuesInp
 		textBuilder.WriteString(fmt.Sprintf("Comment: %s\n\n", strings.TrimSpace(input.Comment)))
 	}
 
-	bodyBuilder.WriteString(fmt.Sprintf("<p style='margin-top: 20px;'><a href='%s' style='background-color: #0f62fe; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;'>Open MOH Dashboard Portal &rarr;</a></p>", portalURL))
-	bodyBuilder.WriteString(fmt.Sprintf("<p style='font-size: 13px; color: #6f6f6f; margin-top: 12px;'>Or visit the portal directly: <a href='%s' style='color: #0f62fe;'>%s</a></p>", portalURL, portalURL))
+	firstCode := issueCodes[0]
+	issueLink := fmt.Sprintf("%s/apps/dwh/issue-tracker?issueCode=%s", portalURL, firstCode)
+
+	bodyBuilder.WriteString(fmt.Sprintf("<p style='margin-top: 20px;'><a href='%s' style='background-color: #0f62fe; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;'>View Assigned Issue(s) in MOH Portal &rarr;</a></p>", issueLink))
+	bodyBuilder.WriteString(fmt.Sprintf("<p style='font-size: 13px; color: #6f6f6f; margin-top: 12px;'>Or visit directly: <a href='%s' style='color: #0f62fe;'>%s</a></p>", issueLink, issueLink))
 	bodyBuilder.WriteString("<hr style='border: none; border-top: 1px solid #e0e0e0; margin-top: 24px;'/>")
 	bodyBuilder.WriteString("<p style='font-size: 12px; color: #777;'>This is an automated notification from the MOH Integrated Health Portal Issue Tracker.</p>")
 
-	textBuilder.WriteString(fmt.Sprintf("Please log in to the MOH Dashboard Portal to review and take action:\n%s\n", portalURL))
+	textBuilder.WriteString(fmt.Sprintf("Please log in to the MOH Dashboard Portal to review and take action:\n%s\n", issueLink))
 
 	msg := model.Message{
 		To: []model.Address{

@@ -68,6 +68,12 @@ func RegisterProtectedRoutes(
 			handler.ListKeycloakGroupMembers,
 		)
 
+		issues.GET(
+			"/:issueCode",
+			middleware.RequirePermission(authz.PermissionIssueTrackerRead),
+			handler.GetIssueByCode,
+		)
+
 		issues.POST(
 			"/assign",
 			middleware.RequireAnyPermission(

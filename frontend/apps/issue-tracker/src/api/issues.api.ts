@@ -134,6 +134,16 @@ export const issuesApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiEnvelope<KeycloakGroupMember[]>) => res.data ?? [],
     }),
 
+    getIssueByCode: builder.query<Issue, string>({
+      query: (issueCode) => ({
+        url: `${API.issue.list()}/${issueCode}`,
+        method: "GET",
+        credentials: "include",
+      }),
+      transformResponse: (res: ApiEnvelope<Issue>) => res.data,
+      providesTags: ["Issues"],
+    }),
+
     assignIssues: builder.mutation<IssueTransaction[], AssignIssuesPayload>({
       query: (body) => ({
         url: `${API.issue.list()}/assign`,
@@ -150,6 +160,8 @@ export const issuesApi = baseApi.injectEndpoints({
 export const {
   useGetIssuesQuery,
   useLazyGetIssuesQuery,
+  useGetIssueByCodeQuery,
+  useLazyGetIssueByCodeQuery,
   useGetIssuesSummaryByProgramQuery,
   useCreateIssueMutation,
   useUpdateIssueMutation,
