@@ -73,6 +73,20 @@ func issueDBErrorMessage(err error, fallback string) string {
 	return fallback
 }
 
+func getUserEmailOrUsername(c *gin.Context) string {
+	if u, exists := c.Get("user"); exists {
+		if user, ok := u.(*keycloak.AuthUser); ok && user != nil {
+			if email := strings.TrimSpace(user.Email); email != "" {
+				return email
+			}
+			if username := strings.TrimSpace(user.Username); username != "" {
+				return username
+			}
+		}
+	}
+	return strings.TrimSpace(c.GetString("user_id"))
+}
+
 func (h *Handler) CreateIssue(c *gin.Context) {
 	var req createIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -93,10 +107,10 @@ func (h *Handler) CreateIssue(c *gin.Context) {
 
 	reportedBy := dqNullableString(req.ReportedBy)
 	if !reportedBy.Valid {
-		userID := strings.TrimSpace(c.GetString("user_id"))
-		if userID != "" {
+		userEmail := getUserEmailOrUsername(c)
+		if userEmail != "" {
 			reportedBy = sql.NullString{
-				String: userID,
+				String: userEmail,
 				Valid:  true,
 			}
 		}
@@ -246,9 +260,9 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 
 	updatedByParam := optionalTrimmedParam(req.UpdatedBy, true)
 	if updatedByParam == nil {
-		userID := strings.TrimSpace(c.GetString("user_id"))
-		if userID != "" {
-			updatedByParam = userID
+		userEmail := getUserEmailOrUsername(c)
+		if userEmail != "" {
+			updatedByParam = userEmail
 		}
 	}
 
@@ -336,10 +350,7 @@ func (h *Handler) ResolveIssue(c *gin.Context) {
 
 	resolvedBy := optionalTrimmedParam(req.ResolvedBy, true)
 	if resolvedBy == nil {
-		userID := strings.TrimSpace(c.GetString("user_id"))
-		if userID != "" {
-			resolvedBy = userID
-		}
+		resolvedBy = getUserEmailOrUsername(c)
 	}
 
 	stageRow, err := h.service.ResolveIssue(c.Request.Context(), resolveIssueInput{
@@ -573,7 +584,7 @@ func (h *Handler) AssignIssues(c *gin.Context) {
 		return
 	}
 
-	assignedBy := strings.TrimSpace(c.GetString("user_id"))
+	assignedBy := getUserEmailOrUsername(c)
 	if assignedBy == "" {
 		assignedBy = "System"
 	}

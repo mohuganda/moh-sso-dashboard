@@ -395,7 +395,38 @@ func (s *service) sendAssignmentEmail(ctx context.Context, input assignIssuesInp
 }
 
 func (s *service) ListIssueResolutionTransactions(ctx context.Context, issueCode string, limit int, offset int) ([]issueStageResponse, error) {
-	return s.repository.ListIssueResolutionTransactions(ctx, issueCode, limit, offset)
+	transactions, err := s.repository.ListIssueResolutionTransactions(ctx, issueCode, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	userCache := make(map[string]string)
+
+	for i := range transactions {
+		if transactions[i].ResolvedBy != nil {
+			val := strings.TrimSpace(*transactions[i].ResolvedBy)
+			if val != "" {
+				if _, parseErr := uuid.Parse(val); parseErr == nil {
+					if cached, found := userCache[val]; found {
+						transactions[i].ResolvedBy = &cached
+					} else if !isNilInterface(s.keyAdminClient) {
+						if kcUser, err := s.keyAdminClient.GetUser(val); err == nil && kcUser != nil {
+							displayName := strings.TrimSpace(kcUser.Email)
+							if displayName == "" {
+								displayName = strings.TrimSpace(kcUser.Username)
+							}
+							if displayName != "" {
+								userCache[val] = displayName
+								transactions[i].ResolvedBy = &displayName
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return transactions, nil
 }
 
 func (s *service) ImportValidationRules(ctx context.Context, inputs []validationRuleInput) (validationRuleImportResult, error) {

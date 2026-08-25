@@ -247,7 +247,7 @@ func (r *postgresRepository) ResolveIssue(ctx context.Context, input resolveIssu
 			due_date,
 			assigned_to
 		) VALUES (
-			$1, $2, TRUE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL
+			$1, $2, TRUE, $3, $4, COALESCE($5, CURRENT_DATE), $6, $7, $8, $9, $10, $11, $12, NULL
 		)
 		RETURNING id, issue_code, status, is_current, resolution_action, resolved_by, resolution_date,
 			verification_status, verified_by, verification_date, preventive_action, process_change, preventive_owner, due_date, assigned_to`,
@@ -274,7 +274,7 @@ func (r *postgresRepository) ResolveIssue(ctx context.Context, input resolveIssu
 					is_current = TRUE,
 					resolution_action = $3,
 					resolved_by = $4,
-					resolution_date = $5,
+					resolution_date = COALESCE($5, CURRENT_DATE),
 					verification_status = $6,
 					verified_by = $7,
 					verification_date = $8,

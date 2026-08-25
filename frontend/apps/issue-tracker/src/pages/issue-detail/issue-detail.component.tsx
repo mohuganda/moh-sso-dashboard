@@ -89,7 +89,7 @@ const IssueDetail = ({
       id: selectedIssue.issue_code,
       body: {
         resolution_action: trimmedComment,
-        resolved_by: user?.username ?? "",
+        resolved_by: user?.email || user?.username || "",
         status,
       },
     };
@@ -294,7 +294,7 @@ const IssueDetail = ({
                           }}
                         >
                           <div style={{ fontWeight: "bold" }}>
-                            {transaction?.resolution_date} - {transaction?.resolved_by}
+                            {transaction?.resolution_date || "N/A"} - {transaction?.resolved_by || "System / Unknown"}
                           </div>
 
                           <div style={{ color: "#525252" }}>
