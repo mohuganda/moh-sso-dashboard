@@ -508,12 +508,22 @@ const IssueTracker = () => {
     [filteredIssues],
   );
 
+  const selectedIssueObjects = useMemo(() => {
+    return issues.filter((item) => selectedRowIds.includes(String(item.id ?? item.issue_id)));
+  }, [issues, selectedRowIds]);
+
   const selectedIssueCodes = useMemo(() => {
-    return issues
-      .filter((item) => selectedRowIds.includes(String(item.id ?? item.issue_id)))
+    return selectedIssueObjects
       .map((item) => item.issue_code)
       .filter(Boolean);
-  }, [issues, selectedRowIds]);
+  }, [selectedIssueObjects]);
+
+  const areAllSelectedAssigned = useMemo(() => {
+    return (
+      selectedIssueObjects.length > 0 &&
+      selectedIssueObjects.every((item) => Boolean(item.assigned_to))
+    );
+  }, [selectedIssueObjects]);
 
   const handleIssueClick = (row: { id?: string }) => {
     const selectedItem = issues.find((item) => String(item.issue_id) === String(row.id ?? ""));
@@ -791,7 +801,8 @@ const IssueTracker = () => {
                 disabled={selectedIssueCodes.length === 0}
                 onClick={() => setShowAssignModal(true)}
               >
-                Assign Selected {selectedIssueCodes.length > 0 ? `(${selectedIssueCodes.length})` : ""}
+                {areAllSelectedAssigned ? "Re-assign Selected" : "Assign Selected"}{" "}
+                {selectedIssueCodes.length > 0 ? `(${selectedIssueCodes.length})` : ""}
               </Button>
             </PermissionGuard>
 
@@ -1118,6 +1129,7 @@ const IssueTracker = () => {
           <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
             <AssignModal
               issueCodes={selectedIssueCodes}
+              isReassign={areAllSelectedAssigned}
               onClose={() => setShowAssignModal(false)}
               onSuccess={() => setSelectedRowIds([])}
             />

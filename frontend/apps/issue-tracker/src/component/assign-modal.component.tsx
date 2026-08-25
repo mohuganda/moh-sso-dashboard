@@ -9,11 +9,12 @@ import type { KeycloakGroup, KeycloakGroupMember } from "../types";
 
 type AssignModalProps = {
   issueCodes: string[];
+  isReassign?: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 };
 
-export const AssignModal = ({ issueCodes, onClose, onSuccess }: AssignModalProps) => {
+export const AssignModal = ({ issueCodes, isReassign = false, onClose, onSuccess }: AssignModalProps) => {
   const [selectedGroup, setSelectedGroup] = useState<KeycloakGroup | null>(null);
   const [selectedMember, setSelectedMember] = useState<KeycloakGroupMember | null>(null);
   const [comment, setComment] = useState("");
@@ -73,13 +74,15 @@ export const AssignModal = ({ issueCodes, onClose, onSuccess }: AssignModalProps
   };
 
   const isMultiple = issueCodes.length > 1;
-  const heading = isMultiple ? `Assign ${issueCodes.length} Issues` : `Assign Issue [${issueCodes[0] ?? ""}]`;
+  const actionWord = isReassign ? "Re-assign" : "Assign";
+  const actionWordIng = isReassign ? "Re-assigning..." : "Assigning...";
+  const heading = isMultiple ? `${actionWord} ${issueCodes.length} Issues` : `${actionWord} Issue [${issueCodes[0] ?? ""}]`;
 
   return (
     <Modal
       open
       modalHeading={heading}
-      primaryButtonText={isAssigning ? "Assigning..." : "Assign Issue"}
+      primaryButtonText={isAssigning ? actionWordIng : `${actionWord} Issue`}
       secondaryButtonText="Cancel"
       onRequestClose={onClose}
       onRequestSubmit={handleSubmit}
@@ -96,7 +99,7 @@ export const AssignModal = ({ issueCodes, onClose, onSuccess }: AssignModalProps
         )}
 
         <p style={{ color: "#525252" }}>
-          Select a user group and choose a team member to assign {isMultiple ? "these issues" : "this issue"} to.
+          Select a user group and choose a team member to {isReassign ? "re-assign" : "assign"} {isMultiple ? "these issues" : "this issue"} to.
         </p>
 
         <ComboBox

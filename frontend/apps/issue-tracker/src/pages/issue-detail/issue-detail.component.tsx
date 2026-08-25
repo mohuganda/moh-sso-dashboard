@@ -358,7 +358,7 @@ const IssueDetail = ({
                     kind="tertiary"
                     onClick={() => setIsAssignModalOpen(true)}
                   >
-                    Assign Issue
+                    {selectedIssue?.assigned_to ? "Re-assign Issue" : "Assign Issue"}
                   </Button>
                 </PermissionGuard>
               )}
@@ -424,6 +424,7 @@ const IssueDetail = ({
           {isAssignModalOpen && selectedIssue?.issue_code && (
             <AssignModal
               issueCodes={[selectedIssue.issue_code]}
+              isReassign={Boolean(selectedIssue?.assigned_to)}
               onClose={() => setIsAssignModalOpen(false)}
             />
           )}
