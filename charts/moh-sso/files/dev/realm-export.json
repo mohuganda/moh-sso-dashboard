@@ -244,7 +244,14 @@
             "portal.permissions": [
               "report_browser:read",
               "metrics:read",
-              "audit:read"
+              "audit:read",
+              "report_scheduler:read",
+              "report_scheduler:create",
+              "report_scheduler:update",
+              "report_scheduler:delete",
+              "report_scheduler:execute",
+              "report_scheduler:history",
+              "report_scheduler:manage"
             ]
           }
         },
@@ -274,6 +281,23 @@
           "attributes": {
             "portal.permissions": [
               "report_browser:read"
+            ]
+          }
+        },
+        {
+          "name": "report-scheduler_access",
+          "description": "Access Report Scheduler",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "report_scheduler:read",
+              "report_scheduler:create",
+              "report_scheduler:update",
+              "report_scheduler:delete",
+              "report_scheduler:execute",
+              "report_scheduler:history"
             ]
           }
         }
@@ -451,12 +475,13 @@
         "ui.home": "/portal/apps/dwh",
         "ui.category": "platform",
         "portal.system": "true",
-        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin",
+        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin,report-scheduler_access",
         "ui.systemType": "platform",
         "ui.displayInLauncher": "true",
         "ui.displayInSideNav": "false",
         "ui.launchMode": "internal",
-        "ui.launchUrl": "/portal/apps/dwh"
+        "ui.launchUrl": "/portal/apps/dwh",
+        "ui.navigation": "[{\"id\":\"report-scheduler\",\"label\":\"Report Scheduler\",\"path\":\"/apps/dwh/report-scheduler\",\"permission\":\"report_scheduler:read\",\"icon\":\"reporting\",\"description\":\"Schedule report generation and delivery.\",\"order\":70,\"displayInLauncher\":true,\"displayInSideNav\":true}]"
       }
     },
     {

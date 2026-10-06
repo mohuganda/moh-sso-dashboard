@@ -17,6 +17,8 @@ type Config struct {
 	Environment string `mapstructure:"ENVIRONMENT"`
 	GinMode     string `mapstructure:"GIN_MODE"`
 
+	DevAuthBypass bool `mapstructure:"DEV_AUTH_BYPASS"`
+
 	// ==================================================
 	// Frontend
 	// ==================================================
@@ -58,6 +60,16 @@ type Config struct {
 	// ==================================================
 	ServerPort string `mapstructure:"SERVER_PORT"`
 	AppBaseURL string `mapstructure:"APP_BASE_URL"`
+
+	// ==================================================
+	// Health BI report integration
+	// ==================================================
+	HealthBIBaseURL    string        `mapstructure:"HEALTH_BI_BASE_URL"`
+	HealthBIAPIToken   string        `mapstructure:"HEALTH_BI_API_TOKEN"`
+	HealthBIAuthHeader string        `mapstructure:"HEALTH_BI_AUTH_HEADER"`
+	HealthBITimeout    time.Duration `mapstructure:"HEALTH_BI_TIMEOUT"`
+	ReportSchedulerWorkerInterval time.Duration `mapstructure:"REPORT_SCHEDULER_WORKER_INTERVAL"`
+	ReportSchedulerDeliveryLinkTTL time.Duration `mapstructure:"REPORT_SCHEDULER_DELIVERY_LINK_TTL"`
 
 	// ==================================================
 	// RBAC / Keycloak startup sync
@@ -269,6 +281,7 @@ func setDefaults() {
 	// ==================================================
 	viper.SetDefault("ENVIRONMENT", "development")
 	viper.SetDefault("GIN_MODE", "debug")
+	viper.SetDefault("DEV_AUTH_BYPASS", false)
 
 	// ==================================================
 	// Frontend defaults
@@ -293,6 +306,12 @@ func setDefaults() {
 	// ==================================================
 	viper.SetDefault("SERVER_PORT", "9000")
 	viper.SetDefault("APP_BASE_URL", "http://localhost:9000")
+	viper.SetDefault("HEALTH_BI_BASE_URL", "")
+	viper.SetDefault("HEALTH_BI_API_TOKEN", "")
+	viper.SetDefault("HEALTH_BI_AUTH_HEADER", "Authorization")
+	viper.SetDefault("HEALTH_BI_TIMEOUT", "30s")
+	viper.SetDefault("REPORT_SCHEDULER_WORKER_INTERVAL", "30s")
+	viper.SetDefault("REPORT_SCHEDULER_DELIVERY_LINK_TTL", "24h")
 	viper.SetDefault("RBAC_STARTUP_SYNC_ENABLED", true)
 	viper.SetDefault("RBAC_STARTUP_SEED_ENABLED", true)
 	viper.SetDefault("RBAC_STARTUP_SEED_PATH", "config/system-rbac.seed.yaml")
@@ -353,11 +372,18 @@ func envBindings() map[string]string {
 	return map[string]string{
 		"ENVIRONMENT":                           "ENVIRONMENT",
 		"GIN_MODE":                              "GIN_MODE",
+		"DEV_AUTH_BYPASS":                       "DEV_AUTH_BYPASS",
 		"FRONTEND_BASE_URL":                     "FRONTEND_BASE_URL",
 		"FRONTEND_REDIRECT_URI":                 "FRONTEND_REDIRECT_URI",
 		"COOKIE_DOMAIN":                         "COOKIE_DOMAIN",
 		"LOGIN_URL":                             "LOGIN_URL",
-		"AUTH_RETURN_URL_ALLOWED_ORIGINS":       "AUTH_RETURN_URL_ALLOWED_ORIGINS",
+			"AUTH_RETURN_URL_ALLOWED_ORIGINS":       "AUTH_RETURN_URL_ALLOWED_ORIGINS",
+				"HEALTH_BI_BASE_URL":                    "HEALTH_BI_BASE_URL",
+				"HEALTH_BI_API_TOKEN":                   "HEALTH_BI_API_TOKEN",
+				"HEALTH_BI_AUTH_HEADER":                 "HEALTH_BI_AUTH_HEADER",
+				"HEALTH_BI_TIMEOUT":                     "HEALTH_BI_TIMEOUT",
+				"REPORT_SCHEDULER_WORKER_INTERVAL":      "REPORT_SCHEDULER_WORKER_INTERVAL",
+				"REPORT_SCHEDULER_DELIVERY_LINK_TTL":   "REPORT_SCHEDULER_DELIVERY_LINK_TTL",
 		"KEYCLOAK_VERSION":                      "KEYCLOAK_VERSION",
 		"KEYCLOAK_DB":                           "KEYCLOAK_DB",
 		"KEYCLOAK_DB_NAME":                      "KEYCLOAK_DB_NAME",
@@ -805,6 +831,9 @@ func validateConfig(c *Config) error {
 	if err := validateEnvironment(c); err != nil {
 		return err
 	}
+	if c.DevAuthBypass && !c.DevAuthBypassEnabled() {
+		return errors.New("DEV_AUTH_BYPASS is only allowed in development, dev, or local environments")
+	}
 
 	if err := validateFrontendConfig(c); err != nil {
 		return err
@@ -843,6 +872,19 @@ func validateConfig(c *Config) error {
 	}
 
 	return nil
+}
+
+// DevAuthBypassEnabled fails closed for missing, test, and deployed environments.
+func (c *Config) DevAuthBypassEnabled() bool {
+	if c == nil || !c.DevAuthBypass {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(c.Environment)) {
+	case "development", "dev", "local":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateEnvironment(c *Config) error {

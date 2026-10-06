@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/url"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
+	reportschedulerfeature "github.com/moh-sso-dashboard/internal/features/report_scheduler"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -68,6 +70,7 @@ type HandlerSet struct {
 	GeoJSON                 *geojsonfeature.Handler
 	Email                   *emailfeature.Handler
 	RBAC                    *rbacfeature.Handler
+	ReportScheduler         *reportschedulerfeature.Handler
 }
 
 type RateLimits struct {
@@ -108,6 +111,7 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 		GeoJSON:                       deps.Handlers.GeoJSON,
 		Email:                         deps.Handlers.Email,
 		RBAC:                          deps.Handlers.RBAC,
+		ReportScheduler:               deps.Handlers.ReportScheduler,
 		AuthenticatedRateLimitPerMin:  rateLimits.AuthenticatedPerMinute,
 		AuthLoginRateLimitPerMin:      rateLimits.AuthLoginPerMinute,
 		AuthCallbackRateLimitPerMin:   rateLimits.AuthCallbackPerMinute,
@@ -116,19 +120,21 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 
 	// LOCAL DEV ONLY: DEV_AUTH_BYPASS=true serves a synthetic admin session
 	// and skips the Keycloak redirect entirely.
-	if middleware.DevAuthBypassEnabled() {
+	if middleware.DevAuthBypassEnabled(deps.Config) {
 		r.Use(middleware.DevAuthBypassRoutes())
 	}
 
 	api := r.Group("/api/v1")
 	routes.RegisterAuthRoutes(api, routeDeps)
 	routes.RegisterPublicAnnouncementRoutes(api, routeDeps)
+	routes.RegisterPublicReportSchedulerRoutes(api, routeDeps)
 
 	protected := api.Group("")
 	protected.Use(middleware.ExtractAuthContext(
 		deps.KeycloakClient,
 		deps.AuthSessions,
 		deps.AuthzResolver,
+		deps.Config,
 	))
 	protected.Use(middleware.RequireAuth())
 	protected.Use(middleware.AuditMiddleware(deps.AuditService))
@@ -208,10 +214,13 @@ func buildAllowedOrigins(cfg *config.Config) []string {
 	origins := make([]string, 0)
 
 	add := func(origin string) {
-		origin = strings.TrimRight(strings.TrimSpace(origin), "/")
-		if origin == "" {
+		parsed, err := url.Parse(strings.TrimSpace(origin))
+		if err != nil || parsed.Hostname() == "" || parsed.User != nil ||
+			(parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			strings.Contains(parsed.Host, "*") {
 			return
 		}
+		origin = strings.ToLower(parsed.Scheme + "://" + parsed.Host)
 
 		if seen[origin] {
 			return
@@ -221,11 +230,13 @@ func buildAllowedOrigins(cfg *config.Config) []string {
 		origins = append(origins, origin)
 	}
 
-	// Safe local development origins.
-	add("http://localhost:3000")
-	add("http://localhost:5173")
-	add("http://127.0.0.1:3000")
-	add("http://127.0.0.1:5173")
+	// Local origins are defaults only in development, never deployed environments.
+	if cfg == nil || cfg.IsDevelopment() {
+		add("http://localhost:3000")
+		add("http://localhost:5173")
+		add("http://127.0.0.1:3000")
+		add("http://127.0.0.1:5173")
+	}
 
 	if cfg != nil {
 		add(cfg.FrontendBaseURL)

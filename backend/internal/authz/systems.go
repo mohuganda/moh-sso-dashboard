@@ -50,6 +50,7 @@ const (
 	DocumentTemplateEditor    = "document_template_editor"
 	DocumentTemplatePublisher = "document_template_publisher"
 
-	UtilitiesAccess = "utilities_access"
-	SettingsAccess  = "settings_access"
+	UtilitiesAccess       = "utilities_access"
+	SettingsAccess        = "settings_access"
+	ReportSchedulerAccess = "report-scheduler_access"
 )
