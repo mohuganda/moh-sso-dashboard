@@ -82,6 +82,10 @@
   border-left-color: #161616;
 }
 
+.kpi-card--critical {
+  border-left-color: #a2191f;
+}
+
 .kpi-card--high {
   border-left-color: #da1e28;
 }
@@ -122,6 +126,11 @@
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
+}
+
+.kpi-badge--critical {
+  background-color: #ffd7d9;
+  color: #a2191f;
 }
 
 .kpi-badge--high {

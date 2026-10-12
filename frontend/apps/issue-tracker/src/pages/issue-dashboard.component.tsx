@@ -768,6 +768,26 @@ const IssueDashboard = () => {
             </p>
           </div>
 
+          {grandTotals.critical > 0 && (
+            <div className="kpi-card kpi-card--critical">
+              <div className="kpi-header">
+                <span className="kpi-label">Critical Severity</span>
+                <span className="kpi-badge kpi-badge--critical">Critical</span>
+              </div>
+              <div className="kpi-value" style={{ color: "#a2191f" }}>
+                {isLoadingIssues ? "..." : grandTotals.critical}
+              </div>
+              <p className="kpi-subtext">
+                <strong>
+                  {grandTotals.total > 0
+                    ? `${((grandTotals.critical / grandTotals.total) * 100).toFixed(1)}%`
+                    : "0%"}
+                </strong>{" "}
+                of total issues
+              </p>
+            </div>
+          )}
+
           <div className="kpi-card kpi-card--high">
             <div className="kpi-header">
               <span className="kpi-label">High Severity</span>

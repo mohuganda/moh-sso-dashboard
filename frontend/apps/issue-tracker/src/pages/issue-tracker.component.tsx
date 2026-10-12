@@ -188,7 +188,6 @@ const IssueTracker = () => {
 
   const [activeTab, setActiveTab] = useState<"assigned_to_me" | "all_issues">("assigned_to_me");
 
-  const [issues, setIssues] = useState<Issue[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<Issue>();
   const [isViewIssueDetail, setIsViewIssueDetail] = useState(false);
 
@@ -228,12 +227,6 @@ const IssueTracker = () => {
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  const { data, isLoading, error } = useGetIssuesQuery({
-    limit: pageSize,
-    offset: (page - 1) * pageSize,
-    program: selectedProgram,
-  });
 
   const [triggerGetIssues] = useLazyGetIssuesQuery();
 
@@ -331,7 +324,62 @@ const IssueTracker = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedProgram, selectedYear, selectedPeriod, selectedDataset, selectedDataElement, selectedOrgUnit]);
+  }, [
+    selectedProgram,
+    selectedYear,
+    selectedPeriod,
+    selectedDataset,
+    selectedDataElement,
+    selectedOrgUnit,
+    tableSearchTerm,
+    activeTab,
+  ]);
+
+  const userIdentifier = user?.email || user?.username || user?.id || "";
+
+  const effectivePeriod = useMemo(() => {
+    if (selectedPeriod) return selectedPeriod;
+    if (selectedYear !== currentYear) return String(selectedYear);
+    return undefined;
+  }, [selectedPeriod, selectedYear, currentYear]);
+
+  const queryParams = useMemo(() => {
+    return {
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      program: selectedProgram,
+      region: selectedOrgUnit || undefined,
+      dataset: selectedDataset || undefined,
+      dataElement: selectedDataElement || undefined,
+      period: effectivePeriod,
+      assignedTo: activeTab === "assigned_to_me" ? userIdentifier : undefined,
+      search: tableSearchTerm.trim() || undefined,
+    };
+  }, [
+    pageSize,
+    page,
+    selectedProgram,
+    selectedOrgUnit,
+    selectedDataset,
+    selectedDataElement,
+    effectivePeriod,
+    activeTab,
+    userIdentifier,
+    tableSearchTerm,
+  ]);
+
+  const { data, isLoading, error } = useGetIssuesQuery(queryParams);
+
+  const { data: assignedData } = useGetIssuesQuery(
+    {
+      limit: 1,
+      offset: 0,
+      assignedTo: userIdentifier,
+    },
+    { skip: !userIdentifier },
+  );
+
+  const assignedToMeCount = assignedData?.totalCount ?? 0;
 
   const closeIssueModal = () => {
     setShowModal(false);
@@ -395,27 +443,15 @@ const IssueTracker = () => {
         limit: 10000,
         offset: 0,
         program: selectedProgram,
+        region: selectedOrgUnit || undefined,
+        dataset: selectedDataset || undefined,
+        dataElement: selectedDataElement || undefined,
+        period: effectivePeriod,
+        assignedTo: activeTab === "assigned_to_me" ? userIdentifier : undefined,
+        search: tableSearchTerm.trim() || undefined,
       }).unwrap();
 
-      const normalizedAll = normalizeIssueRows(allIssuesResponse.items);
-
-      const searchTerm = tableSearchTerm.trim().toLowerCase();
-      const issuesToDownload = searchTerm
-        ? normalizedAll.filter((issue) =>
-            [
-              issue.issue_code,
-              issue.dataset,
-              issue.data_element,
-              issue.issue,
-              issue.status,
-              issue.org_unit,
-              issue.date_reported,
-              issue.issue_type,
-              issue.priority,
-              issue.severity,
-            ].some((field) => containsSearchTerm(field, searchTerm)),
-          )
-        : normalizedAll;
+      const issuesToDownload = normalizeIssueRows(allIssuesResponse.items);
 
       const headerRow = EXPORT_COLUMNS.map((col) => col.header);
 
@@ -469,135 +505,23 @@ const IssueTracker = () => {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && data) {
-      setIssues(normalizeIssueRows(data.items));
-    }
-
     if (error) {
       console.error("Error encountered while fetching issues:", error);
     }
-  }, [data, error, isLoading]);
+  }, [error]);
 
-  const filteredIssues = useMemo(() => {
-    let result = issues;
+  const issues = useMemo(() => {
+    return normalizeIssueRows(data?.items);
+  }, [data?.items]);
 
-    if (selectedOrgUnit) {
-      const targetNamesSet = findNodeAndCollectSubtreeNames(
-        hierarchyData as OrgUnit[],
-        selectedOrgUnit,
-      );
-
-      result = result.filter((issue) => {
-        const issueOrg = issue.org_unit?.trim().toLowerCase();
-        const issueRegion = issue.region?.trim().toLowerCase();
-        const issueDistrict = issue.district?.trim().toLowerCase();
-
-        return (
-          (issueOrg && targetNamesSet.has(issueOrg)) ||
-          (issueRegion && targetNamesSet.has(issueRegion)) ||
-          (issueDistrict && targetNamesSet.has(issueDistrict))
-        );
-      });
-    }
-
-    if (selectedDataset) {
-      const targetDataset = selectedDataset.trim().toLowerCase();
-      result = result.filter(
-        (issue) => issue.dataset?.trim().toLowerCase() === targetDataset,
-      );
-    }
-
-    if (selectedDataElement) {
-      const targetElement = selectedDataElement.trim().toLowerCase();
-      result = result.filter(
-        (issue) => issue.data_element?.trim().toLowerCase() === targetElement,
-      );
-    }
-
-    if (selectedPeriod) {
-      const targetPeriod = selectedPeriod.trim().toLowerCase();
-      result = result.filter(
-        (issue) =>
-          issue.time_period?.trim().toLowerCase() === targetPeriod ||
-          issue.time_Period?.trim().toLowerCase() === targetPeriod,
-      );
-    } else if (selectedYear && selectedYear !== currentYear) {
-      const yearStr = String(selectedYear);
-      result = result.filter(
-        (issue) =>
-          issue.time_period?.includes(yearStr) || issue.time_Period?.includes(yearStr),
-      );
-    }
-
-    const searchTerm = tableSearchTerm.trim().toLowerCase();
-
-    if (!searchTerm) {
-      return result;
-    }
-
-    return result.filter((issue) =>
-      [
-        issue.issue_code,
-        issue.dataset,
-        issue.data_element,
-        issue.issue,
-        issue.status,
-        issue.org_unit,
-        issue.date_reported,
-        issue.issue_type,
-        issue.priority,
-        issue.severity,
-        issue.assigned_to,
-      ].some((field) => containsSearchTerm(field, searchTerm)),
-    );
-  }, [
-    issues,
-    hierarchyData,
-    selectedOrgUnit,
-    selectedDataset,
-    selectedDataElement,
-    selectedPeriod,
-    selectedYear,
-    currentYear,
-    tableSearchTerm,
-  ]);
-
-  const isAssignedToUser = useCallback(
-    (issue: Issue) => {
-      if (!issue?.assigned_to || !user) return false;
-      const target = issue.assigned_to.trim().toLowerCase();
-      const userEmail = (user.email ?? "").trim().toLowerCase();
-      const username = (user.username ?? "").trim().toLowerCase();
-      const userId = (user.id ?? "").trim().toLowerCase();
-      return (
-        (userEmail !== "" && target === userEmail) ||
-        (username !== "" && target === username) ||
-        (userId !== "" && target === userId)
-      );
-    },
-    [user],
-  );
-
-  const assignedToMeCount = useMemo(() => {
-    return issues.filter(isAssignedToUser).length;
-  }, [issues, isAssignedToUser]);
+  const tabFilteredIssues = issues;
 
   const allIssuesCount = useMemo(() => {
-    if (data?.totalCount !== undefined && data.totalCount > 0) {
-      return data.totalCount;
-    }
     if (summaryData && summaryData.length > 0) {
       return summaryData.reduce((sum, item) => sum + (item.issue_count || 0), 0);
     }
-    return issues.length;
-  }, [data?.totalCount, summaryData, issues.length]);
-
-  const tabFilteredIssues = useMemo(() => {
-    if (activeTab === "assigned_to_me") {
-      return filteredIssues.filter(isAssignedToUser);
-    }
-    return filteredIssues;
-  }, [activeTab, filteredIssues, isAssignedToUser]);
+    return data?.totalCount ?? 0;
+  }, [summaryData, data?.totalCount]);
 
   const handleSelectRow = useCallback((rowId: string, checked: boolean) => {
     setSelectedRowIds((prev) => {
@@ -772,50 +696,23 @@ const IssueTracker = () => {
     } = {},
   ) => {
     closeAllPopovers();
+    setPage(1);
 
-    const sourceRows = data as Issue[] | undefined;
-
-    if (!sourceRows) {
-      return;
+    if (overrides.period !== undefined) {
+      setSelectedPeriod(overrides.period);
     }
-
-    const filters = {
-      period: selectedPeriod,
-      year: selectedYear,
-      dataset: selectedDataset,
-      dataElement: selectedDataElement,
-      orgUnit: selectedOrgUnit,
-      ...overrides,
-    };
-
-    let nextIssues = normalizeIssueRows(sourceRows);
-
-    if (filters.period) {
-      nextIssues = nextIssues.filter(
-        (issue) => issue.time_period === filters.period || issue.time_Period === filters.period,
-      );
-    } else if (filters.year) {
-      const year = String(filters.year);
-
-      nextIssues = nextIssues.filter(
-        (issue) => issue.time_period?.includes(year) || issue.time_Period?.includes(year),
-      );
+    if (overrides.year !== undefined) {
+      setSelectedYear(overrides.year);
     }
-
-    if (filters.dataset) {
-      nextIssues = nextIssues.filter((issue) => issue.dataset === filters.dataset);
+    if (overrides.dataset !== undefined) {
+      setSelectedDataset(overrides.dataset);
     }
-
-    if (filters.dataElement) {
-      nextIssues = nextIssues.filter((issue) => issue.data_element === filters.dataElement);
+    if (overrides.dataElement !== undefined) {
+      setSelectedDataElement(overrides.dataElement);
     }
-
-    if (filters.orgUnit) {
-      nextIssues = nextIssues.filter((issue) => issue.org_unit === filters.orgUnit);
+    if (overrides.orgUnit !== undefined) {
+      setSelectedOrgUnit(overrides.orgUnit);
     }
-
-    setIssues(nextIssues);
-    closeAllPopovers();
   };
 
   const handleReset = () => {
@@ -833,8 +730,7 @@ const IssueTracker = () => {
     setOrgSearchTerm("");
     setTableSearchTerm("");
     setSelectedProgram(undefined);
-
-    setIssues(normalizeIssueRows(data as Issue[] | undefined));
+    setPage(1);
 
     closeAllPopovers();
   };
@@ -1281,7 +1177,7 @@ const IssueTracker = () => {
             <DataList
               columns={headers}
               data={tabFilteredIssues}
-              totalItems={hasActiveFilters || Boolean(tableSearchTerm) || activeTab === "assigned_to_me" ? tabFilteredIssues.length : (data?.totalCount ?? 0)}
+              totalItems={data?.totalCount ?? 0}
               currentPage={page}
               currentPageSize={pageSize}
               onPageChange={(newPage, newPageSize) => {
