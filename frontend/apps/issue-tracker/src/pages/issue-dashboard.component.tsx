@@ -43,10 +43,7 @@ import "./issue-dashboard.scss";
 
 type DistrictSummary = {
   district: string;
-  high: number;
-  moderate: number;
-  low: number;
-  other: number;
+  critical: number;
   open: number;
   resolved: number;
   total: number;
@@ -55,12 +52,7 @@ type DistrictSummary = {
 type RegionSummaryRow = {
   id: string;
   region: string;
-  high: number;
-  moderate: number;
-  low: number;
-  critical?: number;
-  info?: number;
-  unspecified?: number;
+  critical: number;
   open: number;
   resolved: number;
   total: number;
@@ -78,7 +70,7 @@ type PeriodOption = {
   value?: string;
 };
 
-type SortHeader = "region" | "high" | "moderate" | "low" | "open" | "resolved" | "total" | "percentage" | string;
+type SortHeader = "region" | "critical" | "open" | "resolved" | "total" | "percentage" | string;
 
 function safeString(val: unknown): string {
   if (val == null) return "";
@@ -89,22 +81,16 @@ function safeLower(val: unknown): string {
   return safeString(val).toLowerCase();
 }
 
-function normalizeSeverity(val?: string | null): string {
-  if (!val) return "Unspecified";
-  const trimmed = safeLower(val);
-  if (trimmed === "high") return "High";
-  if (trimmed === "moderate" || trimmed === "medium") return "Moderate";
-  if (trimmed === "low") return "Low";
-  if (trimmed === "critical") return "Critical";
-  if (trimmed === "info") return "Info";
-  const str = safeString(val);
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
 function isIssueResolved(status?: string | null): boolean {
   if (!status) return false;
   const s = safeLower(status);
   return s === "resolved" || s === "closed" || s === "done";
+}
+
+function isCriticalIssue(issue: Issue): boolean {
+  const sev = safeLower(issue.severity);
+  const prio = safeLower(issue.priority);
+  return sev === "critical" || prio === "critical";
 }
 
 const IssueDashboard = () => {
@@ -317,29 +303,20 @@ const IssueDashboard = () => {
   }, [rawIssues, selectedDataset, selectedPeriod, selectedYear, currentYear]);
 
   /* -------------------------------------------------------------
-   * Group and Aggregate by Region & Severity
+   * Group and Aggregate by Region & Status
    * ------------------------------------------------------------- */
   const { regionalSummary, grandTotals } = useMemo(() => {
     const regionGroups = new Map<
       string,
       {
-        high: number;
-        moderate: number;
-        low: number;
         critical: number;
-        info: number;
-        unspecified: number;
-        otherSeverities: Record<string, number>;
         open: number;
         resolved: number;
         total: number;
         districtGroups: Map<
           string,
           {
-            high: number;
-            moderate: number;
-            low: number;
-            other: number;
+            critical: number;
             open: number;
             resolved: number;
             total: number;
@@ -348,14 +325,7 @@ const IssueDashboard = () => {
       }
     >();
 
-    const detectedSeverities = new Set<string>();
-
-    let totalHigh = 0;
-    let totalModerate = 0;
-    let totalLow = 0;
     let totalCritical = 0;
-    let totalInfo = 0;
-    let totalUnspecified = 0;
     let totalOpen = 0;
     let totalResolved = 0;
     let totalAll = 0;
@@ -382,23 +352,14 @@ const IssueDashboard = () => {
         districtName = "Unspecified";
       }
 
-      // 3. Resolve Severity
-      const normalizedSev = normalizeSeverity(issue.severity);
-      detectedSeverities.add(normalizedSev);
-
-      // 4. Resolve Status
+      // 3. Resolve Status & Critical (Open)
       const resolved = isIssueResolved(issue.status);
+      const isCriticalOpen = !resolved && isCriticalIssue(issue);
 
       // Init Region group if absent
       if (!regionGroups.has(regionName)) {
         regionGroups.set(regionName, {
-          high: 0,
-          moderate: 0,
-          low: 0,
           critical: 0,
-          info: 0,
-          unspecified: 0,
-          otherSeverities: {},
           open: 0,
           resolved: 0,
           total: 0,
@@ -418,35 +379,15 @@ const IssueDashboard = () => {
         totalOpen += 1;
       }
 
-      if (normalizedSev === "High") {
-        rGroup.high += 1;
-        totalHigh += 1;
-      } else if (normalizedSev === "Moderate") {
-        rGroup.moderate += 1;
-        totalModerate += 1;
-      } else if (normalizedSev === "Low") {
-        rGroup.low += 1;
-        totalLow += 1;
-      } else if (normalizedSev === "Critical") {
+      if (isCriticalOpen) {
         rGroup.critical += 1;
         totalCritical += 1;
-      } else if (normalizedSev === "Info") {
-        rGroup.info += 1;
-        totalInfo += 1;
-      } else if (normalizedSev === "Unspecified") {
-        rGroup.unspecified += 1;
-        totalUnspecified += 1;
-      } else {
-        rGroup.otherSeverities[normalizedSev] = (rGroup.otherSeverities[normalizedSev] || 0) + 1;
       }
 
       // District aggregation inside Region
       if (!rGroup.districtGroups.has(districtName)) {
         rGroup.districtGroups.set(districtName, {
-          high: 0,
-          moderate: 0,
-          low: 0,
-          other: 0,
+          critical: 0,
           open: 0,
           resolved: 0,
           total: 0,
@@ -460,15 +401,8 @@ const IssueDashboard = () => {
       } else {
         dGroup.open += 1;
       }
-
-      if (normalizedSev === "High") {
-        dGroup.high += 1;
-      } else if (normalizedSev === "Moderate") {
-        dGroup.moderate += 1;
-      } else if (normalizedSev === "Low") {
-        dGroup.low += 1;
-      } else {
-        dGroup.other += 1;
+      if (isCriticalOpen) {
+        dGroup.critical += 1;
       }
     }
 
@@ -479,10 +413,7 @@ const IssueDashboard = () => {
       val.districtGroups.forEach((dVal, dName) => {
         districtsList.push({
           district: dName,
-          high: dVal.high,
-          moderate: dVal.moderate,
-          low: dVal.low,
-          other: dVal.other,
+          critical: dVal.critical,
           open: dVal.open,
           resolved: dVal.resolved,
           total: dVal.total,
@@ -497,12 +428,7 @@ const IssueDashboard = () => {
       rows.push({
         id: `region-${region}`,
         region,
-        high: val.high,
-        moderate: val.moderate,
-        low: val.low,
         critical: val.critical,
-        info: val.info,
-        unspecified: val.unspecified,
         open: val.open,
         resolved: val.resolved,
         total: val.total,
@@ -514,12 +440,7 @@ const IssueDashboard = () => {
     return {
       regionalSummary: rows,
       grandTotals: {
-        high: totalHigh,
-        moderate: totalModerate,
-        low: totalLow,
         critical: totalCritical,
-        info: totalInfo,
-        unspecified: totalUnspecified,
         open: totalOpen,
         resolved: totalResolved,
         total: totalAll,
@@ -531,31 +452,17 @@ const IssueDashboard = () => {
   /* -------------------------------------------------------------
    * Table Columns Definition
    * ------------------------------------------------------------- */
-  const tableHeaders = useMemo(() => {
-    const baseHeaders = [
+  const tableHeaders = useMemo(
+    () => [
       { key: "region", header: "Region" },
-      { key: "high", header: "High" },
-    ];
-
-    if (grandTotals.critical > 0) {
-      baseHeaders.push({ key: "critical", header: "Critical" });
-    }
-    if (grandTotals.info > 0) {
-      baseHeaders.push({ key: "info", header: "Info" });
-    }
-    if (grandTotals.unspecified > 0) {
-      baseHeaders.push({ key: "unspecified", header: "Unspecified" });
-    }
-
-    baseHeaders.push(
-      { key: "open", header: "Open" },
-      { key: "resolved", header: "Resolved" },
+      { key: "critical", header: "Critical Issues" },
+      { key: "open", header: "Open Issues" },
+      { key: "resolved", header: "Resolved Issues" },
       { key: "total", header: "Total Issues" },
       { key: "percentage", header: "Share of Total" },
-    );
-
-    return baseHeaders;
-  }, [grandTotals]);
+    ],
+    [],
+  );
 
   /* -------------------------------------------------------------
    * Sorted & Filtered Rows for Display
@@ -647,43 +554,31 @@ const IssueDashboard = () => {
   const handleExportExcel = () => {
     const exportHeaders = [
       "Region",
-      "High Severity",
+      "Critical Issues (Open)",
+      "Open Issues",
+      "Resolved Issues",
+      "Total Issues",
+      "Share (%)",
     ];
 
-    if (grandTotals.critical > 0) exportHeaders.push("Critical Severity");
-    if (grandTotals.info > 0) exportHeaders.push("Info Severity");
-    if (grandTotals.unspecified > 0) exportHeaders.push("Unspecified Severity");
-
-    exportHeaders.push("Open Issues", "Resolved Issues", "Total Issues", "Share (%)");
-
-    const dataRows = regionalSummary.map((row) => {
-      const rowData = [
-        row.region,
-        row.high,
-      ];
-      if (grandTotals.critical > 0) rowData.push(row.critical ?? 0);
-      if (grandTotals.info > 0) rowData.push(row.info ?? 0);
-      if (grandTotals.unspecified > 0) rowData.push(row.unspecified ?? 0);
-
-      rowData.push(row.open, row.resolved, row.total, `${row.percentage.toFixed(1)}%`);
-      return rowData;
-    });
+    const dataRows = regionalSummary.map((row) => [
+      row.region,
+      row.critical,
+      row.open,
+      row.resolved,
+      row.total,
+      `${row.percentage.toFixed(1)}%`,
+    ]);
 
     // Grand total row
     const totalRow = [
       "TOTAL",
-      grandTotals.high,
-    ];
-    if (grandTotals.critical > 0) totalRow.push(grandTotals.critical);
-    if (grandTotals.info > 0) totalRow.push(grandTotals.info);
-    if (grandTotals.unspecified > 0) totalRow.push(grandTotals.unspecified);
-
-    totalRow.push(
+      grandTotals.critical,
       grandTotals.open,
       grandTotals.resolved,
       grandTotals.total,
       "100%",
-    );
+    ];
 
     const sheetData = [exportHeaders, ...dataRows, [], totalRow];
     const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
@@ -691,10 +586,10 @@ const IssueDashboard = () => {
     worksheet["!cols"] = exportHeaders.map(() => ({ wch: 18 }));
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Severity Summary by Region");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Regional Issue Summary");
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(workbook, `issue-severity-by-region-summary-${dateStr}.xlsx`);
+    XLSX.writeFile(workbook, `issue-regional-summary-${dateStr}.xlsx`);
   };
 
   const handleNavigateToIssues = (regionFilter?: string) => {
@@ -719,7 +614,7 @@ const IssueDashboard = () => {
           <div className="dashboard-header-text">
             <h2 className="dashboard-title">Issue Summary Dashboard</h2>
             <p className="dashboard-subtitle">
-              Aggregated overview of reported data quality issues categorized by severity level and
+              Aggregated overview of reported data quality issues categorized by resolution status and
               grouped by region.
             </p>
           </div>
@@ -768,74 +663,36 @@ const IssueDashboard = () => {
             </p>
           </div>
 
-          {grandTotals.critical > 0 && (
-            <div className="kpi-card kpi-card--critical">
-              <div className="kpi-header">
-                <span className="kpi-label">Critical Severity</span>
-                <span className="kpi-badge kpi-badge--critical">Critical</span>
-              </div>
-              <div className="kpi-value" style={{ color: "#a2191f" }}>
-                {isLoadingIssues ? "..." : grandTotals.critical}
-              </div>
-              <p className="kpi-subtext">
-                <strong>
-                  {grandTotals.total > 0
-                    ? `${((grandTotals.critical / grandTotals.total) * 100).toFixed(1)}%`
-                    : "0%"}
-                </strong>{" "}
-                of total issues
-              </p>
-            </div>
-          )}
-
-          <div className="kpi-card kpi-card--high">
+          <div className="kpi-card kpi-card--critical">
             <div className="kpi-header">
-              <span className="kpi-label">High Severity</span>
-              <span className="kpi-badge kpi-badge--high">High</span>
+              <span className="kpi-label">Critical Issues</span>
+              <span className="kpi-badge kpi-badge--critical">Critical</span>
+            </div>
+            <div className="kpi-value" style={{ color: "#a2191f" }}>
+              {isLoadingIssues ? "..." : grandTotals.critical}
+            </div>
+            <p className="kpi-subtext">
+              <strong>
+                {grandTotals.open > 0
+                  ? `${((grandTotals.critical / grandTotals.open) * 100).toFixed(1)}%`
+                  : "0%"}
+              </strong>{" "}
+              of open issues
+            </p>
+          </div>
+
+          <div className="kpi-card kpi-card--open">
+            <div className="kpi-header">
+              <span className="kpi-label">Open Issues</span>
+              <span className="kpi-badge kpi-badge--open">Open</span>
             </div>
             <div className="kpi-value" style={{ color: "#da1e28" }}>
-              {isLoadingIssues ? "..." : grandTotals.high}
+              {isLoadingIssues ? "..." : grandTotals.open}
             </div>
             <p className="kpi-subtext">
               <strong>
                 {grandTotals.total > 0
-                  ? `${((grandTotals.high / grandTotals.total) * 100).toFixed(1)}%`
-                  : "0%"}
-              </strong>{" "}
-              of total issues
-            </p>
-          </div>
-
-          <div className="kpi-card kpi-card--moderate">
-            <div className="kpi-header">
-              <span className="kpi-label">Moderate Severity</span>
-              <span className="kpi-badge kpi-badge--moderate">Moderate</span>
-            </div>
-            <div className="kpi-value" style={{ color: "#b26400" }}>
-              {isLoadingIssues ? "..." : grandTotals.moderate}
-            </div>
-            <p className="kpi-subtext">
-              <strong>
-                {grandTotals.total > 0
-                  ? `${((grandTotals.moderate / grandTotals.total) * 100).toFixed(1)}%`
-                  : "0%"}
-              </strong>{" "}
-              of total issues
-            </p>
-          </div>
-
-          <div className="kpi-card kpi-card--low">
-            <div className="kpi-header">
-              <span className="kpi-label">Low Severity</span>
-              <span className="kpi-badge kpi-badge--low">Low</span>
-            </div>
-            <div className="kpi-value" style={{ color: "#0043ce" }}>
-              {isLoadingIssues ? "..." : grandTotals.low}
-            </div>
-            <p className="kpi-subtext">
-              <strong>
-                {grandTotals.total > 0
-                  ? `${((grandTotals.low / grandTotals.total) * 100).toFixed(1)}%`
+                  ? `${((grandTotals.open / grandTotals.total) * 100).toFixed(1)}%`
                   : "0%"}
               </strong>{" "}
               of total issues
@@ -844,13 +701,31 @@ const IssueDashboard = () => {
 
           <div className="kpi-card kpi-card--resolved">
             <div className="kpi-header">
-              <span className="kpi-label">Resolution Rate</span>
-              <span className="kpi-badge" style={{ backgroundColor: "#defbe6", color: "#198038" }}>
-                {resolutionRate}%
-              </span>
+              <span className="kpi-label">Resolved Issues</span>
+              <span className="kpi-badge kpi-badge--resolved">Resolved</span>
             </div>
             <div className="kpi-value" style={{ color: "#198038" }}>
               {isLoadingIssues ? "..." : grandTotals.resolved}
+            </div>
+            <p className="kpi-subtext">
+              <strong>
+                {grandTotals.total > 0
+                  ? `${((grandTotals.resolved / grandTotals.total) * 100).toFixed(1)}%`
+                  : "0%"}
+              </strong>{" "}
+              of total issues
+            </p>
+          </div>
+
+          <div className="kpi-card kpi-card--rate">
+            <div className="kpi-header">
+              <span className="kpi-label">Resolution Rate</span>
+              <span className="kpi-badge kpi-badge--rate">
+                {resolutionRate}%
+              </span>
+            </div>
+            <div className="kpi-value" style={{ color: "#0f62fe" }}>
+              {isLoadingIssues ? "..." : `${resolutionRate}%`}
             </div>
             <p className="kpi-subtext">
               Resolved vs <strong>{grandTotals.open}</strong> open issues
@@ -1040,7 +915,7 @@ const IssueDashboard = () => {
                 getRowProps,
                 getExpandHeaderProps,
               }) => (
-                <Table {...getTableProps()} aria-label="Issue severity summary by region table">
+                <Table {...getTableProps()} aria-label="Regional issue summary table">
                   <TableHead>
                     <TableRow>
                       <TableExpandHeader
@@ -1092,31 +967,14 @@ const IssueDashboard = () => {
                                 );
                               }
 
-                              if (headerKey === "high") {
+                              if (headerKey === "critical") {
                                 const count = Number(cell.value || 0);
                                 return (
                                   <TableCell key={cell.id}>
                                     <span
                                       className={`severity-pill ${
                                         count > 0
-                                          ? "severity-pill--high"
-                                          : "severity-pill--zero"
-                                      }`}
-                                    >
-                                      {count > 0 ? count : "-"}
-                                    </span>
-                                  </TableCell>
-                                );
-                              }
-
-                              if (headerKey === "critical" || headerKey === "info" || headerKey === "unspecified") {
-                                const count = Number(cell.value || 0);
-                                return (
-                                  <TableCell key={cell.id}>
-                                    <span
-                                      className={`severity-pill ${
-                                        count > 0
-                                          ? "severity-pill--neutral"
+                                          ? "severity-pill--critical"
                                           : "severity-pill--zero"
                                       }`}
                                     >
@@ -1196,8 +1054,20 @@ const IssueDashboard = () => {
                                     <p style={{ fontSize: "0.8125rem", color: "#525252", margin: "0.25rem 0 0" }}>
                                       {summaryItem.districts.length} district(s) affected |{" "}
                                       <strong>{summaryItem.total}</strong> total issues (
+                                      {summaryItem.critical > 0 && (
+                                        <>
+                                          <span style={{ color: "#a2191f", fontWeight: 600 }}>
+                                            {summaryItem.critical} Critical
+                                          </span>
+                                          {", "}
+                                        </>
+                                      )}
                                       <span style={{ color: "#da1e28", fontWeight: 600 }}>
-                                        {summaryItem.high} High
+                                        {summaryItem.open} Open
+                                      </span>
+                                      ,{" "}
+                                      <span style={{ color: "#198038", fontWeight: 600 }}>
+                                        {summaryItem.resolved} Resolved
                                       </span>
                                       )
                                     </p>
@@ -1218,7 +1088,7 @@ const IssueDashboard = () => {
                                     <thead>
                                       <tr>
                                         <th>District</th>
-                                        <th>High Severity</th>
+                                        <th>Critical Issues</th>
                                         <th>Open</th>
                                         <th>Resolved</th>
                                         <th>Total Issues</th>
@@ -1233,12 +1103,12 @@ const IssueDashboard = () => {
                                           <td>
                                             <span
                                               className={`severity-pill ${
-                                                d.high > 0
-                                                  ? "severity-pill--high"
+                                                d.critical > 0
+                                                  ? "severity-pill--critical"
                                                   : "severity-pill--zero"
                                               }`}
                                             >
-                                              {d.high > 0 ? d.high : "-"}
+                                              {d.critical > 0 ? d.critical : "-"}
                                             </span>
                                           </td>
                                           <td>
@@ -1275,31 +1145,16 @@ const IssueDashboard = () => {
                         <strong>TOTAL (All Regions)</strong>
                       </TableCell>
                       <TableCell>
-                        <span className="severity-pill severity-pill--high">
-                          {grandTotals.high}
+                        <span
+                          className={`severity-pill ${
+                            grandTotals.critical > 0
+                              ? "severity-pill--critical"
+                              : "severity-pill--zero"
+                          }`}
+                        >
+                          <strong>{grandTotals.critical}</strong>
                         </span>
                       </TableCell>
-                      {grandTotals.critical > 0 && (
-                        <TableCell>
-                          <span className="severity-pill severity-pill--neutral">
-                            {grandTotals.critical}
-                          </span>
-                        </TableCell>
-                      )}
-                      {grandTotals.info > 0 && (
-                        <TableCell>
-                          <span className="severity-pill severity-pill--neutral">
-                            {grandTotals.info}
-                          </span>
-                        </TableCell>
-                      )}
-                      {grandTotals.unspecified > 0 && (
-                        <TableCell>
-                          <span className="severity-pill severity-pill--neutral">
-                            {grandTotals.unspecified}
-                          </span>
-                        </TableCell>
-                      )}
                       <TableCell>
                         <span className="stat-cell">
                           <span className="stat-dot stat-dot--open" />

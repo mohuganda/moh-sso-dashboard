@@ -86,24 +86,20 @@
   border-left-color: #a2191f;
 }
 
-.kpi-card--high {
+.kpi-card--open {
   border-left-color: #da1e28;
-}
-
-.kpi-card--moderate {
-  border-left-color: #f1c21b;
-}
-
-.kpi-card--low {
-  border-left-color: #0043ce;
-}
-
-.kpi-card--regions {
-  border-left-color: #8a3ffc;
 }
 
 .kpi-card--resolved {
   border-left-color: #198038;
+}
+
+.kpi-card--rate {
+  border-left-color: #0f62fe;
+}
+
+.kpi-card--regions {
+  border-left-color: #8a3ffc;
 }
 
 .kpi-header {
@@ -133,9 +129,19 @@
   color: #a2191f;
 }
 
-.kpi-badge--high {
+.kpi-badge--open {
   background-color: #fff1f1;
   color: #da1e28;
+}
+
+.kpi-badge--resolved {
+  background-color: #defbe6;
+  color: #198038;
+}
+
+.kpi-badge--rate {
+  background-color: #edf5ff;
+  color: #0f62fe;
 }
 
 .kpi-badge--moderate {
@@ -260,6 +266,12 @@
   line-height: 1.2;
 }
 
+.severity-pill--critical {
+  background-color: #ffd7d9;
+  color: #a2191f;
+  border: 1px solid #ffb3b8;
+}
+
 .severity-pill--high {
   background-color: #fff1f1;
   color: #da1e28;
@@ -316,6 +328,10 @@
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.stat-dot--critical {
+  background-color: #a2191f;
 }
 
 .stat-dot--open {
