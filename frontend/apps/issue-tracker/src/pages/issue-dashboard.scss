@@ -441,8 +441,141 @@
       border-bottom: 0;
     }
 
-    tbody tr:hover {
+    tbody tr.district-row:hover {
       background-color: #f4f4f4;
+    }
+
+    tbody tr.district-row--expanded {
+      background-color: #f4f7fb;
+    }
+  }
+}
+
+.district-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+
+  &:hover {
+    color: #0f62fe;
+  }
+
+  .district-name-text {
+    font-weight: 600;
+  }
+
+  .district-expand-icon {
+    flex-shrink: 0;
+    color: #525252;
+  }
+}
+
+.district-facility-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  background-color: #edf5ff;
+  color: #0043ce;
+  border: 1px solid #d0e2ff;
+}
+
+.facility-breakdown-row {
+  td {
+    padding: 0 !important;
+    background-color: #f8f9fa !important;
+    border-bottom: 2px solid #e0e0e0 !important;
+  }
+}
+
+.facility-breakdown-panel {
+  padding: 0.75rem 1rem 1rem 2.25rem;
+  background-color: #fbfbfb;
+  border-left: 3px solid #0f62fe;
+}
+
+.facility-breakdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.facility-breakdown-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.32px;
+  color: #525252;
+}
+
+.facility-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+
+  th {
+    background-color: #f0f3f6 !important;
+    font-size: 0.6875rem !important;
+    font-weight: 600;
+    color: #525252;
+    padding: 0.4rem 0.75rem !important;
+    border-bottom: 1px solid #e0e0e0 !important;
+  }
+
+  td {
+    padding: 0.45rem 0.75rem !important;
+    border-bottom: 1px solid #f0f0f0 !important;
+    font-size: 0.8125rem;
+  }
+
+  tbody tr:hover {
+    background-color: #f4f7fb !important;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0 !important;
+  }
+}
+
+.facility-name-cell {
+  font-weight: 500;
+  color: #161616;
+}
+
+.table-action-cell {
+  width: 4rem;
+  text-align: center;
+  padding: 0.25rem 0.5rem !important;
+
+  .cds--btn--ghost.cds--btn--sm.cds--btn--icon-only {
+    min-height: 1.75rem;
+    height: 1.75rem;
+    width: 1.75rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    border-radius: 4px;
+
+    &:hover {
+      background-color: #0f62fe;
+      color: #ffffff;
     }
   }
 }
