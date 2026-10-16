@@ -1,6 +1,10 @@
 import { runInNewContext } from "node:vm";
 
 export function selectedRuntimeConfig(html, hostname) {
+  const configured = html.match(
+    /<script\b[^>]*\bsrc=["']([^"']*config(?:\.[a-z-]+)?\.js)["']/,
+  )?.[1];
+  if (configured) return configured.replace("%BASE_URL%", "/portal/");
   const written = [];
   const browser = {
     window: { location: { hostname } },

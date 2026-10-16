@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T13:33:42.678Z",
+  "generatedAt": "2026-10-14T05:39:31.680Z",
   "service": {
     "name": "moh-sso-dashboard-frontend",
     "version": "1.0.0",
@@ -50,6 +50,10 @@
     "report-browser": {
       "name": "@moh-sso/report-browser",
       "version": "1.0.0"
+    },
+    "report-scheduler": {
+      "name": "@moh-sso/report-scheduler",
+      "version": "0.1.0"
     },
     "shell": {
       "name": "@moh-sso/shell",

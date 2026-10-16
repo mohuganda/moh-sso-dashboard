@@ -20,6 +20,7 @@ import {
   eServicesRoute,
   issueTrackerRoute,
   reportBrowserRoute,
+  reportSchedulerRoute,
   surveillanceRoute,
   utilitiesRoute,
 } from "@/app/microfrontends/registry";
@@ -43,6 +44,7 @@ import {
   documentsLifecycles,
   issueTrackerLifecycles,
   reportBrowserLifecycles,
+  reportSchedulerLifecycles,
   surveillanceLifecycles,
   utilitiesLifecycles,
   eServicesLifecycles,
@@ -121,11 +123,28 @@ export const userRoutes = (
 
     <Route path="news" element={userPage(<NewsFeedPage />)} />
 
+    <Route
+      path="report-scheduler/*"
+      element={<Navigate to="/apps/dwh/report-scheduler" replace />}
+    />
+
     {/* =========================
         DWH
        ========================= */}
     <Route path="dwh">
       <Route index element={<Navigate to="dashboards" replace />} />
+
+      <Route
+        path="report-scheduler/*"
+        element={userPage(
+          <SingleSpaApp
+            appName="@moh-sso/report-scheduler"
+            lifecycles={reportSchedulerLifecycles}
+            basename="/apps/dwh/report-scheduler"
+          />,
+          withSystemAccess(SYSTEMS.dataStatistics, accessFromRoute(reportSchedulerRoute)),
+        )}
+      />
 
       <Route
         path="data-visualizer/*"

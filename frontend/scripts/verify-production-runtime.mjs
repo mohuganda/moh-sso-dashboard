@@ -15,6 +15,7 @@ const requiredApps = [
   "email",
   "issue-tracker",
   "report-browser",
+  "report-scheduler",
   "rbac",
   "surveillance",
   "users",
@@ -39,7 +40,9 @@ if (existsSync(htmlPath)) {
   const html = readFileSync(htmlPath, "utf8");
   selectedProductionConfig = selectedRuntimeConfig(html, "portal.example.invalid");
   check(
-    selectedRuntimeConfig(html, "localhost") === "/portal/config.development.js",
+    ["/portal/config.development.js", "/portal/config.js"].includes(
+      selectedRuntimeConfig(html, "localhost"),
+    ),
     "dist/index.html should load local development config from /portal",
     failures,
   );

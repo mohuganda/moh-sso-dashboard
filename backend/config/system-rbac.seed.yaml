@@ -176,10 +176,12 @@ systems:
         {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read","icon":"chart","description":"Data visualization/Export from the NDWH for all programs.","order":30,"displayInLauncher":true},
         {"id":"documents","label":"Document Management","path":"/apps/dwh/documents","permission":"documents:read","icon":"documents","description":"Upload and manage health data documents.","order":40,"displayInLauncher":true},
         {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read","icon":"warning-alt","description":"Review surveillance indicators, alerts, and reports.","order":50,"displayInLauncher":true},
-        {"id":"issue-tracking","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read","icon":"tracker","description":"Track and resolve data quality issues.","order":60,"displayInLauncher":true,"children":[{"id":"issue-dashboard","label":"Issue Summary","path":"/apps/dwh/issue-tracker/dashboard","permission":"issue_tracker:read","order":10,"displayInLauncher":true},{"id":"registered-issues","label":"Registered Issues","path":"/apps/dwh/issue-tracker/issues","permission":"issue_tracker:read","order":20,"displayInLauncher":true}]}
+        {"id":"issue-tracking","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read","icon":"tracker","description":"Track and resolve data quality issues.","order":60,"displayInLauncher":true,"children":[{"id":"issue-dashboard","label":"Issue Summary","path":"/apps/dwh/issue-tracker/dashboard","permission":"issue_tracker:read","order":10,"displayInLauncher":true},{"id":"registered-issues","label":"Registered Issues","path":"/apps/dwh/issue-tracker/issues","permission":"issue_tracker:read","order":20,"displayInLauncher":true}]},
+        {"id":"report-scheduler","label":"Report Scheduler","path":"/apps/dwh/report-scheduler","permission":"report_scheduler:read","icon":"reporting","description":"Schedule report generation and delivery.","order":70,"displayInLauncher":true,"displayInSideNav":true}
       ]
     enabled: true
     accessRoles:
+      - report-scheduler_access
       - data-statistics_access
       - report_admin
       - report_manager
@@ -201,6 +203,22 @@ systems:
       - document_template_editor
       - document_template_publisher
     roles:
+      - name: report_scheduler_service
+        displayName: Report Scheduler Service
+        description: Service-account access to Health BI generation APIs; no portal user permissions
+        permissions: []
+      - name: report-scheduler_access
+        displayName: Report Scheduler Access
+        permissions:
+          - portal:access
+          - systems:read
+          - systems:launch
+          - report_scheduler:read
+          - report_scheduler:create
+          - report_scheduler:update
+          - report_scheduler:delete
+          - report_scheduler:execute
+          - report_scheduler:history
       - name: data-statistics_access
         displayName: Data-Statistics Access
         description: Default access to Data & Statistics
@@ -222,6 +240,13 @@ systems:
           - report_browser:read
           - metrics:read
           - audit:read
+          - report_scheduler:read
+          - report_scheduler:create
+          - report_scheduler:update
+          - report_scheduler:delete
+          - report_scheduler:execute
+          - report_scheduler:history
+          - report_scheduler:manage
       - name: report_manager
         displayName: Report Manager
         description: Report Browser manager access
@@ -574,6 +599,7 @@ systems:
           - portal:access
           - systems:read
           - systems:launch
+
 realmRoles:
   - name: admin
     description: Administrator role with full access
@@ -876,6 +902,18 @@ groups:
                 - access
               access_profile:
                 - report-viewer
+          - name: Report Schedulers
+            displayName: Report Schedulers
+            description: Users who schedule reports and manage their own executions
+            type: access
+            systemRoles:
+              data-statistics:
+                - report-scheduler_access
+            attributes:
+              group_type:
+                - access
+              access_profile:
+                - report-scheduler
           - name: Surveillance Managers
             displayName: Surveillance Managers
             description: Users who manage surveillance locations, imports, and alerts
@@ -1096,6 +1134,7 @@ groupMemberships:
     groups:
       - /MOH/Portal Users
       - /MOH/Data and Statistics/Report Viewers
+      - /MOH/Data and Statistics/Report Schedulers
       - /MOH/Data and Statistics/Issue Tracker Viewers
       - /MOH/Data and Statistics/Document Viewers
   - username: pwaiswa

@@ -93,7 +93,7 @@ func Run() {
 		// LOCAL DEV ONLY: with DEV_AUTH_BYPASS=true the portal runs without
 		// Keycloak, so a failed admin auth is a warning instead of fatal.
 		// Endpoints that call Keycloak directly (user/client admin) will error.
-		if middleware.DevAuthBypassEnabled() {
+		if middleware.DevAuthBypassEnabled(cfg) {
 			appLogger.Warn("DEV_AUTH_BYPASS enabled - starting without Keycloak: ", err)
 		} else {
 			appLogger.Fatal("Keycloak admin authentication failed: ", err)
@@ -180,8 +180,9 @@ func Run() {
 		AuditService:                   services.Audit,
 		Logger:                         appLogger,
 		DQADB:                          dbs.DQA,
-		DWHDB:                          dbs.DWH,
-	})
+			DWHDB:                          dbs.DWH,
+			ReportScheduler:                 services.ReportScheduler,
+		})
 
 	services.Notifications.NotifySystemStartup(ctx, cfg.Environment)
 
@@ -189,6 +190,7 @@ func Run() {
 	// ROUTER
 	// ==================================================
 	r := router.SetupRouter(router.RouterDependencies{
+		Config:         cfg,
 		KeycloakClient: webKC,
 		Limiter:        rateLimiter,
 		AuditService:   services.Audit,

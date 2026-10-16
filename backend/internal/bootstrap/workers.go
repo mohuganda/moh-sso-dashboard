@@ -8,6 +8,7 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/config"
 	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
+	reportschedulerfeature "github.com/moh-sso-dashboard/internal/features/report_scheduler"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	emailRepo "github.com/moh-sso-dashboard/internal/repository/email"
 	notificationDeliveryRepo "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
@@ -32,9 +33,22 @@ type workerDependencies struct {
 	Logger                         *logger.Logger
 	DQADB                          *sql.DB
 	DWHDB                          *sql.DB
+	ReportScheduler                 *reportschedulerfeature.Service
 }
 
 func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
+	if deps.ReportScheduler != nil {
+		interval := 30 * time.Second
+		if deps.Config != nil && deps.Config.ReportSchedulerWorkerInterval > 0 { interval = deps.Config.ReportSchedulerWorkerInterval }
+		reportWorker := reportschedulerfeature.NewWorker(deps.ReportScheduler, interval, deps.Logger.Error)
+		go func() {
+			deps.Logger.Info("Report scheduler worker started")
+			if err := reportWorker.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				deps.Logger.Error("Report scheduler worker stopped with error: ", err)
+			}
+		}()
+	}
+
 	if deps.DQADB != nil && deps.DWHDB != nil {
 		dqaWorker := dataqualityfeature.NewScheduleWorker(
 			dataqualityfeature.NewDQAStore(deps.DQADB),

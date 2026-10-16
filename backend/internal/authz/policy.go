@@ -161,6 +161,11 @@ var systemRolePermissions = map[string]map[string][]Permission{
 		},
 	},
 	SystemDataStatistics: {
+			ReportSchedulerAccess: {
+				PermissionPortalAccess, PermissionSystemsRead, PermissionSystemsLaunch,
+				PermissionReportSchedulerRead, PermissionReportSchedulerCreate, PermissionReportSchedulerUpdate,
+				PermissionReportSchedulerDelete, PermissionReportSchedulerExecute, PermissionReportSchedulerHistory,
+			},
 		DataStatisticsAccess: {
 			PermissionPortalAccess,
 			PermissionSystemsRead,
@@ -170,11 +175,18 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionSurveillanceRead,
 			PermissionReportBrowserRead,
 		},
-		ReportBrowserAdmin: {
-			PermissionReportBrowserRead,
-			PermissionMetricsRead,
-			PermissionAuditRead,
-		},
+			ReportBrowserAdmin: {
+				PermissionReportBrowserRead,
+				PermissionMetricsRead,
+				PermissionAuditRead,
+				PermissionReportSchedulerRead,
+				PermissionReportSchedulerCreate,
+				PermissionReportSchedulerUpdate,
+				PermissionReportSchedulerDelete,
+				PermissionReportSchedulerExecute,
+				PermissionReportSchedulerHistory,
+				PermissionReportSchedulerManage,
+			},
 		ReportBrowserManager: {
 			PermissionReportBrowserRead,
 			PermissionMetricsRead,
