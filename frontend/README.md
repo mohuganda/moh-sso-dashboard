@@ -41,6 +41,13 @@ frontend/
 
 More detail: [docs/architecture.md](docs/architecture.md).
 
+For an O3-style Express host with a shared runtime import map, backend proxy, and
+standalone module mode, see [Express host setup](docs/express-host.md).
+
+Run `npm run portal -- --help` for the setup, build, serve, preview, and check helper.
+It also provides `up`, `down`, `status`, `doctor`, `logs`, `restart`, and `dev` with named
+profiles. Start the integrated stack with `npm run portal -- up --profile local`.
+
 ## Prerequisites
 
 Use Node `20.19+` or `22.12+` for Vite 7. Node 18 may still build in some environments, but Vite will warn.
