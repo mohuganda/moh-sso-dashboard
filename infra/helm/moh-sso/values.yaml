@@ -1,0 +1,269 @@
+# ==================================================
+# Base Helm values (DO NOT hardcode env specifics)
+# ==================================================
+
+global:
+  environment: development
+  namespace: default
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# --------------------------------------------------
+# Ingress (overridden per environment)
+# --------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  host: portal.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: "/"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+  tls:
+    enabled: true
+    secretName: portal-local-tls
+
+# --------------------------------------------------
+# Keycloak Ingress (separate host recommended)
+# --------------------------------------------------
+keycloakIngress:
+  enabled: true
+  className: nginx
+  host: auth.portal.local
+  annotations: {}
+  tls:
+    enabled: true
+    secretName: auth-local-tls
+
+# --------------------------------------------------
+# Backend (Go API)
+# --------------------------------------------------
+backend:
+  enabled: true
+
+  replicas: 1
+
+  image:
+    repository: "ghcr.io/mohuganda/moh-sso-dashboard-backend" # injected by CI
+    tag: "" # injected by CI; production must supply an immutable tag
+    pullPolicy: Always
+
+  service:
+    port: 9000
+
+  secrets:
+    KEYCLOAK_ADMIN_CLIENT_SECRET: ""
+    KEYCLOAK_WEB_CLIENT_SECRET: ""
+    HEALTH_BI_KEYCLOAK_CLIENT_SECRET: "" # dedicated Keycloak scheduler service account
+
+  healthBI:
+    baseUrl: "" # https://dashboards.health.go.ug/report-browser; enable after configuring the Keycloak service account
+    keycloakClientId: report-scheduler-worker
+    timeout: 30s
+
+  reportScheduler:
+    workerInterval: 30s
+    deliveryLinkTTL: 24h
+
+  env:
+    PORT: "9000"
+    ALLOWED_ORIGINS: ""
+    AUTH_RETURN_URL_ALLOWED_ORIGINS: "http://localhost:3000"
+
+  sms:
+    enabled: false
+    provider: mock
+    defaultCountryCode: "+256"
+    fromName: MOH
+    maxLength: 160
+    sendTimeout: 10s
+    africasTalkingUsername: ""
+    africasTalkingApiKey: ""
+    africasTalkingSenderId: ""
+    twilioAccountSid: ""
+    twilioAuthToken: ""
+    twilioFromNumber: ""
+
+  notificationDelivery:
+    workerEnabled: true
+    workerInterval: 3s
+    batchSize: 20
+
+  baseUrl: "" # public backend base including any proxy prefix; used for auth and report delivery links
+
+  probes:
+    readinessPath: /health/ready
+    livenessPath: /health/live
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+  pdb:
+    enabled: false
+    minAvailable: 1
+
+# --------------------------------------------------
+# Frontend (React + Nginx)
+# --------------------------------------------------
+frontend:
+  enabled: true
+
+  replicas: 1
+
+  image:
+    repository: "ghcr.io/mohuganda/moh-sso-dashboard-frontend" # injected by CI
+    tag: "" # injected by CI; production must supply an immutable tag
+    pullPolicy: Always
+
+  service:
+    port: 3000 # container port; the Service still exposes port 80
+
+  baseUrl: "" # optional override
+  apiBaseUrl: "" # optional override
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+  pdb:
+    enabled: false
+    minAvailable: 1
+
+# --------------------------------------------------
+# Application Database (Postgres)
+# --------------------------------------------------
+postgresApp:
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: 15-alpine
+
+  auth:
+    database: sso_dashboard
+    username: postgres
+    password: "" # overridden per environment
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
+
+# --------------------------------------------------
+# Keycloak Database (Postgres)
+# --------------------------------------------------
+postgresKeycloak:
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: 15-alpine
+
+  auth:
+    database: keycloak
+    username: keycloak
+    password: "" # overridden per environment
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
+
+# --------------------------------------------------
+# Keycloak
+# --------------------------------------------------
+keycloak:
+  enabled: true
+
+  replicas: 1
+
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: 26.0.6
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 8080
+
+  admin:
+    username: admin
+    password: "" # overridden per environment
+
+  baseUrl: ""
+  realm: ""
+
+  publicBaseUrl: ""
+  external:
+    enabled: false
+    baseUrl: "" # https://sso.myorg.com
+    realm: "" # moh-realm
+
+  config:
+    KC_DB: postgres
+    KC_HTTP_ENABLED: "true"
+    KC_PROXY: "edge"
+    KC_HEALTH_ENABLED: "true"
+    KC_METRICS_ENABLED: "true"
+    KC_HOSTNAME_STRICT: "true"
+    KC_HOSTNAME_STRICT_HTTPS: "true"
+    KC_LOG_LEVEL: INFO
+    KC_HOSTNAME: "portal.local"
+
+# --------------------------------------------------
+# Redis
+# --------------------------------------------------
+redis:
+  enabled: true
+
+  replicas: 1
+
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 6379
+
+  auth:
+    enabled: false
+    password: "" # overridden per environment if enabled
+
+  persistence:
+    enabled: true
+    size: 5Gi
+    accessModes:
+      - ReadWriteOnce
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

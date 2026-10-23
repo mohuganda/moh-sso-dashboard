@@ -1,0 +1,33 @@
+# Keep local development aligned with backend/go.mod.
+FROM golang:1.25.4-alpine
+
+ARG AIR_VERSION=v1.65.1
+
+# Install necessary tools and CA utilities.
+# The 'ca-certificates' package is required for the Go application to trust the
+# mounted Keycloak certificate over HTTPS connections.
+RUN apk add --no-cache git bash ca-certificates
+
+# Air watches the bind-mounted source tree and rebuilds the API during local
+# development. Pin the version so development images remain reproducible.
+RUN go install github.com/air-verse/air@${AIR_VERSION}
+
+# Set working directory
+WORKDIR /app
+
+# Copy go.mod and go.sum first (for caching dependencies)
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+
+# Copy all source code
+COPY backend/ .
+
+COPY --chmod=755 infra/docker/backend/entrypoint.sh /usr/local/bin/sso-entrypoint
+ENTRYPOINT ["/usr/local/bin/sso-entrypoint"]
+
+# Expose backend port
+EXPOSE 9000
+
+# Runtime configuration is supplied by Compose/Kubernetes rather than baked
+# into the image.
+CMD ["air", "-c", ".air.toml"]

@@ -45,32 +45,11 @@ Core runtime components:
 ## Repository Layout
 
 ```text
-.
-|-- backend/
-|   |-- cmd/server/                 # Go server entrypoint
-|   |-- internal/
-|   |   |-- api/                    # Global router shell and shared handlers
-|   |   |-- bootstrap/              # Composition root
-|   |   |-- authz/                  # Permission constants and authorization model
-|   |   |-- features/               # Feature-first backend modules
-|   |   |-- middleware/             # Auth, audit, request, and RBAC middleware
-|   |   |-- repository/             # Shared/cross-cutting repository adapters
-|   |   |-- service/                # Shared/cross-cutting services
-|   |   `-- db/migrations/          # SQL migrations
-|   |-- app.env.example
-|   `-- Dockerfile
-|-- frontend/
-|   |-- apps/                       # Shell and standalone frontend apps
-|   |-- packages/                   # Shared frontend packages
-|   |-- public/                     # Runtime config and import map
-|   |-- scripts/                    # Build, import-map, doctor, and release scripts
-|   |-- Dockerfile
-|   `-- package.json
-|-- keycloak/
-|   `-- realm-export.json           # Local/default realm export
-|-- docker-compose.yml
-|-- docker-compose.dev.yml
-`-- README.md
+backend/           Go API, database schemas, OpenAPI contracts and app tooling
+frontend/          Shell, modules, shared packages and frontend tooling
+infra/             Compose, Dockerfiles, Nginx, Helm, Keycloak, envs and deployment scripts
+scripts/           Repository release/versioning tooling
+Makefile           App commands, contract generation and included infra targets
 ```
 
 ## Frontend Documentation
@@ -420,7 +399,7 @@ Recommended production posture:
 
 ### Backend Environment
 
-Start from `backend/app.env.example`.
+Start from `infra/env/dev.env.example`.
 
 Required groups:
 
@@ -464,7 +443,7 @@ The frontend reads `window.__APP_CONFIG__` at runtime. This allows the same sour
 ## Local Development
 
 To start SSO and the sibling Health BI project together, run `make dev` (alias
-`make sso-up`). Keycloak imports the Health BI clients from `keycloak/realm-export.json`; this
+`make sso-up`). Keycloak imports the Health BI clients from `infra/keycloak/realm-export.json`; this
 starts Health BI and its test database and connects the existing
 report-browser module and scheduler to it. See [combined startup](docs/local-healthbi-startup.md)
 for prerequisites, configuration, `make sso-status`, and `make sso-down`.
@@ -496,7 +475,7 @@ The local shell is served under `/portal`.
 
 ```bash
 cd backend
-cp app.env.example app.env
+cp ../infra/env/dev.env.example app.env
 GOCACHE=/private/tmp/moh-sso-go-build go test ./...
 go run ./cmd/server
 ```
@@ -506,29 +485,34 @@ When running with Docker Compose, backend uses service hostnames such as `backen
 ### Docker Development
 
 ```bash
-docker compose -f docker-compose.dev.yml up --build
+cp infra/env/dev.env.example infra/env/dev.env
+make compose-dev-up
 ```
 
 Use the development compose file when you want local containers for backend dependencies and development-friendly ports.
+It builds the API and portal from source and starts local Keycloak, Redis,
+Postgres, an upload/warehouse fixture and MailHog. See the [environment and
+Compose guide](docs/deployment.md#production-and-development-environments) for
+configuration, external Keycloak and validation commands.
 
 ## Docker And Production Deployment
 
 ### Backend Image
 
-`backend/Dockerfile` builds a static Go binary and runs it in Alpine:
+`infra/docker/backend/Dockerfile` builds a static Go binary and runs it in Alpine:
 
 ```bash
-docker build -t moh-sso-dashboard-backend ./backend
+docker build -f infra/docker/backend/Dockerfile -t moh-sso-dashboard-backend .
 ```
 
-Production backend expects `app.env` or equivalent environment variables.
+Production Compose reads `infra/env/prod.env` and mounted secrets; native Go can still read `backend/app.env`.
 
 ### Frontend Image
 
-`frontend/Dockerfile` builds the production shell, packages, microfrontend bundles, version manifest, and staged assets.
+`infra/docker/frontend/Dockerfile` builds the production shell, packages, microfrontend bundles, version manifest, and staged assets.
 
 ```bash
-docker build -t moh-sso-dashboard-frontend ./frontend
+docker build -f infra/docker/frontend/Dockerfile -t moh-sso-dashboard-frontend .
 ```
 
 The production Docker build uses:
@@ -573,53 +557,36 @@ npm run build:docker:npm-modules
 
 ### Production Compose
 
-`docker-compose.yml` defines the direct-host production stack:
-
-- `redis`
-- `backend-db`
-- `backend`
-- `frontend`
-
-`docker-compose-nginx.yml` adds an Nginx reverse proxy in front of the frontend and backend. Use this file when the server should expose the portal on port `80` and proxy `/api/*` to the backend.
-
-Production compose expects:
-
-- immutable image tags in `BACKEND_TAG` and `FRONTEND_TAG`
-- runtime environment in `./app.env`
-- secret files in `./secrets/*`
-- persistent named volumes for Postgres, Redis, and local uploads
-
-Prepare the server once:
+All deployment files now live in [`infra/`](infra/README.md). The default and
+explicit production Compose files share one stack; development builds sources
+with local dependencies. Use the root or infra Makefile:
 
 ```bash
-cp app.env.example app.env
-mkdir -p secrets
-printf '%s' 'replace-db-password' > secrets/db_password.txt
-printf '%s' 'replace-admin-client-secret' > secrets/keycloak_admin_client_secret.txt
-printf '%s' 'replace-web-client-secret' > secrets/keycloak_web_client_secret.txt
-chmod 600 app.env secrets/*.txt
+cp infra/env/prod.env.example infra/env/prod.env
+# Fill in tags, private endpoints and credentials; create infra/secrets/*.txt.
+make compose-config
+make compose-prod-up
+
+# Alternative modes:
+make compose-dev-up
+make compose-gateway-up
+make compose-remote-up
 ```
 
-Validate the compose file without real production values:
+Remote mode additionally requires `infra/env/remote-proxy.env`, copied from its
+example, with the actual application private IP. Install the matching
+[`infra/nginx/remote/http.conf`](infra/nginx/remote/http.conf) on the proxy machine.
+Use `make help` and the [deployment guide](docs/deployment.md) for all modes,
+Kubernetes, firewall rules, secrets, build contexts and migration from old paths.
 
 ```bash
-APP_ENV_FILE=./app.env.example BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
-  docker compose -f docker-compose-nginx.yml config --quiet
+make contracts-generate
+make contracts-check
+make infra-check
 ```
 
-Start production with the reverse proxy:
-
-```bash
-BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
-  docker compose -f docker-compose-nginx.yml up -d
-```
-
-Or start the direct-host compose:
-
-```bash
-BACKEND_TAG=1.2.3 FRONTEND_TAG=1.2.3 \
-  docker compose up -d
-```
+See the [Make command reference](docs/make.md) for prerequisites, mode selection,
+environment overrides, service filters and exactly what each generation command writes.
 
 ## API Reference
 
@@ -1458,6 +1425,8 @@ Backend docs:
 | [`docs/releasing.md`](docs/releasing.md) | Automatic version preparation and verified frontend/backend releases. |
 | [`docs/releasing-backend.md`](docs/releasing-backend.md) | Verified backend release workflow and artifacts. |
 | [`docs/deployment.md`](docs/deployment.md) | Immutable backend deployment and runtime verification. |
+| [`docs/cd-pipeline.md`](docs/cd-pipeline.md) | Full CD pipeline, server configuration, staging, production promotion and rollback. |
+| [`docs/ci-checks.md`](docs/ci-checks.md) | Independent quality gates, dependency guards, browser tests, migrations and container recovery. |
 | [`docs/rollback.md`](docs/rollback.md) | Automated and manual backend rollback procedure. |
 
 RBAC and onboarding docs:
