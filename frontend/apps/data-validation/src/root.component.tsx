@@ -1,4 +1,5 @@
 import type { MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
+import { PageShell } from "@moh-sso/ui";
 
 import DataValidationPage from "./pages/data-validation.page";
 
@@ -7,7 +8,12 @@ export function DataValidationRoot(props: MicrofrontendRuntimeProps) {
 
   return (
     <div className="moh-microfrontend-root">
-      <DataValidationPage />
+      <PageShell
+        title="Data Validation"
+        subtitle="Manage validation rules, run data quality checks, and review flagged records."
+      >
+        <DataValidationPage />
+      </PageShell>
     </div>
   );
 }
