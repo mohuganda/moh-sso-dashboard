@@ -34,7 +34,8 @@
     "access": "restricted"
   },
   "dependencies": {
-    "@moh-sso/microfrontend": "^1.2.0"
+    "@moh-sso/microfrontend": "^1.2.0",
+    "@moh-sso/ui": "^1.2.0"
   },
   "private": false,
   "peerDependencies": {
