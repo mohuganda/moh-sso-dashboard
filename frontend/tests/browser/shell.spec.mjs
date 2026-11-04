@@ -162,9 +162,14 @@ for (const [route, navLabel] of [
     await expect(account.getByRole("button", { name: "Profile and settings" })).toBeVisible();
     await expect(account.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
     await expect(account.getByRole("button", { name: "Maximize panel" })).toHaveCount(0);
-    const bounds = await account.boundingBox();
-    expect(bounds.x).toBeGreaterThanOrEqual(0);
-    expect(bounds.width).toBeLessThanOrEqual(390);
+    await expect
+      .poll(async () => {
+        const bounds = await account.boundingBox();
+        return bounds
+          ? { left: Math.round(bounds.x), right: Math.round(bounds.x + bounds.width) }
+          : null;
+      })
+      .toEqual({ left: 0, right: 390 });
     await page.keyboard.press("Escape");
     await expect(profile).toBeFocused();
     await expect(account).toHaveCount(0);
@@ -195,6 +200,6 @@ test("public shell has a visible sign-in action on a narrow screen", async ({ pa
   await expect(signIn).toBeVisible();
   await expect(signIn).toContainText("Sign in");
   const box = await signIn.boundingBox();
-  expect(box.x + box.width).toBeLessThanOrEqual(320);
+  expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(320);
   await expect(page.getByRole("heading", { name: "News & Updates" })).toBeVisible();
 });
