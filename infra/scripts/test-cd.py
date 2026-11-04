@@ -14,6 +14,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cd_bundle as bundle
 from cd_server import Server, atomic_json
+from image_version import image_version
 
 COMMIT = 'a' * 40
 
@@ -24,6 +25,38 @@ def manifest(run='1'):
                                   'digest': 'sha256:' + ('b' if component == 'backend' else 'c') * 64,
                                   'tag': 'sha-' + COMMIT[:7], 'version': '1.2.3', 'commit': COMMIT}
                        for component in ('backend', 'frontend')}}
+
+
+class ImageVersions(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / 'backend').mkdir()
+        (self.root / 'frontend/apps/shell').mkdir(parents=True)
+        self.write_versions('1.2.3', '4.5.6')
+
+    def write_versions(self, backend, frontend):
+        (self.root / 'backend/VERSION').write_text(backend + '\n')
+        (self.root / 'frontend/apps/shell/package.json').write_text(json.dumps({'version': frontend}))
+
+    def test_main_images_use_each_components_prepared_numeric_version(self):
+        self.assertEqual(image_version('backend', 'refs/heads/main', self.root), '1.2.3')
+        self.assertEqual(image_version('frontend', 'refs/heads/main', self.root), '4.5.6')
+
+    def test_component_tags_must_match_the_prepared_versions(self):
+        for component, version in [('backend', '1.2.3'), ('frontend', '4.5.6')]:
+            self.assertEqual(image_version(component, f'refs/tags/{component}/v{version}', self.root), version)
+            with self.assertRaisesRegex(ValueError, 'does not match'):
+                image_version(component, f'refs/tags/{component}/v9.9.9', self.root)
+
+    def test_production_rejects_development_prerelease_and_build_suffixes(self):
+        for version in ('dev', '1.2.3-dev.abc1234', '1.2.3-rc.1', '1.2.3+abc1234', 'v1.2.3', '01.2.3'):
+            with self.subTest(version=version):
+                self.write_versions(version, version)
+                for component in ('backend', 'frontend'):
+                    with self.assertRaisesRegex(ValueError, 'numeric'):
+                        image_version(component, 'refs/heads/main', self.root)
 
 
 class BundleTests(unittest.TestCase):
