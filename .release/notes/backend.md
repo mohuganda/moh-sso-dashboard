@@ -1,9 +1,8 @@
-# Backend 1.2.0
+# Backend 1.2.1
 
 <!-- scoped-source-changes -->
 ### Source changes
 
-Changes since `backend/v1.1.0`.
+Changes since `backend/v1.2.0`.
 
-- Platform/phase 1 application registry (#252) (`3dcac948`)
-- Allow explicit private HTTP deployments (#257) (`d6fea6c7`)
+- Fix Issue Summary (#270) (`44dc912c`)

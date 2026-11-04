@@ -1,5 +1,21 @@
 # @moh-sso/e-services
 
+## 1.2.1
+
+### Patch Changes
+
+- Automatic patch release of all frontend apps and shared packages.
+- Updated dependencies
+  - @moh-sso/microfrontend@1.2.1
+  - @moh-sso/ui@1.2.1
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.2.0`.
+
+- Align all application root pages with the shared page layout (#269) (`cffeb506`)
+
 ## 1.2.0
 
 ### Minor Changes
@@ -13,6 +29,7 @@
   - @moh-sso/ui@1.2.0
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.1.0`.
