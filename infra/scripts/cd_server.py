@@ -176,7 +176,12 @@ class Server:
         container = self.compose(record, 'ps', '-q', 'frontend').strip()
         if not container or '\n' in container:
             raise ValueError('Expected exactly one frontend container')
-        verifier = (Path(record['release_dir']) / 'infra/scripts/verify-frontend-deployment.mjs').read_text()
+        # Operator/recovery helpers carry their matching verifier without modifying
+        # an immutable release. Older helper uploads can use the release copy.
+        verifier_path = Path(__file__).with_name('verify-frontend-deployment.mjs')
+        if not verifier_path.is_file():
+            verifier_path = Path(record['release_dir']) / 'infra/scripts/verify-frontend-deployment.mjs'
+        verifier = verifier_path.read_text()
         self.runner(['docker', 'run', '--rm', '-i', '--network', 'container:' + container,
                      self.config.get('verifier_image', 'node:22-alpine'), 'node', '--input-type=module', '-'], input=verifier)
         if self.config.get('verify_public_edge', True):
