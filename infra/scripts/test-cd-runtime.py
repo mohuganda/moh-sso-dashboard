@@ -97,6 +97,7 @@ CMD ["node", "server.cjs"]
                              'version': version, 'commit': COMMIT, 'tag': version}
                     images[component] = image
                     references[image['repository'] + '@' + identity] = identity
+                    references[f"{image['repository']}:{version}@{identity}"] = identity
                 manifests.append({'schema_version': 1, 'source_commit': COMMIT, 'release_id': f'{COMMIT}-{number}-1', 'images': images})
             transport = LocalTransport(project, references)
             env_file = root / 'fixture.env'
