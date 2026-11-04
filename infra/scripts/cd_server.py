@@ -210,7 +210,7 @@ class Server:
         link.symlink_to(record['release_dir'], target_is_directory=True)
         os.replace(link, self.root / 'current')
 
-    def deploy(self, release, actor):
+    def deploy(self, release, actor, automatic=False):
         with self.lock():
             self.preflight()
             pending = self.state / 'pending.json'
@@ -218,6 +218,20 @@ class Server:
                 raise RuntimeError('An interrupted deployment requires rollback/recovery first')
             saved = read_json(self.state / 'deployment.json', {})
             previous = saved.get('current')
+            if automatic and previous:
+                incoming = validate_manifest(json.loads((Path(release) / 'deployment.json').read_text()))
+                current = previous['manifest']
+                if incoming['release_id'] == current['release_id']:
+                    if incoming != current:
+                        raise ValueError('Current release identity has different image metadata')
+                    self.verify(previous)
+                    print('Release already current and verified; no rollout needed.')
+                    return
+                def build_order(item):
+                    return tuple(map(int, item['release_id'].rsplit('-', 2)[1:]))
+                if build_order(incoming) <= build_order(current):
+                    print('Skipping older automatic release; current deployment retained.')
+                    return
             record = self.candidate(release)
             self.compose(record, 'config', '--quiet')
             self.pull(record)
@@ -273,13 +287,14 @@ def main():
     parser.add_argument('--config', type=Path, default=Path('/etc/moh-sso/deploy.json'))
     parser.add_argument('--release', type=Path)
     parser.add_argument('--actor', default='operator')
+    parser.add_argument('--automatic', action='store_true', help='Skip current or older builds under the deployment lock')
     args = parser.parse_args()
     os.umask(0o077)
     server = Server(args.config)
     if args.action == 'deploy':
         if not args.release:
             parser.error('--release is required for deploy')
-        server.deploy(args.release, args.actor)
+        server.deploy(args.release, args.actor, automatic=args.automatic)
     elif args.action == 'rollback':
         server.rollback(args.actor)
     elif args.action == 'preflight':

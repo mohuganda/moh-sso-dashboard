@@ -214,6 +214,31 @@ class Transactions(unittest.TestCase):
         self.assertEqual(Path(state['current']['env_file']).stat().st_mode & 0o777, 0o600)
         self.assertNotIn('private-value', (self.root / 'state/history.jsonl').read_text())
 
+    def test_duplicate_automatic_event_verifies_current_without_rollout_or_losing_rollback(self):
+        self.server.deploy(self.release('1'), 'tester')
+        release = self.release('2')
+        self.server.deploy(release, 'tester')
+        saved = self.state()
+        self.commands.clear()
+        with patch.object(self.server, 'verify') as verify:
+            self.server.deploy(release, 'automatic', automatic=True)
+            verify.assert_called_once_with(saved['current'])
+        self.assertEqual(self.state(), saved)
+        self.assertEqual(self.commands, [])
+
+    def test_delayed_automatic_release_never_downgrades_current(self):
+        older = self.release('9')
+        self.server.deploy(older, 'tester')
+        self.server.deploy(self.release('10'), 'tester')
+        saved = self.state()
+        self.commands.clear()
+        self.server.deploy(older, 'automatic', automatic=True)
+        self.assertEqual(self.state(), saved)
+        self.assertEqual(self.commands, [])
+        # An operator can still deliberately promote/redeploy the selected build.
+        self.server.deploy(older, 'operator')
+        self.assertEqual(self.state()['current']['manifest']['release_id'], manifest('9')['release_id'])
+
     def test_failed_verification_restores_previous_image_and_configuration_state(self):
         self.server.deploy(self.release('1'), 'tester')
         old = self.state()

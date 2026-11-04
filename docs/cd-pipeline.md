@@ -9,7 +9,7 @@ flowchart LR
     Validate --> Images[Build and verify both application images]
     Images --> Bundle[Bundle exact image digests and matching infra]
     Bundle --> Stage[Automatic staging when enabled]
-    Bundle --> Promote[Manual production promotion of the same build run]
+    Bundle --> Promote[Production on published release or manual promotion]
     Stage --> Ready[Version, readiness, module and public HTTPS checks]
     Promote --> Ready
     Ready --> Record[Record current and previous verified releases]
@@ -23,15 +23,27 @@ flowchart LR
 | Package release | Final job in `build.yml` | Upload `deployment-bundle`: image manifest, deployment archive and SHA-256 checksum. No runtime secrets, certificates or private env files. |
 | Prepare deployment | `deploy-to-server.yaml` prepare job | Validate the producing workflow/repository/main commit, archive contents and manifest; publish a reviewable plan. No server credentials used. |
 | Deploy staging | Same workflow, staging environment | Automatic after a successful main image build only when `AUTO_DEPLOY_STAGING=true`; can also be dispatched manually. |
-| Promote production | Same workflow, manual dispatch | Select an already successful main build run and production. Environment protection controls when its deploy job can run. No image rebuild. |
+| Deploy production | Same workflow, release/build completion or manual dispatch | With `AUTO_DEPLOY_PRODUCTION_ON_RELEASE=true`, wait for both published component releases and the matching successful main build. Manual promotion remains available. Environment protection still applies. No image rebuild. |
 | Restore previous release | Automatic on rollout failure, or `rollback-server.yml` | Restore the previous recorded infrastructure/env snapshot and application digests, then verify. Database changes are not reversed. |
 | Configure server/proxy | Operator, one time | Install Docker/SSH, fill server-local settings, registry access, backups, Nginx/TLS, DNS and firewall rules. Not repeated by image builds. |
 
-Backend release/notes workflows no longer independently trigger deployment. CD
-waits for the complete paired-image bundle, removing the backend/frontend build
-race. Only successful `push` builds from this repository's `main` branch are
-accepted; PR/fork artifacts and arbitrary tags are rejected. See GitHub's
-[workflow-run security guidance](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run).
+Automatic production delivery requires published, non-draft, non-prerelease
+`backend/vX.Y.Z` and `frontend/vX.Y.Z` releases matching the checked-in versions
+and pointing to the exact same commit as a successful main image bundle. A merge
+alone does not deploy production. Build and release workflow completions both
+recheck readiness, so either order works; `release: published` also supports
+operator-created releases. Workflow completions cover releases created using
+`GITHUB_TOKEN`, whose release events cannot trigger another workflow.
+
+All deployment/rollback jobs share an environment-specific concurrency group.
+Under the server lock, automatic delivery verifies and skips an already-current
+release without changing its rollback target; delayed older builds are skipped.
+Manual dispatch keeps explicit redeployment available. Set `release_only=true`
+to exercise the published-release checks and automatic no-op guard manually.
+Only successful `push` builds from this repository's `main` branch are accepted;
+PR/fork artifacts and component-only image builds cannot deploy. The checked-out
+main deployment helper operates the immutable bundle's exact Compose files and
+digests, as the rollback workflow already does.
 
 ## 1. Prepare each application server
 
@@ -183,12 +195,14 @@ Per-environment variables:
 | `DEPLOY_PORT` | `22` |
 | `DEPLOY_ROOT` | `/opt/moh-sso` |
 | `DEPLOY_CONFIG` | `/etc/moh-sso/deploy.json` |
+| `DEPLOY_PYTHON` | `python3`; override with `python3.9` where the default interpreter is older than Python 3.9. Used by deployment and rollback. |
 | `DEPLOY_TAILSCALE` | Set literal `true` to connect deploy/rollback runners to Tailscale before SSH. Disabled by default. |
 
 Repository variables:
 
 | Variable | Purpose |
 | --- | --- |
+| `AUTO_DEPLOY_PRODUCTION_ON_RELEASE` | Set literal `true` after production setup to deploy complete published releases automatically. Disabled by default. |
 | `AUTO_DEPLOY_STAGING` | Set literal `true` after staging setup to enable automatic successful-main-build deployment. Default is disabled. |
 | `DEPLOY_RUNNER_LABELS` | Optional JSON array; default `["ubuntu-latest"]`. For private-network deployment/rollback use e.g. `["self-hosted","linux","moh-deploy"]` on a dedicated connected runner. Prepare/build jobs remain hosted. |
 

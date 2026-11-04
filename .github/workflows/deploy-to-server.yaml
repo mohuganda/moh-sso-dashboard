@@ -2,9 +2,10 @@ name: Deploy Verified Image Bundle
 
 on:
   workflow_run:
-    workflows: ["Build & Push Images"]
-    branches: [main]
+    workflows: ["Build & Push Images", "Backend Release", "Frontend Release Notes"]
     types: [completed]
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       build_run_id:
@@ -18,22 +19,27 @@ on:
         default: staging
         required: true
 
+      release_only:
+        description: Require published releases and skip an already deployed or older build
+        type: boolean
+        default: false
+
 permissions:
   contents: read
   actions: read
-
-concurrency:
-  group: deploy-${{ inputs.environment || 'staging' }}
-  cancel-in-progress: false
 
 jobs:
   prepare:
     name: Validate build provenance and prepare deployment plan
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      (vars.AUTO_DEPLOY_PRODUCTION_ON_RELEASE == 'true' &&
+       (github.event_name == 'release' || github.event.workflow_run.conclusion == 'success')) ||
       (github.event.workflow_run.conclusion == 'success' && vars.AUTO_DEPLOY_STAGING == 'true')
     runs-on: ubuntu-latest
     outputs:
+      should_deploy: ${{ steps.build.outputs.should_deploy }}
+      automatic: ${{ steps.build.outputs.automatic }}
       environment: ${{ steps.build.outputs.environment }}
       release_id: ${{ steps.plan.outputs.release_id }}
     steps:
@@ -44,23 +50,22 @@ jobs:
         id: build
         uses: actions/github-script@v7
         env:
-          BUILD_RUN_ID: ${{ inputs.build_run_id || github.event.workflow_run.id }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          RELEASE_ONLY: ${{ inputs.release_only }}
+          AUTO_DEPLOY_PRODUCTION_ON_RELEASE: ${{ vars.AUTO_DEPLOY_PRODUCTION_ON_RELEASE }}
+          AUTO_DEPLOY_STAGING: ${{ vars.AUTO_DEPLOY_STAGING }}
           TARGET_ENVIRONMENT: ${{ inputs.environment || 'staging' }}
         with:
           script: |
-            if (!/^[0-9]+$/.test(process.env.BUILD_RUN_ID)) throw new Error('Invalid build run ID');
-            if (!['staging','production'].includes(process.env.TARGET_ENVIRONMENT)) throw new Error('Invalid environment');
-            const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: Number(process.env.BUILD_RUN_ID) });
-            const repository = `${context.repo.owner}/${context.repo.repo}`;
-            if (run.conclusion !== 'success' || run.event !== 'push' || run.head_branch !== 'main' ||
-                run.head_repository?.full_name !== repository || run.path.split('@')[0] !== '.github/workflows/build.yml') {
-              throw new Error('Only successful trusted main-branch image-build runs may deploy');
+            const { selectDeployment } = require('./infra/scripts/select-deployment.cjs');
+            const plan = await selectDeployment({ github, context, env: process.env });
+            if (!plan) {
+              core.notice('No complete published release and successful matching main build are ready.');
+              return;
             }
-            core.setOutput('run_id', String(run.id));
-            core.setOutput('source_commit', run.head_sha);
-            core.setOutput('run_attempt', String(run.run_attempt));
-            core.setOutput('environment', process.env.TARGET_ENVIRONMENT);
+            for (const [key, value] of Object.entries(plan)) core.setOutput(key, value);
       - uses: actions/download-artifact@v4
+        if: steps.build.outputs.should_deploy == 'true'
         with:
           name: deployment-bundle
           run-id: ${{ steps.build.outputs.run_id }}
@@ -68,6 +73,7 @@ jobs:
           path: deployment
       - name: Validate archive, digest manifest and deployment plan
         id: plan
+        if: steps.build.outputs.should_deploy == 'true'
         env:
           SOURCE_COMMIT: ${{ steps.build.outputs.source_commit }}
           BUILD_ID: ${{ steps.build.outputs.run_id }}
@@ -86,6 +92,7 @@ jobs:
             f.write('### Verified deployment plan\n\n```json\n'+json.dumps(manifest,indent=2)+'\n```\n')
           PY
       - uses: actions/upload-artifact@v4
+        if: steps.build.outputs.should_deploy == 'true'
         with:
           name: deployment-ready
           path: deployment/
@@ -94,6 +101,12 @@ jobs:
   deploy:
     name: Deploy and verify selected environment
     needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true'
+    concurrency:
+      group: deploy-${{ needs.prepare.outputs.environment }}
+      cancel-in-progress: false
+    env:
+      DEPLOY_PYTHON: ${{ vars.DEPLOY_PYTHON || 'python3' }}
     runs-on: ${{ fromJSON(vars.DEPLOY_RUNNER_LABELS || '["ubuntu-latest"]') }}
     timeout-minutes: 30
     environment: ${{ needs.prepare.outputs.environment }}
@@ -127,24 +140,29 @@ jobs:
         run: |
           [[ "$DEPLOY_ROOT" =~ ^/[A-Za-z0-9_/-]+$ && "$DEPLOY_ROOT" != / && "$DEPLOY_ROOT" != *..* ]]
           [[ "$RELEASE_ID" =~ ^[0-9a-f]{40}-[0-9]+-[0-9]+$ ]]
+          [[ "$DEPLOY_PYTHON" =~ ^python3([.][0-9]+)?$ ]]
           incoming="$DEPLOY_ROOT/incoming/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           ssh -F "$CD_SSH_CONFIG" moh-deploy "mkdir -p '$incoming'"
-          scp -F "$CD_SSH_CONFIG" deployment/deployment.tar.gz deployment/deployment.tar.gz.sha256 infra/scripts/cd_bundle.py "moh-deploy:$incoming/"
-          ssh -F "$CD_SSH_CONFIG" moh-deploy "python3 '$incoming/cd_bundle.py' extract --archive '$incoming/deployment.tar.gz' --checksum '$incoming/deployment.tar.gz.sha256' --destination '$DEPLOY_ROOT/releases/$RELEASE_ID'"
+          scp -F "$CD_SSH_CONFIG" deployment/deployment.tar.gz deployment/deployment.tar.gz.sha256 infra/scripts/cd_bundle.py infra/scripts/cd_server.py infra/scripts/verify-frontend-deployment.mjs "moh-deploy:$incoming/"
+          ssh -F "$CD_SSH_CONFIG" moh-deploy "$DEPLOY_PYTHON '$incoming/cd_bundle.py' extract --archive '$incoming/deployment.tar.gz' --checksum '$incoming/deployment.tar.gz.sha256' --destination '$DEPLOY_ROOT/releases/$RELEASE_ID'"
+          echo "deploy_helper=$incoming/cd_server.py" >> "$GITHUB_ENV"
           echo "release_dir=$DEPLOY_ROOT/releases/$RELEASE_ID" >> "$GITHUB_ENV"
       - name: Preflight server prerequisites and private configuration
         env:
           DEPLOY_CONFIG: ${{ vars.DEPLOY_CONFIG || '/etc/moh-sso/deploy.json' }}
         run: |
           [[ "$DEPLOY_CONFIG" =~ ^/[A-Za-z0-9_./-]+$ && "$DEPLOY_CONFIG" != *..* ]]
-          ssh -F "$CD_SSH_CONFIG" moh-deploy "python3 '$release_dir/infra/scripts/cd_server.py' preflight --config '$DEPLOY_CONFIG'"
+          ssh -F "$CD_SSH_CONFIG" moh-deploy "$DEPLOY_PYTHON '$deploy_helper' preflight --config '$DEPLOY_CONFIG'"
       - name: Pull digests, back up, roll out, verify and automatically roll back on failure
         env:
           DEPLOY_CONFIG: ${{ vars.DEPLOY_CONFIG || '/etc/moh-sso/deploy.json' }}
           DEPLOY_ACTOR: ${{ github.actor }}
+          AUTOMATIC: ${{ needs.prepare.outputs.automatic }}
         run: |
           [[ "$DEPLOY_ACTOR" =~ ^[-A-Za-z0-9_]+(\[bot\])?$ ]]
-          ssh -F "$CD_SSH_CONFIG" moh-deploy "python3 '$release_dir/infra/scripts/cd_server.py' deploy --config '$DEPLOY_CONFIG' --release '$release_dir' --actor '$DEPLOY_ACTOR'" | tee deployment-result.log
+          automatic_flag=""
+          if [[ "$AUTOMATIC" == true ]]; then automatic_flag="--automatic"; fi
+          ssh -F "$CD_SSH_CONFIG" moh-deploy "$DEPLOY_PYTHON '$deploy_helper' deploy --config '$DEPLOY_CONFIG' --release '$release_dir' --actor '$DEPLOY_ACTOR' $automatic_flag" | tee deployment-result.log
       - name: Record deployment outcome
         if: always()
         uses: actions/upload-artifact@v4
