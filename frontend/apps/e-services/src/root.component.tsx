@@ -1,7 +1,7 @@
 import { resolveRuntimeBasename, type MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import { MohThemeProvider } from "@moh-sso/ui";
+import { MohThemeProvider, PageShell } from "@moh-sso/ui";
 
 import ActionTrackerPage from "./pages/action-tracker.page";
 import ActivityReportingPage from "./pages/activity-reporting.page";
@@ -49,9 +49,29 @@ export function EServicesRoot(props: MicrofrontendRuntimeProps) {
               <Route path="*" element={<Navigate to="/ihris/meeting-manager" replace />} />
             </Route>
 
-            <Route path="partner-management" element={<div>Partner Management</div>} />
+            <Route
+              path="partner-management"
+              element={
+                <PageShell
+                  title="Partner Management"
+                  subtitle="Manage partner activities and collaboration."
+                >
+                  <p>This service is coming soon.</p>
+                </PageShell>
+              }
+            />
 
-            <Route path="observatory-uploads" element={<div>Observatory Uploads</div>} />
+            <Route
+              path="observatory-uploads"
+              element={
+                <PageShell
+                  title="Observatory Uploads"
+                  subtitle="Submit and manage observatory data uploads."
+                >
+                  <p>This service is coming soon.</p>
+                </PageShell>
+              }
+            />
 
             <Route path="*" element={<Navigate to="/ihris/meeting-manager" replace />} />
           </Routes>

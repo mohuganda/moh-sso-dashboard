@@ -150,3 +150,30 @@ Future Vue, Angular, Svelte, or plain JavaScript apps can participate by exposin
 - `unmount`
 
 They should accept the same runtime props and avoid importing shell internals.
+
+## Root page layout
+
+Root screens use `PageShell` from `@moh-sso/ui` for a single page title,
+description, divider and optional header actions. Keep routing and permissions
+at their existing application boundaries; render route-specific headers inside
+multi-page applications instead of adding a second module heading.
+
+All 15 application roots follow this pattern:
+
+| Applications | Header owner |
+| --- | --- |
+| Users, Clients, Audit Logs | Shared `DataTableShell`, which uses `PageShell` |
+| Announcements, Email Outbox, RBAC Management | Their root page component |
+| Data Visualizer, Data Validation, Report Browser | Application root |
+| Document Management, Issue Tracker, Report Scheduler, Surveillance | Their workspace/root page |
+| E-services | `EservicePageShell` and individual placeholder routes |
+| Utilities | Route-specific `UtilityPage` |
+
+The portal layout supplies outer page padding. Page components avoid adding a
+second outer gutter. `PageShell` spaces its content sections and keeps header
+actions responsive. Dedicated detail-page and access-denied headings remain
+local to those screens.
+
+`tests/browser/root-pages.spec.mjs` visits every application root at desktop and
+mobile widths and checks for a single visible header aligned with the portal's
+content gutter. It uses disposable local API responses and a report iframe stub.

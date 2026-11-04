@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useHeaderPanel, useToast } from "@moh-sso/ui";
+import { PageShell, useHeaderPanel, useToast } from "@moh-sso/ui";
 import {
   Button,
   InlineLoading,
@@ -250,11 +250,10 @@ function ReportSchedulerWorkspace(props: MicrofrontendRuntimeProps) {
 
   return (
     <div className="moh-microfrontend-root report-scheduler">
-      <header>
-        <h1>Report Scheduler</h1>
-        <p>Schedule Health BI reports and deliver them by email or through the portal.</p>
-      </header>
-
+      <PageShell
+        title="Report Scheduler"
+        subtitle="Schedule Health BI reports and deliver them by email or through the portal."
+      >
       {access.history && (
         <>
           <section className="report-scheduler__health" aria-label="Scheduler health">
@@ -731,6 +730,7 @@ function ReportSchedulerWorkspace(props: MicrofrontendRuntimeProps) {
           execution history and delivered reports will remain available.
         </p>
       </Modal>
+      </PageShell>
     </div>
   );
 }

@@ -28,7 +28,7 @@ import {
 
 import type { Announcement, AnnouncementLevel } from "../types";
 
-import { ErrorState, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
+import { ErrorState, PageShell, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
 
 import { formatDateTime, getStatusTagType, getTagType, isAnnouncementActive } from "@moh-sso/utils";
 
@@ -415,20 +415,15 @@ export function AnnouncementsPage() {
 
   return (
     <div className="announcements-page">
-      {/* Header */}
-      <div className="announcements-page__header">
-        <div>
-          <h3 className="announcements-page__title">Announcements</h3>
-          <p className="announcements-page__subtitle">
-            Manage platform notices, alerts, drafts, schedules, and archived updates.
-          </p>
-        </div>
-
-        <Button renderIcon={Add} onClick={handleOpenCreatePanel}>
-          New announcement
-        </Button>
-      </div>
-
+      <PageShell
+        title="Announcements"
+        subtitle="Manage platform notices, alerts, drafts, schedules, and archived updates."
+        actions={
+          <Button renderIcon={Add} onClick={handleOpenCreatePanel}>
+            New announcement
+          </Button>
+        }
+      >
       {/* Filters */}
       <Tile>
         <AnnouncementFilters
@@ -828,6 +823,7 @@ export function AnnouncementsPage() {
           }}
         />
       </Tile>
+      </PageShell>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { PageShell } from "@moh-sso/ui";
 import { InlineLoading } from "@carbon/react";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -519,27 +520,11 @@ function SurveillanceDashboardContent() {
 
   return (
     <div className="surveillance-dashboard-page">
-      <div className="surveillance-dashboard-page__header">
-        <div className="surveillance-dashboard-page__hero">
-          <div className="surveillance-dashboard-page__hero-main">
-            <div className="surveillance-dashboard-page__hero-copy">
-              <h1 className="surveillance-dashboard-page__title">Surveillance Dashboard</h1>
-
-              <p className="surveillance-dashboard-page__subtitle">
-                Monitor surveillance signals, reporting trends, alerts, and priority conditions
-                across regions, districts, and sub-counties.
-              </p>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="surveillance-dashboard-page__loading">
-              <InlineLoading description="Loading surveillance data..." />
-            </div>
-          ) : null}
-        </div>
-      </div>
-
+      <PageShell
+        title="Surveillance Dashboard"
+        subtitle="Monitor surveillance signals, reporting trends, alerts, and priority conditions across regions, districts, and sub-counties."
+        actions={loading ? <InlineLoading description="Loading surveillance data..." /> : undefined}
+      >
       <section className="surveillance-dashboard-page__section">
         <SurveillanceFilters
           epiWeek={selectedWeekId}
@@ -609,6 +594,7 @@ function SurveillanceDashboardContent() {
           }
         />
       </section>
+      </PageShell>
     </div>
   );
 }

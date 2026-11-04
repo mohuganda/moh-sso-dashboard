@@ -1,6 +1,7 @@
 import { InlineLoading, Tile } from "@carbon/react";
 import type { ReactNode } from "react";
 
+import { PageShell } from "../layout/PageShell/PageShell";
 import { TableEmptyState } from "./TableEmptyState";
 import "./DataTableShell.scss";
 
@@ -28,10 +29,7 @@ type DataTableShellProps<T> = {
   topContent?: ReactNode;
   filters?: ReactNode;
   bulkActions?: ReactNode;
-  children: (args: {
-    rows: Array<T & { id: string }>;
-    headers: DataTableHeader[];
-  }) => ReactNode;
+  children: (args: { rows: Array<T & { id: string }>; headers: DataTableHeader[] }) => ReactNode;
 };
 
 export function DataTableShell<T extends object>({
@@ -53,34 +51,35 @@ export function DataTableShell<T extends object>({
 }: DataTableShellProps<T>) {
   return (
     <div className="moh-data-table-shell">
-      <div className="moh-data-table-shell__header">
-        <h3 className="moh-data-table-shell__title">{title}</h3>
-        {description && <p className="moh-data-table-shell__description">{description}</p>}
-      </div>
+      <PageShell title={title} subtitle={description}>
+        {topContent}
 
-      {topContent}
+        {filters && <Tile className="moh-data-table-shell__filters">{filters}</Tile>}
 
-      {filters && <Tile className="moh-data-table-shell__filters">{filters}</Tile>}
-
-      <Tile className="moh-data-table-shell__table">
-        {tableState ? (
-          tableState
-        ) : isLoading ? (
-          <InlineLoading description={loadingDescription} />
-        ) : rows.length === 0 && emptyTitle ? (
-          <TableEmptyState title={emptyTitle} description={emptyDescription} actions={emptyActions} />
-        ) : (
-          <>
-            {bulkActions}
-            <div className="moh-data-table-shell__table-scroll">
-              {children({
-                rows: rows.map((row) => ({ ...row, id: getRowId(row) })),
-                headers,
-              })}
-            </div>
-          </>
-        )}
-      </Tile>
+        <Tile className="moh-data-table-shell__table">
+          {tableState ? (
+            tableState
+          ) : isLoading ? (
+            <InlineLoading description={loadingDescription} />
+          ) : rows.length === 0 && emptyTitle ? (
+            <TableEmptyState
+              title={emptyTitle}
+              description={emptyDescription}
+              actions={emptyActions}
+            />
+          ) : (
+            <>
+              {bulkActions}
+              <div className="moh-data-table-shell__table-scroll">
+                {children({
+                  rows: rows.map((row) => ({ ...row, id: getRowId(row) })),
+                  headers,
+                })}
+              </div>
+            </>
+          )}
+        </Tile>
+      </PageShell>
     </div>
   );
 }

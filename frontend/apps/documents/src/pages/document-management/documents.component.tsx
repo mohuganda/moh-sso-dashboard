@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from "react";
 import { Tab, TabList, TabPanel, TabPanels, Tabs } from "@carbon/react";
 
+import { PageShell } from "@moh-sso/ui";
 import { PermissionGuard, PERMISSIONS } from "@moh-sso/auth";
 
 import { TemplatesTab } from "../../components/TemplatesTab";
@@ -43,44 +44,45 @@ function DocumentPageContent() {
   return (
     <PageErrorBoundary>
       <div className="documents-page">
-        <div className="documents-page__header">
-          <h2>Document Management</h2>
+        <PageShell
+          title="Document Management"
+          subtitle="Manage reusable upload templates and monitor uploaded documents."
+        >
+          <div className="documents-page__tabs">
+            <Tabs>
+              <TabList
+                aria-label="Document management tabs"
+                contained
+                className="documents-page__tab-list"
+              >
+                <PermissionGuard permission={PERMISSIONS.documentTemplatesRead}>
+                  <Tab>Templates</Tab>
+                </PermissionGuard>
+                <PermissionGuard permission={PERMISSIONS.documentsRead}>
+                  <Tab>Template Data Upload</Tab>
+                </PermissionGuard>
+              </TabList>
 
-          <p>
-            Manage reusable upload templates and monitor uploaded documents.
-          </p>
-        </div>
+              <TabPanels>
+                <PermissionGuard permission={PERMISSIONS.documentTemplatesRead}>
+                  <TabPanel className="documents-page__tab-panel">
+                    <PageErrorBoundary>
+                      <TemplatesTab />
+                    </PageErrorBoundary>
+                  </TabPanel>
+                </PermissionGuard>
 
-        <div className="documents-page__tabs">
-          <Tabs>
-            <TabList aria-label="Document management tabs" contained className="documents-page__tab-list">
-              <PermissionGuard permission={PERMISSIONS.documentTemplatesRead}>
-                <Tab>Templates</Tab>
-              </PermissionGuard>
-              <PermissionGuard permission={PERMISSIONS.documentsRead}>
-                <Tab>Template Data Upload</Tab>
-              </PermissionGuard>
-            </TabList>
-
-            <TabPanels>
-              <PermissionGuard permission={PERMISSIONS.documentTemplatesRead}>
-                <TabPanel className="documents-page__tab-panel">
-                  <PageErrorBoundary>
-                    <TemplatesTab />
-                  </PageErrorBoundary>
-                </TabPanel>
-              </PermissionGuard>
-
-              <PermissionGuard permission={PERMISSIONS.documentsRead}>
-                <TabPanel className="documents-page__tab-panel">
-                  <PageErrorBoundary>
-                    <DocumentsTab />
-                  </PageErrorBoundary>
-                </TabPanel>
-              </PermissionGuard>
-            </TabPanels>
-          </Tabs>
-        </div>
+                <PermissionGuard permission={PERMISSIONS.documentsRead}>
+                  <TabPanel className="documents-page__tab-panel">
+                    <PageErrorBoundary>
+                      <DocumentsTab />
+                    </PageErrorBoundary>
+                  </TabPanel>
+                </PermissionGuard>
+              </TabPanels>
+            </Tabs>
+          </div>
+        </PageShell>
       </div>
     </PageErrorBoundary>
   );

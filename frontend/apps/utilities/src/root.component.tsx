@@ -1,7 +1,15 @@
 import { resolveRuntimeBasename, type MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import { ComingSoon, MohThemeProvider } from "@moh-sso/ui";
+import { ComingSoon, MohThemeProvider, PageShell } from "@moh-sso/ui";
+
+function UtilityPage({ title }: { title: string }) {
+  return (
+    <PageShell title={title} subtitle="Access your self-service tools and requests.">
+      <ComingSoon title="Coming soon" />
+    </PageShell>
+  );
+}
 
 function normalizeBasename(basename?: string) {
   const normalized = basename?.replace(/\/+$/, "");
@@ -23,20 +31,20 @@ export function UtilitiesRoot(props: MicrofrontendRuntimeProps) {
           <Routes>
             <Route index element={<Navigate to="timesheet" replace />} />
 
-            <Route path="timesheet" element={<ComingSoon title="Timesheet" />} />
+            <Route path="timesheet" element={<UtilityPage title="Timesheet" />} />
 
-            <Route path="elearning" element={<ComingSoon title="E-learning" />} />
+            <Route path="elearning" element={<UtilityPage title="E-learning" />} />
 
-            <Route path="leave-plan" element={<ComingSoon title="Leave Plan" />} />
+            <Route path="leave-plan" element={<UtilityPage title="Leave Plan" />} />
 
-            <Route path="absence-requests" element={<ComingSoon title="Absence Requests" />} />
+            <Route path="absence-requests" element={<UtilityPage title="Absence Requests" />} />
 
-            <Route path="absence-dashboard" element={<ComingSoon title="Absence Dashboard" />} />
+            <Route path="absence-dashboard" element={<UtilityPage title="Absence Dashboard" />} />
 
             <Route path="eservice">
               <Route index element={<Navigate to="service-access" replace />} />
-              <Route path="service-access" element={<ComingSoon title="Service Access" />} />
-              <Route path="equipment-request" element={<ComingSoon title="Equipment Request" />} />
+              <Route path="service-access" element={<UtilityPage title="Service Access" />} />
+              <Route path="equipment-request" element={<UtilityPage title="Equipment Request" />} />
             </Route>
 
             <Route path="*" element={<Navigate to="timesheet" replace />} />

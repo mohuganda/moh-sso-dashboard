@@ -1,4 +1,5 @@
-import { Button, Column, Grid, Stack, Tile } from "@carbon/react";
+import { PageShell } from "@moh-sso/ui";
+import { Button, Tile } from "@carbon/react";
 import { Add } from "@carbon/react/icons";
 import type { ReactNode } from "react";
 
@@ -20,25 +21,18 @@ export function EservicePageShell({
   children,
 }: EservicePageShellProps) {
   return (
-    <Grid fullWidth className="eservice-page-shell">
-      <Column lg={16} md={8} sm={4}>
-        <Stack gap={5}>
-          <div className="eservice-page-shell__header">
-            <div>
-              <h3 className="eservice-page-shell__title">{title}</h3>
-              <p className="eservice-page-shell__description">{description}</p>
-            </div>
-
-            {actionLabel && (
-              <Button renderIcon={Add} onClick={onActionClick}>
-                {actionLabel}
-              </Button>
-            )}
-          </div>
-
-          <Tile>{children}</Tile>
-        </Stack>
-      </Column>
-    </Grid>
+    <PageShell
+      title={title}
+      subtitle={description}
+      actions={
+        actionLabel ? (
+          <Button renderIcon={Add} onClick={onActionClick}>
+            {actionLabel}
+          </Button>
+        ) : undefined
+      }
+    >
+      <Tile>{children}</Tile>
+    </PageShell>
   );
 }

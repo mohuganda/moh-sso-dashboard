@@ -26,7 +26,7 @@ import {
 
 import type { EmailStatus, EmailOutboxItem } from "../types";
 
-import { ErrorState, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
+import { ErrorState, PageShell, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
 
 import EmailPanelComponent from "../components/email-outbox-panel/email-outbox-panel.component";
 import { EmailDetailsContent } from "../components/email-outbox-detail/email-outbox-details-modal.component";
@@ -373,24 +373,18 @@ export default function EmailOutbox() {
   return (
     <>
       <div className="email-outbox-page__content">
-        {/* Header */}
-        <div className="email-outbox-page__header">
-          <div>
-            <h3 className="email-outbox-page__heading">Email Outbox</h3>
-            <p className="email-outbox-page__description">
-              View, filter, retry, and delete queued email records.
-            </p>
-          </div>
-
-          <div className="email-outbox-page__toolbar-actions">
-            {isFetching && !isLoading && <InlineLoading description="Refreshing emails…" />}
-
-            <Button renderIcon={Add} onClick={handleOpenSendEmailPanel}>
-              Send email
-            </Button>
-          </div>
-        </div>
-
+        <PageShell
+          title="Email Outbox"
+          subtitle="View, filter, retry, and delete queued email records."
+          actions={
+            <>
+              {isFetching && !isLoading && <InlineLoading description="Refreshing emails…" />}
+              <Button renderIcon={Add} onClick={handleOpenSendEmailPanel}>
+                Send email
+              </Button>
+            </>
+          }
+        >
         {/* Filters */}
         <Tile>
           <EmailOutboxFilters
@@ -544,6 +538,7 @@ export default function EmailOutbox() {
             }}
           />
         </Tile>
+      </PageShell>
       </div>
     </>
   );

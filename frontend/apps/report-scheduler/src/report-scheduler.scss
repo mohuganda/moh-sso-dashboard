@@ -1,24 +1,14 @@
 .report-scheduler {
   display: grid;
   gap: 1rem;
-  padding: 1.5rem;
   min-width: 0;
-
-  header {
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  h1 {
-    font-size: 2rem;
-  }
 
   h2 {
     font-size: 1.25rem;
     margin-bottom: 1rem;
   }
 
-  h3 {
+  h3:not(.moh-page-shell__title) {
     font-size: 1rem;
     margin-bottom: 0.75rem;
   }
@@ -257,10 +247,6 @@
 }
 
 @media (max-width: 768px) {
-  .report-scheduler {
-    padding: 1rem;
-  }
-
   .report-scheduler__heading-row {
     flex-wrap: wrap;
   }

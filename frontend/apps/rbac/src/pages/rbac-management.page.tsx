@@ -54,7 +54,7 @@ import {
 } from "../api";
 import { PERMISSIONS, PermissionGuard, useAuthorization } from "@moh-sso/auth";
 import { useListUsersQuery, type User } from "@moh-sso/users";
-import { useModal, useToast } from "@moh-sso/ui";
+import { PageShell, useModal, useToast } from "@moh-sso/ui";
 import type { SystemNavigationItem } from "@moh-sso/types";
 import type {
   ApplicationLifecycleStatus,
@@ -776,13 +776,10 @@ export default function RbacManagementPage() {
 
   return (
     <div className="rbac-page">
-      <header className="rbac-page__header">
-        <div>
-          <h1>RBAC Management</h1>
-          <p>Manage applications and access from one focused workspace.</p>
-        </div>
-      </header>
-
+      <PageShell
+        title="RBAC Management"
+        subtitle="Manage applications and access from one focused workspace."
+      >
       {error && (
         <InlineNotification
           kind="error"
@@ -1738,6 +1735,7 @@ export default function RbacManagementPage() {
           </section>
         </main>
       </section>
+      </PageShell>
     </div>
   );
 }
