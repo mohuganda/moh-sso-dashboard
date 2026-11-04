@@ -1,5 +1,20 @@
 # @moh-sso/ui
 
+## 1.2.2
+
+### Patch Changes
+
+- Automatic patch release of all frontend apps and shared packages.
+- Updated dependencies
+  - @moh-sso/types@1.2.2
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.2.1`.
+
+- Refine shell navigation, launcher and account experience (#272) (`aaa66d4b`)
+
 ## 1.2.1
 
 ### Patch Changes
@@ -9,6 +24,7 @@
   - @moh-sso/types@1.2.1
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.2.0`.

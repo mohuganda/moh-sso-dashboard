@@ -1,8 +1,8 @@
-# Backend 1.2.1
+# Backend 1.2.2
 
 <!-- scoped-source-changes -->
 ### Source changes
 
-Changes since `backend/v1.2.0`.
+Changes since `backend/v1.2.1`.
 
-- Fix Issue Summary (#270) (`44dc912c`)
+- No direct source changes; this release updates version or dependency metadata.
