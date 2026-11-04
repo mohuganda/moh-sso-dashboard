@@ -56,7 +56,8 @@ class ComposeTests(unittest.TestCase):
                 record = server.candidate(release)
                 model = json.loads(server.compose(record, 'config', '--format', 'json'))
                 for component, image in images.items():
-                    self.assertEqual(model['services'][component]['image'], image['repository'] + '@' + image['digest'])
+                    self.assertEqual(model['services'][component]['image'],
+                                     f"{image['repository']}:{image['version']}@{image['digest']}")
                 self.assertEqual(model['name'], 'moh-sso-dashboard')
                 if mode == 'gateway':
                     mounts = model['services']['nginx']['volumes']

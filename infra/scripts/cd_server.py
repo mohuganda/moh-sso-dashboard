@@ -115,7 +115,7 @@ class Server:
             shutil.copyfile(self.config['remote_env_file'], remote)
             remote.chmod(0o600)
             record['remote_env_file'] = str(remote)
-        override = {'services': {key: {'image': f"{value['repository']}@{value['digest']}"}
+        override = {'services': {key: {'image': f"{value['repository']}:{value['version']}@{value['digest']}"}
                                  for key, value in manifest['images'].items()}}
         if record['mode'] == 'gateway':
             override['services']['nginx'] = {'volumes': [{

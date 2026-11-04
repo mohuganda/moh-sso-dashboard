@@ -210,7 +210,9 @@ class Transactions(unittest.TestCase):
         self.assertEqual(state['previous']['manifest']['release_id'], manifest('1')['release_id'])
         self.assertEqual((self.root / 'current').resolve(), Path(state['current']['release_dir']))
         override = json.loads(Path(state['current']['override_file']).read_text())
-        self.assertIn('@sha256:', override['services']['backend']['image'])
+        for component, image in manifest('2')['images'].items():
+            self.assertEqual(override['services'][component]['image'],
+                             f"{image['repository']}:{image['version']}@{image['digest']}")
         self.assertEqual(Path(state['current']['env_file']).stat().st_mode & 0o777, 0o600)
         self.assertNotIn('private-value', (self.root / 'state/history.jsonl').read_text())
 

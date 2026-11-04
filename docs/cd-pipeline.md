@@ -124,7 +124,10 @@ All private config/secret files should be owned by the deploy account with mode
 0600; directories are 0750. Edit placeholders before the first deployment. Keep
 `APP_ENV_FILE` in the env example unchanged if present: CD overrides its path with
 a private snapshot. Manifest tags/digests override env-file release tags; do not
-edit tags to select a CD release. Image bytes are selected by digest.
+edit tags to select a CD release. Deployment references use
+`repository:version@sha256:digest` so container image names include the numeric
+release version. Image bytes are still selected by digest, and OCI version/commit
+labels are verified before rollout.
 
 Select one topology in `deploy.json`:
 
