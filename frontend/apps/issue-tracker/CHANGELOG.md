@@ -1,5 +1,28 @@
 # @moh-sso/issue-tracker
 
+## 1.2.0
+
+### Minor Changes
+
+- Automatic minor release of all frontend apps and shared packages.
+
+### Patch Changes
+
+- Updated dependencies
+  - @moh-sso/data-visualizer@1.2.0
+  - @moh-sso/api@1.2.0
+  - @moh-sso/auth@1.2.0
+  - @moh-sso/config@1.2.0
+  - @moh-sso/microfrontend@1.2.0
+  - @moh-sso/ui@1.2.0
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.1.0`.
+
+- Platform/phase 1 application registry (#252) (`3dcac948`)
+
 ## 1.1.1
 
 ### Patch Changes
@@ -13,6 +36,7 @@
   - @moh-sso/microfrontend@1.1.1
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.1.0`.

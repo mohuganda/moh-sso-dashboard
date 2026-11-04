@@ -1,5 +1,24 @@
 # @moh-sso/api
 
+## 1.2.0
+
+### Minor Changes
+
+- Automatic minor release of all frontend apps and shared packages.
+
+### Patch Changes
+
+- Updated dependencies
+  - @moh-sso/auth@1.2.0
+  - @moh-sso/config@1.2.0
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.1.0`.
+
+- Avoid duplicating root-relative API paths in RTK requests (#260) (`98b4e472`)
+
 ## 1.1.1
 
 ### Patch Changes
@@ -10,6 +29,7 @@
   - @moh-sso/config@1.1.1
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.1.0`.
