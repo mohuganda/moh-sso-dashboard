@@ -45,7 +45,7 @@ jobs:
           [[ "$DEPLOY_CONFIG" =~ ^/[A-Za-z0-9_./-]+$ && "$DEPLOY_CONFIG" != *..* ]]
           [[ "$DEPLOY_ACTOR" =~ ^[-A-Za-z0-9_]+(\[bot\])?$ ]]
           # Recover interrupted deployments even if no current symlink was switched.
-          scp -F "$CD_SSH_CONFIG" infra/scripts/cd_server.py infra/scripts/cd_bundle.py "moh-deploy:$DEPLOY_ROOT/incoming/"
+          scp -F "$CD_SSH_CONFIG" infra/scripts/cd_server.py infra/scripts/cd_bundle.py infra/scripts/verify-frontend-deployment.mjs "moh-deploy:$DEPLOY_ROOT/incoming/"
           ssh -F "$CD_SSH_CONFIG" moh-deploy "python3 '$DEPLOY_ROOT/incoming/cd_server.py' rollback --config '$DEPLOY_CONFIG' --actor '$DEPLOY_ACTOR'"
       - name: Remove runner SSH material
         if: always()
