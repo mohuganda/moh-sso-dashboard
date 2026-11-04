@@ -127,6 +127,7 @@ const api = new Proxy(
   },
 );
 const ui = {
+  ...load("../packages/ui/src/layout/PageShell/PageShell.tsx", { "./page-shell.scss": {} }),
   useHeaderPanel: () => ({ openPanel: () => {}, closePanel: () => {} }),
   useToast: () => ({ error: () => {}, success: () => {} }),
 };
