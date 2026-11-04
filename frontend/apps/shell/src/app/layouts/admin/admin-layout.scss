@@ -471,3 +471,13 @@ body {
     align-items: stretch;
   }
 }
+
+@media (max-width: 1056px) {
+  .admin-layout__sidenav-toggle--rail {
+    display: none;
+  }
+
+  .admin-layout--sidenav-hidden .moh-breadcrumb-bar {
+    padding-left: 1rem;
+  }
+}

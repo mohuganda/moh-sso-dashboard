@@ -2,6 +2,7 @@ import { UserAvatarFilled, Logout } from "@carbon/react/icons";
 import {
   Header,
   HeaderName,
+  HeaderMenuButton,
   HeaderGlobalBar,
   HeaderGlobalAction,
   SkipToContent,
@@ -16,31 +17,66 @@ import imagePath from "../assets/logo.png";
 
 export type UserHeaderProps = {
   appName?: string;
+  homeHref?: string;
   username?: string | null;
   appMenu?: ReactNode;
   onNavigateHome?: () => void;
   onLogout?: () => void;
   onProfile?: () => void;
+  navigationExpanded?: boolean;
+  onToggleNavigation?: () => void;
+  onGlobalAction?: () => void;
 };
 
 const UserHeader: React.FC<UserHeaderProps> = ({
   appName = "Integrated Health Portal",
+  homeHref = "/portal/apps",
   username,
   appMenu,
   onNavigateHome,
   onLogout,
   onProfile,
+  navigationExpanded = false,
+  onToggleNavigation,
+  onGlobalAction,
 }) => {
   return (
-    <Header aria-label={`MOH ${appName}`}>
+    <Header aria-label={`MOH ${appName}`} className="moh-shell-header">
       <SkipToContent />
+      {onToggleNavigation && (
+        <HeaderMenuButton
+          isCollapsible
+          aria-label={navigationExpanded ? "Close navigation" : "Open navigation"}
+          aria-controls="user-sidenav"
+          aria-expanded={navigationExpanded}
+          isActive={navigationExpanded}
+          onClick={onToggleNavigation}
+        />
+      )}
 
       <img src={imagePath} className="moh-image-style" alt="Uganda coat of arms" />
-      <HeaderName prefix="MOH" onClick={onNavigateHome} className="moh-header-name" title={appName}>
+      <HeaderName
+        prefix="MOH"
+        href={homeHref}
+        onClick={(event) => {
+          if (
+            onNavigateHome &&
+            !event.metaKey &&
+            !event.ctrlKey &&
+            !event.shiftKey &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            onNavigateHome();
+          }
+        }}
+        className="moh-header-name"
+        title={appName}
+      >
         {appName}
       </HeaderName>
 
-      <HeaderGlobalBar>
+      <HeaderGlobalBar onClickCapture={onGlobalAction}>
         {appMenu ?? <AppMenuAction />}
         <HeaderGlobalAction
           aria-label={`Signed in as ${username ?? "user"}`}
@@ -49,7 +85,12 @@ const UserHeader: React.FC<UserHeaderProps> = ({
         >
           <UserAvatarFilled size={20} />
         </HeaderGlobalAction>
-        <HeaderGlobalAction aria-label="Logout" tooltipAlignment="end" onClick={onLogout}>
+        <HeaderGlobalAction
+          className={onProfile ? "moh-header-logout" : undefined}
+          aria-label="Logout"
+          tooltipAlignment="end"
+          onClick={onLogout}
+        >
           <Logout size={20} />
         </HeaderGlobalAction>
       </HeaderGlobalBar>

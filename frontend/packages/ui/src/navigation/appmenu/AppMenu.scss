@@ -321,3 +321,47 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.app-grid-content {
+  display: grid;
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.app-grid-count {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--cds-text-secondary, #525252);
+}
+
+.app-grid-state--search {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.25rem 0;
+}
+
+@media (max-width: 672px) {
+  .app-menu-panel {
+    right: 0;
+    width: 100%;
+    max-height: calc(100dvh - 3rem);
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-menu-tile {
+    transition: none;
+  }
+
+  .app-menu-tile:hover,
+  .app-menu-tile:active {
+    transform: none;
+  }
+}
+
+.app-menu-panel__header .cds--btn--icon-only {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}

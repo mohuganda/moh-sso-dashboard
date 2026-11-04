@@ -53,6 +53,8 @@ export function HeaderPanelProvider({ children }: { children: React.ReactNode })
     onPrimaryAction,
     onSecondaryAction,
     disablePrimaryAction,
+    maximizable = true,
+    defaultMaximized = false,
   }: OpenPanelOptions) => {
     setState({
       isOpen: true,
@@ -64,6 +66,8 @@ export function HeaderPanelProvider({ children }: { children: React.ReactNode })
       onPrimaryAction,
       onSecondaryAction,
       disablePrimaryAction,
+      maximizable,
+      defaultMaximized,
     });
   };
 
@@ -89,8 +93,8 @@ export function HeaderPanelProvider({ children }: { children: React.ReactNode })
         onPrimaryAction={state.onPrimaryAction}
         onSecondaryAction={state.onSecondaryAction}
         disablePrimaryAction={state.disablePrimaryAction}
-        maximizable
-        defaultMaximized={false}
+        maximizable={state.maximizable ?? true}
+        defaultMaximized={state.defaultMaximized ?? false}
       />
     </HeaderPanelContext.Provider>
   );

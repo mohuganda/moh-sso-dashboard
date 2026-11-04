@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { InlineLoading, Tile } from "@carbon/react";
+import React, { useId, useMemo, useState } from "react";
+import { Button, InlineLoading, Search, Tile } from "@carbon/react";
 import {
   App,
   Calendar,
@@ -88,6 +88,8 @@ const AppGridContent: React.FC<AppGridContentProps> = ({
   onRetry,
   onOpenClient,
 }) => {
+  const [query, setQuery] = useState("");
+  const searchId = useId();
   const sortedClients = useMemo(() => {
     return [...clients].sort((a, b) => {
       const orderDiff = getClientOrder(a) - getClientOrder(b);
@@ -99,6 +101,15 @@ const AppGridContent: React.FC<AppGridContentProps> = ({
       return getClientName(a).localeCompare(getClientName(b));
     });
   }, [clients]);
+
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matchingClients = sortedClients.filter((client) =>
+    [getClientName(client), client.description, client.clientId]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(normalizedQuery),
+  );
 
   if (isLoading) {
     return (
@@ -137,25 +148,60 @@ const AppGridContent: React.FC<AppGridContentProps> = ({
   }
 
   return (
-    <div className="app-grid" role="list">
-      {sortedClients.map((client: Client) => {
-        const Icon = getClientIcon(client);
+    <div className="app-grid-content">
+      <Search
+        id={searchId}
+        labelText="Search applications"
+        placeholder="Search applications"
+        size="lg"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onClear={() => setQuery("")}
+      />
+      <p className="app-grid-count" role="status" aria-live="polite">
+        {matchingClients.length} {matchingClients.length === 1 ? "application" : "applications"}
+        {normalizedQuery ? ` matching “${query.trim()}”` : " available"}
+      </p>
+      {matchingClients.length === 0 ? (
+        <div className="app-grid-state app-grid-state--search">
+          <h5 className="app-grid-state__title">No matching applications</h5>
+          <p className="app-grid-state__description">Try another name or clear your search.</p>
+          <Button
+            kind="ghost"
+            size="sm"
+            onClick={() => {
+              setQuery("");
+              document.getElementById(searchId)?.focus();
+            }}
+          >
+            Clear search
+          </Button>
+        </div>
+      ) : (
+        <div className="app-grid" role="list" aria-label="Available applications">
+          {matchingClients.map((client: Client) => {
+            const Icon = getClientIcon(client);
 
-        return (
-          <div className="app-grid__item" role="listitem" key={client.clientId || client.id}>
-            <AppTile
-              icon={Icon}
-              name={getClientName(client)}
-              description={client.description}
-              href={getClientHref(client)}
-              clientId={client.clientId}
-              onSelect={onSelect}
-              onOpen={onOpenClient}
-              launchMode={(client.attributes?.["ui.launchMode"] as "internal" | "new_tab" | "same_tab") || "internal"}
-            />
-          </div>
-        );
-      })}
+            return (
+              <div className="app-grid__item" role="listitem" key={client.clientId || client.id}>
+                <AppTile
+                  icon={Icon}
+                  name={getClientName(client)}
+                  description={client.description}
+                  href={getClientHref(client)}
+                  clientId={client.clientId}
+                  onSelect={onSelect}
+                  onOpen={onOpenClient}
+                  launchMode={
+                    (client.attributes?.["ui.launchMode"] as "internal" | "new_tab" | "same_tab") ||
+                    "internal"
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import type { ComponentType } from "react";
 import {
   Content,
@@ -6,6 +6,8 @@ import {
   HeaderGlobalAction,
   HeaderGlobalBar,
   HeaderName,
+  HeaderMenuButton,
+  SkipToContent,
   SideNav,
   SideNavItems,
   SideNavLink,
@@ -46,6 +48,9 @@ import {
 import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
 import type { Permission } from "@moh-sso/auth";
 
+import { ConnectedAccountPanel } from "@/app/ui-containers/ConnectedAccountPanel";
+import { ConnectedAppMenu } from "@/app/ui-containers/ConnectedAppMenu";
+import { useShellNavigation } from "../useShellNavigation";
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
 import { useVersionInfo } from "@/app/version/useVersionInfo";
 import { NotificationDetailPanel } from "./NotificationDetailPanel";
@@ -159,18 +164,6 @@ const ADMIN_NAV_GROUPS: Array<{
 
 const ADMIN_SIDENAV_STORAGE_KEY = "moh.adminLayout.sideNavVisible";
 
-function readStoredSideNavVisible(): boolean {
-  if (typeof window === "undefined") {
-    return true;
-  }
-
-  if (window.matchMedia("(max-width: 1056px)").matches) {
-    return window.localStorage.getItem(ADMIN_SIDENAV_STORAGE_KEY) === "true";
-  }
-
-  return window.localStorage.getItem(ADMIN_SIDENAV_STORAGE_KEY) !== "false";
-}
-
 function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
   if (item.exact) {
     return pathname === item.path || pathname === "portal/admin/home";
@@ -273,11 +266,24 @@ function HeaderActions() {
       <HeaderGlobalAction
         aria-label={`Signed in as ${user?.username ?? "user"}`}
         tooltipAlignment="end"
+        onClick={() =>
+          openPanel({
+            title: "Your account",
+            size: "sm",
+            maximizable: false,
+            content: <ConnectedAccountPanel />,
+          })
+        }
       >
         <UserAvatarFilled size={20} />
       </HeaderGlobalAction>
 
-      <HeaderGlobalAction aria-label="Logout" tooltipAlignment="end" onClick={handleLogout}>
+      <HeaderGlobalAction
+        className="moh-header-logout"
+        aria-label="Logout"
+        tooltipAlignment="end"
+        onClick={handleLogout}
+      >
         <Logout size={20} />
       </HeaderGlobalAction>
     </>
@@ -337,6 +343,7 @@ function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavP
         isFixedNav
         expanded
         aria-hidden={!visible}
+        inert={!visible}
         aria-label="Admin navigation"
         className={`admin-layout__sidenav${visible ? "" : " admin-layout__sidenav--hidden"}`}
       >
@@ -381,7 +388,11 @@ function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavP
                       isActive={active}
                       aria-current={active ? "page" : undefined}
                       renderIcon={item.icon}
-                      onClick={() => {
+                      href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}${item.path}`}
+                      onClick={(event) => {
+                        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+                          return;
+                        event.preventDefault();
                         if (location.pathname !== item.path) {
                           navigate(item.path);
                         }
@@ -403,40 +414,23 @@ function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavP
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const [isSideNavVisible, setIsSideNavVisible] = useState(readStoredSideNavVisible);
+  const navigation = useShellNavigation(ADMIN_SIDENAV_STORAGE_KEY);
+  const isSideNavVisible = navigation.visible;
   const versionInfo = useVersionInfo();
-
-  useEffect(() => {
-    if (!isSideNavVisible) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && window.matchMedia("(max-width: 1056px)").matches) {
-        setIsSideNavVisible(false);
-      }
-    };
-
-    const originalOverflow = document.body.style.overflow;
-
-    if (window.matchMedia("(max-width: 1056px)").matches) {
-      document.body.style.overflow = "hidden";
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isSideNavVisible]);
-
-  useEffect(() => {
-    window.localStorage.setItem(ADMIN_SIDENAV_STORAGE_KEY, String(isSideNavVisible));
-  }, [isSideNavVisible]);
 
   return (
     <HeaderPanelProvider>
       <div className={`admin-layout${isSideNavVisible ? "" : " admin-layout--sidenav-hidden"}`}>
         <Header aria-label="MOH Integrated Health Portal" className="admin-layout__header">
+          <SkipToContent />
+          <HeaderMenuButton
+            isCollapsible
+            aria-label={isSideNavVisible ? "Close navigation" : "Open navigation"}
+            aria-controls="admin-sidenav"
+            aria-expanded={isSideNavVisible}
+            isActive={isSideNavVisible}
+            onClick={navigation.toggle}
+          />
           <div className="admin-layout__brand">
             <button
               type="button"
@@ -449,24 +443,32 @@ export default function AdminLayout() {
 
             <HeaderName
               prefix="MOH"
-              onClick={() => navigate("/admin")}
+              href={`${import.meta.env.BASE_URL}admin`}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                navigate("/admin");
+              }}
               className="admin-layout__brand-name"
             >
               Integrated Health Portal
             </HeaderName>
           </div>
 
-          <HeaderGlobalBar>
+          <HeaderGlobalBar
+            onClickCapture={navigation.compact ? () => navigation.setVisible(false) : undefined}
+          >
+            <ConnectedAppMenu />
             <HeaderActions />
           </HeaderGlobalBar>
         </Header>
 
         <AdminSideNav
           visible={isSideNavVisible}
-          onToggleVisibility={() => setIsSideNavVisible((visible) => !visible)}
+          onToggleVisibility={navigation.toggle}
           onNavigate={() => {
             if (window.matchMedia("(max-width: 1056px)").matches) {
-              setIsSideNavVisible(false);
+              navigation.setVisible(false);
             }
           }}
         />
@@ -476,7 +478,7 @@ export default function AdminLayout() {
             type="button"
             className="admin-layout__sidenav-backdrop"
             aria-label="Close navigation"
-            onClick={() => setIsSideNavVisible(false)}
+            onClick={() => navigation.setVisible(false)}
           />
         ) : null}
 

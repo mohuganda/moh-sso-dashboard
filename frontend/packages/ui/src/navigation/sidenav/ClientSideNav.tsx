@@ -310,9 +310,15 @@ type RenderSideNavItemProps = {
   item: SideNavItem;
   currentPath: string;
   onNavigate: (path: string) => void;
+  hrefPrefix?: string;
 };
 
-function RenderSideNavItem({ item, currentPath, onNavigate }: RenderSideNavItemProps) {
+function RenderSideNavItem({
+  item,
+  currentPath,
+  onNavigate,
+  hrefPrefix = "",
+}: RenderSideNavItemProps) {
   const children = sortItems(item.children ?? []);
   const hasChildren = children.length > 0;
   const itemPath = normalizePath(item.path);
@@ -335,6 +341,7 @@ function RenderSideNavItem({ item, currentPath, onNavigate }: RenderSideNavItemP
             item={child}
             currentPath={currentPath}
             onNavigate={onNavigate}
+            hrefPrefix={hrefPrefix}
           />
         ))}
       </SideNavMenu>
@@ -352,7 +359,12 @@ function RenderSideNavItem({ item, currentPath, onNavigate }: RenderSideNavItemP
       renderIcon={PortalPageIcon}
       isActive={active}
       aria-current={active ? "page" : undefined}
-      onClick={() => onNavigate(itemPath)}
+      href={`${hrefPrefix.replace(/\/$/, "")}${itemPath}`}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onNavigate(itemPath);
+      }}
     >
       {item.label}
     </SideNavLink>
@@ -368,6 +380,7 @@ type ClientSideNavProps = {
   activeClient?: Client | null;
   currentPath: string;
   onNavigate: (path: string) => void;
+  hrefPrefix?: string;
   hasPermission?: (permission: string) => boolean;
   visible?: boolean;
   onToggleVisibility?: () => void;
@@ -381,6 +394,7 @@ export function ClientSideNav({
   hasPermission,
   visible = true,
   onToggleVisibility,
+  hrefPrefix = "",
 }: ClientSideNavProps) {
   const navRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -450,6 +464,7 @@ export function ClientSideNav({
         isFixedNav
         expanded
         aria-hidden={!visible}
+        inert={!visible}
         aria-label="Application navigation"
         className="moh-client-sidenav"
       >
@@ -496,6 +511,7 @@ export function ClientSideNav({
                     item={item}
                     currentPath={currentPath}
                     onNavigate={handleNavigate}
+                    hrefPrefix={hrefPrefix}
                   />
                 ))}
               </SideNavMenu>

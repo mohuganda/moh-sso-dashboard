@@ -268,3 +268,13 @@
     padding: 1rem 0.75rem 5rem;
   }
 }
+
+@media (max-width: 1056px) {
+  .user-layout .moh-client-sidenav__toggle--rail {
+    display: none;
+  }
+
+  .user-layout--sidenav-hidden .moh-breadcrumb-bar {
+    padding-left: 1rem;
+  }
+}

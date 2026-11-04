@@ -5,6 +5,7 @@ type FocusTrapOptions = {
   containerRef: RefObject<HTMLElement | null>;
   restoreFocus?: boolean;
   initialFocusRef?: RefObject<HTMLElement | HTMLButtonElement | null>;
+  initialFocusSelector?: string;
 };
 
 const FOCUSABLE_SELECTOR = [
@@ -18,7 +19,10 @@ const FOCUSABLE_SELECTOR = [
 
 function getFocusableElements(container: HTMLElement) {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true",
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      !element.closest("[inert], [aria-hidden='true']") &&
+      element.getClientRects().length > 0,
   );
 }
 
@@ -27,6 +31,7 @@ export function useFocusTrap({
   containerRef,
   restoreFocus = true,
   initialFocusRef,
+  initialFocusSelector,
 }: FocusTrapOptions) {
   useEffect(() => {
     if (!active) {
@@ -34,14 +39,17 @@ export function useFocusTrap({
     }
 
     const container = containerRef.current;
-    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     if (!container) {
       return;
     }
 
     const focusInitialElement = () => {
-      const initialElement = initialFocusRef?.current;
+      const initialElement =
+        initialFocusRef?.current ??
+        (initialFocusSelector ? container.querySelector<HTMLElement>(initialFocusSelector) : null);
 
       if (initialElement) {
         initialElement.focus();
@@ -81,15 +89,16 @@ export function useFocusTrap({
       }
     };
 
-    requestAnimationFrame(focusInitialElement);
+    const focusFrame = requestAnimationFrame(focusInitialElement);
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", handleKeyDown);
 
       if (restoreFocus && previouslyFocused?.isConnected) {
         previouslyFocused.focus();
       }
     };
-  }, [active, containerRef, initialFocusRef, restoreFocus]);
+  }, [active, containerRef, initialFocusRef, initialFocusSelector, restoreFocus]);
 }

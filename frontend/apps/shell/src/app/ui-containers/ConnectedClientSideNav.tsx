@@ -38,6 +38,7 @@ export function ConnectedClientSideNav({
       visible={visible}
       onToggleVisibility={onToggleVisibility}
       onNavigate={handleNavigate}
+      hrefPrefix={import.meta.env.BASE_URL}
     />
   );
 }

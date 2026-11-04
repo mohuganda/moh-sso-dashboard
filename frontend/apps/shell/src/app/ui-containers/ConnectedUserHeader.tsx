@@ -3,13 +3,25 @@ import { useNavigate } from "react-router-dom";
 
 import { selectUser } from "@moh-sso/auth";
 import { API } from "@moh-sso/config";
-import { UserHeader } from "@moh-sso/ui";
+import { UserHeader, useHeaderPanel } from "@moh-sso/ui";
 
+import { ConnectedAccountPanel } from "./ConnectedAccountPanel";
 import { ConnectedAppMenu } from "./ConnectedAppMenu";
 
-export function ConnectedUserHeader() {
+type Props = {
+  navigationExpanded?: boolean;
+  onToggleNavigation?: () => void;
+  onGlobalAction?: () => void;
+};
+
+export function ConnectedUserHeader({
+  navigationExpanded,
+  onToggleNavigation,
+  onGlobalAction,
+}: Props) {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
+  const { openPanel } = useHeaderPanel();
 
   const handleLogout = () => {
     window.location.replace(API.auth.logout());
@@ -18,6 +30,17 @@ export function ConnectedUserHeader() {
   return (
     <UserHeader
       username={user?.username}
+      navigationExpanded={navigationExpanded}
+      onToggleNavigation={onToggleNavigation}
+      onGlobalAction={onGlobalAction}
+      onProfile={() =>
+        openPanel({
+          title: "Your account",
+          size: "sm",
+          maximizable: false,
+          content: <ConnectedAccountPanel />,
+        })
+      }
       appMenu={<ConnectedAppMenu />}
       onNavigateHome={() => navigate("/apps")}
       onLogout={handleLogout}
