@@ -33,6 +33,14 @@ def read_json(path, default=None):
     return json.loads(path.read_text()) if path.exists() else default
 
 
+def backend_version(payload):
+    """Read the API success envelope without accepting failed/malformed responses."""
+    if (not isinstance(payload, dict) or payload.get('success') is not True
+            or not isinstance(payload.get('data'), dict)):
+        raise ValueError('Invalid backend version response')
+    return payload['data']
+
+
 class Server:
     def __init__(self, config, runner=None):
         self.config = json.loads(Path(config).read_text())
@@ -157,7 +165,7 @@ class Server:
     def verify(self, record):
         manifest = record['manifest']
         self.compose(record, 'exec', '-T', 'backend', 'wget', '-T', '10', '-qO-', 'http://127.0.0.1:9000/health/ready')
-        actual = json.loads(self.compose(record, 'exec', '-T', 'backend', 'wget', '-T', '10', '-qO-', 'http://127.0.0.1:9000/version'))
+        actual = backend_version(json.loads(self.compose(record, 'exec', '-T', 'backend', 'wget', '-T', '10', '-qO-', 'http://127.0.0.1:9000/version')))
         backend = manifest['images']['backend']
         if actual.get('version') != backend['version'] or actual.get('commit') != backend['commit']:
             raise ValueError('Backend runtime version/commit mismatch')
@@ -178,7 +186,7 @@ class Server:
                     if response.status != 200 or response.url != origin + path:
                         raise ValueError('Public HTTPS routing/redirect check failed')
             with urllib.request.urlopen(origin + '/ssobackend/version', timeout=15) as response:
-                actual = json.load(response)
+                actual = backend_version(json.load(response))
                 if actual.get('version') != backend['version'] or actual.get('commit') != backend['commit']:
                     raise ValueError('Public API runtime metadata mismatch')
 
