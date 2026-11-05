@@ -1,0 +1,1 @@
+CREATE INDEX idx_surveillance_import_raw_rows_payload ON surveillance_import_raw_rows USING GIN(payload);

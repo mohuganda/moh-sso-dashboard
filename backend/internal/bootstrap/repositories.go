@@ -50,6 +50,7 @@ type repositories struct {
 func buildRepositories(
 	cfg *config.Config,
 	store storepkg.Store,
+	surveillanceStore storepkg.Store,
 	adminKC *kcClientPkg.KeyAdminClient,
 	webKC *kcClientPkg.Client,
 	appLogger *logger.Logger,
@@ -77,7 +78,7 @@ func buildRepositories(
 		Sessions:                sessionRepo.NewSessionRepository(adminKC, cfg, *appLogger),
 		Announcements:           announcementRepo.NewAnnouncementRepository(store, *appLogger),
 		Email:                   emailRepo.NewEmailRepository(cfg, store, *appLogger),
-		Surveillance:            surveillanceRepo.NewRepositories(store),
+		Surveillance:            surveillanceRepo.NewRepositories(surveillanceStore),
 		RBAC:                    rbacRepo.NewRepository(primaryDB),
 	}
 }

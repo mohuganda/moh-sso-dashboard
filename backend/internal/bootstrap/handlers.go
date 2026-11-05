@@ -123,7 +123,15 @@ func buildHandlers(deps handlerDependencies) handlers {
 	)
 
 	healthHandler := handler.NewHealthHandler(
-		func(ctx context.Context) error { return db.PingDB(ctx, deps.Databases.Primary) },
+		func(ctx context.Context) error {
+			if err := db.PingDB(ctx, deps.Databases.Primary); err != nil {
+				return err
+			}
+			if deps.Databases.Surveillance != nil {
+				return db.PingDB(ctx, deps.Databases.Surveillance)
+			}
+			return nil
+		},
 		func(ctx context.Context) error { return db.PingDB(ctx, deps.Databases.Remote) },
 		func(ctx context.Context) error { return deps.AdminKeycloak.Authenticate() },
 		deps.Redis,

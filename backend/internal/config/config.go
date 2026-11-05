@@ -101,13 +101,19 @@ type Config struct {
 	// ==================================================
 	// Database
 	// ==================================================
-	DBDriver    string `mapstructure:"DB_DRIVER"`
-	DBHost      string `mapstructure:"DB_HOST"`
-	DBUser      string `mapstructure:"DB_USER"`
-	DBPassword  string `mapstructure:"DB_PASSWORD"`
-	DBName      string `mapstructure:"DB_NAME"`
-	DBPort      string `mapstructure:"DB_PORT"`
-	DBEnableSSL bool   `mapstructure:"DB_ENABLE_SSL"`
+	DBDriver                string `mapstructure:"DB_DRIVER"`
+	DBHost                  string `mapstructure:"DB_HOST"`
+	DBUser                  string `mapstructure:"DB_USER"`
+	DBPassword              string `mapstructure:"DB_PASSWORD"`
+	DBName                  string `mapstructure:"DB_NAME"`
+	DBPort                  string `mapstructure:"DB_PORT"`
+	DBEnableSSL             bool   `mapstructure:"DB_ENABLE_SSL"`
+	SurveillanceDBHost      string `mapstructure:"SURVEILLANCE_DB_HOST"`
+	SurveillanceDBPort      string `mapstructure:"SURVEILLANCE_DB_PORT"`
+	SurveillanceDBName      string `mapstructure:"SURVEILLANCE_DB_NAME"`
+	SurveillanceDBUser      string `mapstructure:"SURVEILLANCE_DB_USER"`
+	SurveillanceDBPassword  string `mapstructure:"SURVEILLANCE_DB_PASSWORD"`
+	SurveillanceDBEnableSSL bool   `mapstructure:"SURVEILLANCE_DB_ENABLE_SSL"`
 
 	// ==================================================
 	// Redis
@@ -282,6 +288,13 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 func setDefaults() {
+	viper.SetDefault("SURVEILLANCE_DB_HOST", "")
+	viper.SetDefault("SURVEILLANCE_DB_PORT", "5432")
+	viper.SetDefault("SURVEILLANCE_DB_NAME", "surveillance")
+	viper.SetDefault("SURVEILLANCE_DB_USER", "surveillance")
+	viper.SetDefault("SURVEILLANCE_DB_PASSWORD", "")
+	viper.SetDefault("SURVEILLANCE_DB_ENABLE_SSL", false)
+
 	viper.SetDefault("PLATFORM_AUTH_CLIENT_ID", "")
 	viper.SetDefault("PLATFORM_AUTH_CLIENT_SECRET", "")
 	viper.SetDefault("PLATFORM_AUTH_AUDIENCE", "moh-platform-api")
@@ -574,6 +587,10 @@ func normalizeConfig(c *Config) {
 	c.DBUser = strings.TrimSpace(c.DBUser)
 	c.DBName = strings.TrimSpace(c.DBName)
 	c.DBPort = strings.TrimSpace(c.DBPort)
+	c.SurveillanceDBHost = strings.TrimSpace(c.SurveillanceDBHost)
+	c.SurveillanceDBPort = strings.TrimSpace(c.SurveillanceDBPort)
+	c.SurveillanceDBName = strings.TrimSpace(c.SurveillanceDBName)
+	c.SurveillanceDBUser = strings.TrimSpace(c.SurveillanceDBUser)
 
 	// ==================================================
 	// Redis
@@ -861,6 +878,11 @@ func validateConfig(c *Config) error {
 
 	if err := validateDatabaseConfig(c); err != nil {
 		return err
+	}
+	if c.SurveillanceDBHost != "" {
+		if _, err := c.SurveillanceDBSource(); err != nil {
+			return err
+		}
 	}
 
 	if err := validateStorageConfig(c); err != nil {

@@ -15,10 +15,11 @@ import (
 )
 
 type databases struct {
-	Primary *sql.DB
-	Remote  *sql.DB
-	DWH     *sql.DB
-	DQA     *sql.DB
+	Primary      *sql.DB
+	Remote       *sql.DB
+	DWH          *sql.DB
+	DQA          *sql.DB
+	Surveillance *sql.DB
 }
 
 func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
@@ -67,15 +68,33 @@ func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
 		return databases{}, err
 	}
 
+	var surveillanceDB *sql.DB
+	if cfg.SurveillanceDBHost != "" {
+		dsn, err := cfg.SurveillanceDBSource()
+		if err == nil {
+			surveillanceDB, err = db.InitDB(ctx, dbConfig(dsn))
+		}
+		if err == nil {
+			err = db.MigrateDB(surveillanceDB, "file://internal/db/surveillance_migrations")
+		}
+		if err != nil {
+			databases{Primary: primaryDB, Remote: remoteDB, DWH: dwhDB, DQA: dqaDB, Surveillance: surveillanceDB}.Close()
+			return databases{}, err
+		}
+	}
 	return databases{
-		Primary: primaryDB,
-		Remote:  remoteDB,
-		DWH:     dwhDB,
-		DQA:     dqaDB,
+		Primary:      primaryDB,
+		Remote:       remoteDB,
+		DWH:          dwhDB,
+		DQA:          dqaDB,
+		Surveillance: surveillanceDB,
 	}, nil
 }
 
 func (dbs databases) Close() {
+	if dbs.Surveillance != nil {
+		dbs.Surveillance.Close()
+	}
 	if dbs.Primary != nil {
 		dbs.Primary.Close()
 	}

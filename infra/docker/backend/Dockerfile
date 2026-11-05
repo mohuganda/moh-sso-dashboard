@@ -49,6 +49,7 @@ RUN apk --no-cache add ca-certificates tzdata su-exec
 WORKDIR /app
 
 COPY --from=builder /app/internal/db/migrations ./internal/db/migrations
+COPY --from=builder /app/internal/db/surveillance_migrations ./internal/db/surveillance_migrations
 COPY --from=builder /app/config ./config
 COPY --from=builder /app/sso-server ./sso-server
 
