@@ -1,16 +1,7 @@
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  Content,
-  Grid,
-  Column,
-  Tile,
-  Link,
-  InlineLoading,
-} from "@carbon/react";
+import { Content, Grid, Column, Tile, Link, InlineLoading } from "@carbon/react";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useMemo, useState } from "react";
-import { useParams, useSearchParams, useHref, Link as RouterLink } from "react-router-dom";
+import { useParams, useSearchParams, useHref } from "react-router-dom";
 
 import { DiseaseAlertsTable } from "./surveillance-disease-alerts.component";
 import { FacilitiesActionTable } from "./surveillance-facilities-actions.component";
@@ -514,13 +505,6 @@ function DiseaseDetailsContent() {
 
   return (
     <Content className="disease-details-page">
-      <Breadcrumb className="disease-details-page__breadcrumb" noTrailingSlash>
-        <BreadcrumbItem>
-          <RouterLink to="/">Surveillance</RouterLink>
-        </BreadcrumbItem>
-        <BreadcrumbItem isCurrentPage>{title}</BreadcrumbItem>
-      </Breadcrumb>
-
       <div className="disease-details-page__header">
         <h1>{title}</h1>
         <p>
@@ -539,9 +523,7 @@ function DiseaseDetailsContent() {
               <ul className="disease-details-page__links">
                 {relevantDocuments.map((doc) => (
                   <li key={doc.id ?? doc.label}>
-                    <Link href={`${portalBase}${doc.href}`}>
-                      {doc.label}
-                    </Link>
+                    <Link href={`${portalBase}${doc.href}`}>{doc.label}</Link>
                     {doc.uploaded && doc.status ? (
                       <span className="disease-details-page__link-status">({doc.status})</span>
                     ) : null}

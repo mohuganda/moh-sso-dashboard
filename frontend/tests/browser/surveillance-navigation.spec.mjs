@@ -82,10 +82,13 @@ for (const width of [390, 1440]) {
           .locator(".disease-details-page__header")
           .getByRole("heading", { name: label, exact: true }),
       ).toBeVisible();
-      await page
-        .locator(".disease-details-page__breadcrumb")
-        .getByRole("link", { name: "Surveillance", exact: true })
-        .click();
+      const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb", exact: true });
+      await expect(breadcrumb).toHaveCount(1);
+      await expect(breadcrumb.locator(".moh-breadcrumbs__current")).toHaveText(label);
+      await expect(
+        breadcrumb.getByRole("link", { name: "Surveillance", exact: true }),
+      ).toHaveAttribute("href", "/apps/dwh/surveillance");
+      await breadcrumb.getByRole("link", { name: "Surveillance", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`${base}/?$`));
       await expect(
         page.getByRole("heading", { name: "Surveillance Dashboard", exact: true }),
@@ -120,4 +123,13 @@ test("relevant document links leave the surveillance router at the portal root",
   );
   await link.click();
   await expect(page).toHaveURL("/portal/apps/utilities/self-service/eservice/document-upload");
+});
+
+test("direct disease detail loads use the single shell breadcrumb", async ({ page }) => {
+  await fixture(page);
+  await page.goto(`${base}/measles?weekId=${weekId}`);
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb", exact: true });
+  await expect(breadcrumb).toHaveCount(1);
+  await expect(breadcrumb.locator(".moh-breadcrumbs__current")).toHaveText("Measles");
+  await expect(page.locator(".disease-details-page nav")).toHaveCount(0);
 });
