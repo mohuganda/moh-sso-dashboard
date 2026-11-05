@@ -301,11 +301,7 @@ var systemRolePermissions = map[string]map[string][]Permission{
 }
 
 var defaultSystemRolesForRealmRole = map[string]map[string][]string{
-	RoleUser: {
-		SystemDataStatistics: {DataStatisticsAccess, DocumentViewer},
-		SystemUtilities:      {UtilitiesAccess},
-		SystemSettings:       {SettingsAccess},
-	},
+	RoleUser: DefaultUserClientRoles(),
 	RoleManager: {
 		SystemDataStatistics: {DataStatisticsAccess, SurveillanceManager, ReportBrowserManager, IssueTrackerManager, DocumentManager},
 		SystemUtilities:      {UtilitiesAccess},

@@ -115,6 +115,9 @@ jobs:
       - name: Platform onboarding examples
         run: python3 -m unittest discover -s examples/platform/python -p 'test_*.py' -v
 
+      - name: Human-user Keycloak default reconciliation
+        run: python3 infra/scripts/test-reconcile-user-defaults.py
+
       - name: Backend version consistency
         working-directory: backend
         run: ./scripts/check-version-consistency.sh

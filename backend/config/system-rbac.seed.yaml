@@ -14,6 +14,7 @@ systems:
     enabled: true
     accessRoles:
       - dashboard-web_access
+      - portal_user
     roles:
       - name: dashboard-web_access
         displayName: Dashboard Access
@@ -606,21 +607,20 @@ realmRoles:
     permissions:
       - "*"
   - name: user
-    description: Standard user role with read-only access to common platform services
+    description: Standard user baseline; additional access requires an explicit grant
     permissions:
       - portal:access
       - systems:read
       - systems:launch
-      - data_quality:read
-      - issue_tracker:read
-      - documents:read
-      - document_templates:read
-      - storage_locations:read
-      - surveillance:read
-      - report_browser:read
     systemRoles:
+      dashboard-web:
+        - dashboard-web_access
+        - portal_user
       data-statistics:
+        - report-scheduler_access
+        - report_viewer
         - data-statistics_access
+        - issue_tracker_viewer
         - document_viewer
       settings:
         - settings_access
@@ -734,6 +734,12 @@ groups:
           dashboard-web:
             - dashboard-web_access
             - portal_user
+          data-statistics:
+            - report-scheduler_access
+            - report_viewer
+            - data-statistics_access
+            - issue_tracker_viewer
+            - document_viewer
           settings:
             - settings_access
         attributes:

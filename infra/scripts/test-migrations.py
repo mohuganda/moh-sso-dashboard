@@ -26,7 +26,7 @@ def main():
             time.sleep(.5)
         port = docker('port', name, '5432/tcp').rsplit(':', 1)[1]
         env = {**os.environ, 'TEST_MIGRATION_DATABASE_URL': f'postgres://postgres:fixture-only@127.0.0.1:{port}/postgres?sslmode=disable'}
-        subprocess.run([os.environ.get('GO_CMD', 'go'), 'test', '-tags=integration', './internal/migrate', '-run', '^TestMigrationPaths$', '-count=1', '-v', '-timeout=5m'],
+        subprocess.run([os.environ.get('GO_CMD', 'go'), 'test', '-tags=integration', './internal/migrate', '-run', '^(TestMigrationPaths|TestStandardUserDefaultsMigration)$', '-count=1', '-v', '-timeout=5m'],
                        cwd=ROOT / 'backend', env=env, check=True)
         env['MOH_REGISTRY_TEST_DATABASE_URL'] = env['TEST_MIGRATION_DATABASE_URL']
         subprocess.run([os.environ.get('GO_CMD', 'go'), 'test', './internal/features/rbac', '-run', '^TestApplicationRegistryPostgres$', '-count=1', '-v', '-timeout=5m'],

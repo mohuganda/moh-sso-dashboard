@@ -33,6 +33,16 @@ var systemRBACCmd = &cobra.Command{
 	Short: "Manage Integrated Health Portal system RBAC mappings",
 }
 
+var systemRBACUserDefaultsCmd = &cobra.Command{
+	Use:   "user-defaults",
+	Short: "Print the standard human user's client-role defaults as JSON",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(authz.DefaultUserClientRoles())
+	},
+}
+
 var systemRBACValidateCmd = &cobra.Command{
 	Use:   "validate",
 	Short: "Validate a system RBAC seed file",
@@ -351,6 +361,7 @@ var systemRBACPromoteCmd = &cobra.Command{
 }
 
 func init() {
+	systemRBACCmd.AddCommand(systemRBACUserDefaultsCmd)
 	systemRBACCmd.AddCommand(systemRBACValidateCmd)
 	systemRBACCmd.AddCommand(systemRBACSeedCmd)
 	systemRBACCmd.AddCommand(systemRBACDoctorCmd)

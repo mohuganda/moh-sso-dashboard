@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -749,6 +750,11 @@ func (c *KeyAdminClient) CreateUser(user *model.User) (string, error) {
 		},
 	}
 
+	defaultRole, err := c.GetRealmRoleByName(context.Background(), authz.RoleUser)
+	if err != nil {
+		return "", fmt.Errorf("resolve standard user role: %w", err)
+	}
+
 	res, err := c.Post("users", payload)
 	if err != nil {
 		return "", err
@@ -763,6 +769,13 @@ func (c *KeyAdminClient) CreateUser(user *model.User) (string, error) {
 	kcID, err := parseIDFromLocation(res.Header.Get("Location"))
 	if err != nil {
 		return "", err
+	}
+
+	// Human accounts created through the portal inherit the standard baseline.
+	// Do not attach it to the realm's default role: service accounts also inherit
+	// that role. Explicit role assignments remain additive.
+	if err := c.AddRealmRoleToUser(context.Background(), kcID, *defaultRole); err != nil {
+		return kcID, fmt.Errorf("user created but standard role assignment failed: %w", err)
 	}
 
 	return kcID, nil

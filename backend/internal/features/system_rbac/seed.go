@@ -571,7 +571,7 @@ func DefaultSeed() SeedFile {
 				AuthenticatedLaunchURL: "/api/v1/auth/launch?returnTo=%2Fportal%2Fapps%2Fnews",
 				Category:               "platform",
 				Enabled:                &enabled,
-				AccessRoles:            []string{authz.DashboardWebAccess},
+				AccessRoles:            []string{authz.DashboardWebAccess, authz.DashboardWebUser},
 				Roles: []SeedRole{
 					{
 						Name:        authz.DashboardWebAccess,
@@ -747,19 +747,8 @@ func DefaultSeed() SeedFile {
 					string(authz.PermissionPortalAccess),
 					string(authz.PermissionSystemsRead),
 					string(authz.PermissionSystemsLaunch),
-					string(authz.PermissionDataQualityRead),
-					string(authz.PermissionIssueTrackerRead),
-					string(authz.PermissionDocumentsRead),
-					string(authz.PermissionDocumentTemplatesRead),
-					string(authz.PermissionStorageLocationsRead),
-					string(authz.PermissionSurveillanceRead),
-					string(authz.PermissionReportBrowserRead),
 				},
-				SystemRoles: map[string][]string{
-					authz.SystemDataStatistics: {authz.DataStatisticsAccess, authz.DocumentViewer},
-					authz.SystemUtilities:      {authz.UtilitiesAccess},
-					authz.SystemSettings:       {authz.SettingsAccess},
-				},
+				SystemRoles: authz.DefaultUserClientRoles(),
 			},
 			{
 				Name: authz.RoleManager,
