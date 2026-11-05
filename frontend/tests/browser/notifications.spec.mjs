@@ -361,6 +361,9 @@ for (const width of [390, 1536]) {
     });
     const panel = await openFeed(page);
     await expect(panel.getByRole("article")).toHaveCount(10);
+    await expect(panel.getByRole("tab")).toHaveCount(0);
+    await expect(panel.getByText("Recent", { exact: true })).toHaveCount(0);
+    await expect(panel.locator(".cds--content-switcher")).toHaveCount(0);
     await expect(
       panel.getByRole("button", { name: "View Recent alert 11", exact: true }),
     ).toHaveCount(0);
@@ -382,3 +385,11 @@ for (const width of [390, 1536]) {
     ).toBeVisible();
   });
 }
+
+test("recent feed still shows read notifications when none are unread", async ({ page }) => {
+  await fixture(page, { items: [globalThis.structuredClone(alerts[2])] });
+  const panel = await openFeed(page);
+  await expect(panel.getByRole("article")).toHaveCount(1);
+  await expect(panel.getByRole("button", { name: "View Earlier update", exact: true })).toBeVisible();
+  await expect(panel.getByText("No unread notifications", { exact: true })).toHaveCount(0);
+});

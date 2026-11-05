@@ -1,11 +1,4 @@
-import {
-  Button,
-  ContentSwitcher,
-  InlineNotification,
-  SkeletonText,
-  Switch,
-  Tag,
-} from "@carbon/react";
+import { Button, InlineNotification, SkeletonText, Tag } from "@carbon/react";
 import {
   Checkmark,
   CheckmarkFilled,
@@ -21,15 +14,10 @@ import "./notifications-panel.scss";
 
 type Props = {
   notifications: Notification[];
-  initialView?: "unread" | "recent";
-  recentNotifications?: Notification[];
   unreadCount?: number;
   isLoading?: boolean;
-  isLoadingRecent?: boolean;
   isError?: boolean;
-  isErrorRecent?: boolean;
   showHeading?: boolean;
-  showSwitcher?: boolean;
   onRetry?: () => void;
   onMarkRead?: (id: string) => void | Promise<void>;
   onDelete?: (id: string) => void | Promise<void>;
@@ -48,21 +36,15 @@ function notificationDate(value: string): string {
 
 export function NotificationsPanel({
   notifications,
-  initialView = "unread",
-  recentNotifications,
   unreadCount,
   isLoading = false,
-  isLoadingRecent = false,
   isError = false,
-  isErrorRecent = false,
   showHeading = true,
-  showSwitcher = true,
   onRetry,
   onMarkRead,
   onDelete,
   onView,
 }: Props) {
-  const [view, setView] = useState<"unread" | "recent">(initialView);
   const [pending, setPending] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -71,10 +53,10 @@ export function NotificationsPanel({
   const actionFocus = useRef<HTMLElement | null>(null);
   const keepButton = useRef<HTMLButtonElement>(null);
   const unread = notifications.filter((item) => !item.read);
-  const items = view === "unread" ? unread : (recentNotifications ?? notifications);
+  const items = notifications.slice(0, 10);
   const count = unreadCount ?? unread.length;
-  const loading = view === "unread" ? isLoading : isLoadingRecent;
-  const failed = view === "unread" ? isError : isErrorRecent;
+  const loading = isLoading;
+  const failed = isError;
 
   useEffect(() => {
     if (confirmDelete) keepButton.current?.focus();
@@ -83,11 +65,7 @@ export function NotificationsPanel({
   useEffect(() => {
     if (actionFocus.current && !actionFocus.current.isConnected) {
       if (document.activeElement === document.body) {
-        root.current
-          ?.querySelector<HTMLButtonElement>(
-            ".notification-card__open, .notifications-panel__switcher button",
-          )
-          ?.focus();
+        root.current?.querySelector<HTMLButtonElement>(".notification-card__open")?.focus();
       }
       actionFocus.current = null;
     }
@@ -123,11 +101,7 @@ export function NotificationsPanel({
                 ? "Loading activity…"
                 : failed
                   ? "Activity is unavailable"
-                  : view === "unread"
-                    ? count > 0
-                      ? `${count} unread notification${count === 1 ? "" : "s"}`
-                      : "You’re all caught up"
-                    : "Recent activity, including read notifications"}
+                  : "Most recent notifications"}
             </p>
           </div>
           {count > 0 && (
@@ -136,22 +110,6 @@ export function NotificationsPanel({
             </Tag>
           )}
         </div>
-        {showSwitcher && (
-          <ContentSwitcher
-            aria-label="Notification view"
-            size="md"
-            className="notifications-panel__switcher"
-            selectedIndex={view === "unread" ? 0 : 1}
-            onChange={({ name }) => {
-              setView(name === "recent" ? "recent" : "unread");
-              setConfirmDelete(null);
-              setError("");
-            }}
-          >
-            <Switch name="unread" text="Unread" />
-            <Switch name="recent" text="Recent" />
-          </ContentSwitcher>
-        )}
       </div>
       {error && (
         <InlineNotification
@@ -185,19 +143,12 @@ export function NotificationsPanel({
       ) : !failed && items.length === 0 ? (
         <div className="notifications-panel__state">
           <CheckmarkFilled size={32} className="notifications-panel__empty-icon" />
-          <h5>{view === "unread" ? "No unread notifications" : "No recent notifications"}</h5>
-          <p>
-            {view === "unread"
-              ? "You’re all caught up. Find earlier updates in Recent."
-              : "New alerts and updates will appear here."}
-          </p>
+          <h5>No recent notifications</h5>
+          <p>New alerts and updates will appear here.</p>
         </div>
       ) : (
         !failed && (
-          <ul
-            className="notifications-panel__list"
-            aria-label={`${view === "unread" ? "Unread" : "Recent"} notifications`}
-          >
+          <ul className="notifications-panel__list" aria-label="Recent notifications">
             {items.map((item) => {
               const severity = normalizeSeverity(item.severity);
               const Icon =
@@ -284,11 +235,11 @@ export function NotificationsPanel({
                                 size="sm"
                                 renderIcon={Checkmark}
                                 disabled={pending !== null}
+                                hasIconOnly
+                                iconDescription={`Mark ${item.title} as read`}
                                 aria-label={`Mark ${item.title} as read`}
                                 onClick={() => void act(item.id, "read")}
-                              >
-                                {pending === item.id ? "Marking read…" : "Mark as read"}
-                              </Button>
+                              />
                             )}
                             {onDelete && (
                               <Button
@@ -315,9 +266,7 @@ export function NotificationsPanel({
         )
       )}
       {!failed && items.length > 0 && (
-        <p className="notifications-panel__limit">
-          Showing {items.length} latest {view === "unread" ? "unread notifications" : "updates"}.
-        </p>
+        <p className="notifications-panel__limit">Showing {items.length} latest updates.</p>
       )}
     </div>
   );

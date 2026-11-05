@@ -1,4 +1,3 @@
-import { Button } from "@carbon/react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useAuthorization, PERMISSIONS } from "@moh-sso/auth";
 import type { Notification } from "@moh-sso/types";
@@ -12,25 +11,18 @@ import {
 import { NotificationDetailPanel } from "../layouts/admin/NotificationDetailPanel";
 
 export function ConnectedNotificationsPanel({
-  summary = false,
   initialNotification,
 }: {
-  summary?: boolean;
   initialNotification?: Notification;
 }) {
   const { can } = useAuthorization();
-  const openNotifications = useOpenNotifications();
   const [selected, setSelected] = useState<Notification | null>(initialNotification ?? null);
   const root = useRef<HTMLDivElement>(null);
   const origin = useRef<HTMLElement | null>(null);
   const savedScroll = useRef(0);
-  const unread = useGetNotificationsQuery(
-    { unread: true, limit: 5, offset: 0 },
-    { skip: !summary, refetchOnMountOrArgChange: true },
-  );
   const recent = useGetNotificationsQuery(
     { limit: 10, offset: 0 },
-    { skip: summary, refetchOnMountOrArgChange: true },
+    { refetchOnMountOrArgChange: true },
   );
   const { data: count } = useGetUnreadNotificationsCountQuery(undefined, {
     refetchOnMountOrArgChange: true,
@@ -50,60 +42,38 @@ export function ConnectedNotificationsPanel({
   }, [selected]);
 
   const open = (notification?: Notification) => {
-    if (summary) {
-      openNotifications(notification);
-    } else {
-      origin.current =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setSelected(notification ?? null);
-    }
+    origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelected(notification ?? null);
   };
   const back = () => {
     setSelected(null);
     requestAnimationFrame(() => {
       if (origin.current?.isConnected) origin.current.focus();
-      else
-        root.current
-          ?.querySelector<HTMLButtonElement>(".notification-card__open")
-          ?.focus();
+      else root.current?.querySelector<HTMLButtonElement>(".notification-card__open")?.focus();
     });
   };
 
   return (
-    <div ref={root} className={`notification-center ${selected === null ? "notification-center--feed" : ""}`}>
+    <div
+      ref={root}
+      className={`notification-center ${selected === null ? "notification-center--feed" : ""}`}
+    >
       <div hidden={selected !== null}>
         <NotificationsPanel
-          notifications={unread.data ?? []}
-          recentNotifications={recent.data}
-          initialView={summary ? "unread" : "recent"}
+          notifications={recent.data ?? []}
           unreadCount={count}
-          isLoading={unread.isLoading}
-          isLoadingRecent={recent.isLoading}
-          isError={unread.isError}
-          isErrorRecent={recent.isError}
-          showHeading={summary}
-          showSwitcher={false}
-          onRetry={() => {
-            if (summary) void unread.refetch();
-            if (!summary) void recent.refetch();
-          }}
+          isLoading={recent.isLoading}
+          isError={recent.isError}
+          showHeading={false}
+          onRetry={() => void recent.refetch()}
           onMarkRead={async (id) => {
             await markRead(id).unwrap();
           }}
-          onDelete={
-            summary
-              ? undefined
-              : async (id) => {
-                  await remove(id).unwrap();
-                }
-          }
+          onDelete={async (id) => {
+            await remove(id).unwrap();
+          }}
           onView={open}
         />
-        {summary && (
-          <Button kind="ghost" size="sm" onClick={() => open()}>
-            View all notifications
-          </Button>
-        )}
       </div>
       {selected && (
         <NotificationDetailPanel
