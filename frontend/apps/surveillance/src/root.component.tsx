@@ -2,7 +2,7 @@ import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { resolveRuntimeBasename, type MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
 import { MohThemeProvider } from "@moh-sso/ui";
 import type { ReactNode } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import DiseaseDetailsPage from "./pages/surveillance-details/surveillance-details.component";
 import SurveillanceDashboardPage from "./pages/surveillance.component";
@@ -37,15 +37,22 @@ function requireSurveillanceRead(element: ReactNode) {
   );
 }
 
+function SurveillanceRouteFallback() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "/", search }} replace />;
+}
+
 export function SurveillanceRoot(props: MicrofrontendRuntimeProps) {
   return (
     <div className="moh-microfrontend-root">
       <MohThemeProvider theme="white">
-        <BrowserRouter basename={resolveRuntimeBasename(props.basename || "/apps/dwh/surveillance")}>
+        <BrowserRouter
+          basename={resolveRuntimeBasename(props.basename || "/apps/dwh/surveillance")}
+        >
           <Routes>
             <Route index element={requireSurveillanceRead(<SurveillanceDashboardPage />)} />
             <Route path=":diseaseName" element={requireSurveillanceRead(<DiseaseDetailsPage />)} />
-            <Route path="*" element={requireSurveillanceRead(<SurveillanceDashboardPage />)} />
+            <Route path="*" element={<SurveillanceRouteFallback />} />
           </Routes>
         </BrowserRouter>
       </MohThemeProvider>

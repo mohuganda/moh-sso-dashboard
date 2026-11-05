@@ -10,7 +10,7 @@ import {
 } from "@carbon/react";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useMemo, useState } from "react";
-import { useParams, useSearchParams, Link as RouterLink } from "react-router-dom";
+import { useParams, useSearchParams, useHref, Link as RouterLink } from "react-router-dom";
 
 import { DiseaseAlertsTable } from "./surveillance-disease-alerts.component";
 import { FacilitiesActionTable } from "./surveillance-facilities-actions.component";
@@ -89,6 +89,9 @@ function DiseaseDetailsAccessDenied() {
 function DiseaseDetailsContent() {
   const { diseaseName } = useParams<{ diseaseName: string }>();
   const [searchParams] = useSearchParams();
+  // Cross-application links belong to the portal, outside this router's basename.
+  const surveillanceHome = useHref("/");
+  const portalBase = surveillanceHome.replace(/\/apps\/dwh\/surveillance\/?$/, "");
 
   const requestedWeekId = searchParams.get("weekId") ?? "";
   const selectedRegionId = searchParams.get("regionId") ?? "";
@@ -513,7 +516,7 @@ function DiseaseDetailsContent() {
     <Content className="disease-details-page">
       <Breadcrumb className="disease-details-page__breadcrumb" noTrailingSlash>
         <BreadcrumbItem>
-          <RouterLink to="/apps/dwh/surveillance">Surveillance</RouterLink>
+          <RouterLink to="/">Surveillance</RouterLink>
         </BreadcrumbItem>
         <BreadcrumbItem isCurrentPage>{title}</BreadcrumbItem>
       </Breadcrumb>
@@ -536,7 +539,7 @@ function DiseaseDetailsContent() {
               <ul className="disease-details-page__links">
                 {relevantDocuments.map((doc) => (
                   <li key={doc.id ?? doc.label}>
-                    <Link as={RouterLink} to={doc.href}>
+                    <Link href={`${portalBase}${doc.href}`}>
                       {doc.label}
                     </Link>
                     {doc.uploaded && doc.status ? (
