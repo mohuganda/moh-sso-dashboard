@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Feature, FeatureCollection, GeoJsonProperties, Geometry } from "geojson";
 
+import { districtKey } from "./surveillance-geography";
+
 import SurveillanceFilters from "./surveillance-filters.component";
 import SurveillanceTiles from "./surveillance-tiles.component";
 import SurveillancePanels from "./surveillance-panel.component";
@@ -70,7 +72,7 @@ function getDistrictFeatureName(properties?: GeoJsonProperties | null): string {
     return "";
   }
 
-  return normalize(
+  return districtKey(
     properties.District ??
       properties.district ??
       properties.district_name ??
@@ -452,7 +454,7 @@ function SurveillanceDashboardContent() {
   const watchItems = useMemo(() => createStatusItems("GREEN"), [createStatusItems]);
 
   const regionDistrictNames = useMemo(() => {
-    return new Set(districts.map((district) => normalize(district.name)).filter(Boolean));
+    return new Set(districts.map((district) => districtKey(district.name)).filter(Boolean));
   }, [districts]);
 
   const districtSubcountyNames = useMemo(() => {
@@ -461,17 +463,22 @@ function SurveillanceDashboardContent() {
 
   const activeMap = useMemo(() => {
     if (selectedDistrictId) {
-      const districtName = normalize(
+      const districtName = districtKey(
         districts.find((item) => item.id === selectedDistrictId)?.name,
       );
       const subcountyBoundaries = filterFeatureCollection(
         subcountyGeoJson,
-        (feature) =>
-          getDistrictFeatureName(feature.properties) === districtName &&
-          districtSubcountyNames.has(getSubcountyFeatureName(feature.properties)),
+        (feature) => getDistrictFeatureName(feature.properties) === districtName,
       );
       if (subcountyBoundaries.features.length) {
-        return { geoJson: subcountyBoundaries, level: "subcounty" as const, fallback: false };
+        return {
+          geoJson: subcountyBoundaries,
+          level: "subcounty" as const,
+          fallback: false,
+          unlinked: subcountyBoundaries.features.some(
+            (feature) => !districtSubcountyNames.has(getSubcountyFeatureName(feature.properties)),
+          ),
+        };
       }
       return {
         geoJson: filterFeatureCollection(
@@ -480,6 +487,7 @@ function SurveillanceDashboardContent() {
         ),
         level: "district" as const,
         fallback: true,
+        unlinked: false,
       };
     }
     return {
@@ -490,6 +498,7 @@ function SurveillanceDashboardContent() {
         : districtGeoJson,
       level: "district" as const,
       fallback: false,
+      unlinked: false,
     };
   }, [
     selectedDistrictId,
@@ -513,7 +522,7 @@ function SurveillanceDashboardContent() {
 
   const handleMapDistrictSelect = useCallback(
     (districtName: string) => {
-      const match = districts.find((item) => normalize(item.name) === normalize(districtName));
+      const match = districts.find((item) => districtKey(item.name) === districtKey(districtName));
 
       if (match) {
         setSelectedDistrictId(match.id);
@@ -599,7 +608,9 @@ function SurveillanceDashboardContent() {
                 boundaryNotice={
                   activeMap.fallback
                     ? "Sub-county boundaries are unavailable for this district. Showing the district boundary instead."
-                    : undefined
+                    : activeMap.unlinked
+                      ? "Some geographic sub-counties are not yet linked to reporting locations. Only matched sub-county status records are coloured."
+                      : undefined
                 }
                 waterGeoJson={activeWaterGeoJson}
                 mapLevel={activeMapLevel}

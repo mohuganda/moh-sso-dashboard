@@ -4,6 +4,8 @@ import type { Feature, GeoJSON as GeoJSONType, Geometry } from "geojson";
 import type { Layer, PathOptions } from "leaflet";
 import L from "leaflet";
 
+import { districtKey } from "./surveillance-geography";
+
 import type { WeeklyStatus, WeeklyStatusDetailed } from "../types";
 
 type StatusKey = "maroon" | "red" | "yellow" | "green" | "default";
@@ -45,11 +47,11 @@ interface SurveillanceUgandaMapProps {
 }
 
 const STATUS_COLORS: Record<StatusKey, string> = {
-  maroon: "#7d1733",
-  red: "#e68b7d",
-  yellow: "#e4d64e",
-  green: "#a7e2b6",
-  default: "#c7dced",
+  maroon: "var(--surveillance-status-maroon)",
+  red: "var(--surveillance-status-red)",
+  yellow: "var(--surveillance-status-yellow)",
+  green: "var(--surveillance-status-green)",
+  default: "var(--surveillance-status-default)",
 };
 
 const STATUS_PRIORITY: Record<StatusKey, number> = {
@@ -225,7 +227,7 @@ export default function SurveillanceUgandaMap({
     const statusMap = new Map<string, StatusKey>();
 
     for (const item of weeklyStatuses) {
-      const districtName = normalize(item.district_name);
+      const districtName = districtKey(item.district_name);
 
       if (!districtName) {
         continue;
@@ -274,7 +276,7 @@ export default function SurveillanceUgandaMap({
       return "default";
     }
 
-    const districtName = normalize(getFeatureDistrictName(feature.properties));
+    const districtName = districtKey(getFeatureDistrictName(feature.properties));
 
     const regionName = normalize(getFeatureRegionName(feature.properties));
 
@@ -283,10 +285,6 @@ export default function SurveillanceUgandaMap({
     if (mapLevel === "subcounty") {
       if (subCountyName && subCountyStatusMap.has(subCountyName)) {
         return subCountyStatusMap.get(subCountyName) ?? "default";
-      }
-
-      if (districtName && districtStatusMap.has(districtName)) {
-        return districtStatusMap.get(districtName) ?? "default";
       }
 
       return "default";
@@ -465,7 +463,11 @@ export default function SurveillanceUgandaMap({
     <div className="surveillance-map">
       <div className="surveillance-map__header">
         <h3>{displayTitle}</h3>
-        <p>Colours show the highest reported disease status for each area.</p>
+        <p>
+          {mapLevel === "subcounty"
+            ? "Colours show sub-county status records. District-level flags remain in the tiles."
+            : "Colours show the highest reported disease status for each area."}
+        </p>
       </div>
 
       {boundaryNotice ? (
@@ -515,6 +517,15 @@ export default function SurveillanceUgandaMap({
         </MapContainer>
       </div>
 
+      {mapLevel === "subcounty" ? (
+        <p className="surveillance-map__source">
+          Sub-county boundaries: processed{" "}
+          <a href="https://statistics.ubos.org/nphc/map" target="_blank" rel="noopener noreferrer">
+            UBOS NPHC 2024 data
+          </a>
+          .
+        </p>
+      ) : null}
       <div className="surveillance-map__footer">
         <div className="surveillance-map__legend" aria-label="Disease status record counts">
           <span className="surveillance-map__legend-item">
