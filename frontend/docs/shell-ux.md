@@ -63,3 +63,29 @@ destinations, permission filtering, category search, and internal/external launc
 on desktop and mobile. The existing
 root-page and portal browser suites continue to validate application mounting
 and content alignment beneath the shell.
+
+## Notifications
+
+The overview preview and header drawer use the same feed. The drawer subscribes
+inside its content, so read/delete mutations refresh the visible list and badge
+without closing it. Opening the drawer refreshes cached activity. The unread badge
+uses the server total; each list identifies how many latest entries are shown
+(5 in the overview, 20 in each drawer view).
+
+A single drawer scrollbar handles feed and detail content. Content fills the normal
+36rem drawer and stays centered at a readable width when maximized. Notification
+cards use a real detail button alongside separate read/delete actions; nested
+interactive controls are avoided. Deleting requires inline confirmation, with
+focus moving to the safe Keep action and returning on cancellation. Removed items
+return keyboard focus to the remaining feed controls.
+
+Details provide Back navigation, live read status and a mark-read action. Returning
+preserves the selected Unread/Recent view and restores focus. Event identifiers,
+target roles and JSON metadata are available in collapsed Technical details.
+Delivery history separates channel names, attempt counts, statuses and timestamps;
+retry controls retain their existing permission checks. Load/action failures show
+explicit errors and retry options, and failed mutations do not imply success.
+
+`tests/browser/notifications.spec.mjs` covers normal/maximized/mobile layout,
+live cache updates, keyboard navigation, delete confirmation, empty/error recovery,
+shared overview content and delivery retry permissions using disposable API data.

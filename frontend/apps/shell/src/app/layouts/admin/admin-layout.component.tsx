@@ -30,21 +30,10 @@ import {
 import { useSelector } from "react-redux";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import {
-  HeaderPanelProvider,
-  NotificationsPanel,
-  PublicFooter,
-  useHeaderPanel,
-  useFocusTrap,
-} from "@moh-sso/ui";
+import { HeaderPanelProvider, PublicFooter, useHeaderPanel, useFocusTrap } from "@moh-sso/ui";
 
 import { API } from "@moh-sso/config";
-import {
-  useDeleteNotificationMutation,
-  useGetNotificationsQuery,
-  useGetUnreadNotificationsCountQuery,
-  useMarkNotificationAsReadMutation,
-} from "../../api";
+import { useGetUnreadNotificationsCountQuery } from "../../api";
 import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
 import type { Permission } from "@moh-sso/auth";
 
@@ -53,7 +42,7 @@ import { ConnectedAppMenu } from "@/app/ui-containers/ConnectedAppMenu";
 import { useShellNavigation } from "../useShellNavigation";
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
 import { useVersionInfo } from "@/app/version/useVersionInfo";
-import { NotificationDetailPanel } from "./NotificationDetailPanel";
+import { useOpenNotifications } from "@/app/ui-containers/ConnectedNotificationsPanel";
 
 import "./admin-layout.scss";
 
@@ -175,29 +164,8 @@ function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
 function HeaderActions() {
   const user = useSelector(selectUser);
   const { openPanel } = useHeaderPanel();
-  const { can } = useAuthorization();
-
-  const {
-    data: notifications = [],
-    isLoading: isLoadingNotifications,
-    refetch: refetchUnreadNotifications,
-  } = useGetNotificationsQuery({
-    unread: true,
-    limit: 10,
-    offset: 0,
-  });
-  const {
-    data: recentNotifications = [],
-    isLoading: isLoadingRecentNotifications,
-    refetch: refetchRecentNotifications,
-  } = useGetNotificationsQuery({
-    limit: 20,
-    offset: 0,
-  });
 
   const { data: unreadCount = 0 } = useGetUnreadNotificationsCountQuery();
-  const [markNotificationAsRead] = useMarkNotificationAsReadMutation();
-  const [deleteNotification] = useDeleteNotificationMutation();
 
   const safeUnreadCount = Number(unreadCount) || 0;
 
@@ -205,45 +173,7 @@ function HeaderActions() {
     window.location.replace(API.auth.logout());
   };
 
-  const handleOpenNotifications = () => {
-    openPanel({
-      title: "Notifications",
-      content: (
-        <div className="notifications-header-panel">
-          <NotificationsPanel
-            notifications={notifications}
-            recentNotifications={recentNotifications}
-            isLoading={isLoadingNotifications}
-            isLoadingRecent={isLoadingRecentNotifications}
-            onMarkRead={(id) => {
-              void markNotificationAsRead(id).then(() => {
-                void refetchUnreadNotifications();
-                void refetchRecentNotifications();
-              });
-            }}
-            onDelete={(id) => {
-              void deleteNotification(id).then(() => {
-                void refetchUnreadNotifications();
-                void refetchRecentNotifications();
-              });
-            }}
-            onView={(notification) => {
-              openPanel({
-                title: "Notification details",
-                size: "md",
-                content: (
-                  <NotificationDetailPanel
-                    notification={notification}
-                    canRetryDelivery={can(PERMISSIONS.notificationsWrite)}
-                  />
-                ),
-              });
-            }}
-          />
-        </div>
-      ),
-    });
-  };
+  const handleOpenNotifications = useOpenNotifications();
 
   return (
     <>
@@ -252,7 +182,7 @@ function HeaderActions() {
           safeUnreadCount > 0 ? `Notifications, ${safeUnreadCount} unread` : "Notifications"
         }
         tooltipAlignment="end"
-        onClick={handleOpenNotifications}
+        onClick={() => handleOpenNotifications()}
       >
         <Notification size={20} />
 

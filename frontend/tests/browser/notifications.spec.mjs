@@ -1,0 +1,260 @@
+import { test, expect } from "@playwright/test";
+import { URL } from "node:url";
+
+const account = {
+  id: "00000000-0000-0000-0000-000000000001",
+  username: "notification-reviewer",
+  firstName: "Portal",
+  lastName: "Reviewer",
+  isAdmin: true,
+  isUser: true,
+  realmRoles: ["admin"],
+  clientRoles: {},
+  systems: [],
+  accessibleSystems: [],
+  permissions: ["portal:access", "users:read", "notifications:read", "notifications:write"],
+};
+const alerts = [
+  {
+    id: "notice-1",
+    title: "Token refresh failed",
+    message: "A token refresh attempt failed. Review the session before trying again.",
+    severity: "warning",
+    read: false,
+    created_at: "2026-11-05T07:21:41Z",
+    type: "AUTH_TOKEN_REFRESH_FAILED",
+    target_role: "admin",
+    metadata: { action: "auth.refresh_failed", detail: "long-event-value-".repeat(35) },
+  },
+  {
+    id: "notice-2",
+    title: "System started",
+    message: "The portal service started successfully.",
+    severity: "success",
+    read: false,
+    created_at: "2026-11-05T06:55:28Z",
+  },
+  {
+    id: "notice-3",
+    title: "Earlier update",
+    message: "An earlier update that has already been read.",
+    severity: "info",
+    read: true,
+    created_at: "2026-11-04T06:55:28Z",
+  },
+];
+
+async function fixture(page, options = {}) {
+  const state = {
+    items: globalThis.structuredClone(alerts),
+    failRead: false,
+    failList: false,
+    retries: 0,
+    deleted: 0,
+    ...options,
+  };
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("http://127.0.0.1:5417/ssobackend/**", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    const method = route.request().method();
+    const fulfill = (data) => route.fulfill({ json: { success: true, data } });
+    if (path.endsWith("/auth/me"))
+      return fulfill({
+        user: {
+          ...account,
+          permissions: account.permissions.filter((permission) =>
+            options.readOnly ? permission !== "notifications:write" : true,
+          ),
+        },
+      });
+    if (path.endsWith("/notifications/count/unread"))
+      return fulfill({ count: state.items.filter((item) => !item.read).length });
+    if (path.endsWith("/notifications/deliveries/mail/retry")) {
+      if (state.failRetry) return route.fulfill({ status: 500, json: { success: false } });
+      state.retries++;
+      return fulfill(null);
+    }
+    if (path.endsWith("/notice-1/deliveries"))
+      return fulfill([
+        {
+          id: "app",
+          channel: "in_app",
+          status: "PENDING",
+          attempts: 0,
+          max_attempts: 1,
+          updated_at: alerts[0].created_at,
+        },
+        {
+          id: "mail",
+          channel: "email",
+          status: state.retries ? "RETRY" : "FAILED",
+          attempts: 1,
+          max_attempts: 5,
+          updated_at: alerts[0].created_at,
+          last_error: "Email delivery was rejected. Please try again.",
+        },
+      ]);
+    if (path.endsWith("/deliveries")) return fulfill([]);
+    if (path.endsWith("/notifications")) {
+      if (state.failList) return route.fulfill({ status: 503, json: { success: false } });
+      const items =
+        url.searchParams.get("unread") === "true"
+          ? state.items.filter((item) => !item.read)
+          : state.items;
+      return fulfill(items.slice(0, Number(url.searchParams.get("limit") ?? 20)));
+    }
+    const item = state.items.find((item) => path.includes(`/notifications/${item.id}`));
+    if (item) {
+      if (method === "PATCH") {
+        if (state.failRead) return route.fulfill({ status: 500, json: { success: false } });
+        item.read = true;
+        return fulfill(null);
+      }
+      if (method === "DELETE") {
+        state.items = state.items.filter((entry) => entry.id !== item.id);
+        state.deleted++;
+        return fulfill(null);
+      }
+      return fulfill(item);
+    }
+    return fulfill([]);
+  });
+  return { state, errors };
+}
+
+async function openFeed(page) {
+  await page.goto("/portal/admin/home");
+  await page.getByRole("button", { name: /^Notifications(,|$)/ }).click();
+  return page.getByRole("dialog", { name: "Notifications", exact: true });
+}
+
+for (const width of [390, 1536]) {
+  test(`notifications resize, open details and preserve Recent at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { state, errors } = await fixture(page);
+    const panel = await openFeed(page);
+    await expect(panel.getByRole("heading", { name: "Notifications", exact: true })).toHaveCount(1);
+    await expect(panel.getByRole("article")).toHaveCount(2);
+    await panel.getByText("Recent", { exact: true }).click();
+    await expect(panel.getByRole("article")).toHaveCount(3);
+    if (width > 672)
+      await panel.getByRole("button", { name: "Maximize panel", exact: true }).click();
+    const item = panel.getByRole("button", { name: "View Token refresh failed", exact: true });
+    await item.focus();
+    await page.keyboard.press("Enter");
+    const back = panel.getByRole("button", { name: "Back to notifications", exact: true });
+    await expect(back).toBeFocused();
+    await expect(
+      panel.getByRole("heading", { name: "Token refresh failed", exact: true }),
+    ).toBeVisible();
+    await expect(panel.getByText("AUTH_TOKEN_REFRESH_FAILED", { exact: true })).toBeHidden();
+    await panel.getByText("Technical details", { exact: true }).click();
+    await expect(panel.getByText("AUTH_TOKEN_REFRESH_FAILED", { exact: true })).toBeVisible();
+    expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
+    await panel.getByRole("button", { name: "Mark as read", exact: true }).click();
+    await expect(
+      panel.getByRole("region", { name: "Notification summary", exact: true }),
+    ).toContainText("Read");
+    await expect(panel.getByRole("button", { name: "Mark as read", exact: true })).toHaveCount(0);
+    await panel.getByRole("button", { name: "Retry Email delivery", exact: true }).click();
+    await expect.poll(() => state.retries).toBe(1);
+    await back.click();
+    await expect(item).toBeFocused();
+    await expect(panel.getByRole("article")).toHaveCount(3);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: /^Notifications(,|$)/ }).click();
+    await expect(panel.getByRole("article")).toHaveCount(1);
+    await expect(
+      panel.getByRole("button", { name: "Back to notifications", exact: true }),
+    ).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("mark-read failure is visible and a successful retry refreshes the feed", async ({ page }) => {
+  const { state } = await fixture(page, { failRead: true });
+  const panel = await openFeed(page);
+  const mark = panel.getByRole("button", {
+    name: "Mark Token refresh failed as read",
+    exact: true,
+  });
+  await mark.click();
+  await expect(
+    panel.getByText("Could not mark the notification as read. Please try again."),
+  ).toBeVisible();
+  await expect(panel.getByRole("article")).toHaveCount(2);
+  state.failRead = false;
+  await mark.click();
+  await expect(panel.getByRole("article")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Notifications, 1 unread", exact: true }),
+  ).toBeVisible();
+});
+
+test("delivery retry failures remain visible beside the channel", async ({ page }) => {
+  const { state } = await fixture(page, { failRetry: true });
+  const panel = await openFeed(page);
+  await panel.getByRole("button", { name: "View Token refresh failed", exact: true }).click();
+  const delivery = panel.getByRole("article", { name: "Email delivery", exact: true });
+  const retry = delivery.getByRole("button", { name: "Retry Email delivery", exact: true });
+  await retry.click();
+  await expect(delivery.getByText("Could not retry the delivery. Please try again.")).toBeVisible();
+  state.failRetry = false;
+  await retry.click();
+  await expect.poll(() => state.retries).toBe(1);
+  await expect(delivery.getByText("Could not retry the delivery. Please try again.")).toHaveCount(
+    0,
+  );
+});
+
+test("deletion requires confirmation and does not open the detail view", async ({ page }) => {
+  const { state } = await fixture(page);
+  const panel = await openFeed(page);
+  await panel.getByRole("button", { name: "Delete System started", exact: true }).click();
+  await expect(panel.getByText("Delete this notification?", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Keep notification", exact: true })).toBeFocused();
+  expect(state.deleted).toBe(0);
+  await panel.getByRole("button", { name: "Keep notification", exact: true }).click();
+  await expect(
+    panel.getByRole("button", { name: "Delete System started", exact: true }),
+  ).toBeFocused();
+  await panel.getByRole("button", { name: "Delete System started", exact: true }).click();
+  await panel.getByRole("button", { name: "Confirm delete", exact: true }).click();
+  await expect(panel.getByRole("article")).toHaveCount(1);
+  expect(state.deleted).toBe(1);
+  await expect(
+    panel.getByRole("button", { name: "Back to notifications", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("notification loading errors can be retried and empty views stay navigable", async ({
+  page,
+}) => {
+  const { state } = await fixture(page, { failList: true });
+  const panel = await openFeed(page);
+  await expect(panel.getByText("Unable to load notifications", { exact: true })).toBeVisible();
+  state.failList = false;
+  state.items = [globalThis.structuredClone(alerts[2])];
+  await panel.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(panel.getByText("No unread notifications", { exact: true })).toBeVisible();
+  await panel.getByText("Recent", { exact: true }).click();
+  await expect(panel.getByRole("article")).toHaveCount(1);
+});
+
+test("overview uses the shared feed and delivery retries respect permissions", async ({ page }) => {
+  await fixture(page, { readOnly: true });
+  await page.goto("/portal/admin/home");
+  await page.getByRole("button", { name: "View Token refresh failed", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Notifications", exact: true });
+  await expect(
+    panel.getByRole("heading", { name: "Token refresh failed", exact: true }),
+  ).toBeVisible();
+  await expect(panel.getByRole("article", { name: "Email delivery", exact: true })).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "Retry Email delivery", exact: true }),
+  ).toHaveCount(0);
+});

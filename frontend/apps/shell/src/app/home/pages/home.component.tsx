@@ -1,16 +1,13 @@
-import { Add, UserFollow, Security, Notification, Need } from "@carbon/react/icons";
-import { Tile, Button, Tag, Stack, InlineLoading } from "@carbon/react";
+import { Add, UserFollow, Security, Need } from "@carbon/react/icons";
+import { Tile, Tag, Stack, InlineLoading } from "@carbon/react";
 import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./home.scss";
 
-import { EmptyState, useHeaderPanel, getSeverityTagType } from "@moh-sso/ui";
+import { EmptyState, useHeaderPanel } from "@moh-sso/ui";
 import { ApplicationTile } from "@/app/home/components/app/ApplicationTile";
 import { QuickAction } from "@/app/home/components/quick-action/quick-action.component";
-import {
-  useGetNotificationsQuery,
-  useMarkNotificationAsReadMutation,
-} from "../../api";
+import { ConnectedNotificationsPanel } from "@/app/ui-containers/ConnectedNotificationsPanel";
 import { selectUser, useAuthorization } from "@moh-sso/auth";
 import { setActiveClient } from "@moh-sso/state";
 import { buildAccessibleLauncherEntries } from "@/app/access/accessClients";
@@ -76,14 +73,6 @@ export default function HomePage() {
     [accessibleSystems, can],
   );
 
-  const { data: notifications = [], isLoading: notificationsLoading } = useGetNotificationsQuery({
-    unread: true,
-    limit: 5,
-    offset: 0,
-  });
-
-  const [markNotificationAsRead] = useMarkNotificationAsReadMutation();
-
   return (
     <div className="home-page">
       {/* ==================================================
@@ -91,9 +80,7 @@ export default function HomePage() {
        * ================================================== */}
       <div>
         <h3 className="home-page__title">Admin Overview</h3>
-        <p className="home-page__subtitle">
-          System status, applications, and quick actions.
-        </p>
+        <p className="home-page__subtitle">System status, applications, and quick actions.</p>
       </div>
       {/* ==================================================
        * HERO / WELCOME
@@ -143,12 +130,13 @@ export default function HomePage() {
                 description={client.description}
                 enabled={client?.enabled}
                 rootUrl={normalizePortalPath(client.baseUrl)}
-                launchMode={(client.attributes?.["ui.launchMode"] as "internal" | "new_tab" | "same_tab") || "internal"}
+                launchMode={
+                  (client.attributes?.["ui.launchMode"] as "internal" | "new_tab" | "same_tab") ||
+                  "internal"
+                }
                 onLaunch={() =>
                   dispatch(
-                    setActiveClient(
-                      client.attributes?.["ui.parentClientId"] || client.clientId,
-                    ),
+                    setActiveClient(client.attributes?.["ui.parentClientId"] || client.clientId),
                   )
                 }
               />
@@ -164,9 +152,7 @@ export default function HomePage() {
         {/* Header */}
         <div className="home-page__section-heading">
           <h4 className="home-page__section-title">Quick actions</h4>
-          <p className="muted home-page__subtitle">
-            Common administrative tasks
-          </p>
+          <p className="muted home-page__subtitle">Common administrative tasks</p>
         </div>
 
         <div className="home-grid">
@@ -244,62 +230,7 @@ export default function HomePage() {
        * NOTIFICATIONS (ACTIONABLE)
        * ================================================== */}
       <Tile>
-        {/* Header */}
-        <div className="notification-section__header">
-          <h4 className="home-page__section-title">Notifications</h4>
-
-          {notifications.length > 0 && (
-            <Tag size="sm" type="gray">
-              {notifications.filter((n) => !n.read).length} unread
-            </Tag>
-          )}
-        </div>
-
-        {/* Loading */}
-        {notificationsLoading && <InlineLoading description="Loading notifications…" />}
-
-        {/* Empty state */}
-        {!notificationsLoading && notifications.length === 0 && (
-          <EmptyState title="No notifications" description="You're all caught up." />
-        )}
-
-        {/* List */}
-        {!notificationsLoading && notifications.length > 0 && (
-          <Stack gap={3}>
-            {notifications.map((n) => {
-              return (
-                <div
-                  key={n.id}
-                  role="listitem"
-                  className={`notification-item ${!n.read ? "notification-unread" : ""}`}
-                >
-                  <Notification size={16} className="notification-item__icon" />
-
-                  <div className="notification-content">
-                    <div className="notification-header">
-                      <strong>{n.title}</strong>
-                      <Tag size="sm" type={getSeverityTagType(n.severity)}>
-                        {n.severity}
-                      </Tag>
-                    </div>
-
-                    <p className="notification-message">{n.message}</p>
-
-                    <span className="notification-meta">
-                      {new Date(n.created_at).toLocaleString()}
-                    </span>
-                  </div>
-
-                  {!n.read && (
-                    <Button size="sm" kind="ghost" onClick={() => markNotificationAsRead(n.id)}>
-                      Mark as read
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-          </Stack>
-        )}
+        <ConnectedNotificationsPanel summary />
       </Tile>
     </div>
   );
