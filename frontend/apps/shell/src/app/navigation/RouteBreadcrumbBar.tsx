@@ -1,3 +1,4 @@
+import { MICROFRONTEND_NAVIGATION_EVENT } from "@moh-sso/microfrontend";
 import { BreadcrumbBar } from "@moh-sso/ui";
 import { useSyncExternalStore } from "react";
 import { useHref, useLocation, useNavigate } from "react-router-dom";
@@ -5,9 +6,11 @@ import { useHref, useLocation, useNavigate } from "react-router-dom";
 import { buildBreadcrumbs } from "./breadcrumbs";
 
 function subscribeToRouteChanges(listener: () => void) {
+  window.addEventListener(MICROFRONTEND_NAVIGATION_EVENT, listener);
   window.addEventListener("popstate", listener);
   window.addEventListener("single-spa:routing-event", listener);
   return () => {
+    window.removeEventListener(MICROFRONTEND_NAVIGATION_EVENT, listener);
     window.removeEventListener("popstate", listener);
     window.removeEventListener("single-spa:routing-event", listener);
   };

@@ -181,7 +181,12 @@ export function FacilitiesActionTable({
   }
 
   return (
-    <div>
+    <div
+      className="disease-details-page__table-scroll"
+      role="region"
+      aria-label="Facility reports"
+      tabIndex={0}
+    >
       <DataTable
         rows={paginatedRows.map(({ numericCases, raw, ...row }) => row)}
         headers={facilityHeaders}
@@ -225,7 +230,9 @@ export function FacilitiesActionTable({
                                       : undefined,
                                     facilityName: raw.facility_name ?? "--",
                                     regionId: raw.region_id ? String(raw.region_id) : undefined,
-                                    districtId: raw.district_id ? String(raw.district_id) : undefined,
+                                    districtId: raw.district_id
+                                      ? String(raw.district_id)
+                                      : undefined,
                                     subCountyId: raw.sub_county_id
                                       ? String(raw.sub_county_id)
                                       : undefined,

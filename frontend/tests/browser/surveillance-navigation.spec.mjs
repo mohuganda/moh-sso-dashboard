@@ -1,3 +1,4 @@
+/* global document, window */
 import { test, expect } from "@playwright/test";
 import { URL } from "node:url";
 
@@ -30,7 +31,15 @@ const user = {
   accessibleSystems: [],
 };
 
-async function fixture(page) {
+async function fixture(page, hybrid = false) {
+  if (hybrid) {
+    await page.route("**/portal/config.js", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body: 'window.__APP_CONFIG__ = { API_BASE_URL: "/ssobackend", microfrontendMode: "local", singleSpaOrchestration: false, microfrontendMountMode: "hybrid" };',
+      }),
+    );
+  }
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("http://127.0.0.1:5417/ssobackend/**", async (route) => {
@@ -132,4 +141,118 @@ test("direct disease detail loads use the single shell breadcrumb", async ({ pag
   await expect(breadcrumb).toHaveCount(1);
   await expect(breadcrumb.locator(".moh-breadcrumbs__current")).toHaveText("Measles");
   await expect(page.locator(".disease-details-page nav")).toHaveCount(0);
+});
+
+for (const hybrid of [false, true]) {
+  test(`detail breadcrumb follows embedded navigation in ${hybrid ? "hybrid" : "orchestrated"} mode`, async ({
+    page,
+  }) => {
+    const errors = await fixture(page, hybrid);
+    await page.goto(base);
+    await page
+      .locator(".surveillance-tile")
+      .getByRole("button", { name: "Measles", exact: true })
+      .click();
+    await expect(page.locator(".moh-breadcrumbs__current")).toHaveText("Measles");
+    await expect(page.getByLabel("Reporting week", { exact: true })).toHaveValue(weekId);
+    await expect(
+      page.getByRole("heading", { name: "Weekly case trend", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("No facility reports for the selected week and location.", { exact: false }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect(page.locator(".moh-breadcrumbs__current")).toHaveText("Surveillance");
+    expect(errors).toEqual([]);
+  });
+}
+
+for (const width of [390, 1440]) {
+  test(`disease reports and week selection remain usable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const errors = await fixture(page);
+    const otherWeek = "00000000-0000-0000-0000-000000000054";
+    await page.route("**/ssobackend/api/v1/surveillance/weeks*", (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          data: [
+            { id: weekId, epi_year: 2026, epi_week: 1 },
+            { id: otherWeek, epi_year: 2026, epi_week: 53 },
+          ],
+        },
+      }),
+    );
+    await page.route(
+      "**/ssobackend/api/v1/surveillance/facility-weekly-metrics/disease-trend?*",
+      (route) =>
+        route.fulfill({
+          json: {
+            success: true,
+            data: [
+              { epi_year: 2026, epi_week: 1, total_cases: 12 },
+              { epi_year: 2026, epi_week: 53, total_cases: 7 },
+            ],
+          },
+        }),
+    );
+    await page.route("**/ssobackend/api/v1/surveillance/facility-weekly-metrics/week/**", (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          data: route.request().url().includes(otherWeek)
+            ? []
+            : [
+                {
+                  id: "report",
+                  facility_id: "facility",
+                  facility_name: "Review Health Centre",
+                  region_id: "north",
+                  region_name: "Northern",
+                  district_name: "Review District",
+                  disease_id: "measles",
+                  disease_name: "Measles",
+                  epi_week_id: weekId,
+                  metric_value: 12,
+                },
+              ],
+        },
+      }),
+    );
+    await page.goto(`${base}/measles?weekId=${weekId}&regionId=north`);
+    await expect(page.locator(".disease-details-page__stats dd").first()).toHaveText("12");
+    await expect(page.getByText("Review Health Centre", { exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+
+    await expect(page.locator(".disease-details-page__chart svg").first()).toBeVisible();
+    await expect(page.locator(".disease-details-page__chart .bar")).toHaveCount(2);
+    await page.getByLabel("Reporting week", { exact: true }).selectOption(otherWeek);
+    await expect(page).toHaveURL(`${base}/measles?weekId=${otherWeek}&regionId=north`);
+    await expect(page.locator(".moh-breadcrumbs__current")).toHaveText("Measles");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.screenshot({ path: `/tmp/moh-disease-details-${width}.png`, fullPage: true });
+    expect(errors).toEqual([]);
+  });
+}
+
+test("failed report requests show errors instead of confirmed zero counts", async ({ page }) => {
+  await fixture(page);
+  await page.route("**/ssobackend/api/v1/surveillance/facility-weekly-metrics/**", (route) =>
+    route.fulfill({ status: 500, json: { success: false } }),
+  );
+  await page.goto(`${base}/measles?weekId=${weekId}`);
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Facility reports could not be loaded" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "The weekly trend could not be loaded" }),
+  ).toBeVisible();
+  await expect(page.locator(".disease-details-page__stats dd").nth(1)).toHaveText("—");
+  await expect(
+    page.getByText("No weekly reports available for this year and location."),
+  ).toHaveCount(0);
 });

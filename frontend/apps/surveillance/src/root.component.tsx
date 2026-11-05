@@ -1,7 +1,11 @@
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
-import { resolveRuntimeBasename, type MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
+import {
+  notifyMicrofrontendNavigation,
+  resolveRuntimeBasename,
+  type MicrofrontendRuntimeProps,
+} from "@moh-sso/microfrontend";
 import { MohThemeProvider } from "@moh-sso/ui";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import DiseaseDetailsPage from "./pages/surveillance-details/surveillance-details.component";
@@ -37,6 +41,12 @@ function requireSurveillanceRead(element: ReactNode) {
   );
 }
 
+function SurveillanceNavigationSync() {
+  const { pathname, search } = useLocation();
+  useEffect(() => notifyMicrofrontendNavigation(), [pathname, search]);
+  return null;
+}
+
 function SurveillanceRouteFallback() {
   const { search } = useLocation();
   return <Navigate to={{ pathname: "/", search }} replace />;
@@ -49,6 +59,7 @@ export function SurveillanceRoot(props: MicrofrontendRuntimeProps) {
         <BrowserRouter
           basename={resolveRuntimeBasename(props.basename || "/apps/dwh/surveillance")}
         >
+          <SurveillanceNavigationSync />
           <Routes>
             <Route index element={requireSurveillanceRead(<SurveillanceDashboardPage />)} />
             <Route path=":diseaseName" element={requireSurveillanceRead(<DiseaseDetailsPage />)} />
