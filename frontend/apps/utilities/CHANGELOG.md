@@ -1,5 +1,21 @@
 # @moh-sso/utilities
 
+## 1.2.3
+
+### Patch Changes
+
+- Automatic patch release of all frontend apps and shared packages.
+- Updated dependencies
+  - @moh-sso/microfrontend@1.2.3
+  - @moh-sso/ui@1.2.3
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.2.2`.
+
+- No direct source changes; this release updates version or dependency metadata.
+
 ## 1.2.2
 
 ### Patch Changes
@@ -10,6 +26,7 @@
   - @moh-sso/ui@1.2.2
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.2.1`.

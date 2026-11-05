@@ -1,8 +1,8 @@
-# Backend 1.2.2
+# Backend 1.2.3
 
 <!-- scoped-source-changes -->
 ### Source changes
 
-Changes since `backend/v1.2.1`.
+Changes since `backend/v1.2.2`.
 
-- No direct source changes; this release updates version or dependency metadata.
+- Align standard human-user role defaults and Keycloak provisioning (#275) (`39eab1b9`)

@@ -1,5 +1,21 @@
 # @moh-sso/ui
 
+## 1.2.3
+
+### Patch Changes
+
+- Automatic patch release of all frontend apps and shared packages.
+- Updated dependencies
+  - @moh-sso/types@1.2.3
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.2.2`.
+
+- Improve overview density and notification table, feed and details (#276) (`3dc88570`)
+- Group application launcher entries by purpose (#274) (`10b1babe`)
+
 ## 1.2.2
 
 ### Patch Changes
@@ -9,6 +25,7 @@
   - @moh-sso/types@1.2.2
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.2.1`.
