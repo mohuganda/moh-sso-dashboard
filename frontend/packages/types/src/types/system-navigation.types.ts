@@ -10,6 +10,8 @@ export interface SystemNavigationItem {
   order?: number;
   icon?: string;
   description?: string;
+  /** Optional launcher category; otherwise inherits the system category. */
+  category?: string;
   displayInLauncher?: boolean;
   displayInSideNav?: boolean;
   launchMode?: NavigationLaunchMode;

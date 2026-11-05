@@ -31,9 +31,22 @@ shell components; individual application screens remain separate work.
 
 ## Application launcher
 
-- Search filters the already-authorized list by application name, description or
-  identifier. Filtering never adds applications or changes launch permissions.
-- Results retain the configured ordering, with a live result count and a clear
+- The launcher has expanded, labelled sections: Data & Reporting, Surveillance,
+  Documents & Support, Services & Utilities, and Administration. Empty sections
+  are hidden. A tile appears in exactly one section; grouping never grants access.
+- `ui.category` selects a section. Existing `services`, `utilities`, `support`,
+  `documents`, `data-statistics` and `admin` values map to the corresponding labels.
+  Other meaningful categories become additional sections, sorted alphabetically
+  after the standard sections. Uncategorized apps appear under Other applications.
+- Legacy `platform`/`external` or blank categories use the known built-in route's
+  purpose, so deployed records work without reseeding. Unrecognized routes fall
+  back to Other applications. An explicit `other` category disables inference.
+- A navigation item's optional `category` overrides its system category, for
+  example `"category": "documents-support"`. The Systems editor's navigation JSON
+  can configure this independently for each launcher entry.
+- Search filters the already-authorized list by application name, description,
+  identifier or group label. Filtering never adds applications or changes launch permissions.
+- Results retain the configured ordering within each section, with a live total result count and a clear
   no-match state. Clearing search returns focus to the search field.
 - Opening focuses search when present. Escape, the close control and outside
   clicks dismiss the launcher; closing restores focus to its trigger.
@@ -44,6 +57,9 @@ shell components; individual application screens remain separate work.
 
 `tests/browser/shell.spec.mjs` covers both shell layouts, mobile navigation,
 viewport transitions, keyboard links, launcher filtering and clearing, account
-panel access, overlay hand-off, and the narrow-screen public header. The existing
+panel access, overlay hand-off, and the narrow-screen public header. Grouped launcher
+checks cover section order, custom categories and item overrides, duplicate
+destinations, permission filtering, category search, and internal/external launching
+on desktop and mobile. The existing
 root-page and portal browser suites continue to validate application mounting
 and content alignment beneath the shell.

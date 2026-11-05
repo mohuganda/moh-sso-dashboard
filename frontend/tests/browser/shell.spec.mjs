@@ -60,6 +60,98 @@ const user = {
   requirePwdChange: false,
 };
 
+const groupedNavigation = [
+  ["dashboards", "Dashboards", "report_browser:read"],
+  ["data-validation", "Data Validation", "data_quality:read"],
+  ["data-visualizer", "Data Visualizer", "documents:read"],
+  ["documents", "Document Management", "documents:read"],
+  ["surveillance", "Surveillance", "surveillance:read"],
+  ["issue-tracker", "Issue Tracker", "issue_tracker:read"],
+  ["report-scheduler", "Report Scheduler", "report_scheduler:read"],
+].map(([id, label, permission], order) => ({
+  id,
+  label,
+  path: `/apps/dwh/${id}`,
+  permission,
+  order,
+  displayInLauncher: true,
+}));
+const groupedUser = {
+  ...user,
+  isAdmin: false,
+  realmRoles: ["user"],
+  permissions: [
+    ...user.permissions,
+    "report_browser:read",
+    "surveillance:read",
+    "issue_tracker:read",
+    "report_scheduler:read",
+  ],
+  accessibleSystems: [
+    {
+      ...user.accessibleSystems[0],
+      category: "platform",
+      displayInLauncher: false,
+      navigation: JSON.stringify([
+        ...groupedNavigation,
+        // The same destination must not be repeated in another section.
+        { ...groupedNavigation[1], id: "validation-shortcut", category: "support" },
+        {
+          id: "custom-reference",
+          label: "Reference Library",
+          path: "/apps/reference-registers/library",
+          category: "documents-support",
+          displayInLauncher: true,
+        },
+      ]),
+    },
+    { ...user.accessibleSystems[1], category: "utilities" },
+    {
+      clientId: "administration-tools",
+      displayName: "Administration tools",
+      category: "administration",
+      displayInLauncher: false,
+      navigation: JSON.stringify([
+        {
+          id: "users",
+          label: "User Management",
+          path: "/admin/users",
+          permission: "users:read",
+          displayInLauncher: true,
+        },
+        {
+          id: "roles",
+          label: "Roles & Permissions",
+          path: "/admin/rbac",
+          permission: "rbac:read",
+          displayInLauncher: true,
+        },
+      ]),
+      roles: [],
+    },
+    {
+      clientId: "research-library",
+      displayName: "Research Library",
+      category: "research",
+      launchUrl: "https://research.example.invalid/",
+      launchMode: "new_tab",
+      systemType: "external",
+      displayInLauncher: true,
+      roles: [],
+    },
+    {
+      clientId: "legacy-service",
+      displayName: "Legacy Service",
+      category: "external",
+      launchUrl: "https://legacy.example.invalid/",
+      launchMode: "same_tab",
+      systemType: "external",
+      displayInLauncher: true,
+      roles: [],
+    },
+  ],
+};
+
 async function fixture(page, account = user) {
   const failures = [];
   page.on("pageerror", (error) => failures.push(error.message));
@@ -202,4 +294,112 @@ test("public shell has a visible sign-in action on a narrow screen", async ({ pa
   const box = await signIn.boundingBox();
   expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(320);
   await expect(page.getByRole("heading", { name: "News & Updates" })).toBeVisible();
+});
+
+for (const width of [390, 1440]) {
+  test(`application groups preserve order, search and launch at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const failures = await fixture(page, groupedUser);
+    await page.goto("/portal/apps/dwh/data-validation");
+    await page.getByRole("button", { name: "Open application menu", exact: true }).click();
+    const menu = page.getByRole("dialog", { name: "Application menu", exact: true });
+    const bounds = await menu.boundingBox();
+    expect(Math.round(bounds.x)).toBeGreaterThanOrEqual(0);
+    expect(Math.round(bounds.x + bounds.width)).toBeLessThanOrEqual(width);
+    expect(Math.round(bounds.y + bounds.height)).toBeLessThanOrEqual(900);
+    await expect(menu.locator(".app-grid-group__title")).toHaveText([
+      "Data & Reporting4",
+      "Surveillance1",
+      "Documents & Support3",
+      "Services & Utilities1",
+      "Administration1",
+      "Research1",
+      "Other applications1",
+    ]);
+    const reports = menu.getByRole("list", { name: "Data & Reporting", exact: true });
+    await expect(reports.getByRole("link")).toHaveText([
+      "Dashboards",
+      "Data Validation",
+      "Data Visualizer",
+      "Report Scheduler",
+    ]);
+    await expect(menu.getByRole("link", { name: "Open Data Validation", exact: true })).toHaveCount(
+      1,
+    );
+    await expect(
+      menu.getByRole("link", { name: "Open Roles & Permissions", exact: true }),
+    ).toHaveCount(0);
+    await expect(menu.getByRole("status")).toHaveText("12 applications available");
+    const lastApp = menu.getByRole("link", { name: "Open Legacy Service", exact: true });
+    await lastApp.scrollIntoViewIfNeeded();
+    await expect(lastApp).toBeVisible();
+    expect(await page.evaluate(() => globalThis.window.scrollY)).toBe(0);
+    await expect(
+      menu
+        .getByRole("list", { name: "Documents & Support", exact: true })
+        .getByRole("link", { name: "Open Reference Library", exact: true }),
+    ).toBeVisible();
+    const search = menu.getByRole("searchbox");
+    await search.fill("documents & support");
+    await expect(menu.getByRole("listitem")).toHaveCount(3);
+    await expect(menu.locator(".app-grid-group")).toHaveCount(1);
+    await search.fill("visualizer");
+    await expect(menu.getByRole("listitem")).toHaveCount(1);
+    const link = menu.getByRole("link", { name: "Open Data Visualizer", exact: true });
+    await link.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/portal\/apps\/dwh\/data-visualizer$/);
+    await expect(menu).toHaveCount(0);
+    expect(failures).toEqual([]);
+  });
+}
+
+test("permission filtering hides unavailable groups and their search results", async ({ page }) => {
+  await fixture(page, {
+    ...groupedUser,
+    permissions: groupedUser.permissions.filter(
+      (permission) =>
+        !["documents:read", "issue_tracker:read", "users:read", "surveillance:read"].includes(
+          permission,
+        ),
+    ),
+    accessibleSystems: groupedUser.accessibleSystems.map((system) =>
+      system.clientId === "data-statistics"
+        ? { ...system, navigation: JSON.stringify(groupedNavigation) }
+        : system,
+    ),
+  });
+  await page.goto("/portal/apps/dwh/data-validation");
+  await page.getByRole("button", { name: "Open application menu", exact: true }).click();
+  const menu = page.getByRole("dialog", { name: "Application menu", exact: true });
+  for (const label of ["Documents & Support", "Administration", "Surveillance"]) {
+    await expect(menu.getByRole("region", { name: label, exact: true })).toHaveCount(0);
+  }
+  await menu.getByRole("searchbox").fill("documents & support");
+  await expect(menu.getByText("No matching applications")).toBeVisible();
+  await expect(menu.getByRole("status")).toContainText("0 applications");
+  await menu.getByRole("button", { name: "Clear search", exact: true }).click();
+  await expect(menu.getByRole("region", { name: "Data & Reporting", exact: true })).toBeVisible();
+});
+
+test("grouped external applications retain their new-tab launch behavior", async ({ page }) => {
+  await page.addInitScript(() => {
+    globalThis.window.open = (...args) => {
+      globalThis.window.__lastOpenedApplication = args;
+      return null;
+    };
+  });
+  await fixture(page, groupedUser);
+  await page.goto("/portal/apps/dwh/data-validation");
+  await page.getByRole("button", { name: "Open application menu", exact: true }).click();
+  const menu = page.getByRole("dialog", { name: "Application menu", exact: true });
+  await menu.getByRole("searchbox").fill("research");
+  await menu.getByRole("link", { name: "Open Research Library in a new tab", exact: true }).click();
+  expect(await page.evaluate(() => globalThis.window.__lastOpenedApplication)).toEqual([
+    "https://research.example.invalid/",
+    "_blank",
+    "noopener,noreferrer",
+  ]);
+  await expect(page).toHaveURL(/\/portal\/apps\/dwh\/data-validation$/);
+  await expect(menu).toHaveCount(0);
 });

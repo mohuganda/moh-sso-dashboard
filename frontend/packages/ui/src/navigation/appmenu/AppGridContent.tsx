@@ -19,6 +19,7 @@ import {
 import type { Client } from "@moh-sso/types";
 
 import AppTile from "./AppMenuItem.component";
+import { getAppMenuCategory, groupAppMenuClients } from "./appMenuGroups";
 import "./AppMenu.scss";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -104,12 +105,13 @@ const AppGridContent: React.FC<AppGridContentProps> = ({
 
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const matchingClients = sortedClients.filter((client) =>
-    [getClientName(client), client.description, client.clientId]
+    [getClientName(client), client.description, client.clientId, getAppMenuCategory(client).label]
       .filter(Boolean)
       .join(" ")
       .toLocaleLowerCase()
       .includes(normalizedQuery),
   );
+  const groups = groupAppMenuClients(matchingClients);
 
   if (isLoading) {
     return (
@@ -178,28 +180,50 @@ const AppGridContent: React.FC<AppGridContentProps> = ({
           </Button>
         </div>
       ) : (
-        <div className="app-grid" role="list" aria-label="Available applications">
-          {matchingClients.map((client: Client) => {
-            const Icon = getClientIcon(client);
+        <div className="app-grid-groups">
+          {groups.map((group, index) => (
+            <section
+              className="app-grid-group"
+              key={group.key}
+              aria-labelledby={`${searchId}-group-${index}`}
+            >
+              <h5 className="app-grid-group__title" id={`${searchId}-group-${index}`}>
+                {group.label}
+                <span className="app-grid-group__count" aria-hidden="true">
+                  {group.clients.length}
+                </span>
+              </h5>
+              <div className="app-grid" role="list" aria-labelledby={`${searchId}-group-${index}`}>
+                {group.clients.map((client: Client) => {
+                  const Icon = getClientIcon(client);
 
-            return (
-              <div className="app-grid__item" role="listitem" key={client.clientId || client.id}>
-                <AppTile
-                  icon={Icon}
-                  name={getClientName(client)}
-                  description={client.description}
-                  href={getClientHref(client)}
-                  clientId={client.clientId}
-                  onSelect={onSelect}
-                  onOpen={onOpenClient}
-                  launchMode={
-                    (client.attributes?.["ui.launchMode"] as "internal" | "new_tab" | "same_tab") ||
-                    "internal"
-                  }
-                />
+                  return (
+                    <div
+                      className="app-grid__item"
+                      role="listitem"
+                      key={client.clientId || client.id}
+                    >
+                      <AppTile
+                        icon={Icon}
+                        name={getClientName(client)}
+                        description={client.description}
+                        href={getClientHref(client)}
+                        clientId={client.clientId}
+                        onSelect={onSelect}
+                        onOpen={onOpenClient}
+                        launchMode={
+                          (client.attributes?.["ui.launchMode"] as
+                            | "internal"
+                            | "new_tab"
+                            | "same_tab") || "internal"
+                        }
+                      />
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </section>
+          ))}
         </div>
       )}
     </div>
