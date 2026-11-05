@@ -25,11 +25,11 @@ export function ConnectedNotificationsPanel({
   const origin = useRef<HTMLElement | null>(null);
   const savedScroll = useRef(0);
   const unread = useGetNotificationsQuery(
-    { unread: true, limit: summary ? 5 : 20, offset: 0 },
-    { refetchOnMountOrArgChange: true },
+    { unread: true, limit: 5, offset: 0 },
+    { skip: !summary, refetchOnMountOrArgChange: true },
   );
   const recent = useGetNotificationsQuery(
-    { limit: 20, offset: 0 },
+    { limit: 10, offset: 0 },
     { skip: summary, refetchOnMountOrArgChange: true },
   );
   const { data: count } = useGetUnreadNotificationsCountQuery(undefined, {
@@ -39,7 +39,7 @@ export function ConnectedNotificationsPanel({
   const [remove] = useDeleteNotificationMutation();
 
   useEffect(() => {
-    const scroller = root.current?.closest(".app-side-panel__body");
+    const scroller = root.current?.querySelector(".notifications-panel__list");
     if (!scroller) return;
     if (selected) {
       savedScroll.current = scroller.scrollTop;
@@ -64,26 +64,27 @@ export function ConnectedNotificationsPanel({
       if (origin.current?.isConnected) origin.current.focus();
       else
         root.current
-          ?.querySelector<HTMLButtonElement>(".notifications-panel__switcher button")
+          ?.querySelector<HTMLButtonElement>(".notification-card__open")
           ?.focus();
     });
   };
 
   return (
-    <div ref={root} className="notification-center">
+    <div ref={root} className={`notification-center ${selected === null ? "notification-center--feed" : ""}`}>
       <div hidden={selected !== null}>
         <NotificationsPanel
           notifications={unread.data ?? []}
           recentNotifications={recent.data}
+          initialView={summary ? "unread" : "recent"}
           unreadCount={count}
           isLoading={unread.isLoading}
           isLoadingRecent={recent.isLoading}
           isError={unread.isError}
           isErrorRecent={recent.isError}
           showHeading={summary}
-          showSwitcher={!summary}
+          showSwitcher={false}
           onRetry={() => {
-            void unread.refetch();
+            if (summary) void unread.refetch();
             if (!summary) void recent.refetch();
           }}
           onMarkRead={async (id) => {

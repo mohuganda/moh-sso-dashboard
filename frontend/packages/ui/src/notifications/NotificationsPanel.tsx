@@ -21,6 +21,7 @@ import "./notifications-panel.scss";
 
 type Props = {
   notifications: Notification[];
+  initialView?: "unread" | "recent";
   recentNotifications?: Notification[];
   unreadCount?: number;
   isLoading?: boolean;
@@ -47,6 +48,7 @@ function notificationDate(value: string): string {
 
 export function NotificationsPanel({
   notifications,
+  initialView = "unread",
   recentNotifications,
   unreadCount,
   isLoading = false,
@@ -60,7 +62,7 @@ export function NotificationsPanel({
   onDelete,
   onView,
 }: Props) {
-  const [view, setView] = useState<"unread" | "recent">("unread");
+  const [view, setView] = useState<"unread" | "recent">(initialView);
   const [pending, setPending] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [error, setError] = useState("");

@@ -132,13 +132,13 @@ async function openFeed(page) {
 }
 
 for (const width of [390, 1536]) {
-  test(`notifications resize, open details and preserve Recent at ${width}px`, async ({ page }) => {
+  test(`notifications resize, open details and preserve recent activity at ${width}px`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: 900 });
     const { state, errors } = await fixture(page);
     const panel = await openFeed(page);
     await expect(panel.getByRole("heading", { name: "Notifications", exact: true })).toHaveCount(1);
-    await expect(panel.getByRole("article")).toHaveCount(2);
-    await panel.getByText("Recent", { exact: true }).click();
     await expect(panel.getByRole("article")).toHaveCount(3);
     if (width > 672)
       await panel.getByRole("button", { name: "Maximize panel", exact: true }).click();
@@ -168,7 +168,7 @@ for (const width of [390, 1536]) {
     await expect(panel.getByRole("article")).toHaveCount(3);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: /^Notifications(,|$)/ }).click();
-    await expect(panel.getByRole("article")).toHaveCount(1);
+    await expect(panel.getByRole("article")).toHaveCount(3);
     await expect(
       panel.getByRole("button", { name: "Back to notifications", exact: true }),
     ).toHaveCount(0);
@@ -187,10 +187,11 @@ test("mark-read failure is visible and a successful retry refreshes the feed", a
   await expect(
     panel.getByText("Could not mark the notification as read. Please try again."),
   ).toBeVisible();
-  await expect(panel.getByRole("article")).toHaveCount(2);
+  await expect(panel.getByRole("article")).toHaveCount(3);
   state.failRead = false;
   await mark.click();
-  await expect(panel.getByRole("article")).toHaveCount(1);
+  await expect(mark).toHaveCount(0);
+  await expect(panel.getByRole("article")).toHaveCount(3);
   await expect(
     page.getByRole("button", { name: "Notifications, 1 unread", exact: true }),
   ).toBeVisible();
@@ -225,7 +226,7 @@ test("deletion requires confirmation and does not open the detail view", async (
   ).toBeFocused();
   await panel.getByRole("button", { name: "Delete System started", exact: true }).click();
   await panel.getByRole("button", { name: "Confirm delete", exact: true }).click();
-  await expect(panel.getByRole("article")).toHaveCount(1);
+  await expect(panel.getByRole("article")).toHaveCount(2);
   expect(state.deleted).toBe(1);
   await expect(
     panel.getByRole("button", { name: "Back to notifications", exact: true }),
@@ -239,11 +240,9 @@ test("notification loading errors can be retried and empty views stay navigable"
   const panel = await openFeed(page);
   await expect(panel.getByText("Unable to load notifications", { exact: true })).toBeVisible();
   state.failList = false;
-  state.items = [globalThis.structuredClone(alerts[2])];
+  state.items = [];
   await panel.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(panel.getByText("No unread notifications", { exact: true })).toBeVisible();
-  await panel.getByText("Recent", { exact: true }).click();
-  await expect(panel.getByRole("article")).toHaveCount(1);
+  await expect(panel.getByText("No recent notifications", { exact: true })).toBeVisible();
 });
 
 test("overview table opens details and delivery retries respect permissions", async ({ page }) => {
@@ -345,5 +344,41 @@ for (const width of [390, 1536]) {
         .getByRole("heading", { name: "Notice 18", exact: true }),
     ).toBeVisible();
     expect(errors).toEqual([]);
+  });
+}
+
+for (const width of [390, 1536]) {
+  test(`drawer shows ten compact recent updates and uses the panel height at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await fixture(page, {
+      items: Array.from({ length: 25 }, (_, index) => ({
+        ...alerts[0],
+        id: `recent-${index}`,
+        title: `Recent alert ${index + 1}`,
+      })),
+    });
+    const panel = await openFeed(page);
+    await expect(panel.getByRole("article")).toHaveCount(10);
+    await expect(
+      panel.getByRole("button", { name: "View Recent alert 11", exact: true }),
+    ).toHaveCount(0);
+    await expect(panel.getByText("25 unread", { exact: true })).toBeVisible();
+    const list = panel.getByRole("list", { name: "Recent notifications", exact: true });
+    const bodyBox = await panel.locator(".app-side-panel__body").boundingBox();
+    const feedBox = await panel.locator(".notifications-panel").boundingBox();
+    expect(feedBox.height).toBeGreaterThan(bodyBox.height - 50);
+    expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+      true,
+    );
+    expect((await panel.getByRole("article").first().boundingBox()).height).toBeLessThan(200);
+    await panel
+      .getByRole("button", { name: "View Recent alert 10", exact: true })
+      .scrollIntoViewIfNeeded();
+    await panel.getByRole("button", { name: "View Recent alert 10", exact: true }).click();
+    await expect(
+      panel.getByRole("heading", { name: "Recent alert 10", exact: true }),
+    ).toBeVisible();
   });
 }

@@ -75,18 +75,19 @@ heading identifies the limit when reached. The unread badge is the server total.
 
 The header drawer retains its compact feed and subscribes inside its content, so
 read/delete mutations refresh the visible list and badge without closing it.
-Opening the drawer refreshes cached activity. Each drawer view identifies its
-latest entries (up to 20).
+Opening the drawer refreshes cached activity and shows the ten most recent
+updates, including read items. The unread badge remains the server total.
 
-A single drawer scrollbar handles feed and detail content. Content fills the normal
-36rem drawer and stays centered at a readable width when maximized. Notification
+The feed list fills the available panel height and scrolls below the summary;
+details use the drawer body scrollbar. Content fills the normal 36rem drawer
+and the available width when maximized. Notification
 cards use a real detail button alongside separate read/delete actions; nested
 interactive controls are avoided. Deleting requires inline confirmation, with
 focus moving to the safe Keep action and returning on cancellation. Removed items
 return keyboard focus to the remaining feed controls.
 
 Details provide Back navigation, live read status and a mark-read action. Returning
-preserves the selected Unread/Recent view and restores focus. Event identifiers,
+preserves the recent feed scroll position and restores focus. Event identifiers,
 target roles and JSON metadata are available in collapsed Technical details.
 Delivery history separates channel names, attempt counts, statuses and timestamps;
 retry controls retain their existing permission checks. Load/action failures show
@@ -95,3 +96,5 @@ explicit errors and retry options, and failed mutations do not imply success.
 `tests/browser/notifications.spec.mjs` covers normal/maximized/mobile layout,
 live cache updates, keyboard navigation, delete confirmation, empty/error recovery,
 overview table filters, pagination, row actions and delivery retry permissions using disposable API data.
+
+The header drawer opens directly to the ten most recent notifications, including read updates. Its compact card list fills the available panel height and scrolls beneath the activity summary. Overview welcome, application and quick-action tiles use compact spacing and natural-height content.

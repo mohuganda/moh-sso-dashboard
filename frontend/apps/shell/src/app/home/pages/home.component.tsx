@@ -90,15 +90,17 @@ export default function HomePage() {
           <InlineLoading description="Loading user…" />
         ) : (
           <Stack gap={3}>
-            <h3 className="home-hero__title">Welcome back, {user.lastName}</h3>
+            <h3 className="home-hero__title">
+              Welcome back, {user.firstName || user.lastName || user.username}
+            </h3>
 
-            <Stack orientation="horizontal" gap={3}>
+            <div className="home-hero__identity">
               <Tag type="blue">{user?.realmRoles.join(", ")}</Tag>
               <span>{user.email}</span>
               <span className="muted">
                 Last login: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "—"}
               </span>
-            </Stack>
+            </div>
           </Stack>
         )}
       </Tile>
