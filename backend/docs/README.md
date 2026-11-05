@@ -66,7 +66,8 @@ business rules that are not expressed in Go binding tags may need supplemental m
 Permission extensions list explicit route middleware requirements; they are not a
 replacement for inherited system/group authorization enforced by the server.
 
-Edit routes/DTOs/handlers and regenerate; do not edit `openapi.yaml` directly. Curated
+Edit routes/DTOs/handlers; do not edit `openapi.yaml` directly. You can regenerate
+locally, or let PR CI generate it automatically. Curated
 summaries and descriptions live in `openapi.overrides.yaml`. Its optional
 `x-required-form-fields` and `x-form-properties` metadata capture conditional/manual form
 contracts, such as the required document storage location. Other operation contracts
@@ -80,3 +81,26 @@ specification has also been independently checked with `openapi-spec-validator`.
 Swagger UI assets come from the [official v5.33.1 distribution](https://github.com/swagger-api/swagger-ui/tree/v5.33.1/dist).
 Both the project license and bundled third-party notices are included under `swagger/`.
 For UI configuration, see [Swagger's configuration documentation](https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/).
+
+## Automatic updates in CI
+
+The Update OpenAPI contract workflow regenerates `docs/openapi.yaml` and runs
+validation and generator tests. PR Quality Checks still require a committed,
+current document and run the full backend test suite.
+If a same-repository PR changes the generated document, a separate job commits
+only that file back to its branch after generation checks pass. This includes
+route/DTO/override changes and updates to `backend/VERSION`. Generation runs with
+read-only repository permissions; the write job copies the validated artifact
+without running PR code. It uses a normal fast-forward push and refuses to update
+a branch that has changed since generation.
+
+The bot explicitly dispatches PR Quality Checks on its new commit because pushes
+using `GITHUB_TOKEN` do not automatically trigger another PR workflow. The dispatched
+quality run requires no contract drift. Bot pushes do not rerun the update workflow,
+so it does not create a commit loop. Repository settings must allow Actions to write contents
+and dispatch workflows; branch rules are respected and push failures fail CI.
+
+Fork PRs receive a `generated-openapi-<run-id>` artifact containing `openapi.yaml`.
+Download it and commit it to `backend/docs/openapi.yaml`, or generate it locally.
+CI does not push to forks. Builds and manual runs also reject uncommitted drift,
+so release artifacts cannot silently ship a contract different from the source.
