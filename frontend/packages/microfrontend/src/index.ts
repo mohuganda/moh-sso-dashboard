@@ -1,5 +1,11 @@
-export type { AppEvent, EventBus, MicrofrontendMountProps, MicrofrontendRuntimeProps } from "./props";
+export type {
+  AppEvent,
+  EventBus,
+  MicrofrontendMountProps,
+  MicrofrontendRuntimeProps,
+} from "./props";
 export type { MicrofrontendLifecycle } from "./lifecycle";
 export type { MicrofrontendRoute } from "./routes";
 export { resolveRuntimeBasename } from "./basename";
 export { createReactMicrofrontendLifecycle } from "./react-lifecycle";
+export { MICROFRONTEND_NAVIGATION_EVENT, notifyMicrofrontendNavigation } from "./navigation";

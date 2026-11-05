@@ -417,7 +417,7 @@ function SurveillanceDashboardContent() {
       }
 
       navigate({
-        pathname: encodeURIComponent(diseaseSlug),
+        pathname: `/${encodeURIComponent(diseaseSlug)}`,
         search: params.toString() ? `?${params.toString()}` : "",
       });
     },

@@ -1,16 +1,7 @@
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  Content,
-  Grid,
-  Column,
-  Tile,
-  Link,
-  InlineLoading,
-} from "@carbon/react";
+import { Content, Tile, Link, InlineLoading, Select, SelectItem } from "@carbon/react";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useMemo, useState } from "react";
-import { useParams, useSearchParams, Link as RouterLink } from "react-router-dom";
+import { useParams, useSearchParams, useHref } from "react-router-dom";
 
 import { DiseaseAlertsTable } from "./surveillance-disease-alerts.component";
 import { FacilitiesActionTable } from "./surveillance-facilities-actions.component";
@@ -88,7 +79,10 @@ function DiseaseDetailsAccessDenied() {
 
 function DiseaseDetailsContent() {
   const { diseaseName } = useParams<{ diseaseName: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Cross-application links belong to the portal, outside this router's basename.
+  const surveillanceHome = useHref("/");
+  const portalBase = surveillanceHome.replace(/\/apps\/dwh\/surveillance\/?$/, "");
 
   const requestedWeekId = searchParams.get("weekId") ?? "";
   const selectedRegionId = searchParams.get("regionId") ?? "";
@@ -147,7 +141,11 @@ function DiseaseDetailsContent() {
     };
   }, [selectedWeekId, matchedDiseaseId]);
 
-  const { data: alertsResponse, isFetching: alertsLoading } = useListAlertsQuery(baseParams, {
+  const {
+    data: alertsResponse,
+    isFetching: alertsLoading,
+    isError: alertsError,
+  } = useListAlertsQuery(baseParams, {
     skip: !selectedWeekId,
   });
 
@@ -156,29 +154,35 @@ function DiseaseDetailsContent() {
       skip: !selectedWeekId,
     });
 
-  const { data: selectedWeekFacilityMetricsResponse, isFetching: facilityMetricsLoading } =
-    useListFacilityDiseaseMetricsByWeekAndDiseaseQuery(
-      {
-        epiWeekID: selectedWeekId,
-        diseaseID: matchedDiseaseId,
-      },
-      {
-        skip: !selectedWeekId || !matchedDiseaseId,
-      },
-    );
+  const {
+    data: selectedWeekFacilityMetricsResponse,
+    isFetching: facilityMetricsLoading,
+    isError: facilityMetricsError,
+  } = useListFacilityDiseaseMetricsByWeekAndDiseaseQuery(
+    {
+      epiWeekID: selectedWeekId,
+      diseaseID: matchedDiseaseId,
+    },
+    {
+      skip: !selectedWeekId || !matchedDiseaseId,
+    },
+  );
 
-  const { data: weeklyTrendResponse, isFetching: weeklyTrendLoading } =
-    useListDiseaseWeeklyTrendAggregatedQuery(
-      {
-        epiYear: Number(selectedWeek?.epi_year ?? currentYear),
-        diseaseID: matchedDiseaseId,
-        regionID: selectedRegionId || undefined,
-        districtID: selectedDistrictId || undefined,
-      },
-      {
-        skip: !matchedDiseaseId || !selectedWeek?.epi_year,
-      },
-    );
+  const {
+    data: weeklyTrendResponse,
+    isFetching: weeklyTrendLoading,
+    isError: weeklyTrendError,
+  } = useListDiseaseWeeklyTrendAggregatedQuery(
+    {
+      epiYear: Number(selectedWeek?.epi_year ?? currentYear),
+      diseaseID: matchedDiseaseId,
+      regionID: selectedRegionId || undefined,
+      districtID: selectedDistrictId || undefined,
+    },
+    {
+      skip: !matchedDiseaseId || !selectedWeek?.epi_year,
+    },
+  );
 
   const alerts = Array.isArray(alertsResponse) ? alertsResponse : EMPTY_LIST;
   const weeklyStatusesDetailed = Array.isArray(weeklyStatusesDetailedResponse)
@@ -511,44 +515,91 @@ function DiseaseDetailsContent() {
 
   return (
     <Content className="disease-details-page">
-      <Breadcrumb className="disease-details-page__breadcrumb" noTrailingSlash>
-        <BreadcrumbItem>
-          <RouterLink to="/apps/dwh/surveillance">Surveillance</RouterLink>
-        </BreadcrumbItem>
-        <BreadcrumbItem isCurrentPage>{title}</BreadcrumbItem>
-      </Breadcrumb>
+      <header className="disease-details-page__header">
+        <div>
+          <p className="disease-details-page__eyebrow">Disease surveillance</p>
+          <h1>{title}</h1>
+          <p>Monitor weekly reports, review alerts, and follow up with reporting facilities.</p>
+        </div>
+        <Select
+          id="disease-reporting-week"
+          labelText="Reporting week"
+          size="sm"
+          value={selectedWeekId}
+          disabled={weeksLoading || !weeks.length}
+          onChange={(event) => {
+            const next = new URLSearchParams(searchParams);
+            next.set("weekId", event.target.value);
+            setSearchParams(next);
+          }}
+        >
+          {!weeks.length ? <SelectItem value="" text="No reporting weeks" /> : null}
+          {[...weeks]
+            .sort((a, b) => Number(b.epi_week) - Number(a.epi_week))
+            .map((week) => (
+              <SelectItem
+                key={week.id}
+                value={week.id}
+                text={`Week ${week.epi_week}, ${week.epi_year}`}
+              />
+            ))}
+        </Select>
+      </header>
+      {loading ? <InlineLoading description="Loading disease details..." /> : null}
 
-      <div className="disease-details-page__header">
-        <h1>{title}</h1>
-        <p>
-          View disease-specific alerts, weekly case trends, relevant documents, and facilities that
-          require immediate follow-up action.
+      <dl className="disease-details-page__stats">
+        <div>
+          <dt>Reported cases this week</dt>
+          <dd>
+            {loading || facilityMetricsError
+              ? "—"
+              : filteredFacilityMetrics.length
+                ? totalCases.toLocaleString()
+                : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt>Reporting facilities</dt>
+          <dd>{loading || facilityMetricsError ? "—" : facilitiesCount.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Disease alerts this week</dt>
+          <dd>{loading || alertsError ? "—" : filteredAlerts.length.toLocaleString()}</dd>
+        </div>
+      </dl>
+      {facilityMetricsError ? (
+        <p role="alert" className="disease-details-page__notice">
+          Facility reports could not be loaded. Please try again.
         </p>
+      ) : !loading && !filteredFacilityMetrics.length ? (
+        <p className="disease-details-page__notice">
+          No facility reports for the selected week and location. Select another reporting week to
+          review available reports.
+        </p>
+      ) : null}
 
-        {loading ? <InlineLoading description="Loading disease details..." /> : null}
-      </div>
-
-      <Grid fullWidth className="disease-details-page__grid">
-        <Column lg={8} md={4} sm={4}>
+      <div className="disease-details-page__grid">
+        <Tile className="disease-details-page__tile">
+          <h2>Weekly case trend</h2>
+          <p className="disease-details-page__context">
+            {selectedWeek?.epi_year ?? currentYear} · Reported cases by epidemiological week
+          </p>
+          {weeklyTrendError ? (
+            <p role="alert">The weekly trend could not be loaded. Please try again.</p>
+          ) : weeklyChartData.length ? (
+            <WeeklyCasesChart diseaseName={title} data={weeklyChartData} showTitle={false} />
+          ) : !weeklyTrendLoading ? (
+            <p className="disease-details-page__placeholder">
+              No weekly reports available for this year and location.
+            </p>
+          ) : null}
+        </Tile>
+        <aside className="disease-details-page__aside" aria-label="Disease resources and alerts">
           <Tile className="disease-details-page__tile">
-            <div className="disease-details-page__section">
-              <h3>Relevant Documents</h3>
-              <ul className="disease-details-page__links">
-                {relevantDocuments.map((doc) => (
-                  <li key={doc.id ?? doc.label}>
-                    <Link as={RouterLink} to={doc.href}>
-                      {doc.label}
-                    </Link>
-                    {doc.uploaded && doc.status ? (
-                      <span className="disease-details-page__link-status">({doc.status})</span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="disease-details-page__section">
-              <h3>Disease Alerts</h3>
+            <h2>Disease alerts</h2>
+            {alertsError ? (
+              <p role="alert">Disease alerts could not be loaded. Please try again.</p>
+            ) : (
               <DiseaseAlertsTable
                 alerts={filteredAlerts}
                 diseaseName={title}
@@ -559,62 +610,49 @@ function DiseaseDetailsContent() {
                 epiWeekLabelById={epiWeekLabelById}
                 districtRegionByDistrictId={districtRegionByDistrictId}
               />
-            </div>
+            )}
           </Tile>
-        </Column>
-
-        <Column lg={8} md={4} sm={4}>
           <Tile className="disease-details-page__tile">
-            <div className="disease-details-page__section">
-              <h3>{title} Weekly Cases</h3>
-
-              <dl className="disease-details-page__stats">
-                <div>
-                  <dt>Reporting Week</dt>
-                  <dd>
-                    {selectedWeek
-                      ? `Week ${selectedWeek.epi_week}, ${selectedWeek.epi_year}`
-                      : "--"}
-                  </dd>
-                </div>
-
-                <div>
-                  <dt>Total Cases</dt>
-                  <dd>{totalCases}</dd>
-                </div>
-
-                <div>
-                  <dt>Facilities Reporting</dt>
-                  <dd>{facilitiesCount}</dd>
-                </div>
-              </dl>
-
-              <WeeklyCasesChart diseaseName={title} data={weeklyChartData} />
-            </div>
+            <h2>Relevant documents</h2>
+            <ul className="disease-details-page__links">
+              {relevantDocuments.map((doc) => (
+                <li key={doc.id ?? doc.label}>
+                  <Link href={`${portalBase}${doc.href}`}>{doc.label}</Link>
+                  {doc.uploaded && doc.status ? (
+                    <span className="disease-details-page__link-status">({doc.status})</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
           </Tile>
-        </Column>
-      </Grid>
+        </aside>
+      </div>
 
       <div className="disease-details-page__bottom">
         <Tile className="disease-details-page__tile">
           <div className="disease-details-page__section">
-            <h3>Facilities requiring Action</h3>
-            <FacilitiesActionTable
-              facilityMetrics={filteredFacilityMetrics}
-              regionId={selectedRegionId}
-              districtId={selectedDistrictId}
-              subCountyId={selectedSubCountyId}
-              regionNameById={regionNameById}
-              districtNameById={districtNameById}
-              subCountyNameById={subCountyNameById}
-              diseaseNameById={diseaseNameById}
-              indicatorNameById={indicatorNameById}
-              epiWeekLabelById={epiWeekLabelById}
-              onViewFacilityTrend={(payload) => {
-                setSelectedFacilityTrend(payload);
-                setIsTrendModalOpen(true);
-              }}
-            />
+            <h2>Facility follow-up</h2>
+            {facilityMetricsError ? (
+              <p>Unable to display facility follow-up.</p>
+            ) : (
+              <FacilitiesActionTable
+                loading={facilityMetricsLoading}
+                facilityMetrics={filteredFacilityMetrics}
+                regionId={selectedRegionId}
+                districtId={selectedDistrictId}
+                subCountyId={selectedSubCountyId}
+                regionNameById={regionNameById}
+                districtNameById={districtNameById}
+                subCountyNameById={subCountyNameById}
+                diseaseNameById={diseaseNameById}
+                indicatorNameById={indicatorNameById}
+                epiWeekLabelById={epiWeekLabelById}
+                onViewFacilityTrend={(payload) => {
+                  setSelectedFacilityTrend(payload);
+                  setIsTrendModalOpen(true);
+                }}
+              />
+            )}
           </div>
         </Tile>
       </div>

@@ -132,7 +132,12 @@ export function DiseaseAlertsTable({
   }
 
   return (
-    <div>
+    <div
+      className="disease-details-page__table-scroll"
+      role="region"
+      aria-label="Disease alerts"
+      tabIndex={0}
+    >
       <DataTable rows={paginatedRows} headers={headers} size="sm">
         {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
           <Table {...getTableProps()} size="sm">
