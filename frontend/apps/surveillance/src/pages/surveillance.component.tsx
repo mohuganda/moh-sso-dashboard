@@ -142,12 +142,12 @@ function SurveillanceDashboardContent() {
 
   const { data: regionsResponse, isLoading: regionsReferenceLoading } = useListRegionsQuery();
 
-  const { data: districtsResponse, isLoading: districtsReferenceLoading } =
+  const { currentData: districtsResponse, isLoading: districtsReferenceLoading } =
     useListDistrictsByRegionQuery(selectedRegionId, {
       skip: !selectedRegionId,
     });
 
-  const { data: subcountiesResponse, isLoading: subcountiesReferenceLoading } =
+  const { currentData: subcountiesResponse, isLoading: subcountiesReferenceLoading } =
     useListSubcountiesByDistrictQuery(selectedDistrictId, {
       skip: !selectedDistrictId,
     });
@@ -459,34 +459,49 @@ function SurveillanceDashboardContent() {
     return new Set(subcounties.map((subcounty) => normalize(subcounty.name)).filter(Boolean));
   }, [subcounties]);
 
-  const activeMapGeoJson = useMemo<GenericFeatureCollection>(() => {
+  const activeMap = useMemo(() => {
     if (selectedDistrictId) {
-      return filterFeatureCollection(subcountyGeoJson, (feature) => {
-        const subcountyName = getSubcountyFeatureName(feature.properties);
-
-        return districtSubcountyNames.has(subcountyName);
-      });
+      const districtName = normalize(
+        districts.find((item) => item.id === selectedDistrictId)?.name,
+      );
+      const subcountyBoundaries = filterFeatureCollection(
+        subcountyGeoJson,
+        (feature) =>
+          getDistrictFeatureName(feature.properties) === districtName &&
+          districtSubcountyNames.has(getSubcountyFeatureName(feature.properties)),
+      );
+      if (subcountyBoundaries.features.length) {
+        return { geoJson: subcountyBoundaries, level: "subcounty" as const, fallback: false };
+      }
+      return {
+        geoJson: filterFeatureCollection(
+          districtGeoJson,
+          (feature) => getDistrictFeatureName(feature.properties) === districtName,
+        ),
+        level: "district" as const,
+        fallback: true,
+      };
     }
-
-    if (selectedRegionId) {
-      return filterFeatureCollection(districtGeoJson, (feature) => {
-        const districtName = getDistrictFeatureName(feature.properties);
-
-        return regionDistrictNames.has(districtName);
-      });
-    }
-
-    return districtGeoJson;
+    return {
+      geoJson: selectedRegionId
+        ? filterFeatureCollection(districtGeoJson, (feature) =>
+            regionDistrictNames.has(getDistrictFeatureName(feature.properties)),
+          )
+        : districtGeoJson,
+      level: "district" as const,
+      fallback: false,
+    };
   }, [
     selectedDistrictId,
     selectedRegionId,
+    districts,
     districtGeoJson,
     subcountyGeoJson,
     districtSubcountyNames,
     regionDistrictNames,
   ]);
 
-  const activeMapLevel: "district" | "subcounty" = selectedDistrictId ? "subcounty" : "district";
+  const activeMapLevel = activeMap.level;
 
   const activeWaterGeoJson = useMemo<GenericFeatureCollection>(() => {
     if (activeMapLevel === "subcounty") {
@@ -525,75 +540,80 @@ function SurveillanceDashboardContent() {
         subtitle="Monitor surveillance signals, reporting trends, alerts, and priority conditions across regions, districts, and sub-counties."
         actions={loading ? <InlineLoading description="Loading surveillance data..." /> : undefined}
       >
-      <section className="surveillance-dashboard-page__section">
-        <SurveillanceFilters
-          epiWeek={selectedWeekId}
-          region={selectedRegionId}
-          district={selectedDistrictId}
-          subCounty={selectedSubCountyId}
-          epiWeekOptions={epiWeekOptions}
-          regionOptions={regionOptions}
-          districtOptions={districtOptions}
-          subCountyOptions={subCountyOptions}
-          onEpiWeekChange={setSelectedWeekId}
-          onRegionChange={setSelectedRegionId}
-          onDistrictChange={setSelectedDistrictId}
-          onSubCountyChange={setSelectedSubCountyId}
-        />
-      </section>
+        <section className="surveillance-dashboard-page__section">
+          <SurveillanceFilters
+            epiWeek={selectedWeekId}
+            region={selectedRegionId}
+            district={selectedDistrictId}
+            subCounty={selectedSubCountyId}
+            epiWeekOptions={epiWeekOptions}
+            regionOptions={regionOptions}
+            districtOptions={districtOptions}
+            subCountyOptions={subCountyOptions}
+            onEpiWeekChange={setSelectedWeekId}
+            onRegionChange={setSelectedRegionId}
+            onDistrictChange={setSelectedDistrictId}
+            onSubCountyChange={setSelectedSubCountyId}
+          />
+        </section>
 
-      <section className="surveillance-dashboard-page__section">
-        <SurveillanceTiles
-          immediateAction={{
-            title: "Immediate Action",
-            items: immediateActionItems,
-          }}
-          takeAction={{
-            title: "Take Action",
-            items: takeActionItems,
-          }}
-          alert={{
-            title: "Alert",
-            items: alertItems,
-          }}
-          watch={{
-            title: "Watch",
-            items: watchItems,
-          }}
-        />
-      </section>
+        <section className="surveillance-dashboard-page__section">
+          <SurveillanceTiles
+            immediateAction={{
+              title: "Immediate Action",
+              items: immediateActionItems,
+            }}
+            takeAction={{
+              title: "Take Action",
+              items: takeActionItems,
+            }}
+            alert={{
+              title: "Alert",
+              items: alertItems,
+            }}
+            watch={{
+              title: "Watch",
+              items: watchItems,
+            }}
+          />
+        </section>
 
-      <section className="surveillance-dashboard-page__section">
-        <SurveillancePanels
-          selectedWeekId={selectedWeek?.id}
-          selectedWeek={{
-            id: selectedWeek?.id,
-            year: selectedWeek?.epi_year,
-            week: selectedWeek?.epi_week,
-          }}
-          regionId={selectedRegionId}
-          districtId={selectedDistrictId}
-          subCountyId={selectedSubCountyId}
-          weeklyStatusesDetailed={filteredWeeklyStatusesDetailed}
-          facilityMetrics={filteredFacilityMetrics}
-          alerts={filteredAlerts}
-          loading={loading}
-          mapContent={
-            <SurveillanceUgandaMap
-              geoJson={activeMapGeoJson}
-              waterGeoJson={activeWaterGeoJson}
-              mapLevel={activeMapLevel}
-              weeklyStatuses={filteredWeeklyStatusesDetailed}
-              selectedWeek={{
-                year: selectedWeek?.epi_year,
-                week: selectedWeek?.epi_week,
-              }}
-              onDistrictSelect={handleMapDistrictSelect}
-              onSubCountySelect={handleMapSubcountySelect}
-            />
-          }
-        />
-      </section>
+        <section className="surveillance-dashboard-page__section">
+          <SurveillancePanels
+            selectedWeekId={selectedWeek?.id}
+            selectedWeek={{
+              id: selectedWeek?.id,
+              year: selectedWeek?.epi_year,
+              week: selectedWeek?.epi_week,
+            }}
+            regionId={selectedRegionId}
+            districtId={selectedDistrictId}
+            subCountyId={selectedSubCountyId}
+            weeklyStatusesDetailed={filteredWeeklyStatusesDetailed}
+            facilityMetrics={filteredFacilityMetrics}
+            alerts={filteredAlerts}
+            loading={loading}
+            mapContent={
+              <SurveillanceUgandaMap
+                geoJson={activeMap.geoJson}
+                boundaryNotice={
+                  activeMap.fallback
+                    ? "Sub-county boundaries are unavailable for this district. Showing the district boundary instead."
+                    : undefined
+                }
+                waterGeoJson={activeWaterGeoJson}
+                mapLevel={activeMapLevel}
+                weeklyStatuses={filteredWeeklyStatusesDetailed}
+                selectedWeek={{
+                  year: selectedWeek?.epi_year,
+                  week: selectedWeek?.epi_week,
+                }}
+                onDistrictSelect={handleMapDistrictSelect}
+                onSubCountySelect={handleMapSubcountySelect}
+              />
+            }
+          />
+        </section>
       </PageShell>
     </div>
   );

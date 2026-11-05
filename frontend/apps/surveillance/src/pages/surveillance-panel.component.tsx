@@ -1,9 +1,5 @@
 import React, { useMemo } from "react";
-import type {
-  Alert,
-  FacilityWeeklyMetric,
-  WeeklyStatusDetailed,
-} from "../types";
+import type { Alert, FacilityWeeklyMetric, WeeklyStatusDetailed } from "../types";
 
 type SurveillanceRankItem = {
   label: string;
@@ -31,9 +27,10 @@ interface RankingPanelProps {
   title: string;
   items: SurveillanceRankItem[];
   loading?: boolean;
+  emptyText?: string;
 }
 
-function RankingPanel({ title, items, loading }: RankingPanelProps) {
+function RankingPanel({ title, items, loading, emptyText }: RankingPanelProps) {
   return (
     <section className="surveillance-panel surveillance-panel--side">
       <h3 className="surveillance-panel__title">{title}</h3>
@@ -54,7 +51,7 @@ function RankingPanel({ title, items, loading }: RankingPanelProps) {
           ))}
         </ol>
       ) : (
-        <p className="surveillance-panel__empty">No data available.</p>
+        <p className="surveillance-panel__empty">{emptyText ?? "No data available."}</p>
       )}
     </section>
   );
@@ -232,11 +229,16 @@ export default function SurveillancePanels({
   return (
     <div className="surveillance-panels">
       <div className="surveillance-panels__grid">
-        <RankingPanel title="Facilities Reporting" items={facilitiesReporting} loading={loading} />
+        <RankingPanel
+          title="Facilities Reporting"
+          items={facilitiesReporting}
+          loading={loading}
+          emptyText="No facility reports for the selected week and location."
+        />
 
         <section className="surveillance-panel surveillance-panel--map">
           {mapContent ? (
-            <div className="surveillance-map surveillance-map--embedded">{mapContent}</div>
+            mapContent
           ) : (
             <DefaultMapFallback
               weeklyStatuses={filteredWeeklyStatuses}
@@ -245,7 +247,12 @@ export default function SurveillancePanels({
           )}
         </section>
 
-        <RankingPanel title="EIDSR Alerts" items={eidsrAlerts} loading={loading} />
+        <RankingPanel
+          title="EIDSR Alerts"
+          items={eidsrAlerts}
+          loading={loading}
+          emptyText="No EIDSR alerts for the selected week and location. Disease status flags are reported separately."
+        />
       </div>
     </div>
   );
