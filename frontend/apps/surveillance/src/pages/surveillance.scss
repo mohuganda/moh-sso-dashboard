@@ -1,3 +1,12 @@
+.surveillance-dashboard-page,
+.surveillance-map {
+  --surveillance-status-maroon: #7d1733;
+  --surveillance-status-red: #e68b7d;
+  --surveillance-status-yellow: #e4d64e;
+  --surveillance-status-green: #a7e2b6;
+  --surveillance-status-default: #c7dced;
+}
+
 /* filters styles */
 .surveillance-filters {
   width: 100%;
@@ -111,18 +120,18 @@
 }
 
 .surveillance-tile__link {
-  color: #ffffff;
+  color: inherit;
   text-decoration: underline;
 }
 
 .surveillance-tile__link:hover {
-  color: #ffffff;
+  color: inherit;
 }
 
 .surveillance-tile__button {
   border: 0;
   background: transparent;
-  color: #ffffff;
+  color: inherit;
   padding: 0;
   text-decoration: underline;
   cursor: pointer;
@@ -134,20 +143,22 @@
 }
 
 .surveillance-tile--immediate-action {
-  background-color: #8b0000;
+  background-color: var(--surveillance-status-maroon);
 }
 
 .surveillance-tile--take-action {
-  background-color: #ff2d2d;
+  background-color: var(--surveillance-status-red);
+  color: #161616;
 }
 
 .surveillance-tile--alert {
-  background-color: #e2b600;
-  color: #ffffff;
+  background-color: var(--surveillance-status-yellow);
+  color: #161616;
 }
 
 .surveillance-tile--watch {
-  background-color: #008a00;
+  background-color: var(--surveillance-status-green);
+  color: #161616;
 }
 
 @media (max-width: 1056px) {
@@ -179,11 +190,12 @@
   background: #f4f4f4;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
-  min-height: 390px;
+  min-height: 0;
   padding: 1rem;
 }
 
 .surveillance-panel--side {
+  align-self: start;
   overflow: hidden;
 }
 
@@ -192,13 +204,13 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: stretch;
-  min-height: 640px;
+  min-height: 0;
 }
 
 .surveillance-panel__title {
   margin: 0 0 1rem;
-  font-size: 1.75rem;
-  font-weight: 400;
+  font-size: 1.125rem;
+  font-weight: 600;
   color: #262626;
 }
 
@@ -229,7 +241,7 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  min-height: 600px;
+  min-height: 0;
 }
 
 .surveillance-map__header {
@@ -240,8 +252,8 @@
 
 .surveillance-map__header h3 {
   margin: 0;
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 600;
   color: #22243b;
 }
 
@@ -312,19 +324,19 @@
 }
 
 .surveillance-map__legend-swatch--yellow {
-  background: #e4d64e;
+  background: var(--surveillance-status-yellow);
 }
 
 .surveillance-map__legend-swatch--green {
-  background: #a7e2b6;
+  background: var(--surveillance-status-green);
 }
 
 .surveillance-map__legend-swatch--red {
-  background: #e68b7d;
+  background: var(--surveillance-status-red);
 }
 
 .surveillance-map__legend-swatch--maroon {
-  background: #7d1733;
+  background: var(--surveillance-status-maroon);
 }
 
 .surveillance-map__actions {
@@ -551,4 +563,41 @@
   .surveillance-map__tool-button {
     width: 100%;
   }
+}
+
+.surveillance-map__notice {
+  padding: 0.75rem;
+  margin: 0 0 0.75rem;
+  border-left: 3px solid var(--cds-support-info);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  background: var(--cds-layer-accent);
+}
+
+.surveillance-map__header p {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary);
+  line-height: 1.5;
+}
+.surveillance-map__legend-swatch--no-data {
+  background: var(--surveillance-status-default);
+}
+
+.surveillance-map__source {
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary);
+}
+.surveillance-map__legend-swatch--alert {
+  background: var(--surveillance-status-yellow);
+}
+.surveillance-map__legend-swatch--watch {
+  background: var(--surveillance-status-green);
+}
+.surveillance-map__legend-swatch--take-action {
+  background: var(--surveillance-status-red);
+}
+.surveillance-map__legend-swatch--immediate-action {
+  background: var(--surveillance-status-maroon);
 }

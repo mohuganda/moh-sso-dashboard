@@ -50,4 +50,17 @@ case "$output" in
     ;;
 esac
 
-echo "Backend image metadata verified."
+# Exercise the final image as the same unprivileged user used by the entrypoint.
+# --entrypoint avoids needing production configuration or mounted secrets.
+docker run --rm --user appuser --entrypoint sh "$image" -ec '
+  test "$PWD" = /app
+  for filename in uganda_districts.geojson uganda_subcounties.geojson uga_water.geojson; do
+    path="./assets/geojson/$filename"
+    if [ ! -r "$path" ] || [ ! -s "$path" ]; then
+      echo "image verification failed: missing, empty or unreadable runtime asset: $path" >&2
+      exit 1
+    fi
+  done
+'
+
+echo "Backend image metadata and runtime GeoJSON assets verified."

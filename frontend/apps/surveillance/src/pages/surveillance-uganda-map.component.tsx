@@ -4,6 +4,8 @@ import type { Feature, GeoJSON as GeoJSONType, Geometry } from "geojson";
 import type { Layer, PathOptions } from "leaflet";
 import L from "leaflet";
 
+import { districtKey } from "./surveillance-geography";
+
 import type { WeeklyStatus, WeeklyStatusDetailed } from "../types";
 
 type StatusKey = "maroon" | "red" | "yellow" | "green" | "default";
@@ -38,18 +40,31 @@ interface SurveillanceUgandaMapProps {
     week?: number;
   };
   title?: string;
+  boundaryNotice?: string;
   mapLevel?: MapLevel;
   onDistrictSelect?: (districtName: string) => void;
   onSubCountySelect?: (subcountyName: string) => void;
 }
 
 const STATUS_COLORS: Record<StatusKey, string> = {
-  maroon: "#7d1733",
-  red: "#e68b7d",
-  yellow: "#e4d64e",
-  green: "#a7e2b6",
-  default: "#c7dced",
+  maroon: "var(--surveillance-status-maroon)",
+  red: "var(--surveillance-status-red)",
+  yellow: "var(--surveillance-status-yellow)",
+  green: "var(--surveillance-status-green)",
+  default: "var(--surveillance-status-default)",
 };
+
+const STATUS_PRIORITY: Record<StatusKey, number> = {
+  default: 0,
+  green: 1,
+  yellow: 2,
+  red: 3,
+  maroon: 4,
+};
+
+function recordStatus(map: Map<string, StatusKey>, name: string, status: StatusKey) {
+  if (STATUS_PRIORITY[status] > STATUS_PRIORITY[map.get(name) ?? "default"]) map.set(name, status);
+}
 
 const WATER_STYLE: PathOptions = {
   fillColor: "#a6c8ff",
@@ -149,7 +164,9 @@ function FitMapToGeoJson({ geoJson }: { geoJson: GeoJSONType }) {
     const bounds = layer.getBounds();
 
     if (bounds.isValid()) {
+      map.invalidateSize();
       map.fitBounds(bounds, {
+        animate: false,
         padding: [24, 24],
       });
 
@@ -166,6 +183,7 @@ export default function SurveillanceUgandaMap({
   weeklyStatuses = [],
   selectedWeek,
   title,
+  boundaryNotice,
   mapLevel = "district",
   onDistrictSelect,
   onSubCountySelect,
@@ -209,13 +227,13 @@ export default function SurveillanceUgandaMap({
     const statusMap = new Map<string, StatusKey>();
 
     for (const item of weeklyStatuses) {
-      const districtName = normalize(item.district_name);
+      const districtName = districtKey(item.district_name);
 
       if (!districtName) {
         continue;
       }
 
-      statusMap.set(districtName, mapRiskLevelToStatusKey(item.status));
+      recordStatus(statusMap, districtName, mapRiskLevelToStatusKey(item.status));
     }
 
     return statusMap;
@@ -231,7 +249,7 @@ export default function SurveillanceUgandaMap({
         continue;
       }
 
-      statusMap.set(subCountyName, mapRiskLevelToStatusKey(item.status));
+      recordStatus(statusMap, subCountyName, mapRiskLevelToStatusKey(item.status));
     }
 
     return statusMap;
@@ -247,7 +265,7 @@ export default function SurveillanceUgandaMap({
         continue;
       }
 
-      statusMap.set(regionName, mapRiskLevelToStatusKey(item.status));
+      recordStatus(statusMap, regionName, mapRiskLevelToStatusKey(item.status));
     }
 
     return statusMap;
@@ -258,7 +276,7 @@ export default function SurveillanceUgandaMap({
       return "default";
     }
 
-    const districtName = normalize(getFeatureDistrictName(feature.properties));
+    const districtName = districtKey(getFeatureDistrictName(feature.properties));
 
     const regionName = normalize(getFeatureRegionName(feature.properties));
 
@@ -267,10 +285,6 @@ export default function SurveillanceUgandaMap({
     if (mapLevel === "subcounty") {
       if (subCountyName && subCountyStatusMap.has(subCountyName)) {
         return subCountyStatusMap.get(subCountyName) ?? "default";
-      }
-
-      if (districtName && districtStatusMap.has(districtName)) {
-        return districtStatusMap.get(districtName) ?? "default";
       }
 
       return "default";
@@ -345,6 +359,7 @@ export default function SurveillanceUgandaMap({
 
     if (bounds.isValid()) {
       mapRef.current.fitBounds(bounds, {
+        animate: false,
         padding: [24, 24],
       });
 
@@ -419,8 +434,6 @@ export default function SurveillanceUgandaMap({
       ? `Week ${selectedWeek.week ?? ""} ${selectedWeek.year}`.trim()
       : "Uganda surveillance map");
 
-  const geoJsonFeatureCount = geoJson.type === "FeatureCollection" ? geoJson.features.length : 1;
-
   const waterFeatureCount =
     waterGeoJson?.type === "FeatureCollection"
       ? waterGeoJson.features.length
@@ -428,7 +441,19 @@ export default function SurveillanceUgandaMap({
         ? 1
         : 0;
 
-  const geoJsonKey = `${mapLevel}-${geoJsonFeatureCount}`;
+  // GeoJSON data and onEachFeature are immutable in React Leaflet. Remount
+  // when the selected geometry or risk records change, even at equal feature counts.
+  const geoJsonKey = useMemo(
+    () =>
+      JSON.stringify([
+        mapLevel,
+        geoJson.type === "FeatureCollection"
+          ? geoJson.features.map((feature) => feature.properties)
+          : geoJson,
+        weeklyStatuses,
+      ]),
+    [mapLevel, geoJson, weeklyStatuses],
+  );
 
   const waterGeoJsonKey = `water-${waterFeatureCount}`;
 
@@ -438,9 +463,24 @@ export default function SurveillanceUgandaMap({
     <div className="surveillance-map">
       <div className="surveillance-map__header">
         <h3>{displayTitle}</h3>
+        <p>
+          {mapLevel === "subcounty"
+            ? "Colours show sub-county status records. District-level flags remain in the tiles."
+            : "Colours show the highest reported disease status for each area."}
+        </p>
       </div>
 
-      <div className="surveillance-map__canvas">
+      {boundaryNotice ? (
+        <p className="surveillance-map__notice" role="status">
+          {boundaryNotice}
+        </p>
+      ) : null}
+      {!hasGeoJsonFeatures(geoJson) ? (
+        <p className="surveillance-map__notice" role="status">
+          No map boundaries are available for the selected location.
+        </p>
+      ) : null}
+      <div className="surveillance-map__canvas" hidden={!hasGeoJsonFeatures(geoJson)}>
         <MapContainer
           ref={mapRef}
           center={[1.3733, 32.2903]}
@@ -477,8 +517,17 @@ export default function SurveillanceUgandaMap({
         </MapContainer>
       </div>
 
+      {mapLevel === "subcounty" ? (
+        <p className="surveillance-map__source">
+          Sub-county boundaries: processed{" "}
+          <a href="https://statistics.ubos.org/nphc/map" target="_blank" rel="noopener noreferrer">
+            UBOS NPHC 2024 data
+          </a>
+          .
+        </p>
+      ) : null}
       <div className="surveillance-map__footer">
-        <div className="surveillance-map__legend">
+        <div className="surveillance-map__legend" aria-label="Disease status record counts">
           <span className="surveillance-map__legend-item">
             <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--yellow" />
             Yellow {summary.yellow ? `(${summary.yellow})` : ""}
@@ -498,11 +547,15 @@ export default function SurveillanceUgandaMap({
             <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--maroon" />
             Maroon {summary.maroon ? `(${summary.maroon})` : ""}
           </span>
+          <span className="surveillance-map__legend-item">
+            <span className="surveillance-map__legend-swatch surveillance-map__legend-swatch--no-data" />
+            No status data
+          </span>
         </div>
 
         <div className="surveillance-map__actions">
           <button type="button" className="surveillance-map__tool-button" onClick={handleReset}>
-            Reset
+            Reset view
           </button>
         </div>
       </div>

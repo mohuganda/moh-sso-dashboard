@@ -13,6 +13,7 @@ export const geojsonApi = baseApi.injectEndpoints({
       query: (name) => ({
         url: `/geojson/${name}`,
         method: "GET",
+        params: name === "geo_subcounties" ? { version: "ubos-nphc-2024-v1" } : undefined,
       }),
       transformResponse: (response: ApiEnvelope<GeoJsonObject> | GeoJsonObject) =>
         "data" in response ? response.data : response,
