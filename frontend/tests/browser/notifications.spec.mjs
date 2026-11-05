@@ -105,7 +105,8 @@ async function fixture(page, options = {}) {
           : state.items;
       return fulfill(items.slice(0, Number(url.searchParams.get("limit") ?? 20)));
     }
-    const item = state.items.find((item) => path.includes(`/notifications/${item.id}`));
+    const notificationId = path.match(/\/notifications\/([^/]+)/)?.[1];
+    const item = state.items.find((item) => item.id === notificationId);
     if (item) {
       if (method === "PATCH") {
         if (state.failRead) return route.fulfill({ status: 500, json: { success: false } });
@@ -245,7 +246,7 @@ test("notification loading errors can be retried and empty views stay navigable"
   await expect(panel.getByRole("article")).toHaveCount(1);
 });
 
-test("overview uses the shared feed and delivery retries respect permissions", async ({ page }) => {
+test("overview table opens details and delivery retries respect permissions", async ({ page }) => {
   await fixture(page, { readOnly: true });
   await page.goto("/portal/admin/home");
   await page.getByRole("button", { name: "View Token refresh failed", exact: true }).click();
@@ -258,3 +259,91 @@ test("overview uses the shared feed and delivery retries respect permissions", a
     panel.getByRole("button", { name: "Retry Email delivery", exact: true }),
   ).toHaveCount(0);
 });
+
+async function chooseFilter(page, name, value) {
+  await page.getByRole("combobox", { name: new RegExp(name) }).click();
+  await page.getByRole("option", { name: value, exact: true }).click();
+}
+
+test("overview notifications table combines search, status and severity filters", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto("/portal/admin/home");
+  const table = page.getByRole("table", { name: "Notifications", exact: true });
+  await expect(table.getByRole("row")).toHaveCount(3);
+  await chooseFilter(page, "Status", "All notifications");
+  await expect(table.getByRole("row")).toHaveCount(4);
+  await chooseFilter(page, "Severity", "Warning");
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await page
+    .getByRole("searchbox", { name: "Search notifications", exact: true })
+    .fill("no matching alert");
+  await expect(
+    page.getByText("No notifications match your filters.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Reset filters", exact: true }).first().click();
+  await expect(table.getByRole("row")).toHaveCount(3);
+  await chooseFilter(page, "Status", "Read");
+  await expect(
+    table.getByRole("button", { name: "View Earlier update", exact: true }),
+  ).toBeVisible();
+  await expect(table.getByRole("row")).toHaveCount(2);
+});
+
+test("overview table row actions open details and refresh unread rows", async ({ page }) => {
+  await fixture(page);
+  await page.goto("/portal/admin/home");
+  const table = page.getByRole("table", { name: "Notifications", exact: true });
+  await table
+    .getByRole("button", { name: "Actions for Token refresh failed", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "View details", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Notifications", exact: true });
+  await expect(
+    panel.getByRole("heading", { name: "Token refresh failed", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await table.getByRole("button", { name: "Actions for System started", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Mark as read", exact: true }).click();
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "Notifications, 1 unread", exact: true }),
+  ).toBeVisible();
+});
+
+for (const width of [390, 1536]) {
+  test(`overview table paginates and fits its container at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { errors } = await fixture(page, {
+      items: Array.from({ length: 18 }, (_, index) => ({
+        ...alerts[0],
+        id: `paged-${index}`,
+        title: `Notice ${index + 1}`,
+        severity: index % 2 ? "warning" : "info",
+      })),
+    });
+    await page.goto("/portal/admin/home");
+    const table = page.getByRole("table", { name: "Notifications", exact: true });
+    await expect(table.getByRole("row")).toHaveCount(6);
+    await page.getByRole("button", { name: "Next page", exact: true }).click();
+    await expect(table.getByRole("button", { name: "View Notice 6", exact: true })).toBeVisible();
+    await page
+      .getByRole("searchbox", { name: "Search notifications", exact: true })
+      .fill("Notice 18");
+    await expect(table.getByRole("row")).toHaveCount(2);
+    await expect(table.getByRole("button", { name: "View Notice 18", exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth,
+      ),
+    ).toBe(true);
+    await table.getByRole("button", { name: "View Notice 18", exact: true }).click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "Notifications", exact: true })
+        .getByRole("heading", { name: "Notice 18", exact: true }),
+    ).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}

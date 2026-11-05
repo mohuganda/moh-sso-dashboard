@@ -66,11 +66,17 @@ and content alignment beneath the shell.
 
 ## Notifications
 
-The overview preview and header drawer use the same feed. The drawer subscribes
-inside its content, so read/delete mutations refresh the visible list and badge
-without closing it. Opening the drawer refreshes cached activity. The unread badge
-uses the server total; each list identifies how many latest entries are shown
-(5 in the overview, 20 in each drawer view).
+The overview uses a full-width Carbon table consistent with Announcements. It
+provides text search, Status and Severity filters, a reset action, and pagination
+with 5/10/20 rows per page. Notification titles and the row's View details action
+open the detail drawer. Unread rows also offer Mark as read. The query loads the
+latest 100 records; filters and table counts apply to that recent batch, and the
+heading identifies the limit when reached. The unread badge is the server total.
+
+The header drawer retains its compact feed and subscribes inside its content, so
+read/delete mutations refresh the visible list and badge without closing it.
+Opening the drawer refreshes cached activity. Each drawer view identifies its
+latest entries (up to 20).
 
 A single drawer scrollbar handles feed and detail content. Content fills the normal
 36rem drawer and stays centered at a readable width when maximized. Notification
@@ -88,4 +94,4 @@ explicit errors and retry options, and failed mutations do not imply success.
 
 `tests/browser/notifications.spec.mjs` covers normal/maximized/mobile layout,
 live cache updates, keyboard navigation, delete confirmation, empty/error recovery,
-shared overview content and delivery retry permissions using disposable API data.
+overview table filters, pagination, row actions and delivery retry permissions using disposable API data.

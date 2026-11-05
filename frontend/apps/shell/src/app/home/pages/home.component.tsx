@@ -7,7 +7,7 @@ import "./home.scss";
 import { EmptyState, useHeaderPanel } from "@moh-sso/ui";
 import { ApplicationTile } from "@/app/home/components/app/ApplicationTile";
 import { QuickAction } from "@/app/home/components/quick-action/quick-action.component";
-import { ConnectedNotificationsPanel } from "@/app/ui-containers/ConnectedNotificationsPanel";
+import { NotificationsTable } from "@/app/notifications/components/NotificationsTable";
 import { selectUser, useAuthorization } from "@moh-sso/auth";
 import { setActiveClient } from "@moh-sso/state";
 import { buildAccessibleLauncherEntries } from "@/app/access/accessClients";
@@ -229,8 +229,8 @@ export default function HomePage() {
       {/* ==================================================
        * NOTIFICATIONS (ACTIONABLE)
        * ================================================== */}
-      <Tile>
-        <ConnectedNotificationsPanel summary />
+      <Tile className="home-notifications">
+        <NotificationsTable />
       </Tile>
     </div>
   );
