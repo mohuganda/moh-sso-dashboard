@@ -96,3 +96,31 @@ func assertAPIErrorCode(t *testing.T, payload []byte, expected string) {
 		t.Fatalf("expected error code %q, got %q", expected, response.Error.Code)
 	}
 }
+
+// Serve the real assets through the same handler used in production, not only
+// temporary fixture files. The release image verifier checks their packaging.
+func TestGetGeoJSONServesBundledMapLayers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	basePath := filepath.Join("..", "..", "..", "assets", "geojson")
+	router := gin.New()
+	router.GET("/geojson/:name", NewHandler(basePath).GetGeoJSON)
+	for _, name := range []string{"geo_districts", "geo_subcounties", "geo_water"} {
+		t.Run(name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/geojson/"+name, nil))
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("expected bundled layer to return HTTP 200, got %d: %s", recorder.Code, recorder.Body.String())
+			}
+			var collection struct {
+				Type     string            `json:"type"`
+				Features []json.RawMessage `json:"features"`
+			}
+			if err := json.Unmarshal(recorder.Body.Bytes(), &collection); err != nil {
+				t.Fatalf("decode bundled GeoJSON: %v", err)
+			}
+			if collection.Type != "FeatureCollection" || len(collection.Features) == 0 {
+				t.Fatalf("expected nonempty FeatureCollection, got %q with %d features", collection.Type, len(collection.Features))
+			}
+		})
+	}
+}
