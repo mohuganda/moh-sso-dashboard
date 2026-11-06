@@ -5,13 +5,29 @@
 
   .moh-portal-nav-folder > button.cds--side-nav__submenu,
   .moh-portal-nav-folder > ul.cds--side-nav__menu > li > a.moh-portal-nav-page.cds--side-nav__link {
-    display: flex;
+    // Reserve the toggle column for leaves too, keeping sibling labels aligned.
+    display: grid;
+    grid-template-columns: 0.875rem 1rem minmax(0, 1fr);
     align-items: center;
     gap: 0.5rem;
     min-height: 2.125rem;
     height: auto;
     padding: 0.375rem 0.5rem;
     border-radius: 0;
+  }
+
+  .moh-portal-nav-folder
+    > button.cds--side-nav__submenu
+    > .cds--side-nav__icon:not(.cds--side-nav__submenu-chevron),
+  a.moh-portal-nav-page > .cds--side-nav__icon {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .moh-portal-nav-folder > button.cds--side-nav__submenu > .cds--side-nav__submenu-title,
+  a.moh-portal-nav-page > .cds--side-nav__link-text {
+    grid-column: 3;
+    grid-row: 1;
   }
 
   .moh-portal-nav-folder > button.cds--side-nav__submenu[aria-expanded="true"] {
@@ -46,7 +62,8 @@
   // Draw a decorative plus/minus without adding text to the button's name.
   .moh-portal-nav-folder > button.cds--side-nav__submenu > .cds--side-nav__submenu-chevron {
     position: relative;
-    order: -1;
+    grid-column: 1;
+    grid-row: 1;
     flex-basis: 0.875rem;
     width: 0.875rem;
     min-width: 0.875rem;

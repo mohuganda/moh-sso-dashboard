@@ -403,3 +403,84 @@ test("grouped external applications retain their new-tab launch behavior", async
   await expect(page).toHaveURL(/\/portal\/apps\/dwh\/data-validation$/);
   await expect(menu).toHaveCount(0);
 });
+
+test("nested sidebar groups and pages share label columns at every level", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await fixture(page, {
+    ...user,
+    accessibleSystems: [
+      {
+        ...user.accessibleSystems[0],
+        navigation: JSON.stringify([
+          ...JSON.parse(navigation),
+          {
+            id: "issue-tracking",
+            label: "Issue Tracking",
+            children: [
+              {
+                id: "issue-summary",
+                label: "Issue Summary",
+                path: "/apps/dwh/issue-tracker/dashboard",
+              },
+            ],
+          },
+          {
+            id: "self-service",
+            label: "Self Service",
+            children: [
+              { id: "timesheet", label: "My Timesheet", path: "/apps/utilities/timesheet" },
+              {
+                id: "requests",
+                label: "eService Requests",
+                children: [
+                  {
+                    id: "service-access",
+                    label: "Service Access",
+                    path: "/apps/utilities/service-access",
+                  },
+                  {
+                    id: "equipment",
+                    label: "Equipment Request",
+                    path: "/apps/utilities/equipment",
+                  },
+                ],
+              },
+            ],
+          },
+        ]),
+      },
+    ],
+  });
+  await page.goto("/portal/apps/dwh/data-validation");
+  const nav = page.getByRole("navigation", { name: "Application navigation" });
+  const selfService = nav.getByRole("button", { name: "Self Service", exact: true });
+  await selfService.click();
+  const requests = nav.getByRole("button", { name: "eService Requests", exact: true });
+  await requests.click();
+  const labelX = (row) =>
+    row
+      .locator(".cds--side-nav__submenu-title, .cds--side-nav__link-text")
+      .evaluate((label) => label.getBoundingClientRect().x);
+  expect(
+    Math.abs(
+      (await labelX(selfService)) -
+        (await labelX(nav.getByRole("link", { name: "Data Validation", exact: true }))),
+    ),
+  ).toBeLessThan(1);
+  expect(
+    Math.abs(
+      (await labelX(requests)) -
+        (await labelX(nav.getByRole("link", { name: "My Timesheet", exact: true }))),
+    ),
+  ).toBeLessThan(1);
+  const access = nav.getByRole("link", { name: "Service Access", exact: true });
+  const equipment = nav.getByRole("link", { name: "Equipment Request", exact: true });
+  expect(Math.abs((await labelX(access)) - (await labelX(equipment)))).toBeLessThan(1);
+  expect(await labelX(access)).toBeGreaterThan(await labelX(requests));
+  const bounds = await nav.boundingBox();
+  for (const row of [selfService, requests, access, equipment]) {
+    const box = await row.boundingBox();
+    expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
+  }
+  await page.screenshot({ path: "/tmp/moh-sidebar-indentation.png" });
+});
