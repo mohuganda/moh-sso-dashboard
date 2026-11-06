@@ -9,6 +9,9 @@ import (
 
 func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
 	clients := protected.Group("/clients")
+	clients.GET("/onboarding/context", middleware.RequirePermission(authz.PermissionClientsWrite), handler.OnboardingContext)
+	clients.POST("/onboarding/preview", middleware.RequirePermission(authz.PermissionClientsWrite), handler.PreviewOnboarding)
+	clients.POST("/onboarding/apply", middleware.RequirePermission(authz.PermissionClientsWrite), handler.ApplyOnboarding)
 	{
 		clients.GET("", middleware.RequireAnyPermission(authz.PermissionSystemsRead, authz.PermissionClientsRead), handler.ListClients)
 		clients.GET("/:id", middleware.RequirePermission(authz.PermissionClientsRead), handler.GetClient)
