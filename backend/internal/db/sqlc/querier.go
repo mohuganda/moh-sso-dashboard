@@ -38,7 +38,7 @@ type Querier interface {
 	CountActiveUsersInRange(ctx context.Context, arg CountActiveUsersInRangeParams) (int64, error)
 	CountAnnouncementAttachments(ctx context.Context, announcementID uuid.UUID) (int64, error)
 	CountAnnouncementsAdmin(ctx context.Context) (int64, error)
-	CountAnnouncementsByStatus(ctx context.Context, status interface{}) (int64, error)
+	CountAnnouncementsByStatus(ctx context.Context, status AnnouncementStatus) (int64, error)
 	CountAnnouncementsCreatedByUser(ctx context.Context, createdBy uuid.UUID) (int64, error)
 	CountClients(ctx context.Context) (int64, error)
 	CountDisabledClients(ctx context.Context) (int64, error)

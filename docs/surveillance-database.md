@@ -187,11 +187,10 @@ The Docker test uses a disposable PostgreSQL container and synthetic data; it ch
 schema independence from documents, all five file mappings, identical/conflicting
 duplicates, zero-week quarantine, and repeat/reprocess behavior. It runs in PR CI.
 
-SQLC schema input now includes both database migration directories. `sqlc compile`
-currently stops at primary migration 39 because its parser does not resolve
-`announcement_audience_type` declared inside migration 6's `DO` block. The same
-error is reproducible with the pre-separation primary migrations; query bindings
-were not regenerated as part of this change. PostgreSQL migration tests pass.
+SQLC schema input includes both database migration directories. Enum declarations
+are top-level DDL so SQLC and PostgreSQL resolve the same types. From `backend/`,
+run `sqlc compile` and `sqlc generate` with SQLC v1.30.0. CI verifies compilation
+and that generated query bindings match the checked-in files.
 
 ## Verified local import (2026 flag year)
 

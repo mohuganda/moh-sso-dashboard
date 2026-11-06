@@ -431,7 +431,7 @@ func (s *Service) Reprocess(
 		return fmt.Errorf("get latest process by document id: %w", err)
 	}
 
-	if proc.Status == models.ProcessStatusPROCESSING {
+	if proc.Status == db.ProcessStatusPROCESSING {
 		return fmt.Errorf("document already processing")
 	}
 

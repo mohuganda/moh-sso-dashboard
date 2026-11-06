@@ -7,7 +7,7 @@ package db
 
 import (
 	"context"
-	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -28,10 +28,10 @@ RETURNING id, epi_year, epi_week, week_start_date, week_end_date, created_at
 `
 
 type CreateEpiWeekParams struct {
-	EpiYear       int32        `json:"epi_year"`
-	EpiWeek       int32        `json:"epi_week"`
-	WeekStartDate sql.NullTime `json:"week_start_date"`
-	WeekEndDate   sql.NullTime `json:"week_end_date"`
+	EpiYear       int32     `json:"epi_year"`
+	EpiWeek       int32     `json:"epi_week"`
+	WeekStartDate time.Time `json:"week_start_date"`
+	WeekEndDate   time.Time `json:"week_end_date"`
 }
 
 func (q *Queries) CreateEpiWeek(ctx context.Context, arg CreateEpiWeekParams) (EpiWeek, error) {
@@ -158,10 +158,10 @@ RETURNING id, epi_year, epi_week, week_start_date, week_end_date, created_at
 `
 
 type UpsertEpiWeekParams struct {
-	EpiYear       int32        `json:"epi_year"`
-	EpiWeek       int32        `json:"epi_week"`
-	WeekStartDate sql.NullTime `json:"week_start_date"`
-	WeekEndDate   sql.NullTime `json:"week_end_date"`
+	EpiYear       int32     `json:"epi_year"`
+	EpiWeek       int32     `json:"epi_week"`
+	WeekStartDate time.Time `json:"week_start_date"`
+	WeekEndDate   time.Time `json:"week_end_date"`
 }
 
 func (q *Queries) UpsertEpiWeek(ctx context.Context, arg UpsertEpiWeekParams) (EpiWeek, error) {

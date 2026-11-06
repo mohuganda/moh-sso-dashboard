@@ -349,7 +349,7 @@ func (r *announcementsRepository) CountByStatus(
 	ctx context.Context,
 	status model.AnnouncementStatus,
 ) (int64, error) {
-	count, err := r.db.CountAnnouncementsByStatus(ctx, status)
+	count, err := r.db.CountAnnouncementsByStatus(ctx, db.AnnouncementStatus(status))
 	if err != nil {
 		r.logger.Error("failed to count announcements by status", err)
 		return 0, fmt.Errorf("count announcements by status: %w", err)

@@ -137,7 +137,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT id, username, first_name, last_name, email, enabled, roles, created_at, updated_at, last_login_at
 FROM users
-WHERE username = $1
+WHERE LOWER(username) = LOWER($1)
+LIMIT 1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {

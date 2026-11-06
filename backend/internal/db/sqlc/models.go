@@ -60,6 +60,140 @@ func (ns NullAlertStatus) Value() (driver.Value, error) {
 	return string(ns.AlertStatus), nil
 }
 
+type AnnouncementAudienceType string
+
+const (
+	AnnouncementAudienceTypeALLUSERS        AnnouncementAudienceType = "ALL_USERS"
+	AnnouncementAudienceTypeADMINSONLY      AnnouncementAudienceType = "ADMINS_ONLY"
+	AnnouncementAudienceTypeSPECIFICCLIENTS AnnouncementAudienceType = "SPECIFIC_CLIENTS"
+	AnnouncementAudienceTypeSPECIFICROLES   AnnouncementAudienceType = "SPECIFIC_ROLES"
+	AnnouncementAudienceTypeSPECIFICUSERS   AnnouncementAudienceType = "SPECIFIC_USERS"
+	AnnouncementAudienceTypeSPECIFICGROUPS  AnnouncementAudienceType = "SPECIFIC_GROUPS"
+)
+
+func (e *AnnouncementAudienceType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AnnouncementAudienceType(s)
+	case string:
+		*e = AnnouncementAudienceType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AnnouncementAudienceType: %T", src)
+	}
+	return nil
+}
+
+type NullAnnouncementAudienceType struct {
+	AnnouncementAudienceType AnnouncementAudienceType `json:"announcement_audience_type"`
+	Valid                    bool                     `json:"valid"` // Valid is true if AnnouncementAudienceType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAnnouncementAudienceType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AnnouncementAudienceType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AnnouncementAudienceType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAnnouncementAudienceType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AnnouncementAudienceType), nil
+}
+
+type AnnouncementLevel string
+
+const (
+	AnnouncementLevelINFO     AnnouncementLevel = "INFO"
+	AnnouncementLevelSUCCESS  AnnouncementLevel = "SUCCESS"
+	AnnouncementLevelWARNING  AnnouncementLevel = "WARNING"
+	AnnouncementLevelCRITICAL AnnouncementLevel = "CRITICAL"
+)
+
+func (e *AnnouncementLevel) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AnnouncementLevel(s)
+	case string:
+		*e = AnnouncementLevel(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AnnouncementLevel: %T", src)
+	}
+	return nil
+}
+
+type NullAnnouncementLevel struct {
+	AnnouncementLevel AnnouncementLevel `json:"announcement_level"`
+	Valid             bool              `json:"valid"` // Valid is true if AnnouncementLevel is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAnnouncementLevel) Scan(value interface{}) error {
+	if value == nil {
+		ns.AnnouncementLevel, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AnnouncementLevel.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAnnouncementLevel) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AnnouncementLevel), nil
+}
+
+type AnnouncementStatus string
+
+const (
+	AnnouncementStatusDRAFT     AnnouncementStatus = "DRAFT"
+	AnnouncementStatusSCHEDULED AnnouncementStatus = "SCHEDULED"
+	AnnouncementStatusPUBLISHED AnnouncementStatus = "PUBLISHED"
+	AnnouncementStatusARCHIVED  AnnouncementStatus = "ARCHIVED"
+)
+
+func (e *AnnouncementStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AnnouncementStatus(s)
+	case string:
+		*e = AnnouncementStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AnnouncementStatus: %T", src)
+	}
+	return nil
+}
+
+type NullAnnouncementStatus struct {
+	AnnouncementStatus AnnouncementStatus `json:"announcement_status"`
+	Valid              bool               `json:"valid"` // Valid is true if AnnouncementStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAnnouncementStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.AnnouncementStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AnnouncementStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAnnouncementStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AnnouncementStatus), nil
+}
+
 type DocumentStatus string
 
 const (
@@ -205,6 +339,51 @@ func (ns NullImportJobStatus) Value() (driver.Value, error) {
 	return string(ns.ImportJobStatus), nil
 }
 
+type ProcessStatus string
+
+const (
+	ProcessStatusPENDING    ProcessStatus = "PENDING"
+	ProcessStatusPROCESSING ProcessStatus = "PROCESSING"
+	ProcessStatusCOMPLETED  ProcessStatus = "COMPLETED"
+	ProcessStatusFAILED     ProcessStatus = "FAILED"
+	ProcessStatusCANCELLED  ProcessStatus = "CANCELLED"
+)
+
+func (e *ProcessStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ProcessStatus(s)
+	case string:
+		*e = ProcessStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ProcessStatus: %T", src)
+	}
+	return nil
+}
+
+type NullProcessStatus struct {
+	ProcessStatus ProcessStatus `json:"process_status"`
+	Valid         bool          `json:"valid"` // Valid is true if ProcessStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullProcessStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ProcessStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ProcessStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullProcessStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ProcessStatus), nil
+}
+
 type RiskLevel string
 
 const (
@@ -267,36 +446,36 @@ type Alert struct {
 }
 
 type Announcement struct {
-	ID                      uuid.UUID      `json:"id"`
-	Title                   string         `json:"title"`
-	Message                 string         `json:"message"`
-	Summary                 sql.NullString `json:"summary"`
-	Level                   interface{}    `json:"level"`
-	Tag                     sql.NullString `json:"tag"`
-	LinkUrl                 sql.NullString `json:"link_url"`
-	Priority                int32          `json:"priority"`
-	IsPinned                bool           `json:"is_pinned"`
-	Status                  interface{}    `json:"status"`
-	PublishAt               sql.NullTime   `json:"publish_at"`
-	ExpiresAt               sql.NullTime   `json:"expires_at"`
-	AudienceType            interface{}    `json:"audience_type"`
-	CreatedBy               uuid.UUID      `json:"created_by"`
-	UpdatedBy               uuid.NullUUID  `json:"updated_by"`
-	PublishedBy             uuid.NullUUID  `json:"published_by"`
-	ArchivedBy              uuid.NullUUID  `json:"archived_by"`
-	CreatedAt               time.Time      `json:"created_at"`
-	UpdatedAt               time.Time      `json:"updated_at"`
-	PublishedAt             sql.NullTime   `json:"published_at"`
-	ArchivedAt              sql.NullTime   `json:"archived_at"`
-	DeletedAt               sql.NullTime   `json:"deleted_at"`
-	DeletedBy               uuid.NullUUID  `json:"deleted_by"`
-	Version                 int32          `json:"version"`
-	NotifyByEmail           bool           `json:"notify_by_email"`
-	EmailNotificationSentAt sql.NullTime   `json:"email_notification_sent_at"`
-	LinkLabel               sql.NullString `json:"link_label"`
-	NotifyBySms             bool           `json:"notify_by_sms"`
-	SmsMessage              sql.NullString `json:"sms_message"`
-	SmsNotificationQueuedAt sql.NullTime   `json:"sms_notification_queued_at"`
+	ID                      uuid.UUID                `json:"id"`
+	Title                   string                   `json:"title"`
+	Message                 string                   `json:"message"`
+	Summary                 sql.NullString           `json:"summary"`
+	Level                   AnnouncementLevel        `json:"level"`
+	Tag                     sql.NullString           `json:"tag"`
+	LinkUrl                 sql.NullString           `json:"link_url"`
+	Priority                int32                    `json:"priority"`
+	IsPinned                bool                     `json:"is_pinned"`
+	Status                  AnnouncementStatus       `json:"status"`
+	PublishAt               sql.NullTime             `json:"publish_at"`
+	ExpiresAt               sql.NullTime             `json:"expires_at"`
+	AudienceType            AnnouncementAudienceType `json:"audience_type"`
+	CreatedBy               uuid.UUID                `json:"created_by"`
+	UpdatedBy               uuid.NullUUID            `json:"updated_by"`
+	PublishedBy             uuid.NullUUID            `json:"published_by"`
+	ArchivedBy              uuid.NullUUID            `json:"archived_by"`
+	CreatedAt               time.Time                `json:"created_at"`
+	UpdatedAt               time.Time                `json:"updated_at"`
+	PublishedAt             sql.NullTime             `json:"published_at"`
+	ArchivedAt              sql.NullTime             `json:"archived_at"`
+	DeletedAt               sql.NullTime             `json:"deleted_at"`
+	DeletedBy               uuid.NullUUID            `json:"deleted_by"`
+	Version                 int32                    `json:"version"`
+	NotifyByEmail           bool                     `json:"notify_by_email"`
+	EmailNotificationSentAt sql.NullTime             `json:"email_notification_sent_at"`
+	LinkLabel               sql.NullString           `json:"link_label"`
+	NotifyBySms             bool                     `json:"notify_by_sms"`
+	SmsMessage              sql.NullString           `json:"sms_message"`
+	SmsNotificationQueuedAt sql.NullTime             `json:"sms_notification_queued_at"`
 }
 
 type AnnouncementAttachment struct {
@@ -322,6 +501,12 @@ type AnnouncementAttachment struct {
 type AnnouncementClient struct {
 	AnnouncementID uuid.UUID `json:"announcement_id"`
 	ClientID       uuid.UUID `json:"client_id"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type AnnouncementGroup struct {
+	AnnouncementID uuid.UUID `json:"announcement_id"`
+	GroupID        uuid.UUID `json:"group_id"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 
@@ -369,6 +554,26 @@ type ClientSecret struct {
 	SecretHash string       `json:"secret_hash"`
 	CreatedAt  sql.NullTime `json:"created_at"`
 	ExpiresAt  sql.NullTime `json:"expires_at"`
+}
+
+type DataQualityValidationRule struct {
+	ID          int64          `json:"id"`
+	TableID     sql.NullString `json:"table_id"`
+	Program     sql.NullString `json:"program"`
+	Category    sql.NullString `json:"category"`
+	Code        string         `json:"code"`
+	Severity    string         `json:"severity"`
+	Description string         `json:"description"`
+	ColumnName  string         `json:"column_name"`
+	Operator    string         `json:"operator"`
+	Value       sql.NullString `json:"value"`
+	ValueColumn sql.NullString `json:"value_column"`
+	IsActive    bool           `json:"is_active"`
+	CreatedBy   sql.NullString `json:"created_by"`
+	UpdatedBy   sql.NullString `json:"updated_by"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   sql.NullTime   `json:"deleted_at"`
 }
 
 type Disease struct {
@@ -503,12 +708,12 @@ type EmailOutbox struct {
 }
 
 type EpiWeek struct {
-	ID            uuid.UUID    `json:"id"`
-	EpiYear       int32        `json:"epi_year"`
-	EpiWeek       int32        `json:"epi_week"`
-	WeekStartDate sql.NullTime `json:"week_start_date"`
-	WeekEndDate   sql.NullTime `json:"week_end_date"`
-	CreatedAt     time.Time    `json:"created_at"`
+	ID            uuid.UUID `json:"id"`
+	EpiYear       int32     `json:"epi_year"`
+	EpiWeek       int32     `json:"epi_week"`
+	WeekStartDate time.Time `json:"week_start_date"`
+	WeekEndDate   time.Time `json:"week_end_date"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type Facility struct {
@@ -566,6 +771,28 @@ type IhpAccessRequestEvent struct {
 	CreatedAt   time.Time      `json:"created_at"`
 }
 
+type IhpApplicationIdentity struct {
+	OauthClientID       string    `json:"oauth_client_id"`
+	ApplicationClientID string    `json:"application_client_id"`
+	Subject             string    `json:"subject"`
+	Scopes              []string  `json:"scopes"`
+	Enabled             bool      `json:"enabled"`
+	UpdatedAt           time.Time `json:"updated_at"`
+}
+
+type IhpApplicationNotification struct {
+	ID                  uuid.UUID     `json:"id"`
+	ApplicationClientID string        `json:"application_client_id"`
+	IdempotencyKey      string        `json:"idempotency_key"`
+	RequestHash         string        `json:"request_hash"`
+	NotificationID      uuid.NullUUID `json:"notification_id"`
+	DeliveryID          uuid.NullUUID `json:"delivery_id"`
+	CreatedBy           string        `json:"created_by"`
+	RequestID           string        `json:"request_id"`
+	CorrelationID       string        `json:"correlation_id"`
+	CreatedAt           time.Time     `json:"created_at"`
+}
+
 type IhpPermission struct {
 	ID            uuid.UUID       `json:"id"`
 	PermissionKey string          `json:"permission_key"`
@@ -577,6 +804,11 @@ type IhpPermission struct {
 	Status        string          `json:"status"`
 	DeprecatedAt  sql.NullTime    `json:"deprecated_at"`
 	Metadata      json.RawMessage `json:"metadata"`
+}
+
+type IhpPlatformWorkerHeartbeat struct {
+	WorkerName string    `json:"worker_name"`
+	LastSeen   time.Time `json:"last_seen"`
 }
 
 type IhpRbacAuditEvent struct {
@@ -618,6 +850,42 @@ type IhpRbacChangeRequestEvent struct {
 	CreatedAt   time.Time      `json:"created_at"`
 }
 
+type IhpRbacGroup struct {
+	ID              uuid.UUID       `json:"id"`
+	KeycloakGroupID sql.NullString  `json:"keycloak_group_id"`
+	Path            string          `json:"path"`
+	Name            string          `json:"name"`
+	DisplayName     sql.NullString  `json:"display_name"`
+	Description     sql.NullString  `json:"description"`
+	Enabled         bool            `json:"enabled"`
+	Metadata        json.RawMessage `json:"metadata"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
+
+type IhpRbacGroupMember struct {
+	GroupID   uuid.UUID      `json:"group_id"`
+	UserID    string         `json:"user_id"`
+	Username  sql.NullString `json:"username"`
+	Email     sql.NullString `json:"email"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+type IhpRbacGroupPermission struct {
+	GroupID      uuid.UUID `json:"group_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
+}
+
+type IhpRbacGroupRealmRole struct {
+	GroupID   uuid.UUID `json:"group_id"`
+	RealmRole string    `json:"realm_role"`
+}
+
+type IhpRbacGroupSystemRole struct {
+	GroupID      uuid.UUID `json:"group_id"`
+	SystemRoleID uuid.UUID `json:"system_role_id"`
+}
+
 type IhpRealmRolePermission struct {
 	RealmRole    string    `json:"realm_role"`
 	PermissionID uuid.UUID `json:"permission_id"`
@@ -627,6 +895,11 @@ type IhpRealmRoleSystemRole struct {
 	RealmRole    string    `json:"realm_role"`
 	SystemRoleID uuid.UUID `json:"system_role_id"`
 	CreatedAt    time.Time `json:"created_at"`
+}
+
+type IhpStandardUserDefaultsBackup struct {
+	ID       bool            `json:"id"`
+	Snapshot json.RawMessage `json:"snapshot"`
 }
 
 type IhpSystem struct {
@@ -653,6 +926,9 @@ type IhpSystem struct {
 	DisplayInLauncher bool            `json:"display_in_launcher"`
 	DisplayInSidenav  bool            `json:"display_in_sidenav"`
 	LaunchMode        string          `json:"launch_mode"`
+	LifecycleStatus   string          `json:"lifecycle_status"`
+	IntegrationType   string          `json:"integration_type"`
+	ContractVersion   string          `json:"contract_version"`
 }
 
 type IhpSystemAccessRole struct {
@@ -771,7 +1047,7 @@ type Process struct {
 	ID          uuid.UUID      `json:"id"`
 	DocumentID  uuid.UUID      `json:"document_id"`
 	ProcessType string         `json:"process_type"`
-	Status      interface{}    `json:"status"`
+	Status      ProcessStatus  `json:"status"`
 	Progress    int32          `json:"progress"`
 	Message     sql.NullString `json:"message"`
 	Error       sql.NullString `json:"error"`
@@ -789,6 +1065,104 @@ type Region struct {
 	Code      sql.NullString `json:"code"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+type ReportArtifact struct {
+	ID          uuid.UUID      `json:"id"`
+	ExecutionID uuid.UUID      `json:"execution_id"`
+	FileName    string         `json:"file_name"`
+	ContentType sql.NullString `json:"content_type"`
+	ObjectKey   sql.NullString `json:"object_key"`
+	ExternalUrl sql.NullString `json:"external_url"`
+	SizeBytes   int64          `json:"size_bytes"`
+	CreatedAt   time.Time      `json:"created_at"`
+}
+
+type ReportDelivery struct {
+	ID                   uuid.UUID      `json:"id"`
+	ExecutionID          uuid.UUID      `json:"execution_id"`
+	RecipientType        string         `json:"recipient_type"`
+	RecipientValue       string         `json:"recipient_value"`
+	Status               string         `json:"status"`
+	Attempts             int32          `json:"attempts"`
+	LastError            sql.NullString `json:"last_error"`
+	SentAt               sql.NullTime   `json:"sent_at"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
+	ArtifactID           uuid.NullUUID  `json:"artifact_id"`
+	DeliveryChannel      string         `json:"delivery_channel"`
+	MaxAttempts          int32          `json:"max_attempts"`
+	NextRetryAt          sql.NullTime   `json:"next_retry_at"`
+	LastAttemptAt        sql.NullTime   `json:"last_attempt_at"`
+	AccessTokenHash      sql.NullString `json:"access_token_hash"`
+	AccessTokenExpiresAt sql.NullTime   `json:"access_token_expires_at"`
+	AccessTokenUsedAt    sql.NullTime   `json:"access_token_used_at"`
+}
+
+type ReportExecution struct {
+	ID                    uuid.UUID             `json:"id"`
+	ScheduleID            uuid.NullUUID         `json:"schedule_id"`
+	HealthBiJobID         sql.NullString        `json:"health_bi_job_id"`
+	ReportID              string                `json:"report_id"`
+	Status                string                `json:"status"`
+	Parameters            json.RawMessage       `json:"parameters"`
+	OutputFormat          string                `json:"output_format"`
+	TriggerType           string                `json:"trigger_type"`
+	TriggeredBy           sql.NullString        `json:"triggered_by"`
+	ErrorMessage          sql.NullString        `json:"error_message"`
+	StartedAt             sql.NullTime          `json:"started_at"`
+	FinishedAt            sql.NullTime          `json:"finished_at"`
+	CreatedAt             time.Time             `json:"created_at"`
+	ScheduledFor          sql.NullTime          `json:"scheduled_for"`
+	ResolvedPeriod        pqtype.NullRawMessage `json:"resolved_period"`
+	PollClaimedAt         sql.NullTime          `json:"poll_claimed_at"`
+	GenerationAttempts    int32                 `json:"generation_attempts"`
+	MaxGenerationAttempts int32                 `json:"max_generation_attempts"`
+	NextRetryAt           sql.NullTime          `json:"next_retry_at"`
+	LastAttemptAt         sql.NullTime          `json:"last_attempt_at"`
+	FailureNotifiedAt     sql.NullTime          `json:"failure_notified_at"`
+}
+
+type ReportSchedule struct {
+	ID               uuid.UUID       `json:"id"`
+	HealthBiReportID string          `json:"health_bi_report_id"`
+	ReportName       string          `json:"report_name"`
+	Description      sql.NullString  `json:"description"`
+	Frequency        string          `json:"frequency"`
+	CronExpression   sql.NullString  `json:"cron_expression"`
+	Timezone         string          `json:"timezone"`
+	PeriodStrategy   string          `json:"period_strategy"`
+	Parameters       json.RawMessage `json:"parameters"`
+	OutputFormat     string          `json:"output_format"`
+	Enabled          bool            `json:"enabled"`
+	CreatedBy        string          `json:"created_by"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
+	LastRunAt        sql.NullTime    `json:"last_run_at"`
+	NextRunAt        sql.NullTime    `json:"next_run_at"`
+	HealthContext    json.RawMessage `json:"health_context"`
+	OutputConfig     json.RawMessage `json:"output_config"`
+	Timing           json.RawMessage `json:"timing"`
+}
+
+type ReportScheduleRecipient struct {
+	ID              uuid.UUID `json:"id"`
+	ScheduleID      uuid.UUID `json:"schedule_id"`
+	RecipientType   string    `json:"recipient_type"`
+	RecipientValue  string    `json:"recipient_value"`
+	CreatedAt       time.Time `json:"created_at"`
+	DeliveryChannel string    `json:"delivery_channel"`
+}
+
+type ReportSchedulerRuntime struct {
+	Singleton             bool           `json:"singleton"`
+	WorkerID              sql.NullString `json:"worker_id"`
+	LastHeartbeatAt       sql.NullTime   `json:"last_heartbeat_at"`
+	LastCycleStartedAt    sql.NullTime   `json:"last_cycle_started_at"`
+	LastCycleFinishedAt   sql.NullTime   `json:"last_cycle_finished_at"`
+	LastCycleError        sql.NullString `json:"last_cycle_error"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+	WorkerIntervalSeconds int32          `json:"worker_interval_seconds"`
 }
 
 type RevokedToken struct {

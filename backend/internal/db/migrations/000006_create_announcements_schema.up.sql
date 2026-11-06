@@ -6,42 +6,28 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- -------------------------------------
 -- Enums
 -- -------------------------------------
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_type WHERE typname = 'announcement_status'
-    ) THEN
-        CREATE TYPE announcement_status AS ENUM (
-            'DRAFT',
-            'SCHEDULED',
-            'PUBLISHED',
-            'ARCHIVED'
-        );
-    END IF;
+-- Top-level DDL keeps PostgreSQL and SQLC schema discovery aligned.
+CREATE TYPE announcement_status AS ENUM (
+    'DRAFT',
+    'SCHEDULED',
+    'PUBLISHED',
+    'ARCHIVED'
+);
 
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_type WHERE typname = 'announcement_level'
-    ) THEN
-        CREATE TYPE announcement_level AS ENUM (
-            'INFO',
-            'SUCCESS',
-            'WARNING',
-            'CRITICAL'
-        );
-    END IF;
+CREATE TYPE announcement_level AS ENUM (
+    'INFO',
+    'SUCCESS',
+    'WARNING',
+    'CRITICAL'
+);
 
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_type WHERE typname = 'announcement_audience_type'
-    ) THEN
-        CREATE TYPE announcement_audience_type AS ENUM (
-            'ALL_USERS',
-            'ADMINS_ONLY',
-            'SPECIFIC_CLIENTS',
-            'SPECIFIC_ROLES',
-            'SPECIFIC_USERS'
-        );
-    END IF;
-END $$;
+CREATE TYPE announcement_audience_type AS ENUM (
+    'ALL_USERS',
+    'ADMINS_ONLY',
+    'SPECIFIC_CLIENTS',
+    'SPECIFIC_ROLES',
+    'SPECIFIC_USERS'
+);
 
 -- -------------------------------------
 -- Main announcements table

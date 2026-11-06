@@ -33,16 +33,16 @@ func toAnnouncementResponse(a db.Announcement) AnnouncementResponse {
 		Title:                   a.Title,
 		Message:                 a.Message,
 		Summary:                 nullStringPtr(a.Summary),
-		Level:                   normalizeLevel(model.AnnouncementLevel(interfaceToString(a.Level))),
+		Level:                   normalizeLevel(model.AnnouncementLevel(a.Level)),
 		Tag:                     nullStringPtr(a.Tag),
 		LinkURL:                 nullStringPtr(a.LinkUrl),
 		LinkLabel:               nullStringPtr(a.LinkLabel),
 		Priority:                a.Priority,
 		IsPinned:                a.IsPinned,
-		Status:                  normalizeAnnouncementStatus(model.AnnouncementStatus(interfaceToString(a.Status))),
+		Status:                  normalizeAnnouncementStatus(model.AnnouncementStatus(a.Status)),
 		PublishAt:               nullTimePtr(a.PublishAt),
 		ExpiresAt:               nullTimePtr(a.ExpiresAt),
-		AudienceType:            normalizeAudienceType(model.AnnouncementAudienceType(interfaceToString(a.AudienceType))),
+		AudienceType:            normalizeAudienceType(model.AnnouncementAudienceType(a.AudienceType)),
 		NotifyByEmail:           a.NotifyByEmail,
 		EmailNotificationSentAt: nullTimePtr(a.EmailNotificationSentAt),
 		NotifyBySMS:             a.NotifyBySms,
@@ -316,37 +316,26 @@ func normalizeAudienceType(v model.AnnouncementAudienceType) string {
 	return strings.ToUpper(strings.TrimSpace(string(v)))
 }
 
-func dbAnnouncementLevel(value string) model.AnnouncementLevel {
+func dbAnnouncementLevel(value string) db.AnnouncementLevel {
 	value = strings.ToUpper(strings.TrimSpace(value))
 	if value == "" {
-		return model.AnnouncementLevelINFO
+		return db.AnnouncementLevelINFO
 	}
-	return model.AnnouncementLevel(value)
+	return db.AnnouncementLevel(value)
 }
 
-func dbAnnouncementStatus(value string) model.AnnouncementStatus {
+func dbAnnouncementStatus(value string) db.AnnouncementStatus {
 	value = strings.ToUpper(strings.TrimSpace(value))
 	if value == "" {
-		return model.AnnouncementStatusDRAFT
+		return db.AnnouncementStatusDRAFT
 	}
-	return model.AnnouncementStatus(value)
+	return db.AnnouncementStatus(value)
 }
 
-func dbAnnouncementAudienceType(value string) model.AnnouncementAudienceType {
+func dbAnnouncementAudienceType(value string) db.AnnouncementAudienceType {
 	value = strings.ToUpper(strings.TrimSpace(value))
 	if value == "" {
-		return model.AnnouncementAudienceTypeALLUSERS
+		return db.AnnouncementAudienceTypeALLUSERS
 	}
-	return model.AnnouncementAudienceType(value)
-}
-
-func interfaceToString(v interface{}) string {
-	switch val := v.(type) {
-	case []byte:
-		return string(val)
-	case string:
-		return val
-	default:
-		return ""
-	}
+	return db.AnnouncementAudienceType(value)
 }
