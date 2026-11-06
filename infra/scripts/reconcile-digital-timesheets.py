@@ -7,13 +7,15 @@ from keycloak_client_provisioning import *  # noqa: F403
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--environment', choices=('production', 'test'), default='production')
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--backup', type=Path)
     parser.add_argument('--include-test-users', action='store_true')
     args = parser.parse_args()
     if args.apply and not args.backup:
         parser.error('--apply requires a new private --backup file')
-    manifest = json.loads(MANIFEST.read_text())
+    manifest_path = MANIFEST if args.environment == 'production' else MANIFEST.with_name('digital-timesheets-test.json')
+    manifest = json.loads(manifest_path.read_text())
     api = Keycloak(os.environ)
     plan = build_plan(api, manifest, args.include_test_users)
     print(json.dumps(summary(plan)), flush=True)

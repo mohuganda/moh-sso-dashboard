@@ -9,7 +9,7 @@ import re
 import urllib.parse
 from keycloak_client_provisioning import Keycloak, ROOT, apply_plan, build_plan, summary
 
-REALMS = {'development': 'moh-dev', 'test': 'moh-test', 'staging': 'moh-staging', 'production': 'moh-realm'}
+REALMS = json.loads((ROOT / 'backend/internal/keycloak/identity-environments.json').read_text())
 
 
 def render(spec, environment):
@@ -68,7 +68,7 @@ def main():
     client = render(json.loads(args.spec.read_text()), args.environment)
     plan = build_plan(api, {'realm': api.realm, 'clients': [client]})
     before = plan['clients'][0]['before']['client']
-    if before and (before.get('enabled') or before.get('attributes', {}).get('portal.onboarding.profile') != client['attributes']['portal.onboarding.profile']):
+    if before and (before.get('enabled') or before.get('attributes', {}).get('portal.onboarding.profile') != client['attributes']['portal.onboarding.profile'] or before.get('attributes', {}).get('portal.onboarding.environment') != args.environment):
         raise ValueError('Existing client must be disabled and owned by the same onboarding profile')
     print(json.dumps(summary(plan)), flush=True)
     if args.apply:

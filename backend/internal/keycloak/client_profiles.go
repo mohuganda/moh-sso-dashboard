@@ -11,7 +11,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/model"
 )
 
-//go:embed client-profiles.json
+//go:embed client-profiles.json identity-environments.json
 var profileFiles embed.FS
 
 type ClientProfile struct {
@@ -140,4 +140,17 @@ func BuildOnboardingClient(spec OnboardingSpec, environment string) (*model.Clie
 		client.Attributes["ui.displayInLauncher"] = "true"
 	}
 	return client, nil
+}
+
+// ValidateIdentityEnvironment prevents a deployment administering another environment's realm.
+func ValidateIdentityEnvironment(environment, realm string) error {
+	data, _ := profileFiles.ReadFile("identity-environments.json")
+	var realms map[string]string
+	if err := json.Unmarshal(data, &realms); err != nil {
+		return err
+	}
+	if realms[environment] == "" || realms[environment] != realm {
+		return fmt.Errorf("identity environment/realm mismatch: configure this deployment's isolated realm")
+	}
+	return nil
 }

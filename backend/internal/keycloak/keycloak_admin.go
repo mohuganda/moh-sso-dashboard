@@ -591,7 +591,19 @@ func (c *KeyAdminClient) UpdateClient(id string, payload *model.Client) error {
 		return fmt.Errorf("client id is required")
 	}
 
-	res, err := c.Put("clients/"+url.PathEscape(id), payload)
+	// The portal model also carries presentation-only fields absent from Keycloak's API.
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	var representation map[string]any
+	if err := json.Unmarshal(raw, &representation); err != nil {
+		return err
+	}
+	for _, key := range []string{"rootClientRealm", "authorizationUrl", "tlsRequired", "secret", "registrationAccessToken"} {
+		delete(representation, key)
+	}
+	res, err := c.Put("clients/"+url.PathEscape(id), representation)
 	if err != nil {
 		return err
 	}

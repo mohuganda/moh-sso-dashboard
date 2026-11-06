@@ -128,14 +128,7 @@ func (r *sqlcClientRepository) CreateClient(client *models.Client) (string, erro
 }
 
 func (r *sqlcClientRepository) GetClientByID(id uuid.UUID) (*models.Client, error) {
-	ctx := context.Background()
-
-	dbRow, err := r.db.GetClientByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	kcClient, err := r.keycloakClient.GetClientByClientID(dbRow.ClientID)
+	kcClient, err := r.keycloakClient.GetClientByID(id.String())
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +141,7 @@ func (r *sqlcClientRepository) GetClientByID(id uuid.UUID) (*models.Client, erro
 	if err := json.Unmarshal(data, &client); err != nil {
 		return nil, err
 	}
-	client.ID = dbRow.ID.String()
+	client.ID = id.String()
 	client.Secret = ""
 	return &client, nil
 }

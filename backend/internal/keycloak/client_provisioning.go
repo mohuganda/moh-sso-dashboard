@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"reflect"
 	"slices"
 
 	"github.com/moh-sso-dashboard/internal/model"
@@ -45,6 +44,11 @@ func (c *KeyAdminClient) ReconcileClientProfile(client *model.Client) error {
 			return fmt.Errorf("configure client: HTTP %d", response.StatusCode)
 		}
 		return nil
+	}
+	// Keycloak may supply default redirects/origins when creating a browserless client.
+	// Clear them explicitly through update before verifying the effective profile.
+	if err := write("PUT", path, map[string]any{"redirectUris": client.RedirectUris, "webOrigins": client.WebOrigins}); err != nil {
+		return err
 	}
 	type scope struct {
 		ID   string `json:"id"`
@@ -112,8 +116,8 @@ func (c *KeyAdminClient) ReconcileClientProfile(client *model.Client) error {
 	if err != nil {
 		return err
 	}
-	if actual.Enabled || actual.PublicClient != client.PublicClient || actual.StandardFlowEnabled != client.StandardFlow || actual.ImplicitFlowEnabled || actual.DirectAccessGrantsEnabled || actual.ServiceAccountsEnabled != client.ServiceAccounts || actual.FullScopeAllowed || !reflect.DeepEqual(actual.RedirectURIs, client.RedirectUris) || !reflect.DeepEqual(actual.WebOrigins, client.WebOrigins) {
-		return fmt.Errorf("client security verification failed; leave client disabled")
+	if actual.Enabled || actual.PublicClient != client.PublicClient || actual.StandardFlowEnabled != client.StandardFlow || actual.ImplicitFlowEnabled || actual.DirectAccessGrantsEnabled || actual.ServiceAccountsEnabled != client.ServiceAccounts || actual.FullScopeAllowed || !slices.Equal(actual.RedirectURIs, client.RedirectUris) || !slices.Equal(actual.WebOrigins, client.WebOrigins) {
+		return fmt.Errorf("client security verification failed; leave client disabled (enabled=%t, public=%t/%t, code=%t/%t, service=%t/%t, fullScope=%t, implicit=%t, direct=%t, redirects=%t, origins=%t)", actual.Enabled, actual.PublicClient, client.PublicClient, actual.StandardFlowEnabled, client.StandardFlow, actual.ServiceAccountsEnabled, client.ServiceAccounts, actual.FullScopeAllowed, actual.ImplicitFlowEnabled, actual.DirectAccessGrantsEnabled, slices.Equal(actual.RedirectURIs, client.RedirectUris), slices.Equal(actual.WebOrigins, client.WebOrigins))
 	}
 	for kind, wanted := range map[string][]string{"default": client.DefaultClientScopes, "optional": client.OptionalClientScopes} {
 		actualScopes := actual.DefaultClientScopes

@@ -6,6 +6,7 @@ import html
 import http.cookiejar
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import secrets
@@ -82,6 +83,25 @@ def run():
             assert status < 300, 'Fixture admin request failed: %s %s (%s)' % (method, path, status)
             return json.loads(raw) if raw else None
 
+        bootstrap_spec = importlib.util.spec_from_file_location(
+            'bootstrap', Path(__file__).with_name('prepare-keycloak-realm.py'))
+        bootstrap = importlib.util.module_from_spec(bootstrap_spec)
+        bootstrap_spec.loader.exec_module(bootstrap)
+        key_ids = set()
+        for environment in ('development', 'test', 'staging'):
+            realm = bootstrap.render(environment, 'https://portal.example.invalid/portal',
+                                     'https://portal.example.invalid/api/v1')
+            admin('POST', 'realms', realm)
+            users = admin('GET', 'realms/' + realm['realm'] + '/users')
+            assert all(u.get('serviceAccountClientId') for u in users), 'Human users copied between environments'
+            status, _, raw = request(base + '/realms/' + realm['realm'] + '/protocol/openid-connect/certs')
+            # HTTPS-only realms correctly reject HTTP discovery; inspect keys via the admin API.
+            keys = admin('GET', 'realms/' + realm['realm'] + '/keys')['keys']
+            ids = {key['kid'] for key in keys}
+            assert ids and not (ids & key_ids), 'Signing keys were shared between realms'
+            key_ids.update(ids)
+        print('PASS: fresh dev/test/staging realm imports and independent signing keys', flush=True)
+
         admin('POST', 'realms', {'realm': 'moh-realm', 'enabled': True, 'sslRequired': 'none',
                                  'accessTokenLifespan': 300})
 
@@ -89,26 +109,41 @@ def run():
             realm = 'moh-realm'
 
             def request(self, method, path, body=None):
-                return admin(method, 'realms/moh-realm' + path, body)
+                return admin(method, 'realms/' + self.realm + path, body)
 
             def get(self, path):
                 return self.request('GET', path)
 
-        api = API()
-        manifest = json.loads(setup.MANIFEST.read_text())
-        with tempfile.TemporaryDirectory() as directory:
-            setup.apply_plan(api, setup.build_plan(api, manifest, True), Path(directory) / 'before.json')
-            plan = setup.summary(setup.build_plan(api, manifest, True))
-            assert not plan['clientsToCreate'] and not plan['clientsToUpdate'] and not plan['testUsersToCreate']
-        print('PASS: client reconciliation, exact scopes, disabled test users and idempotence', flush=True)
+        admin('POST', 'realms/moh-realm/clients', {
+            'clientId': 'fixture-provisioner', 'enabled': True, 'publicClient': False,
+            'serviceAccountsEnabled': True, 'secret': password})
+        provisioner = admin('GET', 'realms/moh-realm/clients?clientId=fixture-provisioner')[0]
+        service_user = admin('GET', 'realms/moh-realm/clients/' + provisioner['id'] + '/service-account-user')
+        management = admin('GET', 'realms/moh-realm/clients?clientId=realm-management')[0]
+        role = admin('GET', 'realms/moh-realm/clients/' + management['id'] + '/roles/realm-admin')
+        admin('POST', 'realms/moh-realm/users/' + service_user['id'] + '/role-mappings/clients/' + management['id'], [role])
+        subprocess.run(['go', 'test', './internal/keycloak', '-run', '^TestOnboardingKeycloakRuntime$', '-count=1'],
+                       cwd=setup.ROOT / 'backend', check=True,
+                       env={**os.environ, 'ONBOARDING_KEYCLOAK_URL': base, 'ONBOARDING_KEYCLOAK_SECRET': password})
+        print('PASS: Go provisioning create/update verification for public, confidential and service profiles', flush=True)
 
-        for verified in (True, False):
-            api.request('POST', '/users', {
-                'username': 'fixture-' + str(verified), 'enabled': True,
-                'firstName': 'Fixture', 'lastName': 'User',
-                'email': 'fixture-' + str(verified).lower() + '@example.invalid',
-                'emailVerified': verified,
-                'credentials': [{'type': 'password', 'value': password, 'temporary': False}]})
+        api = API()
+        manifests = [json.loads(setup.MANIFEST.read_text()),
+                     json.loads(setup.MANIFEST.with_name('digital-timesheets-test.json').read_text())]
+        for manifest in manifests:
+            api.realm = manifest['realm']
+            with tempfile.TemporaryDirectory() as directory:
+                setup.apply_plan(api, setup.build_plan(api, manifest, True), Path(directory) / 'before.json')
+                plan = setup.summary(setup.build_plan(api, manifest, True))
+                assert not plan['clientsToCreate'] and not plan['clientsToUpdate'] and not plan['testUsersToCreate']
+            for verified in (True, False):
+                api.request('POST', '/users', {
+                    'username': 'fixture-' + str(verified), 'enabled': True,
+                    'firstName': 'Fixture', 'lastName': 'User',
+                    'email': 'fixture-' + str(verified).lower() + '@example.invalid',
+                    'emailVerified': verified,
+                    'credentials': [{'type': 'password', 'value': password, 'temporary': False}]})
+        print('PASS: client reconciliation, exact scopes, disabled test users and idempotence', flush=True)
 
         issuer = base + '/realms/moh-realm'
         oidc = issuer + '/protocol/openid-connect'
@@ -165,30 +200,33 @@ def run():
             assert exchange(client, code)[0] == 400, 'Authorization code was reusable'
             return browser, tokens
 
-        for client in manifest['clients']:
-            status, headers, _ = request(auth(client, code_challenge_method='plain'), opener=no_redirect)
-            assert status == 400 or (status == 302 and 'error=' in headers['Location']), 'Plain PKCE was allowed'
-            status, headers, _ = request(auth(client, redirect_uri=client['redirectUris'][0] + '/invalid'), opener=no_redirect)
-            assert status == 400 and 'Location' not in headers, 'Unregistered redirect was allowed'
-            status, headers, _ = request(auth(client, code_challenge='', code_challenge_method=''), opener=no_redirect)
-            assert status == 400 or (status == 302 and 'error=' in headers['Location']), 'Missing PKCE was allowed'
-            for grant in ('password', 'client_credentials'):
-                assert request(oidc + '/token', form({'client_id': client['clientId'], 'grant_type': grant,
-                                                     'username': 'fixture-True', 'password': password}))[0] >= 400
-            browser, tokens = login(client, True)
-            status, headers, _ = request(auth(client, prompt='none'), opener=browser)
-            assert status == 302 and 'code=' in headers['Location'], 'Realm SSO session was unavailable'
-            code = urllib.parse.parse_qs(urllib.parse.urlsplit(headers['Location']).query)['code'][0]
-            assert exchange(client, code, secrets.token_urlsafe(48))[0] == 400, 'Incorrect PKCE verifier was allowed'
-            logout = oidc + '/logout?' + urllib.parse.urlencode({
-                'id_token_hint': tokens['id_token'],
-                'post_logout_redirect_uri': client['attributes']['post.logout.redirect.uris']})
-            status, headers, _ = request(logout, opener=browser)
-            assert status == 302 and headers['Location'] == client['attributes']['post.logout.redirect.uris']
-            status, headers, _ = request(auth(client, prompt='none'), opener=browser)
-            assert status == 302 and 'error=login_required' in headers['Location'], 'Logout retained the SSO session'
-            login(client, False)
-            print('PASS: %s S256/code flow, claims, email negative case, CORS, SSO, logout and grant restrictions' % client['clientId'], flush=True)
+        for manifest in manifests:
+            issuer = base + "/realms/" + manifest["realm"]
+            oidc = issuer + "/protocol/openid-connect"
+            for client in manifest['clients']:
+                status, headers, _ = request(auth(client, code_challenge_method='plain'), opener=no_redirect)
+                assert status == 400 or (status == 302 and 'error=' in headers['Location']), 'Plain PKCE was allowed'
+                status, headers, _ = request(auth(client, redirect_uri=client['redirectUris'][0] + '/invalid'), opener=no_redirect)
+                assert status == 400 and 'Location' not in headers, 'Unregistered redirect was allowed'
+                status, headers, _ = request(auth(client, code_challenge='', code_challenge_method=''), opener=no_redirect)
+                assert status == 400 or (status == 302 and 'error=' in headers['Location']), 'Missing PKCE was allowed'
+                for grant in ('password', 'client_credentials'):
+                    assert request(oidc + '/token', form({'client_id': client['clientId'], 'grant_type': grant,
+                                                         'username': 'fixture-True', 'password': password}))[0] >= 400
+                browser, tokens = login(client, True)
+                status, headers, _ = request(auth(client, prompt='none'), opener=browser)
+                assert status == 302 and 'code=' in headers['Location'], 'Realm SSO session was unavailable'
+                code = urllib.parse.parse_qs(urllib.parse.urlsplit(headers['Location']).query)['code'][0]
+                assert exchange(client, code, secrets.token_urlsafe(48))[0] == 400, 'Incorrect PKCE verifier was allowed'
+                logout = oidc + '/logout?' + urllib.parse.urlencode({
+                    'id_token_hint': tokens['id_token'],
+                    'post_logout_redirect_uri': client['attributes']['post.logout.redirect.uris']})
+                status, headers, _ = request(logout, opener=browser)
+                assert status == 302 and headers['Location'] == client['attributes']['post.logout.redirect.uris']
+                status, headers, _ = request(auth(client, prompt='none'), opener=browser)
+                assert status == 302 and 'error=login_required' in headers['Location'], 'Logout retained the SSO session'
+                login(client, False)
+                print('PASS: %s S256/code flow, claims, email negative case, CORS, SSO, logout and grant restrictions' % client['clientId'], flush=True)
     finally:
         subprocess.run(['docker', 'rm', '--force', container], check=True, stdout=subprocess.DEVNULL)
 
