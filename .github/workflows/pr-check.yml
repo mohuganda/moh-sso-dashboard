@@ -138,6 +138,7 @@ jobs:
 
       - name: Digital Timesheet OIDC client contracts
         run: |
+          python3 infra/scripts/test-keycloak-environments.py
           python3 infra/scripts/test-digital-timesheets.py
           python3 infra/scripts/test-digital-timesheets-runtime.py
 

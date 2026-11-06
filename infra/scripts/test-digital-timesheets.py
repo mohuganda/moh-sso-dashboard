@@ -12,6 +12,7 @@ spec = importlib.util.spec_from_file_location('timesheets', Path(__file__).with_
 setup = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(setup)
 MANIFEST = json.loads(setup.MANIFEST.read_text())
+TEST_USERS = json.loads(setup.MANIFEST.with_name('digital-timesheets-test.json').read_text())['testUsers']
 
 
 class FakeKeycloak:
@@ -98,7 +99,7 @@ class ClientContracts(unittest.TestCase):
 
     def test_dry_run_apply_idempotence_and_disabled_test_accounts(self):
         api = FakeKeycloak()
-        plan = setup.build_plan(api, MANIFEST, True)
+        plan = setup.build_plan(api, {**MANIFEST, "testUsers": TEST_USERS}, True)
         self.assertEqual(api.writes, [])
         self.assertEqual(setup.summary(plan)['testUsersToCreate'], 4)
         with tempfile.TemporaryDirectory() as tmp:
@@ -108,7 +109,7 @@ class ClientContracts(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 setup.apply_plan(api, plan, backup)
             api.writes.clear()
-            plan = setup.build_plan(api, MANIFEST, True)
+            plan = setup.build_plan(api, {**MANIFEST, "testUsers": TEST_USERS}, True)
             self.assertEqual(setup.summary(plan)['clientsToUpdate'], [])
             setup.apply_plan(api, plan, Path(tmp) / 'repeat.json')
             self.assertEqual(api.writes, [])
@@ -124,10 +125,10 @@ class ClientContracts(unittest.TestCase):
         with self.assertRaises(ValueError):
             setup.build_plan(api, MANIFEST)
         api.realm = 'moh-realm'
-        name = MANIFEST['testUsers'][0]['username']
+        name = TEST_USERS[0]['username']
         api.users[name] = {'id': name, 'email': 'someone@example.invalid'}
         with self.assertRaises(ValueError):
-            setup.build_plan(api, MANIFEST, True)
+            setup.build_plan(api, {**MANIFEST, "testUsers": TEST_USERS}, True)
         self.assertEqual(api.writes, [])
 
     def test_reconcile_insecure_settings_without_overwriting_unrelated_attributes(self):
