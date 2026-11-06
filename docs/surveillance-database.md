@@ -19,46 +19,61 @@ migrations remain in place. Authentication and other primary stores are unaffect
 `OBSERVATORY_DB_*` is the canonical connection namespace. Existing
 `SURVEILLANCE_DB_*` files/environment remain supported as compatibility defaults;
 explicit Observatory settings take precedence, including `ENABLE_SSL=false`. The
-role defaults to the existing `surveillance` role; no database role is renamed. The container, role, network and existing data volume
-are retained. Existing explicit database names remain supported for rollback.
+role defaults to the existing `surveillance` role; no database role is renamed. The container, role and existing data volume are retained; the local service now
+shares the main development network. Existing explicit database names remain supported for rollback.
 
 ## Local container
 
-Use a private environment file based on `infra/env/surveillance.env.example`.
-The current workspace configuration is `.local-sso/surveillance.env`, mode 0600;
-credentials are not tracked. Start only the new database:
+The `observatory-db` service lives in `infra/compose/docker-compose.dev.yml`, alongside
+`remote-postgres`. The backend uses `observatory-db:5432` on the shared `sso_network`
+and waits for its health check. Starting the main development stack starts both databases.
+A fresh stack creates the `observatory_data` named volume. Development-only default
+credentials can be overridden using `OBSERVATORY_DB_USER`, `OBSERVATORY_DB_NAME`
+and `OBSERVATORY_DB_PASSWORD`; legacy `SURVEILLANCE_DB_*` values remain supported.
+The same values configure PostgreSQL and the backend.
 
 ```sh
-docker compose --env-file .local-sso/surveillance.env -f infra/compose/docker-compose.surveillance.yml up -d --wait
+docker compose -f infra/compose/docker-compose.dev.yml up -d --wait
 ```
 
-The container remains `sso-surveillance-db`, the database is `observatory`, the
-database role remains `surveillance`, and
-host access is restricted to `127.0.0.1:55434`. Its named volume persists data.
-Do not use `down -v` to stop it; that removes its data volume.
+The container remains `sso-surveillance-db` for the CSV loader. Host access is limited
+to `127.0.0.1:55434`; `OBSERVATORY_DB_LOCAL_PORT` overrides that published port.
+The database defaults to `observatory` and the existing role to `surveillance`.
+A backend running directly on the host uses this loopback address/port instead.
+Do not use `down -v`; it removes managed data volumes.
 
-Load the private variables into the process environment without printing them, then,
-from `backend/`, initialize the schema with `go run ./cmd/surveillance-db`.
-The backend also applies these migrations automatically when its dedicated connection
-is configured. Runtime images include the dedicated migration directory.
+### Adopting the existing standalone volume
 
-The current local database has been renamed in place to `observatory`; database
-and relation identifiers plus exact counts for all 13 tables were preserved. A
-private pre-rename dump and count snapshot are retained under `.local-sso/`.
+For an existing standalone container, back up the database first and inspect its
+`/var/lib/postgresql/data` volume. Stop the backend and old database, then remove
+only the old database container. Do not remove its volume. Use a private override
+so the main project adopts the populated volume instead of creating an empty one:
 
-The current local development backend has been switched using
-`docker-compose.surveillance-backend.override.yml`; its readiness check passed.
-A private snapshot of its previous environment is stored in
-`.local-sso/backend-before-surveillance.override.json` (mode 0600). Neither private
-file belongs in Git. The standalone database and its import were verified after a
-container recreation.
+```yaml
+volumes:
+  observatory_data:
+    external: true
+    name: moh-surveillance_surveillance_data
+```
 
-For a backend running directly on the host, use the private file's connection settings.
-For a backend in Docker, attach it to the surveillance container's Docker network and
-use `sso-surveillance-db:5432` instead of `127.0.0.1:55434`. Only enable the new connection
-after importing or transferring and checking the data. File-backed passwords are
-supported with `OBSERVATORY_DB_PASSWORD_FILE` (or the legacy
-`SURVEILLANCE_DB_PASSWORD_FILE`) by the backend entrypoint.
+The current workspace keeps this override at `.local-sso/observatory-volume.override.json`
+and credentials at `.local-sso/surveillance.env`, both mode 0600. Its saved backend
+environment remains private in `.local-sso/backend-before-surveillance.override.json`.
+Start the adopted service and backend with:
+
+```sh
+docker compose --env-file .local-sso/surveillance.env -f infra/compose/docker-compose.dev.yml -f .local-sso/backend-before-surveillance.override.json -f .local-sso/observatory-volume.override.json up -d --no-deps --wait observatory-db backend
+```
+
+Check readiness and compare all table counts before resuming writes. The main
+project now manages both containers; the separate surveillance Compose files and
+external network override are no longer needed. The existing data volume remains
+external and is retained by Compose teardown. No production configuration is changed.
+
+Load private variables into the environment without printing them, then, from
+`backend/`, initialize the schema with `go run ./cmd/surveillance-db`. The backend
+also applies the dedicated versioned migrations automatically. File-backed passwords
+remain supported through `OBSERVATORY_DB_PASSWORD_FILE` and its legacy alias.
 
 ## Rename an existing local database
 
@@ -74,7 +89,7 @@ All connections to the old database must be closed first. This preserves tables,
 IDs, ownership, migration history, staging and facts; it does not reimport data.
 Set the private `SURVEILLANCE_DB_NAME=observatory`, recreate the database container
 without removing its volume to update its health check, then recreate the backend
-using the updated override. Compare table counts and verify readiness. Keep the
+using the updated database name. Compare table counts and verify readiness. Keep the
 backup private. Rollback uses the inverse rename while the backend is stopped and
 restores the prior connection name. Production database changes are separate from
 this local procedure.
@@ -169,15 +184,10 @@ Identical observations and alert identities explain why processed source counts
 are larger than normalized record counts. These are local fixture/import results,
 not evidence of a production migration or cutover.
 
-To return the current local development backend to its saved primary-database settings:
-
-```sh
-docker compose -p moh-sso-dashboard-dev -f infra/compose/docker-compose.dev.yml -f .local-sso/backend-before-surveillance.override.json up -d --no-deps backend
-```
-
-To reapply the isolated connection, add `--env-file .local-sso/surveillance.env`
-and `-f infra/compose/docker-compose.surveillance-backend.override.yml` to that
-Compose command before `up`. This is local-only and does not alter production.
+To temporarily use the primary database again, set the backend's explicit
+`OBSERVATORY_DB_HOST` to an empty string in a private Compose override and recreate
+only the backend. Restoring `observatory-db` reconnects the dedicated database.
+Keep the adopted-volume override on subsequent local Compose commands.
 
 ## Observatory configuration names
 

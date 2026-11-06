@@ -15,6 +15,7 @@ volumes:
   keycloak_data:
   backend_data:
   remote_pg_data:
+  observatory_data:
   redis_data:
   upload_data:
   frontend_node_modules:
@@ -118,6 +119,23 @@ services:
       timeout: 3s
       retries: 20
 
+  observatory-db:
+    <<: *service
+    image: postgres:15-alpine
+    container_name: sso-surveillance-db # retained for the CSV loader
+    shm_size: 256mb
+    environment:
+      POSTGRES_USER: ${OBSERVATORY_DB_USER:-${SURVEILLANCE_DB_USER:-surveillance}}
+      POSTGRES_PASSWORD: ${OBSERVATORY_DB_PASSWORD:-${SURVEILLANCE_DB_PASSWORD:-dev_observatory_only}}
+      POSTGRES_DB: ${OBSERVATORY_DB_NAME:-${SURVEILLANCE_DB_NAME:-observatory}}
+    volumes: [observatory_data:/var/lib/postgresql/data]
+    ports: ["127.0.0.1:${OBSERVATORY_DB_LOCAL_PORT:-${SURVEILLANCE_DB_LOCAL_PORT:-55434}}:5432"]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   backend:
     <<: *service
     build: {context: ../.., dockerfile: infra/docker/backend/Dockerfile.dev}
@@ -151,6 +169,12 @@ services:
       DWH_USERNAME: ${REMOTE_DB_USER:-dev_uploads}
       DWH_PASSWORD: ${REMOTE_DB_PASSWORD:-dev_uploads_only}
       DWH_DB: ${REMOTE_DB_NAME:-file_upload}
+      OBSERVATORY_DB_HOST: observatory-db
+      OBSERVATORY_DB_PORT: "5432"
+      OBSERVATORY_DB_NAME: ${OBSERVATORY_DB_NAME:-${SURVEILLANCE_DB_NAME:-observatory}}
+      OBSERVATORY_DB_USER: ${OBSERVATORY_DB_USER:-${SURVEILLANCE_DB_USER:-surveillance}}
+      OBSERVATORY_DB_PASSWORD: ${OBSERVATORY_DB_PASSWORD:-${SURVEILLANCE_DB_PASSWORD:-dev_observatory_only}}
+      OBSERVATORY_DB_ENABLE_SSL: "false"
       DQA_DB_USERNAME: ${REMOTE_DB_USER:-dev_uploads}
       DQA_DB_PASSWORD: ${REMOTE_DB_PASSWORD:-dev_uploads_only}
       KEYCLOAK_INTERNAL_URL: http://keycloak:8080
@@ -178,6 +202,7 @@ services:
     depends_on:
       backend-db: {condition: service_healthy}
       remote-postgres: {condition: service_healthy}
+      observatory-db: {condition: service_healthy}
       redis: {condition: service_healthy}
       keycloak: {condition: service_healthy}
       mailhog: {condition: service_started}
