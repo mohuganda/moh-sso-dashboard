@@ -1441,6 +1441,7 @@ RBAC and onboarding docs:
 | [`docs/rbac-governance.md`](docs/rbac-governance.md) | RBAC governance center behavior and workflows. |
 | [`docs/rbac-usage.md`](docs/rbac-usage.md) | How RBAC permissions are used by backend and frontend. |
 | [`docs/system-onboarding.md`](docs/system-onboarding.md) | How to onboard a new Keycloak client/system. |
+| [`docs/keycloak-digital-timesheets.md`](docs/keycloak-digital-timesheets.md) | Health Workforce Portal OIDC clients, test users and existing-realm setup. |
 | [`docs/platform-onboarding.md`](docs/platform-onboarding.md) | Illustrated end-to-end onboarding for external apps, hosted single-spa modules, and existing-system modules. |
 | [`docs/templates/application-onboarding-record.md`](docs/templates/application-onboarding-record.md) | Reusable onboarding, acceptance, and handover record. |
 | [`docs/tooling.md`](docs/tooling.md) | Project-wide doctor/audit/tooling commands. |

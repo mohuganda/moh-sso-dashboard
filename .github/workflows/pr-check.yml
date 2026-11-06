@@ -136,6 +136,11 @@ jobs:
       - name: Human-user Keycloak default reconciliation
         run: python3 infra/scripts/test-reconcile-user-defaults.py
 
+      - name: Digital Timesheet OIDC client contracts
+        run: |
+          python3 infra/scripts/test-digital-timesheets.py
+          python3 infra/scripts/test-digital-timesheets-runtime.py
+
       - name: Backend version consistency
         working-directory: backend
         run: ./scripts/check-version-consistency.sh
