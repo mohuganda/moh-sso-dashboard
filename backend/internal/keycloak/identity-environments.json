@@ -1,0 +1,6 @@
+{
+  "development": "moh-dev",
+  "test": "moh-test",
+  "staging": "moh-staging",
+  "production": "moh-realm"
+}
