@@ -47,7 +47,8 @@
     "@moh-sso/types": "^1.2.3",
     "@moh-sso/ui": "^1.2.3",
     "@moh-sso/config": "^1.2.3",
-    "@moh-sso/rbac": "~1.2.3"
+    "@moh-sso/rbac": "~1.2.3",
+    "@moh-sso/auth": "^1.2.3"
   },
   "peerDependencies": {
     "@carbon/react": "^1.95.0",
