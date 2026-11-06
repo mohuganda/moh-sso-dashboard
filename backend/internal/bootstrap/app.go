@@ -120,11 +120,11 @@ func Run() {
 	// ==================================================
 	// REPOSITORIES
 	// ==================================================
-	surveillanceStore := store
-	if dbs.Surveillance != nil {
-		surveillanceStore = storepkg.NewStore(dbs.Surveillance)
+	observatoryStore := store
+	if dbs.Observatory != nil {
+		observatoryStore = storepkg.NewStore(dbs.Observatory)
 	}
-	repos := buildRepositories(cfg, store, surveillanceStore, adminKC, webKC, appLogger)
+	repos := buildRepositories(cfg, store, observatoryStore, adminKC, webKC, appLogger)
 
 	// ==================================================
 	// SERVICES

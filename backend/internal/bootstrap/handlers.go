@@ -127,8 +127,8 @@ func buildHandlers(deps handlerDependencies) handlers {
 			if err := db.PingDB(ctx, deps.Databases.Primary); err != nil {
 				return err
 			}
-			if deps.Databases.Surveillance != nil {
-				return db.PingDB(ctx, deps.Databases.Surveillance)
+			if deps.Databases.Observatory != nil {
+				return db.PingDB(ctx, deps.Databases.Observatory)
 			}
 			return nil
 		},

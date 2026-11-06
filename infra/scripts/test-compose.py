@@ -161,13 +161,28 @@ class ComposeTests(unittest.TestCase):
         self.assertEqual(backend['environment']['DWH_HOST'], 'remote-postgres')
         self.assertEqual(backend['environment']['SMTP_HOST'], 'mailhog')
         self.assertEqual(backend['environment']['ENVIRONMENT'], 'development')
-        for name in ('backend-db', 'remote-postgres', 'redis', 'keycloak'):
+        for name in ('backend-db', 'remote-postgres', 'observatory-db', 'redis', 'keycloak'):
             self.assertEqual(backend['depends_on'][name]['condition'], 'service_healthy')
         published = {int(port['published']) for port in services['frontend']['ports']}
         self.assertTrue({3000, *range(4101, 4116)} <= published)
         for service in services.values():
             for port in service.get('ports', []):
                 self.assertEqual(port['host_ip'], '127.0.0.1')
+
+    def test_observatory_is_in_main_development_stack(self):
+        for values in ({}, {'OBSERVATORY_DB_PASSWORD': 'canonical-fixture'}):
+            model = config('infra/compose/docker-compose.dev.yml', 'infra/env/dev.env.example', **values)
+            db = model['services']['observatory-db']
+            api = model['services']['backend']
+            self.assertEqual(api['environment']['OBSERVATORY_DB_HOST'], 'observatory-db')
+            for pg, app in [('USER', 'USER'), ('DB', 'NAME'), ('PASSWORD', 'PASSWORD')]:
+                self.assertEqual(db['environment']['POSTGRES_' + pg],
+                                 api['environment']['OBSERVATORY_DB_' + app])
+            self.assertEqual(db['environment']['POSTGRES_DB'], 'observatory')
+            self.assertEqual(set(db['networks']), set(api['networks']))
+            self.assertEqual(db['volumes'][0]['source'], 'observatory_data')
+            expected = values.get('OBSERVATORY_DB_PASSWORD', 'dev_observatory_only')
+            self.assertEqual(db['environment']['POSTGRES_PASSWORD'], expected)
 
     def test_user_development_env_wins_over_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -76,8 +76,10 @@ def main():
                 assert 'never-publish' not in text
 
             backend = tmp / 'backend'
-            for path in ('infra/docker/backend', 'fixture/internal/db/migrations', 'fixture/config'):
+            for path in ('infra/docker/backend', 'fixture/internal/db/migrations', 'fixture/internal/db/surveillance_migrations', 'fixture/config', 'fixture/assets/geojson'):
                 (backend / path).mkdir(parents=True)
+            for filename in ('uganda_districts.geojson', 'uganda_subcounties.geojson', 'uga_water.geojson'):
+                (backend / 'fixture/assets/geojson' / filename).write_text('{"type":"FeatureCollection","features":[]}')
             entrypoint = ROOT / 'infra/docker/backend/entrypoint.sh'
             (backend / 'infra/docker/backend/entrypoint.sh').write_bytes(entrypoint.read_bytes())
             executable = backend / 'fixture/sso-server'
@@ -85,7 +87,12 @@ def main():
 set -eu
 if [ "${1:-}" = --version ]; then printf 'runtime-version-argument-ok'; exit 0; fi
 test "$DB_PASSWORD" = 'fixture-password'
+test "$OBSERVATORY_DB_PASSWORD" = 'fixture-password'
 test "$(id -u)" != 0
+for filename in uganda_districts.geojson uganda_subcounties.geojson uga_water.geojson; do
+  test -r "/app/assets/geojson/$filename"
+  test -s "/app/assets/geojson/$filename"
+done
 touch /data/uploads/runtime-permission-check
 printf 'secret-loading-and-nonroot-upload-ok'
 ''')
@@ -101,7 +108,9 @@ printf 'secret-loading-and-nonroot-upload-ok'
             secret.chmod(0o600)
             result = docker('run', '--rm', '-v', f'{secret}:/run/secrets/db:ro',
                             '-v', '/data/uploads', '-e', 'DB_PASSWORD=placeholder',
-                            '-e', 'DB_PASSWORD_FILE=/run/secrets/db', image)
+                            '-e', 'DB_PASSWORD_FILE=/run/secrets/db',
+                            '-e', 'OBSERVATORY_DB_PASSWORD=placeholder',
+                            '-e', 'OBSERVATORY_DB_PASSWORD_FILE=/run/secrets/db', image)
             assert result == 'secret-loading-and-nonroot-upload-ok'
 
             # Use the exact development healthcheck against a fresh local IdP.

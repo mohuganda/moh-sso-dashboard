@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real PostgreSQL import regression; opt in with SURVEILLANCE_DOCKER_TEST=1."""
+"""Real PostgreSQL import regression; opt in with OBSERVATORY_DOCKER_TEST=1."""
 import csv
 import os
 from pathlib import Path
@@ -11,16 +11,16 @@ import uuid
 
 ROOT=Path(__file__).resolve().parents[2]
 
-@unittest.skipUnless(os.environ.get('SURVEILLANCE_DOCKER_TEST')=='1','requires local Docker')
-class SurveillanceDatabaseTest(unittest.TestCase):
+@unittest.skipUnless(os.environ.get('OBSERVATORY_DOCKER_TEST')=='1','requires local Docker')
+class ObservatoryDatabaseTest(unittest.TestCase):
  def test_isolated_import_preserves_conflicts_and_week_zero_and_retries(self):
-  container='surveillance-test-'+uuid.uuid4().hex[:10]
-  subprocess.run(['docker','run','-d','--name',container,'--tmpfs','/var/lib/postgresql/data','-e','POSTGRES_USER=surveillance','-e','POSTGRES_DB=surveillance','-e','POSTGRES_PASSWORD=fixture-only','postgres:15-alpine'],check=True,stdout=subprocess.DEVNULL)
+  container='observatory-test-'+uuid.uuid4().hex[:10]
+  subprocess.run(['docker','run','-d','--name',container,'--tmpfs','/var/lib/postgresql/data','-e','POSTGRES_USER=observatory','-e','POSTGRES_DB=observatory','-e','POSTGRES_PASSWORD=fixture-only','postgres:15-alpine'],check=True,stdout=subprocess.DEVNULL)
   self.addCleanup(lambda: subprocess.run(['docker','rm','-f',container],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
   def query(sql):
-   return subprocess.check_output(['docker','exec','-i',container,'psql','-X','-v','ON_ERROR_STOP=1','-U','surveillance','-d','surveillance','-Atq'],input=sql,text=True).strip()
+   return subprocess.check_output(['docker','exec','-i',container,'psql','-X','-v','ON_ERROR_STOP=1','-U','observatory','-d','observatory','-Atq'],input=sql,text=True).strip()
   for _ in range(60):
-   result=subprocess.run(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U','surveillance'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+   result=subprocess.run(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U','observatory','-d','observatory'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
    if result.returncode==0:break
    time.sleep(0.5)
   # pg_isready can briefly see the bootstrap server before its final restart.
@@ -43,7 +43,7 @@ class SurveillanceDatabaseTest(unittest.TestCase):
    write('flags.csv',['weeks','maroon','red','yellow','green'],[[0,"['Measles']",'[]','[]','[]'],[1,"['Measles']",'[]','[]','[]']])
    write('region_flags.csv',['weeks','region','maroon','red','yellow','green'],[[1,'Region A','[]',"['Measles']",'[]','[]']])
    write('district_flags.csv',['weeks','district','maroon','red','yellow','green'],[[1,'District A','[]','[]',"['Measles']",'[]']])
-   command=['python3',str(ROOT/'infra/scripts/load-surveillance.py'),'--container',container,'--directory',str(directory),'--flag-year','2026']
+   command=['python3',str(ROOT/'infra/scripts/load-surveillance.py'),'--container',container,'--db-user','observatory','--directory',str(directory),'--flag-year','2026']
    subprocess.run(command,check=True,stdout=subprocess.DEVNULL)
    self.assertEqual(query('SELECT count(*) FROM facility_weekly_metrics;'),'2')
    self.assertEqual(query('SELECT count(*) FROM weekly_status;'),'3')
