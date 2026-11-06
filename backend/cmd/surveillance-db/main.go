@@ -18,9 +18,6 @@ func main() {
 		if value, ok := os.LookupEnv("OBSERVATORY_DB_" + key); ok {
 			return value
 		}
-		if value, ok := os.LookupEnv("SURVEILLANCE_DB_" + key); ok {
-			return value
-		}
 		return fallback
 	}
 	ssl, err := strconv.ParseBool(setting("ENABLE_SSL", "false"))

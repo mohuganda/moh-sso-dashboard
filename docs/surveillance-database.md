@@ -16,11 +16,10 @@ initializer. It targets the DWH host, port and database, optionally using its ow
 The observatory connection uses the same pool initializer and repository injection
 pattern but keeps its own PostgreSQL container and database. Versioned surveillance
 migrations remain in place. Authentication and other primary stores are unaffected.
-`OBSERVATORY_DB_*` is the canonical connection namespace. Existing
-`SURVEILLANCE_DB_*` files/environment remain supported as compatibility defaults;
-explicit Observatory settings take precedence, including `ENABLE_SSL=false`. The
-role defaults to the existing `surveillance` role; no database role is renamed. The container, role and existing data volume are retained; the local service now
-shares the main development network. Existing explicit database names remain supported for rollback.
+`OBSERVATORY_DB_*` is the only connection namespace. The PostgreSQL role remains
+`surveillance` and the existing populated volume and versioned migrations are retained.
+The local database container is `sso-observatory-db` on the main development network.
+
 
 ## Local container
 
@@ -29,14 +28,14 @@ The `observatory-db` service lives in `infra/compose/docker-compose.dev.yml`, al
 and waits for its health check. Starting the main development stack starts both databases.
 A fresh stack creates the `observatory_data` named volume. Development-only default
 credentials can be overridden using `OBSERVATORY_DB_USER`, `OBSERVATORY_DB_NAME`
-and `OBSERVATORY_DB_PASSWORD`; legacy `SURVEILLANCE_DB_*` values remain supported.
+and `OBSERVATORY_DB_PASSWORD`.
 The same values configure PostgreSQL and the backend.
 
 ```sh
 docker compose -f infra/compose/docker-compose.dev.yml up -d --wait
 ```
 
-The container remains `sso-surveillance-db` for the CSV loader. Host access is limited
+The container is `sso-observatory-db`, also the CSV loader default. Host access is limited
 to `127.0.0.1:55434`; `OBSERVATORY_DB_LOCAL_PORT` overrides that published port.
 The database defaults to `observatory` and the existing role to `surveillance`.
 A backend running directly on the host uses this loopback address/port instead.
@@ -57,12 +56,12 @@ volumes:
 ```
 
 The current workspace keeps this override at `.local-sso/observatory-volume.override.json`
-and credentials at `.local-sso/surveillance.env`, both mode 0600. Its saved backend
+and credentials at `.local-sso/observatory.env`, both mode 0600. Its saved backend
 environment remains private in `.local-sso/backend-before-surveillance.override.json`.
 Start the adopted service and backend with:
 
 ```sh
-docker compose --env-file .local-sso/surveillance.env -f infra/compose/docker-compose.dev.yml -f .local-sso/backend-before-surveillance.override.json -f .local-sso/observatory-volume.override.json up -d --no-deps --wait observatory-db backend
+docker compose --env-file .local-sso/observatory.env -f infra/compose/docker-compose.dev.yml -f .local-sso/backend-before-surveillance.override.json -f .local-sso/observatory-volume.override.json up -d --no-deps --wait observatory-db backend
 ```
 
 Check readiness and compare all table counts before resuming writes. The main
@@ -73,7 +72,7 @@ external and is retained by Compose teardown. No production configuration is cha
 Load private variables into the environment without printing them, then, from
 `backend/`, initialize the schema with `go run ./cmd/surveillance-db`. The backend
 also applies the dedicated versioned migrations automatically. File-backed passwords
-remain supported through `OBSERVATORY_DB_PASSWORD_FILE` and its legacy alias.
+remain supported through `OBSERVATORY_DB_PASSWORD_FILE` in the backend entrypoint.
 
 ## Rename an existing local database
 
@@ -82,12 +81,12 @@ already populated container, take a backup, stop the local backend, and rename t
 database while connected to `postgres`:
 
 ```sh
-docker exec sso-surveillance-db psql -X -v ON_ERROR_STOP=1 -U surveillance -d postgres -c 'ALTER DATABASE surveillance RENAME TO observatory;'
+docker exec sso-observatory-db psql -X -v ON_ERROR_STOP=1 -U surveillance -d postgres -c 'ALTER DATABASE surveillance RENAME TO observatory;'
 ```
 
 All connections to the old database must be closed first. This preserves tables,
 IDs, ownership, migration history, staging and facts; it does not reimport data.
-Set the private `SURVEILLANCE_DB_NAME=observatory`, recreate the database container
+Set the private `OBSERVATORY_DB_NAME=observatory`, recreate the database container
 without removing its volume to update its health check, then recreate the backend
 using the updated database name. Compare table counts and verify readiness. Keep the
 backup private. Rollback uses the inverse rename while the backend is stopped and
@@ -166,7 +165,7 @@ rollback. Removal of legacy tables requires a separate reviewed migration.
 
 ```sh
 python3 infra/scripts/test-load-surveillance.py
-SURVEILLANCE_DOCKER_TEST=1 python3 infra/scripts/test-surveillance-database.py
+OBSERVATORY_DOCKER_TEST=1 python3 infra/scripts/test-surveillance-database.py
 cd backend && go test ./...
 ```
 
@@ -191,16 +190,27 @@ Keep the adopted-volume override on subsequent local Compose commands.
 
 ## Observatory configuration names
 
-Canonical settings are `OBSERVATORY_DB_HOST`, `OBSERVATORY_DB_PORT`,
+Settings are `OBSERVATORY_DB_HOST`, `OBSERVATORY_DB_PORT`,
 `OBSERVATORY_DB_NAME`, `OBSERVATORY_DB_USER`, `OBSERVATORY_DB_PASSWORD`, and
-`OBSERVATORY_DB_ENABLE_SSL`. Legacy `SURVEILLANCE_DB_*` values are used when the
-corresponding canonical key is unset. An explicit empty canonical host disables
-the isolated connection. A configured host requires all credentials; there is no
-fallback to the primary database after a connection or migration failure.
+`OBSERVATORY_DB_ENABLE_SSL`. An empty host disables the isolated connection.
+A configured host requires all credentials; there is no fallback to the primary
+database after a connection or migration failure. Previous `SURVEILLANCE_DB_*`
+settings are no longer read: migrate private environment and password-file keys
+before restarting an existing installation with this version. The local host-process
+example is `infra/env/observatory.env.example`; Compose sets its internal hostname
+and port explicitly.
 
-The standalone `cmd/surveillance-db` initializer accepts either namespace. Its
-command and the `internal/db/surveillance_migrations` directory retain their module
-names; existing migration versions and data are preserved. The import integration
-test accepts `OBSERVATORY_DOCKER_TEST=1` and the legacy CI flag
-`SURVEILLANCE_DOCKER_TEST=1`. The loader's `--db-user` selects a non-default role
-without renaming the role in an existing container.
+The standalone `cmd/surveillance-db` initializer uses the same Observatory settings.
+Its command and the `internal/db/surveillance_migrations` directory retain their
+module names; existing migration versions and data are preserved. Enable the import
+integration test with `OBSERVATORY_DOCKER_TEST=1`. The loader's `--db-user` selects
+a non-default role without renaming the role in an existing container.
+
+### Existing local container rename
+
+The old container name was `sso-surveillance-db`. Stop the backend, then stop and
+remove only that old container before starting `observatory-db` with the main Compose
+file, private Observatory environment and external-volume override described above.
+Compose creates `sso-observatory-db` using the same volume. Do not remove or recreate
+the volume, PostgreSQL role, database, tables or migration history. Keep a private
+backup and verify table counts and readiness after the change.

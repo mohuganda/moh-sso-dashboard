@@ -126,10 +126,7 @@ class ComposeTests(unittest.TestCase):
                           'KEYCLOAK_DB_PASSWORD', 'KEYCLOAK_ADMIN', 'KEYCLOAK_ADMIN_PASSWORD', 'KEYCLOAK_HOSTNAME'}
         for example in ('infra/env/prod.env.example', 'infra/env/dev.env.example'):
             declared = set(re.findall(r'^([A-Z][A-Z0-9_]+)=', (ROOT / example).read_text(), re.M))
-            # Canonical alias overrides are documented but unset, so legacy envs keep working.
-            optional = set(re.findall(r'^# (OBSERVATORY_DB_[A-Z_]+)=', (ROOT / example).read_text(), re.M))
-            self.assertFalse(fields - infrastructure - declared - optional,
-                             (example, fields - infrastructure - declared - optional))
+            self.assertFalse(fields - infrastructure - declared, (example, fields - infrastructure - declared))
 
     def test_production_database_redis_secrets_and_remote_binding(self):
         services = config('infra/compose/docker-compose.prod.yml', DB_USER='custom_owner', DB_NAME='custom_database',
@@ -173,9 +170,7 @@ class ComposeTests(unittest.TestCase):
                 self.assertEqual(port['host_ip'], '127.0.0.1')
 
     def test_observatory_is_in_main_development_stack(self):
-        for values in ({}, {'SURVEILLANCE_DB_PASSWORD': 'legacy-fixture'},
-                       {'OBSERVATORY_DB_PASSWORD': 'canonical-fixture',
-                        'SURVEILLANCE_DB_PASSWORD': 'legacy-fixture'}):
+        for values in ({}, {'OBSERVATORY_DB_PASSWORD': 'canonical-fixture'}):
             model = config('infra/compose/docker-compose.dev.yml', 'infra/env/dev.env.example', **values)
             db = model['services']['observatory-db']
             api = model['services']['backend']
@@ -186,7 +181,7 @@ class ComposeTests(unittest.TestCase):
             self.assertEqual(db['environment']['POSTGRES_DB'], 'observatory')
             self.assertEqual(set(db['networks']), set(api['networks']))
             self.assertEqual(db['volumes'][0]['source'], 'observatory_data')
-            expected = values.get('OBSERVATORY_DB_PASSWORD', values.get('SURVEILLANCE_DB_PASSWORD', 'dev_observatory_only'))
+            expected = values.get('OBSERVATORY_DB_PASSWORD', 'dev_observatory_only')
             self.assertEqual(db['environment']['POSTGRES_PASSWORD'], expected)
 
     def test_user_development_env_wins_over_fallback(self):

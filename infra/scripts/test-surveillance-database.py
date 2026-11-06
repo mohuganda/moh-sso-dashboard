@@ -11,7 +11,7 @@ import uuid
 
 ROOT=Path(__file__).resolve().parents[2]
 
-@unittest.skipUnless((os.environ.get('OBSERVATORY_DOCKER_TEST')=='1' or os.environ.get('SURVEILLANCE_DOCKER_TEST')=='1'),'requires local Docker')
+@unittest.skipUnless(os.environ.get('OBSERVATORY_DOCKER_TEST')=='1','requires local Docker')
 class ObservatoryDatabaseTest(unittest.TestCase):
  def test_isolated_import_preserves_conflicts_and_week_zero_and_retries(self):
   container='observatory-test-'+uuid.uuid4().hex[:10]

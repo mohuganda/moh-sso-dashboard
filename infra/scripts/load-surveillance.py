@@ -81,7 +81,7 @@ def stage(container, path, dataset, year, database="observatory", db_user="surve
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--container', default='sso-surveillance-db')
+    parser.add_argument('--container', default='sso-observatory-db')
     parser.add_argument('--db-user', default='surveillance', help='PostgreSQL role for the target database')
     parser.add_argument('--database', default='observatory', help='Target database; use surveillance for an existing database before renaming')
     parser.add_argument('--directory', type=Path, default=ROOT / 'surveillance')

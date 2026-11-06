@@ -115,13 +115,6 @@ type Config struct {
 	ObservatoryDBUser      string `mapstructure:"OBSERVATORY_DB_USER"`
 	ObservatoryDBPassword  string `mapstructure:"OBSERVATORY_DB_PASSWORD"`
 	ObservatoryDBEnableSSL bool   `mapstructure:"OBSERVATORY_DB_ENABLE_SSL"`
-	// Legacy settings remain readable during the Observatory configuration transition.
-	SurveillanceDBHost      string `mapstructure:"SURVEILLANCE_DB_HOST"`
-	SurveillanceDBPort      string `mapstructure:"SURVEILLANCE_DB_PORT"`
-	SurveillanceDBName      string `mapstructure:"SURVEILLANCE_DB_NAME"`
-	SurveillanceDBUser      string `mapstructure:"SURVEILLANCE_DB_USER"`
-	SurveillanceDBPassword  string `mapstructure:"SURVEILLANCE_DB_PASSWORD"`
-	SurveillanceDBEnableSSL bool   `mapstructure:"SURVEILLANCE_DB_ENABLE_SSL"`
 
 	// ==================================================
 	// Redis
@@ -281,8 +274,6 @@ func LoadConfig(path string) (*Config, error) {
 		_ = viper.BindEnv(key, env)
 	}
 
-	setObservatoryDefaults()
-
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, err
@@ -298,12 +289,12 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 func setDefaults() {
-	viper.SetDefault("SURVEILLANCE_DB_HOST", "")
-	viper.SetDefault("SURVEILLANCE_DB_PORT", "5432")
-	viper.SetDefault("SURVEILLANCE_DB_NAME", "observatory")
-	viper.SetDefault("SURVEILLANCE_DB_USER", "surveillance")
-	viper.SetDefault("SURVEILLANCE_DB_PASSWORD", "")
-	viper.SetDefault("SURVEILLANCE_DB_ENABLE_SSL", false)
+	viper.SetDefault("OBSERVATORY_DB_HOST", "")
+	viper.SetDefault("OBSERVATORY_DB_PORT", "5432")
+	viper.SetDefault("OBSERVATORY_DB_NAME", "observatory")
+	viper.SetDefault("OBSERVATORY_DB_USER", "surveillance")
+	viper.SetDefault("OBSERVATORY_DB_PASSWORD", "")
+	viper.SetDefault("OBSERVATORY_DB_ENABLE_SSL", false)
 
 	viper.SetDefault("PLATFORM_AUTH_CLIENT_ID", "")
 	viper.SetDefault("PLATFORM_AUTH_CLIENT_SECRET", "")
@@ -871,12 +862,6 @@ func (c *Config) DqaDbSource() string {
 		c.DWHDBName,
 		sslMode,
 	)
-}
-
-func setObservatoryDefaults() {
-	for _, key := range []string{"HOST", "PORT", "NAME", "USER", "PASSWORD", "ENABLE_SSL"} {
-		viper.SetDefault("OBSERVATORY_DB_"+key, viper.Get("SURVEILLANCE_DB_"+key))
-	}
 }
 
 func (c *Config) ObservatoryDBSource() (string, error) {

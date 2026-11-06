@@ -3,7 +3,6 @@ package config
 import (
 	"net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -29,7 +28,7 @@ func TestObservatoryDBSource(t *testing.T) {
 	}
 }
 
-func TestObservatoryEnvironmentCompatibility(t *testing.T) {
+func TestObservatoryEnvironment(t *testing.T) {
 	for _, tc := range []struct {
 		name                                 string
 		env                                  map[string]string
@@ -37,9 +36,9 @@ func TestObservatoryEnvironmentCompatibility(t *testing.T) {
 		ssl                                  bool
 	}{
 		{name: "unconfigured", env: map[string]string{}, port: "5432", database: "observatory", user: "surveillance"},
-		{name: "legacy", env: map[string]string{"SURVEILLANCE_DB_HOST": "legacy-db", "SURVEILLANCE_DB_PORT": "55434", "SURVEILLANCE_DB_NAME": "surveillance", "SURVEILLANCE_DB_USER": "existing-role", "SURVEILLANCE_DB_PASSWORD": "legacy-pass", "SURVEILLANCE_DB_ENABLE_SSL": "true"}, host: "legacy-db", port: "55434", database: "surveillance", user: "existing-role", password: "legacy-pass", ssl: true},
+		{name: "removed settings ignored", env: map[string]string{"SURVEILLANCE_DB_HOST": "legacy-db", "SURVEILLANCE_DB_PASSWORD": "legacy-pass"}, port: "5432", database: "observatory", user: "surveillance"},
 		{name: "canonical", env: map[string]string{"OBSERVATORY_DB_HOST": "obs-db", "OBSERVATORY_DB_PASSWORD": "obs-pass"}, host: "obs-db", port: "5432", database: "observatory", user: "surveillance", password: "obs-pass"},
-		{name: "canonical overrides legacy including false SSL", env: map[string]string{"OBSERVATORY_DB_HOST": "obs-db", "OBSERVATORY_DB_PASSWORD": "obs-pass", "OBSERVATORY_DB_ENABLE_SSL": "false", "SURVEILLANCE_DB_HOST": "legacy-db", "SURVEILLANCE_DB_PASSWORD": "legacy-pass", "SURVEILLANCE_DB_ENABLE_SSL": "true"}, host: "obs-db", port: "5432", database: "observatory", user: "surveillance", password: "obs-pass"},
+		{name: "canonical ignores removed settings including SSL", env: map[string]string{"OBSERVATORY_DB_HOST": "obs-db", "OBSERVATORY_DB_PASSWORD": "obs-pass", "OBSERVATORY_DB_ENABLE_SSL": "false", "SURVEILLANCE_DB_HOST": "legacy-db", "SURVEILLANCE_DB_PASSWORD": "legacy-pass", "SURVEILLANCE_DB_ENABLE_SSL": "true"}, host: "obs-db", port: "5432", database: "observatory", user: "surveillance", password: "obs-pass"},
 		{name: "explicit disable", env: map[string]string{"OBSERVATORY_DB_HOST": "", "SURVEILLANCE_DB_HOST": "legacy-db"}, port: "5432", database: "observatory", user: "surveillance"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -64,7 +63,6 @@ func TestObservatoryEnvironmentCompatibility(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			setObservatoryDefaults()
 			var c Config
 			if err := viper.Unmarshal(&c); err != nil {
 				t.Fatal(err)
@@ -74,12 +72,9 @@ func TestObservatoryEnvironmentCompatibility(t *testing.T) {
 				t.Fatal("incorrect effective Observatory settings")
 			}
 			if c.ObservatoryDBHost != "" {
-				dsn, err := c.ObservatoryDBSource()
+				_, err := c.ObservatoryDBSource()
 				if err != nil {
 					t.Fatal(err)
-				}
-				if strings.Contains(dsn, "legacy-pass") && tc.password != "legacy-pass" {
-					t.Fatal("legacy credential was preferred over canonical credential")
 				}
 			}
 		})
