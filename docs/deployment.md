@@ -87,7 +87,12 @@ same CLI env file for Postgres user/database and Redis authentication. The backe
 always uses production/release mode, HTTP port 9000 and disabled auth bypass.
 Public TLS terminates at Nginx. Frontend receives public runtime settings only;
 its entrypoint writes JSON-escaped `config.js` at root and `/portal/config.js`.
-`API_BASE_URL` is normally `/ssobackend`.
+`API_BASE_URL` defaults to `/api` for the whole-host gateway. The frontend resolves
+that to `/api/v1/...` and fetches version metadata from `/version`. Explicit
+service bases such as `/ssobackend`, `/backend`, or `http://localhost:9000` remain
+supported; a trailing `/api` is accepted without duplicating the API path.
+Shared-host routing still requires `API_BASE_URL=/ssobackend`, as in the production
+environment example, because that gateway owns only `/portal/` and `/ssobackend/`.
 
 The backend entrypoint reads DB and Keycloak client secrets from mounted files,
 then execs the server as `appuser`. Matching plaintext values can be blank in the

@@ -226,6 +226,18 @@ class ComposeTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertNotIn(b'fixture-secret', result.stderr)
 
+    def test_default_frontend_api_root_matches_runtime_image(self):
+        model = config('infra/compose/docker-compose.yml', API_BASE_URL='')
+        self.assertEqual(model['services']['frontend']['environment']['API_BASE_URL'], '/api')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'config.js'
+            env = dict(os.environ)
+            env.pop('API_BASE_URL', None)
+            subprocess.run(['sh', str(ROOT / 'infra/docker/frontend/40-runtime-config.sh'), str(path)],
+                           env=env, check=True, capture_output=True)
+            data = json.loads(path.read_text().split('window.__APP_CONFIG__ = ', 1)[1].rstrip().removesuffix(';'))
+            self.assertEqual(data['API_BASE_URL'], '/api')
+
     def test_browser_config_is_escaped_and_excludes_backend_secrets(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'config.js'

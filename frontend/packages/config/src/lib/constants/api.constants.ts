@@ -11,11 +11,14 @@ function getRuntimeApiBaseUrl() {
     ?.API_BASE_URL;
 }
 
-const API_BASE_URL =
-  getRuntimeApiBaseUrl() ||
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://dashboards.health.go.ug/ssobackend";
+const configuredApiBase = getRuntimeApiBaseUrl() || import.meta.env.VITE_API_BASE_URL || "/api";
 
+// Accept either a service base (origin or /ssobackend) or its /api root.
+// Non-API endpoints and authenticated launch paths still use the service base.
+const normalizedApiBase = configuredApiBase.trim().replace(/\/+$/, "");
+const API_BASE_URL = normalizedApiBase.endsWith("/api")
+  ? normalizedApiBase.slice(0, -4)
+  : normalizedApiBase;
 const API_ROOT = `${API_BASE_URL}/api`;
 const API_VERSION = "v1";
 const API_BASE = `${API_ROOT}/${API_VERSION}`;
