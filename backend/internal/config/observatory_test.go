@@ -80,3 +80,14 @@ func TestObservatoryEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestObservatoryRejectsPrimaryDatabaseTarget(t *testing.T) {
+	c := Config{DBHost: "postgres", DBPort: "5432", DBName: "portal", ObservatoryDBHost: "postgres", ObservatoryDBPort: "5432", ObservatoryDBName: "portal", ObservatoryDBUser: "surveillance", ObservatoryDBPassword: "fixture-only"}
+	if _, err := c.ObservatoryDBSource(); err == nil {
+		t.Fatal("Observatory must not target the primary database")
+	}
+	c.ObservatoryDBName = "observatory"
+	if _, err := c.ObservatoryDBSource(); err != nil {
+		t.Fatalf("separate database on the same server should be supported: %v", err)
+	}
+}

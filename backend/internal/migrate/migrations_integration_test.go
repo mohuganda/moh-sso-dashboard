@@ -30,13 +30,18 @@ func TestMigrationPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer admin.Close()
-	for _, group := range []string{"primary", "remote"} {
+	for _, group := range []string{"primary", "remote", "observatory"} {
 		directory, err := filepath.Abs("../db/migrations")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if group == "remote" {
 			directory = filepath.Join(directory, "remote")
+		} else if group == "observatory" {
+			directory, err = filepath.Abs("../db/surveillance_migrations")
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 		entries, err := filepath.Glob(filepath.Join(directory, "*.up.sql"))
 		if err != nil || len(entries) < 2 {
@@ -89,6 +94,19 @@ func TestMigrationPaths(t *testing.T) {
 					if err := m.Migrate(previous); err != nil {
 						t.Fatal(err)
 					}
+					if group == "primary" {
+						// Simulate pre-cutover tables/data on an already migrated primary.
+						legacySchema, err := os.ReadFile("../db/surveillance_migrations/000001_surveillance.up.sql")
+						if err != nil {
+							t.Fatal(err)
+						}
+						if _, err := connection.Exec(string(legacySchema)); err != nil {
+							t.Fatal(err)
+						}
+						if _, err := connection.Exec("INSERT INTO regions(name) VALUES ('primary-data-to-transfer')"); err != nil {
+							t.Fatal(err)
+						}
+					}
 					if _, err := connection.Exec("CREATE TABLE ci_data_sentinel (value text); INSERT INTO ci_data_sentinel VALUES ('preserve-me')"); err != nil {
 						t.Fatal(err)
 					}
@@ -103,6 +121,23 @@ func TestMigrationPaths(t *testing.T) {
 				if err := m.Up(); err != migrate.ErrNoChange {
 					t.Fatalf("repeat migration should be a no-op: %v", err)
 				}
+				for _, table := range []string{"regions", "districts", "sub_counties", "facilities", "diseases", "indicators", "disease_indicators", "epi_weeks", "weekly_status", "alerts", "facility_weekly_metrics", "surveillance_import_batches", "surveillance_import_raw_rows"} {
+					var exists bool
+					if err := connection.QueryRow("SELECT to_regclass('public.' || $1) IS NOT NULL", table).Scan(&exists); err != nil {
+						t.Fatal(err)
+					}
+					want := group == "observatory" || (group == "primary" && upgrade)
+					if exists != want {
+						t.Errorf("%s exists=%t, want %t", table, exists, want)
+					}
+				}
+				if group == "primary" && upgrade {
+					var count int
+					if err := connection.QueryRow("SELECT count(*) FROM regions WHERE name='primary-data-to-transfer'").Scan(&count); err != nil || count != 1 {
+						t.Fatalf("legacy primary data was changed: count=%d err=%v", count, err)
+					}
+				}
+
 				if upgrade {
 					var value string
 					if err := connection.QueryRow("SELECT value FROM ci_data_sentinel").Scan(&value); err != nil || value != "preserve-me" {

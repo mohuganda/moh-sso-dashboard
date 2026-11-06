@@ -870,6 +870,11 @@ func (c *Config) ObservatoryDBSource() (string, error) {
 			return "", fmt.Errorf("OBSERVATORY_DB_%s is required for an isolated observatory database", name)
 		}
 	}
+	if strings.EqualFold(strings.TrimSpace(c.ObservatoryDBHost), strings.TrimSpace(c.DBHost)) &&
+		strings.TrimSpace(c.ObservatoryDBPort) == strings.TrimSpace(c.DBPort) &&
+		strings.TrimSpace(c.ObservatoryDBName) == strings.TrimSpace(c.DBName) {
+		return "", errors.New("Observatory must use a database separate from the primary database")
+	}
 	mode := "disable"
 	if c.ObservatoryDBEnableSSL {
 		mode = "require"
@@ -904,10 +909,8 @@ func validateConfig(c *Config) error {
 	if err := validateDatabaseConfig(c); err != nil {
 		return err
 	}
-	if c.ObservatoryDBHost != "" {
-		if _, err := c.ObservatoryDBSource(); err != nil {
-			return err
-		}
+	if _, err := c.ObservatoryDBSource(); err != nil {
+		return err
 	}
 
 	if err := validateStorageConfig(c); err != nil {

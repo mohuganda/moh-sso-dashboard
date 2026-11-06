@@ -1,10 +1,10 @@
 # Observatory database for surveillance
 
-The surveillance module can use a separate PostgreSQL connection while authentication,
+The surveillance module requires a separate Observatory PostgreSQL connection while authentication,
 documents, processes, notifications and other features remain on the primary database.
-An empty effective Observatory host preserves the previous single-database behavior.
-A configured host requires its own complete connection settings; failure stops startup
-and readiness fails if the configured surveillance database becomes unavailable.
+Missing Observatory settings stop startup before any database pools are opened.
+All surveillance repositories and imports use that connection; readiness fails if
+Observatory becomes unavailable. There is no primary-database fallback.
 
 ## Relationship to the DQA connection
 
@@ -151,6 +151,20 @@ This loader is an operational folder-import path. It does not repair the existin
 surveillance UI's metadata-only upload action or its incomplete async CSV dispatch.
 Those paths must be addressed separately before promising the same behavior for UI uploads.
 
+## Primary migration ownership
+
+Primary migration versions 7–19 are now explicit no-ops in both directions. Their
+numbers are retained so existing migration histories can advance without replaying
+schema creation or deleting old tables during rollback. Fresh primary installs no
+longer create the 13 surveillance tables, their enums or reference seeds. Their
+schema/seeds are maintained only in `internal/db/surveillance_migrations`; existing
+Observatory migration versions and data are unchanged.
+
+Already deployed primary tables remain intact for an explicit, backed-up data
+transfer and later removal. This code change does not transfer or delete production
+data. The SQLC schema input includes both migration directories so query bindings
+still describe both stores; runtime repository wiring keeps the connections separate.
+
 ## Existing database cutover
 
 The local CSV import does not copy or delete existing production database records.
@@ -173,6 +187,12 @@ The Docker test uses a disposable PostgreSQL container and synthetic data; it ch
 schema independence from documents, all five file mappings, identical/conflicting
 duplicates, zero-week quarantine, and repeat/reprocess behavior. It runs in PR CI.
 
+SQLC schema input now includes both database migration directories. `sqlc compile`
+currently stops at primary migration 39 because its parser does not resolve
+`announcement_audience_type` declared inside migration 6's `DO` block. The same
+error is reproducible with the pre-separation primary migrations; query bindings
+were not regenerated as part of this change. PostgreSQL migration tests pass.
+
 ## Verified local import (2026 flag year)
 
 The initial import retained 796,427 source rows and produced 648,111 facility
@@ -183,18 +203,17 @@ Identical observations and alert identities explain why processed source counts
 are larger than normalized record counts. These are local fixture/import results,
 not evidence of a production migration or cutover.
 
-To temporarily use the primary database again, set the backend's explicit
-`OBSERVATORY_DB_HOST` to an empty string in a private Compose override and recreate
-only the backend. Restoring `observatory-db` reconnects the dedicated database.
-Keep the adopted-volume override on subsequent local Compose commands.
+Keep the adopted-volume override on subsequent local Compose commands. Setting
+an empty Observatory host is no longer a rollback mechanism; it prevents startup.
 
 ## Observatory configuration names
 
 Settings are `OBSERVATORY_DB_HOST`, `OBSERVATORY_DB_PORT`,
 `OBSERVATORY_DB_NAME`, `OBSERVATORY_DB_USER`, `OBSERVATORY_DB_PASSWORD`, and
-`OBSERVATORY_DB_ENABLE_SSL`. An empty host disables the isolated connection.
-A configured host requires all credentials; there is no fallback to the primary
-database after a connection or migration failure. Previous `SURVEILLANCE_DB_*`
+`OBSERVATORY_DB_ENABLE_SSL`. The host and complete credentials are required.
+There is no fallback to the primary database. An exact primary host/port/database
+target is rejected; configure distinct database destinations even when host aliases
+are used. Previous `SURVEILLANCE_DB_*`
 settings are no longer read: migrate private environment and password-file keys
 before restarting an existing installation with this version. The local host-process
 example is `infra/env/observatory.env.example`; Compose sets its internal hostname

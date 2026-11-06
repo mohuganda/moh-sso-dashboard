@@ -127,10 +127,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 			if err := db.PingDB(ctx, deps.Databases.Primary); err != nil {
 				return err
 			}
-			if deps.Databases.Observatory != nil {
-				return db.PingDB(ctx, deps.Databases.Observatory)
-			}
-			return nil
+			return db.PingDB(ctx, deps.Databases.Observatory)
 		},
 		func(ctx context.Context) error { return db.PingDB(ctx, deps.Databases.Remote) },
 		func(ctx context.Context) error { return deps.AdminKeycloak.Authenticate() },

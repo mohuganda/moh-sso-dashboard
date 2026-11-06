@@ -23,6 +23,10 @@ type databases struct {
 }
 
 func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
+	observatoryDSN, err := cfg.ObservatoryDBSource()
+	if err != nil {
+		return databases{}, err
+	}
 	dbConfig := func(dsn string) db.DBConfig {
 		return db.DBConfig{
 			Driver:          cfg.DBDriver,
@@ -65,18 +69,13 @@ func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
 		dbs.Close()
 		return databases{}, err
 	}
-	if cfg.ObservatoryDBHost != "" {
-		dsn, err := cfg.ObservatoryDBSource()
-		if err == nil {
-			dbs.Observatory, err = db.InitDB(ctx, dbConfig(dsn))
-		}
-		if err == nil {
-			err = db.MigrateDB(dbs.Observatory, "file://internal/db/surveillance_migrations")
-		}
-		if err != nil {
-			dbs.Close()
-			return databases{}, err
-		}
+	dbs.Observatory, err = db.InitDB(ctx, dbConfig(observatoryDSN))
+	if err == nil {
+		err = db.MigrateDB(dbs.Observatory, "file://internal/db/surveillance_migrations")
+	}
+	if err != nil {
+		dbs.Close()
+		return databases{}, err
 	}
 	return dbs, nil
 }

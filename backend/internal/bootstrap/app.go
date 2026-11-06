@@ -120,10 +120,7 @@ func Run() {
 	// ==================================================
 	// REPOSITORIES
 	// ==================================================
-	observatoryStore := store
-	if dbs.Observatory != nil {
-		observatoryStore = storepkg.NewStore(dbs.Observatory)
-	}
+	observatoryStore := storepkg.NewStore(dbs.Observatory)
 	repos := buildRepositories(cfg, store, observatoryStore, adminKC, webKC, appLogger)
 
 	// ==================================================
