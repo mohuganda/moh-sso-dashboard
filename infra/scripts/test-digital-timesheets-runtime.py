@@ -49,7 +49,7 @@ def jwt_payload(token):
 
 def run():
     container = 'timesheets-oidc-test-' + secrets.token_hex(5)
-    password = secrets.token_urlsafe(24)
+    password = 'Fixture-Aa1!' + secrets.token_urlsafe(24)
     subprocess.run(['docker', 'run', '--detach', '--name', container,
                     '-p', '127.0.0.1::8080',
                     '-e', 'KC_BOOTSTRAP_ADMIN_USERNAME=fixture-admin',
@@ -87,23 +87,41 @@ def run():
             'bootstrap', Path(__file__).with_name('prepare-keycloak-realm.py'))
         bootstrap = importlib.util.module_from_spec(bootstrap_spec)
         bootstrap_spec.loader.exec_module(bootstrap)
+        # Mimic the user's single live instance: production already exists.
+        admin('POST', 'realms', {'realm': 'moh-realm', 'enabled': True, 'sslRequired': 'none',
+                                 'accessTokenLifespan': 300})
+        admin('POST', 'realms/moh-realm/users', {'username': 'production-sentinel', 'enabled': False})
+        production_before = admin('GET', 'realms/moh-realm')
+        production_users = admin('GET', 'realms/moh-realm/users')
+        shared_spec = importlib.util.spec_from_file_location(
+            'shared_bootstrap', Path(__file__).with_name('bootstrap-keycloak-realms.py'))
+        shared = importlib.util.module_from_spec(shared_spec)
+        shared_spec.loader.exec_module(shared)
+        operator = shared.ServerAdmin({'KEYCLOAK_BASE_URL': base,
+                                       'KEYCLOAK_BOOTSTRAP_USERNAME': 'fixture-admin',
+                                       'KEYCLOAK_BOOTSTRAP_PASSWORD': password})
+        environments = {name: {'portalUrl': 'https://portal.example.invalid/portal',
+                               'apiUrl': 'https://portal.example.invalid/api/v1'}
+                        for name in ('development', 'test', 'staging')}
+        plan = shared.build_plan(operator, environments)
+        assert all(row['action'] == 'create' for row in plan)
+        with tempfile.TemporaryDirectory() as directory:
+            shared.apply_plan(operator, plan, Path(directory) / 'created.json')
+            repeat = shared.build_plan(operator, environments)
+            assert all(row['action'] == 'skip-existing' for row in repeat)
+            shared.apply_plan(operator, repeat, Path(directory) / 'repeat.json')
+        assert admin('GET', 'realms/moh-realm') == production_before, 'Production realm configuration changed'
+        assert admin('GET', 'realms/moh-realm/users') == production_users, 'Production users changed'
         key_ids = set()
-        for environment in ('development', 'test', 'staging'):
-            realm = bootstrap.render(environment, 'https://portal.example.invalid/portal',
-                                     'https://portal.example.invalid/api/v1')
-            admin('POST', 'realms', realm)
-            users = admin('GET', 'realms/' + realm['realm'] + '/users')
+        for environment in environments:
+            realm_name = bootstrap.REALMS[environment]
+            users = admin('GET', 'realms/' + realm_name + '/users')
             assert all(u.get('serviceAccountClientId') for u in users), 'Human users copied between environments'
-            status, _, raw = request(base + '/realms/' + realm['realm'] + '/protocol/openid-connect/certs')
-            # HTTPS-only realms correctly reject HTTP discovery; inspect keys via the admin API.
-            keys = admin('GET', 'realms/' + realm['realm'] + '/keys')['keys']
+            keys = admin('GET', 'realms/' + realm_name + '/keys')['keys']
             ids = {key['kid'] for key in keys}
             assert ids and not (ids & key_ids), 'Signing keys were shared between realms'
             key_ids.update(ids)
-        print('PASS: fresh dev/test/staging realm imports and independent signing keys', flush=True)
-
-        admin('POST', 'realms', {'realm': 'moh-realm', 'enabled': True, 'sslRequired': 'none',
-                                 'accessTokenLifespan': 300})
+        print('PASS: shared-instance dev/test/staging creation, repeat skip, independent keys and untouched production', flush=True)
 
         class API:
             realm = 'moh-realm'

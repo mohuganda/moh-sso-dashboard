@@ -1,4 +1,5 @@
-# One isolated identity stack per environment. Use a unique project and private env file.
+# Optional separate-instance deployment. Shared-instance realm setup needs no new containers.
+# Use a unique project and private env file for each separate stack.
 name: ${IDENTITY_PROJECT:?Set a unique identity project for this environment}
 services:
   keycloak-db:

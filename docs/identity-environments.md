@@ -4,21 +4,95 @@ The portal manages one configured realm per deployment. Its credentials never se
 an arbitrary realm from a browser request. Onboarding is blocked when the deployment
 and realm do not match `backend/internal/keycloak/identity-environments.json`:
 
-| Portal ENVIRONMENT | KEYCLOAK_REALM | Intended hosting |
+| Portal ENVIRONMENT | KEYCLOAK_REALM | Target hosting |
 | --- | --- | --- |
-| development | moh-dev | Local isolated identity stack |
-| test | moh-test | Disposable CI container |
-| staging | moh-staging | Persistent non-production stack |
-| production | moh-realm | Existing production instance; dedicated database |
+| development | moh-dev | Existing shared Keycloak instance |
+| test | moh-test | Existing instance for manual testing; disposable container in CI |
+| staging | moh-staging | Existing shared Keycloak instance |
+| production | moh-realm | Existing production realm, unchanged |
 
-The production realm name stays unchanged to preserve its issuer and integrations.
-Different realms on a shared server separate identities, but still share its failure
-and administrative boundaries. Keep production on separate infrastructure. Use a
-separate Compose project, database volume, credentials, hostname and port for each
-persistent environment. Do not connect non-production applications to production
-identity databases. CI uses disposable fixtures with no production credentials.
+One Keycloak instance is sufficient for this setup. All realms use your existing
+identity hostname and certificate; their issuer paths differ. Users, clients,
+credentials, signing keys and sessions are separate per realm. Single sign-on works
+between applications in the same realm, not across environments. The realms share
+the Keycloak server, database infrastructure, server administrators and maintenance
+window. A separate production instance can be introduced later; it is optional here.
 
-## Bootstrap a fresh identity stack
+## Create missing realms on your existing instance
+
+This is the recommended path for the current server. It does not start containers,
+change the existing Keycloak database configuration, restart Keycloak or replace any
+realm. It uses the Admin API to create only missing `moh-dev`, `moh-test` and
+`moh-staging` realms. `moh-realm` and all other existing realms are outside its write
+scope. Existing environment realms are skipped without importing or updating them.
+
+Copy `infra/keycloak/environments.shared.example.json` to a private working file
+and replace the example application URLs with those you will use. Each entry has
+`portalUrl` and `apiUrl` (including `/api/v1`). A subset of development/test/staging
+is allowed; `production` and arbitrary realm names are rejected. These URLs configure
+the portal clients; this command does not deploy those application environments.
+
+Copy `infra/env/identity-shared.env.example` to a private file outside source control
+and load/export it using your normal operator secret-management process. Set
+`KEYCLOAK_BASE_URL` to the existing HTTPS identity URL, for example
+`https://auth.health.go.ug`. Choose **one** authentication mode:
+
+- An existing administrative client in the `master` realm using
+  `KEYCLOAK_BOOTSTRAP_CLIENT_ID` and `KEYCLOAK_BOOTSTRAP_CLIENT_SECRET`.
+- Your existing `master` administrator using `KEYCLOAK_BOOTSTRAP_USERNAME` and
+  `KEYCLOAK_BOOTSTRAP_PASSWORD` through `admin-cli`, if password authentication is
+  permitted for that account. For an account requiring additional authentication,
+  use the administrative-client option instead.
+
+The operator identity needs realm creation and read access to the target environment
+realms. The normal portal's realm-scoped administrative client is not sufficient.
+The command does not create a privileged operator identity or grant permissions.
+Keep these bootstrap credentials out of portal deployments; each portal continues
+using its own realm-scoped credentials. Credentials are read only from environment
+variables and are not printed, written to the plan, or passed as command arguments.
+
+Preview first:
+
+```sh
+python3 infra/scripts/bootstrap-keycloak-realms.py \
+  --plan /private/identity/shared-environments.json
+```
+
+Review the realm names and `create`/`skip-existing` actions. Apply explicitly with a
+**new** private creation record (create its parent directory first):
+
+```sh
+python3 infra/scripts/bootstrap-keycloak-realms.py \
+  --plan /private/identity/shared-environments.json \
+  --apply --record /private/identity/realm-creation.json
+```
+
+The record is created with mode `0600`; an existing record is never overwritten.
+The command rechecks before creating and never uses realm update, delete or partial
+import. A concurrent realm creation is skipped. It records each successful creation
+before verifying it, so an interrupted run remains inspectable. Re-running with a
+new record skips existing realms. Review existing realm configuration separately if
+it differs from the requested URLs; this bootstrap never reconciles existing realms.
+If a request was interrupted, inspect the record and admin console before cleanup.
+There is no automatic realm deletion or rollback, and no migration of production
+users or credentials. Retire bootstrap access after the one-time setup as appropriate.
+
+All four portal deployments can use the **same** external identity base URL:
+
+| Environment | Example issuer |
+| --- | --- |
+| development | `https://auth.health.go.ug/realms/moh-dev` |
+| test | `https://auth.health.go.ug/realms/moh-test` |
+| staging | `https://auth.health.go.ug/realms/moh-staging` |
+| production | `https://auth.health.go.ug/realms/moh-realm` |
+
+Set each portal's `ENVIRONMENT`, `KEYCLOAK_REALM`, internal/external identity URLs,
+callback and client credentials consistently. Obtain the newly generated client
+secrets privately through the appropriate realm's administration. Create separate
+non-production administrators/test users and configure staging/test SMTP to a test
+inbox or sink. Production users, clients, policies and signing keys stay untouched.
+
+## Optional: bootstrap a separate identity stack
 
 Generate an environment-specific import file. Substitute the real staging portal
 and API URLs; the API URL includes `/api/v1`:
@@ -67,7 +141,7 @@ administrators explicitly and grant realm-specific administration permissions.
 These commands prepare fresh installations. They do not replace live realms or
 migrate users. Startup import skips existing realms. The existing local dev Compose
 stack is retained for compatibility; opting into `moh-dev` requires configuring that
-portal deployment to use the new identity stack. Do not point both realm names at
+portal deployment to use its `moh-dev` realm on the existing or optional new stack. Do not point both realm names at
 the same application's configuration or reuse old cookies/sessions after switching.
 
 ## Admin console walkthrough
