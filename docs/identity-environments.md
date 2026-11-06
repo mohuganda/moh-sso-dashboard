@@ -70,6 +70,17 @@ stack is retained for compatibility; opting into `moh-dev` requires configuring 
 portal deployment to use the new identity stack. Do not point both realm names at
 the same application's configuration or reuse old cookies/sessions after switching.
 
+## Admin console walkthrough
+
+Open **Clients → Onboard application** (requires `clients:write`). Register the
+application name, owner, support email and client profile. Review callbacks, logout
+addresses, browser origins and the optional external launcher entry. Select
+**Validate & preview**, inspect the environment and configuration, confirm review,
+then provision the disabled client. The result provides its issuer/client ID and
+next steps. **Export onboarding draft** produces a credential-free JSON document.
+For managed disabled clients, **Edit** opens the same reviewed update workflow;
+existing unmanaged clients retain their normal editor.
+
 ## Client lifecycle and promotion
 
 The Clients administration workflow uses the same public-web, confidential-web and

@@ -55,7 +55,7 @@ jobs:
         working-directory: frontend
         run: |
           npm run test:dependency-guards
-          node --test scripts/runtime-config-path.test.mjs scripts/api-base-url.test.mjs
+          node --test scripts/runtime-config-path.test.mjs scripts/api-base-url.test.mjs scripts/client-onboarding.test.mjs
 
       - name: OpenAPI bot update regression tests
         run: node --test infra/scripts/test-openapi-update.mjs
