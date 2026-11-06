@@ -219,9 +219,35 @@ for (const width of [390, 1440]) {
         },
       }),
     );
+    await page.route("**/ssobackend/api/v1/surveillance/alerts?*", (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          data: route.request().url().includes(otherWeek)
+            ? []
+            : [
+                {
+                  id: "alert",
+                  disease_id: "measles",
+                  epi_week_id: weekId,
+                  status: "RED",
+                  narrative: "Review this alert",
+                },
+              ],
+        },
+      }),
+    );
     await page.goto(`${base}/measles?weekId=${weekId}&regionId=north`);
     await expect(page.locator(".disease-details-page__stats dd").first()).toHaveText("12");
     await expect(page.getByText("Review Health Centre", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Disease alerts", exact: true }).getByRole("columnheader"),
+    ).toHaveText(["District", "Region", "Status", "Narrative"]);
+    await expect(
+      page.getByRole("region", { name: "Facility reports", exact: true }).getByRole("columnheader"),
+    ).toHaveText(["Facility", "Region", "District", "Subcounty", "Cases", "Actions"]);
+    await expect(page.getByRole("button", { name: "View trends", exact: true })).toBeVisible();
+
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
