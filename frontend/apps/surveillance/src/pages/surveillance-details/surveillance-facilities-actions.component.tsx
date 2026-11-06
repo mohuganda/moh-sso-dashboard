@@ -58,9 +58,6 @@ interface FacilitiesActionTableProps {
   regionNameById?: Record<string, string>;
   districtNameById?: Record<string, string>;
   subCountyNameById?: Record<string, string>;
-  diseaseNameById?: Record<string, string>;
-  indicatorNameById?: Record<string, string>;
-  epiWeekLabelById?: Record<string, string>;
   onViewFacilityTrend?: (payload: FacilityTrendActionPayload) => void;
 }
 
@@ -69,8 +66,6 @@ const facilityHeaders = [
   { key: "region", header: "Region" },
   { key: "district", header: "District" },
   { key: "subcounty", header: "Subcounty" },
-  { key: "disease", header: "Disease" },
-  { key: "week", header: "Week" },
   { key: "cases", header: "Cases" },
   { key: "actions", header: "Actions" },
 ];
@@ -84,9 +79,6 @@ export function FacilitiesActionTable({
   regionNameById = {},
   districtNameById = {},
   subCountyNameById = {},
-  diseaseNameById = {},
-  indicatorNameById = {},
-  epiWeekLabelById = {},
   onViewFacilityTrend,
 }: FacilitiesActionTableProps) {
   const [page, setPage] = useState(1);
@@ -116,33 +108,12 @@ export function FacilitiesActionTable({
           ? (subCountyNameById[String(item.sub_county_id)] ?? item.sub_county_name ?? "--")
           : (item.sub_county_name ?? "--");
 
-        const disease = item.disease_id
-          ? (diseaseNameById[String(item.disease_id)] ??
-            item.disease_name ??
-            item.indicator_name ??
-            "--")
-          : item.indicator_id
-            ? (indicatorNameById[String(item.indicator_id)] ??
-              item.indicator_name ??
-              item.disease_name ??
-              "--")
-            : (item.disease_name ?? item.indicator_name ?? "--");
-
-        const week = item.epi_week_id
-          ? (epiWeekLabelById[String(item.epi_week_id)] ??
-            (item.epi_week ? `Week ${item.epi_week}` : "--"))
-          : item.epi_week
-            ? `Week ${item.epi_week}`
-            : "--";
-
         return {
           id: String(item.id ?? item.facility_id ?? `${item.facility_name ?? "facility"}-${index}`),
           facility: item.facility_name ?? "--",
           region,
           district,
           subcounty,
-          disease,
-          week,
           cases: String(numericCases),
           actions: "view-trend",
           numericCases,
@@ -158,9 +129,6 @@ export function FacilitiesActionTable({
     regionNameById,
     districtNameById,
     subCountyNameById,
-    diseaseNameById,
-    indicatorNameById,
-    epiWeekLabelById,
   ]);
 
   useEffect(() => {

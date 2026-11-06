@@ -197,30 +197,6 @@ function DiseaseDetailsContent() {
     return Object.fromEntries(diseases.map((item) => [item.id, item.name]));
   }, [diseases]);
 
-  const indicatorNameById = useMemo<Record<string, string>>(() => {
-    const map = new Map<string, string>();
-
-    facilityMetrics.forEach((item) => {
-      const indicatorId = String(item.indicator_id ?? "");
-      const indicatorName = item.indicator_name ?? "";
-
-      if (indicatorId && indicatorName) {
-        map.set(indicatorId, indicatorName);
-      }
-    });
-
-    weeklyStatusesDetailed.forEach((item) => {
-      const indicatorId = String(item.indicator_id ?? "");
-      const indicatorName = item.indicator_name ?? "";
-
-      if (indicatorId && indicatorName) {
-        map.set(indicatorId, indicatorName);
-      }
-    });
-
-    return Object.fromEntries(map.entries());
-  }, [facilityMetrics, weeklyStatusesDetailed]);
-
   const regionNameById = useMemo<Record<string, string>>(() => {
     const map = new Map<string, string>();
 
@@ -318,17 +294,6 @@ function DiseaseDetailsContent() {
 
     return Object.fromEntries(map.entries());
   }, [weeklyStatusesDetailed, facilityMetrics]);
-
-  const epiWeekLabelById = useMemo<Record<string, string>>(() => {
-    return Object.fromEntries(
-      weeks.map((week) => [
-        week.id,
-        week.epi_year && week.epi_week
-          ? `${week.epi_year} - Week ${week.epi_week}`
-          : `Week ${week.epi_week ?? "--"}`,
-      ]),
-    );
-  }, [weeks]);
 
   const loading =
     weeksLoading ||
@@ -607,7 +572,6 @@ function DiseaseDetailsContent() {
                 districtNameById={districtNameById}
                 regionNameById={regionNameById}
                 diseaseNameById={diseaseNameById}
-                epiWeekLabelById={epiWeekLabelById}
                 districtRegionByDistrictId={districtRegionByDistrictId}
               />
             )}
@@ -644,9 +608,6 @@ function DiseaseDetailsContent() {
                 regionNameById={regionNameById}
                 districtNameById={districtNameById}
                 subCountyNameById={subCountyNameById}
-                diseaseNameById={diseaseNameById}
-                indicatorNameById={indicatorNameById}
-                epiWeekLabelById={epiWeekLabelById}
                 onViewFacilityTrend={(payload) => {
                   setSelectedFacilityTrend(payload);
                   setIsTrendModalOpen(true);
