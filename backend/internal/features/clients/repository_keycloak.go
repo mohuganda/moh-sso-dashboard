@@ -41,28 +41,38 @@ func (r *sqlcClientRepository) CreateClient(client *models.Client) (string, erro
 	ctx := context.Background()
 
 	kcID, err := r.keycloakClient.CreateClient(keycloak.CreateClientParams{
-		ClientID:     client.ClientID,
-		Name:         client.Name,
-		Description:  client.Description,
-		BaseURL:      client.BaseURL,
-		RootURL:      client.RootURL,
-		Protocol:     "openid-connect",
-		PublicClient: client.PublicClient,
-		RedirectURIs: client.RedirectUris,
-		WebOrigins:   client.WebOrigins,
-		Enabled:      client.Enabled,
-		Attributes: map[string]string{
-			// UI
-			"ui.icon":    "applications",
-			"ui.home":    "/admin",
-			"ui.sidenav": client.Attributes["ui.sidenav"],
-		},
+		ClientID:                  client.ClientID,
+		Name:                      client.Name,
+		Description:               client.Description,
+		BaseURL:                   client.BaseURL,
+		RootURL:                   client.RootURL,
+		Protocol:                  "openid-connect",
+		PublicClient:              client.PublicClient,
+		RedirectURIs:              client.RedirectUris,
+		WebOrigins:                client.WebOrigins,
+		Enabled:                   client.Enabled,
+		Attributes:                client.Attributes,
+		StandardFlowEnabled:       client.StandardFlow,
+		ImplicitFlowEnabled:       client.ImplicitFlow,
+		DirectAccessGrantsEnabled: client.DirectAccess,
+		ServiceAccountsEnabled:    client.ServiceAccounts,
+		DefaultClientScopes:       client.DefaultClientScopes,
+		OptionalClientScopes:      client.OptionalClientScopes,
+		ProtocolMappers:           client.ProtocolMappers,
+		FullScopeAllowed:          client.FullScopeAllowed,
+		FrontChannelLogout:        client.FrontChannelLogout,
 	})
 
 	if err != nil {
 		return "", fmt.Errorf("keycloak create failed: %w", err)
 	}
 
+	if client.Attributes["portal.onboarding.profile"] != "" {
+		client.ID = kcID
+		if err := r.keycloakClient.ReconcileClientProfile(client); err != nil {
+			return "", err
+		}
+	}
 	kcClient, err := r.keycloakClient.GetClientByClientID(client.ClientID)
 	if err != nil {
 		return "", fmt.Errorf("keycloak read-back failed: %w", err)
@@ -130,20 +140,17 @@ func (r *sqlcClientRepository) GetClientByID(id uuid.UUID) (*models.Client, erro
 		return nil, err
 	}
 
-	return &models.Client{
-		ID:           dbRow.ID.String(),
-		ClientID:     kcClient.ClientID,
-		Name:         kcClient.Name,
-		Description:  kcClient.Description,
-		BaseURL:      kcClient.BaseURL,
-		RootURL:      kcClient.RootURL,
-		AdminURL:     kcClient.AdminURL,
-		RedirectUris: kcClient.RedirectURIs,
-		WebOrigins:   kcClient.WebOrigins,
-		PublicClient: kcClient.PublicClient,
-		Enabled:      kcClient.Enabled,
-		Attributes:   kcClient.Attributes,
-	}, nil
+	data, err := json.Marshal(kcClient)
+	if err != nil {
+		return nil, err
+	}
+	var client models.Client
+	if err := json.Unmarshal(data, &client); err != nil {
+		return nil, err
+	}
+	client.ID = dbRow.ID.String()
+	client.Secret = ""
+	return &client, nil
 }
 
 func (r *sqlcClientRepository) GetClientByClientID(clientID string) (*models.Client, error) {
@@ -204,10 +211,19 @@ func (r *sqlcClientRepository) ListClients() ([]models.Client, error) {
 func (r *sqlcClientRepository) UpdateClient(client *models.Client) error {
 	ctx := context.Background()
 
-	if err := r.keycloakClient.UpdateClient(client.ID, client); err != nil {
+	update := *client
+	if client.Attributes["portal.onboarding.profile"] != "" {
+		update.ProtocolMappers = nil
+	}
+	if err := r.keycloakClient.UpdateClient(client.ID, &update); err != nil {
 		return err
 	}
 
+	if client.Attributes["portal.onboarding.profile"] != "" {
+		if err := r.keycloakClient.ReconcileClientProfile(client); err != nil {
+			return err
+		}
+	}
 	id, err := uuid.Parse(client.ID)
 	if err != nil {
 		return fmt.Errorf("invalid client UUID after keycloak update: %w", err)
