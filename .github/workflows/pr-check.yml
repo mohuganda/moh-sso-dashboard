@@ -115,8 +115,8 @@ jobs:
       - name: Surveillance import normalization
         run: python3 infra/scripts/test-load-surveillance.py
 
-      - name: Isolated surveillance database import regression
-        run: SURVEILLANCE_DOCKER_TEST=1 python3 infra/scripts/test-surveillance-database.py
+      - name: Isolated Observatory database import regression
+        run: OBSERVATORY_DOCKER_TEST=1 python3 infra/scripts/test-surveillance-database.py
 
       - name: Platform onboarding examples
         run: python3 -m unittest discover -s examples/platform/python -p 'test_*.py' -v

@@ -15,11 +15,11 @@ import (
 )
 
 type databases struct {
-	Primary      *sql.DB
-	Remote       *sql.DB
-	DWH          *sql.DB
-	DQA          *sql.DB
-	Surveillance *sql.DB
+	Primary     *sql.DB
+	Remote      *sql.DB
+	DWH         *sql.DB
+	DQA         *sql.DB
+	Observatory *sql.DB
 }
 
 func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
@@ -60,40 +60,30 @@ func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
 		return databases{}, err
 	}
 
+	dbs := databases{Primary: primaryDB, Remote: remoteDB, DWH: dwhDB, DQA: dqaDB}
 	if err := db.MigrateDB(primaryDB, "file://internal/db/migrations"); err != nil {
-		primaryDB.Close()
-		remoteDB.Close()
-		dwhDB.Close()
-		dqaDB.Close()
+		dbs.Close()
 		return databases{}, err
 	}
-
-	var surveillanceDB *sql.DB
-	if cfg.SurveillanceDBHost != "" {
-		dsn, err := cfg.SurveillanceDBSource()
+	if cfg.ObservatoryDBHost != "" {
+		dsn, err := cfg.ObservatoryDBSource()
 		if err == nil {
-			surveillanceDB, err = db.InitDB(ctx, dbConfig(dsn))
+			dbs.Observatory, err = db.InitDB(ctx, dbConfig(dsn))
 		}
 		if err == nil {
-			err = db.MigrateDB(surveillanceDB, "file://internal/db/surveillance_migrations")
+			err = db.MigrateDB(dbs.Observatory, "file://internal/db/surveillance_migrations")
 		}
 		if err != nil {
-			databases{Primary: primaryDB, Remote: remoteDB, DWH: dwhDB, DQA: dqaDB, Surveillance: surveillanceDB}.Close()
+			dbs.Close()
 			return databases{}, err
 		}
 	}
-	return databases{
-		Primary:      primaryDB,
-		Remote:       remoteDB,
-		DWH:          dwhDB,
-		DQA:          dqaDB,
-		Surveillance: surveillanceDB,
-	}, nil
+	return dbs, nil
 }
 
 func (dbs databases) Close() {
-	if dbs.Surveillance != nil {
-		dbs.Surveillance.Close()
+	if dbs.Observatory != nil {
+		dbs.Observatory.Close()
 	}
 	if dbs.Primary != nil {
 		dbs.Primary.Close()

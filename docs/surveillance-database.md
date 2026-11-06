@@ -2,7 +2,7 @@
 
 The surveillance module can use a separate PostgreSQL connection while authentication,
 documents, processes, notifications and other features remain on the primary database.
-An empty `SURVEILLANCE_DB_HOST` preserves the previous single-database behavior.
+An empty effective Observatory host preserves the previous single-database behavior.
 A configured host requires its own complete connection settings; failure stops startup
 and readiness fails if the configured surveillance database becomes unavailable.
 
@@ -16,8 +16,10 @@ initializer. It targets the DWH host, port and database, optionally using its ow
 The observatory connection uses the same pool initializer and repository injection
 pattern but keeps its own PostgreSQL container and database. Versioned surveillance
 migrations remain in place. Authentication and other primary stores are unaffected.
-`SURVEILLANCE_DB_*` remains the module's configuration namespace; only the database
-name changes to `observatory`. The container, role, network and existing data volume
+`OBSERVATORY_DB_*` is the canonical connection namespace. Existing
+`SURVEILLANCE_DB_*` files/environment remain supported as compatibility defaults;
+explicit Observatory settings take precedence, including `ENABLE_SSL=false`. The
+role defaults to the existing `surveillance` role; no database role is renamed. The container, role, network and existing data volume
 are retained. Existing explicit database names remain supported for rollback.
 
 ## Local container
@@ -55,7 +57,8 @@ For a backend running directly on the host, use the private file's connection se
 For a backend in Docker, attach it to the surveillance container's Docker network and
 use `sso-surveillance-db:5432` instead of `127.0.0.1:55434`. Only enable the new connection
 after importing or transferring and checking the data. File-backed passwords are
-supported with `SURVEILLANCE_DB_PASSWORD_FILE` by the backend entrypoint.
+supported with `OBSERVATORY_DB_PASSWORD_FILE` (or the legacy
+`SURVEILLANCE_DB_PASSWORD_FILE`) by the backend entrypoint.
 
 ## Rename an existing local database
 
@@ -175,3 +178,19 @@ docker compose -p moh-sso-dashboard-dev -f infra/compose/docker-compose.dev.yml 
 To reapply the isolated connection, add `--env-file .local-sso/surveillance.env`
 and `-f infra/compose/docker-compose.surveillance-backend.override.yml` to that
 Compose command before `up`. This is local-only and does not alter production.
+
+## Observatory configuration names
+
+Canonical settings are `OBSERVATORY_DB_HOST`, `OBSERVATORY_DB_PORT`,
+`OBSERVATORY_DB_NAME`, `OBSERVATORY_DB_USER`, `OBSERVATORY_DB_PASSWORD`, and
+`OBSERVATORY_DB_ENABLE_SSL`. Legacy `SURVEILLANCE_DB_*` values are used when the
+corresponding canonical key is unset. An explicit empty canonical host disables
+the isolated connection. A configured host requires all credentials; there is no
+fallback to the primary database after a connection or migration failure.
+
+The standalone `cmd/surveillance-db` initializer accepts either namespace. Its
+command and the `internal/db/surveillance_migrations` directory retain their module
+names; existing migration versions and data are preserved. The import integration
+test accepts `OBSERVATORY_DOCKER_TEST=1` and the legacy CI flag
+`SURVEILLANCE_DOCKER_TEST=1`. The loader's `--db-user` selects a non-default role
+without renaming the role in an existing container.

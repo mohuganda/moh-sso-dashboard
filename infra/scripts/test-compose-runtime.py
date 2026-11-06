@@ -87,6 +87,7 @@ def main():
 set -eu
 if [ "${1:-}" = --version ]; then printf 'runtime-version-argument-ok'; exit 0; fi
 test "$DB_PASSWORD" = 'fixture-password'
+test "$OBSERVATORY_DB_PASSWORD" = 'fixture-password'
 test "$(id -u)" != 0
 for filename in uganda_districts.geojson uganda_subcounties.geojson uga_water.geojson; do
   test -r "/app/assets/geojson/$filename"
@@ -107,7 +108,9 @@ printf 'secret-loading-and-nonroot-upload-ok'
             secret.chmod(0o600)
             result = docker('run', '--rm', '-v', f'{secret}:/run/secrets/db:ro',
                             '-v', '/data/uploads', '-e', 'DB_PASSWORD=placeholder',
-                            '-e', 'DB_PASSWORD_FILE=/run/secrets/db', image)
+                            '-e', 'DB_PASSWORD_FILE=/run/secrets/db',
+                            '-e', 'OBSERVATORY_DB_PASSWORD=placeholder',
+                            '-e', 'OBSERVATORY_DB_PASSWORD_FILE=/run/secrets/db', image)
             assert result == 'secret-loading-and-nonroot-upload-ok'
 
             # Use the exact development healthcheck against a fresh local IdP.
