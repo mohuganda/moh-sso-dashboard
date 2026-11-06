@@ -45,7 +45,11 @@ services:
         exec redis-server --appendonly yes
     volumes: [redis_data:/data]
     healthcheck:
-      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      test:
+        [
+          CMD-SHELL,
+          'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG',
+        ]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -91,14 +95,16 @@ services:
       KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: /run/secrets/keycloak_admin_client_secret
       KEYCLOAK_WEB_CLIENT_SECRET_FILE: /run/secrets/keycloak_web_client_secret
       LOCAL_BASE_PATH: /data/uploads
-    secrets: [db_password, keycloak_admin_client_secret, keycloak_web_client_secret]
+    secrets:
+      [db_password, keycloak_admin_client_secret, keycloak_web_client_secret]
     volumes: [upload_data:/data/uploads]
     ports: ["${APP_BIND_ADDRESS:-127.0.0.1}:9000:9000"]
     depends_on:
-      backend-db: {condition: service_healthy}
-      redis: {condition: service_healthy}
+      backend-db: { condition: service_healthy }
+      redis: { condition: service_healthy }
     healthcheck:
-      test: [CMD-SHELL, 'wget -qO- http://127.0.0.1:9000/health/ready || exit 1']
+      test:
+        [CMD-SHELL, "wget -qO- http://127.0.0.1:9000/health/ready || exit 1"]
       start_period: 60s
       interval: 15s
       timeout: 5s
@@ -109,13 +115,14 @@ services:
     image: ghcr.io/mohuganda/moh-sso-dashboard-frontend:${FRONTEND_TAG:?FRONTEND_TAG must be an immutable semantic or sha tag}
     container_name: sso-frontend
     environment:
-      API_BASE_URL: ${API_BASE_URL:-/ssobackend}
+      API_BASE_URL: ${API_BASE_URL:-/api}
       FRONTEND_MICROFRONTEND_MODE: remote
       FRONTEND_SINGLE_SPA_ORCHESTRATION: "true"
       FRONTEND_MICROFRONTEND_MOUNT_MODE: orchestrated
     ports: ["${APP_BIND_ADDRESS:-127.0.0.1}:3000:3000"]
     healthcheck:
-      test: [CMD-SHELL, 'wget -qO- http://127.0.0.1:3000/nginx/health || exit 1']
+      test:
+        [CMD-SHELL, "wget -qO- http://127.0.0.1:3000/nginx/health || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 10
