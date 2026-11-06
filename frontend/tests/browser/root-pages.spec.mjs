@@ -92,6 +92,8 @@ for (const width of [1440, 390]) {
         route.fulfill({ contentType: "text/html", body: "<p>Report browser fixture</p>" }),
       );
 
+      // Root pages must mount without a live CDN, using lockfile dependencies.
+      await page.route("https://esm.sh/**", (route) => route.abort("blockedbyclient"));
       await page.goto(`/portal${path}`);
       const main = page.locator("#main-content");
       const header = main.locator(".moh-page-shell__header");
