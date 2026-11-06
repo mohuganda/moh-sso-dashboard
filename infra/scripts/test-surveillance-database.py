@@ -15,12 +15,12 @@ ROOT=Path(__file__).resolve().parents[2]
 class SurveillanceDatabaseTest(unittest.TestCase):
  def test_isolated_import_preserves_conflicts_and_week_zero_and_retries(self):
   container='surveillance-test-'+uuid.uuid4().hex[:10]
-  subprocess.run(['docker','run','-d','--name',container,'--tmpfs','/var/lib/postgresql/data','-e','POSTGRES_USER=surveillance','-e','POSTGRES_DB=surveillance','-e','POSTGRES_PASSWORD=fixture-only','postgres:15-alpine'],check=True,stdout=subprocess.DEVNULL)
+  subprocess.run(['docker','run','-d','--name',container,'--tmpfs','/var/lib/postgresql/data','-e','POSTGRES_USER=surveillance','-e','POSTGRES_DB=observatory','-e','POSTGRES_PASSWORD=fixture-only','postgres:15-alpine'],check=True,stdout=subprocess.DEVNULL)
   self.addCleanup(lambda: subprocess.run(['docker','rm','-f',container],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
   def query(sql):
-   return subprocess.check_output(['docker','exec','-i',container,'psql','-X','-v','ON_ERROR_STOP=1','-U','surveillance','-d','surveillance','-Atq'],input=sql,text=True).strip()
+   return subprocess.check_output(['docker','exec','-i',container,'psql','-X','-v','ON_ERROR_STOP=1','-U','surveillance','-d','observatory','-Atq'],input=sql,text=True).strip()
   for _ in range(60):
-   result=subprocess.run(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U','surveillance'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+   result=subprocess.run(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U','surveillance','-d','observatory'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
    if result.returncode==0:break
    time.sleep(0.5)
   # pg_isready can briefly see the bootstrap server before its final restart.

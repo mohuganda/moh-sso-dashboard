@@ -39,18 +39,18 @@ def prepare_row(row, dataset, year):
     return payload, error
 
 
-def psql(container, sql, capture=False):
+def psql(container, sql, capture=False, database="observatory"):
     return subprocess.run(['docker', 'exec', '-i', container, 'psql', '-X', '-v',
-                           'ON_ERROR_STOP=1', '-U', 'surveillance', '-d', 'surveillance', '-Atq'],
+                           'ON_ERROR_STOP=1', '-U', 'surveillance', '-d', database, '-Atq'],
                           input=sql, text=True, check=True,
                           stdout=subprocess.PIPE if capture else None)
 
 
-def stage(container, path, dataset, year):
+def stage(container, path, dataset, year, database="observatory"):
     with path.open('rb') as source_file:
         digest = hashlib.file_digest(source_file, 'sha256').hexdigest()
     source = f'folder:{path.name}:{digest}:year={year}'
-    existing = psql(container, "SELECT id FROM surveillance_import_batches WHERE source_name='" + source + "';", True).stdout.strip()
+    existing = psql(container, "SELECT id FROM surveillance_import_batches WHERE source_name='" + source + "';", True, database=database).stdout.strip()
     if existing:
         print(f'{path.name}: already staged; reusing batch {existing}')
         return existing
@@ -73,7 +73,7 @@ def stage(container, path, dataset, year):
         spool.write(f"UPDATE surveillance_import_batches SET total_rows={count}, failed_rows={failed} WHERE id='{batch}';\nCOMMIT;\n")
         spool.seek(0)
         subprocess.run(['docker', 'exec', '-i', container, 'psql', '-X', '-q', '-v',
-                        'ON_ERROR_STOP=1', '-U', 'surveillance', '-d', 'surveillance'],
+                        'ON_ERROR_STOP=1', '-U', 'surveillance', '-d', database],
                        stdin=spool, check=True)
     print(f'{path.name}: staged {count} rows ({failed} held for review), batch {batch}')
     return batch
@@ -82,6 +82,7 @@ def stage(container, path, dataset, year):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--container', default='sso-surveillance-db')
+    parser.add_argument('--database', default='observatory', help='Target database; use surveillance for an existing database before renaming')
     parser.add_argument('--directory', type=Path, default=ROOT / 'surveillance')
     parser.add_argument('--flag-year', type=int, required=True)
     parser.add_argument('--stage-only', action='store_true')
@@ -90,7 +91,7 @@ def main():
     if not 1900 <= args.flag_year <= 2200:
         parser.error('--flag-year must be an explicit year between 1900 and 2200')
     # Fixed filenames, not arbitrary input names interpolated into SQL.
-    batches = [stage(args.container, args.directory / name, dataset, args.flag_year)
+    batches = [stage(args.container, args.directory / name, dataset, args.flag_year, database=args.database)
                for name, dataset in DATASETS.items()]
     if not args.stage_only:
         ids = ','.join("'" + str(uuid.UUID(batch)) + "'::uuid" for batch in batches)
@@ -104,8 +105,8 @@ DELETE FROM alerts WHERE source_name IN (SELECT b.source_name FROM surveillance_
 UPDATE surveillance_import_raw_rows r SET status='PENDING',error_message=NULL FROM surveillance_import_batches b JOIN selected_batches s ON s.id=b.id
 WHERE r.batch_id=b.id AND (b.dataset_type IN ('facility_metrics','alerts') OR (r.payload ? '_flags' AND r.payload->>'weeks' ~ '^[0-9]+$' AND (r.payload->>'weeks')::int BETWEEN 1 AND 53));
 """ + sql
-        psql(args.container, 'BEGIN;\nCREATE TEMP TABLE selected_batches AS SELECT unnest(ARRAY[' + ids + ']) AS id;\n' + sql + '\nCOMMIT;\n')
-    report = psql(args.container, "SELECT file_name,total_rows,success_rows,failed_rows,status FROM surveillance_import_batches WHERE id IN (" + ','.join("'" + str(uuid.UUID(batch)) + "'" for batch in batches) + ") ORDER BY file_name;", True).stdout
+        psql(args.container, 'BEGIN;\nCREATE TEMP TABLE selected_batches AS SELECT unnest(ARRAY[' + ids + ']) AS id;\n' + sql + '\nCOMMIT;\n', database=args.database)
+    report = psql(args.container, "SELECT file_name,total_rows,success_rows,failed_rows,status FROM surveillance_import_batches WHERE id IN (" + ','.join("'" + str(uuid.UUID(batch)) + "'" for batch in batches) + ") ORDER BY file_name;", True, database=args.database).stdout
     print('file|total|processed|review|status\n' + report)
 
 

@@ -290,7 +290,7 @@ func LoadConfig(path string) (*Config, error) {
 func setDefaults() {
 	viper.SetDefault("SURVEILLANCE_DB_HOST", "")
 	viper.SetDefault("SURVEILLANCE_DB_PORT", "5432")
-	viper.SetDefault("SURVEILLANCE_DB_NAME", "surveillance")
+	viper.SetDefault("SURVEILLANCE_DB_NAME", "observatory")
 	viper.SetDefault("SURVEILLANCE_DB_USER", "surveillance")
 	viper.SetDefault("SURVEILLANCE_DB_PASSWORD", "")
 	viper.SetDefault("SURVEILLANCE_DB_ENABLE_SSL", false)

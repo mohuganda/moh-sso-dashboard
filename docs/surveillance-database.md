@@ -1,10 +1,24 @@
-# Isolated surveillance database
+# Observatory database for surveillance
 
 The surveillance module can use a separate PostgreSQL connection while authentication,
 documents, processes, notifications and other features remain on the primary database.
 An empty `SURVEILLANCE_DB_HOST` preserves the previous single-database behavior.
 A configured host requires its own complete connection settings; failure stops startup
 and readiness fails if the configured surveillance database becomes unavailable.
+
+## Relationship to the DQA connection
+
+DQA uses `Config.DqaDbSource()` and the shared `db.InitDB` connection-pool
+initializer. It targets the DWH host, port and database, optionally using its own
+`DQA_DB_USERNAME`/`DQA_DB_PASSWORD`. When those are unset it uses DWH credentials.
+`NewDQAStore` creates its `dqa` schema/tables idempotently on first use.
+
+The observatory connection uses the same pool initializer and repository injection
+pattern but keeps its own PostgreSQL container and database. Versioned surveillance
+migrations remain in place. Authentication and other primary stores are unaffected.
+`SURVEILLANCE_DB_*` remains the module's configuration namespace; only the database
+name changes to `observatory`. The container, role, network and existing data volume
+are retained. Existing explicit database names remain supported for rollback.
 
 ## Local container
 
@@ -16,7 +30,8 @@ credentials are not tracked. Start only the new database:
 docker compose --env-file .local-sso/surveillance.env -f infra/compose/docker-compose.surveillance.yml up -d --wait
 ```
 
-The container is `sso-surveillance-db`, the database/user are `surveillance`, and
+The container remains `sso-surveillance-db`, the database is `observatory`, the
+database role remains `surveillance`, and
 host access is restricted to `127.0.0.1:55434`. Its named volume persists data.
 Do not use `down -v` to stop it; that removes its data volume.
 
@@ -24,6 +39,10 @@ Load the private variables into the process environment without printing them, t
 from `backend/`, initialize the schema with `go run ./cmd/surveillance-db`.
 The backend also applies these migrations automatically when its dedicated connection
 is configured. Runtime images include the dedicated migration directory.
+
+The current local database has been renamed in place to `observatory`; database
+and relation identifiers plus exact counts for all 13 tables were preserved. A
+private pre-rename dump and count snapshot are retained under `.local-sso/`.
 
 The current local development backend has been switched using
 `docker-compose.surveillance-backend.override.yml`; its readiness check passed.
@@ -37,6 +56,29 @@ For a backend in Docker, attach it to the surveillance container's Docker networ
 use `sso-surveillance-db:5432` instead of `127.0.0.1:55434`. Only enable the new connection
 after importing or transferring and checking the data. File-backed passwords are
 supported with `SURVEILLANCE_DB_PASSWORD_FILE` by the backend entrypoint.
+
+## Rename an existing local database
+
+Changing `POSTGRES_DB` does not rename a database in an existing volume. For an
+already populated container, take a backup, stop the local backend, and rename the
+database while connected to `postgres`:
+
+```sh
+docker exec sso-surveillance-db psql -X -v ON_ERROR_STOP=1 -U surveillance -d postgres -c 'ALTER DATABASE surveillance RENAME TO observatory;'
+```
+
+All connections to the old database must be closed first. This preserves tables,
+IDs, ownership, migration history, staging and facts; it does not reimport data.
+Set the private `SURVEILLANCE_DB_NAME=observatory`, recreate the database container
+without removing its volume to update its health check, then recreate the backend
+using the updated override. Compare table counts and verify readiness. Keep the
+backup private. Rollback uses the inverse rename while the backend is stopped and
+restores the prior connection name. Production database changes are separate from
+this local procedure.
+
+The CSV loader defaults to `observatory`; `--database surveillance` supports an
+existing database before its rename, or an explicit alternate database during
+verification. The PostgreSQL role remains `surveillance`.
 
 ## Table ownership
 

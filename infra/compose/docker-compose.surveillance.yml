@@ -8,12 +8,12 @@ services:
     shm_size: 256mb
     environment:
       POSTGRES_USER: surveillance
-      POSTGRES_DB: surveillance
+      POSTGRES_DB: observatory
       POSTGRES_PASSWORD: ${SURVEILLANCE_DB_PASSWORD:?Set SURVEILLANCE_DB_PASSWORD in a private env file}
     ports: ["127.0.0.1:${SURVEILLANCE_DB_LOCAL_PORT:-55434}:5432"]
     volumes: [surveillance_data:/var/lib/postgresql/data]
     healthcheck:
-      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U surveillance -d surveillance']
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U surveillance -d observatory']
       interval: 3s
       timeout: 3s
       retries: 20
