@@ -1,25 +1,16 @@
-import { Tile } from "@carbon/react";
-import React from "react";
+import { useId, type ReactNode } from "react";
+import { ArrowRight } from "@carbon/react/icons";
 import { useNavigate } from "react-router-dom";
 import "./quick-action.scss";
 
 type QuickActionTone = "default" | "primary" | "warning" | "danger";
-
 type QuickActionProps = {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   description?: string;
-
-  /** Route navigation (optional) */
   href?: string;
-
-  /** Custom action (e.g. open header panel) */
   onClick?: () => void;
-
-  /** Visual emphasis */
   tone?: QuickActionTone;
-
-  /** Disable interaction */
   disabled?: boolean;
 };
 
@@ -33,51 +24,31 @@ export function QuickAction({
   disabled = false,
 }: QuickActionProps) {
   const navigate = useNavigate();
-
-  const isInteractive = !disabled && (onClick || href);
-
-  const handleClick = () => {
-    if (disabled) return;
-
-    if (onClick) {
-      onClick();
-      return;
-    }
-
-    if (href) {
-      navigate(href);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isInteractive) return;
-
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleClick();
-    }
-  };
-
+  const descriptionId = useId();
   return (
-    <Tile
-      role={isInteractive ? "button" : undefined}
-      tabIndex={isInteractive ? 0 : -1}
-      aria-disabled={disabled}
-      className={["quick-action", `quick-action--${tone}`, disabled && "quick-action--disabled"]
-        .filter(Boolean)
-        .join(" ")}
-      onClick={isInteractive ? handleClick : undefined}
-      onKeyDown={handleKeyDown}
+    <button
+      type="button"
+      className={`quick-action quick-action--${tone}`}
+      disabled={disabled || (!onClick && !href)}
+      aria-label={label}
+      aria-describedby={description ? descriptionId : undefined}
+      onClick={() => {
+        if (onClick) onClick();
+        else if (href) navigate(href);
+      }}
     >
-      <div className="quick-action__icon" aria-hidden>
+      <span className="quick-action__icon" aria-hidden="true">
         {icon}
-      </div>
-
-      <div className="quick-action__content">
-        <strong className="quick-action__label">{label}</strong>
-
-        {description && <p className="quick-action__description">{description}</p>}
-      </div>
-    </Tile>
+      </span>
+      <span className="quick-action__content">
+        <span className="quick-action__label">{label}</span>
+        {description && (
+          <span id={descriptionId} className="quick-action__description">
+            {description}
+          </span>
+        )}
+      </span>
+      <ArrowRight size={16} className="quick-action__arrow" aria-hidden="true" />
+    </button>
   );
 }
