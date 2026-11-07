@@ -1,8 +1,8 @@
 # Health Workforce Portal OIDC setup
 
 This provisions the web and laptop-test clients requested for Digital Timesheet and
-Clinical Training. The approved target is the existing **`moh-realm`**, not a new
-`MoH` realm. It does not activate sign-in in the external application or change any
+Clinical Training. Production uses the existing **`moh-realm`**. The laptop-test client and synthetic
+users live separately in **`moh-test`**, following the environment isolation setup. It does not activate sign-in in the external application or change any
 live Keycloak instance automatically.
 
 ## Client contract
@@ -13,6 +13,9 @@ live Keycloak instance automatically.
 | Redirect URI, exact | `https://timesheet.health.go.ug/auth/sso` | `http://127.0.0.1:8081/auth/sso` |
 | Post-logout URI, exact | `https://timesheet.health.go.ug/login` | `http://127.0.0.1:8081/login` |
 | Web origin | `https://timesheet.health.go.ug` | `http://127.0.0.1:8081` |
+
+The clients belong to different realms. See [identity environments](identity-environments.md)
+for fresh test-realm bootstrap and per-environment credentials.
 
 Both clients are public: **no client secret**. Authorization code with **S256 PKCE**
 is required. Implicit flow, direct password grants, service accounts, authorization
@@ -45,8 +48,9 @@ bound immutable `sub`. This repository does not implement that external applicat
 
 ## Apply to an existing realm
 
-The manifest is `infra/keycloak/clients/digital-timesheets.json`. Both realm exports
-also contain the two clients for fresh installations. **Startup realm import does
+The production manifest is `infra/keycloak/clients/digital-timesheets.json`;
+`digital-timesheets-test.json` holds the isolated test client and fixtures. Both legacy realm exports
+contain only the production client. The separate test manifest targets `moh-test`. **Startup realm import does
 not update an existing realm.** Do not delete/reimport a live realm to add clients.
 
 Use the existing private administrative environment, with
@@ -78,7 +82,7 @@ python3 infra/scripts/reconcile-digital-timesheets.py \
 Create the parent directory privately first. The script creates the backup with mode
 `0600` and refuses to overwrite it. It snapshots the managed clients' prior settings,
 scope assignments and mappers before writing, rejects a different target realm or an
-existing confidential client with either ID, then verifies convergence. Re-running
+existing client with a different authentication type, then verifies convergence. Re-running
 the plan after successful setup reports no client changes. Unknown client attributes
 and unrelated clients, users, roles and realm settings are preserved. Review any
 pre-existing dedicated mappers on these client IDs separately; only the named
@@ -86,7 +90,7 @@ authentication mappers are managed by this script.
 
 ## Synthetic test accounts
 
-The user approved arbitrary test identities. These four fixtures use reserved,
+The user approved arbitrary test identities. These belong only to `moh-test`. These four fixtures use reserved,
 non-deliverable `.invalid` addresses, never real staff addresses:
 
 | Username | Email | Email verified |
@@ -98,7 +102,9 @@ non-deliverable `.invalid` addresses, never real staff addresses:
 
 Users are optional, disabled initially, and have **no passwords in source control**.
 They are not included in either realm export's user list. To include them in the
-plan/apply, add `--include-test-users` to the commands above. Existing accounts with
+test plan/apply, load the `moh-test` administrative environment and add
+`--environment test --include-test-users` to the commands above. Production setup
+contains no synthetic users. Existing accounts with
 the same username and fixture email are left untouched; conflicting usernames abort
 before any mutation. The backup lists which fixtures were absent before setup.
 No custom user-profile attributes or realm user-profile policy changes are needed.
@@ -125,7 +131,7 @@ PKCE/redirect restrictions, token claims, both email-verification cases, CORS, S
 logout and disabled grant types, plus reconciliation idempotence.
 
 If setup fails partway through, retain the private backup and inspect the next
-dry run. For newly created clients, disable these two client IDs to stop new logins;
+dry run. For newly created clients, disable the selected client ID to stop new logins;
 revoke their sessions before deleting them if rollback is required. For previously
 existing clients, restore their settings, scope assignments and mapper configuration
 from `clients[].before` in the backup using the admin console/API. Restore only these

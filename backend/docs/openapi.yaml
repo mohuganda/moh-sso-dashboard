@@ -861,6 +861,12 @@ components:
           type: boolean
         enabled:
           type: boolean
+        frontchannelLogout:
+          type: boolean
+        fullScopeAllowed:
+          type: boolean
+        icon:
+          type: string
         implicitFlowEnabled:
           type: boolean
         loginUri:
@@ -875,6 +881,10 @@ components:
           type: array
         protocol:
           type: string
+        protocolMappers:
+          items:
+            $ref: '#/components/schemas/model.ProtocolMapper'
+          type: array
         publicClient:
           type: boolean
         redirectUris:
@@ -945,6 +955,32 @@ components:
           items:
             type: string
           type: array
+      type: object
+    clients.onboardingPreview:
+      properties:
+        client:
+          $ref: '#/components/schemas/clients.ClientResponse'
+        existing:
+          allOf:
+            - $ref: '#/components/schemas/clients.ClientResponse'
+          nullable: true
+        issuer:
+          type: string
+        operation:
+          type: string
+        realm:
+          type: string
+        reviewToken:
+          type: string
+        spec:
+          $ref: '#/components/schemas/keycloak.OnboardingSpec'
+      type: object
+    clients.onboardingRequest:
+      properties:
+        reviewToken:
+          type: string
+        spec:
+          $ref: '#/components/schemas/keycloak.OnboardingSpec'
       type: object
     clients.toggleClientEnabledRequest:
       properties:
@@ -2494,6 +2530,51 @@ components:
         version:
           type: string
       type: object
+    keycloak.ClientProfile:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        settings:
+          $ref: '#/components/schemas/model.Client'
+      type: object
+    keycloak.OnboardingSpec:
+      properties:
+        clientId:
+          type: string
+        description:
+          type: string
+        environment:
+          type: string
+        launcher:
+          type: boolean
+        logoutUris:
+          items:
+            type: string
+          type: array
+        name:
+          type: string
+        owner:
+          type: string
+        profile:
+          type: string
+        redirectUris:
+          items:
+            type: string
+          type: array
+        rootUrl:
+          type: string
+        supportEmail:
+          type: string
+        version:
+          format: int64
+          type: integer
+        webOrigins:
+          items:
+            type: string
+          type: array
+      type: object
     metrics.ActiveUsersPerClient:
       properties:
         active_users:
@@ -2779,6 +2860,114 @@ components:
         path:
           type: string
       type: object
+    model.Client:
+      properties:
+        access:
+          additionalProperties:
+            type: boolean
+          type: object
+        adminUrl:
+          type: string
+        alwaysDisplayInConsole:
+          type: boolean
+        attributes:
+          additionalProperties:
+            type: string
+          type: object
+        authenticationFlowBindingOverrides:
+          additionalProperties:
+            type: string
+          type: object
+        authorizationServicesEnabled:
+          type: boolean
+        authorizationUrl:
+          type: string
+        baseUrl:
+          type: string
+        bearerOnly:
+          type: boolean
+        clientAuthenticatorType:
+          type: string
+        clientId:
+          type: string
+        clientTemplate:
+          type: string
+        consentRequired:
+          type: boolean
+        defaultClientScopes:
+          items:
+            type: string
+          type: array
+        defaultRoles:
+          items:
+            type: string
+          type: array
+        description:
+          type: string
+        directAccessGrantsEnabled:
+          type: boolean
+        enabled:
+          type: boolean
+        frontchannelLogout:
+          type: boolean
+        fullScopeAllowed:
+          type: boolean
+        id:
+          type: string
+        implicitFlowEnabled:
+          type: boolean
+        name:
+          type: string
+        nodeReRegistrationTimeout:
+          format: int64
+          type: integer
+        notBefore:
+          format: int64
+          type: integer
+        optionalClientScopes:
+          items:
+            type: string
+          type: array
+        protocol:
+          type: string
+        protocolMappers:
+          items:
+            $ref: '#/components/schemas/model.ProtocolMapper'
+          type: array
+        publicClient:
+          type: boolean
+        redirectUris:
+          items:
+            type: string
+          type: array
+        registeredNodes:
+          additionalProperties:
+            format: int64
+            type: integer
+          type: object
+        registrationAccessToken:
+          type: string
+        rootClientRealm:
+          type: string
+        rootUrl:
+          type: string
+        secret:
+          type: string
+        serviceAccountsEnabled:
+          type: boolean
+        standardFlowEnabled:
+          type: boolean
+        surrogateAuthRequired:
+          type: boolean
+        tlsRequired:
+          type: string
+        useTemplateConfig:
+          type: boolean
+        webOrigins:
+          items:
+            type: string
+          type: array
+      type: object
     model.CreateClientRoleRequest:
       properties:
         description:
@@ -2983,6 +3172,25 @@ components:
           additionalProperties: {}
           type: object
         template_name:
+          type: string
+      type: object
+    model.ProtocolMapper:
+      properties:
+        config:
+          additionalProperties:
+            type: string
+          type: object
+        consentRequired:
+          type: boolean
+        consentText:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        protocol:
+          type: string
+        protocolMapper:
           type: string
       type: object
     model.TemplateColumnStructure:
@@ -17973,6 +18181,291 @@ paths:
       tags:
         - clients
       x-go-handler: github.com/moh-sso-dashboard/internal/features/clients.(*Handler).ToggleClientEnabled
+      x-route-permissions:
+        - clients:write
+  /api/v1/clients/onboarding/apply:
+    post:
+      description: 'Explicit route permission: clients:write. Additional group/system access checks may apply.'
+      operationId: post_api_v1_clients_onboarding_apply
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/clients.onboardingRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/clients.onboardingPreview'
+                        nullable: true
+                      meta:
+                        properties:
+                          requestId:
+                            type: string
+                        type: object
+                      success:
+                        enum:
+                          - true
+                        type: boolean
+                    required:
+                      - success
+                      - data
+                    type: object
+                  - properties:
+                      data:
+                        properties:
+                          client:
+                            $ref: '#/components/schemas/clients.ClientResponse'
+                          issuer:
+                            type: string
+                          message:
+                            type: string
+                        type: object
+                      meta:
+                        properties:
+                          requestId:
+                            type: string
+                        type: object
+                      success:
+                        enum:
+                          - true
+                        type: boolean
+                    required:
+                      - success
+                      - data
+                    type: object
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflict
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Too Many Requests
+        "502":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Bad Gateway
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error response; error.code identifies the failure.
+      summary: Apply Onboarding
+      tags:
+        - clients
+      x-go-handler: github.com/moh-sso-dashboard/internal/features/clients.(*Handler).ApplyOnboarding
+      x-route-permissions:
+        - clients:write
+  /api/v1/clients/onboarding/context:
+    get:
+      description: 'Explicit route permission: clients:write. Additional group/system access checks may apply.'
+      operationId: get_api_v1_clients_onboarding_context
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  data:
+                    properties:
+                      environment:
+                        type: string
+                      issuer:
+                        type: string
+                      profiles:
+                        items:
+                          $ref: '#/components/schemas/keycloak.ClientProfile'
+                        type: array
+                      realm:
+                        type: string
+                    type: object
+                  meta:
+                    properties:
+                      requestId:
+                        type: string
+                    type: object
+                  success:
+                    enum:
+                      - true
+                    type: boolean
+                required:
+                  - success
+                  - data
+                type: object
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Too Many Requests
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Service Unavailable
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error response; error.code identifies the failure.
+      summary: Onboarding Context
+      tags:
+        - clients
+      x-go-handler: github.com/moh-sso-dashboard/internal/features/clients.(*Handler).OnboardingContext
+      x-route-permissions:
+        - clients:write
+  /api/v1/clients/onboarding/preview:
+    post:
+      description: 'Explicit route permission: clients:write. Additional group/system access checks may apply.'
+      operationId: post_api_v1_clients_onboarding_preview
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/clients.onboardingRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/clients.onboardingPreview'
+                        nullable: true
+                      meta:
+                        properties:
+                          requestId:
+                            type: string
+                        type: object
+                      success:
+                        enum:
+                          - true
+                        type: boolean
+                    required:
+                      - success
+                      - data
+                    type: object
+                  - properties:
+                      data:
+                        properties:
+                          client:
+                            $ref: '#/components/schemas/clients.ClientResponse'
+                          issuer:
+                            type: string
+                          message:
+                            type: string
+                        type: object
+                      meta:
+                        properties:
+                          requestId:
+                            type: string
+                        type: object
+                      success:
+                        enum:
+                          - true
+                        type: boolean
+                    required:
+                      - success
+                      - data
+                    type: object
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflict
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Too Many Requests
+        "502":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Bad Gateway
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error response; error.code identifies the failure.
+      summary: Preview Onboarding
+      tags:
+        - clients
+      x-go-handler: github.com/moh-sso-dashboard/internal/features/clients.(*Handler).PreviewOnboarding
       x-route-permissions:
         - clients:write
   /api/v1/data-quality/dqa/columns:

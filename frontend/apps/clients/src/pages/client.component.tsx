@@ -10,6 +10,7 @@ import {
   TableSelectRow,
   TableSelectAll,
 } from "@carbon/react";
+import { useAuthorization } from "@moh-sso/auth";
 import { useEffect, useMemo, useState } from "react";
 
 import { ClientFilters } from "../components/ClientFilters";
@@ -64,6 +65,7 @@ export default function ClientsPage() {
   const { openPanel, closePanel } = useHeaderPanel();
   const { openEnableClientModal } = useEnableClientModal();
   const toast = useToast();
+  const { can } = useAuthorization();
 
   const [bulkAction, setBulkAction] = useState<"enable" | "disable" | null>(null);
 
@@ -147,6 +149,21 @@ export default function ClientsPage() {
     <DataTableShell
       title="Clients"
       description="Registered applications and services integrated with the platform."
+      topContent={
+        can("clients:write") ? (
+          <Button
+            onClick={() =>
+              openPanel({
+                title: "Onboard application",
+                content: <ClientFormPanel mode="create" onSuccess={closePanel} />,
+                size: "md",
+              })
+            }
+          >
+            Onboard application
+          </Button>
+        ) : undefined
+      }
       rows={rows}
       headers={headers}
       getRowId={(row) => row.id}

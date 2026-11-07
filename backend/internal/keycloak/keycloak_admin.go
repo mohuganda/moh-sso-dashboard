@@ -60,21 +60,26 @@ type ProtocolMapper struct {
 }
 
 type CreateClientParams struct {
-	ClientID                  string            `json:"clientId"`
-	Name                      string            `json:"name"`
-	Description               string            `json:"description"`
-	BaseURL                   string            `json:"baseUrl"`
-	RootURL                   string            `json:"rootUrl"`
-	RedirectURIs              []string          `json:"redirectUris"`
-	WebOrigins                []string          `json:"webOrigins"`
-	PublicClient              bool              `json:"publicClient"`
-	Protocol                  string            `json:"protocol"`
-	StandardFlowEnabled       bool              `json:"standardFlowEnabled"`
-	ImplicitFlowEnabled       bool              `json:"implicitFlowEnabled"`
-	DirectAccessGrantsEnabled bool              `json:"directAccessGrantsEnabled"`
-	ServiceAccountsEnabled    bool              `json:"serviceAccountsEnabled"`
-	Enabled                   bool              `json:"enabled"`
-	Attributes                map[string]string `json:"attributes"`
+	DefaultClientScopes       []string               `json:"defaultClientScopes,omitempty"`
+	OptionalClientScopes      []string               `json:"optionalClientScopes,omitempty"`
+	ProtocolMappers           []model.ProtocolMapper `json:"protocolMappers,omitempty"`
+	FullScopeAllowed          bool                   `json:"fullScopeAllowed"`
+	FrontChannelLogout        bool                   `json:"frontchannelLogout"`
+	ClientID                  string                 `json:"clientId"`
+	Name                      string                 `json:"name"`
+	Description               string                 `json:"description"`
+	BaseURL                   string                 `json:"baseUrl"`
+	RootURL                   string                 `json:"rootUrl"`
+	RedirectURIs              []string               `json:"redirectUris"`
+	WebOrigins                []string               `json:"webOrigins"`
+	PublicClient              bool                   `json:"publicClient"`
+	Protocol                  string                 `json:"protocol"`
+	StandardFlowEnabled       bool                   `json:"standardFlowEnabled"`
+	ImplicitFlowEnabled       bool                   `json:"implicitFlowEnabled"`
+	DirectAccessGrantsEnabled bool                   `json:"directAccessGrantsEnabled"`
+	ServiceAccountsEnabled    bool                   `json:"serviceAccountsEnabled"`
+	Enabled                   bool                   `json:"enabled"`
+	Attributes                map[string]string      `json:"attributes"`
 }
 
 type KeycloakUser struct {
@@ -437,12 +442,6 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 		opts.Protocol = "openid-connect"
 	}
 
-	opts.Enabled = true
-	opts.StandardFlowEnabled = true
-	opts.ImplicitFlowEnabled = false
-	opts.DirectAccessGrantsEnabled = false
-	opts.ServiceAccountsEnabled = false
-
 	if opts.RedirectURIs == nil {
 		opts.RedirectURIs = []string{}
 	}
@@ -463,7 +462,7 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 	}
 
 	if _, ok := opts.Attributes["ui.home"]; !ok {
-		opts.Attributes["ui.home"] = "/admin"
+		opts.Attributes["ui.home"] = ""
 	}
 
 	if err := utils.ValidateRedirectURIs(opts.RedirectURIs); err != nil {
@@ -486,8 +485,10 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 		return "", err
 	}
 
-	if err := c.EnsureClientBaseline(context.Background(), clientUUID); err != nil {
-		return "", err
+	if opts.Attributes["portal.onboarding.profile"] == "" {
+		if err := c.EnsureClientBaseline(context.Background(), clientUUID); err != nil {
+			return "", err
+		}
 	}
 
 	return clientUUID, nil
@@ -590,7 +591,19 @@ func (c *KeyAdminClient) UpdateClient(id string, payload *model.Client) error {
 		return fmt.Errorf("client id is required")
 	}
 
-	res, err := c.Put("clients/"+url.PathEscape(id), payload)
+	// The portal model also carries presentation-only fields absent from Keycloak's API.
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	var representation map[string]any
+	if err := json.Unmarshal(raw, &representation); err != nil {
+		return err
+	}
+	for _, key := range []string{"rootClientRealm", "authorizationUrl", "tlsRequired", "secret", "registrationAccessToken"} {
+		delete(representation, key)
+	}
+	res, err := c.Put("clients/"+url.PathEscape(id), representation)
 	if err != nil {
 		return err
 	}
