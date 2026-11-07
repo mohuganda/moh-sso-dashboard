@@ -107,9 +107,9 @@ export function AuditLogFilters({
           }
         }}
       >
-        <DatePickerInput id="audit-from" labelText="From date" hideLabel placeholder="From" />
+        <DatePickerInput id="audit-from" labelText="From date" placeholder="From" />
 
-        <DatePickerInput id="audit-to" labelText="To date" hideLabel placeholder="To" />
+        <DatePickerInput id="audit-to" labelText="To date" placeholder="To" />
       </DatePicker>
 
       <ComboBox
@@ -199,7 +199,7 @@ export function AuditLogFilters({
 
       <Stack orientation="horizontal" gap={3}>
         <Button kind="secondary" size="md" onClick={onClear}>
-          Clear
+          Clear filters
         </Button>
 
         <OverflowMenu ariaLabel="Export audit logs" flipped>

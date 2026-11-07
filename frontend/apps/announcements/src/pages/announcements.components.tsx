@@ -408,7 +408,7 @@ export function AnnouncementsPage() {
           primaryAction={{ label: "Retry", onClick: refetch }} />
       ) : <>
       {/* Filters */}
-      <Tile>
+      <Tile className="announcements-page__filter-tile">
         <AnnouncementFilters
           search={search}
           status={statusFilter}
@@ -435,7 +435,7 @@ export function AnnouncementsPage() {
       </Tile>
 
       {/* Table */}
-      <Tile>
+      <Tile className="announcements-page__table-tile">
         <DataTable rows={rows} headers={headers}>
           {({ rows, headers, getHeaderProps, getRowProps, getSelectionProps, selectedRows }) => {
             const selectedAnnouncements = selectedRows.map(

@@ -118,7 +118,7 @@ export function AnnouncementFilters<
       />
 
       <Button kind="ghost" onClick={onReset}>
-        Reset
+        Clear filters
       </Button>
     </div>
   );

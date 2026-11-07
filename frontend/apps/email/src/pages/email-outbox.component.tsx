@@ -366,7 +366,7 @@ export default function EmailOutbox() {
           primaryAction={{ label: "Retry", onClick: refetchEmails }} />
       ) : <>
       {/* Filters */}
-        <Tile>
+        <Tile className="email-outbox-page__filter-tile">
           <EmailOutboxFilters
             search={search}
             status={statusFilter}
@@ -381,7 +381,7 @@ export default function EmailOutbox() {
         </Tile>
 
         {/* Table */}
-        <Tile>
+        <Tile className="email-outbox-page__table-tile">
           <DataTable rows={rows} headers={headers}>
             {({ rows, headers, getHeaderProps, getRowProps, getSelectionProps, selectedRows }) => {
               const selectedEmails = selectedRows.map(

@@ -86,7 +86,7 @@ function fixtureData(path) {
 
 for (const width of [1440, 390]) {
   for (const [path, title] of rootPages) {
-    test(`${title} has one aligned root header at ${width}px`, async ({ page }) => {
+    test(`${title} has one aligned root header at ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       const failures = [];
       page.on("pageerror", (error) => failures.push(error.message));
@@ -121,6 +121,26 @@ for (const width of [1440, 390]) {
       expect(headingBounds.x + headingBounds.width).toBeLessThanOrEqual(width);
       await expect(header.locator(".moh-page-shell__subtitle")).toBeVisible();
       expect(failures).toEqual([]);
+      if (path.startsWith("/admin/")) {
+        // Fields must remain inside the workspace; Carbon Stack uses a grid
+        // unless wrapping filter layouts explicitly choose flex.
+        const filters = main.locator(".user-filters, .client-filters, .audit-log-filters, .announcement-filter-grid, .email-outbox-filter-grid, .notification-delivery-filters");
+        if (await filters.count()) {
+          const fields = await filters.locator(":scope > *").evaluateAll((elements) => elements.map((element) => {
+            const { x, y, width, height } = element.getBoundingClientRect();
+            return { x, y, width, height };
+          }));
+          for (const [index, field] of fields.entries()) {
+            expect(field.x + field.width).toBeLessThanOrEqual(width);
+            for (const other of fields.slice(index + 1)) {
+              const overlapX = Math.min(field.x + field.width, other.x + other.width) - Math.max(field.x, other.x);
+              const overlapY = Math.min(field.y + field.height, other.y + other.height) - Math.max(field.y, other.y);
+              expect(overlapX > 1 && overlapY > 1).toBe(false);
+            }
+          }
+        }
+        await page.screenshot({ path: testInfo.outputPath("workspace.png"), fullPage: true });
+      }
     });
   }
 }
@@ -185,6 +205,61 @@ for (const width of [1440, 390]) {
       if (path !== "/admin/rbac")
         await expect(main.getByRole("heading", { name: /Failed to load/ })).toHaveCount(0);
       expect(errors).toEqual([]);
+    });
+  }
+}
+
+// Search must cover the complete loaded collection, before slicing the current page.
+for (const width of [1440, 390]) {
+  for (const resource of ["users", "clients"]) {
+    test(`${resource} search, filters and reset work at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const records = Array.from({ length: 15 }, (_, index) => ({
+        id: `record-${index}`,
+        username: `person-${index}`,
+        email: `person-${index}@example.invalid`,
+        firstName: index === 14 ? "Target" : "Person",
+        name: index === 14 ? "Target application" : `Application ${index}`,
+        clientId: `application-${index}`,
+        enabled: index !== 14,
+        publicClient: true,
+        realmRoles: ["user"],
+      }));
+      await page.route("http://127.0.0.1:5417/ssobackend/**", (route) => {
+        const path = new URL(route.request().url()).pathname;
+        const data = path.endsWith(`/${resource}`) ? records : fixtureData(path);
+        return route.fulfill({ json: { success: true, data } });
+      });
+      await page.goto(`/portal/admin/${resource}`);
+      const main = page.locator("#main-content");
+      await expect(main.getByRole("status")).toContainText(`15 of 15 ${resource}`);
+      await main.getByRole("searchbox", { name: `Search ${resource}`, exact: true }).fill("TARGET");
+      await expect(main.getByRole("status")).toContainText(`1 of 15 ${resource}`);
+      await expect(
+        main.getByRole("cell", {
+          name: resource === "users" ? "person-14" : "Target application",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await main.getByRole("combobox", { name: "Status", exact: true }).click();
+      await main
+        .getByRole("option", { name: resource === "users" ? "active" : "Enabled", exact: true })
+        .click();
+      await expect(main.getByRole("heading", { name: `No ${resource} found` })).toBeVisible();
+      await main.getByRole("button", { name: "Clear filters", exact: true }).first().click();
+      await expect(main.getByRole("status")).toContainText(`15 of 15 ${resource}`);
+      await expect(
+        main.getByRole("searchbox", { name: `Search ${resource}`, exact: true }),
+      ).toHaveValue("");
+      if (resource === "users") {
+        const toggle = main.getByRole("button", { name: "Never logged in" });
+        await toggle.click();
+        await expect(toggle).toHaveAttribute("aria-pressed", "true");
+      }
+      const overflowing = await main.evaluate(
+        (element) => element.scrollWidth > element.clientWidth + 1,
+      );
+      expect(overflowing).toBe(false);
     });
   }
 }

@@ -799,10 +799,11 @@ export default function RbacManagementPage() {
         />
       )}
 
-      <div className="rbac-workspace-context">
+      <div className="rbac-workspace-context" role="group" aria-label="Application workspace">
         <ComboBox
           id="rbac-selected-application"
           titleText="Selected application"
+          helperText="Roles, permissions, and groups below apply to this application."
           placeholder="Find an application"
           items={systems}
           itemToString={(system) => (system ? `${system.displayName} (${system.clientId})` : "")}

@@ -3,6 +3,7 @@ import { Dropdown, Button, Stack } from "@carbon/react";
 import "./user-components.scss";
 
 interface UserFiltersProps {
+  onReset: () => void;
   status: string;
   roles: string[];
   selectedRole: string;
@@ -13,6 +14,7 @@ interface UserFiltersProps {
 }
 
 export function UserFilters({
+  onReset,
   status,
   roles,
   selectedRole,
@@ -22,16 +24,11 @@ export function UserFilters({
   onToggleNeverLoggedIn,
 }: UserFiltersProps) {
   return (
-    <Stack
-      orientation="horizontal"
-      gap={5}
-      className="user-filters"
-    >
+    <Stack orientation="horizontal" gap={5} className="user-filters">
       {/* Status */}
       <Dropdown
         id="user-status-filter"
         label="Status"
-        hideLabel
         titleText="Status"
         items={["all", "active", "disabled"]}
         selectedItem={status}
@@ -45,7 +42,6 @@ export function UserFilters({
       <Dropdown
         id="user-role-filter"
         label="Role"
-        hideLabel
         titleText="Role"
         items={roles}
         selectedItem={selectedRole}
@@ -59,9 +55,13 @@ export function UserFilters({
       <Button
         kind={neverLoggedIn ? "primary" : "secondary"}
         size="md"
+        aria-pressed={neverLoggedIn}
         onClick={onToggleNeverLoggedIn}
       >
         Never logged in
+      </Button>
+      <Button kind="ghost" size="md" onClick={onReset}>
+        Clear filters
       </Button>
     </Stack>
   );

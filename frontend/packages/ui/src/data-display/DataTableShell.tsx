@@ -1,4 +1,4 @@
-import { InlineLoading, Tile } from "@carbon/react";
+import { InlineLoading, Search, Tile } from "@carbon/react";
 import type { ReactNode } from "react";
 
 import { PageShell } from "../layout/PageShell/PageShell";
@@ -23,6 +23,8 @@ type DataTableShellProps<T> = {
   emptyTitle?: string;
   emptyDescription?: string;
   emptyActions?: ReactNode;
+  searchValue?: string;
+  resultsDescription?: string;
   searchPlaceholder?: string;
   onSearch?: (value: string) => void;
   toolbarActions?: ReactNode;
@@ -39,6 +41,12 @@ export function DataTableShell<T extends object>({
   headers,
   getRowId,
   isLoading = false,
+  isFetching = false,
+  searchValue,
+  searchPlaceholder,
+  onSearch,
+  resultsDescription,
+  toolbarActions,
   loadingDescription = "Loading...",
   tableState,
   emptyTitle,
@@ -51,10 +59,29 @@ export function DataTableShell<T extends object>({
 }: DataTableShellProps<T>) {
   return (
     <div className="moh-data-table-shell">
-      <PageShell title={title} subtitle={description}>
+      <PageShell title={title} subtitle={description} actions={toolbarActions}>
         {topContent}
 
-        {filters && <Tile className="moh-data-table-shell__filters">{filters}</Tile>}
+        {(filters || onSearch) && (
+          <Tile className="moh-data-table-shell__filters" role="group" aria-label={`Filter ${title.toLowerCase()}`}>
+            {onSearch && (
+              <Search
+                id={`table-search-${title.toLowerCase().replace(/\s+/g, "-")}`}
+                labelText={`Search ${title.toLowerCase()}`}
+                placeholder={searchPlaceholder}
+                value={searchValue}
+                onChange={(event) => onSearch(event.target.value)}
+              />
+            )}
+            {filters}
+          </Tile>
+        )}
+        {resultsDescription && (
+          <p className="moh-data-table-shell__results" role="status">
+            {resultsDescription}
+          </p>
+        )}
+        {isFetching && !isLoading && <InlineLoading description="Refreshing results…" />}
 
         <Tile className="moh-data-table-shell__table">
           {tableState ? (
