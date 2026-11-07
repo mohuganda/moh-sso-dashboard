@@ -187,11 +187,12 @@ class ComposeTests(unittest.TestCase):
     def test_user_development_env_wins_over_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'dev.env'
-            path.write_text('NOTIFICATION_DELIVERY_BATCH_SIZE=57\nSMTP_SEND_TIMEOUT=29s\n')
+            path.write_text('NOTIFICATION_DELIVERY_BATCH_SIZE=57\nSMTP_SEND_TIMEOUT=29s\nKEYCLOAK_REALM=moh-dev\n')
             model = config('infra/compose/docker-compose.dev.yml', 'infra/env/dev.env.example', DEV_ENV_FILE=str(path))
             env = model['services']['backend']['environment']
             self.assertEqual(env['NOTIFICATION_DELIVERY_BATCH_SIZE'], '57')
             self.assertEqual(env['SMTP_SEND_TIMEOUT'], '29s')
+            self.assertEqual(env['KEYCLOAK_REALM'], 'moh-dev')
 
     def test_external_keycloak_mode_has_no_local_idp_dependency(self):
         model = config('infra/compose/docker-compose-without-keycloak.yml', 'infra/env/external-dev.env.example',

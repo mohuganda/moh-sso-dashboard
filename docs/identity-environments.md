@@ -18,6 +18,24 @@ between applications in the same realm, not across environments. The realms shar
 the Keycloak server, database infrastructure, server administrators and maintenance
 window. A separate production instance can be introduced later; it is optional here.
 
+## Local Docker development
+
+The standalone dev stack reads `KEYCLOAK_REALM` from the private
+`infra/env/dev.env`; Compose must not override that setting. Set it to `moh-dev`
+after creating the development realm with the realm preparation/bootstrap tools
+below. Configure its own `dashboard-admin` and `dashboard-web` credentials in that
+same private file. Do not reuse credentials from a remote production instance.
+Recreate only the development backend after changing those settings:
+
+```sh
+sh infra/scripts/compose.sh dev up -d --no-deps backend
+```
+
+Sign in again with an account in `moh-dev`; sessions and users from `moh-realm`
+are not transferred. The old realm and its users remain available. The legacy dev
+example still uses `moh-realm` for existing setups; onboarding remains blocked
+there until the isolated realm is configured.
+
 ## Create missing realms on your existing instance
 
 This is the recommended path for the current server. It does not start containers,

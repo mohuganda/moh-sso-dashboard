@@ -48,3 +48,69 @@ test(`admin reviews and provisions a disabled client at ${viewport.width}px`, as
 });
 
 }
+
+for (const scenario of ["missing-api", "wrong-realm"]) {
+  test(`onboarding explains ${scenario} and can recover without reloading`, async ({ page }) => {
+    let attempts = 0;
+    const writes = [];
+    await page.route("http://127.0.0.1:5417/ssobackend/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (route.request().method() !== "GET") writes.push(path);
+      if (path.endsWith("/onboarding/context")) {
+        attempts += 1;
+        if (attempts === 1) {
+          if (scenario === "missing-api")
+            return route.fulfill({
+              status: 404,
+              contentType: "text/plain",
+              body: "404 page not found",
+            });
+          return route.fulfill({
+            status: 503,
+            json: {
+              success: false,
+              error: {
+                code: "ENVIRONMENT_MISMATCH",
+                message: "identity environment/realm mismatch",
+              },
+            },
+          });
+        }
+        return route.fulfill({
+          json: {
+            success: true,
+            data: {
+              environment: "development",
+              realm: "moh-dev",
+              issuer: "http://localhost:8081/realms/moh-dev",
+              profiles: [{ id: "public-web", name: "Public web application (PKCE)" }],
+            },
+          },
+        });
+      }
+      return route.fulfill({
+        json: {
+          success: true,
+          data: path.endsWith("/auth/me")
+            ? { user: admin }
+            : path.includes("unread")
+              ? { count: 0 }
+              : [],
+        },
+      });
+    });
+    await page.goto("/portal/admin/clients");
+    await page.getByRole("button", { name: "Onboard application", exact: true }).click();
+    await expect(
+      page.getByText(
+        scenario === "missing-api"
+          ? /backend does not provide the onboarding API/
+          : /realm for a different environment/,
+      ),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Retry onboarding" }).click();
+    await expect(page.getByLabel("Client ID", { exact: true })).toBeVisible();
+    expect(attempts).toBe(2);
+    expect(writes).toEqual([]);
+  });
+}

@@ -180,7 +180,7 @@ services:
       KEYCLOAK_INTERNAL_URL: http://keycloak:8080
       KEYCLOAK_BASE_URL: http://keycloak:8080
       KEYCLOAK_EXTERNAL_URL: http://localhost:8081
-      KEYCLOAK_REALM: moh-realm
+      # Realm comes from the private dev env file, so local isolation is configurable.
       KEYCLOAK_REDIRECT_URI: http://localhost:9000/api/v1/auth/callback
       RBAC_STARTUP_SYNC_REALM_EXPORT_PATH: /infra/keycloak/realm-export.json
       FRONTEND_BASE_URL: http://localhost:3000/portal

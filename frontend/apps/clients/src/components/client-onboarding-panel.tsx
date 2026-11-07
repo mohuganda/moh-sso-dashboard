@@ -24,7 +24,23 @@ import type { OnboardingDraft } from "./onboarding-draft";
 import { ClientRolesPanel } from "./roles/client-roles-panel";
 import "./client-onboarding-panel.scss";
 
-function message(error: unknown): string {
+function message(error: unknown, loadingContext = false): string {
+  if (loadingContext && typeof error === "object" && error && "status" in error) {
+    const failure = error as {
+      status: number | string;
+      originalStatus?: number;
+      data?: { error?: { code?: string } };
+    };
+    const status = failure.originalStatus ?? failure.status;
+    if (status === 404)
+      return "The backend does not provide the onboarding API. Update and restart the backend from the same release as this frontend, then retry.";
+    if (status === 401) return "Your session has expired. Sign in again to onboard an application.";
+    if (status === 403) return "You need permission to manage clients to onboard an application.";
+    if (failure.data?.error?.code === "ENVIRONMENT_MISMATCH")
+      return "This deployment is connected to a realm for a different environment. Configure the matching identity realm before onboarding clients.";
+    if (failure.status === "FETCH_ERROR")
+      return "Cannot reach the onboarding API. Check the backend connection, then retry.";
+  }
   if (typeof error === "object" && error && "data" in error) {
     const data = error.data as { error?: { message?: string } };
     if (data?.error?.message) return data.error.message;
@@ -59,7 +75,13 @@ export function ClientOnboardingPanel({
   initialClient?: Client;
   onSuccess?: () => void;
 }) {
-  const { data: context, error: contextError, isLoading } = useOnboardingContextQuery();
+  const {
+    data: context,
+    error: contextError,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useOnboardingContextQuery();
   const [draft, setDraft] = useState(() => initialDraft(initialClient));
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
@@ -119,7 +141,15 @@ export function ClientOnboardingPanel({
   if (isLoading) return <InlineLoading description="Loading this environment…" />;
   if (contextError || !context)
     return (
-      <FormInlineAlert title="Client onboarding unavailable" subtitle={message(contextError)} />
+      <Stack gap={5}>
+        <FormInlineAlert
+          title="Client onboarding unavailable"
+          subtitle={message(contextError, true)}
+        />
+        <Button kind="tertiary" disabled={isFetching} onClick={() => void refetch()}>
+          {isFetching ? "Retrying…" : "Retry onboarding"}
+        </Button>
+      </Stack>
     );
   if (result)
     return (
