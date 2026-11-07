@@ -346,30 +346,6 @@ export default function EmailOutbox() {
     });
   };
 
-  /* -----------------------------
-   * Loading / Error
-   * ----------------------------- */
-  if (isLoading) {
-    return (
-      <div className="email-outbox-page__loading">
-        <InlineLoading description="Loading emails…" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <ErrorState
-        title="Failed to load emails"
-        description={(error as any)?.data?.message ?? "Failed to load emails"}
-        primaryAction={{
-          label: "Retry",
-          onClick: refetchEmails,
-        }}
-      />
-    );
-  }
-
   return (
     <>
       <div className="email-outbox-page__content">
@@ -379,13 +355,17 @@ export default function EmailOutbox() {
           actions={
             <>
               {isFetching && !isLoading && <InlineLoading description="Refreshing emails…" />}
-              <Button renderIcon={Add} onClick={handleOpenSendEmailPanel}>
+              <Button renderIcon={Add} onClick={handleOpenSendEmailPanel} disabled={isLoading || isError}>
                 Send email
               </Button>
             </>
           }
         >
-        {/* Filters */}
+        {isLoading ? <InlineLoading description="Loading emails…" /> : isError ? (
+        <ErrorState title="Failed to load emails" description={(error as any)?.data?.message ?? "Failed to load emails"}
+          primaryAction={{ label: "Retry", onClick: refetchEmails }} />
+      ) : <>
+      {/* Filters */}
         <Tile>
           <EmailOutboxFilters
             search={search}
@@ -538,6 +518,7 @@ export default function EmailOutbox() {
             }}
           />
         </Tile>
+      </>}
       </PageShell>
       </div>
     </>

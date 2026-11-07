@@ -126,16 +126,6 @@ export default function ClientsPage() {
     raw: c,
   }));
 
-  if (isError) {
-    return (
-      <ErrorState
-        title="Failed to load clients"
-        description={getApiErrorMessage(error, "Failed to load clients")}
-        primaryAction={{ label: "Retry", onClick: refetch }}
-      />
-    );
-  }
-
   return (
     <DataTableShell
       title="Clients"
@@ -145,6 +135,15 @@ export default function ClientsPage() {
       getRowId={(row) => row.id}
       isLoading={isLoading}
       loadingDescription="Loading clients…"
+      tableState={
+        isError ? (
+          <ErrorState
+            title="Failed to load clients"
+            description={getApiErrorMessage(error, "Failed to load clients")}
+            primaryAction={{ label: "Retry", onClick: refetch }}
+          />
+        ) : undefined
+      }
       emptyTitle="No clients found"
       emptyDescription="No clients match the selected filters."
       filters={

@@ -392,38 +392,21 @@ export function AnnouncementsPage() {
     });
   };
 
-  /* -----------------------------
-   * Loading / Error
-   * ----------------------------- */
-  if (isLoading) {
-    return (
-      <div className="announcements-page__loading">
-        <InlineLoading description="Loading announcements…" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <ErrorState
-        title="Failed to load announcements"
-        description={getApiErrorMessage(error, "Failed to load announcements")}
-        primaryAction={{ label: "Retry", onClick: refetch }}
-      />
-    );
-  }
-
   return (
     <div className="announcements-page">
       <PageShell
         title="Announcements"
         subtitle="Manage platform notices, alerts, drafts, schedules, and archived updates."
         actions={
-          <Button renderIcon={Add} onClick={handleOpenCreatePanel}>
+          <Button renderIcon={Add} onClick={handleOpenCreatePanel} disabled={isLoading || isError}>
             New announcement
           </Button>
         }
       >
+      {isLoading ? <InlineLoading description="Loading announcements…" /> : isError ? (
+        <ErrorState title="Failed to load announcements" description={getApiErrorMessage(error, "Failed to load announcements")}
+          primaryAction={{ label: "Retry", onClick: refetch }} />
+      ) : <>
       {/* Filters */}
       <Tile>
         <AnnouncementFilters
@@ -823,6 +806,7 @@ export function AnnouncementsPage() {
           }}
         />
       </Tile>
+      </>}
       </PageShell>
     </div>
   );

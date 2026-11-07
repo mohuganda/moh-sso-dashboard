@@ -130,16 +130,6 @@ export default function UsersPage() {
     raw: u,
   }));
 
-  if (isError) {
-    return (
-      <ErrorState
-        title="Failed to load users"
-        description={getApiErrorMessage(error, "Failed to load users")}
-        primaryAction={{ label: "Retry", onClick: refetch }}
-      />
-    );
-  }
-
   return (
     <DataTableShell
       title="Users"
@@ -149,6 +139,15 @@ export default function UsersPage() {
       getRowId={(row) => row.id}
       isLoading={isLoading}
       loadingDescription="Loading users…"
+      tableState={
+        isError ? (
+          <ErrorState
+            title="Failed to load users"
+            description={getApiErrorMessage(error, "Failed to load users")}
+            primaryAction={{ label: "Retry", onClick: refetch }}
+          />
+        ) : undefined
+      }
       emptyTitle="No users found"
       emptyDescription="No users match the selected filters."
       filters={

@@ -771,7 +771,16 @@ export default function RbacManagementPage() {
   };
 
   if (systemsLoading || permissionsLoading) {
-    return <InlineLoading description="Loading RBAC mappings..." />;
+    return (
+      <div className="rbac-page">
+        <PageShell
+          title="RBAC Management"
+          subtitle="Manage applications and access from one focused workspace."
+        >
+          <InlineLoading description="Loading RBAC mappings..." />
+        </PageShell>
+      </div>
+    );
   }
 
   return (

@@ -4,7 +4,7 @@ import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./home.scss";
 
-import { EmptyState, useHeaderPanel } from "@moh-sso/ui";
+import { EmptyState, PageShell, useHeaderPanel } from "@moh-sso/ui";
 import { ApplicationTile } from "@/app/home/components/app/ApplicationTile";
 import { QuickAction } from "@/app/home/components/quick-action/quick-action.component";
 import { NotificationsTable } from "@/app/notifications/components/NotificationsTable";
@@ -75,13 +75,10 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      {/* ==================================================
-       * HEADER
-       * ================================================== */}
-      <div>
-        <h3 className="home-page__title">Admin Overview</h3>
-        <p className="home-page__subtitle">System status, applications, and quick actions.</p>
-      </div>
+      <PageShell
+        title="Admin Overview"
+        subtitle="System status, applications, and quick actions."
+      >
       {/* ==================================================
        * HERO / WELCOME
        * ================================================== */}
@@ -234,6 +231,7 @@ export default function HomePage() {
       <Tile className="home-notifications">
         <NotificationsTable />
       </Tile>
+      </PageShell>
     </div>
   );
 }
