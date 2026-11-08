@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@moh-sso/api": "^1.2.3",
+    "@moh-sso/auth": "^1.2.3",
     "@moh-sso/microfrontend": "^1.2.3",
     "@moh-sso/ui": "^1.2.3",
     "@moh-sso/rbac": "~1.2.3"

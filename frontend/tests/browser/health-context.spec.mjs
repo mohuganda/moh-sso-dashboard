@@ -2,7 +2,7 @@
 import { URL } from "node:url";
 import { test, expect } from "@playwright/test";
 
-for (const width of [1440, 390]) {
+for (const width of [1440, 390, 320]) {
   test(`health context survives the updated shell and scopes refreshed requests at ${width}px`, async ({
     page,
   }) => {
@@ -42,12 +42,23 @@ for (const width of [1440, 390]) {
             id: "fixture-admin",
             username: "admin",
             isAdmin: true,
+            isUser: true,
             enabled: true,
             realmRoles: ["admin"],
             clientRoles: {},
-            permissions: ["portal:access", "clients:read"],
-            systems: [],
-            accessibleSystems: [],
+            permissions: ["portal:access", "clients:read", "systems:launch", "surveillance:read"],
+            systems: ["data-statistics"],
+            accessibleSystems: [
+              {
+                clientId: "data-statistics",
+                displayName: "Data & Statistics",
+                launchUrl: "/apps/dwh/surveillance",
+                systemType: "platform",
+                displayInLauncher: true,
+                displayInSideNav: true,
+                roles: [],
+              },
+            ],
             healthContexts: contexts(),
             activeHealthContext: contexts().find((context) => context.id === selected),
           },
@@ -68,6 +79,7 @@ for (const width of [1440, 390]) {
     await page.goto("/portal/admin/clients");
     const selector = page.getByLabel("Health context", { exact: true });
     await expect(selector).toHaveValue(national);
+    await expect(page.getByRole("heading", { name: "No clients found", exact: true })).toBeVisible();
     const refreshed = page.waitForRequest(
       (request) =>
         new URL(request.url()).pathname.endsWith("/clients") &&
@@ -85,5 +97,20 @@ for (const width of [1440, 390]) {
     ).toBe(district);
     const bounds = await selector.boundingBox();
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    for (const route of ["/portal/admin/clients", "/portal/apps/dwh/surveillance"]) {
+      await page.goto(route);
+      await expect(selector).toHaveValue(district);
+      // Checking visibility alone misses tooltip wrappers shrinking underneath
+      // adjacent header buttons. Trial clicks also verify pointer accessibility.
+      await page
+        .getByRole("button", { name: "Open application menu", exact: true })
+        .click({ trial: true });
+      await page
+        .getByRole("button", { name: "Signed in as admin", exact: true })
+        .click({ trial: true });
+      if (route.includes("/admin/")) {
+        await page.getByRole("button", { name: /^Notifications/ }).click({ trial: true });
+      }
+    }
   });
 }

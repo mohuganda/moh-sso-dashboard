@@ -22,6 +22,18 @@
   z-index: var(--moh-z-header, 7000);
 }
 
+// Reserve the actions' actual width; tooltip wrappers must not shrink underneath
+// neighbouring buttons when the health-context selector is present.
+.moh-shell-header .cds--header__global,
+.admin-layout__header .cds--header__global {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+
+  > .cds--popover-container {
+    flex-shrink: 0;
+  }
+}
+
 .moh-header-login.cds--btn {
   display: inline-flex;
   align-items: center;

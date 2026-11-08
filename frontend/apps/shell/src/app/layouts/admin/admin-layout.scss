@@ -28,10 +28,13 @@
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .admin-layout__brand-logo-button {
   width: 3rem;
+  flex-shrink: 0;
   height: var(--moh-admin-header-height);
   display: inline-flex;
   align-items: center;

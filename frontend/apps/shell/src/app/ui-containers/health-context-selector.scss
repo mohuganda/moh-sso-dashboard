@@ -3,6 +3,7 @@
   align-items: center;
   min-width: 12rem;
   max-width: 18rem;
+  flex-shrink: 0;
 
   .cds--select,
   .cds--select-input__wrapper,
@@ -17,7 +18,7 @@
 
 @media (max-width: 672px) {
   .health-context-selector {
-    min-width: 8rem;
-    max-width: 10rem;
+    min-width: 0;
+    width: clamp(5rem, 20vw, 8rem);
   }
 }
