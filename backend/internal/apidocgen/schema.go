@@ -133,6 +133,9 @@ func (s *schemas) of(t types.Type) object {
 			}
 			properties[name] = property
 			if containsRule(tag.Get("binding"), "required") {
+				// Gin's required validator rejects nil pointers, even though the
+				// Go type uses a pointer to distinguish omitted values from zero.
+				delete(property, "nullable")
 				required = append(required, name)
 			}
 		}

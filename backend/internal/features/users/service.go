@@ -4,16 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/moh-sso-dashboard/internal/config"
+	"github.com/moh-sso-dashboard/internal/http/apierror"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	models "github.com/moh-sso-dashboard/internal/model"
 	sharedservice "github.com/moh-sso-dashboard/internal/service"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
+
+var errSelfDisable = apierror.New(http.StatusForbidden, "SELF_DISABLE_FORBIDDEN", "You cannot disable your own account")
 
 type CreateUserRequest struct {
 	Username         string              `json:"username"`
@@ -181,6 +185,9 @@ func (s *Service) UpdateUser(
 	if err != nil {
 		return nil, fmt.Errorf("invalid user id: %w", err)
 	}
+	if req.Enabled != nil && !*req.Enabled && userID == adminID {
+		return nil, errSelfDisable
+	}
 
 	current, err := s.repo.GetUserByID(userID)
 	if err != nil {
@@ -251,6 +258,9 @@ func (s *Service) SetUserEnabled(
 
 	if userID == uuid.Nil {
 		return errors.New("user id is required")
+	}
+	if !enabled && userID == adminID {
+		return errSelfDisable
 	}
 
 	user, err := s.repo.GetUserByID(userID)

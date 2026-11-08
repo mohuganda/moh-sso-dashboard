@@ -6029,7 +6029,6 @@ components:
           type: string
         district_id:
           format: uuid
-          nullable: true
           type: string
         name:
           type: string
@@ -6440,6 +6439,8 @@ components:
       properties:
         enabled:
           type: boolean
+      required:
+        - enabled
       type: object
     users.userClientRolesRequest:
       properties:

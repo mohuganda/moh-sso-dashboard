@@ -42,5 +42,5 @@ type userClientRolesRequest struct {
 }
 
 type setUserEnabledRequest struct {
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled" binding:"required"`
 }

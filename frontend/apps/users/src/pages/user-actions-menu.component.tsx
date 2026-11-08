@@ -5,6 +5,7 @@ import type { User } from "../types";
 
 type Props = {
   user: User;
+  isCurrentUser?: boolean;
   onEdit: () => void;
   onManageRoles: () => void;
   onToggleStatus: () => void;
@@ -13,6 +14,7 @@ type Props = {
 
 export function UserActionsMenu({
   user,
+  isCurrentUser = false,
   onEdit,
   onManageRoles,
   onToggleStatus,
@@ -29,7 +31,14 @@ export function UserActionsMenu({
       <OverflowMenuItem itemText="Manage roles" hasDivider onClick={onManageRoles} />
 
       <OverflowMenuItem
-        itemText={user.isActive ? "Disable user" : "Enable user"}
+        itemText={
+          isCurrentUser
+            ? "Cannot disable your own account"
+            : user.isActive
+              ? "Disable user"
+              : "Enable user"
+        }
+        disabled={isCurrentUser}
         isDelete={user.isActive}
         onClick={onToggleStatus}
       />

@@ -10,11 +10,10 @@ import {
   FormGroup,
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
+import { selectUser } from "@moh-sso/auth";
 
-import {
-  useCreateUserMutation,
-  useUpdateUserMutation,
-} from "../api";
+import { useCreateUserMutation, useUpdateUserMutation } from "../api";
 import { useGetAssignableUserAccessQuery } from "@moh-sso/rbac/api";
 import type { User } from "../types";
 import { FormInlineAlert, useToast } from "@moh-sso/ui";
@@ -51,6 +50,8 @@ type Props = {
 };
 
 export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
+  const currentUser = useSelector(selectUser);
+  const isCurrentUser = mode === "edit" && initialUser?.id === currentUser?.id;
   const toast = useToast();
 
   const [form, setForm] = useState<UserFormState>(() => createFormState(initialUser));
@@ -224,6 +225,7 @@ export function UserFormPanel({ mode, initialUser, onSuccess }: Props) {
             <Checkbox
               id="enabled"
               labelText="User enabled"
+              disabled={isCurrentUser}
               checked={form.enabled}
               onChange={(_, { checked }) => {
                 handleChange("enabled", checked);

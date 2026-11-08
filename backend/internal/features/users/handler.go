@@ -700,7 +700,7 @@ func (h *Handler) SetUserEnabled(c *gin.Context) {
 
 	var body setUserEnabledRequest
 
-	if err := c.ShouldBindJSON(&body); err != nil {
+	if err := c.ShouldBindJSON(&body); err != nil || body.Enabled == nil {
 		response.Fail(
 			c,
 			http.StatusBadRequest,
@@ -715,7 +715,7 @@ func (h *Handler) SetUserEnabled(c *gin.Context) {
 	if err := h.service.SetUserEnabled(
 		c.Request.Context(),
 		userID,
-		body.Enabled,
+		*body.Enabled,
 		adminID,
 	); err != nil {
 
@@ -724,6 +724,11 @@ func (h *Handler) SetUserEnabled(c *gin.Context) {
 			"enabled": body.Enabled,
 			"reason":  "request failed",
 		})
+		var apiErr *apierror.APIError
+		if errors.As(err, &apiErr) {
+			response.Fail(c, apiErr.HTTPStatus, apiErr.Code, apiErr.Message)
+			return
+		}
 
 		response.Fail(
 			c,

@@ -11,6 +11,8 @@ import {
   TableSelectAll,
 } from "@carbon/react";
 import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
+import { selectUser } from "@moh-sso/auth";
 
 import {
   DataTablePagination,
@@ -26,11 +28,7 @@ import { UserFormPanel } from "../components/create-user-panel";
 import { useEnableUserModal } from "../components/useEnableUserModal";
 import { useResetPasswordModal } from "../components/useResetPasswordModal";
 import { UserFilters } from "../components/UserFilters";
-import {
-  useListUsersQuery,
-  useResetUserPasswordMutation,
-  useToggleUserMutation,
-} from "../api";
+import { useListUsersQuery, useResetUserPasswordMutation, useToggleUserMutation } from "../api";
 import type { User } from "../types";
 
 import { UserActionsMenu } from "./user-actions-menu.component";
@@ -52,6 +50,7 @@ const headers = [
 type BulkAction = "enable" | "disable" | null;
 
 export default function UsersPage() {
+  const currentUser = useSelector(selectUser);
   const { openPanel, closePanel } = useHeaderPanel();
   const { openEnableUserModal } = useEnableUserModal();
   const { openResetPasswordModal } = useResetPasswordModal();
@@ -206,6 +205,7 @@ export default function UsersPage() {
                 {/* ================= BULK ACTIONS ================= */}
                 <UserBulkActions
                   users={selectedUsers}
+                  currentUserId={currentUser?.id}
                   loadingAction={bulkAction}
                   onEnable={async () => {
                     try {
@@ -229,6 +229,13 @@ export default function UsersPage() {
                     }
                   }}
                   onDisable={async () => {
+                    if (selectedUsers.some((user) => user.id === currentUser?.id)) {
+                      toast.error({
+                        title: "Cannot disable your own account",
+                        subtitle: "Deselect your account before disabling other users.",
+                      });
+                      return;
+                    }
                     try {
                       setBulkAction("disable");
 
@@ -291,6 +298,7 @@ export default function UsersPage() {
                                 <RowActionsCell key={cell.id}>
                                   <UserActionsMenu
                                     user={user}
+                                    isCurrentUser={user.id === currentUser?.id}
                                     onEdit={() => {
                                       openPanel({
                                         title: "Edit user",
@@ -310,7 +318,10 @@ export default function UsersPage() {
                                         title: `Roles: ${user.username}`,
                                         size: "lg",
                                         content: (
-                                          <UserAccessPanel key={`user-access-${user.id}`} userId={user.id} />
+                                          <UserAccessPanel
+                                            key={`user-access-${user.id}`}
+                                            userId={user.id}
+                                          />
                                         ),
                                       });
                                     }}
