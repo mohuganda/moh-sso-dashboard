@@ -104,9 +104,39 @@ The isolated schema contains 13 tables: `regions`, `districts`, `sub_counties`,
 `facility_weekly_metrics`, `weekly_status`, `alerts`, `surveillance_import_batches`
 and `surveillance_import_raw_rows`. It also owns `risk_level` and `alert_status`.
 Staging retains its batch lookup index without a JSON GIN index, keeping bulk status
-updates efficient. Subject/calendar reference seeds are included; locations come from imports or a data
-transfer. The schema has its own migration history. Existing primary migrations remain
+updates efficient. Subject/calendar and geography reference seeds are included.
+The schema has its own migration history. Existing primary migrations remain
 unchanged so upgrades and existing IDs are not silently invalidated.
+
+## Automatic geography reference data
+
+Observatory migration `000003_reference_geography` supplies 17 regions, 146 districts,
+177 legacy sub-county/reporting labels, and 6,150 facilities. The backend applies this
+migration before serving requests, on fresh databases and when upgrading an existing
+Observatory database. Production images already include the complete migration directory;
+no CSV import, primary-database connection, or network download is needed to populate these lists.
+
+This versioned snapshot restores the geography originally bundled in primary migrations
+7–10 at repository commit `34e056ce1df7514a639841971bfbcc108364bf00`, before database
+isolation removed those seeds. Blank and `nan`/`null`/`none` placeholder names are excluded.
+It includes legacy reporting labels such as `DLG`; these are not a replacement for
+the bundled UBOS map boundaries or a claim that the historical facility registry is current.
+
+Inserts match existing location names without case/outer-whitespace differences, and
+facilities by external identifier or name within a district. Existing IDs, spelling,
+metadata, parent links, locally added records, and reports are preserved. Missing facilities
+inherit their resolved district's current region. A populated database may therefore have
+more reference rows than the baseline. Restarting containers preserves the database volume;
+startup does not reset the registry or reinsert rows intentionally removed after migration.
+Rolling this migration back also retains its reference rows so dependent reports are safe.
+
+Maintain future additions or verified corrections in a **new Observatory migration**;
+do not edit an already applied snapshot migration. Use external identifiers and existing
+natural keys to preserve identity. Update the baseline assertions in
+`backend/internal/migrate/migrations_integration_test.go` alongside a new version, and run
+`make migrations-check`. Corrections that overwrite existing metadata should target specific
+verified records explicitly. Test observations, weekly status flags and alerts remain separate
+imports and are never seeded by this geography migration.
 
 `surveillance_import_batches.document_id` is an opaque ID into the primary documents
 service, not a foreign key across databases. Documents/processes stay on the primary
