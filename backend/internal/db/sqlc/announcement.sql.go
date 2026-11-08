@@ -117,7 +117,7 @@ WHERE deleted_at IS NULL
   AND status = $1
 `
 
-func (q *Queries) CountAnnouncementsByStatus(ctx context.Context, status interface{}) (int64, error) {
+func (q *Queries) CountAnnouncementsByStatus(ctx context.Context, status AnnouncementStatus) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countAnnouncementsByStatus, status)
 	var column_1 int64
 	err := row.Scan(&column_1)
@@ -184,23 +184,23 @@ RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned
 `
 
 type CreateAnnouncementParams struct {
-	Title         string         `json:"title"`
-	Message       string         `json:"message"`
-	Summary       sql.NullString `json:"summary"`
-	Level         interface{}    `json:"level"`
-	Tag           sql.NullString `json:"tag"`
-	LinkUrl       sql.NullString `json:"link_url"`
-	LinkLabel     sql.NullString `json:"link_label"`
-	Priority      int32          `json:"priority"`
-	IsPinned      bool           `json:"is_pinned"`
-	Status        interface{}    `json:"status"`
-	PublishAt     sql.NullTime   `json:"publish_at"`
-	ExpiresAt     sql.NullTime   `json:"expires_at"`
-	AudienceType  interface{}    `json:"audience_type"`
-	NotifyByEmail bool           `json:"notify_by_email"`
-	NotifyBySms   bool           `json:"notify_by_sms"`
-	SmsMessage    sql.NullString `json:"sms_message"`
-	CreatedBy     uuid.UUID      `json:"created_by"`
+	Title         string                   `json:"title"`
+	Message       string                   `json:"message"`
+	Summary       sql.NullString           `json:"summary"`
+	Level         AnnouncementLevel        `json:"level"`
+	Tag           sql.NullString           `json:"tag"`
+	LinkUrl       sql.NullString           `json:"link_url"`
+	LinkLabel     sql.NullString           `json:"link_label"`
+	Priority      int32                    `json:"priority"`
+	IsPinned      bool                     `json:"is_pinned"`
+	Status        AnnouncementStatus       `json:"status"`
+	PublishAt     sql.NullTime             `json:"publish_at"`
+	ExpiresAt     sql.NullTime             `json:"expires_at"`
+	AudienceType  AnnouncementAudienceType `json:"audience_type"`
+	NotifyByEmail bool                     `json:"notify_by_email"`
+	NotifyBySms   bool                     `json:"notify_by_sms"`
+	SmsMessage    sql.NullString           `json:"sms_message"`
+	CreatedBy     uuid.UUID                `json:"created_by"`
 }
 
 func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (Announcement, error) {
@@ -1266,9 +1266,9 @@ LIMIT $2 OFFSET $3
 `
 
 type ListAnnouncementsByStatusParams struct {
-	Status interface{} `json:"status"`
-	Limit  int32       `json:"limit"`
-	Offset int32       `json:"offset"`
+	Status AnnouncementStatus `json:"status"`
+	Limit  int32              `json:"limit"`
+	Offset int32              `json:"offset"`
 }
 
 func (q *Queries) ListAnnouncementsByStatus(ctx context.Context, arg ListAnnouncementsByStatusParams) ([]Announcement, error) {
@@ -2342,23 +2342,23 @@ RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned
 `
 
 type UpdateAnnouncementParams struct {
-	ID            uuid.UUID      `json:"id"`
-	Title         string         `json:"title"`
-	Message       string         `json:"message"`
-	Summary       sql.NullString `json:"summary"`
-	Level         interface{}    `json:"level"`
-	Tag           sql.NullString `json:"tag"`
-	LinkUrl       sql.NullString `json:"link_url"`
-	LinkLabel     sql.NullString `json:"link_label"`
-	Priority      int32          `json:"priority"`
-	IsPinned      bool           `json:"is_pinned"`
-	PublishAt     sql.NullTime   `json:"publish_at"`
-	ExpiresAt     sql.NullTime   `json:"expires_at"`
-	AudienceType  interface{}    `json:"audience_type"`
-	NotifyByEmail bool           `json:"notify_by_email"`
-	NotifyBySms   bool           `json:"notify_by_sms"`
-	SmsMessage    sql.NullString `json:"sms_message"`
-	UpdatedBy     uuid.NullUUID  `json:"updated_by"`
+	ID            uuid.UUID                `json:"id"`
+	Title         string                   `json:"title"`
+	Message       string                   `json:"message"`
+	Summary       sql.NullString           `json:"summary"`
+	Level         AnnouncementLevel        `json:"level"`
+	Tag           sql.NullString           `json:"tag"`
+	LinkUrl       sql.NullString           `json:"link_url"`
+	LinkLabel     sql.NullString           `json:"link_label"`
+	Priority      int32                    `json:"priority"`
+	IsPinned      bool                     `json:"is_pinned"`
+	PublishAt     sql.NullTime             `json:"publish_at"`
+	ExpiresAt     sql.NullTime             `json:"expires_at"`
+	AudienceType  AnnouncementAudienceType `json:"audience_type"`
+	NotifyByEmail bool                     `json:"notify_by_email"`
+	NotifyBySms   bool                     `json:"notify_by_sms"`
+	SmsMessage    sql.NullString           `json:"sms_message"`
+	UpdatedBy     uuid.NullUUID            `json:"updated_by"`
 }
 
 func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (Announcement, error) {
@@ -2482,9 +2482,9 @@ RETURNING id, title, message, summary, level, tag, link_url, priority, is_pinned
 `
 
 type UpdateAnnouncementStatusParams struct {
-	ID        uuid.UUID     `json:"id"`
-	Status    interface{}   `json:"status"`
-	UpdatedBy uuid.NullUUID `json:"updated_by"`
+	ID        uuid.UUID          `json:"id"`
+	Status    AnnouncementStatus `json:"status"`
+	UpdatedBy uuid.NullUUID      `json:"updated_by"`
 }
 
 func (q *Queries) UpdateAnnouncementStatus(ctx context.Context, arg UpdateAnnouncementStatusParams) (Announcement, error) {

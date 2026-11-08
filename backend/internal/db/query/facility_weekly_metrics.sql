@@ -130,12 +130,7 @@ JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = sqlc.arg('epi_week_id')
   AND m.disease_id IS NOT NULL
-  AND health_context_alias_in_scope(
-    'surveillance-facility',
-    f.id::text,
-    sqlc.arg('health_context_id')::uuid,
-    sqlc.arg('include_descendants')::boolean
-  )
+  AND f.id = ANY(sqlc.arg('allowed_facility_ids')::uuid[])
 ORDER BY r.name ASC NULLS LAST,
          dct.name ASC NULLS LAST,
          sc.name ASC NULLS LAST,
@@ -316,12 +311,7 @@ FROM epi_weeks ew
 LEFT JOIN facility_weekly_metrics m
   ON m.epi_week_id = ew.id
   AND m.disease_id = sqlc.narg('disease_id')
-  AND health_context_alias_in_scope(
-    'surveillance-facility',
-    m.facility_id::text,
-    sqlc.arg('health_context_id')::uuid,
-    sqlc.arg('include_descendants')::boolean
-  )
+  AND m.facility_id = ANY(sqlc.arg('allowed_facility_ids')::uuid[])
 LEFT JOIN facilities f
   ON f.id = m.facility_id
 LEFT JOIN sub_counties sc
@@ -392,12 +382,7 @@ JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = sqlc.arg('epi_week_id')
   AND m.disease_id = sqlc.arg('disease_id')
-  AND health_context_alias_in_scope(
-    'surveillance-facility',
-    f.id::text,
-    sqlc.arg('health_context_id')::uuid,
-    sqlc.arg('include_descendants')::boolean
-  )
+  AND f.id = ANY(sqlc.arg('allowed_facility_ids')::uuid[])
 ORDER BY r.name ASC NULLS LAST,
          dct.name ASC NULLS LAST,
          sc.name ASC NULLS LAST,

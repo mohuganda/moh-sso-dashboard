@@ -51,7 +51,7 @@ export function EmailOutboxFilters<TStatus extends string>({
       />
 
       <Button kind="ghost" onClick={onReset}>
-        Reset
+        Clear filters
       </Button>
     </div>
   );

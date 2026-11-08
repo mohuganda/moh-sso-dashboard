@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createSubCounty = `-- name: CreateSubCounty :one
@@ -165,23 +166,17 @@ const listSubCountiesByDistrictInHealthContext = `-- name: ListSubCountiesByDist
 SELECT id, name, district_id, code, created_at, updated_at
 FROM sub_counties
 WHERE district_id = $1
-  AND health_context_alias_related_to_scope(
-    'surveillance-sub-county',
-    id::text,
-    $2::uuid,
-    $3::boolean
-  )
+  AND id = ANY($2::uuid[])
 ORDER BY name ASC
 `
 
 type ListSubCountiesByDistrictInHealthContextParams struct {
-	DistrictID         uuid.UUID `json:"district_id"`
-	HealthContextID    uuid.UUID `json:"health_context_id"`
-	IncludeDescendants bool      `json:"include_descendants"`
+	DistrictID          uuid.UUID   `json:"district_id"`
+	AllowedSubCountyIds []uuid.UUID `json:"allowed_sub_county_ids"`
 }
 
 func (q *Queries) ListSubCountiesByDistrictInHealthContext(ctx context.Context, arg ListSubCountiesByDistrictInHealthContextParams) ([]SubCounty, error) {
-	rows, err := q.db.QueryContext(ctx, listSubCountiesByDistrictInHealthContext, arg.DistrictID, arg.HealthContextID, arg.IncludeDescendants)
+	rows, err := q.db.QueryContext(ctx, listSubCountiesByDistrictInHealthContext, arg.DistrictID, pq.Array(arg.AllowedSubCountyIds))
 	if err != nil {
 		return nil, err
 	}

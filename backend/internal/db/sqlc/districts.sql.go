@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createDistrict = `-- name: CreateDistrict :one
@@ -187,23 +188,17 @@ const listDistrictsByRegionInHealthContext = `-- name: ListDistrictsByRegionInHe
 SELECT id, name, region_id, code, created_at, updated_at
 FROM districts
 WHERE region_id = $1
-  AND health_context_alias_related_to_scope(
-    'surveillance-district',
-    id::text,
-    $2::uuid,
-    $3::boolean
-  )
+  AND id = ANY($2::uuid[])
 ORDER BY name ASC
 `
 
 type ListDistrictsByRegionInHealthContextParams struct {
 	RegionID           uuid.NullUUID `json:"region_id"`
-	HealthContextID    uuid.UUID     `json:"health_context_id"`
-	IncludeDescendants bool          `json:"include_descendants"`
+	AllowedDistrictIds []uuid.UUID   `json:"allowed_district_ids"`
 }
 
 func (q *Queries) ListDistrictsByRegionInHealthContext(ctx context.Context, arg ListDistrictsByRegionInHealthContextParams) ([]District, error) {
-	rows, err := q.db.QueryContext(ctx, listDistrictsByRegionInHealthContext, arg.RegionID, arg.HealthContextID, arg.IncludeDescendants)
+	rows, err := q.db.QueryContext(ctx, listDistrictsByRegionInHealthContext, arg.RegionID, pq.Array(arg.AllowedDistrictIds))
 	if err != nil {
 		return nil, err
 	}
@@ -236,19 +231,9 @@ const listDistrictsInHealthContext = `-- name: ListDistrictsInHealthContext :man
 SELECT d.id, d.name, d.region_id, d.code, d.created_at, d.updated_at, r.name AS region_name
 FROM districts d
 LEFT JOIN regions r ON r.id = d.region_id
-WHERE health_context_alias_related_to_scope(
-  'surveillance-district',
-  d.id::text,
-  $1::uuid,
-  $2::boolean
-)
+WHERE d.id = ANY($1::uuid[])
 ORDER BY d.name ASC
 `
-
-type ListDistrictsInHealthContextParams struct {
-	HealthContextID    uuid.UUID `json:"health_context_id"`
-	IncludeDescendants bool      `json:"include_descendants"`
-}
 
 type ListDistrictsInHealthContextRow struct {
 	ID         uuid.UUID      `json:"id"`
@@ -260,8 +245,8 @@ type ListDistrictsInHealthContextRow struct {
 	RegionName sql.NullString `json:"region_name"`
 }
 
-func (q *Queries) ListDistrictsInHealthContext(ctx context.Context, arg ListDistrictsInHealthContextParams) ([]ListDistrictsInHealthContextRow, error) {
-	rows, err := q.db.QueryContext(ctx, listDistrictsInHealthContext, arg.HealthContextID, arg.IncludeDescendants)
+func (q *Queries) ListDistrictsInHealthContext(ctx context.Context, allowedDistrictIds []uuid.UUID) ([]ListDistrictsInHealthContextRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDistrictsInHealthContext, pq.Array(allowedDistrictIds))
 	if err != nil {
 		return nil, err
 	}

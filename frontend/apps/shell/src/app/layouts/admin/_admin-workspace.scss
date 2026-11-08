@@ -1,0 +1,109 @@
+// Keep workspace refinements inside the admin shell, including remote apps.
+.admin-layout__content {
+  .moh-data-table-shell__filters,
+  .announcements-page__filter-tile,
+  .email-outbox-page__filter-tile,
+  .rbac-workspace-context {
+    padding: 1rem;
+    border: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+    background: var(--cds-layer-01, #f4f4f4);
+  }
+
+  .moh-data-table-shell__filters {
+    display: grid;
+    gap: 1rem;
+    overflow: visible;
+  }
+
+  .moh-data-table-shell__table,
+  .announcements-page__table-tile,
+  .email-outbox-page__table-tile {
+    padding: 0;
+    border: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+    border-radius: 0;
+  }
+
+  .moh-data-table-shell__results {
+    margin: 0;
+    color: var(--cds-text-secondary, #525252);
+    font-size: 0.8125rem;
+  }
+
+  .user-filters,
+  .client-filters,
+  .audit-log-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: flex-start;
+  }
+
+  .announcement-filter-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  }
+
+  .announcement-filter-grid > .cds--search {
+    grid-column: 1 / -1;
+  }
+
+  .email-outbox-filter-grid,
+  .notification-delivery-filters {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  }
+
+  .email-outbox-filter-grid > .cds--search,
+  .notification-delivery-filters > .cds--search {
+    grid-column: 1 / -1;
+  }
+
+  .systems-summary,
+  .notification-delivery-metrics,
+  .audit-metrics {
+    gap: 0.75rem;
+    margin-bottom: 0;
+  }
+
+  .systems-summary__item,
+  .notification-delivery-metrics__item,
+  .audit-metrics > .cds--tile {
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+    background: var(--cds-layer-01, #f4f4f4);
+  }
+
+  .rbac-workspace-context {
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .rbac-page__main {
+    min-width: 0;
+  }
+
+  @media (max-width: 672px) {
+    .user-filters,
+    .client-filters,
+    .rbac-workspace-context {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .announcement-filter-grid,
+    .email-outbox-filter-grid,
+    .notification-delivery-filters {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .audit-log-filters .cds--date-picker {
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      width: 100%;
+    }
+
+    .audit-log-filters .cds--date-picker-container,
+    .audit-log-filters .cds--date-picker__input {
+      width: 100%;
+      max-width: none;
+    }
+  }
+}

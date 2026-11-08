@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createFacilityWeeklyDiseaseMetric = `-- name: CreateFacilityWeeklyDiseaseMetric :one
@@ -259,12 +260,7 @@ FROM epi_weeks ew
 LEFT JOIN facility_weekly_metrics m
   ON m.epi_week_id = ew.id
   AND m.disease_id = $1
-  AND health_context_alias_in_scope(
-    'surveillance-facility',
-    m.facility_id::text,
-    $2::uuid,
-    $3::boolean
-  )
+  AND m.facility_id = ANY($2::uuid[])
 LEFT JOIN facilities f
   ON f.id = m.facility_id
 LEFT JOIN sub_counties sc
@@ -273,14 +269,14 @@ LEFT JOIN districts dct
   ON dct.id = sc.district_id
 LEFT JOIN regions r
   ON r.id = dct.region_id
-WHERE ew.epi_year = $4
+WHERE ew.epi_year = $3
   AND (
-    $5::uuid IS NULL
-    OR r.id = $5::uuid
+    $4::uuid IS NULL
+    OR r.id = $4::uuid
   )
   AND (
-    $6::uuid IS NULL
-    OR dct.id = $6::uuid
+    $5::uuid IS NULL
+    OR dct.id = $5::uuid
   )
 GROUP BY ew.id, ew.epi_year, ew.epi_week
 ORDER BY ew.epi_year ASC, ew.epi_week ASC
@@ -288,8 +284,7 @@ ORDER BY ew.epi_year ASC, ew.epi_week ASC
 
 type ListDiseaseWeeklyTrendAggregatedInHealthContextParams struct {
 	DiseaseID          uuid.NullUUID `json:"disease_id"`
-	HealthContextID    uuid.UUID     `json:"health_context_id"`
-	IncludeDescendants bool          `json:"include_descendants"`
+	AllowedFacilityIds []uuid.UUID   `json:"allowed_facility_ids"`
 	EpiYear            int32         `json:"epi_year"`
 	RegionID           uuid.NullUUID `json:"region_id"`
 	DistrictID         uuid.NullUUID `json:"district_id"`
@@ -305,8 +300,7 @@ type ListDiseaseWeeklyTrendAggregatedInHealthContextRow struct {
 func (q *Queries) ListDiseaseWeeklyTrendAggregatedInHealthContext(ctx context.Context, arg ListDiseaseWeeklyTrendAggregatedInHealthContextParams) ([]ListDiseaseWeeklyTrendAggregatedInHealthContextRow, error) {
 	rows, err := q.db.QueryContext(ctx, listDiseaseWeeklyTrendAggregatedInHealthContext,
 		arg.DiseaseID,
-		arg.HealthContextID,
-		arg.IncludeDescendants,
+		pq.Array(arg.AllowedFacilityIds),
 		arg.EpiYear,
 		arg.RegionID,
 		arg.DistrictID,
@@ -869,12 +863,7 @@ JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = $1
   AND m.disease_id = $2
-  AND health_context_alias_in_scope(
-    'surveillance-facility',
-    f.id::text,
-    $3::uuid,
-    $4::boolean
-  )
+  AND f.id = ANY($3::uuid[])
 ORDER BY r.name ASC NULLS LAST,
          dct.name ASC NULLS LAST,
          sc.name ASC NULLS LAST,
@@ -885,8 +874,7 @@ ORDER BY r.name ASC NULLS LAST,
 type ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContextParams struct {
 	EpiWeekID          uuid.UUID     `json:"epi_week_id"`
 	DiseaseID          uuid.NullUUID `json:"disease_id"`
-	HealthContextID    uuid.UUID     `json:"health_context_id"`
-	IncludeDescendants bool          `json:"include_descendants"`
+	AllowedFacilityIds []uuid.UUID   `json:"allowed_facility_ids"`
 }
 
 type ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContextRow struct {
@@ -913,12 +901,7 @@ type ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContextRow struct {
 }
 
 func (q *Queries) ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContext(ctx context.Context, arg ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContextParams) ([]ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContextRow, error) {
-	rows, err := q.db.QueryContext(ctx, listFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContext,
-		arg.EpiWeekID,
-		arg.DiseaseID,
-		arg.HealthContextID,
-		arg.IncludeDescendants,
-	)
+	rows, err := q.db.QueryContext(ctx, listFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContext, arg.EpiWeekID, arg.DiseaseID, pq.Array(arg.AllowedFacilityIds))
 	if err != nil {
 		return nil, err
 	}
@@ -983,12 +966,7 @@ JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = $1
   AND m.disease_id IS NOT NULL
-  AND health_context_alias_in_scope(
-    'surveillance-facility',
-    f.id::text,
-    $2::uuid,
-    $3::boolean
-  )
+  AND f.id = ANY($2::uuid[])
 ORDER BY r.name ASC NULLS LAST,
          dct.name ASC NULLS LAST,
          sc.name ASC NULLS LAST,
@@ -997,9 +975,8 @@ ORDER BY r.name ASC NULLS LAST,
 `
 
 type ListFacilityWeeklyDiseaseMetricsByWeekInHealthContextParams struct {
-	EpiWeekID          uuid.UUID `json:"epi_week_id"`
-	HealthContextID    uuid.UUID `json:"health_context_id"`
-	IncludeDescendants bool      `json:"include_descendants"`
+	EpiWeekID          uuid.UUID   `json:"epi_week_id"`
+	AllowedFacilityIds []uuid.UUID `json:"allowed_facility_ids"`
 }
 
 type ListFacilityWeeklyDiseaseMetricsByWeekInHealthContextRow struct {
@@ -1026,7 +1003,7 @@ type ListFacilityWeeklyDiseaseMetricsByWeekInHealthContextRow struct {
 }
 
 func (q *Queries) ListFacilityWeeklyDiseaseMetricsByWeekInHealthContext(ctx context.Context, arg ListFacilityWeeklyDiseaseMetricsByWeekInHealthContextParams) ([]ListFacilityWeeklyDiseaseMetricsByWeekInHealthContextRow, error) {
-	rows, err := q.db.QueryContext(ctx, listFacilityWeeklyDiseaseMetricsByWeekInHealthContext, arg.EpiWeekID, arg.HealthContextID, arg.IncludeDescendants)
+	rows, err := q.db.QueryContext(ctx, listFacilityWeeklyDiseaseMetricsByWeekInHealthContext, arg.EpiWeekID, pq.Array(arg.AllowedFacilityIds))
 	if err != nil {
 		return nil, err
 	}

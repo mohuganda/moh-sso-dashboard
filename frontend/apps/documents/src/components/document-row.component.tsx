@@ -15,7 +15,7 @@ import type { DocumentProcess, DocumentResponse } from "../types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function StatusTag({ status }: { status: string }) {
+function StatusTag({ status, reason }: { status: string; reason?: string | null }) {
   const colorMap: Record<string, "gray" | "blue" | "green" | "red" | "magenta"> = {
     PENDING: "gray",
     PROCESSING: "blue",
@@ -23,7 +23,11 @@ function StatusTag({ status }: { status: string }) {
     FAILED: "red",
     CANCELLED: "magenta",
   };
-  return <Tag type={colorMap[status] || "gray"}>{status}</Tag>;
+  return (
+    <Tag type={colorMap[status] || "gray"} title={status === "FAILED" ? (reason ?? undefined) : undefined}>
+      {status}
+    </Tag>
+  );
 }
 
 function requiresProcessing(document: DocumentResponse) {
@@ -209,7 +213,7 @@ export function DocumentRow({ document }: Props) {
         {formatDateTime(document.created_at)}
       </TableCell>
       <TableCell>
-        <StatusTag status={status} />
+        <StatusTag status={status} reason={latest?.error ?? latest?.message} />
       </TableCell>
       <TableCell>
         <div className="documents-row-actions">

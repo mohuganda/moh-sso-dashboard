@@ -1,0 +1,120 @@
+{
+  "realm": "moh-test",
+  "clients": [
+    {
+      "clientId": "digital-timesheets-test",
+      "name": "Health Workforce Portal (laptop test)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": false,
+      "frontchannelLogout": false,
+      "consentRequired": false,
+      "rootUrl": "http://127.0.0.1:8081",
+      "baseUrl": "http://127.0.0.1:8081",
+      "redirectUris": [
+        "http://127.0.0.1:8081/auth/sso"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:8081"
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://127.0.0.1:8081/login",
+        "access.token.signed.response.alg": "RS256",
+        "id.token.signed.response.alg": "RS256",
+        "portal.system": "false",
+        "ui.displayInLauncher": "false",
+        "ui.displayInSideNav": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "testUsers": [
+    {
+      "username": "timesheets-test-trainee",
+      "email": "timesheets-test-trainee@example.invalid",
+      "enabled": false,
+      "emailVerified": true,
+      "requiredActions": [
+        "UPDATE_PASSWORD"
+      ]
+    },
+    {
+      "username": "timesheets-test-supervisor",
+      "email": "timesheets-test-supervisor@example.invalid",
+      "enabled": false,
+      "emailVerified": true,
+      "requiredActions": [
+        "UPDATE_PASSWORD"
+      ]
+    },
+    {
+      "username": "timesheets-test-coordinator",
+      "email": "timesheets-test-coordinator@example.invalid",
+      "enabled": false,
+      "emailVerified": true,
+      "requiredActions": [
+        "UPDATE_PASSWORD"
+      ]
+    },
+    {
+      "username": "timesheets-test-unverified",
+      "email": "timesheets-test-unverified@example.invalid",
+      "enabled": false,
+      "emailVerified": false,
+      "requiredActions": [
+        "UPDATE_PASSWORD"
+      ]
+    }
+  ]
+}

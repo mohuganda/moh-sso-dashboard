@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/moh-sso-dashboard/internal/authz"
+	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/features/authsession"
 	"github.com/moh-sso-dashboard/internal/http/response"
 	"github.com/moh-sso-dashboard/internal/keycloak"
@@ -17,8 +18,15 @@ func ExtractAuthContext(
 	kc *keycloak.Client,
 	sessions *authsession.Store,
 	resolver authz.PermissionResolver,
+	cfg *config.Config,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// LOCAL DEV ONLY: DEV_AUTH_BYPASS=true skips Keycloak entirely.
+		if DevAuthBypassEnabled(cfg) {
+			applyDevBypass(c, resolver)
+			return
+		}
+
 		accessToken := extractAccessToken(c, sessions)
 		if accessToken == "" {
 			abortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing token")
@@ -43,6 +51,7 @@ func ExtractAuthContext(
 		c.Set(authz.ContextKey, authContext)
 		c.Set("user", user)
 		c.Set("user_id", user.ID)
+		c.Set("health_context", map[string]string{"district": user.District, "facility": user.Facility})
 		c.Set("client_roles", authContext.ClientRoles)
 		c.Set("realm_roles", authContext.RealmRoles)
 		c.Set("permissions", authContext.Permissions)

@@ -51,7 +51,7 @@ func (s *Service) ApplyRealmExportFileSync(ctx context.Context, path string) (Sy
 				Preview: SyncPreviewResponse{
 					Report: RbacDriftReport{
 						Source:   "default-realm-export",
-						Warnings: []string{"No local keycloak/realm-export.json file was found for startup sync."},
+						Warnings: []string{"No local infra/keycloak/realm-export.json file was found for startup sync."},
 					},
 				},
 			}, nil
@@ -247,13 +247,14 @@ func (s *Service) PushMissingRBACRolesToKeycloak(ctx context.Context, source Key
 		if !ok {
 			clientURL := s.keycloakClientURL(system.LaunchURL)
 			if _, err := source.CreateClient(keycloak.CreateClientParams{
-				ClientID:    clientID,
-				Name:        system.DisplayName,
-				Description: system.Description,
-				BaseURL:     clientURL,
-				RootURL:     clientURL,
-				Enabled:     system.Enabled,
-				Attributes:  attributes,
+				StandardFlowEnabled: true,
+				ClientID:            clientID,
+				Name:                system.DisplayName,
+				Description:         system.Description,
+				BaseURL:             clientURL,
+				RootURL:             clientURL,
+				Enabled:             system.Enabled,
+				Attributes:          attributes,
 			}); err != nil {
 				return KeycloakPushResult{}, fmt.Errorf("create keycloak client %q: %w", clientID, err)
 			}

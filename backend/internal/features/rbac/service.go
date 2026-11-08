@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,6 +76,15 @@ func (s *Service) GetSystem(ctx context.Context, clientID string) (SystemDetail,
 
 func (s *Service) UpsertSystem(ctx context.Context, input UpsertSystemInput) (System, error) {
 	input.ClientID = strings.TrimSpace(input.ClientID)
+	if systemrbac.IsStartupDiscovery(ctx) {
+		current, err := s.repository.GetSystem(ctx, input.ClientID)
+		if err == nil {
+			return current.System, nil
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return System{}, err
+		}
+	}
 	input.DisplayName = strings.TrimSpace(input.DisplayName)
 	input.Description = strings.TrimSpace(input.Description)
 	input.Icon = strings.TrimSpace(input.Icon)
@@ -89,6 +99,28 @@ func (s *Service) UpsertSystem(ctx context.Context, input UpsertSystemInput) (Sy
 	input.Environment = strings.TrimSpace(input.Environment)
 	input.Criticality = strings.TrimSpace(input.Criticality)
 	input.Navigation = strings.TrimSpace(input.Navigation)
+	input.IntegrationType = strings.TrimSpace(input.IntegrationType)
+	input.ContractVersion = strings.TrimSpace(input.ContractVersion)
+	// Omitted new fields must preserve existing integration contracts.
+	if input.IntegrationType == "" || input.ContractVersion == "" {
+		current, err := s.repository.GetSystem(ctx, input.ClientID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return System{}, err
+		}
+		if input.IntegrationType == "" {
+			input.IntegrationType = current.IntegrationType
+		}
+		if input.ContractVersion == "" {
+			input.ContractVersion = current.ContractVersion
+		}
+	}
+
+	if input.ContractVersion == "" {
+		input.ContractVersion = "1"
+	}
+	if input.ContractVersion != "1" {
+		return System{}, fmt.Errorf("%w: unsupported contractVersion", ErrInvalidInput)
+	}
 	behavior := systemrbac.NormalizeSystemBehavior(systemrbac.SeedSystem{
 		LaunchURL:              input.LaunchURL,
 		AuthenticatedLaunchURL: input.AuthenticatedLaunchURL,
@@ -105,6 +137,15 @@ func (s *Service) UpsertSystem(ctx context.Context, input UpsertSystemInput) (Sy
 	input.DisplayInLauncher = behavior.DisplayInLauncher
 	input.DisplayInSideNav = behavior.DisplayInSideNav
 	input.LaunchMode = behavior.LaunchMode
+	if input.IntegrationType == "" {
+		input.IntegrationType = "external"
+		if behavior.SystemType == "platform" {
+			input.IntegrationType = "hosted_module"
+		}
+	}
+	if input.IntegrationType != "external" && input.IntegrationType != "hosted_module" {
+		return System{}, fmt.Errorf("%w: unknown integrationType", ErrInvalidInput)
+	}
 	if input.ClientID == "" {
 		return System{}, fmt.Errorf("%w: clientId is required", ErrInvalidInput)
 	}
@@ -119,9 +160,6 @@ func (s *Service) UpsertSystem(ctx context.Context, input UpsertSystemInput) (Sy
 	}
 	system, err := s.repository.UpsertSystem(ctx, input)
 	if err != nil {
-		return System{}, err
-	}
-	if err := s.recordAudit(ctx, "system.upserted", "system", system.ID, input.ClientID, "", "", map[string]any{"displayName": input.DisplayName}); err != nil {
 		return System{}, err
 	}
 	return system, nil
@@ -919,7 +957,7 @@ func (s *Service) GetEffectiveAccess(ctx context.Context, userID string, usernam
 		}
 
 		detail, err := s.repository.GetSystem(ctx, clientID)
-		if err != nil {
+		if err != nil || !detail.Enabled {
 			continue
 		}
 
@@ -1755,7 +1793,7 @@ func (s *Service) resolveAccessForRoles(ctx context.Context, realmRoles []string
 			continue
 		}
 		detail, err := s.repository.GetSystem(ctx, clientID)
-		if err != nil {
+		if err != nil || !detail.Enabled {
 			continue
 		}
 		roleSet := normalizeStringSet(roles)

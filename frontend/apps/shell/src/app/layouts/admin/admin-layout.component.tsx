@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import type { ComponentType } from "react";
 import {
   Content,
@@ -6,6 +6,8 @@ import {
   HeaderGlobalAction,
   HeaderGlobalBar,
   HeaderName,
+  HeaderMenuButton,
+  SkipToContent,
   SideNav,
   SideNavItems,
   SideNavLink,
@@ -18,7 +20,8 @@ import {
   Dashboard,
   Email,
   Logout,
-  Menu,
+  ChevronLeft,
+  ChevronRight,
   Notification,
   UserAvatarFilled,
   UserMultiple,
@@ -27,28 +30,20 @@ import {
 import { useSelector } from "react-redux";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import {
-  HeaderPanelProvider,
-  NotificationsPanel,
-  PublicFooter,
-  useHeaderPanel,
-  useFocusTrap,
-} from "@moh-sso/ui";
+import { HeaderPanelProvider, PublicFooter, useHeaderPanel, useFocusTrap } from "@moh-sso/ui";
 
 import { API } from "@moh-sso/config";
-import {
-  useDeleteNotificationMutation,
-  useGetNotificationsQuery,
-  useGetUnreadNotificationsCountQuery,
-  useMarkNotificationAsReadMutation,
-} from "../../api";
+import { useGetUnreadNotificationsCountQuery } from "../../api";
 import { PERMISSIONS, selectUser, useAuthorization } from "@moh-sso/auth";
 import type { Permission } from "@moh-sso/auth";
 
+import { ConnectedAccountPanel } from "@/app/ui-containers/ConnectedAccountPanel";
+import { ConnectedAppMenu } from "@/app/ui-containers/ConnectedAppMenu";
+import { useShellNavigation } from "../useShellNavigation";
 import { RouteBreadcrumbBar } from "@/app/navigation/RouteBreadcrumbBar";
 import { useVersionInfo } from "@/app/version/useVersionInfo";
-import { NotificationDetailPanel } from "./NotificationDetailPanel";
 import { HealthContextSelector } from "@/app/ui-containers/HealthContextSelector";
+import { useOpenNotifications } from "@/app/ui-containers/ConnectedNotificationsPanel";
 
 import "./admin-layout.scss";
 
@@ -159,18 +154,6 @@ const ADMIN_NAV_GROUPS: Array<{
 
 const ADMIN_SIDENAV_STORAGE_KEY = "moh.adminLayout.sideNavVisible";
 
-function readStoredSideNavVisible(): boolean {
-  if (typeof window === "undefined") {
-    return true;
-  }
-
-  if (window.matchMedia("(max-width: 1056px)").matches) {
-    return window.localStorage.getItem(ADMIN_SIDENAV_STORAGE_KEY) === "true";
-  }
-
-  return window.localStorage.getItem(ADMIN_SIDENAV_STORAGE_KEY) !== "false";
-}
-
 function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
   if (item.exact) {
     return pathname === item.path || pathname === "portal/admin/home";
@@ -182,29 +165,8 @@ function isActiveRoute(pathname: string, item: AdminNavItem): boolean {
 function HeaderActions() {
   const user = useSelector(selectUser);
   const { openPanel } = useHeaderPanel();
-  const { can } = useAuthorization();
-
-  const {
-    data: notifications = [],
-    isLoading: isLoadingNotifications,
-    refetch: refetchUnreadNotifications,
-  } = useGetNotificationsQuery({
-    unread: true,
-    limit: 10,
-    offset: 0,
-  });
-  const {
-    data: recentNotifications = [],
-    isLoading: isLoadingRecentNotifications,
-    refetch: refetchRecentNotifications,
-  } = useGetNotificationsQuery({
-    limit: 20,
-    offset: 0,
-  });
 
   const { data: unreadCount = 0 } = useGetUnreadNotificationsCountQuery();
-  const [markNotificationAsRead] = useMarkNotificationAsReadMutation();
-  const [deleteNotification] = useDeleteNotificationMutation();
 
   const safeUnreadCount = Number(unreadCount) || 0;
 
@@ -212,45 +174,7 @@ function HeaderActions() {
     window.location.replace(API.auth.logout());
   };
 
-  const handleOpenNotifications = () => {
-    openPanel({
-      title: "Notifications",
-      content: (
-        <div className="notifications-header-panel">
-          <NotificationsPanel
-            notifications={notifications}
-            recentNotifications={recentNotifications}
-            isLoading={isLoadingNotifications}
-            isLoadingRecent={isLoadingRecentNotifications}
-            onMarkRead={(id) => {
-              void markNotificationAsRead(id).then(() => {
-                void refetchUnreadNotifications();
-                void refetchRecentNotifications();
-              });
-            }}
-            onDelete={(id) => {
-              void deleteNotification(id).then(() => {
-                void refetchUnreadNotifications();
-                void refetchRecentNotifications();
-              });
-            }}
-            onView={(notification) => {
-              openPanel({
-                title: "Notification details",
-                size: "md",
-                content: (
-                  <NotificationDetailPanel
-                    notification={notification}
-                    canRetryDelivery={can(PERMISSIONS.notificationsWrite)}
-                  />
-                ),
-              });
-            }}
-          />
-        </div>
-      ),
-    });
-  };
+  const handleOpenNotifications = useOpenNotifications();
 
   return (
     <>
@@ -260,7 +184,7 @@ function HeaderActions() {
           safeUnreadCount > 0 ? `Notifications, ${safeUnreadCount} unread` : "Notifications"
         }
         tooltipAlignment="end"
-        onClick={handleOpenNotifications}
+        onClick={() => handleOpenNotifications()}
       >
         <Notification size={20} />
 
@@ -274,11 +198,24 @@ function HeaderActions() {
       <HeaderGlobalAction
         aria-label={`Signed in as ${user?.username ?? "user"}`}
         tooltipAlignment="end"
+        onClick={() =>
+          openPanel({
+            title: "Your account",
+            size: "sm",
+            maximizable: false,
+            content: <ConnectedAccountPanel />,
+          })
+        }
       >
         <UserAvatarFilled size={20} />
       </HeaderGlobalAction>
 
-      <HeaderGlobalAction aria-label="Logout" tooltipAlignment="end" onClick={handleLogout}>
+      <HeaderGlobalAction
+        className="moh-header-logout"
+        aria-label="Logout"
+        tooltipAlignment="end"
+        onClick={handleLogout}
+      >
         <Logout size={20} />
       </HeaderGlobalAction>
     </>
@@ -322,12 +259,13 @@ function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavP
         <button
           type="button"
           className="admin-layout__sidenav-toggle admin-layout__sidenav-toggle--rail"
-          aria-label="Show navigation"
+          aria-label="Expand navigation"
+          title="Expand navigation"
           aria-controls="admin-sidenav"
           aria-expanded={false}
           onClick={onToggleVisibility}
         >
-          <Menu size={22} />
+          <ChevronRight size={20} aria-hidden="true" />
         </button>
       ) : null}
 
@@ -337,6 +275,7 @@ function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavP
         isFixedNav
         expanded
         aria-hidden={!visible}
+        inert={!visible}
         aria-label="Admin navigation"
         className={`admin-layout__sidenav${visible ? "" : " admin-layout__sidenav--hidden"}`}
       >
@@ -351,12 +290,13 @@ function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavP
               ref={closeButtonRef}
               type="button"
               className="admin-layout__sidenav-toggle"
-              aria-label="Hide navigation"
+              aria-label="Collapse navigation"
+              title="Collapse navigation"
               aria-controls="admin-sidenav"
               aria-expanded={visible}
               onClick={onToggleVisibility}
             >
-              <Menu size={22} />
+              <ChevronLeft size={20} aria-hidden="true" />
             </button>
           </div>
 
@@ -380,7 +320,11 @@ function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavP
                       isActive={active}
                       aria-current={active ? "page" : undefined}
                       renderIcon={item.icon}
-                      onClick={() => {
+                      href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}${item.path}`}
+                      onClick={(event) => {
+                        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+                          return;
+                        event.preventDefault();
                         if (location.pathname !== item.path) {
                           navigate(item.path);
                         }
@@ -402,40 +346,23 @@ function AdminSideNav({ visible, onToggleVisibility, onNavigate }: AdminSideNavP
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const [isSideNavVisible, setIsSideNavVisible] = useState(readStoredSideNavVisible);
+  const navigation = useShellNavigation(ADMIN_SIDENAV_STORAGE_KEY);
+  const isSideNavVisible = navigation.visible;
   const versionInfo = useVersionInfo();
-
-  useEffect(() => {
-    if (!isSideNavVisible) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && window.matchMedia("(max-width: 1056px)").matches) {
-        setIsSideNavVisible(false);
-      }
-    };
-
-    const originalOverflow = document.body.style.overflow;
-
-    if (window.matchMedia("(max-width: 1056px)").matches) {
-      document.body.style.overflow = "hidden";
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isSideNavVisible]);
-
-  useEffect(() => {
-    window.localStorage.setItem(ADMIN_SIDENAV_STORAGE_KEY, String(isSideNavVisible));
-  }, [isSideNavVisible]);
 
   return (
     <HeaderPanelProvider>
       <div className={`admin-layout${isSideNavVisible ? "" : " admin-layout--sidenav-hidden"}`}>
         <Header aria-label="MOH Integrated Health Portal" className="admin-layout__header">
+          <SkipToContent />
+          <HeaderMenuButton
+            isCollapsible
+            aria-label={isSideNavVisible ? "Close navigation" : "Open navigation"}
+            aria-controls="admin-sidenav"
+            aria-expanded={isSideNavVisible}
+            isActive={isSideNavVisible}
+            onClick={navigation.toggle}
+          />
           <div className="admin-layout__brand">
             <button
               type="button"
@@ -448,24 +375,32 @@ export default function AdminLayout() {
 
             <HeaderName
               prefix="MOH"
-              onClick={() => navigate("/admin")}
+              href={`${import.meta.env.BASE_URL}admin`}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                navigate("/admin");
+              }}
               className="admin-layout__brand-name"
             >
               Integrated Health Portal
             </HeaderName>
           </div>
 
-          <HeaderGlobalBar>
+          <HeaderGlobalBar
+            onClickCapture={navigation.compact ? () => navigation.setVisible(false) : undefined}
+          >
+            <ConnectedAppMenu />
             <HeaderActions />
           </HeaderGlobalBar>
         </Header>
 
         <AdminSideNav
           visible={isSideNavVisible}
-          onToggleVisibility={() => setIsSideNavVisible((visible) => !visible)}
+          onToggleVisibility={navigation.toggle}
           onNavigate={() => {
             if (window.matchMedia("(max-width: 1056px)").matches) {
-              setIsSideNavVisible(false);
+              navigation.setVisible(false);
             }
           }}
         />
@@ -475,7 +410,7 @@ export default function AdminLayout() {
             type="button"
             className="admin-layout__sidenav-backdrop"
             aria-label="Close navigation"
-            onClick={() => setIsSideNavVisible(false)}
+            onClick={() => navigation.setVisible(false)}
           />
         ) : null}
 

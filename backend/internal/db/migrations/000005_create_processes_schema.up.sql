@@ -1,14 +1,11 @@
-DO $$ BEGIN
-    CREATE TYPE process_status AS ENUM (
-        'PENDING',
-        'PROCESSING',
-        'COMPLETED',
-        'FAILED',
-        'CANCELLED'
-    );
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
-END $$;
+-- Top-level DDL keeps PostgreSQL and SQLC schema discovery aligned.
+CREATE TYPE process_status AS ENUM (
+    'PENDING',
+    'PROCESSING',
+    'COMPLETED',
+    'FAILED',
+    'CANCELLED'
+);
 
 CREATE TABLE IF NOT EXISTS processes (
     id UUID PRIMARY KEY,

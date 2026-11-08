@@ -1,5 +1,5 @@
 import react from "@vitejs/plugin-react";
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -13,6 +13,7 @@ const getDirectories = (source: string) =>
 
 const apps = getDirectories("./apps");
 const packages = getDirectories("./packages");
+const shell = JSON.parse(readFileSync(pathFromRoot("./apps/shell/package.json"), "utf8"));
 
 const dynamicAliases = [
   ...packages.map((pkg) => ({
@@ -52,6 +53,21 @@ export default defineConfig(({ mode }) => {
     publicDir: pathFromRoot("./public"),
 
   plugins: [
+    {
+      name: "portal-base-redirect",
+      configureServer(server) {
+        server.middlewares.use((request, response, next) => {
+          const match = request.url?.match(/^\/portal(\?.*)?$/);
+          if (!match) {
+            next();
+            return;
+          }
+
+          response.writeHead(302, { Location: `/portal/${match[1] ?? ""}` });
+          response.end();
+        });
+      },
+    },
     react(),
     VitePWA({
       base: "/portal/",
@@ -115,6 +131,8 @@ export default defineConfig(({ mode }) => {
   ],
 
     define: {
+      "import.meta.env.VITE_APP_VERSION": JSON.stringify(env.VITE_APP_VERSION || shell.version),
+      "import.meta.env.VITE_BUILD_TIME": JSON.stringify(env.VITE_BUILD_TIME || new Date().toISOString()),
       "process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),
     },
 

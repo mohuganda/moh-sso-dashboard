@@ -167,7 +167,8 @@ function mapNavigationItemToClient(
     attributes: {
       "ui.icon": item.icon ?? system.icon ?? "",
       "ui.home": item.path,
-      "ui.category": system.category ?? "",
+      "ui.category":
+        (typeof item.category === "string" ? item.category.trim() : "") || system.category || "",
       "ui.navigation": "",
       "ui.sidenav": "",
       "ui.systemType": systemType,

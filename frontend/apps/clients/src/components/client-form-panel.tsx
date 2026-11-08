@@ -9,6 +9,7 @@ import {
   FormGroup,
   TextArea,
 } from "@carbon/react";
+import { ClientOnboardingPanel } from "./client-onboarding-panel";
 import { useEffect, useMemo, useState } from "react";
 
 import { useCreateClientMutation, useUpdateClientMutation } from "../api";
@@ -52,7 +53,16 @@ const createFormState = (initialClient?: Client): ClientFormState => ({
   icon: initialClient?.icon ?? "",
 });
 
-export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
+export function ClientFormPanel(props: Props) {
+  return props.mode === "create" ||
+    props.initialClient?.attributes?.["portal.onboarding.profile"] ? (
+    <ClientOnboardingPanel initialClient={props.initialClient} onSuccess={props.onSuccess} />
+  ) : (
+    <LegacyClientFormPanel {...props} />
+  );
+}
+
+function LegacyClientFormPanel({ mode, initialClient, onSuccess }: Props) {
   const toast = useToast();
 
   const [createdClient, setCreatedClient] = useState<Client | null>(null);
@@ -134,7 +144,7 @@ export function ClientFormPanel({ mode, initialClient, onSuccess }: Props) {
         toast.success("Client created", `Client "${form.name}" was created`);
       } else {
         await updateClient({
-          id: form.clientId,
+          id: form.id,
           data: buildPayload(),
         }).unwrap();
 

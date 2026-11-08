@@ -37,13 +37,13 @@ type Client struct {
 	DefaultClientScopes                []string          `json:"defaultClientScopes"`
 	OptionalClientScopes               []string          `json:"optionalClientScopes"`
 	Access                             map[string]bool   `json:"access"`
-	Secret                             string            `json:"secret"`
+	Secret                             string            `json:"secret,omitempty"`
 	ClientTemplate                     string            `json:"clientTemplate"`
 	UseTemplateConfig                  bool              `json:"useTemplateConfig"`
 	RootClientRealm                    string            `json:"rootClientRealm"`
-	RegistrationAccessToken            string            `json:"registrationAccessToken"`
+	RegistrationAccessToken            string            `json:"registrationAccessToken,omitempty"`
 	AuthorizationServicesEnabled       bool              `json:"authorizationServicesEnabled"`
-	ProtocolMappers                    []ProtocolMapper  `json:"protocolMappers"`
+	ProtocolMappers                    []ProtocolMapper  `json:"protocolMappers,omitempty"`
 	DefaultRoles                       []string          `json:"defaultRoles"`
 	AuthorizationURL                   string            `json:"authorizationUrl"`
 	TlsRequired                        string            `json:"tlsRequired"`
@@ -53,7 +53,7 @@ type Client struct {
 }
 
 type ProtocolMapper struct {
-	ID              string            `json:"id"`
+	ID              string            `json:"id,omitempty"`
 	Name            string            `json:"name"`
 	Protocol        string            `json:"protocol"`
 	ProtocolMapper  string            `json:"protocolMapper"`

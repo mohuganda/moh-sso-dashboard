@@ -39,12 +39,7 @@ ORDER BY name ASC;
 SELECT *
 FROM sub_counties
 WHERE district_id = sqlc.arg('district_id')
-  AND health_context_alias_related_to_scope(
-    'surveillance-sub-county',
-    id::text,
-    sqlc.arg('health_context_id')::uuid,
-    sqlc.arg('include_descendants')::boolean
-  )
+  AND id = ANY(sqlc.arg('allowed_sub_county_ids')::uuid[])
 ORDER BY name ASC;
 
 -- name: UpsertSubCounty :one

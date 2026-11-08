@@ -15,6 +15,7 @@ import {
   emailLifecycles,
   issueTrackerLifecycles,
   reportBrowserLifecycles,
+  reportSchedulerLifecycles,
   rbacLifecycles,
   surveillanceLifecycles,
   usersLifecycles,
@@ -58,6 +59,7 @@ const lifecycleLoaders: Record<string, () => Promise<MicrofrontendLifecycle>> = 
   "@moh-sso/email": emailLifecycles,
   "@moh-sso/issue-tracker": issueTrackerLifecycles,
   "@moh-sso/report-browser": reportBrowserLifecycles,
+  "@moh-sso/report-scheduler": reportSchedulerLifecycles,
   "@moh-sso/rbac": rbacLifecycles,
   "@moh-sso/surveillance": surveillanceLifecycles,
   "@moh-sso/users": usersLifecycles,
@@ -82,27 +84,14 @@ function getRuntimeConfig() {
     }
   ).__APP_CONFIG__;
 
-  const isLocalDevelopmentHost =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "::1";
-
-  if (!isLocalDevelopmentHost) {
-    return runtimeConfig;
-  }
-
-  return {
-    ...runtimeConfig,
-    singleSpaOrchestration: false,
-    microfrontendMode: "local",
-    microfrontendMountMode: "hybrid",
-  };
+  return runtimeConfig;
 }
 
 export function shouldUseSingleSpaOrchestration() {
   const runtimeConfig = getRuntimeConfig();
   const orchestrationEnabled =
-    import.meta.env.VITE_SINGLE_SPA_ORCHESTRATION === "true" || runtimeConfig?.singleSpaOrchestration === true;
+    runtimeConfig?.singleSpaOrchestration ??
+    import.meta.env.VITE_SINGLE_SPA_ORCHESTRATION === "true";
 
   return (
     orchestrationEnabled &&
@@ -126,7 +115,11 @@ function getMicrofrontendMode() {
 
 function getMicrofrontendMountMode(): MicrofrontendMountMode {
   const runtimeConfig = getRuntimeConfig();
-  return runtimeConfig?.microfrontendMountMode ?? import.meta.env.VITE_MICROFRONTEND_MOUNT_MODE ?? "hybrid";
+  return (
+    runtimeConfig?.microfrontendMountMode ??
+    import.meta.env.VITE_MICROFRONTEND_MOUNT_MODE ??
+    "hybrid"
+  );
 }
 
 function pathMatches(pathname: string, basePath: string) {

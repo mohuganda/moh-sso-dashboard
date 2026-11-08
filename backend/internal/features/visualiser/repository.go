@@ -90,6 +90,41 @@ func (r *postgresRepository) ListDataElements(ctx context.Context, dataSetID *st
 }
 
 func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesRequest) (DataValuesResponse, error) {
+	query, values := buildDataValuesQuery(req)
+
+	rows, err := r.db.QueryContext(ctx, query, values...)
+	if err != nil {
+		return DataValuesResponse{}, err
+	}
+	defer rows.Close()
+
+	rowsList := make([]DataValueRowResponse, 0)
+	for rows.Next() {
+		var row DataValueRowResponse
+		if err := rows.Scan(
+			&row.OrgUnitID,
+			&row.OrgUnitName,
+			&row.DataElementID,
+			&row.Period,
+			&row.Value,
+			&row.Level,
+			&row.LevelOfCare,
+			&row.Ownership,
+			&row.Dataelement,
+		); err != nil {
+			return DataValuesResponse{}, err
+		}
+		rowsList = append(rowsList, row)
+	}
+	if err := rows.Err(); err != nil {
+		return DataValuesResponse{}, err
+	}
+	return DataValuesResponse{Rows: rowsList}, nil
+}
+
+// buildDataValuesQuery keeps SQL construction separate from execution for plan inspection
+// and database-backed regression tests.
+func buildDataValuesQuery(req DataValuesRequest) (string, []interface{}) {
 	var conditions []string
 	var values []interface{}
 	paramCounter := 0
@@ -152,22 +187,27 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 			values = append(values, *requestedLevel)
 			selectedLevelClause = fmt.Sprintf("WHERE su.selected_level = $%d", paramCounter)
 		}
-		countryWhereClause := whereClause
-		if countryWhereClause == "" {
-			countryWhereClause = " WHERE su.selected_level = '1'"
-		} else {
-			countryWhereClause += " AND su.selected_level = '1'"
+		attributesCTE, attributesJoin := "", ""
+		if !aggregateAllCareAndOwnership {
+			attributesCTE = `org_unit_attrs AS (
+			  SELECT COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid,
+			    MAX(NULLIF(h.level_of_care, '')) AS level_of_care,
+			    MAX(NULLIF(h.ownership, '')) AS ownership
+			  FROM hiv.organisation_unit h
+			  GROUP BY 1
+			),`
+			attributesJoin = "LEFT JOIN org_unit_attrs oa ON oa.facility_uid = hs.org_unit_id"
 		}
-		query = `
-		   WITH org_unit_attrs AS (
-		     SELECT
-		       COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid,
-		       MAX(NULLIF(h.level_of_care, '')) AS level_of_care,
-		       MAX(NULLIF(h.ownership, '')) AS ownership
-		     FROM hiv.organisation_unit h
-		     WHERE COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
-		     GROUP BY 1
-		   ),
+		outputID, outputName, outputLevel := "sf.selected_uid", "sf.selected_name", "sf.selected_level"
+		outputJoin := "JOIN selected_facilities sf ON hs.org_unit_id = sf.facility_uid"
+		facilityNameSelect := ""
+		if req.AggregationLevel == "6" {
+			// facility_values already contains each facility once, even for overlapping parents.
+			outputID, outputName, outputLevel = "hs.org_unit_id", "hs.facility_name", "'6'"
+			outputJoin = ""
+			facilityNameSelect = ", COALESCE(MIN(NULLIF(hs.facility, '')), hs.org_unit_id) AS facility_name"
+		}
+		query = `WITH ` + attributesCTE + `
 		   selected_input AS (
 		     SELECT DISTINCT unnest($1::text[]) AS selected_uid
 		   ),
@@ -249,97 +289,44 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 		     ORDER BY su.selected_uid, su.priority
 		   ),
 		   selected_facilities AS (
-		     SELECT DISTINCT
-		       su.selected_uid,
-		       su.selected_level,
-		       su.selected_name,
-		       COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid
-		     FROM selected_units su
-		     JOIN hiv.organisation_unit h
-		      ON (
-		        (su.selected_level = '1' AND (h.country_uid = su.selected_uid OR (h.level = '1' AND h.org_unit_id = su.selected_uid)))
-		        OR (su.selected_level = '6' AND (h.facility_uid = su.selected_uid OR (h.level = '6' AND h.org_unit_id = su.selected_uid)))
-		        OR (su.selected_level = '2' AND h.region_uid = su.selected_uid)
-		        OR (su.selected_level = '3' AND h.district_uid = su.selected_uid)
-		        OR (su.selected_level = '5' AND (h.sub_county_uid = su.selected_uid OR (h.level = '5' AND h.org_unit_id = su.selected_uid)))
-		      )
-		     WHERE su.selected_level IN ('2', '3', '5', '6')
-		       AND COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL
-		       ` + orgUnitFilterClause + `
-		   )
-		   SELECT
-		     x.org_unit_id,
-		     x.org_unit_name,
-		     x.data_element_id,
-		     x."period",
-		     x.value,
-		     x."level",
-		     x.level_of_care,
-		     x.ownership,
-		     x.dataelement
-		   FROM (
-		     SELECT
-		       sf.selected_uid AS org_unit_id,
-		       sf.selected_name AS org_unit_name,
-		       hs.data_element_id,
-		       hs."period",
-		       SUM(
-		         CASE
-		           WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
-		           ELSE 0
-		         END
-		       )::bigint AS value,
-		       sf.selected_level AS "level",
-		       ` + levelOfCareExpr + ` AS level_of_care,
-		       ` + ownershipExpr + ` AS ownership,
-		       hs.dataelement
-		     FROM selected_facilities sf
-		     JOIN report.hmis_summary hs
-		       ON hs.org_unit_id = sf.facility_uid
-		     LEFT JOIN org_unit_attrs oa
-		       ON oa.facility_uid = hs.org_unit_id
+		     SELECT DISTINCT selected_uid, selected_level, selected_name, facility_uid
+		     FROM (
+		       ` + selectedFacilityBranches(orgUnitFilterClause) + `
+		     ) memberships
+		   ),
+		   facility_values AS (
+		     SELECT hs.org_unit_id, hs.data_element_id, hs."period", hs.dataelement` + facilityNameSelect + `,
+		       SUM(CASE
+		         WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
+		         ELSE 0
+		       END) AS value
+		     FROM report.hmis_summary hs
+		     JOIN (SELECT DISTINCT facility_uid FROM selected_facilities) selected
+		       ON selected.facility_uid = hs.org_unit_id
 		     ` + whereClause + `
-		     GROUP BY 1, 2, 3, 4, 6, 7, 8, 9
-		    
-		     UNION ALL
-
-		     SELECT
-		       su.selected_uid AS org_unit_id,
-		       su.selected_name AS org_unit_name,
-		       hs.data_element_id,
-		       hs."period",
-		       SUM(
-		         CASE
-		           WHEN hs.value ~ '^\s*-?\d+(\.\d+)?\s*$' THEN TRIM(hs.value)::numeric
-		           ELSE 0
-		         END
-		       )::bigint AS value,
-		       su.selected_level AS "level",
-		       ` + levelOfCareExpr + ` AS level_of_care,
-		       ` + ownershipExpr + ` AS ownership,
-		       hs.dataelement
-		     FROM selected_units su
-		     JOIN hiv.organisation_unit h
-		       ON (
-		         h.country_uid = su.selected_uid
-		         OR (h.level = '1' AND h.org_unit_id = su.selected_uid)
-		       )
-		     JOIN report.hmis_summary hs
-		       ON hs.org_unit_id = COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id)
-		     LEFT JOIN org_unit_attrs oa
-		       ON oa.facility_uid = hs.org_unit_id
-		     ` + countryWhereClause + `
-		     GROUP BY 1, 2, 3, 4, 6, 7, 8, 9
-		   ) x
-		   ORDER BY
-		     x."period",
-		     x."level",
-		     x.org_unit_name,
-		     x.data_element_id
+		     GROUP BY 1, 2, 3, 4
+		   )
+		   SELECT ` + outputID + ` AS org_unit_id, ` + outputName + ` AS org_unit_name,
+		     hs.data_element_id, hs."period", SUM(hs.value)::bigint AS value,
+		     ` + outputLevel + ` AS "level",
+		     ` + levelOfCareExpr + ` AS level_of_care,
+		     ` + ownershipExpr + ` AS ownership,
+		     hs.dataelement
+		   FROM facility_values hs
+		   ` + outputJoin + `
+		   ` + attributesJoin + `
+		   GROUP BY 1, 2, 3, 4, 6, 7, 8, 9
+		   ORDER BY 4, 6, 2, 3
 		`
 	} else {
-		aggregationLevel := r.resolveAggregationLevel(ctx, requestedLevel, req.OU)
+		aggregationLevel := resolveRequestedAggregationLevel(requestedLevel)
+		if req.AggregationLevel == "6" {
+			aggregationLevel = "6"
+		}
 		orgUnitExpr, facilityExpr, levelExpr, _, _, _ := aggregationExpressions(aggregationLevel)
+		if req.AggregationLevel == "6" {
+			levelExpr = "'6'"
+		}
 		orgUnitFilterJoin := ""
 		if orgUnitFilterClause != "" {
 			orgUnitFilterJoin = `
@@ -382,7 +369,7 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 	         ON oa.facility_uid = hs.org_unit_id
 	       ` + orgUnitFilterJoin + `
 	       ` + whereClause + `
-	       GROUP BY 1, 2, 3, 4, 6, 7, 8
+	       GROUP BY 1, 2, 3, 4, 6, 7, 8, 9
 	       ORDER BY 
 	          4,
 	          1,
@@ -390,81 +377,41 @@ func (r *postgresRepository) ListDataValues(ctx context.Context, req DataValuesR
 	    `
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, values...)
-	if err != nil {
-		return DataValuesResponse{}, err
-	}
-	defer rows.Close()
-
-	rowsList := make([]DataValueRowResponse, 0)
-	for rows.Next() {
-		var row DataValueRowResponse
-		if err := rows.Scan(
-			&row.OrgUnitID,
-			&row.OrgUnitName,
-			&row.DataElementID,
-			&row.Period,
-			&row.Value,
-			&row.Level,
-			&row.LevelOfCare,
-			&row.Ownership,
-			&row.Dataelement,
-		); err != nil {
-			return DataValuesResponse{}, err
-		}
-		rowsList = append(rowsList, row)
-	}
-	if err := rows.Err(); err != nil {
-		return DataValuesResponse{}, err
-	}
-	return DataValuesResponse{Rows: rowsList}, nil
+	return query, values
 }
 
-func (r *postgresRepository) resolveAggregationLevel(ctx context.Context, requested *string, ou []string) string {
+// Separate equality joins allow PostgreSQL to choose indexes/hash joins per level.
+// Deduplicate memberships before joining facts so duplicate hierarchy rows cannot
+// multiply values. Overlapping selections still each receive their own total.
+func selectedFacilityBranches(filters string) string {
+	type membership struct{ level, predicate string }
+	memberships := []membership{
+		{"1", "h.country_uid = su.selected_uid"},
+		{"1", "h.level = '1' AND h.org_unit_id = su.selected_uid"},
+		{"2", "h.region_uid = su.selected_uid"},
+		{"3", "h.district_uid = su.selected_uid"},
+		{"5", "h.sub_county_uid = su.selected_uid"},
+		{"5", "h.level = '5' AND h.org_unit_id = su.selected_uid"},
+		{"6", "h.facility_uid = su.selected_uid"},
+		{"6", "h.level = '6' AND h.org_unit_id = su.selected_uid"},
+	}
+	branches := make([]string, 0, len(memberships))
+	for _, m := range memberships {
+		branches = append(branches, `SELECT su.selected_uid, su.selected_level, su.selected_name,
+		  COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) AS facility_uid
+		  FROM selected_units su JOIN hiv.organisation_unit h ON `+m.predicate+`
+		  WHERE su.selected_level = '`+m.level+`'
+		    AND COALESCE(NULLIF(h.facility_uid, ''), h.org_unit_id) IS NOT NULL`+filters)
+	}
+	return strings.Join(branches, " UNION ALL ")
+}
+
+func resolveRequestedAggregationLevel(requested *string) string {
 	if requested != nil {
-		level := strings.TrimSpace(*requested)
-		switch level {
+		switch *requested {
 		case "1", "2", "3", "5", "6":
-			return level
+			return *requested
 		}
 	}
-
-	if len(ou) == 0 {
-		return "6"
-	}
-
-	query := `
-		SELECT CASE
-			WHEN EXISTS (
-				SELECT 1 FROM hiv.organisation_unit h
-				WHERE h.facility_uid = ANY($1)
-				   OR (h.level = '6' AND h.org_unit_id = ANY($1))
-			) THEN '6'
-			WHEN EXISTS (
-				SELECT 1 FROM hiv.organisation_unit h
-				WHERE h.sub_county_uid = ANY($1)
-				   OR (h.level = '5' AND h.org_unit_id = ANY($1))
-			) THEN '5'
-			WHEN EXISTS (
-				SELECT 1 FROM hiv.organisation_unit h
-				WHERE h.district_uid = ANY($1)
-			) THEN '3'
-			WHEN EXISTS (
-				SELECT 1 FROM hiv.organisation_unit h
-				WHERE h.region_uid = ANY($1)
-			) THEN '2'
-			WHEN EXISTS (
-				SELECT 1 FROM hiv.organisation_unit h
-				WHERE h.country_uid = ANY($1)
-				   OR (h.level = '1' AND h.org_unit_id = ANY($1))
-			) THEN '1'
-			ELSE '6'
-		END
-	`
-
-	var level string
-	if err := r.db.QueryRowContext(ctx, query, pq.Array(ou)).Scan(&level); err != nil {
-		return "6"
-	}
-	return level
+	return "6"
 }

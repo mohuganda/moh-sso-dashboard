@@ -16,28 +16,32 @@ import (
 )
 
 type CreateClientRequest struct {
-	Name                   string            `json:"name" validate:"required"`
-	Description            string            `json:"description,omitempty"`
-	ClientID               string            `json:"clientId" validate:"required"`
-	ClientSecret           string            `json:"clientSecret"`
-	RedirectURIs           []string          `json:"redirectUris" validate:"required,dive,uri"`
-	WebOrigins             []string          `json:"webOrigins"`
-	StandardFlowEnabled    bool              `json:"standardFlowEnabled"`
-	ImplicitFlowEnabled    bool              `json:"implicitFlowEnabled"`
-	DirectAccessGrants     bool              `json:"directAccessGrants"`
-	ServiceAccountsEnabled bool              `json:"serviceAccountsEnabled"`
-	PublicClient           bool              `json:"publicClient"`
-	RootURL                string            `json:"rootUrl"`
-	BaseURL                string            `json:"baseUrl"`
-	AdminURL               string            `json:"adminUrl"`
-	Enabled                bool              `json:"enabled"`
-	Protocol               string            `json:"protocol,omitempty"`
-	LoginURI               string            `json:"loginUri,omitempty"`
-	LogoutURI              string            `json:"logoutUri,omitempty"`
-	Attributes             map[string]string `json:"attributes"`
-	DefaultClientScopes    []string          `json:"defaultClientScopes,omitempty"`
-	OptionalClientScopes   []string          `json:"optionalClientScopes,omitempty"`
-	Tags                   []string          `json:"tags,omitempty"`
+	Icon                   string                  `json:"icon,omitempty"`
+	ProtocolMappers        []models.ProtocolMapper `json:"protocolMappers,omitempty"`
+	FullScopeAllowed       bool                    `json:"fullScopeAllowed"`
+	FrontChannelLogout     bool                    `json:"frontchannelLogout"`
+	Name                   string                  `json:"name" validate:"required"`
+	Description            string                  `json:"description,omitempty"`
+	ClientID               string                  `json:"clientId" validate:"required"`
+	ClientSecret           string                  `json:"clientSecret"`
+	RedirectURIs           []string                `json:"redirectUris" validate:"required,dive,uri"`
+	WebOrigins             []string                `json:"webOrigins"`
+	StandardFlowEnabled    bool                    `json:"standardFlowEnabled"`
+	ImplicitFlowEnabled    bool                    `json:"implicitFlowEnabled"`
+	DirectAccessGrants     bool                    `json:"directAccessGrants"`
+	ServiceAccountsEnabled bool                    `json:"serviceAccountsEnabled"`
+	PublicClient           bool                    `json:"publicClient"`
+	RootURL                string                  `json:"rootUrl"`
+	BaseURL                string                  `json:"baseUrl"`
+	AdminURL               string                  `json:"adminUrl"`
+	Enabled                bool                    `json:"enabled"`
+	Protocol               string                  `json:"protocol,omitempty"`
+	LoginURI               string                  `json:"loginUri,omitempty"`
+	LogoutURI              string                  `json:"logoutUri,omitempty"`
+	Attributes             map[string]string       `json:"attributes"`
+	DefaultClientScopes    []string                `json:"defaultClientScopes,omitempty"`
+	OptionalClientScopes   []string                `json:"optionalClientScopes,omitempty"`
+	Tags                   []string                `json:"tags,omitempty"`
 }
 
 type Service struct {
@@ -86,16 +90,32 @@ func (s *Service) CreateClient(
 	}
 
 	client := &models.Client{
-		ClientID:     clientID,
-		Name:         strings.TrimSpace(req.Name),
-		Description:  strings.TrimSpace(req.Description),
-		BaseURL:      strings.TrimSpace(req.BaseURL),
-		RootURL:      strings.TrimSpace(req.RootURL),
-		RedirectUris: req.RedirectURIs,
-		WebOrigins:   req.WebOrigins,
-		PublicClient: req.PublicClient,
-		Enabled:      req.Enabled,
-		Attributes:   req.Attributes,
+		ClientID:             clientID,
+		Name:                 strings.TrimSpace(req.Name),
+		Description:          strings.TrimSpace(req.Description),
+		BaseURL:              strings.TrimSpace(req.BaseURL),
+		RootURL:              strings.TrimSpace(req.RootURL),
+		RedirectUris:         req.RedirectURIs,
+		WebOrigins:           req.WebOrigins,
+		PublicClient:         req.PublicClient,
+		Enabled:              req.Enabled,
+		Attributes:           req.Attributes,
+		StandardFlow:         req.StandardFlowEnabled,
+		ImplicitFlow:         req.ImplicitFlowEnabled,
+		DirectAccess:         req.DirectAccessGrants,
+		ServiceAccounts:      req.ServiceAccountsEnabled,
+		DefaultClientScopes:  req.DefaultClientScopes,
+		OptionalClientScopes: req.OptionalClientScopes,
+		ProtocolMappers:      req.ProtocolMappers,
+		FullScopeAllowed:     req.FullScopeAllowed,
+		FrontChannelLogout:   req.FrontChannelLogout,
+	}
+
+	if client.Attributes == nil {
+		client.Attributes = map[string]string{}
+	}
+	if req.Icon != "" {
+		client.Attributes["ui.icon"] = req.Icon
 	}
 
 	createdID, err := s.repo.CreateClient(client)

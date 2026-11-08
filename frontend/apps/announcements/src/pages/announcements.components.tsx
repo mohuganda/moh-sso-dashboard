@@ -28,7 +28,7 @@ import {
 
 import type { Announcement, AnnouncementLevel } from "../types";
 
-import { ErrorState, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
+import { ErrorState, PageShell, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
 
 import { formatDateTime, getStatusTagType, getTagType, isAnnouncementActive } from "@moh-sso/utils";
 
@@ -392,45 +392,23 @@ export function AnnouncementsPage() {
     });
   };
 
-  /* -----------------------------
-   * Loading / Error
-   * ----------------------------- */
-  if (isLoading) {
-    return (
-      <div className="announcements-page__loading">
-        <InlineLoading description="Loading announcements…" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <ErrorState
-        title="Failed to load announcements"
-        description={getApiErrorMessage(error, "Failed to load announcements")}
-        primaryAction={{ label: "Retry", onClick: refetch }}
-      />
-    );
-  }
-
   return (
     <div className="announcements-page">
-      {/* Header */}
-      <div className="announcements-page__header">
-        <div>
-          <h3 className="announcements-page__title">Announcements</h3>
-          <p className="announcements-page__subtitle">
-            Manage platform notices, alerts, drafts, schedules, and archived updates.
-          </p>
-        </div>
-
-        <Button renderIcon={Add} onClick={handleOpenCreatePanel}>
-          New announcement
-        </Button>
-      </div>
-
+      <PageShell
+        title="Announcements"
+        subtitle="Manage platform notices, alerts, drafts, schedules, and archived updates."
+        actions={
+          <Button renderIcon={Add} onClick={handleOpenCreatePanel} disabled={isLoading || isError}>
+            New announcement
+          </Button>
+        }
+      >
+      {isLoading ? <InlineLoading description="Loading announcements…" /> : isError ? (
+        <ErrorState title="Failed to load announcements" description={getApiErrorMessage(error, "Failed to load announcements")}
+          primaryAction={{ label: "Retry", onClick: refetch }} />
+      ) : <>
       {/* Filters */}
-      <Tile>
+      <Tile className="announcements-page__filter-tile">
         <AnnouncementFilters
           search={search}
           status={statusFilter}
@@ -457,7 +435,7 @@ export function AnnouncementsPage() {
       </Tile>
 
       {/* Table */}
-      <Tile>
+      <Tile className="announcements-page__table-tile">
         <DataTable rows={rows} headers={headers}>
           {({ rows, headers, getHeaderProps, getRowProps, getSelectionProps, selectedRows }) => {
             const selectedAnnouncements = selectedRows.map(
@@ -828,6 +806,8 @@ export function AnnouncementsPage() {
           }}
         />
       </Tile>
+      </>}
+      </PageShell>
     </div>
   );
 }

@@ -1,5 +1,17 @@
 # MOH SSO UI Package
 
+## External application header
+
+Use `ExternalAppHeader` in independently hosted React apps to share the MOH header
+while setting `appName` to the current application's name. The host supplies its
+verified username, authorized launch links, profile action and logout flow.
+No portal Redux store or authentication provider is required. Import Carbon's
+stylesheet and `@moh-sso/ui/styles.css` once in the host application.
+
+See [the external header integration guide](../../../docs/external-app-header.md)
+for a full example, session ownership and acceptance checks. `UserHeader` also
+accepts optional `appName` and `onProfile` props; the portal title remains the default.
+
 ## Rules
 
 - Do not import from `@moh-sso/api`, `@moh-sso/state`, or app folders.
@@ -36,3 +48,12 @@ Keep feature-specific behavior in the feature app:
 - row action menus
 - bulk action business logic
 - drawers, modals, and feature-specific panels
+
+## Portal side navigation
+
+`ClientSideNav` presents application groups and nested menus as expandable
+folders with open/closed icons, plus/minus controls, and dotted connectors.
+Leaf links have document icons and retain the selected-page highlight.
+Its scoped stylesheet travels with the component; the shell controls placement
+and drawer sizing. Existing permission filtering, menu ordering, URL handling,
+keyboard expansion, and mobile focus trapping remain in the component.

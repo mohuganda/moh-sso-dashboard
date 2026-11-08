@@ -35,10 +35,12 @@ func (r *postgresRegionRepository) ListInHealthContext(
 	ctx context.Context,
 	scope HealthContextScope,
 ) ([]db.Region, error) {
-	return r.db.ListRegionsInHealthContext(ctx, db.ListRegionsInHealthContextParams{
-		HealthContextID:    scope.ID,
-		IncludeDescendants: scope.IncludeDescendants,
-	})
+	allowedIDs, err := scope.allowedIDs(ctx, "surveillance-region", true)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.db.ListRegionsInHealthContext(ctx, allowedIDs)
 }
 
 func (r *postgresRegionRepository) Upsert(ctx context.Context, arg db.UpsertRegionParams) (db.Region, error) {

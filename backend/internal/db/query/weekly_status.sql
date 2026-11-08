@@ -52,22 +52,10 @@ WHERE
   AND (sqlc.narg(status)::risk_level IS NULL OR status = sqlc.narg(status)::risk_level)
   AND (
     CASE
-      WHEN sub_county_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-sub-county', sub_county_id::text, sqlc.arg(health_context_id)::uuid,
-        sqlc.arg(include_descendants)::boolean
-      )
-      WHEN district_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-district', district_id::text, sqlc.arg(health_context_id)::uuid,
-        sqlc.arg(include_descendants)::boolean
-      )
-      WHEN region_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-region', region_id::text, sqlc.arg(health_context_id)::uuid,
-        sqlc.arg(include_descendants)::boolean
-      )
-      ELSE EXISTS (
-        SELECT 1 FROM health_context_nodes n
-        WHERE n.id = sqlc.arg(health_context_id)::uuid AND n.code = 'UG'
-      )
+      WHEN sub_county_id IS NOT NULL THEN sub_county_id = ANY(sqlc.arg('allowed_sub_county_ids')::uuid[])
+      WHEN district_id IS NOT NULL THEN district_id = ANY(sqlc.arg('allowed_district_ids')::uuid[])
+      WHEN region_id IS NOT NULL THEN region_id = ANY(sqlc.arg('allowed_region_ids')::uuid[])
+      ELSE sqlc.arg('is_national')::boolean
     END
   )
 ORDER BY created_at DESC;
@@ -470,22 +458,10 @@ WHERE
   AND (sqlc.narg(status)::risk_level IS NULL OR ws.status = sqlc.narg(status)::risk_level)
   AND (
     CASE
-      WHEN ws.sub_county_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-sub-county', ws.sub_county_id::text, sqlc.arg(health_context_id)::uuid,
-        sqlc.arg(include_descendants)::boolean
-      )
-      WHEN ws.district_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-district', ws.district_id::text, sqlc.arg(health_context_id)::uuid,
-        sqlc.arg(include_descendants)::boolean
-      )
-      WHEN ws.region_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-region', ws.region_id::text, sqlc.arg(health_context_id)::uuid,
-        sqlc.arg(include_descendants)::boolean
-      )
-      ELSE EXISTS (
-        SELECT 1 FROM health_context_nodes n
-        WHERE n.id = sqlc.arg(health_context_id)::uuid AND n.code = 'UG'
-      )
+      WHEN ws.sub_county_id IS NOT NULL THEN ws.sub_county_id = ANY(sqlc.arg('allowed_sub_county_ids')::uuid[])
+      WHEN ws.district_id IS NOT NULL THEN ws.district_id = ANY(sqlc.arg('allowed_district_ids')::uuid[])
+      WHEN ws.region_id IS NOT NULL THEN ws.region_id = ANY(sqlc.arg('allowed_region_ids')::uuid[])
+      ELSE sqlc.arg('is_national')::boolean
     END
   )
 ORDER BY ws.created_at DESC;

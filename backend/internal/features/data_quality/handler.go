@@ -2,24 +2,46 @@ package data_quality
 
 import (
 	"database/sql"
-	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/http/response"
+	"github.com/moh-sso-dashboard/internal/keycloak"
+	sharedservice "github.com/moh-sso-dashboard/internal/service"
 )
 
 type Handler struct {
-	service Service
+	service        Service
+	keyAdminClient *keycloak.KeyAdminClient
+	dwhDB          *sql.DB
+	dqaStore       *DQAStore
 }
 
-func NewHandler(dwhDB *sql.DB, primaryDB *sql.DB) *Handler {
+// NewHandler wires the feature. dqaDB persists DQA results as the role that owns
+// the dqa schema; dwhDB still reads the source tables during a scan.
+func NewHandler(
+	dwhDB *sql.DB,
+	dqaDB *sql.DB,
+	primaryDB *sql.DB,
+	keyAdminClient *keycloak.KeyAdminClient,
+	emailService sharedservice.EmailService,
+	cfg ...*config.Config,
+) *Handler {
+	var appCfg *config.Config
+	if len(cfg) > 0 {
+		appCfg = cfg[0]
+	}
+	if dqaDB == nil {
+		dqaDB = dwhDB
+	}
 	return &Handler{
-		service: NewService(NewRepository(dwhDB, primaryDB)),
+		service:        NewService(NewRepository(dwhDB, primaryDB), emailService, keyAdminClient, appCfg),
+		keyAdminClient: keyAdminClient,
+		dwhDB:          dwhDB,
+		dqaStore:       NewDQAStore(dqaDB),
 	}
 }
 
@@ -58,6 +80,20 @@ func issueDBErrorMessage(err error, fallback string) string {
 	return fallback
 }
 
+func getUserEmailOrUsername(c *gin.Context) string {
+	if u, exists := c.Get("user"); exists {
+		if user, ok := u.(*keycloak.AuthUser); ok && user != nil {
+			if email := strings.TrimSpace(user.Email); email != "" {
+				return email
+			}
+			if username := strings.TrimSpace(user.Username); username != "" {
+				return username
+			}
+		}
+	}
+	return strings.TrimSpace(c.GetString("user_id"))
+}
+
 func (h *Handler) CreateIssue(c *gin.Context) {
 	var req createIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -78,10 +114,10 @@ func (h *Handler) CreateIssue(c *gin.Context) {
 
 	reportedBy := dqNullableString(req.ReportedBy)
 	if !reportedBy.Valid {
-		userID := strings.TrimSpace(c.GetString("user_id"))
-		if userID != "" {
+		userEmail := getUserEmailOrUsername(c)
+		if userEmail != "" {
 			reportedBy = sql.NullString{
-				String: userID,
+				String: userEmail,
 				Valid:  true,
 			}
 		}
@@ -107,16 +143,41 @@ func (h *Handler) CreateIssue(c *gin.Context) {
 func (h *Handler) ListIssues(c *gin.Context) {
 	limit := parseListLimit(c, 20, 10000)
 	offset := parseListOffset(c)
-	program := strings.TrimSpace(c.Query("program"))
 
-	scope := healthContextScopeFromRequest(c)
-	issues, err := h.service.ListIssues(c.Request.Context(), limit, offset, program, scope)
+	filter := listIssuesFilter{
+		Scope:       healthContextScopeFromRequest(c),
+		Limit:       limit,
+		Offset:      offset,
+		Program:     strings.TrimSpace(c.Query("program")),
+		Dataset:     strings.TrimSpace(c.Query("dataset")),
+		DataElement: strings.TrimSpace(c.Query("data_element")),
+		TimePeriod:  strings.TrimSpace(c.Query("time_period")),
+		OrgUnit:     strings.TrimSpace(c.Query("org_unit")),
+		Region:      strings.TrimSpace(c.Query("region")),
+		District:    strings.TrimSpace(c.Query("district")),
+		AssignedTo:  strings.TrimSpace(c.Query("assigned_to")),
+		Search:      strings.TrimSpace(c.Query("search")),
+	}
+	if filter.TimePeriod == "" {
+		filter.TimePeriod = strings.TrimSpace(c.Query("period"))
+	}
+	if filter.OrgUnit == "" {
+		filter.OrgUnit = strings.TrimSpace(c.Query("orgUnit"))
+	}
+	if filter.DataElement == "" {
+		filter.DataElement = strings.TrimSpace(c.Query("dataElement"))
+	}
+	if filter.AssignedTo == "" {
+		filter.AssignedTo = strings.TrimSpace(c.Query("assignedTo"))
+	}
+
+	issues, err := h.service.ListIssues(c.Request.Context(), filter)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUES_FAILED", issueDBErrorMessage(err, "failed to list issues"))
 		return
 	}
 
-	total, err := h.service.CountIssues(c.Request.Context(), program, scope)
+	total, err := h.service.CountIssues(c.Request.Context(), filter)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUES_FAILED", issueDBErrorMessage(err, "failed to count issues"))
 		return
@@ -128,16 +189,31 @@ func (h *Handler) ListIssues(c *gin.Context) {
 	response.OK(c, http.StatusOK, toIssueResponses(issues))
 }
 
+func (h *Handler) GetIssueByCode(c *gin.Context) {
+	issueCode := strings.TrimSpace(c.Param("issueCode"))
+	if issueCode == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_ISSUE_CODE", "issue code is required")
+		return
+	}
+
+	issue, err := h.service.GetIssueByCode(c.Request.Context(), issueCode, healthContextScopeFromRequest(c))
+	if err != nil {
+		if isNotFound(err) {
+			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
+			return
+		}
+		response.Fail(c, http.StatusInternalServerError, "GET_ISSUE_FAILED", issueDBErrorMessage(err, "failed to get issue"))
+		return
+	}
+
+	response.OK(c, http.StatusOK, toIssueResponse(issue))
+}
+
 func (h *Handler) ListIssueSummaryByProgram(c *gin.Context) {
 	limit := parseListLimit(c, 50, 500)
 	offset := parseListOffset(c)
 
-	summary, err := h.service.ListIssueSummaryByProgram(
-		c.Request.Context(),
-		limit,
-		offset,
-		healthContextScopeFromRequest(c),
-	)
+	summary, err := h.service.ListIssueSummaryByProgram(c.Request.Context(), limit, offset, healthContextScopeFromRequest(c))
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "LIST_ISSUE_SUMMARY_FAILED", issueDBErrorMessage(err, "failed to list issue summary"))
 		return
@@ -237,9 +313,9 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 
 	updatedByParam := optionalTrimmedParam(req.UpdatedBy, true)
 	if updatedByParam == nil {
-		userID := strings.TrimSpace(c.GetString("user_id"))
-		if userID != "" {
-			updatedByParam = userID
+		userEmail := getUserEmailOrUsername(c)
+		if userEmail != "" {
+			updatedByParam = userEmail
 		}
 	}
 
@@ -259,10 +335,6 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 		TimePeriod:   optionalTrimmedParam(req.TimePeriod, false),
 	}, healthContextScopeFromRequest(c))
 	if err != nil {
-		if errors.Is(err, errIssueOutsideHealthContext) {
-			response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "issue is outside the selected health context")
-			return
-		}
 		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return
@@ -331,10 +403,7 @@ func (h *Handler) ResolveIssue(c *gin.Context) {
 
 	resolvedBy := optionalTrimmedParam(req.ResolvedBy, true)
 	if resolvedBy == nil {
-		userID := strings.TrimSpace(c.GetString("user_id"))
-		if userID != "" {
-			resolvedBy = userID
-		}
+		resolvedBy = getUserEmailOrUsername(c)
 	}
 
 	stageRow, err := h.service.ResolveIssue(c.Request.Context(), resolveIssueInput{
@@ -352,10 +421,6 @@ func (h *Handler) ResolveIssue(c *gin.Context) {
 		DueDate:            dueDateParam,
 	}, healthContextScopeFromRequest(c))
 	if err != nil {
-		if errors.Is(err, errIssueOutsideHealthContext) {
-			response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "issue is outside the selected health context")
-			return
-		}
 		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return
@@ -377,18 +442,8 @@ func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
 	limit := parseListLimit(c, 20, 100)
 	offset := parseListOffset(c)
 
-	transactions, err := h.service.ListIssueResolutionTransactions(
-		c.Request.Context(),
-		issueCode,
-		limit,
-		offset,
-		healthContextScopeFromRequest(c),
-	)
+	transactions, err := h.service.ListIssueResolutionTransactions(c.Request.Context(), issueCode, limit, offset, healthContextScopeFromRequest(c))
 	if err != nil {
-		if errors.Is(err, errIssueOutsideHealthContext) {
-			response.Fail(c, http.StatusForbidden, "HEALTH_CONTEXT_FORBIDDEN", "issue is outside the selected health context")
-			return
-		}
 		if isNotFound(err) {
 			response.Fail(c, http.StatusNotFound, "ISSUE_NOT_FOUND", "issue not found")
 			return
@@ -400,94 +455,116 @@ func (h *Handler) ListIssueResolutionTransactions(c *gin.Context) {
 	response.OK(c, http.StatusOK, toIssueStageResponses(transactions))
 }
 
-func (h *Handler) ImportValidationRules(c *gin.Context) {
-	requests, err := readValidationRuleImportPayload(c)
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+func (h *Handler) ListKeycloakGroups(c *gin.Context) {
+	if h.keyAdminClient == nil {
+		response.OK(c, http.StatusOK, []keycloakGroupResponse{})
 		return
 	}
 
-	createdBy := optionalRequestUserID(c)
-	inputs := make([]validationRuleInput, 0, len(requests))
-	result := validationRuleImportResult{
-		Errors: []validationRuleRowError{},
-		Rules:  []validationRuleResponse{},
+	groups, err := h.keyAdminClient.ListGroups(c.Request.Context())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "KEYCLOAK_GROUPS_FAILED", "failed to fetch Keycloak groups")
+		return
 	}
 
-	for index, req := range requests {
-		input, validationMessage := normalizeValidationRuleRequest(req, createdBy)
-		if validationMessage != "" {
-			result.Skipped++
-			result.Errors = append(result.Errors, validationRuleRowError{
-				Index:   index,
-				Code:    strings.TrimSpace(req.Code),
-				Message: validationMessage,
-			})
-			continue
+	out := make([]keycloakGroupResponse, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, keycloakGroupResponse{
+			ID:   g.ID,
+			Name: g.Name,
+			Path: g.Path,
+		})
+	}
+
+	response.OK(c, http.StatusOK, out)
+}
+
+func (h *Handler) ListKeycloakGroupMembers(c *gin.Context) {
+	groupID := strings.TrimSpace(c.Param("groupId"))
+	if groupID == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_GROUP_ID", "group ID is required")
+		return
+	}
+
+	if h.keyAdminClient == nil {
+		response.OK(c, http.StatusOK, []keycloakGroupMemberResponse{})
+		return
+	}
+
+	members, err := h.keyAdminClient.ListGroupMembers(c.Request.Context(), groupID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "KEYCLOAK_MEMBERS_FAILED", "failed to fetch Keycloak group members")
+		return
+	}
+
+	out := make([]keycloakGroupMemberResponse, 0, len(members))
+	for _, m := range members {
+		out = append(out, keycloakGroupMemberResponse{
+			ID:        m.ID,
+			Username:  m.Username,
+			Email:     m.Email,
+			FirstName: m.FirstName,
+			LastName:  m.LastName,
+		})
+	}
+
+	response.OK(c, http.StatusOK, out)
+}
+
+func (h *Handler) AssignIssues(c *gin.Context) {
+	var req assignIssuesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "invalid request payload")
+		return
+	}
+
+	assignedTo := strings.TrimSpace(req.AssignedTo)
+	if assignedTo == "" {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "assigned_to (user email) is required")
+		return
+	}
+
+	issueCodes := make([]string, 0)
+	for _, code := range req.IssueCodes {
+		trimmed := strings.TrimSpace(code)
+		if trimmed != "" {
+			issueCodes = append(issueCodes, trimmed)
 		}
-
-		inputs = append(inputs, input)
 	}
-
-	imported, err := h.service.ImportValidationRules(c.Request.Context(), inputs)
-	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "IMPORT_VALIDATION_RULES_FAILED", "failed to import validation rules")
-		return
-	}
-
-	result.Imported = imported.Imported
-	result.Created = imported.Created
-	result.Updated = imported.Updated
-	result.Rules = imported.Rules
-
-	response.OK(c, http.StatusCreated, result)
-}
-
-func (h *Handler) ListValidationRules(c *gin.Context) {
-	limit := parseListLimit(c, 50, 500)
-	offset := parseListOffset(c)
-
-	rules, err := h.service.ListValidationRules(c.Request.Context(), limit, offset)
-	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, "LIST_VALIDATION_RULES_FAILED", "failed to list validation rules")
-		return
-	}
-
-	response.OK(c, http.StatusOK, toValidationRuleResponses(rules))
-}
-
-func readValidationRuleImportPayload(c *gin.Context) ([]validationRuleImportRequest, error) {
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		return nil, errors.New("invalid request payload")
-	}
-	if len(strings.TrimSpace(string(body))) == 0 {
-		return nil, errors.New("request body is required")
-	}
-
-	var direct []validationRuleImportRequest
-	if err := json.Unmarshal(body, &direct); err == nil {
-		if len(direct) == 0 {
-			return nil, errors.New("at least one rule is required")
+	if len(issueCodes) == 0 {
+		paramCode := strings.TrimSpace(c.Param("issueCode"))
+		if paramCode != "" {
+			issueCodes = append(issueCodes, paramCode)
+		} else if req.IssueCode != nil && strings.TrimSpace(*req.IssueCode) != "" {
+			issueCodes = append(issueCodes, strings.TrimSpace(*req.IssueCode))
 		}
-		return direct, nil
 	}
 
-	var envelope validationRuleImportEnvelope
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, errors.New("payload must be an array of rules or an object with a rules array")
-	}
-	if len(envelope.Rules) == 0 {
-		return nil, errors.New("at least one rule is required")
+	if len(issueCodes) == 0 {
+		response.Fail(c, http.StatusBadRequest, "INVALID_PAYLOAD", "at least one issue code is required")
+		return
 	}
 
-	return envelope.Rules, nil
-}
-
-func optionalRequestUserID(c *gin.Context) interface{} {
-	userID := strings.TrimSpace(c.GetString("user_id"))
-	if userID == "" {
-		return nil
+	assignedBy := getUserEmailOrUsername(c)
+	if assignedBy == "" {
+		assignedBy = "System"
 	}
-	return userID
+
+	comment := ""
+	if req.Comment != nil {
+		comment = strings.TrimSpace(*req.Comment)
+	}
+
+	results, err := h.service.AssignIssues(c.Request.Context(), assignIssuesInput{
+		IssueCodes: issueCodes,
+		AssignedTo: assignedTo,
+		AssignedBy: assignedBy,
+		Comment:    comment,
+	}, healthContextScopeFromRequest(c))
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "ASSIGN_ISSUES_FAILED", issueDBErrorMessage(err, "failed to assign issue(s)"))
+		return
+	}
+
+	response.OK(c, http.StatusOK, toIssueStageResponses(results))
 }

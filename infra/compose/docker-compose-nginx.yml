@@ -1,0 +1,61 @@
+# Production with the optional container gateway. Compose 2.24.4+.
+# Application service settings are inherited from the default production stack.
+name: moh-sso-dashboard
+x-logging: &default-logging
+  driver: json-file
+  options: {max-size: 10m, max-file: "5"}
+networks:
+  sso: {driver: bridge}
+volumes:
+  backend_data:
+  redis_data:
+  upload_data:
+secrets:
+  db_password:
+    file: ${DB_PASSWORD_SECRET_FILE:-../secrets/db_password.txt}
+  keycloak_admin_client_secret:
+    file: ${KEYCLOAK_ADMIN_SECRET_FILE:-../secrets/keycloak_admin_client_secret.txt}
+  keycloak_web_client_secret:
+    file: ${KEYCLOAK_WEB_SECRET_FILE:-../secrets/keycloak_web_client_secret.txt}
+services:
+  nginx:
+    image: nginx:1.30.6-alpine
+    container_name: sso-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_BIND_ADDRESS:-127.0.0.1}:${NGINX_HTTP_PORT:-8080}:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../nginx/trusted-proxies.conf:/etc/nginx/trusted-proxies.conf:ro
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    networks:
+      - sso
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+  redis:
+    extends: {file: docker-compose.yml, service: redis}
+  backend-db:
+    extends: {file: docker-compose.yml, service: backend-db}
+  backend:
+    extends: {file: docker-compose.yml, service: backend}
+    ports: !reset []
+    expose: ["9000"]
+  frontend:
+    extends: {file: docker-compose.yml, service: frontend}
+    ports: !reset []
+    expose: ["3000"]

@@ -1,8 +1,8 @@
 .user-filters {
   width: 100%;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: flex-end;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .user-filters__field--status {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -32,6 +33,9 @@ func (r *notificationsRepository) Notify(
 	ctx context.Context,
 	notification model.Notification,
 ) (*model.Notification, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("notifications repository or database is nil")
+	}
 
 	params := db.CreateNotificationParams{
 		Type:    notification.Type,
@@ -62,6 +66,9 @@ func (r *notificationsRepository) ListNotifications(
 	unread *bool,
 	offset, limit int32,
 ) ([]model.Notification, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("notifications repository or database is nil")
+	}
 
 	params := db.ListNotificationsParams{
 		TargetRole: targetRole,
@@ -90,6 +97,9 @@ func (r *notificationsRepository) GetNotificationByID(
 	ctx context.Context,
 	id uuid.UUID,
 ) (*model.Notification, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("notifications repository or database is nil")
+	}
 
 	n, err := r.db.GetNotificationByID(ctx, id)
 	if err != nil {
@@ -106,6 +116,9 @@ func (r *notificationsRepository) MarkNotificationAsRead(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
+	if r == nil || r.db == nil {
+		return errors.New("notifications repository or database is nil")
+	}
 	return r.db.MarkNotificationRead(ctx, id)
 }
 
@@ -113,12 +126,18 @@ func (r *notificationsRepository) DeleteNotification(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
+	if r == nil || r.db == nil {
+		return errors.New("notifications repository or database is nil")
+	}
 	return r.db.DeleteNotificationByID(ctx, id)
 }
 
 func (r *notificationsRepository) DeleteOldNotifications(
 	ctx context.Context,
 ) error {
+	if r == nil || r.db == nil {
+		return errors.New("notifications repository or database is nil")
+	}
 	return r.db.DeleteOldNotifications(ctx)
 }
 
@@ -126,6 +145,9 @@ func (r *notificationsRepository) CountNotifications(
 	ctx context.Context,
 	targetRole string,
 ) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("notifications repository or database is nil")
+	}
 	return r.db.CountNotifications(ctx, targetRole)
 }
 
@@ -133,6 +155,9 @@ func (r *notificationsRepository) CountUnreadNotifications(
 	ctx context.Context,
 	targetRole string,
 ) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("notifications repository or database is nil")
+	}
 	return r.db.CountUnreadNotifications(ctx, targetRole)
 }
 

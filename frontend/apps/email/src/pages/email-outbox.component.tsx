@@ -26,7 +26,7 @@ import {
 
 import type { EmailStatus, EmailOutboxItem } from "../types";
 
-import { ErrorState, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
+import { ErrorState, PageShell, useHeaderPanel, useModal, useToast } from "@moh-sso/ui";
 
 import EmailPanelComponent from "../components/email-outbox-panel/email-outbox-panel.component";
 import { EmailDetailsContent } from "../components/email-outbox-detail/email-outbox-details-modal.component";
@@ -346,53 +346,27 @@ export default function EmailOutbox() {
     });
   };
 
-  /* -----------------------------
-   * Loading / Error
-   * ----------------------------- */
-  if (isLoading) {
-    return (
-      <div className="email-outbox-page__loading">
-        <InlineLoading description="Loading emails…" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <ErrorState
-        title="Failed to load emails"
-        description={(error as any)?.data?.message ?? "Failed to load emails"}
-        primaryAction={{
-          label: "Retry",
-          onClick: refetchEmails,
-        }}
-      />
-    );
-  }
-
   return (
     <>
       <div className="email-outbox-page__content">
-        {/* Header */}
-        <div className="email-outbox-page__header">
-          <div>
-            <h3 className="email-outbox-page__heading">Email Outbox</h3>
-            <p className="email-outbox-page__description">
-              View, filter, retry, and delete queued email records.
-            </p>
-          </div>
-
-          <div className="email-outbox-page__toolbar-actions">
-            {isFetching && !isLoading && <InlineLoading description="Refreshing emails…" />}
-
-            <Button renderIcon={Add} onClick={handleOpenSendEmailPanel}>
-              Send email
-            </Button>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <Tile>
+        <PageShell
+          title="Email Outbox"
+          subtitle="View, filter, retry, and delete queued email records."
+          actions={
+            <>
+              {isFetching && !isLoading && <InlineLoading description="Refreshing emails…" />}
+              <Button renderIcon={Add} onClick={handleOpenSendEmailPanel} disabled={isLoading || isError}>
+                Send email
+              </Button>
+            </>
+          }
+        >
+        {isLoading ? <InlineLoading description="Loading emails…" /> : isError ? (
+        <ErrorState title="Failed to load emails" description={(error as any)?.data?.message ?? "Failed to load emails"}
+          primaryAction={{ label: "Retry", onClick: refetchEmails }} />
+      ) : <>
+      {/* Filters */}
+        <Tile className="email-outbox-page__filter-tile">
           <EmailOutboxFilters
             search={search}
             status={statusFilter}
@@ -407,7 +381,7 @@ export default function EmailOutbox() {
         </Tile>
 
         {/* Table */}
-        <Tile>
+        <Tile className="email-outbox-page__table-tile">
           <DataTable rows={rows} headers={headers}>
             {({ rows, headers, getHeaderProps, getRowProps, getSelectionProps, selectedRows }) => {
               const selectedEmails = selectedRows.map(
@@ -544,6 +518,8 @@ export default function EmailOutbox() {
             }}
           />
         </Tile>
+      </>}
+      </PageShell>
       </div>
     </>
   );

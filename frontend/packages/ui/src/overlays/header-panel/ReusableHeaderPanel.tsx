@@ -50,17 +50,27 @@ export function ReusableHeaderPanel({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        const target = event.target instanceof Element ? event.target : null;
+        const dialog = target?.closest('[role="dialog"], [role="alertdialog"], dialog');
+        if (dialog && dialog !== drawerRef.current) return;
+        if (
+          target?.closest(
+            '[role="listbox"], [role="menu"], [role="combobox"][aria-expanded="true"], [aria-haspopup="listbox"][aria-expanded="true"]',
+          )
+        )
+          return;
+        event.preventDefault();
         onClose();
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
 
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
       document.body.style.overflow = originalOverflow;
     };
   }, [isOpen, onClose]);
@@ -76,7 +86,11 @@ export function ReusableHeaderPanel({
   };
 
   return (
-    <div className={`app-side-panel ${isOpen ? "app-side-panel--open" : ""}`} aria-hidden={!isOpen}>
+    <div
+      className={`app-side-panel ${isOpen ? "app-side-panel--open" : ""}`}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+    >
       <button
         type="button"
         className="app-side-panel__backdrop"

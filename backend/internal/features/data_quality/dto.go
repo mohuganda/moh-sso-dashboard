@@ -1,17 +1,23 @@
 package data_quality
 
-import (
-	"time"
+import "github.com/google/uuid"
 
-	"github.com/google/uuid"
-)
+type healthContextScope struct {
+	ContextID          uuid.UUID
+	IncludeDescendants bool
+}
 
 type issueResponse struct {
+	HealthContextID *uuid.UUID `json:"health_context_id,omitempty"`
 	IssueID         int64      `json:"issue_id"`
 	IssueCode       *string    `json:"issue_code,omitempty"`
+	Program         *string    `json:"program,omitempty"`
 	Dataset         *string    `json:"dataset,omitempty"`
 	DataElement     *string    `json:"data_element,omitempty"`
+	Region          *string    `json:"region,omitempty"`
+	District        *string    `json:"district,omitempty"`
 	OrgUnit         *string    `json:"org_unit,omitempty"`
+	LevelOfCare     *string    `json:"level_of_care,omitempty"`
 	Issue           *string    `json:"issue,omitempty"`
 	IssueType       *string    `json:"issue_type,omitempty"`
 	DateReported    string     `json:"date_reported"`
@@ -22,12 +28,7 @@ type issueResponse struct {
 	UpdatedDate     *string    `json:"updated_date,omitempty"`
 	UpdatedBy       *string    `json:"updated_by,omitempty"`
 	TimePeriod      *string    `json:"time_Period,omitempty"`
-	HealthContextID *uuid.UUID `json:"health_context_id,omitempty"`
-}
-
-type healthContextScope struct {
-	ContextID          uuid.UUID
-	IncludeDescendants bool
+	AssignedTo      *string    `json:"assigned_to,omitempty"`
 }
 
 type createIssueRequest struct {
@@ -53,6 +54,7 @@ type updateIssueRequest struct {
 	Severity     *string `json:"severity"`
 	UpdatedBy    *string `json:"updated_by"`
 	TimePeriod   *string `json:"time_Period"`
+	AssignedTo   *string `json:"assigned_to"`
 }
 
 type createIssueResolutionRequest struct {
@@ -68,6 +70,7 @@ type createIssueResolutionRequest struct {
 	ProcessChange      *string `json:"process_change"`
 	PreventiveOwner    *string `json:"preventive_owner"`
 	DueDate            *string `json:"due_date"`
+	AssignedTo         *string `json:"assigned_to"`
 }
 
 type issueStageResponse struct {
@@ -86,6 +89,35 @@ type issueStageResponse struct {
 	ProcessChange      *string `json:"process_change,omitempty"`
 	PreventiveOwner    *string `json:"preventive_owner,omitempty"`
 	DueDate            *string `json:"due_date,omitempty"`
+	AssignedTo         *string `json:"assigned_to,omitempty"`
+}
+
+type assignIssuesRequest struct {
+	IssueCodes []string `json:"issue_codes"`
+	IssueCode  *string  `json:"issue_code"`
+	AssignedTo string   `json:"assigned_to"`
+	Comment    *string  `json:"comment"`
+}
+
+type assignIssuesInput struct {
+	IssueCodes []string
+	AssignedTo string
+	AssignedBy string
+	Comment    string
+}
+
+type keycloakGroupResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+type keycloakGroupMemberResponse struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
 }
 
 type issueProgramSummaryResponse struct {
@@ -93,6 +125,21 @@ type issueProgramSummaryResponse struct {
 	IssueCount    int64  `json:"issue_count"`
 	OpenCount     int64  `json:"open_count"`
 	ResolvedCount int64  `json:"resolved_count"`
+}
+
+type listIssuesFilter struct {
+	Scope       healthContextScope
+	Limit       int
+	Offset      int
+	Program     string
+	Dataset     string
+	DataElement string
+	OrgUnit     string
+	Region      string
+	District    string
+	TimePeriod  string
+	AssignedTo  string
+	Search      string
 }
 
 type createIssueInput struct {
@@ -134,70 +181,4 @@ type resolveIssueInput struct {
 	ProcessChange      interface{}
 	PreventiveOwner    interface{}
 	DueDate            interface{}
-}
-
-type validationRuleImportRequest struct {
-	TableID     *string `json:"table_id"`
-	Program     *string `json:"program"`
-	Category    *string `json:"category"`
-	Code        string  `json:"code"`
-	Severity    string  `json:"severity"`
-	Description *string `json:"description"`
-	Column      string  `json:"column"`
-	Op          string  `json:"op"`
-	Value       *string `json:"value"`
-	ValueColumn *string `json:"value_column"`
-}
-
-type validationRuleImportEnvelope struct {
-	Rules []validationRuleImportRequest `json:"rules"`
-}
-
-type validationRuleInput struct {
-	TableID     interface{}
-	Program     interface{}
-	Category    interface{}
-	Code        string
-	Severity    string
-	Description string
-	Column      string
-	Op          string
-	Value       interface{}
-	ValueColumn interface{}
-	CreatedBy   interface{}
-}
-
-type validationRuleResponse struct {
-	ID          int64      `json:"id"`
-	TableID     *string    `json:"table_id,omitempty"`
-	Program     *string    `json:"program,omitempty"`
-	Category    *string    `json:"category,omitempty"`
-	Code        string     `json:"code"`
-	Severity    string     `json:"severity"`
-	Description string     `json:"description"`
-	Column      string     `json:"column"`
-	Op          string     `json:"op"`
-	Value       *string    `json:"value,omitempty"`
-	ValueColumn *string    `json:"value_column,omitempty"`
-	IsActive    bool       `json:"is_active"`
-	CreatedBy   *string    `json:"created_by,omitempty"`
-	UpdatedBy   *string    `json:"updated_by,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
-}
-
-type validationRuleImportResult struct {
-	Imported int                      `json:"imported"`
-	Created  int                      `json:"created"`
-	Updated  int                      `json:"updated"`
-	Skipped  int                      `json:"skipped"`
-	Errors   []validationRuleRowError `json:"errors"`
-	Rules    []validationRuleResponse `json:"rules"`
-}
-
-type validationRuleRowError struct {
-	Index   int    `json:"index"`
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message"`
 }

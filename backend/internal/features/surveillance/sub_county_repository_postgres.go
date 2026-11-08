@@ -36,11 +36,16 @@ func (r *postgresSubCountyRepository) ListByDistrictInHealthContext(
 	districtID uuid.UUID,
 	scope HealthContextScope,
 ) ([]db.SubCounty, error) {
+	allowedIDs, err := scope.allowedIDs(ctx, "surveillance-sub-county", true)
+	if err != nil {
+		return nil, err
+	}
+
 	return r.db.ListSubCountiesByDistrictInHealthContext(
 		ctx,
 		db.ListSubCountiesByDistrictInHealthContextParams{
-			DistrictID:      districtID,
-			HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+			DistrictID:          districtID,
+			AllowedSubCountyIds: allowedIDs,
 		},
 	)
 }

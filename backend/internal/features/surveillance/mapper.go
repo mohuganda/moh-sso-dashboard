@@ -178,8 +178,8 @@ func toEpiWeekResponse(item db.EpiWeek) EpiWeekResponse {
 		ID:            item.ID,
 		EpiYear:       item.EpiYear,
 		EpiWeek:       item.EpiWeek,
-		WeekStartDate: requiredTimePtr(item.WeekStartDate),
-		WeekEndDate:   requiredTimePtr(item.WeekEndDate),
+		WeekStartDate: &item.WeekStartDate,
+		WeekEndDate:   &item.WeekEndDate,
 		CreatedAt:     item.CreatedAt,
 	}
 }

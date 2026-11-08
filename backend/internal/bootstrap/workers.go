@@ -2,10 +2,14 @@ package bootstrap
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
 	"github.com/moh-sso-dashboard/internal/config"
+	dataqualityfeature "github.com/moh-sso-dashboard/internal/features/data_quality"
+	platformfeature "github.com/moh-sso-dashboard/internal/features/platform"
+	reportschedulerfeature "github.com/moh-sso-dashboard/internal/features/report_scheduler"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	emailRepo "github.com/moh-sso-dashboard/internal/repository/email"
 	notificationDeliveryRepo "github.com/moh-sso-dashboard/internal/repository/notification_delivery"
@@ -17,6 +21,7 @@ import (
 )
 
 type workerDependencies struct {
+	PrimaryDB                      *sql.DB
 	Config                         *config.Config
 	ProcessRepository              processRepo.ProcessRepository
 	ImportService                  *importSvc.Service
@@ -28,9 +33,54 @@ type workerDependencies struct {
 	SMSService                     service.SMSService
 	AuditService                   *service.AuditService
 	Logger                         *logger.Logger
+	DQADB                          *sql.DB
+	DWHDB                          *sql.DB
+	ReportScheduler                *reportschedulerfeature.Service
 }
 
 func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
+	heartbeat := func(name string) func(context.Context) {
+		return func(ctx context.Context) {
+			if deps.PrimaryDB == nil {
+				return
+			}
+			timeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			if err := (&platformfeature.PostgresRepository{DB: deps.PrimaryDB}).RecordWorkerHeartbeat(timeout, name); err != nil {
+				deps.Logger.Error("platform worker heartbeat unavailable", "worker", name)
+			}
+		}
+	}
+	if deps.ReportScheduler != nil {
+		interval := 30 * time.Second
+		if deps.Config != nil && deps.Config.ReportSchedulerWorkerInterval > 0 {
+			interval = deps.Config.ReportSchedulerWorkerInterval
+		}
+		reportWorker := reportschedulerfeature.NewWorker(deps.ReportScheduler, interval, deps.Logger.Error)
+		go func() {
+			deps.Logger.Info("Report scheduler worker started")
+			if err := reportWorker.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				deps.Logger.Error("Report scheduler worker stopped with error: ", err)
+			}
+		}()
+	}
+
+	if deps.DQADB != nil && deps.DWHDB != nil {
+		dqaWorker := dataqualityfeature.NewScheduleWorker(
+			dataqualityfeature.NewDQAStore(deps.DQADB),
+			deps.DWHDB,
+			time.Minute,
+			deps.Logger.Error,
+		)
+		go func() {
+			deps.Logger.Info("DQA scheduled run worker started")
+
+			if err := dqaWorker.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				deps.Logger.Error("DQA scheduled run worker stopped with error: ", err)
+			}
+		}()
+	}
+
 	documentWorker, err := worker.NewDocumentWorker(
 		deps.ProcessRepository,
 		deps.ImportService,
@@ -62,6 +112,7 @@ func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
 		deps.Logger.Fatal("Failed to initialize email worker: ", err)
 	}
 
+	emailWorker.SetHeartbeat(heartbeat("email-outbox"))
 	go func() {
 		deps.Logger.Info("Background email worker started")
 
@@ -94,6 +145,7 @@ func startBackgroundWorkers(ctx context.Context, deps workerDependencies) {
 		deps.Logger.Fatal("Failed to initialize notification email delivery worker: ", err)
 	}
 
+	notificationEmailDeliveryWorker.SetHeartbeat(heartbeat("notification-email"))
 	go func() {
 		deps.Logger.Info("Background notification email delivery worker started")
 

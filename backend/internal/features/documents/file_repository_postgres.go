@@ -104,18 +104,20 @@ func (r *fileRepository) UpsertRowsBatch(
 func (r *fileRepository) SoftDeleteBySheet(
 	ctx context.Context,
 	tx *sql.Tx,
+	documentID uuid.UUID,
 	templateCode, sheetCode string,
 	keepHashes []string,
 ) error {
 	_, err := tx.ExecContext(ctx, `
 		UPDATE import.custom_data_files
 		SET is_current = 'N', last_update_date = NOW()
-		WHERE template_code = $1
-		  AND sheet_code    = $2
+		WHERE document_id  = $1
+		  AND template_code = $2
+		  AND sheet_code    = $3
 		  AND is_current    = 'Y'
 		  AND row_hash IS NOT NULL
-		  AND NOT (row_hash = ANY($3))
-	`, templateCode, sheetCode, pq.Array(keepHashes))
+		  AND NOT (row_hash = ANY($4))
+	`, documentID, templateCode, sheetCode, pq.Array(keepHashes))
 	return err
 }
 

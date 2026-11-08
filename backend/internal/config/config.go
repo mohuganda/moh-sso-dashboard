@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -11,11 +12,19 @@ import (
 )
 
 type Config struct {
+	PlatformAuthClientID     string `mapstructure:"PLATFORM_AUTH_CLIENT_ID"`
+	PlatformAuthClientSecret string `mapstructure:"PLATFORM_AUTH_CLIENT_SECRET"`
+	PlatformAuthAudience     string `mapstructure:"PLATFORM_AUTH_AUDIENCE"`
 	// ==================================================
 	// Global
 	// ==================================================
 	Environment string `mapstructure:"ENVIRONMENT"`
 	GinMode     string `mapstructure:"GIN_MODE"`
+
+	DevAuthBypass bool `mapstructure:"DEV_AUTH_BYPASS"`
+
+	// Explicit private-network opt-in for HTTP application URLs.
+	AllowInsecureHTTP bool `mapstructure:"ALLOW_INSECURE_HTTP"`
 
 	// ==================================================
 	// Frontend
@@ -60,6 +69,16 @@ type Config struct {
 	AppBaseURL string `mapstructure:"APP_BASE_URL"`
 
 	// ==================================================
+	// Health BI report integration
+	// ==================================================
+	HealthBIBaseURL                string        `mapstructure:"HEALTH_BI_BASE_URL"`
+	HealthBIKeycloakClientID       string        `mapstructure:"HEALTH_BI_KEYCLOAK_CLIENT_ID"`
+	HealthBIKeycloakClientSecret   string        `mapstructure:"HEALTH_BI_KEYCLOAK_CLIENT_SECRET"`
+	HealthBITimeout                time.Duration `mapstructure:"HEALTH_BI_TIMEOUT"`
+	ReportSchedulerWorkerInterval  time.Duration `mapstructure:"REPORT_SCHEDULER_WORKER_INTERVAL"`
+	ReportSchedulerDeliveryLinkTTL time.Duration `mapstructure:"REPORT_SCHEDULER_DELIVERY_LINK_TTL"`
+
+	// ==================================================
 	// RBAC / Keycloak startup sync
 	// ==================================================
 	RBACStartupSyncEnabled         bool   `mapstructure:"RBAC_STARTUP_SYNC_ENABLED"`
@@ -83,13 +102,19 @@ type Config struct {
 	// ==================================================
 	// Database
 	// ==================================================
-	DBDriver    string `mapstructure:"DB_DRIVER"`
-	DBHost      string `mapstructure:"DB_HOST"`
-	DBUser      string `mapstructure:"DB_USER"`
-	DBPassword  string `mapstructure:"DB_PASSWORD"`
-	DBName      string `mapstructure:"DB_NAME"`
-	DBPort      string `mapstructure:"DB_PORT"`
-	DBEnableSSL bool   `mapstructure:"DB_ENABLE_SSL"`
+	DBDriver               string `mapstructure:"DB_DRIVER"`
+	DBHost                 string `mapstructure:"DB_HOST"`
+	DBUser                 string `mapstructure:"DB_USER"`
+	DBPassword             string `mapstructure:"DB_PASSWORD"`
+	DBName                 string `mapstructure:"DB_NAME"`
+	DBPort                 string `mapstructure:"DB_PORT"`
+	DBEnableSSL            bool   `mapstructure:"DB_ENABLE_SSL"`
+	ObservatoryDBHost      string `mapstructure:"OBSERVATORY_DB_HOST"`
+	ObservatoryDBPort      string `mapstructure:"OBSERVATORY_DB_PORT"`
+	ObservatoryDBName      string `mapstructure:"OBSERVATORY_DB_NAME"`
+	ObservatoryDBUser      string `mapstructure:"OBSERVATORY_DB_USER"`
+	ObservatoryDBPassword  string `mapstructure:"OBSERVATORY_DB_PASSWORD"`
+	ObservatoryDBEnableSSL bool   `mapstructure:"OBSERVATORY_DB_ENABLE_SSL"`
 
 	// ==================================================
 	// Redis
@@ -141,10 +166,16 @@ type Config struct {
 	DWHPassword string `mapstructure:"DWH_PASSWORD"`
 	DWHDBName   string `mapstructure:"DWH_DB"`
 
+	// DQA results are written by the role that owns the dqa schema, which is
+	// not the role used to read source data. Same host/database as the DWH.
+	DQADBUsername string `mapstructure:"DQA_DB_USERNAME"`
+	DQADBPassword string `mapstructure:"DQA_DB_PASSWORD"`
+
 	// ==================================================
 	// SMTP / Retry / Notifications
 	// ==================================================
 	SMTP                 SMTPConfig                 `mapstructure:",squash"`
+	SMTPGM               SMTPGMConfig               `mapstructure:",squash"`
 	Email                EmailConfig                `mapstructure:",squash"`
 	Announcement         AnnouncementConfig         `mapstructure:",squash"`
 	Retry                RetryConfig                `mapstructure:",squash"`
@@ -162,6 +193,17 @@ type SMTPConfig struct {
 	FromName       string        `mapstructure:"SMTP_FROM_NAME"`
 	ConnectTimeout time.Duration `mapstructure:"SMTP_CONNECT_TIMEOUT"`
 	SendTimeout    time.Duration `mapstructure:"SMTP_SEND_TIMEOUT"`
+}
+
+type SMTPGMConfig struct {
+	Host           string        `mapstructure:"SMTP_HOST_GM"`
+	Port           int           `mapstructure:"SMTP_PORT_GM"`
+	Username       string        `mapstructure:"SMTP_USERNAME_GM"`
+	Password       string        `mapstructure:"SMTP_PASSWORD_GM"`
+	FromEmail      string        `mapstructure:"SMTP_FROM_EMAIL_GM"`
+	FromName       string        `mapstructure:"SMTP_FROM_NAME_GM"`
+	ConnectTimeout time.Duration `mapstructure:"SMTP_CONNECT_TIMEOUT_GM"`
+	SendTimeout    time.Duration `mapstructure:"SMTP_SEND_TIMEOUT_GM"`
 }
 
 type EmailConfig struct {
@@ -247,11 +289,23 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 func setDefaults() {
+	viper.SetDefault("OBSERVATORY_DB_HOST", "")
+	viper.SetDefault("OBSERVATORY_DB_PORT", "5432")
+	viper.SetDefault("OBSERVATORY_DB_NAME", "observatory")
+	viper.SetDefault("OBSERVATORY_DB_USER", "surveillance")
+	viper.SetDefault("OBSERVATORY_DB_PASSWORD", "")
+	viper.SetDefault("OBSERVATORY_DB_ENABLE_SSL", false)
+
+	viper.SetDefault("PLATFORM_AUTH_CLIENT_ID", "")
+	viper.SetDefault("PLATFORM_AUTH_CLIENT_SECRET", "")
+	viper.SetDefault("PLATFORM_AUTH_AUDIENCE", "moh-platform-api")
 	// ==================================================
 	// Global defaults
 	// ==================================================
 	viper.SetDefault("ENVIRONMENT", "development")
 	viper.SetDefault("GIN_MODE", "debug")
+	viper.SetDefault("DEV_AUTH_BYPASS", false)
+	viper.SetDefault("ALLOW_INSECURE_HTTP", false)
 
 	// ==================================================
 	// Frontend defaults
@@ -276,6 +330,12 @@ func setDefaults() {
 	// ==================================================
 	viper.SetDefault("SERVER_PORT", "9000")
 	viper.SetDefault("APP_BASE_URL", "http://localhost:9000")
+	viper.SetDefault("HEALTH_BI_BASE_URL", "")
+	viper.SetDefault("HEALTH_BI_KEYCLOAK_CLIENT_ID", "report-scheduler-worker")
+	viper.SetDefault("HEALTH_BI_KEYCLOAK_CLIENT_SECRET", "")
+	viper.SetDefault("HEALTH_BI_TIMEOUT", "30s")
+	viper.SetDefault("REPORT_SCHEDULER_WORKER_INTERVAL", "30s")
+	viper.SetDefault("REPORT_SCHEDULER_DELIVERY_LINK_TTL", "24h")
 	viper.SetDefault("RBAC_STARTUP_SYNC_ENABLED", true)
 	viper.SetDefault("RBAC_STARTUP_SEED_ENABLED", true)
 	viper.SetDefault("RBAC_STARTUP_SEED_PATH", "config/system-rbac.seed.yaml")
@@ -334,13 +394,27 @@ func setDefaults() {
 
 func envBindings() map[string]string {
 	return map[string]string{
+		"OBSERVATORY_DB_HOST":                   "OBSERVATORY_DB_HOST",
+		"OBSERVATORY_DB_PORT":                   "OBSERVATORY_DB_PORT",
+		"OBSERVATORY_DB_NAME":                   "OBSERVATORY_DB_NAME",
+		"OBSERVATORY_DB_USER":                   "OBSERVATORY_DB_USER",
+		"OBSERVATORY_DB_PASSWORD":               "OBSERVATORY_DB_PASSWORD",
+		"OBSERVATORY_DB_ENABLE_SSL":             "OBSERVATORY_DB_ENABLE_SSL",
 		"ENVIRONMENT":                           "ENVIRONMENT",
 		"GIN_MODE":                              "GIN_MODE",
+		"DEV_AUTH_BYPASS":                       "DEV_AUTH_BYPASS",
+		"ALLOW_INSECURE_HTTP":                   "ALLOW_INSECURE_HTTP",
 		"FRONTEND_BASE_URL":                     "FRONTEND_BASE_URL",
 		"FRONTEND_REDIRECT_URI":                 "FRONTEND_REDIRECT_URI",
 		"COOKIE_DOMAIN":                         "COOKIE_DOMAIN",
 		"LOGIN_URL":                             "LOGIN_URL",
 		"AUTH_RETURN_URL_ALLOWED_ORIGINS":       "AUTH_RETURN_URL_ALLOWED_ORIGINS",
+		"HEALTH_BI_BASE_URL":                    "HEALTH_BI_BASE_URL",
+		"HEALTH_BI_KEYCLOAK_CLIENT_ID":          "HEALTH_BI_KEYCLOAK_CLIENT_ID",
+		"HEALTH_BI_KEYCLOAK_CLIENT_SECRET":      "HEALTH_BI_KEYCLOAK_CLIENT_SECRET",
+		"HEALTH_BI_TIMEOUT":                     "HEALTH_BI_TIMEOUT",
+		"REPORT_SCHEDULER_WORKER_INTERVAL":      "REPORT_SCHEDULER_WORKER_INTERVAL",
+		"REPORT_SCHEDULER_DELIVERY_LINK_TTL":    "REPORT_SCHEDULER_DELIVERY_LINK_TTL",
 		"KEYCLOAK_VERSION":                      "KEYCLOAK_VERSION",
 		"KEYCLOAK_DB":                           "KEYCLOAK_DB",
 		"KEYCLOAK_DB_NAME":                      "KEYCLOAK_DB_NAME",
@@ -408,6 +482,8 @@ func envBindings() map[string]string {
 		"DWH_USERNAME":                          "DWH_USERNAME",
 		"DWH_PASSWORD":                          "DWH_PASSWORD",
 		"DWH_DB":                                "DWH_DB",
+		"DQA_DB_USERNAME":                       "DQA_DB_USERNAME",
+		"DQA_DB_PASSWORD":                       "DQA_DB_PASSWORD",
 		"SMTP_HOST":                             "SMTP_HOST",
 		"SMTP_PORT":                             "SMTP_PORT",
 		"SMTP_USERNAME":                         "SMTP_USERNAME",
@@ -416,6 +492,14 @@ func envBindings() map[string]string {
 		"SMTP_FROM_NAME":                        "SMTP_FROM_NAME",
 		"SMTP_CONNECT_TIMEOUT":                  "SMTP_CONNECT_TIMEOUT",
 		"SMTP_SEND_TIMEOUT":                     "SMTP_SEND_TIMEOUT",
+		"SMTP_HOST_GM":                          "SMTP_HOST_GM",
+		"SMTP_PORT_GM":                          "SMTP_PORT_GM",
+		"SMTP_USERNAME_GM":                      "SMTP_USERNAME_GM",
+		"SMTP_PASSWORD_GM":                      "SMTP_PASSWORD_GM",
+		"SMTP_FROM_EMAIL_GM":                    "SMTP_FROM_EMAIL_GM",
+		"SMTP_FROM_NAME_GM":                     "SMTP_FROM_NAME_GM",
+		"SMTP_CONNECT_TIMEOUT_GM":               "SMTP_CONNECT_TIMEOUT_GM",
+		"SMTP_SEND_TIMEOUT_GM":                  "SMTP_SEND_TIMEOUT_GM",
 		"EMAIL_MAX_ATTACHMENTS":                 "EMAIL_MAX_ATTACHMENTS",
 		"EMAIL_MAX_ATTACHMENT_BYTES":            "EMAIL_MAX_ATTACHMENT_BYTES",
 		"EMAIL_ALLOWED_ATTACHMENT_TYPES":        "EMAIL_ALLOWED_ATTACHMENT_TYPES",
@@ -536,7 +620,7 @@ func normalizeConfig(c *Config) {
 	c.MinioSecretAccessKey = strings.TrimSpace(c.MinioSecretAccessKey)
 
 	// ==================================================
-	// Remote DB / DWH
+	// Remote DB / DWH / Observatory / Surveillance
 	// ==================================================
 	c.RemoteDBHost = strings.TrimSpace(c.RemoteDBHost)
 	c.RemoteDBPort = strings.TrimSpace(c.RemoteDBPort)
@@ -547,6 +631,11 @@ func normalizeConfig(c *Config) {
 	c.DWHPort = strings.TrimSpace(c.DWHPort)
 	c.DWHUsername = strings.TrimSpace(c.DWHUsername)
 	c.DWHDBName = strings.TrimSpace(c.DWHDBName)
+
+	c.ObservatoryDBHost = strings.TrimSpace(c.ObservatoryDBHost)
+	c.ObservatoryDBPort = strings.TrimSpace(c.ObservatoryDBPort)
+	c.ObservatoryDBName = strings.TrimSpace(c.ObservatoryDBName)
+	c.ObservatoryDBUser = strings.TrimSpace(c.ObservatoryDBUser)
 
 	// ==================================================
 	// SMTP / Notifications
@@ -647,6 +736,11 @@ func (c *Config) IsDevelopment() bool {
 }
 
 func (c *Config) CookieSecure() bool {
+	// HTTP private deployments cannot send Secure cookies. Keep them secure
+	// when HTTPS URLs are restored, even if the opt-in is still enabled.
+	if c.AllowInsecureHTTP && strings.HasPrefix(c.FrontendBaseURL, "http://") {
+		return false
+	}
 	return c.IsProduction() || c.IsStaging()
 }
 
@@ -744,6 +838,54 @@ func (c *Config) DwhDbSource() string {
 	)
 }
 
+// DqaDbSource is the connection the DQA store persists results with. It targets
+// the same DWH database as DwhDbSource but authenticates as the role that owns
+// the dqa schema; source data is still read over the DWH connection, so this
+// role needs no access to the source schemas. Falls back to the DWH credentials
+// when DQA_DB_USERNAME is unset.
+func (c *Config) DqaDbSource() string {
+	if c.DQADBUsername == "" {
+		return c.DwhDbSource()
+	}
+
+	sslMode := "disable"
+	if c.DBEnableSSL {
+		sslMode = "require"
+	}
+
+	return fmt.Sprintf(
+		"postgresql://%s:%s@%s:%s/%s?sslmode=%s",
+		c.DQADBUsername,
+		url.QueryEscape(c.DQADBPassword),
+		c.DWHHost,
+		c.DWHPort,
+		c.DWHDBName,
+		sslMode,
+	)
+}
+
+func (c *Config) ObservatoryDBSource() (string, error) {
+	for name, value := range map[string]string{"HOST": c.ObservatoryDBHost, "PORT": c.ObservatoryDBPort, "NAME": c.ObservatoryDBName, "USER": c.ObservatoryDBUser, "PASSWORD": c.ObservatoryDBPassword} {
+		if strings.TrimSpace(value) == "" {
+			return "", fmt.Errorf("OBSERVATORY_DB_%s is required for an isolated observatory database", name)
+		}
+	}
+	if strings.EqualFold(strings.TrimSpace(c.ObservatoryDBHost), strings.TrimSpace(c.DBHost)) &&
+		strings.TrimSpace(c.ObservatoryDBPort) == strings.TrimSpace(c.DBPort) &&
+		strings.TrimSpace(c.ObservatoryDBName) == strings.TrimSpace(c.DBName) {
+		return "", errors.New("Observatory must use a database separate from the primary database")
+	}
+	mode := "disable"
+	if c.ObservatoryDBEnableSSL {
+		mode = "require"
+	}
+	u := url.URL{Scheme: "postgresql", User: url.UserPassword(c.ObservatoryDBUser, c.ObservatoryDBPassword), Host: net.JoinHostPort(c.ObservatoryDBHost, c.ObservatoryDBPort), Path: "/" + c.ObservatoryDBName}
+	q := url.Values{}
+	q.Set("sslmode", mode)
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
 // ==================================================
 // Validation
 // ==================================================
@@ -751,6 +893,9 @@ func (c *Config) DwhDbSource() string {
 func validateConfig(c *Config) error {
 	if err := validateEnvironment(c); err != nil {
 		return err
+	}
+	if c.DevAuthBypass && !c.DevAuthBypassEnabled() {
+		return errors.New("DEV_AUTH_BYPASS is only allowed in development, dev, or local environments")
 	}
 
 	if err := validateFrontendConfig(c); err != nil {
@@ -762,6 +907,9 @@ func validateConfig(c *Config) error {
 	}
 
 	if err := validateDatabaseConfig(c); err != nil {
+		return err
+	}
+	if _, err := c.ObservatoryDBSource(); err != nil {
 		return err
 	}
 
@@ -790,6 +938,19 @@ func validateConfig(c *Config) error {
 	}
 
 	return nil
+}
+
+// DevAuthBypassEnabled fails closed for missing, test, and deployed environments.
+func (c *Config) DevAuthBypassEnabled() bool {
+	if c == nil || !c.DevAuthBypass {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(c.Environment)) {
+	case "development", "dev", "local":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateEnvironment(c *Config) error {
@@ -837,7 +998,7 @@ func validateFrontendConfig(c *Config) error {
 		}
 	}
 
-	if c.IsProduction() {
+	if c.IsProduction() && !c.AllowInsecureHTTP {
 		if !strings.HasPrefix(c.FrontendBaseURL, "https://") {
 			return errors.New("FRONTEND_BASE_URL must use https:// in production")
 		}
@@ -888,7 +1049,7 @@ func validateKeycloakConfig(c *Config) error {
 		if !strings.HasPrefix(c.KeycloakExternalURL, "https://") {
 			return errors.New("KEYCLOAK_EXTERNAL_URL must use https:// in production")
 		}
-		if !strings.HasPrefix(c.KeycloakRedirectURI, "https://") {
+		if !c.AllowInsecureHTTP && !strings.HasPrefix(c.KeycloakRedirectURI, "https://") {
 			return errors.New("KEYCLOAK_REDIRECT_URI must use https:// in production")
 		}
 	}

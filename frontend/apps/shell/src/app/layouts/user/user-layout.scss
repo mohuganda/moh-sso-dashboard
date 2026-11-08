@@ -42,7 +42,7 @@
 }
 
 .user-layout--sidenav-hidden {
-  --moh-sidenav-width: 0rem;
+  --moh-sidenav-width: 3rem;
 }
 
 .user-layout__content {
@@ -231,6 +231,10 @@
     --moh-footer-left-offset: 0rem;
   }
 
+  .user-layout--sidenav-hidden .moh-breadcrumb-bar {
+    padding-left: 3rem;
+  }
+
   .user-layout .cds--side-nav {
     width: min(20rem, 86vw);
     max-width: 86vw;
@@ -256,5 +260,15 @@
 @media (max-width: 672px) {
   .user-layout__content {
     padding: 1rem 0.75rem 5rem;
+  }
+}
+
+@media (max-width: 1056px) {
+  .user-layout .moh-client-sidenav__toggle--rail {
+    display: none;
+  }
+
+  .user-layout--sidenav-hidden .moh-breadcrumb-bar {
+    padding-left: 1rem;
   }
 }

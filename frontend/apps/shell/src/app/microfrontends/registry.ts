@@ -93,6 +93,13 @@ export const utilitiesRoute: MicrofrontendRoute = {
   requiredSystems: ["utilities"],
 };
 
+export const reportSchedulerRoute: MicrofrontendRoute = {
+  appName: "@moh-sso/report-scheduler",
+  path: "/apps/dwh/report-scheduler",
+  requiredPermissions: ["report_scheduler:read"],
+  requiredSystems: ["data-statistics"],
+};
+
 export const registeredMicrofrontends: MicrofrontendRoute[] = [
   announcementsRoute,
   auditRoute,
@@ -104,6 +111,7 @@ export const registeredMicrofrontends: MicrofrontendRoute[] = [
   emailRoute,
   issueTrackerRoute,
   reportBrowserRoute,
+  reportSchedulerRoute,
   rbacRoute,
   surveillanceRoute,
   usersRoute,

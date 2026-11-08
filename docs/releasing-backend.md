@@ -1,5 +1,7 @@
 # Releasing The Backend
 
+The root Makefile supports backend-only and combined frontend/backend releases. See [Releasing frontend and backend](releasing.md) for `make release`, `make release-backend`, and independent version arguments. The commands below run from `backend/` and retain the existing backend-specific workflow.
+
 ## Automated Release
 
 The `Backend Release` GitHub Actions workflow runs in two modes:
@@ -175,10 +177,10 @@ GitHub artifact attestations are controlled by `ENABLE_GITHUB_ARTIFACT_ATTESTATI
 
     ```bash
     BACKEND_TAG=1.2.3 FRONTEND_TAG=<frontend-tag> \
-      docker compose -f docker-compose-nginx.yml pull
+      docker compose -f infra/compose/docker-compose-nginx.yml pull
 
     BACKEND_TAG=1.2.3 FRONTEND_TAG=<frontend-tag> \
-      docker compose -f docker-compose-nginx.yml up -d
+      docker compose -f infra/compose/docker-compose-nginx.yml up -d
     ```
 
 If you prefer a one-shot release without a PR, use the manual dispatch flow below.

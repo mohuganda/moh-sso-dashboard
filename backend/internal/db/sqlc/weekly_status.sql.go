@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createWeeklyStatus = `-- name: CreateWeeklyStatus :one
@@ -665,37 +666,27 @@ WHERE
   AND ($7::risk_level IS NULL OR ws.status = $7::risk_level)
   AND (
     CASE
-      WHEN ws.sub_county_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-sub-county', ws.sub_county_id::text, $8::uuid,
-        $9::boolean
-      )
-      WHEN ws.district_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-district', ws.district_id::text, $8::uuid,
-        $9::boolean
-      )
-      WHEN ws.region_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-region', ws.region_id::text, $8::uuid,
-        $9::boolean
-      )
-      ELSE EXISTS (
-        SELECT 1 FROM health_context_nodes n
-        WHERE n.id = $8::uuid AND n.code = 'UG'
-      )
+      WHEN ws.sub_county_id IS NOT NULL THEN ws.sub_county_id = ANY($8::uuid[])
+      WHEN ws.district_id IS NOT NULL THEN ws.district_id = ANY($9::uuid[])
+      WHEN ws.region_id IS NOT NULL THEN ws.region_id = ANY($10::uuid[])
+      ELSE $11::boolean
     END
   )
 ORDER BY ws.created_at DESC
 `
 
 type ListWeeklyStatusesDetailedInHealthContextParams struct {
-	EpiWeekID          uuid.NullUUID `json:"epi_week_id"`
-	RegionID           uuid.NullUUID `json:"region_id"`
-	DistrictID         uuid.NullUUID `json:"district_id"`
-	SubCountyID        uuid.NullUUID `json:"sub_county_id"`
-	DiseaseID          uuid.NullUUID `json:"disease_id"`
-	IndicatorID        uuid.NullUUID `json:"indicator_id"`
-	Status             NullRiskLevel `json:"status"`
-	HealthContextID    uuid.UUID     `json:"health_context_id"`
-	IncludeDescendants bool          `json:"include_descendants"`
+	EpiWeekID           uuid.NullUUID `json:"epi_week_id"`
+	RegionID            uuid.NullUUID `json:"region_id"`
+	DistrictID          uuid.NullUUID `json:"district_id"`
+	SubCountyID         uuid.NullUUID `json:"sub_county_id"`
+	DiseaseID           uuid.NullUUID `json:"disease_id"`
+	IndicatorID         uuid.NullUUID `json:"indicator_id"`
+	Status              NullRiskLevel `json:"status"`
+	AllowedSubCountyIds []uuid.UUID   `json:"allowed_sub_county_ids"`
+	AllowedDistrictIds  []uuid.UUID   `json:"allowed_district_ids"`
+	AllowedRegionIds    []uuid.UUID   `json:"allowed_region_ids"`
+	IsNational          bool          `json:"is_national"`
 }
 
 type ListWeeklyStatusesDetailedInHealthContextRow struct {
@@ -726,8 +717,10 @@ func (q *Queries) ListWeeklyStatusesDetailedInHealthContext(ctx context.Context,
 		arg.DiseaseID,
 		arg.IndicatorID,
 		arg.Status,
-		arg.HealthContextID,
-		arg.IncludeDescendants,
+		pq.Array(arg.AllowedSubCountyIds),
+		pq.Array(arg.AllowedDistrictIds),
+		pq.Array(arg.AllowedRegionIds),
+		arg.IsNational,
 	)
 	if err != nil {
 		return nil, err
@@ -780,37 +773,27 @@ WHERE
   AND ($7::risk_level IS NULL OR status = $7::risk_level)
   AND (
     CASE
-      WHEN sub_county_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-sub-county', sub_county_id::text, $8::uuid,
-        $9::boolean
-      )
-      WHEN district_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-district', district_id::text, $8::uuid,
-        $9::boolean
-      )
-      WHEN region_id IS NOT NULL THEN health_context_alias_in_scope(
-        'surveillance-region', region_id::text, $8::uuid,
-        $9::boolean
-      )
-      ELSE EXISTS (
-        SELECT 1 FROM health_context_nodes n
-        WHERE n.id = $8::uuid AND n.code = 'UG'
-      )
+      WHEN sub_county_id IS NOT NULL THEN sub_county_id = ANY($8::uuid[])
+      WHEN district_id IS NOT NULL THEN district_id = ANY($9::uuid[])
+      WHEN region_id IS NOT NULL THEN region_id = ANY($10::uuid[])
+      ELSE $11::boolean
     END
   )
 ORDER BY created_at DESC
 `
 
 type ListWeeklyStatusesInHealthContextParams struct {
-	EpiWeekID          uuid.NullUUID `json:"epi_week_id"`
-	RegionID           uuid.NullUUID `json:"region_id"`
-	DistrictID         uuid.NullUUID `json:"district_id"`
-	SubCountyID        uuid.NullUUID `json:"sub_county_id"`
-	DiseaseID          uuid.NullUUID `json:"disease_id"`
-	IndicatorID        uuid.NullUUID `json:"indicator_id"`
-	Status             NullRiskLevel `json:"status"`
-	HealthContextID    uuid.UUID     `json:"health_context_id"`
-	IncludeDescendants bool          `json:"include_descendants"`
+	EpiWeekID           uuid.NullUUID `json:"epi_week_id"`
+	RegionID            uuid.NullUUID `json:"region_id"`
+	DistrictID          uuid.NullUUID `json:"district_id"`
+	SubCountyID         uuid.NullUUID `json:"sub_county_id"`
+	DiseaseID           uuid.NullUUID `json:"disease_id"`
+	IndicatorID         uuid.NullUUID `json:"indicator_id"`
+	Status              NullRiskLevel `json:"status"`
+	AllowedSubCountyIds []uuid.UUID   `json:"allowed_sub_county_ids"`
+	AllowedDistrictIds  []uuid.UUID   `json:"allowed_district_ids"`
+	AllowedRegionIds    []uuid.UUID   `json:"allowed_region_ids"`
+	IsNational          bool          `json:"is_national"`
 }
 
 func (q *Queries) ListWeeklyStatusesInHealthContext(ctx context.Context, arg ListWeeklyStatusesInHealthContextParams) ([]WeeklyStatus, error) {
@@ -822,8 +805,10 @@ func (q *Queries) ListWeeklyStatusesInHealthContext(ctx context.Context, arg Lis
 		arg.DiseaseID,
 		arg.IndicatorID,
 		arg.Status,
-		arg.HealthContextID,
-		arg.IncludeDescendants,
+		pq.Array(arg.AllowedSubCountyIds),
+		pq.Array(arg.AllowedDistrictIds),
+		pq.Array(arg.AllowedRegionIds),
+		arg.IsNational,
 	)
 	if err != nil {
 		return nil, err

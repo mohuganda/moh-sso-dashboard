@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createRegion = `-- name: CreateRegion :one
@@ -129,22 +130,12 @@ func (q *Queries) ListRegions(ctx context.Context) ([]Region, error) {
 const listRegionsInHealthContext = `-- name: ListRegionsInHealthContext :many
 SELECT id, name, code, created_at, updated_at
 FROM regions
-WHERE health_context_alias_related_to_scope(
-  'surveillance-region',
-  id::text,
-  $1::uuid,
-  $2::boolean
-)
+WHERE id = ANY($1::uuid[])
 ORDER BY name ASC
 `
 
-type ListRegionsInHealthContextParams struct {
-	HealthContextID    uuid.UUID `json:"health_context_id"`
-	IncludeDescendants bool      `json:"include_descendants"`
-}
-
-func (q *Queries) ListRegionsInHealthContext(ctx context.Context, arg ListRegionsInHealthContextParams) ([]Region, error) {
-	rows, err := q.db.QueryContext(ctx, listRegionsInHealthContext, arg.HealthContextID, arg.IncludeDescendants)
+func (q *Queries) ListRegionsInHealthContext(ctx context.Context, allowedRegionIds []uuid.UUID) ([]Region, error) {
+	rows, err := q.db.QueryContext(ctx, listRegionsInHealthContext, pq.Array(allowedRegionIds))
 	if err != nil {
 		return nil, err
 	}

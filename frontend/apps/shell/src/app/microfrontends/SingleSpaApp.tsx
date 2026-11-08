@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 
@@ -9,7 +9,7 @@ import {
 } from "@moh-sso/microfrontend";
 import { selectAuthenticated, selectUser, useHealthContext } from "@moh-sso/auth";
 import { MicrofrontendErrorBoundary } from "@moh-sso/ui";
-import { microfrontendContainerId } from "./containers";
+import { attachMicrofrontendContainer } from "./containers";
 import {
   isSingleSpaOrchestrationStarted,
   isSingleSpaOrchestrationUnavailable,
@@ -59,9 +59,16 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
     unavailable: isSingleSpaOrchestrationUnavailable(),
   }));
   const [mountError, setMountError] = useState<Error | null>(null);
-  const orchestrated =
-    orchestrationRequested && orchestrationState.started && !orchestrationState.unavailable;
   const shouldMountLocally = !orchestrationRequested || orchestrationState.unavailable;
+  const attachHost = useCallback(
+    (host: HTMLDivElement | null) => {
+      containerRef.current = host;
+      if (host && orchestrationRequested) {
+        attachMicrofrontendContainer(appName, host);
+      }
+    },
+    [appName, orchestrationRequested],
+  );
 
   const basename = resolveRuntimeBasename(
     runtimeProps.basename || location.pathname.replace(/\/$/, ""),
@@ -97,6 +104,11 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
       }
     };
   }, [auth, healthContext]);
+
+  useEffect(() => {
+    // Notify embedded microfrontends that listen to popstate/URL changes
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     if (orchestrationRequested && !orchestrationState.started && !orchestrationState.unavailable) {
@@ -174,11 +186,7 @@ export function SingleSpaApp({ appName, lifecycles, ...runtimeProps }: SingleSpa
           Unable to load {appName}. {mountError.message}
         </div>
       ) : null}
-      <div
-        id={orchestrated || orchestrationRequested ? microfrontendContainerId(appName) : undefined}
-        ref={containerRef}
-        data-microfrontend={appName}
-      />
+      <div ref={attachHost} data-microfrontend={appName} />
     </MicrofrontendErrorBoundary>
   );
 }

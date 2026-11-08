@@ -1,6 +1,9 @@
 package bootstrap
 
 import (
+	"net/url"
+	"strings"
+
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
@@ -11,6 +14,7 @@ import (
 	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
 	healthcontextfeature "github.com/moh-sso-dashboard/internal/features/health_context"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
+	reportschedulerfeature "github.com/moh-sso-dashboard/internal/features/report_scheduler"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -53,6 +57,7 @@ type services struct {
 	Import                  *importsvc.Service
 	RBAC                    *rbacfeature.Service
 	HealthContexts          *healthcontextfeature.Service
+	ReportScheduler         *reportschedulerfeature.Service
 }
 
 type serviceDependencies struct {
@@ -111,6 +116,21 @@ func buildServices(deps serviceDependencies) services {
 	emailFeatureService.SetRBACRepository(deps.Repositories.RBAC)
 	emailFeatureService.SetUserRepository(deps.Repositories.Users)
 
+	reportSchedulerService := reportschedulerfeature.NewService(
+		reportschedulerfeature.NewRepository(deps.Databases.Primary),
+		reportschedulerfeature.NewKeycloakHealthBIClient(
+			deps.Config.HealthBIBaseURL,
+			strings.TrimRight(deps.Config.KeycloakBaseURL, "/")+"/realms/"+url.PathEscape(deps.Config.KeycloakRealm)+"/protocol/openid-connect/token",
+			deps.Config.HealthBIKeycloakClientID,
+			deps.Config.HealthBIKeycloakClientSecret,
+			deps.Config.HealthBITimeout,
+		),
+		emailFeatureService,
+		deps.Repositories.Users,
+		deps.FileStorage,
+		deps.Databases.DWH,
+	)
+
 	publisher := cache.NewNotificationPublisher(deps.CacheClient)
 	notificationsService := service.NewNotificationsService(
 		deps.Config,
@@ -128,6 +148,11 @@ func buildServices(deps serviceDependencies) services {
 		notificationsService,
 		deps.Config,
 	)
+	reportSchedulerService.SetNotifications(notificationsService)
+	reportSchedulerService.SetAudit(auditService)
+	reportSchedulerService.SetPublicBaseURL(deps.Config.AppBaseURL)
+	reportSchedulerService.SetDeliveryLinkTTL(deps.Config.ReportSchedulerDeliveryLinkTTL)
+	reportSchedulerService.SetEmailAttachmentLimit(deps.Config.Email.MaxAttachmentBytes)
 
 	storageLocationService := storagelocationfeature.NewService(
 		deps.Repositories.StorageLocations,
@@ -285,5 +310,6 @@ func buildServices(deps serviceDependencies) services {
 		Import:                  importService,
 		RBAC:                    rbacService,
 		HealthContexts:          healthContextService,
+		ReportScheduler:         reportSchedulerService,
 	}
 }

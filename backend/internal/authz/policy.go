@@ -161,6 +161,11 @@ var systemRolePermissions = map[string]map[string][]Permission{
 		},
 	},
 	SystemDataStatistics: {
+		ReportSchedulerAccess: {
+			PermissionPortalAccess, PermissionSystemsRead, PermissionSystemsLaunch,
+			PermissionReportSchedulerRead, PermissionReportSchedulerCreate, PermissionReportSchedulerUpdate,
+			PermissionReportSchedulerDelete, PermissionReportSchedulerExecute, PermissionReportSchedulerHistory,
+		},
 		DataStatisticsAccess: {
 			PermissionPortalAccess,
 			PermissionSystemsRead,
@@ -174,6 +179,13 @@ var systemRolePermissions = map[string]map[string][]Permission{
 			PermissionReportBrowserRead,
 			PermissionMetricsRead,
 			PermissionAuditRead,
+			PermissionReportSchedulerRead,
+			PermissionReportSchedulerCreate,
+			PermissionReportSchedulerUpdate,
+			PermissionReportSchedulerDelete,
+			PermissionReportSchedulerExecute,
+			PermissionReportSchedulerHistory,
+			PermissionReportSchedulerManage,
 		},
 		ReportBrowserManager: {
 			PermissionReportBrowserRead,
@@ -289,11 +301,7 @@ var systemRolePermissions = map[string]map[string][]Permission{
 }
 
 var defaultSystemRolesForRealmRole = map[string]map[string][]string{
-	RoleUser: {
-		SystemDataStatistics: {DataStatisticsAccess, DocumentViewer},
-		SystemUtilities:      {UtilitiesAccess},
-		SystemSettings:       {SettingsAccess},
-	},
+	RoleUser: DefaultUserClientRoles(),
 	RoleManager: {
 		SystemDataStatistics: {DataStatisticsAccess, SurveillanceManager, ReportBrowserManager, IssueTrackerManager, DocumentManager},
 		SystemUtilities:      {UtilitiesAccess},

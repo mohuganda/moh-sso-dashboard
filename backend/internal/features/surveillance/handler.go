@@ -45,7 +45,7 @@ func NewHandler(
 	}
 }
 
-func healthContextScopeFromRequest(c *gin.Context) (HealthContextScope, bool) {
+func (h *Handler) healthContextScopeFromRequest(c *gin.Context) (HealthContextScope, bool) {
 	value, ok := c.Get("health_context_id")
 	if !ok {
 		return HealthContextScope{}, false
@@ -57,6 +57,7 @@ func healthContextScopeFromRequest(c *gin.Context) (HealthContextScope, bool) {
 	scopeMode, _ := c.Get("health_context_scope_mode")
 	return HealthContextScope{
 		ID:                 id,
+		service:            h.healthContextService,
 		IncludeDescendants: scopeMode == healthcontext.ScopeNodeAndDescendants,
 	}, true
 }
@@ -66,7 +67,7 @@ func (h *Handler) requireAliasInHealthContext(
 	namespace string,
 	externalID uuid.UUID,
 ) bool {
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	if !scoped {
 		return true
 	}
@@ -233,7 +234,7 @@ func (h *Handler) ListDiseases(c *gin.Context) {
 func (h *Handler) ListRegions(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var (
 		data []db.Region
 		err  error
@@ -254,7 +255,7 @@ func (h *Handler) ListRegions(c *gin.Context) {
 func (h *Handler) ListDistricts(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var (
 		data []db.ListDistrictsRow
 		err  error
@@ -290,7 +291,7 @@ func (h *Handler) ListDistrictsByRegion(c *gin.Context) {
 		return
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var data []db.District
 	if scoped {
 		data, err = h.locationService.ListDistrictsByRegionInHealthContext(ctx, regionID, scope)
@@ -322,7 +323,7 @@ func (h *Handler) ListSubcountiesByDistrict(c *gin.Context) {
 		return
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var data []db.SubCounty
 	if scoped {
 		data, err = h.locationService.ListSubcountiesByDistrictInHealthContext(ctx, districtID, scope)
@@ -443,7 +444,7 @@ func (h *Handler) ListFacilityWeeklyMetricsByWeek(c *gin.Context) {
 		return
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var diseaseMetrics []db.ListFacilityWeeklyDiseaseMetricsByWeekRow
 	if scoped {
 		diseaseMetrics, err = h.facilityWeeklyMetricsService.
@@ -594,7 +595,7 @@ func (h *Handler) ListFacilityDiseaseMetricsByWeekAndDisease(c *gin.Context) {
 		return
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var rows []db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow
 	if scoped {
 		rows, err = h.facilityWeeklyMetricsService.
@@ -663,7 +664,7 @@ func (h *Handler) ListDiseaseWeeklyTrendAggregated(c *gin.Context) {
 		districtID = &parsedDistrictID
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var data []db.ListDiseaseWeeklyTrendAggregatedRow
 	if scoped {
 		data, err = h.facilityWeeklyMetricsService.ListDiseaseWeeklyTrendAggregatedInHealthContext(
@@ -699,7 +700,7 @@ func (h *Handler) ListDistrictWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var data []db.WeeklyStatus
 	if scoped {
 		data, err = h.weeklyStatusService.ListLevelByWeekInHealthContext(ctx, epiWeekID, "district", scope)
@@ -736,7 +737,7 @@ func (h *Handler) ListWeeklyStatuses(c *gin.Context) {
 		!h.requireAliasInHealthContext(c, healthContextNamespaceSubCounty, params.SubCountyID) {
 		return
 	}
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var (
 		data []db.WeeklyStatus
 		err  error
@@ -774,7 +775,7 @@ func (h *Handler) ListWeeklyStatusesDetailed(c *gin.Context) {
 		!h.requireAliasInHealthContext(c, healthContextNamespaceSubCounty, params.SubCountyID) {
 		return
 	}
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var (
 		rows []db.ListWeeklyStatusesDetailedRow
 		err  error
@@ -814,7 +815,7 @@ func (h *Handler) ListRegionWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var data []db.WeeklyStatus
 	if scoped {
 		data, err = h.weeklyStatusService.ListLevelByWeekInHealthContext(ctx, epiWeekID, "region", scope)
@@ -846,7 +847,7 @@ func (h *Handler) ListNationalWeeklyStatusesByWeek(c *gin.Context) {
 		return
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var data []db.WeeklyStatus
 	if scoped {
 		data, err = h.weeklyStatusService.ListLevelByWeekInHealthContext(ctx, epiWeekID, "national", scope)
@@ -906,7 +907,7 @@ func (h *Handler) ListAlerts(c *gin.Context) {
 		}
 	}
 
-	scope, scoped := healthContextScopeFromRequest(c)
+	scope, scoped := h.healthContextScopeFromRequest(c)
 	var data []db.ListAlertsRow
 	if scoped {
 		data, err = h.alertService.ListAlertsFromParamsInHealthContext(ctx, params, scope)

@@ -36,10 +36,12 @@ func (r *postgresDistrictRepository) ListInHealthContext(
 	ctx context.Context,
 	scope HealthContextScope,
 ) ([]db.ListDistrictsRow, error) {
-	rows, err := r.db.ListDistrictsInHealthContext(ctx, db.ListDistrictsInHealthContextParams{
-		HealthContextID:    scope.ID,
-		IncludeDescendants: scope.IncludeDescendants,
-	})
+	allowedIDs, err := scope.allowedIDs(ctx, "surveillance-district", true)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.ListDistrictsInHealthContext(ctx, allowedIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -77,14 +79,19 @@ func (r *postgresDistrictRepository) ListByRegionInHealthContext(
 	regionID uuid.UUID,
 	scope HealthContextScope,
 ) ([]db.District, error) {
+	allowedIDs, err := scope.allowedIDs(ctx, "surveillance-district", true)
+	if err != nil {
+		return nil, err
+	}
+
 	if regionID == uuid.Nil {
 		return []db.District{}, errors.New("region id is required")
 	}
 	return r.db.ListDistrictsByRegionInHealthContext(
 		ctx,
 		db.ListDistrictsByRegionInHealthContextParams{
-			RegionID:        uuid.NullUUID{UUID: regionID, Valid: true},
-			HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+			RegionID:           uuid.NullUUID{UUID: regionID, Valid: true},
+			AllowedDistrictIds: allowedIDs,
 		},
 	)
 }

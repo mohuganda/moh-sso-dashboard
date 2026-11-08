@@ -19,7 +19,7 @@ func TestNewContextNormalizesRolesAndAssignsAdminPermissions(t *testing.T) {
 	}
 }
 
-func TestUserRoleGetsReadOnlyPortalPermissions(t *testing.T) {
+func TestUserRoleGetsConfiguredPortalBaseline(t *testing.T) {
 	ctx := NewContext("user-1", []string{RoleUser}, nil)
 
 	if !ctx.HasPermission(PermissionPortalAccess) {
@@ -28,7 +28,7 @@ func TestUserRoleGetsReadOnlyPortalPermissions(t *testing.T) {
 	if ctx.HasPermission(PermissionDocumentsWrite) {
 		t.Fatal("did not expect user to have documents:write permission")
 	}
-	for _, system := range []string{SystemDataStatistics, SystemUtilities, SystemSettings} {
+	for _, system := range []string{SystemDashboardWeb, SystemDataStatistics, SystemSettings} {
 		if !ctx.HasSystem(system) {
 			t.Fatalf("expected user realm role to have default access to %s", system)
 		}
@@ -38,10 +38,15 @@ func TestUserRoleGetsReadOnlyPortalPermissions(t *testing.T) {
 		PermissionDocumentsRead,
 		PermissionSurveillanceRead,
 		PermissionReportBrowserRead,
+		PermissionIssueTrackerRead,
+		PermissionReportSchedulerCreate,
 	} {
 		if !ctx.HasPermission(permission) {
 			t.Fatalf("expected user realm role to have %s", permission)
 		}
+	}
+	if ctx.HasSystem(SystemUtilities) {
+		t.Fatal("utilities must require an explicit grant")
 	}
 }
 

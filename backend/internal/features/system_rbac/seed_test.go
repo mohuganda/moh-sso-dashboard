@@ -1,10 +1,30 @@
 package system_rbac
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/moh-sso-dashboard/internal/authz"
 )
+
+func TestConfiguredUserDefaultsMatchCompiledBaseline(t *testing.T) {
+	seed, err := LoadSeedFile("../../../config/system-rbac.seed.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateSeed(seed); err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range seed.RealmRoles {
+		if role.Name == authz.RoleUser {
+			if !reflect.DeepEqual(role.SystemRoles, authz.DefaultUserClientRoles()) {
+				t.Fatalf("configured baseline differs from compiled policy: %+v", role.SystemRoles)
+			}
+			return
+		}
+	}
+	t.Fatal("missing user defaults")
+}
 
 func TestDefaultSeedGivesUserDefaultSystems(t *testing.T) {
 	seed := DefaultSeed()
@@ -16,14 +36,18 @@ func TestDefaultSeedGivesUserDefaultSystems(t *testing.T) {
 		if realmRole.Name != authz.RoleUser {
 			continue
 		}
-		expected := map[string]string{
-			authz.SystemDataStatistics: authz.DataStatisticsAccess,
-			authz.SystemUtilities:      authz.UtilitiesAccess,
-			authz.SystemSettings:       authz.SettingsAccess,
+		expected := authz.DefaultUserClientRoles()
+		if len(realmRole.SystemRoles) != len(expected) {
+			t.Fatalf("unexpected default systems: %+v", realmRole.SystemRoles)
 		}
-		for clientID, roleName := range expected {
-			if !contains(realmRole.SystemRoles[clientID], roleName) {
-				t.Fatalf("user defaults missing %s/%s: %+v", clientID, roleName, realmRole.SystemRoles)
+		for clientID, roles := range expected {
+			if len(realmRole.SystemRoles[clientID]) != len(roles) {
+				t.Fatalf("unexpected role count for %s: %+v", clientID, realmRole.SystemRoles)
+			}
+			for _, roleName := range roles {
+				if !contains(realmRole.SystemRoles[clientID], roleName) {
+					t.Fatalf("user defaults missing %s/%s: %+v", clientID, roleName, realmRole.SystemRoles)
+				}
 			}
 		}
 		return
@@ -62,13 +86,23 @@ func TestDefaultSeedIncludesDataStatisticsModuleLauncherMetadata(t *testing.T) {
 			t.Fatalf("parse data statistics navigation: %v", err)
 		}
 		launcherCount := 0
+		schedulerFound := false
 		for _, item := range items {
+			if item.ID == "report-scheduler" {
+				schedulerFound = true
+				if item.Path != "/apps/dwh/report-scheduler" || item.Permission != string(authz.PermissionReportSchedulerRead) || item.DisplayInLauncher == nil || !*item.DisplayInLauncher || item.DisplayInSideNav == nil || !*item.DisplayInSideNav {
+					t.Fatalf("invalid report scheduler navigation: %+v", item)
+				}
+			}
 			if item.DisplayInLauncher != nil && *item.DisplayInLauncher {
 				launcherCount++
 			}
 		}
-		if launcherCount != 5 {
-			t.Fatalf("expected five module launcher entries, got %d", launcherCount)
+		if launcherCount != 6 {
+			t.Fatalf("expected six module launcher entries, got %d", launcherCount)
+		}
+		if !schedulerFound {
+			t.Fatal("missing report scheduler module entry")
 		}
 		return
 	}

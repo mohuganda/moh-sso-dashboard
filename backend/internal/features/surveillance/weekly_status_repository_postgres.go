@@ -50,10 +50,27 @@ func (r *postgresWeeklyStatusRepository) ListInHealthContext(
 	arg db.ListWeeklyStatusesParams,
 	scope HealthContextScope,
 ) ([]db.WeeklyStatus, error) {
+	allowedRegionIDs, err := scope.allowedIDs(ctx, "surveillance-region", false)
+	if err != nil {
+		return nil, err
+	}
+	allowedDistrictIDs, err := scope.allowedIDs(ctx, "surveillance-district", false)
+	if err != nil {
+		return nil, err
+	}
+	allowedSubCountyIDs, err := scope.allowedIDs(ctx, "surveillance-sub-county", false)
+	if err != nil {
+		return nil, err
+	}
+	national, err := scope.isNational(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return r.db.ListWeeklyStatusesInHealthContext(ctx, db.ListWeeklyStatusesInHealthContextParams{
 		EpiWeekID: arg.EpiWeekID, RegionID: arg.RegionID, DistrictID: arg.DistrictID,
 		SubCountyID: arg.SubCountyID, DiseaseID: arg.DiseaseID, IndicatorID: arg.IndicatorID,
-		Status: arg.Status, HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+		Status: arg.Status, AllowedRegionIds: allowedRegionIDs, AllowedDistrictIds: allowedDistrictIDs, AllowedSubCountyIds: allowedSubCountyIDs, IsNational: national,
 	})
 }
 
@@ -69,12 +86,29 @@ func (r *postgresWeeklyStatusRepository) ListDetailedInHealthContext(
 	arg db.ListWeeklyStatusesDetailedParams,
 	scope HealthContextScope,
 ) ([]db.ListWeeklyStatusesDetailedRow, error) {
+	allowedRegionIDs, err := scope.allowedIDs(ctx, "surveillance-region", false)
+	if err != nil {
+		return nil, err
+	}
+	allowedDistrictIDs, err := scope.allowedIDs(ctx, "surveillance-district", false)
+	if err != nil {
+		return nil, err
+	}
+	allowedSubCountyIDs, err := scope.allowedIDs(ctx, "surveillance-sub-county", false)
+	if err != nil {
+		return nil, err
+	}
+	national, err := scope.isNational(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	rows, err := r.db.ListWeeklyStatusesDetailedInHealthContext(
 		ctx,
 		db.ListWeeklyStatusesDetailedInHealthContextParams{
 			EpiWeekID: arg.EpiWeekID, RegionID: arg.RegionID, DistrictID: arg.DistrictID,
 			SubCountyID: arg.SubCountyID, DiseaseID: arg.DiseaseID, IndicatorID: arg.IndicatorID,
-			Status: arg.Status, HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+			Status: arg.Status, AllowedRegionIds: allowedRegionIDs, AllowedDistrictIds: allowedDistrictIDs, AllowedSubCountyIds: allowedSubCountyIDs, IsNational: national,
 		},
 	)
 	if err != nil {

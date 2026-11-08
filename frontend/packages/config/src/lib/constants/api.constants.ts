@@ -11,11 +11,14 @@ function getRuntimeApiBaseUrl() {
     ?.API_BASE_URL;
 }
 
-const API_BASE_URL =
-  getRuntimeApiBaseUrl() ||
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://dashboards.health.go.ug/ssobackend";
+const configuredApiBase = getRuntimeApiBaseUrl() || import.meta.env.VITE_API_BASE_URL || "/api";
 
+// Accept either a service base (origin or /ssobackend) or its /api root.
+// Non-API endpoints and authenticated launch paths still use the service base.
+const normalizedApiBase = configuredApiBase.trim().replace(/\/+$/, "");
+const API_BASE_URL = normalizedApiBase.endsWith("/api")
+  ? normalizedApiBase.slice(0, -4)
+  : normalizedApiBase;
 const API_ROOT = `${API_BASE_URL}/api`;
 const API_VERSION = "v1";
 const API_BASE = `${API_ROOT}/${API_VERSION}`;
@@ -114,9 +117,48 @@ export const API = {
   // Data validation
   // --------------------------------------------------
   dataValidation: {
-    rules: {
-      list: () => `${API_BASE}/data-validation/rules`,
-      import: () => `${API_BASE}/data-validation/rules/import`,
+    dqa: {
+      tables: {
+        list: () => `${API_BASE}/data-validation/dqa/tables`,
+        upsert: () => `${API_BASE}/data-validation/dqa/tables`,
+        remove: (tableId: string) => `${API_BASE}/data-validation/dqa/tables/${tableId}`,
+      },
+      columns: (table: string) =>
+        `${API_BASE}/data-validation/dqa/columns?table=${encodeURIComponent(table)}`,
+      rules: {
+        list: (tableId?: string) =>
+          tableId
+            ? `${API_BASE}/data-validation/dqa/rules?table_id=${encodeURIComponent(tableId)}`
+            : `${API_BASE}/data-validation/dqa/rules`,
+        upsert: () => `${API_BASE}/data-validation/dqa/rules`,
+        compile: () => `${API_BASE}/data-validation/dqa/rules/compile`,
+        mapping: {
+          preview: () => `${API_BASE}/data-validation/dqa/rules/mapping/preview`,
+          apply: () => `${API_BASE}/data-validation/dqa/rules/mapping/apply`,
+        },
+        remove: (tableId: string, code: string) =>
+          `${API_BASE}/data-validation/dqa/rules/${encodeURIComponent(tableId)}/${encodeURIComponent(code)}`,
+      },
+      run: () => `${API_BASE}/data-validation/dqa/run`,
+      schedules: {
+        create: () => `${API_BASE}/data-validation/dqa/schedules`,
+        list: (status?: string) =>
+          status
+            ? `${API_BASE}/data-validation/dqa/schedules?status=${encodeURIComponent(status)}`
+            : `${API_BASE}/data-validation/dqa/schedules`,
+        cancel: (scheduleId: number | string) =>
+          `${API_BASE}/data-validation/dqa/schedules/${scheduleId}`,
+      },
+      runs: {
+        list: (tableId?: string) =>
+          tableId
+            ? `${API_BASE}/data-validation/dqa/runs?table_id=${encodeURIComponent(tableId)}`
+            : `${API_BASE}/data-validation/dqa/runs`,
+        flags: (runId: number | string, severity?: string) =>
+          severity
+            ? `${API_BASE}/data-validation/dqa/runs/${runId}/flags?severity=${encodeURIComponent(severity)}`
+            : `${API_BASE}/data-validation/dqa/runs/${runId}/flags`,
+      },
     },
   },
 

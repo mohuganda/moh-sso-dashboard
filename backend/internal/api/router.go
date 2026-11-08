@@ -1,11 +1,13 @@
 package router
 
 import (
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/moh-sso-dashboard/docs"
 
 	"github.com/moh-sso-dashboard/internal/api/handler"
 	"github.com/moh-sso-dashboard/internal/api/routes"
@@ -25,7 +27,9 @@ import (
 	healthcontextfeature "github.com/moh-sso-dashboard/internal/features/health_context"
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
+	platformfeature "github.com/moh-sso-dashboard/internal/features/platform"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
+	reportschedulerfeature "github.com/moh-sso-dashboard/internal/features/report_scheduler"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -49,6 +53,7 @@ type RouterDependencies struct {
 }
 
 type HandlerSet struct {
+	Platform                *platformfeature.Handler
 	Auth                    *authfeature.Handler
 	Clients                 *clientfeature.Handler
 	Users                   *userfeature.Handler
@@ -70,6 +75,7 @@ type HandlerSet struct {
 	Email                   *emailfeature.Handler
 	RBAC                    *rbacfeature.Handler
 	HealthContexts          *healthcontextfeature.Handler
+	ReportScheduler         *reportschedulerfeature.Handler
 }
 
 type RateLimits struct {
@@ -111,21 +117,30 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 		Email:                         deps.Handlers.Email,
 		RBAC:                          deps.Handlers.RBAC,
 		HealthContexts:                deps.Handlers.HealthContexts,
+		ReportScheduler:               deps.Handlers.ReportScheduler,
 		AuthenticatedRateLimitPerMin:  rateLimits.AuthenticatedPerMinute,
 		AuthLoginRateLimitPerMin:      rateLimits.AuthLoginPerMinute,
 		AuthCallbackRateLimitPerMin:   rateLimits.AuthCallbackPerMinute,
 		AuthSessionRateLimitPerMinute: rateLimits.AuthSessionPerMinute,
 	}
 
+	// LOCAL DEV ONLY: DEV_AUTH_BYPASS=true serves a synthetic admin session
+	// and skips the Keycloak redirect entirely.
+	if middleware.DevAuthBypassEnabled(deps.Config) {
+		r.Use(middleware.DevAuthBypassRoutes())
+	}
+
 	api := r.Group("/api/v1")
 	routes.RegisterAuthRoutes(api, routeDeps)
 	routes.RegisterPublicAnnouncementRoutes(api, routeDeps)
+	routes.RegisterPublicReportSchedulerRoutes(api, routeDeps)
 
 	protected := api.Group("")
 	protected.Use(middleware.ExtractAuthContext(
 		deps.KeycloakClient,
 		deps.AuthSessions,
 		deps.AuthzResolver,
+		deps.Config,
 	))
 	protected.Use(middleware.RequireAuth())
 	protected.Use(middleware.AuditMiddleware(deps.AuditService))
@@ -134,8 +149,10 @@ func SetupRouter(deps RouterDependencies) *gin.Engine {
 		ratelimit.AuthenticatedDefaultPolicy(routeDeps.AuthenticatedRateLimitPerMin),
 	))
 
+	platformfeature.RegisterRoutes(api, protected, deps.Handlers.Platform, deps.Limiter)
 	routes.RegisterProtectedRoutes(protected, routeDeps)
 	routes.RegisterAdminRoutes(protected, routeDeps)
+	docs.Register(r)
 
 	return r
 }
@@ -206,10 +223,13 @@ func buildAllowedOrigins(cfg *config.Config) []string {
 	origins := make([]string, 0)
 
 	add := func(origin string) {
-		origin = strings.TrimRight(strings.TrimSpace(origin), "/")
-		if origin == "" {
+		parsed, err := url.Parse(strings.TrimSpace(origin))
+		if err != nil || parsed.Hostname() == "" || parsed.User != nil ||
+			(parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			strings.Contains(parsed.Host, "*") {
 			return
 		}
+		origin = strings.ToLower(parsed.Scheme + "://" + parsed.Host)
 
 		if seen[origin] {
 			return
@@ -219,11 +239,13 @@ func buildAllowedOrigins(cfg *config.Config) []string {
 		origins = append(origins, origin)
 	}
 
-	// Safe local development origins.
-	add("http://localhost:3000")
-	add("http://localhost:5173")
-	add("http://127.0.0.1:3000")
-	add("http://127.0.0.1:5173")
+	// Local origins are defaults only in development, never deployed environments.
+	if cfg == nil || cfg.IsDevelopment() {
+		add("http://localhost:3000")
+		add("http://localhost:5173")
+		add("http://127.0.0.1:3000")
+		add("http://127.0.0.1:5173")
+	}
 
 	if cfg != nil {
 		add(cfg.FrontendBaseURL)

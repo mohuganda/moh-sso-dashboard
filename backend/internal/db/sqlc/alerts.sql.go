@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createAlert = `-- name: CreateAlert :one
@@ -456,10 +457,7 @@ WHERE
   AND ($3::uuid IS NULL OR a.district_id = $3::uuid)
   AND ($4::uuid IS NULL OR d.region_id = $4::uuid)
   AND a.district_id IS NOT NULL
-  AND health_context_alias_in_scope(
-    'surveillance-district', a.district_id::text, $5::uuid,
-    $6::boolean
-  )
+  AND a.district_id = ANY($5::uuid[])
 ORDER BY a.created_at DESC
 `
 
@@ -468,8 +466,7 @@ type ListAlertsInHealthContextParams struct {
 	DiseaseID          uuid.NullUUID `json:"disease_id"`
 	DistrictID         uuid.NullUUID `json:"district_id"`
 	RegionID           uuid.NullUUID `json:"region_id"`
-	HealthContextID    uuid.UUID     `json:"health_context_id"`
-	IncludeDescendants bool          `json:"include_descendants"`
+	AllowedDistrictIds []uuid.UUID   `json:"allowed_district_ids"`
 }
 
 type ListAlertsInHealthContextRow struct {
@@ -498,8 +495,7 @@ func (q *Queries) ListAlertsInHealthContext(ctx context.Context, arg ListAlertsI
 		arg.DiseaseID,
 		arg.DistrictID,
 		arg.RegionID,
-		arg.HealthContextID,
-		arg.IncludeDescendants,
+		pq.Array(arg.AllowedDistrictIds),
 	)
 	if err != nil {
 		return nil, err

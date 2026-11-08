@@ -7,12 +7,48 @@ import {
   PopoverContent,
   Search,
   TreeView,
+  Tabs,
+  TabList,
+  Tab,
 } from "@carbon/react";
-import { Add, ChevronDown, Download, Filter, Upload } from "@carbon/react/icons";
+import { Add, ChevronDown, Download, Filter, Upload, User, List } from "@carbon/react/icons";
 import * as XLSX from "xlsx";
+import { useSelector } from "react-redux";
 
-import { useGetIssuesQuery, useLazyGetIssuesQuery, useGetIssuesSummaryByProgramQuery } from "../api";
-import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
+import {
+  useGetIssuesQuery,
+  useLazyGetIssuesQuery,
+  useGetIssuesSummaryByProgramQuery,
+  useGetIssueByCodeQuery,
+} from "../api";
+import { PERMISSIONS, PermissionGuard, selectUser } from "@moh-sso/auth";
+
+function getIssueCodeFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const codeParam = params.get("issueCode") || params.get("issue") || params.get("code");
+  if (codeParam && codeParam.trim()) {
+    return codeParam.trim();
+  }
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && /^HMIS-\d+$/i.test(lastPart)) {
+    return lastPart.trim();
+  }
+  return "";
+}
+
+function getViewFromUrl(): "dashboard" | "issues" | "" {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const viewParam = params.get("view") || params.get("tab");
+  if (viewParam === "dashboard") return "dashboard";
+  if (viewParam === "issues" || viewParam === "registered-issues") return "issues";
+  const path = window.location.pathname;
+  if (path.endsWith("/dashboard")) return "dashboard";
+  if (path.endsWith("/issues") || path.endsWith("/registered-issues")) return "issues";
+  return "";
+}
 
 import DataList from "../../../data-visualizer/src/pages/components/data-table/data-table.component.tsx";
 import { getAvailablePeriods, periodType } from "../../../data-visualizer/src/pages/Constants.tsx";
@@ -26,9 +62,16 @@ import { useGetHierarchyQuery } from "../../../data-visualizer/src/pages/modals/
 
 import { IssueModal } from "../component/issue-modal.component.tsx";
 import { ImportIssuesModal } from "../component/import-issues-modal.component.tsx";
+import { AssignModal } from "../component/assign-modal.component.tsx";
 import { OrgUnitNode } from "../component/tree-node.component.tsx";
 import { headers, IMPORT_TEMPLATE_HEADERS } from "../lib/constants.ts";
 import IssueDetail from "./issue-detail/issue-detail.component.tsx";
+
+import { formatReportingPeriod } from "../lib/periodUtils.ts";
+export {
+  formatReportingPeriod,
+  formatReportingPeriod as convertReportingPeriod,
+} from "../lib/periodUtils.ts";
 
 import "./issue-tracker.scss";
 
@@ -36,9 +79,12 @@ export type Issue = {
   id?: string;
   issue_id: number;
   issue_code: string;
+  program?: string;
   dataset: string;
   data_element: string;
   org_unit: string;
+  region?: string;
+  district?: string;
   issue: string;
   date_reported: string;
   reported_by: string;
@@ -50,6 +96,7 @@ export type Issue = {
   severity?: string;
   time_period?: string;
   time_Period?: string;
+  assigned_to?: string;
 };
 
 type SelectEvent<T> = {
@@ -69,17 +116,16 @@ type OrgUnit = {
 
 function normalizeIssueRows(rows: Issue[] | undefined): Issue[] {
   return (
-    rows?.map((item) => ({
-      ...item,
-      id: String(item.issue_id),
-    })) ?? []
+    rows?.map((item) => {
+      const formattedPeriod = formatReportingPeriod(item.time_Period ?? item.time_period);
+      return {
+        ...item,
+        id: String(item.issue_id),
+        time_Period: formattedPeriod,
+        time_period: formattedPeriod,
+      };
+    }) ?? []
   );
-}
-
-function containsSearchTerm(value: unknown, searchTerm: string): boolean {
-  return String(value ?? "")
-    .toLowerCase()
-    .includes(searchTerm);
 }
 
 const PROGRAM_COLORS = [
@@ -94,14 +140,48 @@ const PROGRAM_COLORS = [
 ];
 
 const IssueTracker = () => {
+  const user = useSelector(selectUser);
   const currentYear = new Date().getFullYear();
 
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const [activeTab, setActiveTab] = useState<"assigned_to_me" | "all_issues">("assigned_to_me");
+
   const [selectedIssue, setSelectedIssue] = useState<Issue>();
   const [isViewIssueDetail, setIsViewIssueDetail] = useState(false);
+
+  const [urlIssueCode, setUrlIssueCode] = useState<string>(() => getIssueCodeFromUrl());
+
+  const { data: directIssueData, isLoading: isLoadingDirectIssue } = useGetIssueByCodeQuery(
+    urlIssueCode,
+    { skip: !urlIssueCode },
+  );
+
+  useEffect(() => {
+    if (directIssueData && urlIssueCode) {
+      setSelectedIssue(directIssueData);
+      setIsViewIssueDetail(true);
+    }
+  }, [directIssueData, urlIssueCode]);
+
+  useEffect(() => {
+    const handleUrlView = () => {
+      const view = getViewFromUrl();
+      if (view === "dashboard" || view === "issues") {
+        setActiveTab("all_issues");
+      }
+    };
+
+    handleUrlView();
+
+    window.addEventListener("popstate", handleUrlView);
+    return () => {
+      window.removeEventListener("popstate", handleUrlView);
+    };
+  }, []);
 
   const [tableSearchTerm, setTableSearchTerm] = useState("");
 
@@ -110,15 +190,13 @@ const IssueTracker = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const { data, isLoading, error } = useGetIssuesQuery({
-    limit: pageSize,
-    offset: (page - 1) * pageSize,
-    program: selectedProgram,
-  });
-
   const [triggerGetIssues] = useLazyGetIssuesQuery();
 
-  const { data: summaryData, isLoading: isLoadingSummary, error: summaryError } = useGetIssuesSummaryByProgramQuery();
+  const {
+    data: summaryData,
+    isLoading: isLoadingSummary,
+    error: summaryError,
+  } = useGetIssuesSummaryByProgramQuery();
 
   const summaryRows = useMemo(() => {
     return (summaryData ?? []).map((item, index) => ({
@@ -167,9 +245,15 @@ const IssueTracker = () => {
   /*
    * Organisation-unit filters
    */
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState("");
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("region") || params.get("orgUnit") || "";
+  });
 
   const [orgSearchTerm, setOrgSearchTerm] = useState("");
+
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   const [isOrgPopoverOpen, setIsOrgPopoverOpen] = useState(false);
 
@@ -206,7 +290,62 @@ const IssueTracker = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedProgram, selectedYear, selectedPeriod, selectedDataset, selectedDataElement, selectedOrgUnit]);
+  }, [
+    selectedProgram,
+    selectedYear,
+    selectedPeriod,
+    selectedDataset,
+    selectedDataElement,
+    selectedOrgUnit,
+    tableSearchTerm,
+    activeTab,
+  ]);
+
+  const userIdentifier = user?.email || user?.username || user?.id || "";
+
+  const effectivePeriod = useMemo(() => {
+    if (selectedPeriod) return selectedPeriod;
+    if (selectedYear !== currentYear) return String(selectedYear);
+    return undefined;
+  }, [selectedPeriod, selectedYear, currentYear]);
+
+  const queryParams = useMemo(() => {
+    return {
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      program: selectedProgram,
+      region: selectedOrgUnit || undefined,
+      dataset: selectedDataset || undefined,
+      dataElement: selectedDataElement || undefined,
+      period: effectivePeriod,
+      assignedTo: activeTab === "assigned_to_me" ? userIdentifier : undefined,
+      search: tableSearchTerm.trim() || undefined,
+    };
+  }, [
+    pageSize,
+    page,
+    selectedProgram,
+    selectedOrgUnit,
+    selectedDataset,
+    selectedDataElement,
+    effectivePeriod,
+    activeTab,
+    userIdentifier,
+    tableSearchTerm,
+  ]);
+
+  const { data, isLoading, error } = useGetIssuesQuery(queryParams);
+
+  const { data: assignedData } = useGetIssuesQuery(
+    {
+      limit: 1,
+      offset: 0,
+      assignedTo: userIdentifier,
+    },
+    { skip: !userIdentifier },
+  );
+
+  const assignedToMeCount = assignedData?.totalCount ?? 0;
 
   const closeIssueModal = () => {
     setShowModal(false);
@@ -226,7 +365,9 @@ const IssueTracker = () => {
    * Excel export columns
    * ----------------------------- */
   const EXPORT_COLUMNS: { key: string; header: string }[] = [
+    { key: "program", header: "Program" },
     ...headers,
+    { key: "region", header: "Region" },
     { key: "time_period", header: "Reporting Period" },
     { key: "issue_type", header: "Issue Type" },
     { key: "priority", header: "Priority" },
@@ -243,6 +384,8 @@ const IssueTracker = () => {
         "Example Dataset",
         "Example Data Element",
         "Example Org Unit",
+        "Central Region",
+        "Kampala District",
         "Example issue description",
         "Outliers",
         "High",
@@ -266,36 +409,36 @@ const IssueTracker = () => {
         limit: 10000,
         offset: 0,
         program: selectedProgram,
+        region: selectedOrgUnit || undefined,
+        dataset: selectedDataset || undefined,
+        dataElement: selectedDataElement || undefined,
+        period: effectivePeriod,
+        assignedTo: activeTab === "assigned_to_me" ? userIdentifier : undefined,
+        search: tableSearchTerm.trim() || undefined,
       }).unwrap();
 
-      const normalizedAll = normalizeIssueRows(allIssuesResponse.items);
-
-      const searchTerm = tableSearchTerm.trim().toLowerCase();
-      const issuesToDownload = searchTerm
-        ? normalizedAll.filter((issue) =>
-            [
-              issue.issue_code,
-              issue.dataset,
-              issue.data_element,
-              issue.issue,
-              issue.status,
-              issue.org_unit,
-              issue.date_reported,
-              issue.issue_type,
-              issue.priority,
-              issue.severity,
-            ].some((field) => containsSearchTerm(field, searchTerm)),
-          )
-        : normalizedAll;
+      const issuesToDownload = normalizeIssueRows(allIssuesResponse.items);
 
       const headerRow = EXPORT_COLUMNS.map((col) => col.header);
 
       const dataRows = issuesToDownload.map((issue) =>
         EXPORT_COLUMNS.map((col) => {
+          if (col.key === "program") {
+            const rawProgram = (issue as Record<string, unknown>)["program"];
+            if (typeof rawProgram === "string" && rawProgram.trim()) {
+              return rawProgram.trim();
+            }
+            if (selectedProgram !== undefined) {
+              return selectedProgram || "Unspecified";
+            }
+            return "Unspecified";
+          }
           if (col.key === "time_period") {
-            return (issue as Record<string, unknown>)["time_period"] ??
-                   (issue as Record<string, unknown>)["time_Period"] ??
-                   "";
+            return (
+              (issue as Record<string, unknown>)["time_period"] ??
+              (issue as Record<string, unknown>)["time_Period"] ??
+              ""
+            );
           }
           return (issue as Record<string, unknown>)[col.key] ?? "";
         }),
@@ -340,37 +483,61 @@ const IssueTracker = () => {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && data) {
-      setIssues(normalizeIssueRows(data.items));
-    }
-
     if (error) {
       console.error("Error encountered while fetching issues:", error);
     }
-  }, [data, error, isLoading]);
+  }, [error]);
 
-  const filteredIssues = useMemo(() => {
-    const searchTerm = tableSearchTerm.trim().toLowerCase();
+  const issues = useMemo(() => {
+    return normalizeIssueRows(data?.items);
+  }, [data?.items]);
 
-    if (!searchTerm) {
-      return issues;
+  const tabFilteredIssues = issues;
+
+  const allIssuesCount = useMemo(() => {
+    if (summaryData && summaryData.length > 0) {
+      return summaryData.reduce((sum, item) => sum + (item.issue_count || 0), 0);
     }
+    return data?.totalCount ?? 0;
+  }, [summaryData, data?.totalCount]);
 
-    return issues.filter((issue) =>
-      [
-        issue.issue_code,
-        issue.dataset,
-        issue.data_element,
-        issue.issue,
-        issue.status,
-        issue.org_unit,
-        issue.date_reported,
-        issue.issue_type,
-        issue.priority,
-        issue.severity,
-      ].some((field) => containsSearchTerm(field, searchTerm)),
+  const handleSelectRow = useCallback((rowId: string, checked: boolean) => {
+    setSelectedRowIds((prev) => {
+      if (checked) {
+        return prev.includes(rowId) ? prev : [...prev, rowId];
+      }
+      return prev.filter((id) => id !== rowId);
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(
+    (checked: boolean) => {
+      if (checked) {
+        const allIds = tabFilteredIssues.map((item) => String(item.id ?? item.issue_id));
+        setSelectedRowIds(allIds);
+      } else {
+        setSelectedRowIds([]);
+      }
+    },
+    [tabFilteredIssues],
+  );
+
+  const selectedIssueObjects = useMemo(() => {
+    return tabFilteredIssues.filter((item) =>
+      selectedRowIds.includes(String(item.id ?? item.issue_id)),
     );
-  }, [issues, tableSearchTerm]);
+  }, [tabFilteredIssues, selectedRowIds]);
+
+  const selectedIssueCodes = useMemo(() => {
+    return selectedIssueObjects.map((item) => item.issue_code).filter(Boolean);
+  }, [selectedIssueObjects]);
+
+  const areAllSelectedAssigned = useMemo(() => {
+    return (
+      selectedIssueObjects.length > 0 &&
+      selectedIssueObjects.every((item) => Boolean(item.assigned_to))
+    );
+  }, [selectedIssueObjects]);
 
   const handleIssueClick = (row: { id?: string }) => {
     const selectedItem = issues.find((item) => String(item.issue_id) === String(row.id ?? ""));
@@ -381,6 +548,12 @@ const IssueTracker = () => {
 
     setSelectedIssue(selectedItem);
     setIsViewIssueDetail(true);
+
+    if (selectedItem.issue_code && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("issueCode", selectedItem.issue_code);
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
   };
 
   const handleYearChange = ({ selectedItem }: SelectEvent<number>) => {
@@ -454,8 +627,20 @@ const IssueTracker = () => {
   }, []);
 
   const handleOrgSelect = (name: string) => {
-    setSelectedOrgUnit(name);
+    setSelectedOrgUnit((prev) => (prev === name ? "" : name));
   };
+
+  const handleToggleNode = useCallback((nodeId: string, isExpanded: boolean) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (isExpanded) {
+        next.add(nodeId);
+      } else {
+        next.delete(nodeId);
+      }
+      return next;
+    });
+  }, []);
 
   const renderRecursive = (nodes: OrgUnit[], idPrefix = "filter-org"): ReactNode[] => {
     if (!Array.isArray(nodes)) {
@@ -470,7 +655,9 @@ const IssueTracker = () => {
           node={node}
           searchTerm={orgSearchTerm}
           selectedOrgUnit={selectedOrgUnit}
+          expandedNodes={expandedNodes}
           onSelect={handleOrgSelect}
+          onToggleNode={handleToggleNode}
           renderRecursive={renderRecursive}
           idPrefix={idPrefix}
         />
@@ -486,49 +673,24 @@ const IssueTracker = () => {
       orgUnit?: string;
     } = {},
   ) => {
-    const sourceRows = data as Issue[] | undefined;
-
-    if (!sourceRows) {
-      return;
-    }
-
-    const filters = {
-      period: selectedPeriod,
-      year: selectedYear,
-      dataset: selectedDataset,
-      dataElement: selectedDataElement,
-      orgUnit: selectedOrgUnit,
-      ...overrides,
-    };
-
-    let nextIssues = normalizeIssueRows(sourceRows);
-
-    if (filters.period) {
-      nextIssues = nextIssues.filter(
-        (issue) => issue.time_period === filters.period || issue.time_Period === filters.period,
-      );
-    } else if (filters.year) {
-      const year = String(filters.year);
-
-      nextIssues = nextIssues.filter(
-        (issue) => issue.time_period?.includes(year) || issue.time_Period?.includes(year),
-      );
-    }
-
-    if (filters.dataset) {
-      nextIssues = nextIssues.filter((issue) => issue.dataset === filters.dataset);
-    }
-
-    if (filters.dataElement) {
-      nextIssues = nextIssues.filter((issue) => issue.data_element === filters.dataElement);
-    }
-
-    if (filters.orgUnit) {
-      nextIssues = nextIssues.filter((issue) => issue.org_unit === filters.orgUnit);
-    }
-
-    setIssues(nextIssues);
     closeAllPopovers();
+    setPage(1);
+
+    if (overrides.period !== undefined) {
+      setSelectedPeriod(overrides.period);
+    }
+    if (overrides.year !== undefined) {
+      setSelectedYear(overrides.year);
+    }
+    if (overrides.dataset !== undefined) {
+      setSelectedDataset(overrides.dataset);
+    }
+    if (overrides.dataElement !== undefined) {
+      setSelectedDataElement(overrides.dataElement);
+    }
+    if (overrides.orgUnit !== undefined) {
+      setSelectedOrgUnit(overrides.orgUnit);
+    }
   };
 
   const handleReset = () => {
@@ -546,94 +708,76 @@ const IssueTracker = () => {
     setOrgSearchTerm("");
     setTableSearchTerm("");
     setSelectedProgram(undefined);
-
-    setIssues(normalizeIssueRows(data as Issue[] | undefined));
+    setPage(1);
 
     closeAllPopovers();
   };
 
+  const handleBackFromDetail = () => {
+    setSelectedIssue(undefined);
+    setIsViewIssueDetail(false);
+    setUrlIssueCode("");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("issueCode");
+      url.searchParams.delete("issue");
+      url.searchParams.delete("code");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  };
+
+  if (isLoadingDirectIssue && urlIssueCode && !selectedIssue) {
+    return (
+      <PermissionGuard permission={PERMISSIONS.issueTrackerRead}>
+        <div style={{ padding: "3rem 2rem", textAlign: "center", color: "#525252" }}>
+          <h4>Loading Issue Details...</h4>
+          <p style={{ marginTop: "0.5rem" }}>Fetching issue [{urlIssueCode}] from server.</p>
+        </div>
+      </PermissionGuard>
+    );
+  }
+
   if (isViewIssueDetail && selectedIssue) {
     return (
       <PermissionGuard permission={PERMISSIONS.issueTrackerRead}>
-        <IssueDetail
-          selectedIssue={selectedIssue}
-          goToBack={() => {
-            setSelectedIssue(undefined);
-            setIsViewIssueDetail(false);
-          }}
-        />
+        <IssueDetail selectedIssue={selectedIssue} goToBack={handleBackFromDetail} />
       </PermissionGuard>
     );
   }
 
   return (
     <PermissionGuard permission={PERMISSIONS.issueTrackerRead}>
-      <>
-        <div className="program-summary-tiles-container">
-          {isLoadingSummary ? (
-            <div className="issue-loading-state">
-              <p>Loading program summary...</p>
-            </div>
-          ) : summaryError ? (
-            <div className="issue-empty-state">
-              <h4>Failed to load summary</h4>
-              <p>An error occurred while fetching the issues summary by program.</p>
-            </div>
-          ) : (
-            <div className="summary-tiles-grid">
-              {summaryRows.map((tile, index) => {
-                const isActive = selectedProgram === (tile.program === "Unspecified" ? "" : tile.program);
-                const tileColor = PROGRAM_COLORS[index % PROGRAM_COLORS.length];
-                return (
-                  <button
-                    key={tile.id}
-                    type="button"
-                    className={`summary-tile ${isActive ? "active" : ""}`}
-                    style={{ borderLeftColor: tileColor }}
-                    onClick={() => {
-                      if (isActive) {
-                        setSelectedProgram(undefined);
-                      } else {
-                        setSelectedProgram(tile.program === "Unspecified" ? "" : tile.program);
-                      }
-                    }}
-                  >
-                    <div className="summary-tile-header">
-                      <span className="summary-tile-program">{tile.program}</span>
-                      <span className="summary-tile-count">{tile.issue_count}</span>
-                    </div>
-                    <div className="summary-tile-substats">
-                      <span className="summary-substat open">
-                        <span className="dot open-dot" />
-                        <span className="label">Open:</span> <strong>{tile.open_count}</strong>
-                      </span>
-                      <span className="summary-substat resolved">
-                        <span className="dot resolved-dot" />
-                        <span className="label">Resolved:</span> <strong>{tile.resolved_count}</strong>
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="dv-toolbar issue-label-container">
+      <div className="issue-tracker-page">
+        <div className="issue-label-container">
           <div>
-            <span className="issue-label">Registered Issues</span>
+            <h4 className="issue-label">Registered Issues</h4>
+            <p className="issue-subtitle">
+              Review, filter, assign, and resolve reported data quality issues.
+            </p>
           </div>
 
           <div className="issue-toolbar-actions">
+            <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
+              <Button
+                size="sm"
+                kind="tertiary"
+                disabled={selectedIssueCodes.length === 0}
+                onClick={() => setShowAssignModal(true)}
+              >
+                {areAllSelectedAssigned ? "Re-assign Selected" : "Assign Selected"}{" "}
+                {selectedIssueCodes.length > 0 ? `(${selectedIssueCodes.length})` : ""}
+              </Button>
+            </PermissionGuard>
+
             <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
-              <Button size="md" kind="ghost" renderIcon={Download} onClick={downloadTemplate}>
+              <Button size="sm" kind="ghost" renderIcon={Download} onClick={downloadTemplate}>
                 Template
               </Button>
             </PermissionGuard>
 
             <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
               <Button
-                size="md"
+                size="sm"
                 kind="secondary"
                 renderIcon={Upload}
                 onClick={() => setShowImportModal(true)}
@@ -644,7 +788,7 @@ const IssueTracker = () => {
 
             <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
               <Button
-                size="md"
+                size="sm"
                 kind="primary"
                 renderIcon={Add}
                 className="dwh-btn-width"
@@ -655,6 +799,74 @@ const IssueTracker = () => {
             </PermissionGuard>
           </div>
         </div>
+        <div className="issue-tracker-assignments">
+          <Tabs
+            selectedIndex={activeTab === "assigned_to_me" ? 0 : 1}
+            onChange={({ selectedIndex }) => {
+              setActiveTab(selectedIndex === 0 ? "assigned_to_me" : "all_issues");
+              setSelectedRowIds([]);
+            }}
+          >
+            <TabList aria-label="Issue tracker view options" contained>
+              <Tab renderIcon={User}>Assigned to me ({assignedToMeCount})</Tab>
+              <Tab renderIcon={List}>All Issues ({allIssuesCount})</Tab>
+            </TabList>
+          </Tabs>
+        </div>
+
+        {activeTab === "all_issues" && (
+          <div className="program-summary-tiles-container">
+            {isLoadingSummary ? (
+              <div className="issue-loading-state">
+                <p>Loading program summary...</p>
+              </div>
+            ) : summaryError ? (
+              <div className="issue-empty-state">
+                <h4>Failed to load summary</h4>
+                <p>An error occurred while fetching the issues summary by program.</p>
+              </div>
+            ) : (
+              <div className="summary-tiles-grid">
+                {summaryRows.map((tile, index) => {
+                  const isActive =
+                    selectedProgram === (tile.program === "Unspecified" ? "" : tile.program);
+                  const tileColor = PROGRAM_COLORS[index % PROGRAM_COLORS.length];
+                  return (
+                    <button
+                      key={tile.id}
+                      type="button"
+                      className={`summary-tile ${isActive ? "active" : ""}`}
+                      style={{ borderLeftColor: tileColor }}
+                      onClick={() => {
+                        if (isActive) {
+                          setSelectedProgram(undefined);
+                        } else {
+                          setSelectedProgram(tile.program === "Unspecified" ? "" : tile.program);
+                        }
+                      }}
+                    >
+                      <div className="summary-tile-header">
+                        <span className="summary-tile-program">{tile.program}</span>
+                        <span className="summary-tile-count">{tile.issue_count}</span>
+                      </div>
+                      <div className="summary-tile-substats">
+                        <span className="summary-substat open">
+                          <span className="dot open-dot" />
+                          <span className="label">Open:</span> <strong>{tile.open_count}</strong>
+                        </span>
+                        <span className="summary-substat resolved">
+                          <span className="dot resolved-dot" />
+                          <span className="label">Resolved:</span>{" "}
+                          <strong>{tile.resolved_count}</strong>
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {selectedProgram !== undefined && (
           <div
@@ -689,245 +901,272 @@ const IssueTracker = () => {
             </Button>
           </div>
         )}
-            <div className="issue-filter-container">
-              <div ref={periodPopoverRef} className="issue-filter-wrapper">
-                <Popover open={isPeriodPopoverOpen} align="bottom-left" dropShadow>
-                  <Button
-                    size="md"
-                    kind="tertiary"
-                    renderIcon={ChevronDown}
-                    onClick={() => {
-                      setIsPeriodPopoverOpen((current) => !current);
-                      setIsDataPopoverOpen(false);
-                      setIsOrgPopoverOpen(false);
-                    }}
-                  >
-                    Period
-                  </Button>
-
-                  <PopoverContent className="filter-popover-content">
-                    <div className="popover-inner">
-                      <Dropdown
-                        id="issue-filter-year"
-                        titleText="Year"
-                        label="Select year"
-                        items={years}
-                        selectedItem={selectedYear}
-                        itemToString={(item) => (item == null ? "" : String(item))}
-                        onChange={handleYearChange}
-                      />
-
-                      <Dropdown
-                        id="issue-filter-period-type"
-                        titleText="Period type"
-                        label="Select period type"
-                        items={periodType}
-                        selectedItem={periodType.find((item) => item.value === selectedPeriodType)}
-                        itemToString={(item) => item?.label ?? ""}
-                        onChange={handlePeriodTypeChange}
-                      />
-
-                      <ComboBox
-                        id="issue-filter-period"
-                        titleText="Period"
-                        placeholder="Select period"
-                        items={availablePeriods}
-                        selectedItem={
-                          availablePeriods.find((item) => item.label === selectedPeriod) ?? null
-                        }
-                        itemToString={(item) => item?.label ?? ""}
-                        onChange={handlePeriodChange}
-                      />
-
-                      <div className="popover-footer">
-                        <Button
-                          size="sm"
-                          kind="ghost"
-                          onClick={() => {
-                            setSelectedPeriod("");
-                            handleFilter({
-                              period: "",
-                            });
-                          }}
-                        >
-                          Clear
-                        </Button>
-
-                        <Button size="sm" onClick={() => handleFilter()}>
-                          Update
-                        </Button>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div ref={dataPopoverRef} className="issue-filter-wrapper">
-                <Popover open={isDataPopoverOpen} align="bottom-left" dropShadow>
-                  <Button
-                    size="md"
-                    kind="tertiary"
-                    renderIcon={ChevronDown}
-                    onClick={() => {
-                      setIsDataPopoverOpen((current) => !current);
-                      setIsPeriodPopoverOpen(false);
-                      setIsOrgPopoverOpen(false);
-                    }}
-                  >
-                    Data
-                  </Button>
-
-                  <PopoverContent className="filter-popover-content">
-                    <div className="popover-inner">
-                      <ComboBox
-                        id="issue-filter-dataset"
-                        titleText="Dataset"
-                        placeholder="Select dataset"
-                        items={datasetNames}
-                        selectedItem={selectedDataset || null}
-                        onChange={handleDatasetChange}
-                      />
-
-                      <ComboBox
-                        id="issue-filter-data-element"
-                        titleText="Data element"
-                        placeholder="Select data element"
-                        items={dataElementNames}
-                        selectedItem={selectedDataElement || null}
-                        disabled={!selectedDataset || dataElementNames.length === 0}
-                        onChange={({ selectedItem }: SelectEvent<string>) =>
-                          setSelectedDataElement(selectedItem ?? "")
-                        }
-                      />
-
-                      <div className="popover-footer">
-                        <Button
-                          size="sm"
-                          kind="ghost"
-                          onClick={() => {
-                            setSelectedDataset("");
-                            setSelectedDataElement("");
-                            setDataElements([]);
-
-                            handleFilter({
-                              dataset: "",
-                              dataElement: "",
-                            });
-                          }}
-                        >
-                          Clear
-                        </Button>
-
-                        <Button size="sm" onClick={() => handleFilter()}>
-                          Update
-                        </Button>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div ref={orgPopoverRef} className="issue-filter-wrapper">
-                <Popover open={isOrgPopoverOpen} align="bottom-left" dropShadow>
-                  <Button
-                    size="md"
-                    kind="tertiary"
-                    renderIcon={ChevronDown}
-                    onClick={() => {
-                      setIsOrgPopoverOpen((current) => !current);
-                      setIsPeriodPopoverOpen(false);
-                      setIsDataPopoverOpen(false);
-                    }}
-                  >
-                    Organisation Unit
-                  </Button>
-
-                  <PopoverContent className="filter-popover-content">
-                    <div className="popover-inner org-filter-inner">
-                      <Search
-                        labelText="Search organisation unit"
-                        placeholder="Search..."
-                        value={orgSearchTerm}
-                        onChange={(event) => setOrgSearchTerm(event.target.value)}
-                        size="sm"
-                      />
-
-                      <div className="org-tree-container">
-                        <TreeView label="Organisation Units" hideLabel>
-                          {renderRecursive(hierarchyData as OrgUnit[], "filter-org")}
-                        </TreeView>
-                      </div>
-
-                      <div className="popover-footer">
-                        <Button
-                          size="sm"
-                          kind="ghost"
-                          onClick={() => {
-                            setSelectedOrgUnit("");
-                            setOrgSearchTerm("");
-
-                            handleFilter({
-                              orgUnit: "",
-                            });
-                          }}
-                        >
-                          Clear
-                        </Button>
-
-                        <Button size="sm" onClick={() => handleFilter()}>
-                          Update
-                        </Button>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
+        <div className="issue-filter-container">
+          <div ref={periodPopoverRef} className="issue-filter-wrapper">
+            <Popover open={isPeriodPopoverOpen} align="bottom-left" dropShadow>
               <Button
                 size="md"
-                kind="ghost"
-                renderIcon={Filter}
-                disabled={!hasActiveFilters}
-                onClick={handleReset}
+                kind="tertiary"
+                renderIcon={ChevronDown}
+                onClick={() => {
+                  setIsPeriodPopoverOpen((current) => !current);
+                  setIsDataPopoverOpen(false);
+                  setIsOrgPopoverOpen(false);
+                }}
               >
-                Reset Filters
+                Period
               </Button>
-            </div>
 
-            <div className="issue-table-search">
-              <div className="issue-table-search-bar">
-                <Search
-                  labelText="Search issues"
-                  placeholder="Search by issue code, dataset, data element, issue, status, or organisation unit"
-                  value={tableSearchTerm}
-                  onChange={(event) => setTableSearchTerm(event.target.value)}
-                  size="lg"
-                  closeButtonLabelText="Clear search"
-                />
-                <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
-                  <Button size="md" kind="ghost" renderIcon={Download} onClick={downloadIssues}>
-                    Download
-                  </Button>
-                </PermissionGuard>
-              </div>
-            </div>
+              <PopoverContent className="filter-popover-content">
+                <div className="popover-inner">
+                  <Dropdown
+                    id="issue-filter-year"
+                    titleText="Year"
+                    label="Select year"
+                    items={years}
+                    selectedItem={selectedYear}
+                    itemToString={(item) => (item == null ? "" : String(item))}
+                    onChange={handleYearChange}
+                  />
 
-            <DataList
-              columns={headers}
-              data={filteredIssues}
-              totalItems={data?.totalCount ?? 0}
-              currentPage={page}
-              currentPageSize={pageSize}
-              onPageChange={(newPage, newPageSize) => {
-                setPage(newPage);
-                setPageSize(newPageSize);
-              }}
-              handleIssueClick={handleIssueClick}
-              closeView={() => {
-                setSelectedIssue(undefined);
-                setIsViewIssueDetail(false);
-              }}
+                  <Dropdown
+                    id="issue-filter-period-type"
+                    titleText="Period type"
+                    label="Select period type"
+                    items={periodType}
+                    selectedItem={periodType.find((item) => item.value === selectedPeriodType)}
+                    itemToString={(item) => item?.label ?? ""}
+                    onChange={handlePeriodTypeChange}
+                  />
+
+                  <ComboBox
+                    id="issue-filter-period"
+                    titleText="Period"
+                    placeholder="Select period"
+                    items={availablePeriods}
+                    selectedItem={
+                      availablePeriods.find((item) => item.label === selectedPeriod) ?? null
+                    }
+                    itemToString={(item) => item?.label ?? ""}
+                    onChange={handlePeriodChange}
+                  />
+
+                  <div className="popover-footer">
+                    <Button
+                      size="sm"
+                      kind="ghost"
+                      onClick={() => {
+                        setSelectedPeriod("");
+                        handleFilter({
+                          period: "",
+                        });
+                      }}
+                    >
+                      Clear
+                    </Button>
+
+                    <Button size="sm" onClick={() => handleFilter()}>
+                      Update
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div ref={dataPopoverRef} className="issue-filter-wrapper">
+            <Popover open={isDataPopoverOpen} align="bottom-left" dropShadow>
+              <Button
+                size="md"
+                kind="tertiary"
+                renderIcon={ChevronDown}
+                onClick={() => {
+                  setIsDataPopoverOpen((current) => !current);
+                  setIsPeriodPopoverOpen(false);
+                  setIsOrgPopoverOpen(false);
+                }}
+              >
+                Data
+              </Button>
+
+              <PopoverContent className="filter-popover-content">
+                <div className="popover-inner">
+                  <ComboBox
+                    id="issue-filter-dataset"
+                    titleText="Dataset"
+                    placeholder="Select dataset"
+                    items={datasetNames}
+                    selectedItem={selectedDataset || null}
+                    onChange={handleDatasetChange}
+                  />
+
+                  <ComboBox
+                    id="issue-filter-data-element"
+                    titleText="Data element"
+                    placeholder="Select data element"
+                    items={dataElementNames}
+                    selectedItem={selectedDataElement || null}
+                    disabled={!selectedDataset || dataElementNames.length === 0}
+                    onChange={({ selectedItem }: SelectEvent<string>) =>
+                      setSelectedDataElement(selectedItem ?? "")
+                    }
+                  />
+
+                  <div className="popover-footer">
+                    <Button
+                      size="sm"
+                      kind="ghost"
+                      onClick={() => {
+                        setSelectedDataset("");
+                        setSelectedDataElement("");
+                        setDataElements([]);
+
+                        handleFilter({
+                          dataset: "",
+                          dataElement: "",
+                        });
+                      }}
+                    >
+                      Clear
+                    </Button>
+
+                    <Button size="sm" onClick={() => handleFilter()}>
+                      Update
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div ref={orgPopoverRef} className="issue-filter-wrapper">
+            <Popover open={isOrgPopoverOpen} align="bottom-left" dropShadow>
+              <Button
+                size="md"
+                kind="tertiary"
+                renderIcon={ChevronDown}
+                onClick={() => {
+                  setIsOrgPopoverOpen((current) => !current);
+                  setIsPeriodPopoverOpen(false);
+                  setIsDataPopoverOpen(false);
+                }}
+              >
+                Organisation Unit
+              </Button>
+
+              <PopoverContent className="filter-popover-content">
+                <div className="popover-inner org-filter-inner">
+                  <Search
+                    labelText="Search organisation unit"
+                    placeholder="Search..."
+                    value={orgSearchTerm}
+                    onChange={(event) => setOrgSearchTerm(event.target.value)}
+                    size="sm"
+                  />
+
+                  <div className="org-tree-container">
+                    <TreeView label="Organisation Units" hideLabel>
+                      {renderRecursive(hierarchyData as OrgUnit[], "filter-org")}
+                    </TreeView>
+                  </div>
+
+                  <div className="popover-footer">
+                    <Button
+                      size="sm"
+                      kind="ghost"
+                      onClick={() => {
+                        setSelectedOrgUnit("");
+                        setOrgSearchTerm("");
+
+                        handleFilter({
+                          orgUnit: "",
+                        });
+                      }}
+                    >
+                      Clear
+                    </Button>
+
+                    <Button size="sm" onClick={() => handleFilter()}>
+                      Update
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <Button
+            size="md"
+            kind="ghost"
+            renderIcon={Filter}
+            disabled={!hasActiveFilters}
+            onClick={handleReset}
+          >
+            Reset Filters
+          </Button>
+        </div>
+
+        <div className="issue-table-search">
+          <div className="issue-table-search-bar">
+            <Search
+              labelText="Search issues"
+              placeholder="Search by issue code, dataset, data element, issue, status, or organisation unit"
+              value={tableSearchTerm}
+              onChange={(event) => setTableSearchTerm(event.target.value)}
+              size="lg"
+              closeButtonLabelText="Clear search"
             />
+            <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
+              <Button size="md" kind="ghost" renderIcon={Download} onClick={downloadIssues}>
+                Download
+              </Button>
+            </PermissionGuard>
+          </div>
+        </div>
+
+        {activeTab === "assigned_to_me" && tabFilteredIssues.length === 0 && !isLoading && (
+          <div
+            style={{
+              padding: "1.25rem 1.5rem",
+              marginBottom: "1.25rem",
+              backgroundColor: "#edf5ff",
+              borderRadius: "4px",
+              borderLeft: "4px solid #0f62fe",
+              color: "#161616",
+              fontSize: "0.875rem",
+            }}
+          >
+            <strong>No issues currently assigned to you.</strong> Switch to the <em>All Issues</em>{" "}
+            tab to view all registered issues.
+          </div>
+        )}
+
+        <div
+          className="issue-tracker-table"
+          role="region"
+          aria-label="Registered issues table"
+          tabIndex={0}
+        >
+          <DataList
+            columns={headers}
+            data={tabFilteredIssues}
+            totalItems={data?.totalCount ?? 0}
+            currentPage={page}
+            currentPageSize={pageSize}
+            onPageChange={(newPage, newPageSize) => {
+              setPage(newPage);
+              setPageSize(newPageSize);
+            }}
+            handleIssueClick={handleIssueClick}
+            closeView={() => {
+              setSelectedIssue(undefined);
+              setIsViewIssueDetail(false);
+            }}
+            selectedRowIds={selectedRowIds}
+            onSelectRow={handleSelectRow}
+            onSelectAll={handleSelectAll}
+          />
+        </div>
 
         {showModal && (
           <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
@@ -940,7 +1179,18 @@ const IssueTracker = () => {
             <ImportIssuesModal onClose={closeImportModal} />
           </PermissionGuard>
         )}
-      </>
+
+        {showAssignModal && selectedIssueCodes.length > 0 && (
+          <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
+            <AssignModal
+              issueCodes={selectedIssueCodes}
+              isReassign={areAllSelectedAssigned}
+              onClose={() => setShowAssignModal(false)}
+              onSuccess={() => setSelectedRowIds([])}
+            />
+          </PermissionGuard>
+        )}
+      </div>
     </PermissionGuard>
   );
 };

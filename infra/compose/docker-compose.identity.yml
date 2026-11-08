@@ -1,0 +1,50 @@
+# Optional separate-instance deployment. Shared-instance realm setup needs no new containers.
+# Use a unique project and private env file for each separate stack.
+name: ${IDENTITY_PROJECT:?Set a unique identity project for this environment}
+services:
+  keycloak-db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:?Set a private database password}
+    volumes:
+      - identity_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U keycloak -d keycloak']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  keycloak:
+    image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.0.5}
+    restart: unless-stopped
+    command: [start, --import-realm]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?Set a private database password}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${IDENTITY_ADMIN_USERNAME:-identity-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${IDENTITY_ADMIN_PASSWORD:?Set a private bootstrap password}
+      KC_HOSTNAME: ${IDENTITY_HOSTNAME:?Set this environment's public identity URL}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: ${IDENTITY_PROXY_HEADERS:-xforwarded}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${IDENTITY_PORT:-8181}:8080"
+    volumes:
+      - ${IDENTITY_REALM_FILE:?Set an absolute generated realm file path}:/opt/keycloak/data/import/environment-realm.json:ro
+      - ../keycloak/themes:/opt/keycloak/themes:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, bash, -ec, "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
+      start_period: 60s
+      interval: 10s
+      timeout: 5s
+      retries: 20
+volumes:
+  identity_data:

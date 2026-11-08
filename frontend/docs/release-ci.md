@@ -1,6 +1,6 @@
 # Release CI Outline
 
-This is a CI/CD outline for future automation. It is documentation only; no workflow file is required yet.
+The repository's **Build & Push Images** workflow publishes source-built frontend images on `frontend/v<shell-version>` tags and verifies their runtime version manifest. Use the root Makefile for verified frontend-only or combined releases; see [Releasing frontend and backend](../../docs/releasing.md). The **Frontend Release Notes** tag workflow publishes per-app/package notes and a combined GitHub Release body. Npm publication remains a separate operation through `make frontend-publish`.
 
 ## Validate Job
 
@@ -45,7 +45,7 @@ This publishes npm packages according to Changesets.
 Build the default production image from source:
 
 ```bash
-docker build -f frontend/Dockerfile frontend
+docker build -f infra/docker/frontend/Dockerfile .
 ```
 
 This path remains the default production deployment.
@@ -57,9 +57,9 @@ After packages are published, build the optional npm-module image with exact pac
 
 ```bash
 docker build \
-  -f frontend/Dockerfile.npm-modules \
+  -f infra/docker/frontend/Dockerfile.npm-modules \
   --build-arg MOH_SSO_NPM_MODULES="@moh-sso/users@0.4.1 @moh-sso/api@0.2.0" \
-  frontend
+  .
 ```
 
 Use this only when package publishing and version pinning are stable.

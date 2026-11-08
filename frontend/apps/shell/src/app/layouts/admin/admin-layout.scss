@@ -1,3 +1,5 @@
+@use "./admin-workspace";
+
 :root {
   --moh-admin-header-height: 3rem;
   --moh-admin-sidenav-width: 15.5rem;
@@ -106,7 +108,7 @@
 }
 
 .admin-layout--sidenav-hidden {
-  --moh-admin-sidenav-width: 0rem;
+  --moh-admin-sidenav-width: 3rem;
 }
 
 .admin-layout__sidenav--hidden {
@@ -195,7 +197,7 @@
   padding: 0.25rem 0;
 }
 
-.admin-layout__sidenav-group+.admin-layout__sidenav-group {
+.admin-layout__sidenav-group + .admin-layout__sidenav-group {
   margin-top: 0.25rem;
 }
 
@@ -224,7 +226,7 @@
   white-space: nowrap;
 }
 
-.admin-layout .cds--side-nav__icon>svg {
+.admin-layout .cds--side-nav__icon > svg {
   fill: currentColor;
 }
 
@@ -284,88 +286,141 @@
  * HeaderPanel alignment
  * ========================= */
 
-.admin-layout .cds--header-panel.notifications-header-panel,
-.cds--header-panel.notifications-header-panel {
-  right: 0;
-  left: auto;
+.notification-center {
+  width: 100%;
+  min-width: 0;
+  margin-inline: auto;
 }
 
 .notification-detail-panel {
-  padding: 1rem;
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
 }
-
+.notification-detail-panel > .cds--btn {
+  justify-self: start;
+}
 .notification-detail-panel__summary,
-.notification-detail-panel__delivery {
+.notification-detail-panel__delivery,
+.notification-detail-panel__technical {
   border: 1px solid var(--cds-border-subtle-01, #e0e0e0);
-  background: var(--cds-layer, #ffffff);
+  border-radius: 0.5rem;
+  background: var(--cds-layer-01, #fff);
   padding: 1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-
 .notification-detail-panel__title-row,
-.notification-detail-panel__section-header,
 .notification-detail-panel__delivery-top {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
 }
-
-.notification-detail-panel__title-row h4,
-.notification-detail-panel__section-title {
+.notification-detail-panel__title-row h3 {
   margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  font-weight: 600;
 }
-
-.notification-detail-panel__section-header p,
-.notification-detail-panel__summary p,
-.notification-detail-panel__delivery-top span,
-.notification-detail-panel__empty {
+.notification-detail-panel__title-row .cds--tag,
+.notification-detail-panel__delivery-top .cds--tag {
+  margin: 0;
+  flex-shrink: 0;
+}
+.notification-detail-panel__summary > p {
+  margin-top: 0.75rem;
   color: var(--cds-text-secondary, #525252);
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
-
+.notification-detail-panel__summary > .cds--btn {
+  margin-top: 1rem;
+}
 .notification-detail-panel__meta {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 1rem;
   margin: 1rem 0 0;
 }
-
+.notification-detail-panel__meta > div {
+  min-width: 0;
+}
 .notification-detail-panel__meta dt {
   color: var(--cds-text-secondary, #525252);
   font-size: 0.75rem;
 }
-
 .notification-detail-panel__meta dd {
-  margin: 0.25rem 0 0;
-  color: var(--cds-text-primary, #161616);
+  margin: 0.375rem 0 0;
   font-size: 0.875rem;
-  word-break: break-word;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
-
-.notification-detail-panel__json {
-  max-height: 14rem;
-  overflow: auto;
-  margin: 0.75rem 0 0;
-  padding: 0.75rem;
-  background: var(--cds-layer-accent-01, #f4f4f4);
-  color: var(--cds-text-primary, #161616);
-  font-size: 0.75rem;
-  white-space: pre-wrap;
+.notification-detail-panel__section-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
 }
-
+.notification-detail-panel__section-header p {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--cds-text-secondary, #525252);
+}
 .notification-detail-panel__deliveries {
   display: grid;
   gap: 0.75rem;
-  margin-top: 0.75rem;
+  margin-top: 1rem;
 }
-
+.notification-detail-panel__channel {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+}
+.notification-detail-panel__channel span {
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary, #525252);
+}
+.notification-detail-panel__delivery > .cds--btn {
+  margin-top: 1rem;
+}
+.notification-detail-panel__empty {
+  padding: 1.25rem 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--cds-text-secondary, #525252);
+}
 .notification-detail-panel__error {
-  margin: 0.75rem 0;
+  margin: 1rem 0;
   padding: 0.75rem;
-  border-left: 3px solid var(--cds-support-error, #da1e28);
-  background: var(--cds-support-error-inverse, #fff1f1);
-  color: var(--cds-text-primary, #161616);
+  border-inline-start: 3px solid var(--cds-support-error, #da1e28);
+  background: #fff1f1;
   font-size: 0.8125rem;
-  word-break: break-word;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.notification-detail-panel__technical summary {
+  cursor: pointer;
+  padding: 0.375rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.notification-detail-panel__technical summary:focus-visible {
+  outline: 2px solid var(--cds-focus, #0f62fe);
+  outline-offset: 3px;
+}
+.notification-detail-panel__json {
+  max-width: 100%;
+  max-height: 18rem;
+  overflow: auto;
+  padding: 1rem;
+  margin: 1rem 0 0;
+  font-family: var(--cds-code-01-font-family, monospace);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  background: var(--cds-layer-accent-01, #f4f4f4);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* =========================
@@ -417,6 +472,14 @@ body {
     margin-left: 0;
   }
 
+  .admin-layout {
+    --moh-footer-left-offset: 0rem;
+  }
+
+  .admin-layout--sidenav-hidden .moh-breadcrumb-bar {
+    padding-left: 3rem;
+  }
+
   .admin-layout__sidenav,
   .admin-layout .cds--side-nav {
     transform: translateX(-100%);
@@ -456,10 +519,17 @@ body {
     white-space: nowrap;
   }
 
-  .notification-detail-panel__title-row,
-  .notification-detail-panel__section-header,
-  .notification-detail-panel__delivery-top {
-    flex-direction: column;
-    align-items: stretch;
+  .notification-detail-panel__title-row {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 1056px) {
+  .admin-layout__sidenav-toggle--rail {
+    display: none;
+  }
+
+  .admin-layout--sidenav-hidden .moh-breadcrumb-bar {
+    padding-left: 1rem;
   }
 }

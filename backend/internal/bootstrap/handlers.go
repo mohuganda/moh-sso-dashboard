@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"strings"
 
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/api/handler"
@@ -23,7 +24,9 @@ import (
 	healthcontextfeature "github.com/moh-sso-dashboard/internal/features/health_context"
 	metricsfeature "github.com/moh-sso-dashboard/internal/features/metrics"
 	notificationsfeature "github.com/moh-sso-dashboard/internal/features/notifications"
+	platformfeature "github.com/moh-sso-dashboard/internal/features/platform"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
+	reportschedulerfeature "github.com/moh-sso-dashboard/internal/features/report_scheduler"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
 	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
 	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
@@ -85,7 +88,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.Audit,
 	)
 	sessionHandler := sessionfeature.NewHandler(deps.Services.Sessions)
-	dataQualityHandler := dataqualityfeature.NewHandler(deps.Databases.DWH, deps.Databases.Primary)
+	dataQualityHandler := dataqualityfeature.NewHandler(deps.Databases.DWH, deps.Databases.DQA, deps.Databases.Primary, deps.AdminKeycloak, deps.Services.Email, deps.Config)
 	announcementHandler := announcementfeature.NewHandler(
 		deps.Services.Announcements,
 		deps.Services.Audit,
@@ -135,7 +138,12 @@ func buildHandlers(deps handlerDependencies) handlers {
 	)
 
 	healthHandler := handler.NewHealthHandler(
-		func(ctx context.Context) error { return db.PingDB(ctx, deps.Databases.Primary) },
+		func(ctx context.Context) error {
+			if err := db.PingDB(ctx, deps.Databases.Primary); err != nil {
+				return err
+			}
+			return db.PingDB(ctx, deps.Databases.Observatory)
+		},
 		func(ctx context.Context) error { return db.PingDB(ctx, deps.Databases.Remote) },
 		func(ctx context.Context) error { return deps.AdminKeycloak.Authenticate() },
 		deps.Redis,
@@ -143,6 +151,15 @@ func buildHandlers(deps handlerDependencies) handlers {
 
 	return handlers{
 		Router: router.HandlerSet{
+			Platform: &platformfeature.Handler{
+				WorkerStaleAfter: 3 * deps.Config.NotificationDelivery.WorkerInterval,
+				Repository:       &platformfeature.PostgresRepository{DB: deps.Databases.Primary},
+				Verifier: &platformfeature.Introspector{
+					Endpoint: strings.TrimRight(deps.Config.KeycloakTokenBaseURL(), "/") + "/realms/" + deps.Config.KeycloakRealm + "/protocol/openid-connect/token/introspect",
+					Issuer:   strings.TrimRight(deps.Config.KeycloakExternalURL, "/") + "/realms/" + deps.Config.KeycloakRealm,
+					Audience: deps.Config.PlatformAuthAudience, ClientID: deps.Config.PlatformAuthClientID, Secret: deps.Config.PlatformAuthClientSecret,
+				},
+			},
 			Auth:                    authHandler,
 			Clients:                 clientHandler,
 			Users:                   userHandler,
@@ -164,6 +181,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 			Email:                   emailHandler,
 			RBAC:                    rbacHandler,
 			HealthContexts:          healthContextHandler,
+			ReportScheduler:         reportschedulerfeature.NewHandler(deps.Services.ReportScheduler),
 		},
 		Health: healthHandler,
 	}

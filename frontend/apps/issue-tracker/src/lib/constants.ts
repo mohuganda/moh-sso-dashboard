@@ -17,7 +17,11 @@ export const headers = [
   },
   {
     key: "org_unit",
-    header: "Organization Unit",
+    header: "Facility Name",
+  },
+  {
+    key: "district",
+    header: "District",
   },
   {
     key: "time_Period",
@@ -26,6 +30,10 @@ export const headers = [
   {
     key: "status",
     header: "Status",
+  },
+  {
+    key: "assigned_to",
+    header: "Assigned To",
   },
   {
     key: "date_reported",
@@ -38,6 +46,8 @@ export const IMPORT_TEMPLATE_HEADERS = [
   "dataset",
   "data_element",
   "org_unit",
+  "region",
+  "district",
   "issue",
   "issue_type",
   "priority",

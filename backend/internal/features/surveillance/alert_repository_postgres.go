@@ -54,9 +54,14 @@ func (r *postgresAlertRepository) ListAlertsInHealthContext(
 	arg db.ListAlertsParams,
 	scope HealthContextScope,
 ) ([]db.ListAlertsRow, error) {
+	allowedIDs, err := scope.allowedIDs(ctx, "surveillance-district", false)
+	if err != nil {
+		return nil, err
+	}
+
 	rows, err := r.db.ListAlertsInHealthContext(ctx, db.ListAlertsInHealthContextParams{
 		EpiWeekID: arg.EpiWeekID, DiseaseID: arg.DiseaseID, DistrictID: arg.DistrictID,
-		RegionID: arg.RegionID, HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+		RegionID: arg.RegionID, AllowedDistrictIds: allowedIDs,
 	})
 	if err != nil {
 		return nil, err

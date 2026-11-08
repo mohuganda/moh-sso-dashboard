@@ -33,4 +33,3 @@ the contextual policy before querying or mutating data. Modules must fail closed
 when a scoped record has no resolvable context after their compatibility period.
 The frontend may send the active context, but the backend owns alias resolution
 and authorization.
-

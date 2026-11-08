@@ -11,8 +11,9 @@ import {
 import { PERMISSIONS, PermissionGuard, selectUser } from "@moh-sso/auth";
 
 import "./issue-detail.scss";
-import type { Issue } from "../issue-tracker.component.tsx";
+import { formatReportingPeriod, type Issue } from "../issue-tracker.component.tsx";
 import { IssueModal } from "../../component/issue-modal.component.tsx";
+import { AssignModal } from "../../component/assign-modal.component.tsx";
 
 type ModalMode = "resolve" | "close" | "comment" | null;
 
@@ -35,6 +36,7 @@ const IssueDetail = ({
 
   const [comment, setComment] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [isViewModalResolution, setIsViewModalResolution] = useState(false);
 
@@ -78,16 +80,16 @@ const IssueDetail = ({
 
     const status =
       modalMode === "resolve"
-        ? "RESOLVED"
+        ? "resolved"
         : modalMode === "close"
-          ? "CLOSED"
+          ? "closed"
           : selectedIssue.status;
 
     const payload = {
       id: selectedIssue.issue_code,
       body: {
         resolution_action: trimmedComment,
-        resolved_by: user?.username ?? "",
+        resolved_by: user?.email || user?.username || "",
         status,
       },
     };
@@ -146,7 +148,7 @@ const IssueDetail = ({
     }
   };
 
-  const isFinalStatus = selectedIssue?.status === "CLOSED" || selectedIssue?.status === "RESOLVED";
+  const isFinalStatus = selectedIssue?.status?.toLowerCase() === "closed" || selectedIssue?.status?.toLowerCase() === "resolved";
 
   const renderActionModal = () => {
     if (!isViewModalResolution || !modalMode) {
@@ -240,6 +242,18 @@ const IssueDetail = ({
                   <strong>Organization Unit:</strong> {selectedIssue?.org_unit}
                 </p>
 
+                {selectedIssue?.region && (
+                  <p className="issue-p-top">
+                    <strong>Region:</strong> {selectedIssue.region}
+                  </p>
+                )}
+
+                {selectedIssue?.district && (
+                  <p className="issue-p-top">
+                    <strong>District:</strong> {selectedIssue.district}
+                  </p>
+                )}
+
                 <p className="issue-p-top">
                   <strong>Dataset:</strong> {selectedIssue?.dataset}
                 </p>
@@ -250,7 +264,7 @@ const IssueDetail = ({
 
                 <p className="issue-p-top">
                   <strong>Reporting Period:</strong>{" "}
-                  {selectedIssue?.time_Period ?? selectedIssue?.time_period}
+                  {formatReportingPeriod(selectedIssue?.time_Period ?? selectedIssue?.time_period) || "<<Not set>>"}
                 </p>
 
                 <p className="issue-p-top">
@@ -280,12 +294,18 @@ const IssueDetail = ({
                           }}
                         >
                           <div style={{ fontWeight: "bold" }}>
-                            {transaction?.resolution_date} - {transaction?.resolved_by}
+                            {transaction?.resolution_date || "N/A"} - {transaction?.resolved_by || "System / Unknown"}
                           </div>
 
                           <div style={{ color: "#525252" }}>
                             {transaction?.resolution_action || "No comment provided"}
                           </div>
+
+                          {transaction?.assigned_to && (
+                            <div style={{ marginTop: "0.25rem", fontSize: "0.8125rem", color: "#0f62fe" }}>
+                              <strong>Assigned To:</strong> {transaction.assigned_to}
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -308,7 +328,16 @@ const IssueDetail = ({
             <Tile className="issue-tile">
               <div style={{ padding: "0.5rem" }}>
                 <p className="issue-p-top">
-                  <strong>Issue Status:</strong> {selectedIssue?.status}
+                  <strong>Issue Status:</strong> <span className="issue-status">{selectedIssue?.status} </span>
+                </p>
+
+                <p>
+                  <strong>Assigned To:</strong>{" "}
+                  {selectedIssue?.assigned_to ? (
+                    <span style={{ color: "#0f62fe", fontWeight: 600 }}>{selectedIssue.assigned_to}</span>
+                  ) : (
+                    <em style={{ color: "#6f6f6f" }}>Unassigned</em>
+                  )}
                 </p>
 
                 <p>
@@ -322,6 +351,18 @@ const IssueDetail = ({
             </Tile>
 
             <Tile className="issue-tile issue-actions-container">
+              {!isFinalStatus && (
+                <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
+                  <Button
+                    className="btn-issue btn-full-width"
+                    kind="tertiary"
+                    onClick={() => setIsAssignModalOpen(true)}
+                  >
+                    {selectedIssue?.assigned_to ? "Re-assign Issue" : "Assign Issue"}
+                  </Button>
+                </PermissionGuard>
+              )}
+
               {!isFinalStatus && (
                 <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
                   <Button
@@ -356,7 +397,7 @@ const IssueDetail = ({
                 </PermissionGuard>
               )}
 
-              {selectedIssue?.status !== "CLOSED" && (
+              {selectedIssue?.status?.toLowerCase() !== "closed" && (
                 <PermissionGuard permission={PERMISSIONS.issueTrackerClose}>
                   <Button
                     className="btn-issue btn-full-width"
@@ -376,6 +417,16 @@ const IssueDetail = ({
         <PermissionGuard permission={PERMISSIONS.issueTrackerWrite}>
           {isEditModalOpen && (
             <IssueModal onClose={() => setIsEditModalOpen(false)} selectedIssue={selectedIssue} />
+          )}
+        </PermissionGuard>
+
+        <PermissionGuard permission={PERMISSIONS.issueTrackerAssign}>
+          {isAssignModalOpen && selectedIssue?.issue_code && (
+            <AssignModal
+              issueCodes={[selectedIssue.issue_code]}
+              isReassign={Boolean(selectedIssue?.assigned_to)}
+              onClose={() => setIsAssignModalOpen(false)}
+            />
           )}
         </PermissionGuard>
       </>

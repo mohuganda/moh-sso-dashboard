@@ -1,0 +1,123 @@
+name: Update OpenAPI contract
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openapi-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    name: Generate and validate OpenAPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      contract_changed: ${{ steps.contract.outputs.changed }}
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Record source commit
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.4"
+          cache-dependency-path: backend/go.sum
+
+      - name: Generate API contract from routes, DTOs and backend version
+        run: make contracts-generate
+
+      - name: Detect generated contract changes
+        id: contract
+        run: |
+          if git diff --quiet -- backend/docs/openapi.yaml; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload generated API contract
+        if: steps.contract.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-openapi-${{ github.run_id }}
+          path: backend/docs/openapi.yaml
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Validate generated contract and generator tests
+        run: |
+          make contracts-check
+          cd backend
+          go test ./internal/apidocgen
+
+      - name: Require a committed contract outside same-repository PRs
+        if: >-
+          steps.contract.outputs.changed == 'true' &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name != github.repository)
+        run: |
+          echo '::error::OpenAPI was regenerated. Download the generated-openapi artifact and commit it as backend/docs/openapi.yaml, or run make contracts-generate locally.'
+          exit 1
+
+  openapi-update:
+    name: Commit generated OpenAPI
+    needs: generate
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.generate.outputs.contract_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      # This job only copies the generated YAML. It does not run PR code with
+      # write permissions; generation and Go validation run in the read-only job.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.generate.outputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-openapi-${{ github.run_id }}
+          path: ${{ runner.temp }}/generated-openapi
+      - name: Commit only the validated generated contract and rerun quality checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          SOURCE_SHA: ${{ needs.generate.outputs.source_sha }}
+          GENERATED_FILE: ${{ runner.temp }}/generated-openapi/openapi.yaml
+        run: |
+          set -euo pipefail
+          CURRENT_SHA=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq '.head.sha')
+          test "$CURRENT_SHA" = "$SOURCE_SHA" || {
+            echo '::error::PR changed during generation. Rerun checks on its latest commit.'
+            exit 1
+          }
+          cp "$GENERATED_FILE" backend/docs/openapi.yaml
+          git add -- backend/docs/openapi.yaml
+          git diff --cached --quiet && exit 0
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -c core.hooksPath=/dev/null commit -m 'chore(api): regenerate OpenAPI contract'
+          # A non-fast-forward push fails instead of overwriting newer work.
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/$BRANCH"
+          # GITHUB_TOKEN pushes do not trigger pull_request workflows. Dispatch
+          # explicitly so all quality gates run on the generated commit.
+          gh workflow run pr-check.yml --repo "$GH_REPO" --ref "$BRANCH"
+

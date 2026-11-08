@@ -1,4 +1,5 @@
 import {
+  Button,
   DataTable,
   Table,
   TableHead,
@@ -61,6 +62,7 @@ export default function UsersPage() {
   /* -----------------------------
    * Filters
    * ----------------------------- */
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [neverLoggedIn, setNeverLoggedIn] = useState(false);
@@ -81,7 +83,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, roleFilter, neverLoggedIn]);
+  }, [statusFilter, roleFilter, neverLoggedIn, search]);
 
   /* -----------------------------
    * Roles
@@ -98,7 +100,16 @@ export default function UsersPage() {
    * Filtering
    * ----------------------------- */
   const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
     return users.filter((u) => {
+      if (
+        query &&
+        ![u.username, u.email, u.firstName, u.lastName].some((value) =>
+          value?.toLowerCase().includes(query),
+        )
+      ) {
+        return false;
+      }
       const isEnabled = u.enabled ?? u.isActive ?? false;
       if (statusFilter === "active" && !isEnabled) return false;
       if (statusFilter === "disabled" && isEnabled) return false;
@@ -106,7 +117,7 @@ export default function UsersPage() {
       if (roleFilter !== "all" && !u.realmRoles?.includes(roleFilter)) return false;
       return true;
     });
-  }, [users, statusFilter, roleFilter, neverLoggedIn]);
+  }, [users, statusFilter, roleFilter, neverLoggedIn, search]);
 
   /* -----------------------------
    * Pagination
@@ -130,15 +141,12 @@ export default function UsersPage() {
     raw: u,
   }));
 
-  if (isError) {
-    return (
-      <ErrorState
-        title="Failed to load users"
-        description={getApiErrorMessage(error, "Failed to load users")}
-        primaryAction={{ label: "Retry", onClick: refetch }}
-      />
-    );
-  }
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setRoleFilter("all");
+    setNeverLoggedIn(false);
+  };
 
   return (
     <DataTableShell
@@ -149,10 +157,31 @@ export default function UsersPage() {
       getRowId={(row) => row.id}
       isLoading={isLoading}
       loadingDescription="Loading users…"
+      tableState={
+        isError ? (
+          <ErrorState
+            title="Failed to load users"
+            description={getApiErrorMessage(error, "Failed to load users")}
+            primaryAction={{ label: "Retry", onClick: refetch }}
+          />
+        ) : undefined
+      }
+      searchValue={search}
+      onSearch={setSearch}
+      searchPlaceholder="Search users by name or email"
+      resultsDescription={
+        !isLoading && !isError ? `${filteredUsers.length} of ${users.length} users` : undefined
+      }
+      emptyActions={
+        <Button kind="ghost" onClick={clearFilters}>
+          Clear filters
+        </Button>
+      }
       emptyTitle="No users found"
       emptyDescription="No users match the selected filters."
       filters={
         <UserFilters
+          onReset={clearFilters}
           status={statusFilter}
           roles={roles}
           selectedRole={roleFilter}

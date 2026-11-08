@@ -108,10 +108,7 @@ WHERE
   AND (sqlc.narg(district_id)::uuid IS NULL OR a.district_id = sqlc.narg(district_id)::uuid)
   AND (sqlc.narg(region_id)::uuid IS NULL OR d.region_id = sqlc.narg(region_id)::uuid)
   AND a.district_id IS NOT NULL
-  AND health_context_alias_in_scope(
-    'surveillance-district', a.district_id::text, sqlc.arg(health_context_id)::uuid,
-    sqlc.arg(include_descendants)::boolean
-  )
+  AND a.district_id = ANY(sqlc.arg('allowed_district_ids')::uuid[])
 ORDER BY a.created_at DESC;
 
 -- name: ListAlertsByDisease :many

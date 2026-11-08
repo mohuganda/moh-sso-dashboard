@@ -1,12 +1,21 @@
 # Microfrontends
 
-The frontend is single-spa-ready. The default path is hybrid local mode, where the shell builds normally and apps resolve through workspace imports. Remote/import-map mode is prepared for independent deployment.
+The frontend retains single-spa lifecycles. Local development defaults to hybrid
+mode, where apps resolve through workspace imports. The checked-in production
+configuration selects remote/import-map loading with single-spa orchestration.
+See the [onboarding handbook](../../docs/platform-onboarding.md#8-add-a-hosted-single-spa-module)
+for the complete integration and verification checklist.
 
 ## Current Modes
 
 - Hybrid local mode: default. Shell uses local workspace app lifecycles.
 - Remote mode: enabled by runtime/env config. Shell can load app bundles through import maps.
-- Orchestrated mode: explicitly gated and experimental until shell routes fully stop mounting `SingleSpaApp` wrappers.
+- Orchestrated mode: explicitly gated by runtime configuration and enabled in
+  `public/config.production.js`. React Router retains shell route guards/layout;
+  `SingleSpaApp` coordinates with the orchestrator instead of mounting locally
+  when orchestration starts successfully. Failure to load single-spa permits the
+  local lifecycle fallback; investigate that state rather than treating a visible
+  screen alone as proof that orchestration ran.
 
 Hybrid mode is the safe default. In hybrid mode, React Router renders `SingleSpaApp` wrappers and `startMicrofrontendOrchestration()` does not call `registerApplication`.
 
@@ -14,6 +23,7 @@ Full orchestration requires:
 
 ```text
 VITE_SINGLE_SPA_ORCHESTRATION=true
+VITE_MICROFRONTEND_MODE=remote
 VITE_MICROFRONTEND_MOUNT_MODE=orchestrated
 ```
 
@@ -21,6 +31,7 @@ or equivalent runtime config:
 
 ```js
 window.__APP_CONFIG__.singleSpaOrchestration = true;
+window.__APP_CONFIG__.microfrontendMode = "remote";
 window.__APP_CONFIG__.microfrontendMountMode = "orchestrated";
 ```
 
@@ -139,3 +150,30 @@ Future Vue, Angular, Svelte, or plain JavaScript apps can participate by exposin
 - `unmount`
 
 They should accept the same runtime props and avoid importing shell internals.
+
+## Root page layout
+
+Root screens use `PageShell` from `@moh-sso/ui` for a single page title,
+description, divider and optional header actions. Keep routing and permissions
+at their existing application boundaries; render route-specific headers inside
+multi-page applications instead of adding a second module heading.
+
+All 15 application roots follow this pattern:
+
+| Applications | Header owner |
+| --- | --- |
+| Users, Clients, Audit Logs | Shared `DataTableShell`, which uses `PageShell` |
+| Announcements, Email Outbox, RBAC Management | Their root page component |
+| Data Visualizer, Data Validation, Report Browser | Application root |
+| Document Management, Issue Tracker, Report Scheduler, Surveillance | Their workspace/root page |
+| E-services | `EservicePageShell` and individual placeholder routes |
+| Utilities | Route-specific `UtilityPage` |
+
+The portal layout supplies outer page padding. Page components avoid adding a
+second outer gutter. `PageShell` spaces its content sections and keeps header
+actions responsive. Dedicated detail-page and access-denied headings remain
+local to those screens.
+
+`tests/browser/root-pages.spec.mjs` visits every application root at desktop and
+mobile widths and checks for a single visible header aligned with the portal's
+content gutter. It uses disposable local API responses and a report iframe stub.

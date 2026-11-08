@@ -146,23 +146,25 @@ export default function SystemsPage() {
           />
         ) : undefined
       }
+      toolbarActions={
+        <Button
+          renderIcon={Add}
+          onClick={() =>
+            openPanel({
+              title: "Add system",
+              size: "lg",
+              content: <CreateSystemPanel onClose={closePanel} />,
+            })
+          }
+        >
+          Add system
+        </Button>
+      }
       topContent={
         <div className="systems-summary">
           <SummaryTile label="Registered" value={systems.length} />
           <SummaryTile label="Enabled" value={enabledCount} />
           <SummaryTile label="Disabled" value={systems.length - enabledCount} />
-          <Button
-            renderIcon={Add}
-            onClick={() =>
-              openPanel({
-                title: "Add system",
-                size: "lg",
-                content: <CreateSystemPanel onClose={closePanel} />,
-              })
-            }
-          >
-            Add system
-          </Button>
         </div>
       }
       filters={

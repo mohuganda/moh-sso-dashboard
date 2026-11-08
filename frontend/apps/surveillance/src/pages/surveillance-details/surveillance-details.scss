@@ -1,113 +1,174 @@
-.disease-details-page {
-  padding: 1.5rem 1rem 2rem;
+.disease-details-page.cds--content {
+  margin: 0;
+  padding: 1.5rem;
+  min-width: 0;
 }
 
 .disease-details-page__header {
-  margin: 1rem 0 2rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
 
-.disease-details-page__header h1 {
-  margin: 0;
-}
-
-.disease-details-page__header p {
-  margin: 0;
-  max-width: 64rem;
-  color: var(--cds-text-secondary);
-  line-height: 1.6;
-}
-
-.disease-details-page__breadcrumb {
-  margin-bottom: 0.5rem;
+  h1 {
+    margin: 0 0 0.5rem;
+    font-size: clamp(1.5rem, 2.2vw, 2rem);
+    line-height: 1.25;
+  }
+  p {
+    margin: 0;
+    color: var(--cds-text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  .disease-details-page__eyebrow {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+  }
+  .cds--form-item {
+    flex: 0 0 12rem;
+  }
 }
 
 .disease-details-page__grid {
-  margin-bottom: 1.5rem;
-  row-gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.disease-details-page__aside {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
 }
 
 .disease-details-page__tile {
-  height: 100%;
-  padding: 1.25rem;
-  border-radius: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
   background: var(--cds-layer);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  border: 1px solid var(--cds-border-subtle);
+
+  h2,
+  h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  p {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
 }
 
-.disease-details-page__section:not(:last-child) {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--cds-border-subtle);
-}
-
-.disease-details-page__section h3 {
+.disease-details-page__context {
+  color: var(--cds-text-secondary);
   margin: 0 0 0.75rem;
 }
 
 .disease-details-page__stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.disease-details-page__stats > div {
-  padding: 0.875rem 1rem;
-  border-radius: 0.75rem;
-  background: var(--cds-layer-accent);
+  gap: 1px;
+  background: var(--cds-border-subtle);
   border: 1px solid var(--cds-border-subtle);
+  margin: 0 0 1rem;
+
+  > div {
+    padding: 1rem;
+    background: var(--cds-layer);
+  }
+  dt {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary);
+  }
+  dd {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
 }
 
-.disease-details-page__stats dt {
-  margin: 0 0 0.35rem;
-  font-size: 0.75rem;
-  color: var(--cds-text-secondary);
-}
-
-.disease-details-page__stats dd {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--cds-text-primary);
+.disease-details-page__notice {
+  padding: 0.75rem 1rem;
+  margin: 0 0 1rem;
+  border-left: 3px solid var(--cds-support-info);
+  background: var(--cds-layer);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .disease-details-page__links {
   margin: 0;
-  padding-left: 1rem;
-}
-
-.disease-details-page__links li {
-  margin-bottom: 0.5rem;
+  padding: 0;
+  list-style: none;
+  li + li {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--cds-border-subtle);
+  }
+  a {
+    font-size: 0.875rem;
+    overflow-wrap: anywhere;
+  }
 }
 
 .disease-details-page__link-status {
   margin-left: 0.5rem;
   color: var(--cds-text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
 }
-
 .disease-details-page__table-empty,
 .disease-details-page__loading,
 .disease-details-page__placeholder {
   padding: 1rem;
-  border-radius: 0.75rem;
   background: var(--cds-layer-accent);
   color: var(--cds-text-secondary);
 }
-
 .disease-details-page__bottom {
   margin-top: 1rem;
 }
-
 .disease-details-page__chart {
   margin-top: 1rem;
+  min-width: 0;
 }
 
 @media (max-width: 1055px) {
-  .disease-details-page__stats {
-    grid-template-columns: 1fr;
+  .disease-details-page__grid {
+    grid-template-columns: minmax(0, 1fr);
   }
+  .disease-details-page__aside {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 672px) {
+  .disease-details-page.cds--content {
+    padding: 1rem;
+  }
+  .disease-details-page__header {
+    flex-direction: column;
+  }
+  .disease-details-page__header .cds--form-item {
+    flex: auto;
+    width: 100%;
+  }
+  .disease-details-page__aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .disease-details-page__stats > div {
+    padding: 0.75rem;
+  }
+  .disease-details-page__stats dt {
+    min-height: 2rem;
+    line-height: 1.3;
+  }
+}
+
+.disease-details-page__table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }

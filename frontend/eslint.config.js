@@ -15,12 +15,20 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["dist", "**/dist", "node_modules", "**/node_modules"],
+    ignores: ["dist", "**/dist", "node_modules", "**/node_modules", "playwright-report", "test-results"],
   },
 
   // 1. Base Recommended Configs
   js.configs.recommended,
   ...tseslint.configs.recommended, // plugin:@typescript-eslint/recommended
+
+  // Generated runtime config executes in the browser without a globals header.
+  {
+    files: ["public/config.js"],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
 
   {
     files: ["**/*.{ts,tsx}"],

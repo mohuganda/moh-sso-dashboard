@@ -63,7 +63,7 @@ func (q *Queries) AssignIHPSystemAccessRole(ctx context.Context, arg AssignIHPSy
 }
 
 const getIHPSystemByClientID = `-- name: GetIHPSystemByClientID :one
-SELECT id, client_id, display_name, description, icon, launch_url, category, enabled, sort_order, metadata, created_at, updated_at, owner_team, owner_name, owner_email, support_url, documentation_url, environment, criticality, system_type, display_in_launcher, display_in_sidenav, launch_mode
+SELECT id, client_id, display_name, description, icon, launch_url, category, enabled, sort_order, metadata, created_at, updated_at, owner_team, owner_name, owner_email, support_url, documentation_url, environment, criticality, system_type, display_in_launcher, display_in_sidenav, launch_mode, lifecycle_status, integration_type, contract_version
 FROM ihp_systems
 WHERE client_id = $1
 `
@@ -95,12 +95,15 @@ func (q *Queries) GetIHPSystemByClientID(ctx context.Context, clientID string) (
 		&i.DisplayInLauncher,
 		&i.DisplayInSidenav,
 		&i.LaunchMode,
+		&i.LifecycleStatus,
+		&i.IntegrationType,
+		&i.ContractVersion,
 	)
 	return i, err
 }
 
 const listEnabledIHPSystems = `-- name: ListEnabledIHPSystems :many
-SELECT id, client_id, display_name, description, icon, launch_url, category, enabled, sort_order, metadata, created_at, updated_at, owner_team, owner_name, owner_email, support_url, documentation_url, environment, criticality, system_type, display_in_launcher, display_in_sidenav, launch_mode
+SELECT id, client_id, display_name, description, icon, launch_url, category, enabled, sort_order, metadata, created_at, updated_at, owner_team, owner_name, owner_email, support_url, documentation_url, environment, criticality, system_type, display_in_launcher, display_in_sidenav, launch_mode, lifecycle_status, integration_type, contract_version
 FROM ihp_systems
 WHERE enabled = TRUE
 ORDER BY sort_order ASC, display_name ASC
@@ -139,6 +142,9 @@ func (q *Queries) ListEnabledIHPSystems(ctx context.Context) ([]IhpSystem, error
 			&i.DisplayInLauncher,
 			&i.DisplayInSidenav,
 			&i.LaunchMode,
+			&i.LifecycleStatus,
+			&i.IntegrationType,
+			&i.ContractVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -373,7 +379,7 @@ func (q *Queries) ListIHPSystemRoles(ctx context.Context, clientID string) ([]Ih
 }
 
 const listIHPSystems = `-- name: ListIHPSystems :many
-SELECT id, client_id, display_name, description, icon, launch_url, category, enabled, sort_order, metadata, created_at, updated_at, owner_team, owner_name, owner_email, support_url, documentation_url, environment, criticality, system_type, display_in_launcher, display_in_sidenav, launch_mode
+SELECT id, client_id, display_name, description, icon, launch_url, category, enabled, sort_order, metadata, created_at, updated_at, owner_team, owner_name, owner_email, support_url, documentation_url, environment, criticality, system_type, display_in_launcher, display_in_sidenav, launch_mode, lifecycle_status, integration_type, contract_version
 FROM ihp_systems
 ORDER BY sort_order ASC, display_name ASC
 `
@@ -411,6 +417,9 @@ func (q *Queries) ListIHPSystems(ctx context.Context) ([]IhpSystem, error) {
 			&i.DisplayInLauncher,
 			&i.DisplayInSidenav,
 			&i.LaunchMode,
+			&i.LifecycleStatus,
+			&i.IntegrationType,
+			&i.ContractVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -555,7 +564,7 @@ ON CONFLICT (client_id) DO UPDATE SET
     sort_order = EXCLUDED.sort_order,
     metadata = EXCLUDED.metadata,
     updated_at = now()
-RETURNING id, client_id, display_name, description, icon, launch_url, category, enabled, sort_order, metadata, created_at, updated_at, owner_team, owner_name, owner_email, support_url, documentation_url, environment, criticality, system_type, display_in_launcher, display_in_sidenav, launch_mode
+RETURNING id, client_id, display_name, description, icon, launch_url, category, enabled, sort_order, metadata, created_at, updated_at, owner_team, owner_name, owner_email, support_url, documentation_url, environment, criticality, system_type, display_in_launcher, display_in_sidenav, launch_mode, lifecycle_status, integration_type, contract_version
 `
 
 type UpsertIHPSystemParams struct {
@@ -607,6 +616,9 @@ func (q *Queries) UpsertIHPSystem(ctx context.Context, arg UpsertIHPSystemParams
 		&i.DisplayInLauncher,
 		&i.DisplayInSidenav,
 		&i.LaunchMode,
+		&i.LifecycleStatus,
+		&i.IntegrationType,
+		&i.ContractVersion,
 	)
 	return i, err
 }

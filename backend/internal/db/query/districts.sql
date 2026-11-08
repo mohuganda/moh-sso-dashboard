@@ -32,12 +32,7 @@ ORDER BY d.name ASC;
 SELECT d.*, r.name AS region_name
 FROM districts d
 LEFT JOIN regions r ON r.id = d.region_id
-WHERE health_context_alias_related_to_scope(
-  'surveillance-district',
-  d.id::text,
-  sqlc.arg('health_context_id')::uuid,
-  sqlc.arg('include_descendants')::boolean
-)
+WHERE d.id = ANY(sqlc.arg('allowed_district_ids')::uuid[])
 ORDER BY d.name ASC;
 
 -- name: ListDistrictsByRegion :many
@@ -50,12 +45,7 @@ ORDER BY name ASC;
 SELECT *
 FROM districts
 WHERE region_id = sqlc.arg('region_id')
-  AND health_context_alias_related_to_scope(
-    'surveillance-district',
-    id::text,
-    sqlc.arg('health_context_id')::uuid,
-    sqlc.arg('include_descendants')::boolean
-  )
+  AND id = ANY(sqlc.arg('allowed_district_ids')::uuid[])
 ORDER BY name ASC;
 
 -- name: UpsertDistrict :one

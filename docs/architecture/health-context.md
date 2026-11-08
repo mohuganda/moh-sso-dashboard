@@ -101,3 +101,18 @@ Context IDs, user IDs, facility codes, district names, and group paths must
 never be metric labels. These names are the stable instrumentation contract;
 the current business metrics feature is not used as a substitute for a
 Prometheus/OpenTelemetry exporter.
+
+## Observatory database integration
+
+Health-context ownership, aliases, assignments, and closure remain in the primary
+portal database. Surveillance geography and metrics remain in observatory.
+Geography aliases are synchronized through the two application database connections
+when context geography is requested, with a one-minute cache. Existing context IDs
+are retained when names or parents change. Source/synchronization failures return
+an error instead of falling back to unrestricted data access.
+
+Scoped surveillance queries receive authorized UUID lists resolved in the primary
+database; they do not join primary tables or call primary functions in observatory.
+Hierarchy selectors may include ancestors, while metric and alert queries use only
+the selected scope and its permitted descendants. The new primary migrations use
+versions 54–58, after the current upstream history, to avoid version collisions.

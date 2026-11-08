@@ -28,12 +28,7 @@ ORDER BY name ASC;
 -- name: ListRegionsInHealthContext :many
 SELECT *
 FROM regions
-WHERE health_context_alias_related_to_scope(
-  'surveillance-region',
-  id::text,
-  sqlc.arg('health_context_id')::uuid,
-  sqlc.arg('include_descendants')::boolean
-)
+WHERE id = ANY(sqlc.arg('allowed_region_ids')::uuid[])
 ORDER BY name ASC;
 
 -- name: UpsertRegion :one

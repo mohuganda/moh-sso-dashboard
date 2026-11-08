@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { HeaderGlobalAction } from "@carbon/react";
-import { Switcher } from "@carbon/react/icons";
+import { Button, HeaderGlobalAction } from "@carbon/react";
+import { Close, Switcher } from "@carbon/react/icons";
 
 import { useFocusTrap } from "../../accessibility/useFocusTrap";
 import "./AppMenu.scss";
@@ -20,6 +20,7 @@ const AppMenuAction: React.FC<AppMenuActionProps> = ({ children }) => {
     active: expanded,
     containerRef: panelRef,
     restoreFocus: true,
+    initialFocusSelector: "input",
   });
 
   const closeMenu = () => {
@@ -48,17 +49,19 @@ const AppMenuAction: React.FC<AppMenuActionProps> = ({ children }) => {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
         closeMenu();
         triggerRef.current?.focus();
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
+    // Search handles Escape itself; capture it first so the dialog still closes.
+    document.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [expanded]);
 
@@ -89,8 +92,20 @@ const AppMenuAction: React.FC<AppMenuActionProps> = ({ children }) => {
           <div className="app-menu-panel__header">
             <div>
               <h4 className="app-menu-panel__title">Applications</h4>
-              <p className="app-menu-panel__subtitle">Select a service to continue.</p>
+              <p className="app-menu-panel__subtitle">Find and open your available services.</p>
             </div>
+            <Button
+              kind="ghost"
+              size="sm"
+              hasIconOnly
+              renderIcon={Close}
+              iconDescription="Close application menu"
+              onClick={() => {
+                closeMenu();
+                triggerRef.current?.focus();
+              }}
+              tooltipAlignment="end"
+            />
           </div>
 
           {typeof children === "function" ? children(closeMenu) : children}

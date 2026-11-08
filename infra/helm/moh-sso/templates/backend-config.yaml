@@ -1,0 +1,163 @@
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-backend-config
+  labels:
+    {{- include "moh-sso.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ include "moh-sso.environment" . | quote }}
+  GIN_MODE: {{ include "moh-sso.ginMode" . | quote }}
+
+  FRONTEND_BASE_URL: {{ include "moh-sso.frontend.baseUrl" . | quote }}
+  AUTH_RETURN_URL_ALLOWED_ORIGINS: {{ .Values.backend.env.AUTH_RETURN_URL_ALLOWED_ORIGINS | quote }}
+  LOGIN_URL: {{ include "moh-sso.keycloak.loginRedirectUri" . | quote }}
+
+
+  # --------------------------------------------------
+  # Keycloak
+  # --------------------------------------------------
+  KEYCLOAK_EXTERNAL_URL: {{ include "moh-sso.keycloakPublicURL" . | quote }}
+  KEYCLOAK_BASE_URL: {{ include "moh-sso.keycloak.baseUrl" . | quote }}
+  KEYCLOAK_REALM: {{ include "moh-sso.keycloak.realm" . | quote }}
+
+  KEYCLOAK_ADMIN_CLIENT_ID: "dashboard-admin"
+  KEYCLOAK_WEB_CLIENT_ID: "dashboard-web"
+  PLATFORM_AUTH_CLIENT_ID: {{ .Values.backend.platformAuth.clientId | quote }}
+  PLATFORM_AUTH_AUDIENCE: {{ .Values.backend.platformAuth.audience | quote }}
+  KEYCLOAK_REDIRECT_URI: {{ include "moh-sso.keycloak.redirectUri" . | quote }}
+
+  # --------------------------------------------------
+  # Server
+  # --------------------------------------------------
+  SERVER_PORT: {{ .Values.backend.service.port | quote }}
+  APP_BASE_URL: {{ include "moh-sso.backend.baseUrl" . | quote }}
+
+  # --------------------------------------------------
+  # Database
+  # --------------------------------------------------
+  DB_DRIVER: "postgres"
+  DB_HOST: {{ printf "%s-postgres-app" .Release.Name | quote }}
+  DB_PORT: "5432"
+  DB_NAME: {{ .Values.postgresApp.auth.database | quote }}
+  DB_USER: {{ .Values.postgresApp.auth.username }}
+  DB_PASSWORD: {{ .Values.postgresApp.auth.password }}
+  DB_ENABLE_SSL: "false"
+
+  # --------------------------------------------------
+  # Redis
+  # --------------------------------------------------
+  REDIS_HOST: {{ printf "%s-redis" .Release.Name | quote }}
+  REDIS_PORT: "6379"
+
+  # --------------------------------------------------
+  # Token Settings
+  # --------------------------------------------------
+  ACCESS_TOKEN_DURATION: "15m"
+  REFRESH_TOKEN_DURATION: "720h"
+
+  ENABLE_TLS: "false"
+
+  HEALTH_BI_BASE_URL: {{ .Values.backend.healthBI.baseUrl | quote }}
+  HEALTH_BI_KEYCLOAK_CLIENT_ID: {{ .Values.backend.healthBI.keycloakClientId | quote }}
+  HEALTH_BI_TIMEOUT: {{ .Values.backend.healthBI.timeout | quote }}
+  REPORT_SCHEDULER_WORKER_INTERVAL: {{ .Values.backend.reportScheduler.workerInterval | quote }}
+  REPORT_SCHEDULER_DELIVERY_LINK_TTL: {{ .Values.backend.reportScheduler.deliveryLinkTTL | quote }}
+
+  # --------------------------------------------------
+  # SMS
+  # --------------------------------------------------
+  SMS_ENABLED: {{ .Values.backend.sms.enabled | quote }}
+  SMS_PROVIDER: {{ .Values.backend.sms.provider | quote }}
+  SMS_DEFAULT_COUNTRY_CODE: {{ .Values.backend.sms.defaultCountryCode | quote }}
+  SMS_FROM_NAME: {{ .Values.backend.sms.fromName | quote }}
+  SMS_MAX_LENGTH: {{ .Values.backend.sms.maxLength | quote }}
+  SMS_SEND_TIMEOUT: {{ .Values.backend.sms.sendTimeout | quote }}
+  NOTIFICATION_DELIVERY_WORKER_ENABLED: {{ .Values.backend.notificationDelivery.workerEnabled | quote }}
+  NOTIFICATION_DELIVERY_WORKER_INTERVAL: {{ .Values.backend.notificationDelivery.workerInterval | quote }}
+  NOTIFICATION_DELIVERY_BATCH_SIZE: {{ .Values.backend.notificationDelivery.batchSize | quote }}
+  AFRICASTALKING_USERNAME: {{ .Values.backend.sms.africasTalkingUsername | quote }}
+  AFRICASTALKING_API_KEY: {{ .Values.backend.sms.africasTalkingApiKey | quote }}
+  AFRICASTALKING_SENDER_ID: {{ .Values.backend.sms.africasTalkingSenderId | quote }}
+  TWILIO_ACCOUNT_SID: {{ .Values.backend.sms.twilioAccountSid | quote }}
+  TWILIO_AUTH_TOKEN: {{ .Values.backend.sms.twilioAuthToken | quote }}
+  TWILIO_FROM_NUMBER: {{ .Values.backend.sms.twilioFromNumber | quote }}
+
+  # --------------------------------------------------
+  # app.env (Flat file format)
+  # --------------------------------------------------
+  app.env: |
+    ENVIRONMENT={{ include "moh-sso.environment" . }}
+    GIN_MODE={{ include "moh-sso.ginMode" . }}
+
+    FRONTEND_BASE_URL={{ include "moh-sso.frontend.baseUrl" . }}
+    AUTH_RETURN_URL_ALLOWED_ORIGINS={{ .Values.backend.env.AUTH_RETURN_URL_ALLOWED_ORIGINS }}
+
+    LOGIN_URL={{ include "moh-sso.keycloak.loginRedirectUri" . }}
+
+
+    KEYCLOAK_EXTERNAL_URL={{ include "moh-sso.keycloakPublicURL" . }}
+    KEYCLOAK_BASE_URL={{ include "moh-sso.keycloak.baseUrl" . }}
+    KEYCLOAK_REALM={{ include "moh-sso.keycloak.realm" . }}
+
+    KEYCLOAK_ADMIN_CLIENT_ID=dashboard-admin
+    KEYCLOAK_WEB_CLIENT_ID=dashboard-web
+    KEYCLOAK_REDIRECT_URI={{ include "moh-sso.keycloak.redirectUri" . }}
+
+    SERVER_PORT={{ .Values.backend.service.port }}
+    APP_BASE_URL={{ include "moh-sso.backend.baseUrl" . }}
+
+    DB_DRIVER=postgres
+    DB_HOST={{ printf "%s-postgres-app" .Release.Name }}
+    DB_PORT=5432
+    DB_NAME={{ .Values.postgresApp.auth.database }}
+    DB_USER={{ .Values.postgresApp.auth.username }}
+    DB_PASSWORD={{ .Values.postgresApp.auth.password }}
+    DB_ENABLE_SSL=false
+
+    REDIS_HOST={{ printf "%s-redis" .Release.Name }}
+    REDIS_PORT=6379
+
+    ACCESS_TOKEN_DURATION=15m
+    REFRESH_TOKEN_DURATION=720h
+
+    ENABLE_TLS=false
+
+    HEALTH_BI_BASE_URL={{ .Values.backend.healthBI.baseUrl }}
+    HEALTH_BI_KEYCLOAK_CLIENT_ID={{ .Values.backend.healthBI.keycloakClientId }}
+    HEALTH_BI_TIMEOUT={{ .Values.backend.healthBI.timeout }}
+    REPORT_SCHEDULER_WORKER_INTERVAL={{ .Values.backend.reportScheduler.workerInterval }}
+    REPORT_SCHEDULER_DELIVERY_LINK_TTL={{ .Values.backend.reportScheduler.deliveryLinkTTL }}
+
+    SMS_ENABLED={{ .Values.backend.sms.enabled }}
+    SMS_PROVIDER={{ .Values.backend.sms.provider }}
+    SMS_DEFAULT_COUNTRY_CODE={{ .Values.backend.sms.defaultCountryCode }}
+    SMS_FROM_NAME={{ .Values.backend.sms.fromName }}
+    SMS_MAX_LENGTH={{ .Values.backend.sms.maxLength }}
+    SMS_SEND_TIMEOUT={{ .Values.backend.sms.sendTimeout }}
+    NOTIFICATION_DELIVERY_WORKER_ENABLED={{ .Values.backend.notificationDelivery.workerEnabled }}
+    NOTIFICATION_DELIVERY_WORKER_INTERVAL={{ .Values.backend.notificationDelivery.workerInterval }}
+    NOTIFICATION_DELIVERY_BATCH_SIZE={{ .Values.backend.notificationDelivery.batchSize }}
+    AFRICASTALKING_USERNAME={{ .Values.backend.sms.africasTalkingUsername }}
+    AFRICASTALKING_API_KEY={{ .Values.backend.sms.africasTalkingApiKey }}
+    AFRICASTALKING_SENDER_ID={{ .Values.backend.sms.africasTalkingSenderId }}
+    TWILIO_ACCOUNT_SID={{ .Values.backend.sms.twilioAccountSid }}
+    TWILIO_AUTH_TOKEN={{ .Values.backend.sms.twilioAuthToken }}
+    TWILIO_FROM_NUMBER={{ .Values.backend.sms.twilioFromNumber }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-backend-secret
+  labels:
+    {{- include "moh-sso.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  KEYCLOAK_ADMIN_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_ADMIN_CLIENT_SECRET | quote }}
+  KEYCLOAK_WEB_CLIENT_SECRET: {{ .Values.backend.secrets.KEYCLOAK_WEB_CLIENT_SECRET | quote }}
+  PLATFORM_AUTH_CLIENT_SECRET: {{ .Values.backend.secrets.PLATFORM_AUTH_CLIENT_SECRET | quote }}
+  HEALTH_BI_KEYCLOAK_CLIENT_SECRET: {{ .Values.backend.secrets.HEALTH_BI_KEYCLOAK_CLIENT_SECRET | quote }}
+
+  DB_USER: {{ .Values.postgresApp.auth.username | quote }}
+  DB_PASSWORD: {{ .Values.postgresApp.auth.password | quote }}
+{{- end }}

@@ -9,6 +9,7 @@ import (
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/features/authsession"
 	logger "github.com/moh-sso-dashboard/internal/log"
+	"github.com/moh-sso-dashboard/internal/middleware"
 	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/moh-sso-dashboard/internal/version"
 
@@ -89,7 +90,14 @@ func Run() {
 	// ==================================================
 	keycloakClients, err := initKeycloak(cfg, cacheAdapter)
 	if err != nil {
-		appLogger.Fatal("Keycloak admin authentication failed: ", err)
+		// LOCAL DEV ONLY: with DEV_AUTH_BYPASS=true the portal runs without
+		// Keycloak, so a failed admin auth is a warning instead of fatal.
+		// Endpoints that call Keycloak directly (user/client admin) will error.
+		if middleware.DevAuthBypassEnabled(cfg) {
+			appLogger.Warn("DEV_AUTH_BYPASS enabled - starting without Keycloak: ", err)
+		} else {
+			appLogger.Fatal("Keycloak admin authentication failed: ", err)
+		}
 	}
 	adminKC := keycloakClients.Admin
 	webKC := keycloakClients.Web
@@ -112,7 +120,8 @@ func Run() {
 	// ==================================================
 	// REPOSITORIES
 	// ==================================================
-	repos := buildRepositories(cfg, store, adminKC, webKC, appLogger)
+	observatoryStore := storepkg.NewStore(dbs.Observatory)
+	repos := buildRepositories(cfg, store, observatoryStore, adminKC, webKC, appLogger)
 
 	// ==================================================
 	// SERVICES
@@ -160,6 +169,7 @@ func Run() {
 	})
 
 	startBackgroundWorkers(ctx, workerDependencies{
+		PrimaryDB:                      dbs.Primary,
 		Config:                         cfg,
 		ProcessRepository:              repos.Processes,
 		ImportService:                  services.Import,
@@ -171,6 +181,9 @@ func Run() {
 		SMSService:                     services.SMS,
 		AuditService:                   services.Audit,
 		Logger:                         appLogger,
+		DQADB:                          dbs.DQA,
+		DWHDB:                          dbs.DWH,
+		ReportScheduler:                services.ReportScheduler,
 	})
 
 	services.Notifications.NotifySystemStartup(ctx, cfg.Environment)
@@ -179,6 +192,7 @@ func Run() {
 	// ROUTER
 	// ==================================================
 	r := router.SetupRouter(router.RouterDependencies{
+		Config:         cfg,
 		KeycloakClient: webKC,
 		Limiter:        rateLimiter,
 		AuditService:   services.Audit,

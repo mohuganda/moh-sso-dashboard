@@ -1,19 +1,5 @@
-CREATE TABLE surveillance_import_raw_rows (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  batch_id UUID NOT NULL REFERENCES surveillance_import_batches(id) ON DELETE CASCADE,
-  row_number INT NOT NULL,
-  payload JSONB NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_surveillance_import_raw_rows_batch ON surveillance_import_raw_rows(batch_id);
-CREATE INDEX idx_surveillance_import_raw_rows_payload ON surveillance_import_raw_rows USING GIN(payload);
-
-
-ALTER TABLE surveillance_import_raw_rows
-ADD COLUMN status TEXT NOT NULL DEFAULT 'PENDING',
-ADD COLUMN error_message TEXT;
-
-ALTER TABLE surveillance_import_raw_rows
-ADD CONSTRAINT surveillance_import_raw_rows_status_chk
-CHECK (status IN ('PENDING', 'PROCESSED', 'FAILED'));
+-- Retired primary-database surveillance migration. Version retained for existing
+-- migration histories. Schema and seeds are owned exclusively by Observatory:
+-- internal/db/surveillance_migrations/000001_surveillance.up.sql.
+-- Intentionally do not create, alter, or drop existing primary surveillance data.
+SELECT 1;

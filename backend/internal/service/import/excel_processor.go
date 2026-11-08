@@ -169,7 +169,7 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 				RowNumber:    row.RowNumber,
 				ReportDate:   reportDate,
 				Data:         row.Data,
-				RowHash:      hashRawData(row.RawData),
+				RowHash:      hashRawData(document.ID, sheetCode, row.RowNumber, row.RawData),
 			})
 		}
 
@@ -210,7 +210,7 @@ func (c *ExcelProcessor) Process(ctx context.Context, p db.Process) error {
 	defer sdTx.Rollback()
 
 	for sheetCode, hashes := range sheetHashes {
-		if err := c.fileRepository.SoftDeleteBySheet(ctx, sdTx, templateCode, sheetCode, hashes); err != nil {
+		if err := c.fileRepository.SoftDeleteBySheet(ctx, sdTx, document.ID, templateCode, sheetCode, hashes); err != nil {
 			return fmt.Errorf("soft-delete sheet %q: %w", sheetCode, err)
 		}
 	}
@@ -651,9 +651,10 @@ func normalizeSheetName(value string) string {
 	return builder.String()
 }
 
-func hashRawData(rawData map[string]any) string {
+func hashRawData(documentID uuid.UUID, sheetCode string, rowNumber int, rawData map[string]any) string {
 	b, _ := json.Marshal(rawData)
-	sum := sha256.Sum256(b)
+	input := fmt.Sprintf("%s|%s|%d|%s", documentID, sheetCode, rowNumber, b)
+	sum := sha256.Sum256([]byte(input))
 	return hex.EncodeToString(sum[:])
 }
 

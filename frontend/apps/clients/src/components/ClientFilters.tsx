@@ -1,4 +1,4 @@
-import { Dropdown, Stack } from "@carbon/react";
+import { Button, Dropdown, Stack } from "@carbon/react";
 
 import "./client-components.scss";
 
@@ -11,6 +11,7 @@ interface Option {
 }
 
 interface ClientFiltersProps {
+  onReset: () => void;
   status: StatusFilter;
   type: TypeFilter;
   statusOptions: readonly Option[];
@@ -20,6 +21,7 @@ interface ClientFiltersProps {
 }
 
 export function ClientFilters({
+  onReset,
   status,
   type,
   statusOptions,
@@ -28,16 +30,11 @@ export function ClientFilters({
   onTypeChange,
 }: ClientFiltersProps) {
   return (
-    <Stack
-      orientation="horizontal"
-      gap={5}
-      className="client-filters"
-    >
+    <Stack orientation="horizontal" gap={5} className="client-filters">
       {/* Status */}
       <Dropdown
         id="client-status-filter"
         titleText="Status"
-        hideLabel
         label="Status"
         items={[...statusOptions]}
         selectedItem={statusOptions.find((i) => i.id === status)}
@@ -52,7 +49,6 @@ export function ClientFilters({
       <Dropdown
         id="client-type-filter"
         titleText="Type"
-        hideLabel
         label="Type"
         items={[...typeOptions]}
         selectedItem={typeOptions.find((i) => i.id === type)}
@@ -62,6 +58,9 @@ export function ClientFilters({
           onTypeChange(selectedItem?.id as TypeFilter);
         }}
       />
+      <Button kind="ghost" size="md" onClick={onReset}>
+        Clear filters
+      </Button>
     </Stack>
   );
 }

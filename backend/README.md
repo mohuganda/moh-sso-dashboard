@@ -22,7 +22,7 @@ backend/
 |   `-- cli/                    # Operational CLI tools
 |-- config/                     # RBAC seed and backend configuration assets
 |-- docs/
-|   `-- openapi.yaml            # Machine-readable API contract starter
+|   `-- openapi.yaml            # Generated complete OpenAPI API contract
 |-- internal/
 |   |-- api/                    # Router shell and cross-cutting API handlers
 |   |-- authz/                  # Permission constants, policies, and authz helpers
@@ -38,8 +38,6 @@ backend/
 |   |-- storage/                # Local/NFS/S3 storage abstraction
 |   |-- worker/                 # Background workers
 |   `-- ws/                     # Websocket support
-|-- app.env.example
-|-- Dockerfile
 `-- go.mod
 ```
 
@@ -84,6 +82,38 @@ The same check runs inside `go test ./...`. Approved cross-feature imports are d
 - startup RBAC sync
 
 Keep new construction logic in bootstrap. Feature code should receive dependencies through constructors, not create infrastructure directly.
+
+## Local Development With Auto-Reload
+
+The development backend image includes [Air](https://github.com/air-verse/air), configured by `backend/.air.toml`. Both development Compose variants bind-mount `backend/` into `/app`, so changing a Go file automatically rebuilds and restarts the API process inside the existing container.
+
+Start the full local stack:
+
+```bash
+docker compose -f infra/compose/docker-compose.dev.yml up --build
+```
+
+Or use the development stack connected to an external Keycloak instance:
+
+```bash
+docker compose -f infra/compose/docker-compose-without-keycloak.yml up --build
+```
+
+Follow backend rebuild and application logs:
+
+```bash
+docker compose -f infra/compose/docker-compose.dev.yml logs -f backend
+```
+
+Air watches Go, template, and YAML files. Test files are excluded, while generated sqlc Go files remain watched so regenerated database code reloads the API. A compile error leaves the container running and Air rebuilds again when the source is corrected.
+
+When `Dockerfile.dev`, `.air.toml`, `go.mod`, or `go.sum` changes, rebuild the development image:
+
+```bash
+docker compose -f infra/compose/docker-compose.dev.yml up -d --build backend
+```
+
+This behavior is development-only. The production `infra/docker/backend/Dockerfile` continues to build and run an immutable compiled binary.
 
 ## API Response Rules
 
@@ -137,7 +167,7 @@ The portal DB stores authorization metadata:
 - access role metadata
 - synced user access profiles and drift reports
 
-Startup sync is controlled through `RBAC_STARTUP_*` env vars in `app.env.example`. The common local posture is:
+Startup sync is controlled through `RBAC_STARTUP_*` env vars in `infra/env/dev.env.example`. The common local posture is:
 
 ```env
 RBAC_STARTUP_SYNC_ENABLED=true
@@ -199,7 +229,7 @@ See:
 
 ```bash
 cd backend
-cp app.env.example app.env
+cp ../infra/env/dev.env.example app.env
 GOCACHE=/private/tmp/moh-sso-go-build go test ./...
 go run ./cmd/server
 ```
@@ -277,6 +307,10 @@ NODE_OPTIONS=--max-old-space-size=8192 ./node_modules/.bin/eslint . --cache --ca
 ```
 
 ## Related Documentation
+
+Swagger UI is available at `/swagger/` on the running backend. Use
+`make openapi-generate` after changing routes/DTOs and `make openapi-validate` to
+check the complete contract. See [Swagger setup and maintenance](docs/README.md).
 
 - [`../README.md`](../README.md)
 - [`../docs/api-reference.md`](../docs/api-reference.md)

@@ -1,0 +1,789 @@
+{
+  "realm": "moh-realm",
+  "enabled": true,
+  "sslRequired": "external",
+  "loginTheme": "moh-theme",
+  "accountTheme": "moh-theme",
+  "adminTheme": "moh-theme",
+  "registrationAllowed": false,
+  "rememberMe": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 5,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "passwordPolicy": "upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and length(12) and notUsername(true) and hashIterations(27500)",
+  "accessTokenLifespan": 300,
+  "accessTokenLifespanForImplicitFlow": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "eventsEnabled": true,
+  "eventsExpiration": 2678400,
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "browserSecurityHeaders": {
+    "contentSecurityPolicy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",
+    "xContentTypeOptions": "nosniff",
+    "xRobotsTag": "none",
+    "xFrameOptions": "SAMEORIGIN",
+    "strictTransportSecurity": "max-age=31536000; includeSubDomains"
+  },
+  "clientScopes": [
+    {
+      "name": "openid",
+      "protocol": "openid-connect"
+    },
+    {
+      "name": "health-context",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "district-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "district",
+            "claim.name": "district",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "facility-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "facility",
+            "claim.name": "facility",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "profile",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "full_name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "consentRequired": false,
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "user_id",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "user_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "id",
+            "claim.name": "user_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "roles",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "client roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "resource_access.${client_id}.roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Administrator role with full access"
+      },
+      {
+        "name": "manager",
+        "description": "Can manage some applications"
+      },
+      {
+        "name": "user",
+        "description": "Standard user role"
+      }
+    ],
+    "client": {
+      "dashboard-web": [
+        {
+          "name": "dashboard-web_access",
+          "description": "Access MOH Dashboard"
+        },
+        {
+          "name": "portal_admin",
+          "description": "Portal administrator access"
+        },
+        {
+          "name": "portal_manager",
+          "description": "Portal manager access"
+        },
+        {
+          "name": "portal_user",
+          "description": "Standard portal user access"
+        }
+      ],
+      "outbreak-management": [
+        {
+          "name": "outbreak-management_access",
+          "description": "Base access to Outbreak Management"
+        },
+        {
+          "name": "super_admin",
+          "description": "Super Administrator with full system access"
+        },
+        {
+          "name": "admin",
+          "description": "Administrator with management access"
+        },
+        {
+          "name": "manager",
+          "description": "Department manager with oversight access"
+        },
+        {
+          "name": "viewer",
+          "description": "Read-only access to reports and data"
+        },
+        {
+          "name": "data_entry",
+          "description": "Data entry personnel"
+        },
+        {
+          "name": "lab_technician",
+          "description": "Laboratory technician with lab-specific access"
+        },
+        {
+          "name": "surveillance_officer",
+          "description": "Surveillance officer with monitoring access"
+        }
+      ],
+      "data-statistics": [
+        {
+          "name": "data-statistics_access",
+          "description": "Default access to Data & Statistics",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "data_quality:read",
+              "documents:read",
+              "surveillance:read",
+              "report_browser:read"
+            ]
+          }
+        },
+        {
+          "name": "report_admin",
+          "description": "Report Browser administrator access",
+          "attributes": {
+            "portal.permissions": [
+              "report_browser:read",
+              "metrics:read",
+              "audit:read",
+              "report_scheduler:read",
+              "report_scheduler:create",
+              "report_scheduler:update",
+              "report_scheduler:delete",
+              "report_scheduler:execute",
+              "report_scheduler:history",
+              "report_scheduler:manage"
+            ]
+          }
+        },
+        {
+          "name": "report_manager",
+          "description": "Report Browser manager access"
+        },
+        {
+          "name": "report_analyst",
+          "description": "Report Browser analyst access"
+        },
+        {
+          "name": "report_viewer",
+          "description": "Report Browser read-only access"
+        },
+        {
+          "name": "report-scheduler_access",
+          "description": "Access Report Scheduler",
+          "attributes": {
+            "portal.permissions": [
+              "portal:access",
+              "systems:read",
+              "systems:launch",
+              "report_scheduler:read",
+              "report_scheduler:create",
+              "report_scheduler:update",
+              "report_scheduler:delete",
+              "report_scheduler:execute",
+              "report_scheduler:history"
+            ]
+          }
+        },
+        {
+          "name": "report_scheduler_service",
+          "description": "Health BI scheduler service; no portal user permissions",
+          "composite": false,
+          "clientRole": true
+        }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "dashboard-admin",
+      "name": "MOH Dashboard Admin Client",
+      "description": "MOH Dashboard Admin Client",
+      "enabled": true,
+      "secret": "dashboard-admin-secret",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "authorizationServicesEnabled": false
+    },
+    {
+      "clientId": "outbreak-management-admin",
+      "name": "Outbreak Management Admin Client",
+      "description": "Admin client for managing Outbreak Management",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "ios-admin-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "authorizationServicesEnabled": false
+    },
+    {
+      "clientId": "dashboard-web",
+      "name": "MOH SSO Dashboard Web",
+      "description": "MOH SSO Dashboard Web",
+      "rootUrl": "http://localhost:3000/portal",
+      "baseUrl": "http://localhost:3000/portal",
+      "enabled": true,
+      "secret": "dashboard-web-secret",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/portal/*",
+        "http://localhost:9000/api/v1/auth/callback"
+      ],
+      "webOrigins": ["http://localhost:3000"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "optionalClientScopes": ["health-context", "user_id"],
+      "protocolMappers": [
+        {
+          "name": "audience-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "dashboard-web",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "attributes": {
+        "portal.system": "true",
+        "portal.accessRoles": "dashboard-web_access",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "http://localhost:3000/portal"
+      }
+    },
+    {
+      "clientId": "outbreak-management",
+      "name": "Outbreak Management",
+      "description": "Outbreak Management Backend API",
+      "rootUrl": "http://localhost:3001",
+      "baseUrl": "http://localhost:3001",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "secret": "ios-secret",
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3001/auth/callback"],
+      "webOrigins": ["http://localhost:3001"],
+      "attributes": {
+        "access.token.lifespan": "1800",
+        "ui.icon": "warning-alt",
+        "ui.home": "/portal/apps/outbreak-management",
+        "ui.category": "surveillance",
+        "portal.system": "true",
+        "portal.accessRoles": "outbreak-management_access,viewer,data_entry,surveillance_officer,manager,admin,super_admin",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/outbreak-management"
+      },
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "optionalClientScopes": ["health-context", "user_id"]
+    },
+    {
+      "clientId": "data-statistics",
+      "name": "Data & Statistics",
+      "description": "Data quality, document upload, reports, and surveillance tools",
+      "rootUrl": "http://localhost:3000/portal/apps/dwh",
+      "baseUrl": "http://localhost:3000/portal/apps/dwh",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "ui.icon": "home",
+        "ui.home": "/portal/apps/dwh",
+        "ui.category": "platform",
+        "portal.system": "true",
+        "portal.accessRoles": "data-statistics_access,report_viewer,report_analyst,report_manager,report_admin,report-scheduler_access",
+        "ui.systemType": "platform",
+        "ui.displayInLauncher": "true",
+        "ui.displayInSideNav": "false",
+        "ui.launchMode": "internal",
+        "ui.launchUrl": "/portal/apps/dwh",
+        "ui.navigation": "[{\"id\":\"dashboards\",\"label\":\"Dashboards\",\"path\":\"/apps/dwh/dashboards\",\"permission\":\"report_browser:read\"},{\"id\":\"data-validation\",\"label\":\"Data Validation\",\"path\":\"/apps/dwh/data-validation\",\"permission\":\"data_quality:read\"},{\"id\":\"documents\",\"label\":\"Documents\",\"path\":\"/apps/dwh/documents\",\"permission\":\"documents:read\"},{\"id\":\"surveillance\",\"label\":\"Surveillance\",\"path\":\"/apps/dwh/surveillance\",\"permission\":\"surveillance:read\"},{\"id\":\"issue-tracker\",\"label\":\"Issue Tracker\",\"path\":\"/apps/dwh/issue-tracker\",\"permission\":\"issue_tracker:read\"},{\"id\":\"report-scheduler\",\"label\":\"Report Scheduler\",\"path\":\"/apps/dwh/report-scheduler\",\"permission\":\"report_scheduler:read\",\"icon\":\"reporting\",\"description\":\"Schedule report generation and delivery.\",\"order\":70,\"displayInLauncher\":true,\"displayInSideNav\":true}]"
+      }
+    },
+    {
+      "clientId": "datawarehouse-report-browser",
+      "name": "Health BI",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["https://dashboards.health.go.ug/report-browser/*"],
+      "webOrigins": ["https://dashboards.health.go.ug"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://dashboards.health.go.ug/report-browser/*",
+        "portal.system": "false",
+        "ui.displayInLauncher": "false",
+        "ui.displayInSideNav": "false"
+      },
+      "defaultClientScopes": ["web-origins", "roles", "profile", "email"],
+      "protocolMappers": [
+        {
+          "name": "portal-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "data-statistics",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "description": "Health BI browser login for the existing portal report-browser module; roles belong to data-statistics."
+    },
+    {
+      "clientId": "report-scheduler-worker",
+      "name": "Report Scheduler Worker",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": ["roles"],
+      "protocolMappers": [
+        {
+          "name": "healthbi-service-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "data-statistics",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "attributes": {
+        "portal.system": "false",
+        "ui.displayInLauncher": "false",
+        "ui.displayInSideNav": "false"
+      }
+    },
+    {
+      "clientId": "digital-timesheets",
+      "name": "Health Workforce Portal",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": false,
+      "frontchannelLogout": false,
+      "consentRequired": false,
+      "rootUrl": "https://timesheet.health.go.ug",
+      "baseUrl": "https://timesheet.health.go.ug",
+      "redirectUris": [
+        "https://timesheet.health.go.ug/auth/sso"
+      ],
+      "webOrigins": [
+        "https://timesheet.health.go.ug"
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://timesheet.health.go.ug/login",
+        "access.token.signed.response.alg": "RS256",
+        "id.token.signed.response.alg": "RS256",
+        "portal.system": "false",
+        "ui.displayInLauncher": "false",
+        "ui.displayInSideNav": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "System",
+      "lastName": "Admin",
+      "email": "admin@moh.go.ug",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Admin@12345678!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin"],
+      "clientRoles": {
+        "dashboard-web": ["dashboard-web_access", "portal_admin"],
+        "outbreak-management": [
+          "outbreak-management_access",
+          "super_admin",
+          "admin"
+        ],
+        "data-statistics": ["report_admin", "report_manager"]
+      },
+      "attributes": {
+        "accessible_systems": ["data-statistics"]
+      }
+    },
+    {
+      "username": "testuser",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "user@moh.go.ug",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "User@12345678!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"],
+      "clientRoles": {
+        "dashboard-web": ["dashboard-web_access", "portal_user"],
+        "outbreak-management": ["outbreak-management_access", "viewer"],
+        "data-statistics": ["report_viewer", "report-scheduler_access"]
+      },
+      "attributes": {
+        "accessible_systems": ["data-statistics"]
+      }
+    },
+    {
+      "username": "pwaiswa",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "System",
+      "lastName": "Admin",
+      "email": "admin@system.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Pwaiswa@123456!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["manager"],
+      "clientRoles": {
+        "dashboard-web": ["dashboard-web_access", "portal_manager"],
+        "outbreak-management": [
+          "outbreak-management_access",
+          "manager",
+          "surveillance_officer"
+        ],
+        "data-statistics": ["report_manager", "report_analyst"]
+      },
+      "attributes": {
+        "accessible_systems": ["data-statistics"]
+      }
+    },
+    {
+      "username": "pmbaka",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Mbaka",
+      "lastName": "Paul",
+      "email": "paul.mbaka@gmail.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Paul@Mbaka1234!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"],
+      "clientRoles": {
+        "dashboard-web": ["dashboard-web_access", "portal_user"],
+        "outbreak-management": [
+          "outbreak-management_access",
+          "data_entry",
+          "surveillance_officer"
+        ],
+        "data-statistics": ["report_analyst"]
+      },
+      "attributes": {
+        "accessible_systems": ["data-statistics"]
+      }
+    },
+    {
+      "username": "outbreak_viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Outbreak",
+      "lastName": "Viewer",
+      "email": "outbreak_viewer@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Viewer@12345678!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"],
+      "clientRoles": {
+        "dashboard-web": ["dashboard-web_access", "portal_user"],
+        "outbreak-management": ["outbreak-management_access", "viewer"],
+        "data-statistics": ["report_viewer"]
+      },
+      "attributes": {
+        "accessible_systems": ["data-statistics"]
+      }
+    },
+    {
+      "username": "service-account-dashboard-admin",
+      "enabled": true,
+      "serviceAccountClientId": "dashboard-admin",
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin",
+          "manage-realm",
+          "view-clients",
+          "manage-clients",
+          "view-users",
+          "manage-users",
+          "view-realm"
+        ]
+      }
+    },
+    {
+      "username": "service-account-outbreak-management-admin",
+      "enabled": true,
+      "serviceAccountClientId": "outbreak-management-admin",
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin",
+          "view-users",
+          "manage-users",
+          "view-clients",
+          "manage-clients",
+          "view-realm"
+        ]
+      }
+    },
+    {
+      "username": "service-account-report-scheduler-worker",
+      "enabled": true,
+      "serviceAccountClientId": "report-scheduler-worker",
+      "clientRoles": {
+        "data-statistics": ["report_scheduler_service"]
+      }
+    }
+  ],
+  "clientScopeMappings": {
+    "data-statistics": [
+      {
+        "client": "report-scheduler-worker",
+        "roles": ["report_scheduler_service"]
+      }
+    ]
+  }
+}

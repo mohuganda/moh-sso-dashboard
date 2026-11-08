@@ -7,6 +7,9 @@ import type {
   IssueProgramSummary,
   GetIssuesParams,
   GetIssuesResponse,
+  KeycloakGroup,
+  KeycloakGroupMember,
+  AssignIssuesPayload,
 } from "../types";
 
 import { baseApi } from "@moh-sso/api";
@@ -26,6 +29,14 @@ export const issuesApi = baseApi.injectEndpoints({
           if (params.limit !== undefined) queryParams.append("limit", String(params.limit));
           if (params.offset !== undefined) queryParams.append("offset", String(params.offset));
           if (params.program) queryParams.append("program", params.program);
+          if (params.dataset) queryParams.append("dataset", params.dataset);
+          if (params.dataElement) queryParams.append("data_element", params.dataElement);
+          if (params.period) queryParams.append("period", params.period);
+          if (params.region) queryParams.append("region", params.region);
+          if (params.district) queryParams.append("district", params.district);
+          if (params.orgUnit) queryParams.append("org_unit", params.orgUnit);
+          if (params.assignedTo) queryParams.append("assigned_to", params.assignedTo);
+          if (params.search) queryParams.append("search", params.search);
         }
         const queryString = queryParams.toString();
         if (queryString) {
@@ -112,15 +123,59 @@ export const issuesApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiEnvelope<IssueTransaction>) => res.data,
       invalidatesTags: ["Transactions", "Issues"],
     }),
+
+    getKeycloakGroups: builder.query<KeycloakGroup[], void>({
+      query: () => ({
+        url: `${API.issue.list()}/keycloak-groups`,
+        method: "GET",
+        credentials: "include",
+      }),
+      transformResponse: (res: ApiEnvelope<KeycloakGroup[]>) => res.data ?? [],
+    }),
+
+    getKeycloakGroupMembers: builder.query<KeycloakGroupMember[], string>({
+      query: (groupId) => ({
+        url: `${API.issue.list()}/keycloak-groups/${groupId}/members`,
+        method: "GET",
+        credentials: "include",
+      }),
+      transformResponse: (res: ApiEnvelope<KeycloakGroupMember[]>) => res.data ?? [],
+    }),
+
+    getIssueByCode: builder.query<Issue, string>({
+      query: (issueCode) => ({
+        url: `${API.issue.list()}/${issueCode}`,
+        method: "GET",
+        credentials: "include",
+      }),
+      transformResponse: (res: ApiEnvelope<Issue>) => res.data,
+      providesTags: ["Issues"],
+    }),
+
+    assignIssues: builder.mutation<IssueTransaction[], AssignIssuesPayload>({
+      query: (body) => ({
+        url: `${API.issue.list()}/assign`,
+        method: "POST",
+        body,
+        credentials: "include",
+      }),
+      transformResponse: (res: ApiEnvelope<IssueTransaction[]>) => res.data,
+      invalidatesTags: ["Issues", "Transactions"],
+    }),
   }),
 });
 
 export const {
   useGetIssuesQuery,
   useLazyGetIssuesQuery,
+  useGetIssueByCodeQuery,
+  useLazyGetIssueByCodeQuery,
   useGetIssuesSummaryByProgramQuery,
   useCreateIssueMutation,
   useUpdateIssueMutation,
   useGetTransactionsQuery,
   useCreateTransactionMutation,
+  useGetKeycloakGroupsQuery,
+  useGetKeycloakGroupMembersQuery,
+  useAssignIssuesMutation,
 } = issuesApi;

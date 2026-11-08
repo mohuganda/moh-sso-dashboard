@@ -14,6 +14,7 @@ type WeeklyCasesChartProps = {
   diseaseName?: string;
   data?: WeeklyCasesPoint[];
   height?: string;
+  showTitle?: boolean;
 };
 
 function toWeekNumber(value: string | number): number | null {
@@ -42,6 +43,7 @@ export default function WeeklyCasesChart({
   diseaseName = "Disease",
   data = [],
   height = "320px",
+  showTitle = true,
 }: WeeklyCasesChartProps) {
   const chartData = useMemo(() => {
     const weekMap = new Map<number, number>();
@@ -56,20 +58,18 @@ export default function WeeklyCasesChart({
       weekMap.set(weekNumber, currentValue + Number(item.value ?? 0));
     }
 
-    return Array.from({ length: 52 }, (_, index) => {
-      const week = index + 1;
-
-      return {
+    return [...weekMap.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([week, value]) => ({
         group: "Cases",
-        key: `Week ${week}`,
-        value: weekMap.get(week) ?? 0,
-      };
-    });
+        key: week,
+        value,
+      }));
   }, [data]);
 
   const options = useMemo(
     () => ({
-      title: `${diseaseName} Weekly Cases`,
+      title: showTitle ? `${diseaseName} Weekly Cases` : undefined,
       axes: {
         left: {
           mapsTo: "value",
@@ -78,8 +78,11 @@ export default function WeeklyCasesChart({
         },
         bottom: {
           mapsTo: "key",
-          title: "EPI Weeks",
-          scaleType: ScaleTypes.LABELS,
+          title: "EPI week",
+          scaleType: ScaleTypes.LINEAR,
+          includeZero: false,
+          domain: [0.5, 53.5],
+          ticks: { values: [1, 9, 18, 27, 36, 45, 53] },
         },
       },
       height,
@@ -90,7 +93,7 @@ export default function WeeklyCasesChart({
         enabled: false,
       },
     }),
-    [diseaseName, height],
+    [diseaseName, height, showTitle],
   );
 
   return (

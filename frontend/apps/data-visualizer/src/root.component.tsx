@@ -1,4 +1,5 @@
 import type { MicrofrontendRuntimeProps } from "@moh-sso/microfrontend";
+import { PageShell } from "@moh-sso/ui";
 
 import DataVisualizer from "./pages/data-visualizer";
 
@@ -7,7 +8,12 @@ export function DataVisualizerRoot(props: MicrofrontendRuntimeProps) {
 
   return (
     <div className="moh-microfrontend-root">
-      <DataVisualizer />
+      <PageShell
+        title="Data Visualizer"
+        subtitle="Explore data by period and organisation unit, build charts, and export results."
+      >
+        <DataVisualizer />
+      </PageShell>
     </div>
   );
 }

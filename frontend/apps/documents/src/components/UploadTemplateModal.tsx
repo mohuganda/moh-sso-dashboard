@@ -338,6 +338,7 @@ function UploadTemplateModalContent({ onClose }: UploadTemplateModalProps) {
         })),
       }).unwrap();
 
+      handleClearFile();
       onClose();
     } catch (caughtError: unknown) {
       // If the template file was uploaded but saving its structure failed

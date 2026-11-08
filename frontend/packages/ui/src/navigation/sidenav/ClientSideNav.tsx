@@ -1,11 +1,26 @@
 import { useMemo, useRef } from "react";
 import { SideNav, SideNavItems, SideNavLink, SideNavMenu } from "@carbon/react";
-import { Menu } from "@carbon/react/icons";
+import { ChevronLeft, ChevronRight, Document, Folder, FolderOpen } from "@carbon/react/icons";
 
 import type { Client, SystemNavigationItem } from "@moh-sso/types";
 import { useFocusTrap } from "../../accessibility";
 
+import "./client-side-nav.scss";
+
 type SideNavItem = SystemNavigationItem;
+
+function PortalFolderIcon() {
+  return (
+    <>
+      <Folder size={20} className="moh-portal-folder-icon--closed" aria-hidden="true" />
+      <FolderOpen size={20} className="moh-portal-folder-icon--open" aria-hidden="true" />
+    </>
+  );
+}
+
+function PortalPageIcon() {
+  return <Document size={16} aria-hidden="true" />;
+}
 
 /* --------------------------------
  * Helpers
@@ -32,7 +47,21 @@ function isActivePath(currentPath: string, itemPath?: string): boolean {
     return false;
   }
 
-  return currentPath === normalizedItemPath || currentPath.startsWith(`${normalizedItemPath}/`);
+  if (currentPath === normalizedItemPath) {
+    return true;
+  }
+
+  const currentWithoutQuery = currentPath.split("?")[0];
+  const itemWithoutQuery = normalizedItemPath.split("?")[0];
+
+  if (normalizedItemPath.includes("?")) {
+    return currentPath === normalizedItemPath;
+  }
+
+  return (
+    currentWithoutQuery === itemWithoutQuery ||
+    currentWithoutQuery.startsWith(`${itemWithoutQuery}/`)
+  );
 }
 
 function sortItems(items: SideNavItem[]): SideNavItem[] {
@@ -72,12 +101,18 @@ function isValidSideNavItem(value: unknown): value is SideNavItem {
 
 function normalizeLegacySideNavItems(items: SideNavItem[]): SideNavItem[] {
   const normalizedItems = items
-    .filter((item) => item.id !== "data-exports" && normalizePath(item.path) !== "/apps/dwh/exports")
+    .filter(
+      (item) => item.id !== "data-exports" && normalizePath(item.path) !== "/apps/dwh/exports",
+    )
     .map((item) => {
       const children = item.children ? normalizeLegacySideNavItems(item.children) : undefined;
       const itemPath = normalizePath(item.path);
 
-      if (itemPath === "/apps/dwh" || itemPath === "/apps/dwh/reports" || itemPath === "/apps/dwh/dashboards") {
+      if (
+        itemPath === "/apps/dwh" ||
+        itemPath === "/apps/dwh/reports" ||
+        itemPath === "/apps/dwh/dashboards"
+      ) {
         return {
           ...item,
           id: "dashboards",
@@ -94,6 +129,58 @@ function normalizeLegacySideNavItems(items: SideNavItem[]): SideNavItem[] {
           label: item.label === "File Upload" ? "Documents" : item.label,
           path: "/apps/dwh/documents",
           children,
+        };
+      }
+
+      if (
+        itemPath === "/apps/dwh/issue-tracker?view=dashboard" ||
+        item.id === "issue-dashboard" ||
+        item.id === "issue-summary"
+      ) {
+        return {
+          ...item,
+          id: "issue-summary",
+          label: "Issue Summary",
+          path: "/apps/dwh/issue-tracker/dashboard",
+        };
+      }
+
+      if (itemPath === "/apps/dwh/issue-tracker?view=issues" || item.id === "registered-issues") {
+        return {
+          ...item,
+          id: "registered-issues",
+          label: item.label || "Registered Issues",
+          path: "/apps/dwh/issue-tracker/issues",
+        };
+      }
+
+      if (
+        itemPath === "/apps/dwh/issue-tracker" ||
+        item.id === "issue-tracker" ||
+        item.id === "issue-tracking"
+      ) {
+        return {
+          ...item,
+          id: "issue-tracking",
+          label: "Issue Tracking",
+          path: undefined,
+          children:
+            children && children.length > 0
+              ? children
+              : [
+                  {
+                    id: "issue-summary",
+                    label: "Issue Summary",
+                    path: "/apps/dwh/issue-tracker/dashboard",
+                    permission: item.permission ?? "issue_tracker:read",
+                  },
+                  {
+                    id: "registered-issues",
+                    label: "Registered Issues",
+                    path: "/apps/dwh/issue-tracker/issues",
+                    permission: item.permission ?? "issue_tracker:read",
+                  },
+                ],
         };
       }
 
@@ -223,9 +310,15 @@ type RenderSideNavItemProps = {
   item: SideNavItem;
   currentPath: string;
   onNavigate: (path: string) => void;
+  hrefPrefix?: string;
 };
 
-function RenderSideNavItem({ item, currentPath, onNavigate }: RenderSideNavItemProps) {
+function RenderSideNavItem({
+  item,
+  currentPath,
+  onNavigate,
+  hrefPrefix = "",
+}: RenderSideNavItemProps) {
   const children = sortItems(item.children ?? []);
   const hasChildren = children.length > 0;
   const itemPath = normalizePath(item.path);
@@ -236,6 +329,8 @@ function RenderSideNavItem({ item, currentPath, onNavigate }: RenderSideNavItemP
     return (
       <SideNavMenu
         key={item.id}
+        className="moh-portal-nav-folder"
+        renderIcon={PortalFolderIcon}
         title={item.label}
         defaultExpanded={childActive}
         isActive={childActive}
@@ -246,6 +341,7 @@ function RenderSideNavItem({ item, currentPath, onNavigate }: RenderSideNavItemP
             item={child}
             currentPath={currentPath}
             onNavigate={onNavigate}
+            hrefPrefix={hrefPrefix}
           />
         ))}
       </SideNavMenu>
@@ -259,9 +355,16 @@ function RenderSideNavItem({ item, currentPath, onNavigate }: RenderSideNavItemP
   return (
     <SideNavLink
       key={item.id}
+      className="moh-portal-nav-page"
+      renderIcon={PortalPageIcon}
       isActive={active}
       aria-current={active ? "page" : undefined}
-      onClick={() => onNavigate(itemPath)}
+      href={`${hrefPrefix.replace(/\/$/, "")}${itemPath}`}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onNavigate(itemPath);
+      }}
     >
       {item.label}
     </SideNavLink>
@@ -277,6 +380,7 @@ type ClientSideNavProps = {
   activeClient?: Client | null;
   currentPath: string;
   onNavigate: (path: string) => void;
+  hrefPrefix?: string;
   hasPermission?: (permission: string) => boolean;
   visible?: boolean;
   onToggleVisibility?: () => void;
@@ -290,6 +394,7 @@ export function ClientSideNav({
   hasPermission,
   visible = true,
   onToggleVisibility,
+  hrefPrefix = "",
 }: ClientSideNavProps) {
   const navRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -343,12 +448,13 @@ export function ClientSideNav({
         <button
           type="button"
           className="moh-client-sidenav__toggle moh-client-sidenav__toggle--rail"
-          aria-label="Show navigation"
+          aria-label="Expand navigation"
+          title="Expand navigation"
           aria-controls="user-sidenav"
           aria-expanded={false}
           onClick={onToggleVisibility}
         >
-          <Menu size={22} />
+          <ChevronRight size={20} aria-hidden="true" />
         </button>
       ) : null}
 
@@ -358,6 +464,7 @@ export function ClientSideNav({
         isFixedNav
         expanded
         aria-hidden={!visible}
+        inert={!visible}
         aria-label="Application navigation"
         className="moh-client-sidenav"
       >
@@ -373,12 +480,13 @@ export function ClientSideNav({
                 ref={closeButtonRef}
                 type="button"
                 className="moh-client-sidenav__toggle"
-                aria-label="Hide navigation"
+                aria-label="Collapse navigation"
+                title="Collapse navigation"
                 aria-controls="user-sidenav"
                 aria-expanded={visible}
                 onClick={onToggleVisibility}
               >
-                <Menu size={22} />
+                <ChevronLeft size={20} aria-hidden="true" />
               </button>
             ) : null}
           </div>
@@ -391,6 +499,8 @@ export function ClientSideNav({
             return (
               <SideNavMenu
                 key={client.clientId}
+                className="moh-portal-nav-folder"
+                renderIcon={PortalFolderIcon}
                 title={getClientLabel(client)}
                 defaultExpanded={clientActive}
                 isActive={clientActive}
@@ -401,6 +511,7 @@ export function ClientSideNav({
                     item={item}
                     currentPath={currentPath}
                     onNavigate={handleNavigate}
+                    hrefPrefix={hrefPrefix}
                   />
                 ))}
               </SideNavMenu>

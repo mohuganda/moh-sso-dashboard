@@ -28,7 +28,7 @@ type MeResponse = ApiEnvelope<{
  *
  * Browser sends cookies automatically because credentials is "include".
  */
-const rawBaseQuery = fetchBaseQuery({
+const transportBaseQuery = fetchBaseQuery({
   baseUrl: API.base,
   credentials: "include",
   prepareHeaders: (headers, { getState }) => {
@@ -53,6 +53,26 @@ const rawBaseQuery = fetchBaseQuery({
     return headers;
   },
 });
+
+// RTK Query joins root-relative URLs to baseUrl as endpoint fragments.
+// API constants already include API.base, so remove that prefix once before
+// joining. Short endpoint fragments and absolute URLs retain their semantics.
+const rawBaseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = (
+  args,
+  api,
+  extraOptions,
+) => {
+  const base = API.base.replace(/\/+$/, "");
+  const url = typeof args === "string" ? args : args.url;
+  const hasApiPrefix =
+    base.startsWith("/") &&
+    (url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`));
+  if (hasApiPrefix) {
+    const relativeURL = url.slice(base.length) || "/";
+    args = typeof args === "string" ? relativeURL : { ...args, url: relativeURL };
+  }
+  return transportBaseQuery(args, api, extraOptions);
+};
 
 /**
  * Single-flight refresh promise.
@@ -163,6 +183,13 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
    */
   result = await rawBaseQuery(args, api, extraOptions);
 
+  // A successful refresh does not guarantee the session is usable. Clear auth
+  // if the retry is still unauthorized so ProtectedRoute sends the user to login.
+  if (result.error?.status === 401) {
+    api.dispatch(logout());
+    return result;
+  }
+
   /**
    * If this was /auth/me and it succeeded, sync Redux auth state.
    */
@@ -224,6 +251,11 @@ export const baseApi = createApi({
     "DataElements",
     "DataValidationRules",
     "HealthContext",
+    "DQATables",
+    "DQARules",
+    "DQARuns",
+    "DQASchedules",
+    "DQAFlags",
   ],
 
   endpoints: () => ({}),

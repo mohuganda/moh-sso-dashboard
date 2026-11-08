@@ -20,15 +20,12 @@ interface DiseaseAlertsTableProps {
   districtNameById?: Record<string, string>;
   regionNameById?: Record<string, string>;
   diseaseNameById?: Record<string, string>;
-  epiWeekLabelById?: Record<string, string>;
   districtRegionByDistrictId?: Record<string, string>;
 }
 
 const headers = [
   { key: "district", header: "District" },
   { key: "region", header: "Region" },
-  { key: "week", header: "Week" },
-  { key: "disease", header: "Disease" },
   { key: "status", header: "Status" },
   { key: "narrative", header: "Narrative" },
 ];
@@ -53,7 +50,6 @@ export function DiseaseAlertsTable({
   districtNameById = {},
   regionNameById = {},
   diseaseNameById = {},
-  epiWeekLabelById = {},
   districtRegionByDistrictId = {},
 }: DiseaseAlertsTableProps) {
   const [page, setPage] = useState(1);
@@ -88,16 +84,10 @@ export function DiseaseAlertsTable({
 
         const region = resolvedRegionId ? (regionNameById[resolvedRegionId] ?? "--") : "--";
 
-        const disease = item.disease_id ? (diseaseNameById[String(item.disease_id)] ?? "--") : "--";
-
-        const week = item.epi_week_id ? (epiWeekLabelById[String(item.epi_week_id)] ?? "--") : "--";
-
         return {
           id: item.id || `${item.district_id ?? "unknown"}-${item.disease_id ?? "none"}-${index}`,
           district,
           region,
-          week,
-          disease,
           status: formatStatus(item.status),
           narrative: item.narrative || "--",
         };
@@ -110,7 +100,6 @@ export function DiseaseAlertsTable({
     districtNameById,
     regionNameById,
     diseaseNameById,
-    epiWeekLabelById,
     districtRegionByDistrictId,
   ]);
 
@@ -132,7 +121,12 @@ export function DiseaseAlertsTable({
   }
 
   return (
-    <div>
+    <div
+      className="disease-details-page__table-scroll"
+      role="region"
+      aria-label="Disease alerts"
+      tabIndex={0}
+    >
       <DataTable rows={paginatedRows} headers={headers} size="sm">
         {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
           <Table {...getTableProps()} size="sm">

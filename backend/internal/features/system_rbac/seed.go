@@ -120,7 +120,8 @@ const dataStatisticsNavigation = `[
   {"id":"data-visualizer","label":"Data Visualizer","path":"/apps/dwh/data-visualizer","permission":"data_quality:read","icon":"chart","order":30,"displayInLauncher":false},
   {"id":"documents","label":"Document Management","path":"/apps/dwh/documents","permission":"documents:read","icon":"documents","description":"Upload and manage health data documents.","order":40,"displayInLauncher":true},
   {"id":"surveillance","label":"Surveillance","path":"/apps/dwh/surveillance","permission":"surveillance:read","icon":"warning-alt","description":"Review surveillance indicators, alerts, and reports.","order":50,"displayInLauncher":true},
-  {"id":"issue-tracker","label":"Issue Tracking","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read","icon":"tracker","description":"Track and resolve data quality issues.","order":60,"displayInLauncher":true}
+  {"id":"issue-tracking","label":"Issue Tracker","path":"/apps/dwh/issue-tracker","permission":"issue_tracker:read","icon":"tracker","description":"Track and resolve data quality issues.","order":60,"displayInLauncher":true,"children":[{"id":"issue-dashboard","label":"Issue Summary","path":"/apps/dwh/issue-tracker/dashboard","permission":"issue_tracker:read","order":10,"displayInLauncher":false},{"id":"registered-issues","label":"Registered Issues","path":"/apps/dwh/issue-tracker/issues","permission":"issue_tracker:read","order":20,"displayInLauncher":false}]},
+  {"id":"report-scheduler","label":"Report Scheduler","path":"/apps/dwh/report-scheduler","permission":"report_scheduler:read","icon":"reporting","description":"Schedule report generation and delivery.","order":70,"displayInLauncher":true,"displayInSideNav":true}
 ]`
 
 const utilitiesNavigation = `[
@@ -645,7 +646,7 @@ func DefaultSeed() SeedFile {
 				AuthenticatedLaunchURL: "/api/v1/auth/launch?returnTo=%2Fportal%2Fapps%2Fnews",
 				Category:               "platform",
 				Enabled:                &enabled,
-				AccessRoles:            []string{authz.DashboardWebAccess},
+				AccessRoles:            []string{authz.DashboardWebAccess, authz.DashboardWebUser},
 				Roles: []SeedRole{
 					{
 						Name:        authz.DashboardWebAccess,
@@ -822,19 +823,8 @@ func DefaultSeed() SeedFile {
 					string(authz.PermissionSystemsRead),
 					string(authz.PermissionSystemsLaunch),
 					string(authz.PermissionHealthContextsRead),
-					string(authz.PermissionDataQualityRead),
-					string(authz.PermissionIssueTrackerRead),
-					string(authz.PermissionDocumentsRead),
-					string(authz.PermissionDocumentTemplatesRead),
-					string(authz.PermissionStorageLocationsRead),
-					string(authz.PermissionSurveillanceRead),
-					string(authz.PermissionReportBrowserRead),
 				},
-				SystemRoles: map[string][]string{
-					authz.SystemDataStatistics: {authz.DataStatisticsAccess, authz.DocumentViewer},
-					authz.SystemUtilities:      {authz.UtilitiesAccess},
-					authz.SystemSettings:       {authz.SettingsAccess},
-				},
+				SystemRoles: authz.DefaultUserClientRoles(),
 			},
 			{
 				Name: authz.RoleManager,
@@ -988,6 +978,7 @@ func defaultDataStatisticsSystem(enabled bool) SeedSystem {
 		enabled,
 	)
 	system.AccessRoles = append(system.AccessRoles,
+		authz.ReportSchedulerAccess,
 		authz.ReportBrowserViewer,
 		authz.ReportBrowserAnalyst,
 		authz.ReportBrowserManager,
@@ -1010,12 +1001,29 @@ func defaultDataStatisticsSystem(enabled bool) SeedSystem {
 	)
 	system.Roles = append(system.Roles,
 		SeedRole{
+			Name:        authz.ReportSchedulerAccess,
+			DisplayName: "Report Scheduler Access",
+			Permissions: []string{
+				string(authz.PermissionPortalAccess), string(authz.PermissionSystemsRead), string(authz.PermissionSystemsLaunch),
+				string(authz.PermissionReportSchedulerRead), string(authz.PermissionReportSchedulerCreate),
+				string(authz.PermissionReportSchedulerUpdate), string(authz.PermissionReportSchedulerDelete),
+				string(authz.PermissionReportSchedulerExecute), string(authz.PermissionReportSchedulerHistory),
+			},
+		},
+		SeedRole{
 			Name:        authz.ReportBrowserAdmin,
 			DisplayName: "Report Admin",
 			Permissions: []string{
 				string(authz.PermissionReportBrowserRead),
 				string(authz.PermissionMetricsRead),
 				string(authz.PermissionAuditRead),
+				string(authz.PermissionReportSchedulerRead),
+				string(authz.PermissionReportSchedulerCreate),
+				string(authz.PermissionReportSchedulerUpdate),
+				string(authz.PermissionReportSchedulerDelete),
+				string(authz.PermissionReportSchedulerExecute),
+				string(authz.PermissionReportSchedulerHistory),
+				string(authz.PermissionReportSchedulerManage),
 			},
 		},
 		SeedRole{

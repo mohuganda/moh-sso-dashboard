@@ -91,11 +91,15 @@ func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseMetricsByWeekInHeal
 	epiWeekID uuid.UUID,
 	scope HealthContextScope,
 ) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekRow, error) {
+	allowedIDs, err := scope.allowedIDs(ctx, "surveillance-facility", false)
+	if err != nil {
+		return nil, err
+	}
+
 	rows, err := r.db.ListFacilityWeeklyDiseaseMetricsByWeekInHealthContext(
 		ctx,
 		db.ListFacilityWeeklyDiseaseMetricsByWeekInHealthContextParams{
-			EpiWeekID: epiWeekID, HealthContextID: scope.ID,
-			IncludeDescendants: scope.IncludeDescendants,
+			EpiWeekID: epiWeekID, AllowedFacilityIds: allowedIDs,
 		},
 	)
 	if err != nil {
@@ -129,12 +133,17 @@ func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseMetricsByWeekAndDis
 	diseaseID uuid.UUID,
 	scope HealthContextScope,
 ) ([]db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseRow, error) {
+	allowedIDs, err := scope.allowedIDs(ctx, "surveillance-facility", false)
+	if err != nil {
+		return nil, err
+	}
+
 	rows, err := r.db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContext(
 		ctx,
 		db.ListFacilityWeeklyDiseaseMetricsByWeekAndDiseaseInHealthContextParams{
-			EpiWeekID:       epiWeekID,
-			DiseaseID:       uuid.NullUUID{UUID: diseaseID, Valid: diseaseID != uuid.Nil},
-			HealthContextID: scope.ID, IncludeDescendants: scope.IncludeDescendants,
+			EpiWeekID:          epiWeekID,
+			DiseaseID:          uuid.NullUUID{UUID: diseaseID, Valid: diseaseID != uuid.Nil},
+			AllowedFacilityIds: allowedIDs,
 		},
 	)
 	if err != nil {
@@ -204,11 +213,15 @@ func (r *postgresFacilityWeeklyMetricsRepository) ListDiseaseWeeklyTrendAggregat
 	arg db.ListDiseaseWeeklyTrendAggregatedParams,
 	scope HealthContextScope,
 ) ([]db.ListDiseaseWeeklyTrendAggregatedRow, error) {
+	allowedIDs, err := scope.allowedIDs(ctx, "surveillance-facility", false)
+	if err != nil {
+		return nil, err
+	}
+
 	rows, err := r.db.ListDiseaseWeeklyTrendAggregatedInHealthContext(
 		ctx,
 		db.ListDiseaseWeeklyTrendAggregatedInHealthContextParams{
-			DiseaseID: arg.DiseaseID, HealthContextID: scope.ID,
-			IncludeDescendants: scope.IncludeDescendants, EpiYear: arg.EpiYear,
+			DiseaseID: arg.DiseaseID, AllowedFacilityIds: allowedIDs, EpiYear: arg.EpiYear,
 			RegionID: arg.RegionID, DistrictID: arg.DistrictID,
 		},
 	)

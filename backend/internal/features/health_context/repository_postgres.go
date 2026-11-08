@@ -7,17 +7,26 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
 type postgresRepository struct {
-	db *sql.DB
+	geographyDB       *sql.DB
+	geographyMu       sync.Mutex
+	geographySyncedAt time.Time
+	db                *sql.DB
 }
 
-func NewRepository(db *sql.DB) Repository {
-	return &postgresRepository{db: db}
+func NewRepository(db *sql.DB, geographyDB ...*sql.DB) Repository {
+	r := &postgresRepository{db: db}
+	if len(geographyDB) > 0 {
+		r.geographyDB = geographyDB[0]
+	}
+	return r
 }
 
 func (r *postgresRepository) CreateNode(ctx context.Context, input CreateNodeInput) (Node, error) {
@@ -185,6 +194,10 @@ func (r *postgresRepository) ListNodes(
 	contextType ContextType,
 	includeDisabled bool,
 ) ([]Node, error) {
+	if err := r.ensureGeographySync(ctx); err != nil {
+		return nil, err
+	}
+
 	if r.db == nil {
 		return nil, errors.New("health context database is unavailable")
 	}
@@ -300,6 +313,10 @@ func (r *postgresRepository) GetNodeByAlias(
 	namespace string,
 	externalID string,
 ) (Node, error) {
+	if err := r.ensureGeographySync(ctx); err != nil {
+		return Node{}, err
+	}
+
 	if r.db == nil {
 		return Node{}, errors.New("health context database is unavailable")
 	}
@@ -350,6 +367,10 @@ func (r *postgresRepository) ListAliasesInScope(
 	contextID uuid.UUID,
 	includeDescendants bool,
 ) ([]Alias, error) {
+	if err := r.ensureGeographySync(ctx); err != nil {
+		return nil, err
+	}
+
 	if r.db == nil {
 		return nil, errors.New("health context database is unavailable")
 	}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/model"
 	"github.com/moh-sso-dashboard/internal/utils"
 )
@@ -59,21 +60,26 @@ type ProtocolMapper struct {
 }
 
 type CreateClientParams struct {
-	ClientID                  string            `json:"clientId"`
-	Name                      string            `json:"name"`
-	Description               string            `json:"description"`
-	BaseURL                   string            `json:"baseUrl"`
-	RootURL                   string            `json:"rootUrl"`
-	RedirectURIs              []string          `json:"redirectUris"`
-	WebOrigins                []string          `json:"webOrigins"`
-	PublicClient              bool              `json:"publicClient"`
-	Protocol                  string            `json:"protocol"`
-	StandardFlowEnabled       bool              `json:"standardFlowEnabled"`
-	ImplicitFlowEnabled       bool              `json:"implicitFlowEnabled"`
-	DirectAccessGrantsEnabled bool              `json:"directAccessGrantsEnabled"`
-	ServiceAccountsEnabled    bool              `json:"serviceAccountsEnabled"`
-	Enabled                   bool              `json:"enabled"`
-	Attributes                map[string]string `json:"attributes"`
+	DefaultClientScopes       []string               `json:"defaultClientScopes,omitempty"`
+	OptionalClientScopes      []string               `json:"optionalClientScopes,omitempty"`
+	ProtocolMappers           []model.ProtocolMapper `json:"protocolMappers,omitempty"`
+	FullScopeAllowed          bool                   `json:"fullScopeAllowed"`
+	FrontChannelLogout        bool                   `json:"frontchannelLogout"`
+	ClientID                  string                 `json:"clientId"`
+	Name                      string                 `json:"name"`
+	Description               string                 `json:"description"`
+	BaseURL                   string                 `json:"baseUrl"`
+	RootURL                   string                 `json:"rootUrl"`
+	RedirectURIs              []string               `json:"redirectUris"`
+	WebOrigins                []string               `json:"webOrigins"`
+	PublicClient              bool                   `json:"publicClient"`
+	Protocol                  string                 `json:"protocol"`
+	StandardFlowEnabled       bool                   `json:"standardFlowEnabled"`
+	ImplicitFlowEnabled       bool                   `json:"implicitFlowEnabled"`
+	DirectAccessGrantsEnabled bool                   `json:"directAccessGrantsEnabled"`
+	ServiceAccountsEnabled    bool                   `json:"serviceAccountsEnabled"`
+	Enabled                   bool                   `json:"enabled"`
+	Attributes                map[string]string      `json:"attributes"`
 }
 
 type KeycloakUser struct {
@@ -436,12 +442,6 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 		opts.Protocol = "openid-connect"
 	}
 
-	opts.Enabled = true
-	opts.StandardFlowEnabled = true
-	opts.ImplicitFlowEnabled = false
-	opts.DirectAccessGrantsEnabled = false
-	opts.ServiceAccountsEnabled = false
-
 	if opts.RedirectURIs == nil {
 		opts.RedirectURIs = []string{}
 	}
@@ -462,7 +462,7 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 	}
 
 	if _, ok := opts.Attributes["ui.home"]; !ok {
-		opts.Attributes["ui.home"] = "/admin"
+		opts.Attributes["ui.home"] = ""
 	}
 
 	if err := utils.ValidateRedirectURIs(opts.RedirectURIs); err != nil {
@@ -485,8 +485,10 @@ func (c *KeyAdminClient) CreateClient(opts CreateClientParams) (string, error) {
 		return "", err
 	}
 
-	if err := c.EnsureClientBaseline(context.Background(), clientUUID); err != nil {
-		return "", err
+	if opts.Attributes["portal.onboarding.profile"] == "" {
+		if err := c.EnsureClientBaseline(context.Background(), clientUUID); err != nil {
+			return "", err
+		}
 	}
 
 	return clientUUID, nil
@@ -589,7 +591,19 @@ func (c *KeyAdminClient) UpdateClient(id string, payload *model.Client) error {
 		return fmt.Errorf("client id is required")
 	}
 
-	res, err := c.Put("clients/"+url.PathEscape(id), payload)
+	// The portal model also carries presentation-only fields absent from Keycloak's API.
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	var representation map[string]any
+	if err := json.Unmarshal(raw, &representation); err != nil {
+		return err
+	}
+	for _, key := range []string{"rootClientRealm", "authorizationUrl", "tlsRequired", "secret", "registrationAccessToken"} {
+		delete(representation, key)
+	}
+	res, err := c.Put("clients/"+url.PathEscape(id), representation)
 	if err != nil {
 		return err
 	}
@@ -749,6 +763,11 @@ func (c *KeyAdminClient) CreateUser(user *model.User) (string, error) {
 		},
 	}
 
+	defaultRole, err := c.GetRealmRoleByName(context.Background(), authz.RoleUser)
+	if err != nil {
+		return "", fmt.Errorf("resolve standard user role: %w", err)
+	}
+
 	res, err := c.Post("users", payload)
 	if err != nil {
 		return "", err
@@ -763,6 +782,13 @@ func (c *KeyAdminClient) CreateUser(user *model.User) (string, error) {
 	kcID, err := parseIDFromLocation(res.Header.Get("Location"))
 	if err != nil {
 		return "", err
+	}
+
+	// Human accounts created through the portal inherit the standard baseline.
+	// Do not attach it to the realm's default role: service accounts also inherit
+	// that role. Explicit role assignments remain additive.
+	if err := c.AddRealmRoleToUser(context.Background(), kcID, *defaultRole); err != nil {
+		return kcID, fmt.Errorf("user created but standard role assignment failed: %w", err)
 	}
 
 	return kcID, nil
@@ -829,6 +855,31 @@ func (c *KeyAdminClient) ListUsers() ([]UserInfo, error) {
 	}
 
 	return users, nil
+}
+
+func (c *KeyAdminClient) GetUserGroups(ctx context.Context, userID string) ([]GroupRep, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+
+	res, err := c.GetWithContext(ctx, "users/"+url.PathEscape(userID)+"/groups")
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("failed to get user groups: status=%d body=%s", res.StatusCode, string(body))
+	}
+
+	var groups []GroupRep
+	if err := json.NewDecoder(res.Body).Decode(&groups); err != nil {
+		return nil, fmt.Errorf("decode user groups failed: %w", err)
+	}
+
+	return groups, nil
 }
 
 func (c *KeyAdminClient) ListGroups(ctx context.Context) ([]GroupRep, error) {
@@ -951,7 +1002,12 @@ func (c *KeyAdminClient) EnsureGroupPath(
 			continue
 		}
 
-		payload := GroupRep{
+		// Creation payloads must omit server-owned fields. Sending id=""
+		// makes Keycloak interpret a child creation as an update of that ID.
+		payload := struct {
+			Name       string              `json:"name"`
+			Attributes map[string][]string `json:"attributes,omitempty"`
+		}{
 			Name: segment,
 		}
 		if currentPath == groupPath {
