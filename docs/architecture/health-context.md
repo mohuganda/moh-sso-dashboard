@@ -48,7 +48,7 @@ checks in its service or repository. The header is untrusted input.
 Documents created with a selected context store that context as immutable
 ownership metadata. Document list, detail, edit, delete, download, preview,
 process history, reprocess, and statistics operations apply the selected node
-or authorized descendant predicate. Migration `000041` classifies documents
+or authorized descendant predicate. Migration `000055` classifies documents
 created before contextual authorization at the seeded Uganda national root.
 Administrators should reclassify those records to narrower contexts where the
 source data supports it.
