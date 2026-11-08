@@ -2,6 +2,10 @@ import { test, expect } from "@playwright/test";
 import { URL } from "node:url";
 import { readFileSync } from "node:fs";
 import { districtKey } from "../../apps/surveillance/src/pages/surveillance-geography.ts";
+import {
+  buildMapMetrics,
+  subcountyMetricKey,
+} from "../../apps/surveillance/src/pages/surveillance-map-metrics.ts";
 
 const base = "/portal/apps/dwh/surveillance";
 const weekId = "00000000-0000-0000-0000-000000000053";
@@ -69,6 +73,8 @@ async function mapFixture(
   noBoundaries = false,
   includeCity = false,
   statuses = ["MAROON", "RED"],
+  metrics = [],
+  weeks = [{ id: weekId, epi_year: 2026, epi_week: 39 }],
 ) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -77,9 +83,12 @@ async function mapFixture(
     let data = [];
     if (path.endsWith("/auth/me")) data = { user };
     else if (path.endsWith("/notifications/count/unread")) data = { count: 0 };
-    else if (path.endsWith("/surveillance/weeks"))
-      data = [{ id: weekId, epi_year: 2026, epi_week: 39 }];
-    else if (path.endsWith("/surveillance/diseases")) data = diseases;
+    else if (path.endsWith("/surveillance/weeks")) data = weeks;
+    else if (path.includes("/facility-weekly-metrics/week/")) {
+      if (metrics === "unavailable")
+        return route.fulfill({ status: 503, json: { success: false } });
+      data = typeof metrics === "function" ? await metrics(path.split("/").pop()) : metrics;
+    } else if (path.endsWith("/surveillance/diseases")) data = diseases;
     else if (path.endsWith("/surveillance/regions")) data = [{ id: "bunyoro", name: "Bunyoro" }];
     else if (path.endsWith("/regions/bunyoro/districts"))
       data = [
@@ -150,6 +159,8 @@ for (const width of [390, 1440]) {
     await paths.first().hover();
     await expect(page.locator(".leaflet-tooltip")).toContainText("HOIMA CITY");
     await expect(page.locator(".leaflet-tooltip")).toContainText("MAROON");
+    await expect(page.locator(".leaflet-tooltip")).toContainText("Reported cases: No data");
+    await expect(page.locator(".leaflet-tooltip")).toContainText("Reporting facilities: No data");
     await expect(
       page.getByText("No facility reports for the selected week and location.", { exact: true }),
     ).toBeVisible();
@@ -166,6 +177,102 @@ for (const width of [390, 1440]) {
     expect(errors).toEqual([]);
   });
 }
+
+test("map totals use one week, count facilities once and keep same-named sub-counties separate", () => {
+  const metric = {
+    id: "one",
+    facility_id: "facility",
+    disease_id: "measles",
+    epi_week_id: weekId,
+    district_name: "Alpha",
+    sub_county_name: "Twin",
+    metric_value: "7",
+  };
+  const totals = buildMapMetrics(
+    [
+      metric,
+      { ...metric, id: "two", disease_id: "malaria", metric_value: "18" },
+      { ...metric, id: "zero", facility_id: "zero-facility", metric_value: 0 },
+      { ...metric, id: "other-area", district_name: "Other district", metric_value: 400 },
+      { ...metric, id: "indicator", disease_id: null, indicator_id: "tests", metric_value: 900 },
+      { ...metric, id: "old-week", epi_week_id: "old", metric_value: 500 },
+      { ...metric, id: "invalid", metric_value: "invalid" },
+      { ...metric, id: "missing", metric_value: "" },
+    ],
+    weekId,
+  );
+  expect(totals.districts.get("alpha").cases).toBe(25);
+  expect(totals.districts.get("alpha").facilities.size).toBe(2);
+  expect(totals.subcounties.get(subcountyMetricKey("Alpha", "Twin")).cases).toBe(25);
+  expect(totals.subcounties.get(subcountyMetricKey("Other district", "Twin")).cases).toBe(400);
+});
+
+for (const width of [390, 1440]) {
+  test(`map tooltip shows cases and distinct reporting facilities and refreshes by week at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const nextWeek = "00000000-0000-0000-0000-000000000054";
+    const metric = {
+      id: "one",
+      facility_id: "facility",
+      disease_id: "measles",
+      epi_week_id: weekId,
+      region_id: "bunyoro",
+      district_id: "city",
+      district_name: "Hoima City",
+      metric_value: "7",
+    };
+    let release;
+    const nextMetrics = new Promise((resolve) => {
+      release = resolve;
+    });
+    await mapFixture(
+      page,
+      false,
+      false,
+      ["MAROON", "RED"],
+      async (week) =>
+        week === nextWeek
+          ? nextMetrics
+          : [
+              metric,
+              { ...metric, id: "two", disease_id: "malaria", metric_value: "18" },
+              { ...metric, id: "zero", facility_id: "zero-facility", metric_value: 0 },
+            ],
+      [
+        { id: weekId, epi_year: 2026, epi_week: 39 },
+        { id: nextWeek, epi_year: 2026, epi_week: 40 },
+      ],
+    );
+    await page.goto(base);
+    await page.getByLabel("Region", { exact: true }).selectOption("bunyoro");
+    await page.getByLabel("District", { exact: true }).selectOption("city");
+    const area = page.locator(".surveillance-map__leaflet path.leaflet-interactive").first();
+    await area.hover();
+    await expect(page.locator(".leaflet-tooltip")).toContainText("Reported cases: 25");
+    await expect(page.locator(".leaflet-tooltip")).toContainText("Reporting facilities: 2");
+    await page.getByLabel("EPI Week", { exact: true }).selectOption(nextWeek);
+    await area.hover();
+    await expect(page.locator(".leaflet-tooltip")).toHaveCount(1);
+    await expect(page.locator(".leaflet-tooltip")).toContainText("Reported cases: Loading…");
+    release([{ ...metric, epi_week_id: nextWeek, metric_value: 0 }]);
+    await expect(page.getByText("Week 40 2026", { exact: true })).toBeVisible();
+    await area.hover();
+    await expect(page.locator(".leaflet-tooltip")).toHaveCount(1);
+    await expect(page.locator(".leaflet-tooltip")).toContainText("Reported cases: 0");
+    await expect(page.locator(".leaflet-tooltip")).toContainText("Reporting facilities: 1");
+  });
+}
+
+test("map tooltip does not report zero cases when the metrics request fails", async ({ page }) => {
+  await mapFixture(page, false, false, ["MAROON"], "unavailable");
+  await page.goto(base);
+  const area = page.locator(".surveillance-map__leaflet path.leaflet-interactive").first();
+  await area.hover();
+  await expect(page.locator(".leaflet-tooltip")).toContainText("Reported cases: Unavailable");
+  await expect(page.locator(".leaflet-tooltip")).toContainText("Reporting facilities: Unavailable");
+});
 
 test("missing boundaries show an explanation instead of a blank map", async ({ page }) => {
   await mapFixture(page, true);

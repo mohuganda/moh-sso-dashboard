@@ -36,6 +36,8 @@ export interface FacilityWeeklyMetric {
   district_name?: string;
   subcounty_id?: string;
   subcounty_name?: string;
+  sub_county_id?: string | null;
+  sub_county_name?: string | null;
   disease_id?: string;
   disease_name?: string;
   indicator_id?: string;

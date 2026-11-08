@@ -48,6 +48,18 @@ class ObservatoryDatabaseTest(unittest.TestCase):
    self.assertEqual(query('SELECT count(*) FROM facility_weekly_metrics;'),'2')
    self.assertEqual(query('SELECT count(*) FROM weekly_status;'),'3')
    self.assertEqual(query('SELECT count(*) FROM alerts;'),'1')
+
+   # Weekly map totals must retain a facility's district/region when no
+   # sub-county is recorded. Execute the actual repository SQL for both paths.
+   query("UPDATE facilities SET sub_county_id=NULL WHERE name='Facility A';")
+   week=query('SELECT id FROM epi_weeks WHERE epi_year=2026 AND epi_week=1;')
+   facility=query("SELECT id FROM facilities WHERE name='Facility A';")
+   source=(ROOT/'backend/internal/db/query/facility_weekly_metrics.sql').read_text()
+   for name in ('ListFacilityWeeklyDiseaseMetricsByWeek','ListFacilityWeeklyDiseaseMetricsByWeekInHealthContext'):
+    statement=source.split('-- name: '+name+' :many\n',1)[1].split('-- name:',1)[0].strip().rstrip(';')
+    statement=statement.replace("sqlc.arg('epi_week_id')", "'"+week+"'::uuid").replace('$1', "'"+week+"'::uuid")
+    statement=statement.replace("sqlc.arg('allowed_facility_ids')", "ARRAY['"+facility+"']")
+    self.assertEqual(query("SELECT count(*) FROM ("+statement+") result WHERE district_name='District A' AND region_name='Region A' AND sub_county_id IS NULL;"),'1')
    self.assertEqual(query("SELECT count(*) FROM surveillance_import_raw_rows WHERE status='FAILED';"),'4')
    self.assertEqual(query("SELECT success_rows||'|'||failed_rows FROM surveillance_import_batches WHERE file_name='data.csv';"),'3|3')
    self.assertEqual(query("SELECT payload->>'weeks' FROM surveillance_import_raw_rows WHERE payload->>'weeks'='0';"),'0')

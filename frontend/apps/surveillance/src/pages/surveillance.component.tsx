@@ -211,10 +211,13 @@ function SurveillanceDashboardContent() {
       skip: !selectedWeekId,
     });
 
-  const { data: facilityMetricsResponse, isFetching: facilitiesLoading } =
-    useListFacilityWeeklyMetricsByWeekQuery(selectedWeekId, {
-      skip: !selectedWeekId,
-    });
+  const {
+    currentData: facilityMetricsResponse,
+    isFetching: facilitiesLoading,
+    isError: facilitiesError,
+  } = useListFacilityWeeklyMetricsByWeekQuery(selectedWeekId, {
+    skip: !selectedWeekId,
+  });
 
   const { data: alertsResponse, isFetching: alertsLoading } = useListAlertsQuery();
 
@@ -615,7 +618,11 @@ function SurveillanceDashboardContent() {
                 waterGeoJson={activeWaterGeoJson}
                 mapLevel={activeMapLevel}
                 weeklyStatuses={filteredWeeklyStatusesDetailed}
+                facilityMetrics={filteredFacilityMetrics}
+                metricsLoading={facilitiesLoading}
+                metricsError={facilitiesError}
                 selectedWeek={{
+                  id: selectedWeek?.id,
                   year: selectedWeek?.epi_year,
                   week: selectedWeek?.epi_week,
                 }}

@@ -5,8 +5,9 @@ import type { Layer, PathOptions } from "leaflet";
 import L from "leaflet";
 
 import { districtKey } from "./surveillance-geography";
+import { buildMapMetrics, subcountyMetricKey } from "./surveillance-map-metrics";
 
-import type { WeeklyStatus, WeeklyStatusDetailed } from "../types";
+import type { FacilityWeeklyMetric, WeeklyStatus, WeeklyStatusDetailed } from "../types";
 
 type StatusKey = "maroon" | "red" | "yellow" | "green" | "default";
 
@@ -35,7 +36,11 @@ interface SurveillanceUgandaMapProps {
   geoJson: GeoJSONType;
   waterGeoJson?: GeoJSONType;
   weeklyStatuses?: WeeklyStatusDetailed[];
+  facilityMetrics?: FacilityWeeklyMetric[];
+  metricsLoading?: boolean;
+  metricsError?: boolean;
   selectedWeek?: {
+    id?: string;
     year?: number;
     week?: number;
   };
@@ -181,6 +186,9 @@ export default function SurveillanceUgandaMap({
   geoJson,
   waterGeoJson,
   weeklyStatuses = [],
+  facilityMetrics = [],
+  metricsLoading = false,
+  metricsError = false,
   selectedWeek,
   title,
   boundaryNotice,
@@ -190,6 +198,10 @@ export default function SurveillanceUgandaMap({
 }: SurveillanceUgandaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const geoJsonRef = useRef<L.GeoJSON | null>(null);
+  const areaMetrics = useMemo(
+    () => buildMapMetrics(facilityMetrics, selectedWeek?.id),
+    [facilityMetrics, selectedWeek?.id],
+  );
 
   const summary = useMemo(() => {
     return weeklyStatuses.reduce(
@@ -412,20 +424,34 @@ export default function SurveillanceUgandaMap({
       },
     });
 
-    layer.bindTooltip(
-      `
-        <div class="surveillance-map__tooltip">
-          <strong>${label}</strong><br/>
-          Status: ${status === "default" ? "No data" : status.toUpperCase()}
-        </div>
-      `,
-      {
-        sticky: true,
-        direction: "top",
-        opacity: 1,
-        className: "surveillance-map__tooltip",
-      },
-    );
+    const district = getFeatureDistrictName(feature.properties);
+    const metrics =
+      mapLevel === "subcounty"
+        ? areaMetrics.subcounties.get(
+            subcountyMetricKey(district, getFeatureSubCountyName(feature.properties)),
+          )
+        : areaMetrics.districts.get(districtKey(district));
+    const unavailable = metricsLoading ? "Loading…" : metricsError ? "Unavailable" : "No data";
+    const tooltip = document.createElement("div");
+    tooltip.className = "surveillance-map__tooltip";
+    const heading = document.createElement("strong");
+    heading.textContent = label;
+    tooltip.append(heading);
+    for (const text of [
+      `Status: ${status === "default" ? "No data" : status.toUpperCase()}`,
+      `Reported cases: ${!metricsLoading && !metricsError && metrics ? metrics.cases.toLocaleString() : unavailable}`,
+      `Reporting facilities: ${!metricsLoading && !metricsError && metrics ? metrics.facilities.size.toLocaleString() : unavailable}`,
+    ]) {
+      const line = document.createElement("div");
+      line.textContent = text;
+      tooltip.append(line);
+    }
+    layer.bindTooltip(tooltip, {
+      sticky: true,
+      direction: "top",
+      opacity: 1,
+      className: "surveillance-map__tooltip",
+    });
   };
 
   const displayTitle =
@@ -451,8 +477,14 @@ export default function SurveillanceUgandaMap({
           ? geoJson.features.map((feature) => feature.properties)
           : geoJson,
         weeklyStatuses,
+        selectedWeek,
+        metricsLoading,
+        metricsError,
+        ...[areaMetrics.districts, areaMetrics.subcounties].map((areas) =>
+          Array.from(areas, ([name, summary]) => [name, summary.cases, summary.facilities.size]),
+        ),
       ]),
-    [mapLevel, geoJson, weeklyStatuses],
+    [mapLevel, geoJson, weeklyStatuses, selectedWeek, metricsLoading, metricsError, areaMetrics],
   );
 
   const waterGeoJsonKey = `water-${waterFeatureCount}`;

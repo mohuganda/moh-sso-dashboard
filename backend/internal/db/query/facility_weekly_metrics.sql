@@ -96,8 +96,8 @@ SELECT
 FROM facility_weekly_metrics m
 JOIN facilities f ON f.id = m.facility_id
 LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
-LEFT JOIN districts dct ON dct.id = sc.district_id
-LEFT JOIN regions r ON r.id = dct.region_id
+LEFT JOIN districts dct ON dct.id = COALESCE(sc.district_id, f.district_id)
+LEFT JOIN regions r ON r.id = COALESCE(dct.region_id, f.region_id)
 JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = $1
@@ -124,8 +124,8 @@ SELECT
 FROM facility_weekly_metrics m
 JOIN facilities f ON f.id = m.facility_id
 LEFT JOIN sub_counties sc ON sc.id = f.sub_county_id
-LEFT JOIN districts dct ON dct.id = sc.district_id
-LEFT JOIN regions r ON r.id = dct.region_id
+LEFT JOIN districts dct ON dct.id = COALESCE(sc.district_id, f.district_id)
+LEFT JOIN regions r ON r.id = COALESCE(dct.region_id, f.region_id)
 JOIN diseases d ON d.id = m.disease_id
 JOIN epi_weeks ew ON ew.id = m.epi_week_id
 WHERE m.epi_week_id = sqlc.arg('epi_week_id')
