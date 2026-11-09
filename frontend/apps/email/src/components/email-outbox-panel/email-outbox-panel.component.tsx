@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useId, useMemo, useRef, useState } from "react";
 import {
   Button,
   Checkbox,
@@ -249,6 +249,8 @@ function buildTemplateData(args: {
 
 const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) => {
   const toast = useToast();
+  const attachmentIdPrefix = useId();
+  const nextAttachmentId = useRef(0);
 
   const [recipient, setRecipient] = useState("");
   const [recipientName, setRecipientName] = useState("");
@@ -386,7 +388,7 @@ const EmailPanelComponent: React.FC<EmailPanelComponentProps> = ({ onSuccess }) 
 
       try {
         next.push({
-          id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
+          id: `${attachmentIdPrefix}-attachment-${nextAttachmentId.current++}`,
           source: "file",
           file_name: file.name,
           content_type: file.type || "application/octet-stream",

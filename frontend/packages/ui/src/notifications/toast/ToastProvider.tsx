@@ -1,5 +1,5 @@
 import { ToastNotification } from "@carbon/react";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useId, useRef, useState, type ReactNode } from "react";
 import type { ToastAction } from "./useToast";
 
 import "./ToastProvider.scss";
@@ -24,9 +24,12 @@ const ToastContext = createContext<ToastContextType | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const idPrefix = useId();
+  const nextId = useRef(0);
 
   const push = (toast: Omit<Toast, "id">) => {
-    const id = crypto.randomUUID();
+    // IDs only identify entries within this provider; they need no crypto API.
+    const id = `${idPrefix}-toast-${nextId.current++}`;
     setToasts((t) => [...t, { ...toast, id }]);
 
     // Uses the custom timeout passed from the hook
