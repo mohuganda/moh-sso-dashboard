@@ -1,5 +1,47 @@
 # @moh-sso/shell
 
+## 1.3.0
+
+### Minor Changes
+
+- Automatic minor release of all frontend apps and shared packages.
+
+### Patch Changes
+
+- Updated dependencies
+  - @moh-sso/announcements@1.3.0
+  - @moh-sso/audit@1.3.0
+  - @moh-sso/clients@1.3.0
+  - @moh-sso/data-validation@1.3.0
+  - @moh-sso/data-visualizer@1.3.0
+  - @moh-sso/documents@1.3.0
+  - @moh-sso/e-services@1.3.0
+  - @moh-sso/email@1.3.0
+  - @moh-sso/issue-tracker@1.3.0
+  - @moh-sso/rbac@1.3.0
+  - @moh-sso/report-browser@1.3.0
+  - @moh-sso/report-scheduler@0.4.0
+  - @moh-sso/surveillance@1.3.0
+  - @moh-sso/users@1.3.0
+  - @moh-sso/utilities@1.3.0
+  - @moh-sso/api@1.3.0
+  - @moh-sso/auth@1.3.0
+  - @moh-sso/config@1.3.0
+  - @moh-sso/microfrontend@1.3.0
+  - @moh-sso/state@1.3.0
+  - @moh-sso/types@1.3.0
+  - @moh-sso/ui@1.3.0
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.2.3`.
+
+- feat: add health-context access control and administration (#289) (`0a35faab`)
+- Refine admin workspaces and fix onboarding recovery (#288) (`df845ca2`)
+- Align nested sidebar folder and page indentation (#285) (`89891b52`)
+- Isolate surveillance database and import the root CSV datasets (#279) (`e0c7a922`)
+
 ## 1.2.3
 
 ### Patch Changes
@@ -30,6 +72,7 @@
   - @moh-sso/ui@1.2.3
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.2.2`.

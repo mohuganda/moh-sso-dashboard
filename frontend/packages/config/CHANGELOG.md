@@ -1,5 +1,24 @@
 # @moh-sso/config
 
+## 1.3.0
+
+### Minor Changes
+
+- Automatic minor release of all frontend apps and shared packages.
+
+### Patch Changes
+
+- Updated dependencies
+  - @moh-sso/types@1.3.0
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.2.3`.
+
+- feat: add health-context access control and administration (#289) (`0a35faab`)
+- Use /api defaults without duplicating frontend API paths (#284) (`b08da4a0`)
+
 ## 1.2.3
 
 ### Patch Changes
@@ -9,6 +28,7 @@
   - @moh-sso/types@1.2.3
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.2.2`.
