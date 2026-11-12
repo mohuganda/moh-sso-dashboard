@@ -1,10 +1,25 @@
 # Observatory database for surveillance
 
-The surveillance module requires a separate Observatory PostgreSQL connection while authentication,
+The surveillance module uses a separate Observatory PostgreSQL connection while authentication,
 documents, processes, notifications and other features remain on the primary database.
-Missing Observatory settings stop startup before any database pools are opened.
-All surveillance repositories and imports use that connection; readiness fails if
-Observatory becomes unavailable. There is no primary-database fallback.
+Connection settings are still required and validated, but an unreachable database no
+longer blocks the portal from starting. There is no primary-database fallback.
+
+A background monitor checks Observatory every 15 seconds with a three-second ping
+deadline. It initializes the dedicated migrations before enabling surveillance and
+checks migrations again after reconnecting. Shared repository pools reconnect without
+restarting the backend. Failed migrations keep surveillance unavailable; the monitor
+never forces a dirty migration version or rewinds data. Credentials or endpoint
+changes still require a backend redeployment to load the updated private environment.
+
+During initialization or an outage, surveillance routes return `503` with code
+`OBSERVATORY_UNAVAILABLE` and `Retry-After: 15`. Dashboard and disease pages show a
+clear temporary-unavailability message and retry failed queries automatically.
+Existing primary health contexts remain available while geography synchronization
+waits for Observatory. Core readiness continues to require its existing primary,
+remote, Redis and identity dependencies; Observatory is reported separately as
+`unavailable` in aggregated health, with status `degraded` instead of failing core
+readiness. The primary authentication database remains mandatory.
 
 ## Relationship to the DQA connection
 
@@ -13,8 +28,10 @@ initializer. It targets the DWH host, port and database, optionally using its ow
 `DQA_DB_USERNAME`/`DQA_DB_PASSWORD`. When those are unset it uses DWH credentials.
 `NewDQAStore` creates its `dqa` schema/tables idempotently on first use.
 
-The observatory connection uses the same pool initializer and repository injection
-pattern but keeps its own PostgreSQL container and database. Versioned surveillance
+The Observatory connection uses the same pool settings and repository injection
+pattern, with a nonblocking initializer and its own database. Development uses the
+container described below; production uses the external `OBSERVATORY_DB_*` endpoint
+without provisioning a database container. Versioned surveillance
 migrations remain in place. Authentication and other primary stores are unaffected.
 `OBSERVATORY_DB_*` is the only connection namespace. The PostgreSQL role remains
 `surveillance` and the existing populated volume and versioned migrations are retained.
@@ -112,7 +129,7 @@ unchanged so upgrades and existing IDs are not silently invalidated.
 
 Observatory migration `000003_reference_geography` supplies 17 regions, 146 districts,
 177 legacy sub-county/reporting labels, and 6,150 facilities. The backend applies this
-migration before serving requests, on fresh databases and when upgrading an existing
+migration before serving surveillance requests, on fresh databases and when upgrading an existing
 Observatory database. Production images already include the complete migration directory;
 no CSV import, primary-database connection, or network download is needed to populate these lists.
 

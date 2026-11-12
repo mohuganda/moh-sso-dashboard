@@ -122,6 +122,9 @@ func buildHandlers(deps handlerDependencies) handlers {
 		deps.Services.SurveillanceImport,
 		deps.Services.HealthContexts,
 	)
+	if deps.Databases.observatory != nil {
+		surveillanceHandler.SetAvailabilityCheck(deps.Databases.observatory.Ready)
+	}
 
 	documentTemplateHandler := documenttemplatesfeature.NewHandler(
 		deps.Services.DocumentTemplates,
@@ -139,15 +142,16 @@ func buildHandlers(deps handlerDependencies) handlers {
 
 	healthHandler := handler.NewHealthHandler(
 		func(ctx context.Context) error {
-			if err := db.PingDB(ctx, deps.Databases.Primary); err != nil {
-				return err
-			}
-			return db.PingDB(ctx, deps.Databases.Observatory)
+			return db.PingDB(ctx, deps.Databases.Primary)
 		},
 		func(ctx context.Context) error { return db.PingDB(ctx, deps.Databases.Remote) },
 		func(ctx context.Context) error { return deps.AdminKeycloak.Authenticate() },
 		deps.Redis,
 	)
+
+	if deps.Databases.observatory != nil {
+		healthHandler.ObservatoryReady = deps.Databases.observatory.Ready
+	}
 
 	return handlers{
 		Router: router.HandlerSet{

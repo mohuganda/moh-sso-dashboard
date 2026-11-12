@@ -9,7 +9,7 @@ import (
 // Observatory owns geography; the primary database owns its context aliases.
 // Synchronize through the two connections instead of cross-database triggers.
 func (r *postgresRepository) ensureGeographySync(ctx context.Context) error {
-	if r.geographyDB == nil {
+	if r.geographyDB == nil || (r.geographyAvailable != nil && !r.geographyAvailable()) {
 		return nil
 	}
 	r.geographyMu.Lock()
