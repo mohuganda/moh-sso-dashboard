@@ -20,6 +20,7 @@ type databases struct {
 	DWH         *sql.DB
 	DQA         *sql.DB
 	Observatory *sql.DB
+	observatory *observatoryMonitor
 }
 
 func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
@@ -69,18 +70,22 @@ func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
 		dbs.Close()
 		return databases{}, err
 	}
-	dbs.Observatory, err = db.InitDB(ctx, dbConfig(observatoryDSN))
-	if err == nil {
-		err = db.MigrateDB(dbs.Observatory, "file://internal/db/surveillance_migrations")
-	}
+	dbs.Observatory, err = db.OpenDB(dbConfig(observatoryDSN))
 	if err != nil {
 		dbs.Close()
 		return databases{}, err
 	}
+	dbs.observatory = startObservatoryMonitor(ctx, 15*time.Second, dbs.Observatory.PingContext,
+		func(ctx context.Context) error {
+			return db.MigrateDBContext(ctx, dbs.Observatory, "file://internal/db/surveillance_migrations")
+		})
 	return dbs, nil
 }
 
 func (dbs databases) Close() {
+	if dbs.observatory != nil {
+		dbs.observatory.Close()
+	}
 	if dbs.Observatory != nil {
 		dbs.Observatory.Close()
 	}

@@ -24,20 +24,9 @@ type DBConfig struct {
 func InitDB(ctx context.Context, cfg DBConfig) (*sql.DB, error) {
 	start := time.Now()
 
-	db, err := sql.Open(cfg.Driver, cfg.DSN)
+	db, err := OpenDB(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db connection: %w", err)
-	}
-
-	// Pool tuning
-	if cfg.MaxOpenConns > 0 {
-		db.SetMaxOpenConns(cfg.MaxOpenConns)
-	}
-	if cfg.MaxIdleConns > 0 {
-		db.SetMaxIdleConns(cfg.MaxIdleConns)
-	}
-	if cfg.ConnMaxLifetime > 0 {
-		db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 	}
 
 	// Wait for DB readiness
@@ -49,6 +38,7 @@ func InitDB(ctx context.Context, cfg DBConfig) (*sql.DB, error) {
 	}
 
 	if err := WaitForDB(waitCtx, db); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("database not ready: %w", err)
 	}
 
@@ -57,6 +47,50 @@ func InitDB(ctx context.Context, cfg DBConfig) (*sql.DB, error) {
 		Msg("Database initialized successfully")
 
 	return db, nil
+}
+
+// OpenDB allocates a shared reconnecting pool without waiting for network access.
+func OpenDB(cfg DBConfig) (*sql.DB, error) {
+	db, err := sql.Open(cfg.Driver, cfg.DSN)
+	if err != nil {
+		return nil, err
+	}
+	// Pool tuning
+	if cfg.MaxOpenConns > 0 {
+		db.SetMaxOpenConns(cfg.MaxOpenConns)
+	}
+	if cfg.MaxIdleConns > 0 {
+		db.SetMaxIdleConns(cfg.MaxIdleConns)
+	}
+	if cfg.ConnMaxLifetime > 0 {
+		db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	}
+
+	return db, nil
+}
+
+// MigrateDBContext owns only a dedicated connection, so retries do not leak
+// reserved connections or close the pool used by feature repositories.
+func MigrateDBContext(ctx context.Context, db *sql.DB, migrateDir string) error {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	driver, err := postgres.WithConnection(ctx, conn, &postgres.Config{StatementTimeout: 30 * time.Second})
+	if err != nil {
+		return err
+	}
+	m, err := migrate.NewWithDatabaseInstance(migrateDir, "postgres", driver)
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+	m.LockTimeout = 5 * time.Second
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+	return nil
 }
 
 func MigrateDB(db *sql.DB, migrateDir string) error {

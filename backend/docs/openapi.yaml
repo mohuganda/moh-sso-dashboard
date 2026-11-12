@@ -2554,6 +2554,8 @@ components:
           type: string
         keycloak:
           type: string
+        observatory:
+          type: string
         redis:
           type: string
         remoteDB:

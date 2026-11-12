@@ -1,3 +1,7 @@
+import {
+  useSurveillanceRecovery,
+  SurveillanceUnavailableNotice,
+} from "./surveillance-availability";
 import { PageShell } from "@moh-sso/ui";
 import { InlineLoading } from "@carbon/react";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
@@ -138,21 +142,25 @@ function SurveillanceDashboardContent() {
 
   const currentYear = new Date().getFullYear();
 
-  const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(currentYear);
+  const weeksQuery = useListEpiWeeksQuery(currentYear);
+  const { data: weeksResponse, isLoading: weeksLoading } = weeksQuery;
 
-  const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
+  const diseasesQuery = useListDiseasesQuery();
+  const { data: diseasesResponse, isLoading: diseasesLoading } = diseasesQuery;
 
-  const { data: regionsResponse, isLoading: regionsReferenceLoading } = useListRegionsQuery();
+  const regionsQuery = useListRegionsQuery();
+  const { data: regionsResponse, isLoading: regionsReferenceLoading } = regionsQuery;
 
-  const { currentData: districtsResponse, isLoading: districtsReferenceLoading } =
-    useListDistrictsByRegionQuery(selectedRegionId, {
-      skip: !selectedRegionId,
-    });
+  const districtsQuery = useListDistrictsByRegionQuery(selectedRegionId, {
+    skip: !selectedRegionId,
+  });
+  const { currentData: districtsResponse, isLoading: districtsReferenceLoading } = districtsQuery;
 
+  const subcountiesQuery = useListSubcountiesByDistrictQuery(selectedDistrictId, {
+    skip: !selectedDistrictId,
+  });
   const { currentData: subcountiesResponse, isLoading: subcountiesReferenceLoading } =
-    useListSubcountiesByDistrictQuery(selectedDistrictId, {
-      skip: !selectedDistrictId,
-    });
+    subcountiesQuery;
 
   const { data: districtsGeoJsonResponse, isLoading: districtsGeoJsonLoading } =
     useGetGeoJsonQuery("geo_districts");
@@ -201,25 +209,28 @@ function SurveillanceDashboardContent() {
     };
   }, [selectedWeekId, selectedRegionId, selectedDistrictId, selectedSubCountyId]);
 
-  const { data: weeklyStatusesResponse, isFetching: weeklyStatusesLoading } =
-    useListWeeklyStatusesQuery(weeklyStatusParams, {
-      skip: !selectedWeekId,
-    });
+  const statusesQuery = useListWeeklyStatusesQuery(weeklyStatusParams, {
+    skip: !selectedWeekId,
+  });
+  const { data: weeklyStatusesResponse, isFetching: weeklyStatusesLoading } = statusesQuery;
 
+  const detailedStatusesQuery = useListWeeklyStatusesDetailedQuery(weeklyStatusParams, {
+    skip: !selectedWeekId,
+  });
   const { data: weeklyStatusesDetailedResponse, isFetching: weeklyStatusesDetailedLoading } =
-    useListWeeklyStatusesDetailedQuery(weeklyStatusParams, {
-      skip: !selectedWeekId,
-    });
+    detailedStatusesQuery;
 
+  const metricsQuery = useListFacilityWeeklyMetricsByWeekQuery(selectedWeekId, {
+    skip: !selectedWeekId,
+  });
   const {
     currentData: facilityMetricsResponse,
     isFetching: facilitiesLoading,
     isError: facilitiesError,
-  } = useListFacilityWeeklyMetricsByWeekQuery(selectedWeekId, {
-    skip: !selectedWeekId,
-  });
+  } = metricsQuery;
 
-  const { data: alertsResponse, isFetching: alertsLoading } = useListAlertsQuery();
+  const alertsQuery = useListAlertsQuery();
+  const { data: alertsResponse, isFetching: alertsLoading } = alertsQuery;
 
   const weeklyStatuses = Array.isArray(weeklyStatusesResponse)
     ? weeklyStatusesResponse
@@ -544,6 +555,26 @@ function SurveillanceDashboardContent() {
     },
     [subcounties],
   );
+
+  const unavailable = useSurveillanceRecovery([
+    weeksQuery,
+    diseasesQuery,
+    regionsQuery,
+    districtsQuery,
+    subcountiesQuery,
+    statusesQuery,
+    detailedStatusesQuery,
+    metricsQuery,
+    alertsQuery,
+  ]);
+
+  if (unavailable) {
+    return (
+      <PageShell title="Surveillance Dashboard">
+        <SurveillanceUnavailableNotice />
+      </PageShell>
+    );
+  }
 
   return (
     <div className="surveillance-dashboard-page">

@@ -56,6 +56,7 @@ func buildRepositories(
 	adminKC *kcClientPkg.KeyAdminClient,
 	webKC *kcClientPkg.Client,
 	appLogger *logger.Logger,
+	geographyAvailable ...func() bool,
 ) repositories {
 	var primaryDB *sql.DB
 	if sqlStore, ok := store.(*storepkg.SQLStore); ok && sqlStore != nil {
@@ -67,6 +68,10 @@ func buildRepositories(
 		geographyDB = sqlStore.DB()
 	}
 
+	healthContexts := healthcontextRepo.NewRepository(primaryDB, geographyDB)
+	if len(geographyAvailable) > 0 {
+		healthContexts = healthcontextRepo.NewRepositoryWithGeographyAvailability(primaryDB, geographyDB, geographyAvailable[0])
+	}
 	return repositories{
 		Auth:                    authRepo.NewAuthRepository(webKC, adminKC, cfg),
 		Clients:                 clientRepo.NewClientRepository(adminKC, cfg, store, *appLogger),
@@ -87,6 +92,6 @@ func buildRepositories(
 		Email:                   emailRepo.NewEmailRepository(cfg, store, *appLogger),
 		Surveillance:            surveillanceRepo.NewRepositories(surveillanceStore),
 		RBAC:                    rbacRepo.NewRepository(primaryDB),
-		HealthContexts:          healthcontextRepo.NewRepository(primaryDB, geographyDB),
+		HealthContexts:          healthContexts,
 	}
 }

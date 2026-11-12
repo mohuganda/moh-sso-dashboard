@@ -1,3 +1,7 @@
+import {
+  useSurveillanceRecovery,
+  SurveillanceUnavailableNotice,
+} from "../surveillance-availability";
 import { Content, Tile, Link, InlineLoading, Select, SelectItem } from "@carbon/react";
 import { PERMISSIONS, PermissionGuard } from "@moh-sso/auth";
 import { useMemo, useState } from "react";
@@ -98,9 +102,12 @@ function DiseaseDetailsContent() {
   const title = formatDiseaseName(diseaseName);
   const currentYear = new Date().getFullYear();
 
-  const { data: weeksResponse, isLoading: weeksLoading } = useListEpiWeeksQuery(currentYear);
-  const { data: diseasesResponse, isLoading: diseasesLoading } = useListDiseasesQuery();
-  const { data: regionsResponse, isLoading: regionsLoading } = useListRegionsQuery();
+  const weeksQuery = useListEpiWeeksQuery(currentYear);
+  const { data: weeksResponse, isLoading: weeksLoading } = weeksQuery;
+  const diseasesQuery = useListDiseasesQuery();
+  const { data: diseasesResponse, isLoading: diseasesLoading } = diseasesQuery;
+  const regionsQuery = useListRegionsQuery();
+  const { data: regionsResponse, isLoading: regionsLoading } = regionsQuery;
   const { data: documentsResponse, isLoading: documentsLoading } = useListDocumentsQuery();
 
   const weeks = Array.isArray(weeksResponse) ? weeksResponse : EMPTY_LIST;
@@ -141,24 +148,18 @@ function DiseaseDetailsContent() {
     };
   }, [selectedWeekId, matchedDiseaseId]);
 
-  const {
-    data: alertsResponse,
-    isFetching: alertsLoading,
-    isError: alertsError,
-  } = useListAlertsQuery(baseParams, {
+  const alertsQuery = useListAlertsQuery(baseParams, {
     skip: !selectedWeekId,
   });
+  const { data: alertsResponse, isFetching: alertsLoading, isError: alertsError } = alertsQuery;
 
+  const statusesQuery = useListWeeklyStatusesDetailedQuery(baseParams, {
+    skip: !selectedWeekId,
+  });
   const { data: weeklyStatusesDetailedResponse, isFetching: weeklyStatusesDetailedLoading } =
-    useListWeeklyStatusesDetailedQuery(baseParams, {
-      skip: !selectedWeekId,
-    });
+    statusesQuery;
 
-  const {
-    data: selectedWeekFacilityMetricsResponse,
-    isFetching: facilityMetricsLoading,
-    isError: facilityMetricsError,
-  } = useListFacilityDiseaseMetricsByWeekAndDiseaseQuery(
+  const metricsQuery = useListFacilityDiseaseMetricsByWeekAndDiseaseQuery(
     {
       epiWeekID: selectedWeekId,
       diseaseID: matchedDiseaseId,
@@ -167,12 +168,13 @@ function DiseaseDetailsContent() {
       skip: !selectedWeekId || !matchedDiseaseId,
     },
   );
-
   const {
-    data: weeklyTrendResponse,
-    isFetching: weeklyTrendLoading,
-    isError: weeklyTrendError,
-  } = useListDiseaseWeeklyTrendAggregatedQuery(
+    data: selectedWeekFacilityMetricsResponse,
+    isFetching: facilityMetricsLoading,
+    isError: facilityMetricsError,
+  } = metricsQuery;
+
+  const weeklyTrendQuery = useListDiseaseWeeklyTrendAggregatedQuery(
     {
       epiYear: Number(selectedWeek?.epi_year ?? currentYear),
       diseaseID: matchedDiseaseId,
@@ -183,6 +185,11 @@ function DiseaseDetailsContent() {
       skip: !matchedDiseaseId || !selectedWeek?.epi_year,
     },
   );
+  const {
+    data: weeklyTrendResponse,
+    isFetching: weeklyTrendLoading,
+    isError: weeklyTrendError,
+  } = weeklyTrendQuery;
 
   const alerts = Array.isArray(alertsResponse) ? alertsResponse : EMPTY_LIST;
   const weeklyStatusesDetailed = Array.isArray(weeklyStatusesDetailedResponse)
@@ -404,27 +411,29 @@ function DiseaseDetailsContent() {
     Boolean(selectedFacilityTrend?.facilityId) &&
     Boolean(selectedFacilityTrend?.indicatorId);
 
+  const diseaseTrendQuery = useListFacilityDiseaseMetricsTrendQuery(
+    {
+      facilityID: selectedFacilityTrend?.facilityId ?? "",
+      diseaseID: selectedFacilityTrend?.diseaseId ?? "",
+    },
+    {
+      skip: !shouldLoadDiseaseTrend,
+    },
+  );
   const { data: facilityDiseaseTrendResponse, isFetching: facilityDiseaseTrendLoading } =
-    useListFacilityDiseaseMetricsTrendQuery(
-      {
-        facilityID: selectedFacilityTrend?.facilityId ?? "",
-        diseaseID: selectedFacilityTrend?.diseaseId ?? "",
-      },
-      {
-        skip: !shouldLoadDiseaseTrend,
-      },
-    );
+    diseaseTrendQuery;
 
+  const indicatorTrendQuery = useListFacilityIndicatorMetricsTrendQuery(
+    {
+      facilityID: selectedFacilityTrend?.facilityId ?? "",
+      indicatorID: selectedFacilityTrend?.indicatorId ?? "",
+    },
+    {
+      skip: !shouldLoadIndicatorTrend,
+    },
+  );
   const { data: facilityIndicatorTrendResponse, isFetching: facilityIndicatorTrendLoading } =
-    useListFacilityIndicatorMetricsTrendQuery(
-      {
-        facilityID: selectedFacilityTrend?.facilityId ?? "",
-        indicatorID: selectedFacilityTrend?.indicatorId ?? "",
-      },
-      {
-        skip: !shouldLoadIndicatorTrend,
-      },
-    );
+    indicatorTrendQuery;
 
   const selectedFacilityTrendRows = useMemo(() => {
     if (selectedFacilityTrend?.diseaseId) {
@@ -477,6 +486,27 @@ function DiseaseDetailsContent() {
     setIsTrendModalOpen(false);
     setSelectedFacilityTrend(null);
   };
+
+  const unavailable = useSurveillanceRecovery([
+    weeksQuery,
+    diseasesQuery,
+    regionsQuery,
+    alertsQuery,
+    statusesQuery,
+    metricsQuery,
+    weeklyTrendQuery,
+    diseaseTrendQuery,
+    indicatorTrendQuery,
+  ]);
+
+  if (unavailable) {
+    return (
+      <Content className="disease-details-page">
+        <h1>{title}</h1>
+        <SurveillanceUnavailableNotice />
+      </Content>
+    );
+  }
 
   return (
     <Content className="disease-details-page">

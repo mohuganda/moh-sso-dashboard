@@ -13,6 +13,7 @@ import (
 )
 
 type Handler struct {
+	available                    func() bool
 	epiWeekService               *EpiWeekService
 	diseaseService               *DiseaseService
 	locationService              *LocationService
@@ -42,6 +43,22 @@ func NewHandler(
 		alertService:                 alertService,
 		importService:                importService,
 		healthContextService:         healthContextService,
+	}
+}
+
+// SetAvailabilityCheck gates only Observatory-backed routes during initialization
+// and outages. It does not disable any authentication or authorization checks.
+func (h *Handler) SetAvailabilityCheck(available func() bool) { h.available = available }
+
+func (h *Handler) RequireAvailable() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if h.available != nil && !h.available() {
+			c.Header("Retry-After", "15")
+			response.Fail(c, http.StatusServiceUnavailable, "OBSERVATORY_UNAVAILABLE", "Surveillance is temporarily unavailable. Please try again shortly.")
+			c.Abort()
+			return
+		}
+		c.Next()
 	}
 }
 

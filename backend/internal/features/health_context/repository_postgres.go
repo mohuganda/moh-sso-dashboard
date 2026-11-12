@@ -15,10 +15,11 @@ import (
 )
 
 type postgresRepository struct {
-	geographyDB       *sql.DB
-	geographyMu       sync.Mutex
-	geographySyncedAt time.Time
-	db                *sql.DB
+	geographyDB        *sql.DB
+	geographyAvailable func() bool
+	geographyMu        sync.Mutex
+	geographySyncedAt  time.Time
+	db                 *sql.DB
 }
 
 func NewRepository(db *sql.DB, geographyDB ...*sql.DB) Repository {
@@ -26,6 +27,14 @@ func NewRepository(db *sql.DB, geographyDB ...*sql.DB) Repository {
 	if len(geographyDB) > 0 {
 		r.geographyDB = geographyDB[0]
 	}
+	return r
+}
+
+// NewRepositoryWithGeographyAvailability keeps primary context administration
+// available while Observatory initializes or reconnects.
+func NewRepositoryWithGeographyAvailability(db, geographyDB *sql.DB, available func() bool) Repository {
+	r := NewRepository(db, geographyDB).(*postgresRepository)
+	r.geographyAvailable = available
 	return r
 }
 

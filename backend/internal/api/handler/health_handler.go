@@ -12,11 +12,12 @@ import (
 )
 
 type HealthHandler struct {
-	DBCheck       func(ctx context.Context) error
-	RemoteDBCheck func(ctx context.Context) error
-	KeycloakCheck func(ctx context.Context) error
-	Redis         *redis.Client
-	startedAt     time.Time
+	ObservatoryReady func() bool
+	DBCheck          func(ctx context.Context) error
+	RemoteDBCheck    func(ctx context.Context) error
+	KeycloakCheck    func(ctx context.Context) error
+	Redis            *redis.Client
+	startedAt        time.Time
 }
 
 func NewHealthHandler(
@@ -122,9 +123,17 @@ func (h *HealthHandler) HandleHealth(c *gin.Context) {
 	}
 
 	redis := "ok"
-	if err := h.Redis.Ping(ctx); err != nil {
-		db = "unavailable"
+	if h.Redis != nil && h.Redis.Ping(ctx).Err() != nil {
+		redis = "unavailable"
 		status = "degraded"
+	}
+	observatory := ""
+	if h.ObservatoryReady != nil {
+		observatory = "ok"
+		if !h.ObservatoryReady() {
+			observatory = "unavailable"
+			status = "degraded"
+		}
 	}
 
 	httpStatus := http.StatusOK
@@ -137,10 +146,11 @@ func (h *HealthHandler) HandleHealth(c *gin.Context) {
 		Status:        status,
 		UptimeSeconds: int(time.Since(h.startedAt).Seconds()),
 		Components: &HealthComponentStatus{
-			Database: db,
-			RemoteDB: remoteDb,
-			Keycloak: keycloak,
-			Redis:    redis,
+			Observatory: observatory,
+			Database:    db,
+			RemoteDB:    remoteDb,
+			Keycloak:    keycloak,
+			Redis:       redis,
 		},
 		Version: build.Version,
 		Build:   &build,

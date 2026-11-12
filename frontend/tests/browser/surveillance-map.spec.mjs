@@ -341,3 +341,39 @@ test("bundled sub-county boundaries cover every existing district name", () => {
     [...new Set(features.map((feature) => districtKey(feature.properties.District)))].sort();
   expect(names(readLayer("uganda_subcounties"))).toEqual(names(readLayer("uganda_districts")));
 });
+
+for (const route of [base, `${base}/measles`]) {
+  test(`surveillance recovers automatically from an Observatory outage on ${route}`, async ({
+    page,
+  }) => {
+    const errors = await mapFixture(page);
+    let available = false;
+    await page.route("**/ssobackend/**/surveillance/**", async (request) => {
+      if (available) return request.fallback();
+      return request.fulfill({
+        status: 503,
+        json: {
+          success: false,
+          error: { code: "OBSERVATORY_UNAVAILABLE", message: "Temporarily unavailable" },
+        },
+      });
+    });
+    await page.clock.install();
+    await page.goto(route);
+    await expect(
+      page.getByText("Surveillance temporarily unavailable", { exact: true }),
+    ).toBeVisible();
+    available = true;
+    await page.clock.fastForward(16_000);
+    await expect(
+      page.getByText("Surveillance temporarily unavailable", { exact: true }),
+    ).toBeHidden();
+    await expect(
+      page.getByRole("heading", {
+        name: route === base ? "Surveillance Dashboard" : "Measles",
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}

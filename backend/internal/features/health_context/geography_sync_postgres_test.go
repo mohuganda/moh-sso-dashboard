@@ -98,6 +98,22 @@ func TestGeographySyncAcrossDatabases(t *testing.T) {
 	if err != nil || updated.ID != node.ID || updated.Name != "Renamed facility" {
 		t.Fatalf("alias update lost identity: %+v %v", updated, err)
 	}
+	available := false
+	isolated := NewRepositoryWithGeographyAvailability(primary, observatory, func() bool { return available }).(*postgresRepository)
+	newRegion := uuid.New()
+	if _, err := observatory.ExecContext(ctx, `INSERT INTO regions VALUES ($1, 'Recovered region')`, newRegion); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := isolated.ListNodes(ctx, nil, "", true); err != nil {
+		t.Fatalf("primary contexts unavailable during Observatory outage: %v", err)
+	}
+	if !isolated.geographySyncedAt.IsZero() {
+		t.Fatal("offline geography was queried")
+	}
+	available = true
+	if _, err := isolated.GetNodeByAlias(ctx, "surveillance-region", newRegion.String()); err != nil {
+		t.Fatalf("recovered geography did not synchronize: %v", err)
+	}
 	if _, err := observatory.ExecContext(ctx, `DROP TABLE facilities`); err != nil {
 		t.Fatal(err)
 	}

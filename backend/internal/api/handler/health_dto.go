@@ -3,10 +3,11 @@ package handler
 import "github.com/moh-sso-dashboard/internal/version"
 
 type HealthComponentStatus struct {
-	Database string `json:"database"`
-	RemoteDB string `json:"remoteDB"`
-	Keycloak string `json:"keycloak"`
-	Redis    string `json:"redis"`
+	Observatory string `json:"observatory,omitempty"`
+	Database    string `json:"database"`
+	RemoteDB    string `json:"remoteDB"`
+	Keycloak    string `json:"keycloak"`
+	Redis       string `json:"redis"`
 }
 
 type HealthResponse struct {

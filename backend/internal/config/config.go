@@ -882,6 +882,7 @@ func (c *Config) ObservatoryDBSource() (string, error) {
 	u := url.URL{Scheme: "postgresql", User: url.UserPassword(c.ObservatoryDBUser, c.ObservatoryDBPassword), Host: net.JoinHostPort(c.ObservatoryDBHost, c.ObservatoryDBPort), Path: "/" + c.ObservatoryDBName}
 	q := url.Values{}
 	q.Set("sslmode", mode)
+	q.Set("connect_timeout", "5")
 	u.RawQuery = q.Encode()
 	return u.String(), nil
 }
