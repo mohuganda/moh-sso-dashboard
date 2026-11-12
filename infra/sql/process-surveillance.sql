@@ -28,16 +28,19 @@ FROM metrics m WHERE r.id=m.id AND (m.region IS NULL OR m.district IS NULL OR m.
 DELETE FROM metrics m USING surveillance_import_raw_rows r WHERE r.id=m.id AND r.status='FAILED';
 
 \echo Resolving locations and subjects
--- Resolve the location hierarchy in the surveillance database only.
-INSERT INTO regions(name) SELECT DISTINCT region FROM metrics ON CONFLICT(name) DO NOTHING;
-INSERT INTO districts(name,region_id)
-SELECT DISTINCT ON(m.district) m.district,r.id FROM metrics m JOIN regions r ON r.name=m.region ORDER BY m.district,m.id
-ON CONFLICT(name) DO NOTHING;
-INSERT INTO sub_counties(name,district_id)
-SELECT DISTINCT m.sub_county,d.id FROM metrics m JOIN districts d ON d.name=m.district WHERE m.sub_county IS NOT NULL ON CONFLICT(name,district_id) DO NOTHING;
-INSERT INTO facilities(name,district_id,sub_county_id,region_id)
-SELECT DISTINCT ON(m.facility,d.id) m.facility,d.id,s.id,d.region_id FROM metrics m JOIN districts d ON d.name=m.district LEFT JOIN sub_counties s ON s.name=m.sub_county AND s.district_id=d.id ORDER BY m.facility,d.id,m.id
-ON CONFLICT(name,district_id) DO NOTHING;
+-- Shared reference data is primary-owned and replicated. A standalone bulk loader
+-- must not create an Observatory-only registry that later synchronization overwrites.
+UPDATE surveillance_import_raw_rows r SET status='FAILED',
+ error_message='Unknown geography: register the location in primary and synchronize Observatory before retrying'
+FROM metrics m WHERE r.id=m.id AND NOT EXISTS (
+ SELECT 1 FROM regions reg JOIN districts dist ON dist.region_id=reg.id
+ JOIN facilities f ON f.district_id=dist.id
+ WHERE reg.name=m.region AND dist.name=m.district AND f.name=m.facility
+ AND (m.sub_county IS NULL OR EXISTS (
+  SELECT 1 FROM sub_counties sub WHERE sub.district_id=dist.id AND sub.name=m.sub_county
+ ))
+);
+DELETE FROM metrics m USING surveillance_import_raw_rows r WHERE r.id=m.id AND r.status='FAILED';
 
 -- Exact seeded measurement names are indicators; '<disease> Cases' maps to the disease.
 INSERT INTO diseases(name)

@@ -775,7 +775,7 @@ func getOrCreateSubCounty(
 		return db.SubCounty{}, fmt.Errorf("sub county name is required")
 	}
 
-	subCounty, err := q.GetSubcountyByName(ctx, name)
+	subCounty, err := q.GetSubCountyByNameAndDistrict(ctx, db.GetSubCountyByNameAndDistrictParams{Lower: name, DistrictID: districtID})
 	if err == nil {
 		return subCounty, nil
 	}
@@ -802,7 +802,7 @@ func getOrCreateFacility(
 		return db.Facility{}, fmt.Errorf("facility name is required")
 	}
 
-	facility, err := q.GetFacilityByName(ctx, name)
+	facility, err := q.GetFacilityByNameAndDistrict(ctx, db.GetFacilityByNameAndDistrictParams{Lower: name, DistrictID: uuid.NullUUID{UUID: districtID, Valid: true}})
 	if err == nil {
 		return facility, nil
 	}

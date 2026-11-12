@@ -8,6 +8,7 @@ import (
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
 	"github.com/moh-sso-dashboard/internal/features/authsession"
+	"github.com/moh-sso-dashboard/internal/geography"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/middleware"
 	"github.com/moh-sso-dashboard/internal/storage"
@@ -120,8 +121,8 @@ func Run() {
 	// ==================================================
 	// REPOSITORIES
 	// ==================================================
-	observatoryStore := storepkg.NewStore(dbs.Observatory)
-	repos := buildRepositories(cfg, store, observatoryStore, adminKC, webKC, appLogger, dbs.observatory.Ready)
+	observatoryStore := geography.NewStore(storepkg.NewStore(dbs.Observatory), dbs.Primary, dbs.registry.Sync)
+	repos := buildRepositories(cfg, store, observatoryStore, adminKC, webKC, appLogger)
 
 	// ==================================================
 	// SERVICES
