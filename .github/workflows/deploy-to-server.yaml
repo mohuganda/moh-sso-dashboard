@@ -152,14 +152,16 @@ jobs:
           DEPLOY_CONFIG: ${{ vars.DEPLOY_CONFIG || '/etc/moh-sso/deploy.json' }}
         run: |
           [[ "$DEPLOY_CONFIG" =~ ^/[A-Za-z0-9_./-]+$ && "$DEPLOY_CONFIG" != *..* ]]
-          ssh -F "$CD_SSH_CONFIG" moh-deploy "$DEPLOY_PYTHON '$deploy_helper' preflight --config '$DEPLOY_CONFIG'"
+          ssh -F "$CD_SSH_CONFIG" moh-deploy "$DEPLOY_PYTHON '$deploy_helper' preflight --config '$DEPLOY_CONFIG' --release '$release_dir'"
       - name: Pull digests, back up, roll out, verify and automatically roll back on failure
+        shell: bash
         env:
           DEPLOY_CONFIG: ${{ vars.DEPLOY_CONFIG || '/etc/moh-sso/deploy.json' }}
           DEPLOY_ACTOR: ${{ github.actor }}
           AUTOMATIC: ${{ needs.prepare.outputs.automatic }}
         run: |
           [[ "$DEPLOY_ACTOR" =~ ^[-A-Za-z0-9_]+(\[bot\])?$ ]]
+          set -euo pipefail
           automatic_flag=""
           if [[ "$AUTOMATIC" == true ]]; then automatic_flag="--automatic"; fi
           ssh -F "$CD_SSH_CONFIG" moh-deploy "$DEPLOY_PYTHON '$deploy_helper' deploy --config '$DEPLOY_CONFIG' --release '$release_dir' --actor '$DEPLOY_ACTOR' $automatic_flag" | tee deployment-result.log

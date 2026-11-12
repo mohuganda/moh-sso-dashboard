@@ -3,6 +3,39 @@
 See the [Make command reference](make.md) for every deployment and generation target,
 its prerequisites, options, effects and examples.
 
+## Environment settings during upgrades
+
+Each newly built deployment bundle includes `environment-contract.json`, generated
+from the **names** in `infra/env/prod.env.example` and the reviewed defaults and
+requirements in `infra/env/deployment-policy.json`. Example values, local edits,
+and private credentials are never copied into that contract. Adding a variable
+to the template automatically adds its name to the next bundle; add mandatory
+settings to the policy and explicitly approve any default there.
+
+Preflight now receives the selected release directory. Under the deployment lock,
+it appends missing keys to the server's configured private environment file,
+using only approved defaults and leaving other new values blank. Existing values,
+including intentionally blank values, remain unchanged. It creates a private
+backup next to that file before an update; backups and the resulting file use
+mode `0600`. No values are printed. Rollback continues to use the previous
+release's original environment snapshot.
+
+Missing, blank, or placeholder required values block deployment **before** image
+pulls, database hooks, migrations or container changes. The error lists setting
+names only. Populate those settings privately and rerun deployment; valid
+file-backed secret alternatives are supported. Observatory still uses the
+operator-provided database; this process never provisions a database container.
+For a full manual preflight, pass the release directory:
+`make cd-preflight DEPLOY_RELEASE=/opt/moh-sso/releases/<release-id>`.
+Without `DEPLOY_RELEASE`, the command checks server prerequisites only.
+
+Older bundles without an environment contract must be rebuilt before a new
+deployment; rollback to an already verified snapshot remains available.
+
+The rollout shell uses `pipefail`, so an SSH/deployment failure remains a failed
+Actions step even when output is passed through `tee` and automatic rollback
+successfully restores the previous release.
+
 ## Infrastructure layout
 
 All deployment files are under `infra/`:

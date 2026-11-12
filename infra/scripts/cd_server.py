@@ -16,7 +16,7 @@ import urllib.request
 import uuid
 
 sys.dont_write_bytecode = True
-from cd_bundle import validate_manifest
+from cd_bundle import validate_manifest, validate_environment_contract
 
 
 def atomic_json(path, data):
@@ -95,6 +95,60 @@ class Server:
         command += ['-f', str(Path(record['release_dir']) / 'infra/compose' / file),
                     '-f', record['override_file'], *args]
         return self.runner(command, env=self.environment(record))
+
+    def prepare_environment(self, release):
+        release = Path(release).resolve()
+        if not release.is_relative_to((self.root / 'releases').resolve()):
+            raise ValueError('Release must be inside deploy_root/releases')
+        if (self.state / 'pending.json').exists():
+            raise RuntimeError('Resolve pending deployment recovery before updating environment settings')
+        contract_path = release / 'environment-contract.json'
+        if not contract_path.is_file():
+            raise ValueError('Release environment contract is missing; build a new deployment bundle')
+        contract = validate_environment_contract(json.loads(contract_path.read_text()))
+        path = Path(self.config['env_file']).resolve(strict=True)
+        original_bytes = path.read_bytes()
+        original = original_bytes.decode()
+        values = {}
+        for line in original.splitlines():
+            match = re.match(r"^\s*(?:export\s+)?([A-Z_][A-Z0-9_]*)\s*=(.*)$", line)
+            if match:
+                value = match[2].strip()
+                if value.startswith(('"', "'")):
+                    quote = value[0]
+                    value = value[1:value.rfind(quote)] if value.rfind(quote) else value[1:]
+                else:
+                    value = re.split(r'\s+#', match[2], maxsplit=1)[0].strip()
+                values[match[1]] = value
+        missing = [setting for setting in contract['settings'] if setting['name'] not in values]
+        if missing:
+            # Preserve the original bytes, comments, ownership and every existing value.
+            backup = path.with_name(path.name + '.before-upgrade-' + uuid.uuid4().hex)
+            with os.fdopen(os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
+                stream.write(original_bytes)
+            updated = original + ('' if original.endswith('\n') else '\n') + '\n# Settings added by deployment ' + release.name + '\n'
+            updated += ''.join(item['name'] + '=' + item['default'] + '\n' for item in missing)
+            temporary = path.with_name(path.name + '.next-' + uuid.uuid4().hex)
+            try:
+                with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
+                    stream.write(updated)
+                stat = path.stat()
+                if temporary.stat().st_uid != stat.st_uid or temporary.stat().st_gid != stat.st_gid:
+                    os.chown(temporary, stat.st_uid, stat.st_gid)
+                if path.read_bytes() != original_bytes:
+                    raise RuntimeError('Private environment changed during upgrade; retry preflight')
+                os.replace(temporary, path)
+            finally:
+                temporary.unlink(missing_ok=True)
+            print('Added environment setting names: ' + ', '.join(item['name'] for item in missing))
+            values.update({item['name']: item['default'] for item in missing})
+        def supplied(key):
+            value = values.get(key, '').strip()
+            return bool(value) and not value.lower().startswith(('replace-', 'change-me', 'changeme', '<'))
+        required = [item['name'] for item in contract['settings'] if item['required'] and
+                    not any(supplied(key) for key in [item['name'], *item.get('alternatives', [])])]
+        if required:
+            raise ValueError('Required production environment settings need values: ' + ', '.join(required))
 
     def candidate(self, release):
         release = Path(release).resolve()
@@ -232,6 +286,7 @@ class Server:
                 if build_order(incoming) <= build_order(current):
                     print('Skipping older automatic release; current deployment retained.')
                     return
+            self.prepare_environment(release)
             record = self.candidate(release)
             self.compose(record, 'config', '--quiet')
             self.pull(record)
@@ -298,7 +353,10 @@ def main():
     elif args.action == 'rollback':
         server.rollback(args.actor)
     elif args.action == 'preflight':
-        server.preflight()
+        with server.lock():
+            server.preflight()
+            if args.release:
+                server.prepare_environment(args.release)
         print('Server prerequisites and private configuration are ready.')
     else:
         saved = read_json(server.state / 'deployment.json', {})
