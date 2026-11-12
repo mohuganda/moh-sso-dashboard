@@ -9,6 +9,21 @@ frontend/backend developers. Start in a test environment with a pilot user.
 launcher card does not install an application, create its Keycloak client, or
 authorize its backend. Completing the registry lifecycle does not publish code.
 
+Existing portal integrations are grandfathered into `active`/enabled access by
+migration 59 when they were held in an onboarding state. Existing suspended or
+retired integrations, and active integrations explicitly disabled by an
+administrator, remain unchanged. Startup and Keycloak discovery of established
+clients defaults to `active`; explicitly disabled source clients stay disabled.
+Editing a grandfathered integration does not restart onboarding.
+
+New registrations created through the administration workflow, and newly discovered
+clients marked with a `portal.onboarding.profile`, still start
+`registered` and disabled and must complete configuration, validation, approval,
+and activation. Their lifecycle review remains mandatory after material
+configuration changes. The internal `lifecycle_managed` flag records this
+provenance and cannot be cleared by ordinary configuration updates. Keycloak's
+OAuth enabled flag is separate and is not changed by this database migration.
+
 ## Contents
 
 1. [Choose an integration path](#1-choose-an-integration-path)

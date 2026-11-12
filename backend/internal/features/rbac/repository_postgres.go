@@ -100,6 +100,11 @@ func (r *postgresRepository) UpsertSystem(ctx context.Context, input UpsertSyste
 	if _, err := tx.ExecContext(ctx, `SELECT set_config('ihp.actor_user_id', $1, true)`, input.ActorUserID); err != nil {
 		return System{}, err
 	}
+	// Only new admin registrations or clients created through an onboarding
+	// profile require review. Discovery of established clients remains operational.
+	// The conflict update deliberately preserves the existing provenance flag.
+	lifecycleManaged := input.LifecycleManaged || input.RegisterOnly ||
+		(input.ActorUserID != "" && !systemrbac.IsStartupDiscovery(ctx))
 	enabled := true
 	if input.Enabled != nil {
 		enabled = *input.Enabled
@@ -117,11 +122,11 @@ func (r *postgresRepository) UpsertSystem(ctx context.Context, input UpsertSyste
 		INSERT INTO ihp_systems (
 			client_id, display_name, description, icon, launch_url, category, owner_team, owner_name,
 			owner_email, support_url, documentation_url, environment, criticality,
-			system_type, display_in_launcher, display_in_sidenav, launch_mode, enabled, sort_order, metadata, integration_type, contract_version
+			system_type, display_in_launcher, display_in_sidenav, launch_mode, enabled, sort_order, metadata, integration_type, contract_version, lifecycle_status, lifecycle_managed
 		) VALUES (
 			$1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''),
 			NULLIF($8, ''), NULLIF($9, ''), NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''),
-			NULLIF($13, ''), $14, $15, $16, $17, $18, $19, $20, $21, $22
+			NULLIF($13, ''), $14, $15, $16, $17, $18, $19, $20, $21, $22, CASE WHEN $25 THEN 'registered' ELSE 'active' END, $25
 		)
 		ON CONFLICT (client_id) DO UPDATE SET
 			display_name = EXCLUDED.display_name,
@@ -157,7 +162,7 @@ func (r *postgresRepository) UpsertSystem(ctx context.Context, input UpsertSyste
 		          COALESCE(documentation_url, ''), COALESCE(environment, ''), COALESCE(criticality, ''),
 		          COALESCE(metadata->>'navigation', ''), COALESCE(metadata->>'authenticatedLaunchUrl', ''), system_type, display_in_launcher,
 		          display_in_sidenav, launch_mode, enabled, sort_order, lifecycle_status, integration_type, contract_version
-	`, input.ClientID, input.DisplayName, input.Description, input.Icon, input.LaunchURL, input.Category, input.OwnerTeam, input.OwnerName, input.OwnerEmail, input.SupportURL, input.DocumentationURL, input.Environment, input.Criticality, input.SystemType, *input.DisplayInLauncher, *input.DisplayInSideNav, input.LaunchMode, enabled, input.SortOrder, metadata, input.IntegrationType, input.ContractVersion, input.RegisterOnly, systemrbac.IsStartupDiscovery(ctx)).Scan(
+	`, input.ClientID, input.DisplayName, input.Description, input.Icon, input.LaunchURL, input.Category, input.OwnerTeam, input.OwnerName, input.OwnerEmail, input.SupportURL, input.DocumentationURL, input.Environment, input.Criticality, input.SystemType, *input.DisplayInLauncher, *input.DisplayInSideNav, input.LaunchMode, enabled, input.SortOrder, metadata, input.IntegrationType, input.ContractVersion, input.RegisterOnly, systemrbac.IsStartupDiscovery(ctx), lifecycleManaged).Scan(
 		&system.ID,
 		&system.ClientID,
 		&system.DisplayName,

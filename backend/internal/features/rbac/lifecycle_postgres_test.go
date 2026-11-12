@@ -65,6 +65,12 @@ func TestApplicationRegistryPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	migration("000048_application_registry_lifecycle.up.sql")
+	for _, status := range []string{"registered", "configured", "validated", "approved", "suspended", "retired"} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO ihp_systems (client_id, display_name, lifecycle_status) VALUES ($1, $1, $2)`, "existing-"+status, status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	migration("000059_grandfather_existing_client_lifecycle.up.sql")
 	repo := NewRepository(db)
 	for clientID, enabled := range map[string]bool{"legacy-enabled": true, "legacy-disabled": false} {
 		detail, err := repo.GetSystem(ctx, clientID)
@@ -75,9 +81,36 @@ func TestApplicationRegistryPostgres(t *testing.T) {
 			t.Fatalf("migration changed existing application: %+v", detail)
 		}
 	}
+	for _, status := range []string{"registered", "configured", "validated", "approved", "suspended", "retired"} {
+		detail, err := repo.GetSystem(ctx, "existing-"+status)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status == "suspended" || status == "retired" {
+			if detail.LifecycleStatus != status || detail.Enabled {
+				t.Fatalf("reactivated stopped integration: %+v", detail)
+			}
+		} else if detail.LifecycleStatus != "active" || !detail.Enabled {
+			t.Fatalf("existing client still requires onboarding: %+v", detail)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE ihp_systems SET owner_team='Updated legacy owner' WHERE client_id='existing-configured'`); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := repo.GetSystem(ctx, "existing-configured")
+	if err != nil || legacy.LifecycleStatus != "active" || !legacy.Enabled {
+		t.Fatalf("legacy edit re-entered onboarding: %+v %v", legacy, err)
+	}
 	service := NewService(repo)
 	truth, falsity := true, false
 	input := UpsertSystemInput{ClientID: "pilot", DisplayName: "Pilot", OwnerTeam: "Team", OwnerName: "Owner", OwnerEmail: "owner@example.org", SupportURL: "https://example.org/support", Environment: "test", LaunchURL: "https://example.org", SystemType: "external", LaunchMode: "new_tab", Enabled: &truth, DisplayInLauncher: &truth, DisplayInSideNav: &falsity, ActorUserID: "registrar", RegisterOnly: true}
+	adminCreate := input
+	adminCreate.ClientID = "admin-update-cannot-bypass"
+	adminCreate.RegisterOnly = false
+	createdByUpdate, err := service.UpsertSystem(ctx, adminCreate)
+	if err != nil || createdByUpdate.LifecycleStatus != "registered" || createdByUpdate.Enabled {
+		t.Fatalf("admin upsert bypassed onboarding: %+v %v", createdByUpdate, err)
+	}
 	system, err := service.UpsertSystem(ctx, input)
 	if err != nil {
 		t.Fatal(err)
@@ -149,8 +182,16 @@ func TestApplicationRegistryPostgres(t *testing.T) {
 	newInput.ClientID = "startup-discovered"
 	newInput.RegisterOnly = false
 	created, err := service.UpsertSystem(startup, newInput)
-	if err != nil || created.LifecycleStatus != "registered" || created.Enabled {
-		t.Fatalf("new discovery skipped onboarding: %+v %v", created, err)
+	if err != nil || created.LifecycleStatus != "active" || !created.Enabled {
+		t.Fatalf("existing discovered client should be operational: %+v %v", created, err)
+	}
+	profileInput := newInput
+	profileInput.ClientID = "onboarding-profile-discovered"
+	profileInput.LifecycleManaged = true
+	profileInput.ActorUserID = ""
+	profile, err := service.UpsertSystem(startup, profileInput)
+	if err != nil || profile.LifecycleStatus != "registered" || profile.Enabled {
+		t.Fatalf("onboarding profile bypassed review: %+v %v", profile, err)
 	}
 	assertAccess(true)
 	// Unchanged upserts must preserve active status despite BEFORE INSERT / ON CONFLICT interaction.
@@ -187,6 +228,13 @@ func TestApplicationRegistryPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertAccess(true)
+	if _, err := db.ExecContext(ctx, `UPDATE ihp_systems SET lifecycle_managed=false WHERE client_id='pilot'`); err != nil {
+		t.Fatal(err)
+	}
+	var managed bool
+	if err := db.QueryRowContext(ctx, `SELECT lifecycle_managed FROM ihp_systems WHERE client_id='pilot'`).Scan(&managed); err != nil || !managed {
+		t.Fatalf("managed review was cleared: %v %v", managed, err)
+	}
 	input.OwnerTeam = "New owner"
 	system, err = service.UpsertSystem(ctx, input)
 	if err != nil {
@@ -214,7 +262,7 @@ func TestApplicationRegistryPostgres(t *testing.T) {
 		t.Fatalf("missing audit history: %d/%d/%d", events, denials, invalidations)
 	}
 	// An audit write failure must roll back activation.
-	if _, err := db.ExecContext(ctx, `INSERT INTO ihp_systems (client_id, display_name) VALUES ('rollback', 'Rollback')`); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO ihp_systems (client_id, display_name, lifecycle_status, lifecycle_managed) VALUES ('rollback', 'Rollback', 'registered', true)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(ctx, `ALTER TABLE ihp_rbac_audit_events ADD CONSTRAINT reject_rollback_audit CHECK (system_client_id <> 'rollback')`); err != nil {
