@@ -1,5 +1,30 @@
 # @moh-sso/clients
 
+## 1.3.0
+
+### Minor Changes
+
+- Automatic minor release of all frontend apps and shared packages.
+
+### Patch Changes
+
+- Updated dependencies
+  - @moh-sso/rbac@1.3.0
+  - @moh-sso/api@1.3.0
+  - @moh-sso/auth@1.3.0
+  - @moh-sso/config@1.3.0
+  - @moh-sso/microfrontend@1.3.0
+  - @moh-sso/types@1.3.0
+  - @moh-sso/ui@1.3.0
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.2.3`.
+
+- Refine admin workspaces and fix onboarding recovery (#288) (`df845ca2`)
+- feat(identity): add guided client onboarding and isolated environments (#287) (`0f1cf71b`)
+
 ## 1.2.3
 
 ### Patch Changes
@@ -14,6 +39,7 @@
   - @moh-sso/ui@1.2.3
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.2.2`.

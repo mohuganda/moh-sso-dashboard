@@ -1,5 +1,27 @@
 # @moh-sso/ui
 
+## 1.3.0
+
+### Minor Changes
+
+- Automatic minor release of all frontend apps and shared packages.
+
+### Patch Changes
+
+- Updated dependencies
+  - @moh-sso/types@1.3.0
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.2.3`.
+
+- fix: avoid secure-context UUID APIs for UI identifiers (#291) (`d35ba08a`)
+- feat: add health-context access control and administration (#289) (`0a35faab`)
+- Refine admin workspaces and fix onboarding recovery (#288) (`df845ca2`)
+- Align nested sidebar folder and page indentation (#285) (`89891b52`)
+- Isolate surveillance database and import the root CSV datasets (#279) (`e0c7a922`)
+
 ## 1.2.3
 
 ### Patch Changes
@@ -9,6 +31,7 @@
   - @moh-sso/types@1.2.3
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.2.2`.
