@@ -350,3 +350,16 @@ func TestApplyRealmExportSyncPersistsGroups(t *testing.T) {
 		t.Fatalf("expected synced group system role, got %#v", repo.groupSystemRoles)
 	}
 }
+
+func TestRealmDiscoveryPreservesOnboardingProvenance(t *testing.T) {
+	for _, fixture := range []struct {
+		profile string
+		managed bool
+	}{{"", false}, {"public-web", true}} {
+		payload := []byte(`{"roles":{"client":{}},"clients":[{"clientId":"portal-app","enabled":true,"attributes":{"portal.system":"true","portal.onboarding.profile":"` + fixture.profile + `"}}]}`)
+		discovered, err := parseRealmExport(payload)
+		if err != nil || len(discovered.Systems) != 1 || discovered.Systems[0].LifecycleManaged != fixture.managed {
+			t.Fatalf("profile %q: %+v %v", fixture.profile, discovered.Systems, err)
+		}
+	}
+}

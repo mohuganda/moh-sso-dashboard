@@ -996,6 +996,7 @@ type IhpSystem struct {
 	LifecycleStatus   string          `json:"lifecycle_status"`
 	IntegrationType   string          `json:"integration_type"`
 	ContractVersion   string          `json:"contract_version"`
+	LifecycleManaged  bool            `json:"lifecycle_managed"`
 }
 
 type IhpSystemAccessRole struct {

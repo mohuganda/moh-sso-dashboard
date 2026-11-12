@@ -143,6 +143,7 @@ type LifecycleTransitionInput struct {
 }
 
 type UpsertSystemInput struct {
+	LifecycleManaged       bool   `json:"-"`
 	RegisterOnly           bool   `json:"-"`
 	ActorUserID            string `json:"-"`
 	IntegrationType        string `json:"integrationType"`
@@ -191,6 +192,7 @@ type KeycloakDiscoveredRole struct {
 }
 
 type KeycloakDiscoveredSystem struct {
+	LifecycleManaged       bool                     `json:"-"`
 	ClientID               string                   `json:"clientId"`
 	DisplayName            string                   `json:"displayName"`
 	Description            string                   `json:"description,omitempty"`
