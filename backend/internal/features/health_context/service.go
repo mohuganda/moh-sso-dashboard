@@ -441,6 +441,10 @@ func (s *Service) ExplainAccess(
 		}
 		if allowed {
 			node := assignment.Node
+			reason := "access granted by health context assignment"
+			if assignment.AssignmentType == "DEFAULT" {
+				reason = "access granted by the default National health context"
+			}
 			return AccessExplanation{
 				Allowed:           true,
 				RequestedContext:  requested,
@@ -449,7 +453,7 @@ func (s *Service) ExplainAccess(
 				AssignmentType:    assignment.AssignmentType,
 				SourceGroupID:     assignment.SourceGroupID,
 				SourceGroupPath:   assignment.SourceGroupPath,
-				Reason:            "access granted by health context assignment",
+				Reason:            reason,
 			}, nil
 		}
 	}

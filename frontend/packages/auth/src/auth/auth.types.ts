@@ -51,7 +51,7 @@ export interface EffectiveHealthContext {
   enabled: boolean;
   version: number;
   scopeMode: HealthContextScopeMode;
-  assignmentType: "DIRECT" | "GROUP";
+  assignmentType: "DIRECT" | "GROUP" | "DEFAULT";
   assignmentId: string;
   sourceGroupId?: string;
   sourceGroupPath?: string;

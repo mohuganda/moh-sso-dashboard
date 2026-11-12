@@ -680,7 +680,7 @@ func (r *postgresRepository) ListEffectiveContexts(ctx context.Context, userID s
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		WITH assignments AS (
+		WITH explicit_assignments AS (
 			SELECT a.id, a.context_node_id, a.scope_mode, 'DIRECT'::text assignment_type,
 			       NULL::uuid group_id, NULL::text group_path, a.is_default
 			FROM user_health_context_assignments a
@@ -694,6 +694,24 @@ func (r *postgresRepository) ListEffectiveContexts(ctx context.Context, userID s
 			JOIN ihp_rbac_groups g ON g.id = gm.group_id AND g.enabled
 			JOIN group_health_context_assignments a ON a.group_id = gm.group_id
 			WHERE gm.user_id = $1
+		), national AS (
+			SELECT id FROM health_context_nodes
+			WHERE code = 'UG' AND context_type = 'NATIONAL' AND enabled
+		), assignments AS (
+			-- National is a baseline for everyone, not a removable role grant.
+			-- Fold explicit National grants into it to avoid duplicate selector entries.
+			SELECT a.* FROM explicit_assignments a
+			WHERE a.context_node_id NOT IN (SELECT id FROM national)
+			UNION ALL
+			SELECT '00000000-0000-0000-0000-000000000000'::uuid, n.id,
+			       'NODE_AND_DESCENDANTS', 'DEFAULT', NULL::uuid, NULL::text,
+			       NOT EXISTS (
+				   SELECT 1 FROM explicit_assignments a
+				   JOIN health_context_nodes assigned ON assigned.id = a.context_node_id AND assigned.enabled
+				   WHERE a.is_default AND a.context_node_id <> n.id
+			       )
+			FROM national n
+			WHERE BTRIM($1) <> ''
 		)
 		SELECT n.id, n.code, n.name, n.context_type, n.parent_id, n.source,
 		       n.metadata, n.enabled, n.version, n.created_at, n.updated_at,
@@ -815,6 +833,15 @@ func (r *postgresRepository) ListAudienceUserIDs(
 		SELECT user_id FROM direct_users
 		UNION
 		SELECT user_id FROM group_users
+		UNION
+		-- The same National baseline used for authorization also applies to audiences.
+		SELECT u.id::text FROM users u
+		WHERE u.enabled AND EXISTS (
+			SELECT 1 FROM health_context_nodes national
+			JOIN health_context_closure c ON c.ancestor_id = national.id
+			JOIN selected_contexts selected ON selected.id = c.descendant_id
+			WHERE national.code = 'UG' AND national.context_type = 'NATIONAL' AND national.enabled
+		)
 		ORDER BY user_id
 	`, pq.Array(contextIDs), includeDescendants)
 	if err != nil {

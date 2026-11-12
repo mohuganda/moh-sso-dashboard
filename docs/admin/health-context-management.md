@@ -48,6 +48,17 @@ GET  /api/v1/me/health-contexts/:contextId/explanation
 POST /api/v1/me/health-contexts/select
 ```
 
+Every authenticated portal user receives the enabled Uganda (`UG`) National
+context automatically, with `NODE_AND_DESCENDANTS` scope. This is a built-in
+`DEFAULT` entitlement; it needs no Keycloak role or per-user database assignment
+and applies to existing users and first-time logins. It appears once even when
+National is also assigned directly or through groups. Editing assignments cannot
+remove this baseline. National becomes the default when no other enabled, valid
+direct default exists; a saved active selection is preserved when still available.
+Application roles and permissions continue to govern access to each feature.
+National access also includes users in geographic notification audiences beneath
+Uganda; disabled cached users are not added through this baseline.
+
 Use direct assignments for exceptional individual scope. Prefer explicit
 Keycloak group mappings for managed teams. Select one direct assignment as the
 default where appropriate.

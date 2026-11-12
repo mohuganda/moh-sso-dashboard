@@ -7,7 +7,7 @@ Every scoped operation must evaluate:
 1. Authentication.
 2. Functional permission.
 3. Access to the owning portal system/client.
-4. Direct and group-derived health-context assignments.
+4. The built-in National baseline, plus direct and group-derived health-context assignments.
 5. Assignment validity, node status, and scope mode.
 6. Resource ownership or authorized query predicate.
 
@@ -15,10 +15,17 @@ Authenticated actors outside the resource scope receive `403`. Malformed
 context identifiers receive `400`. Detailed database and hierarchy errors stay
 in server logs.
 
+Every authenticated user has the enabled Uganda National context and its
+descendants by default. This policy grants geographic scope, not application
+roles or functional permissions. The baseline is identified as `DEFAULT` in
+effective-access responses and explanations. Disabling the National node stops
+this baseline; unrelated hierarchy roots are not included.
+
 ## Least privilege
 
 - Super-admin is not an implicit context bypass.
-- Disabled nodes and expired assignments grant no access.
+- Disabled nodes and expired assignments grant no assignment-based access.
+  Expiring an explicit National assignment does not remove the built-in baseline.
 - Group-derived permission and group-derived context are evaluated and
   explained separately.
 - Frontend visibility never substitutes for backend enforcement.
