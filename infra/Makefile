@@ -111,10 +111,11 @@ scheduler-env-check:
 	$(PYTHON) "$(REPO_ROOT)/infra/scripts/test-scheduler-env.py"
 
 DEPLOY_CONFIG ?= /etc/moh-sso/deploy.json
+DEPLOY_RELEASE ?=
 cd-check:
 	$(PYTHON) "$(REPO_ROOT)/infra/scripts/test-cd.py"
 cd-preflight:
-	$(PYTHON) "$(REPO_ROOT)/infra/scripts/cd_server.py" preflight --config "$(DEPLOY_CONFIG)"
+	$(PYTHON) "$(REPO_ROOT)/infra/scripts/cd_server.py" preflight --config "$(DEPLOY_CONFIG)" $(if $(DEPLOY_RELEASE),--release "$(DEPLOY_RELEASE)",)
 cd-status:
 	$(PYTHON) "$(REPO_ROOT)/infra/scripts/cd_server.py" status --config "$(DEPLOY_CONFIG)"
 cd-verify:

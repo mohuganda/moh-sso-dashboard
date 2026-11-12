@@ -8,6 +8,9 @@ from pathlib import Path
 import sys
 import tarfile
 import tempfile
+import os
+import subprocess
+import textwrap
 import unittest
 from unittest.mock import patch
 
@@ -197,6 +200,7 @@ class Transactions(unittest.TestCase):
         release = self.root / 'releases' / manifest(run)['release_id']
         release.mkdir(parents=True)
         (release / 'deployment.json').write_text(json.dumps(manifest(run)))
+        (release / 'environment-contract.json').write_text(json.dumps({'schema_version': 1, 'settings': []}))
         return release
 
     def state(self):
@@ -331,6 +335,113 @@ class Transactions(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'backup failed'):
             self.server.deploy(self.release('1'), 'tester')
         self.assertFalse(any('up' in args for args, kwargs in self.commands))
+
+
+class EnvironmentUpgrades(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.env = self.root / 'prod.env'
+        self.env.write_text('EXISTING="private existing value"\nEMPTY=\n')
+        config = self.root / 'deploy.json'
+        config.write_text(json.dumps({'schema_version': 1, 'deploy_root': str(self.root),
+                                     'mode': 'prod', 'env_file': str(self.env), 'secret_files': {},
+                                     'verify_public_edge': False}))
+        self.server = Server(config)
+        self.release = self.root / 'releases' / manifest()['release_id']
+        self.release.mkdir(parents=True)
+        (self.release / 'deployment.json').write_text(json.dumps(manifest()))
+
+    def contract(self, settings):
+        (self.release / 'environment-contract.json').write_text(json.dumps({'schema_version': 1, 'settings': settings}))
+
+    def setting(self, name, default='', required=False, alternatives=None):
+        return {'name': name, 'default': default, 'required': required, 'alternatives': alternatives or []}
+
+    def test_upgrade_preserves_values_and_empty_settings_and_is_idempotent(self):
+        original = self.env.read_bytes()
+        self.contract([self.setting('EXISTING', 'ignored'), self.setting('EMPTY', 'ignored'),
+                       self.setting('OBSERVATORY_DB_PORT', '5432'), self.setting('NEW_OPTION')])
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.server.prepare_environment(self.release)
+            first = self.env.read_bytes()
+            self.server.prepare_environment(self.release)
+        self.assertTrue(first.startswith(original))
+        self.assertIn(b'OBSERVATORY_DB_PORT=5432\nNEW_OPTION=\n', first)
+        self.assertEqual(first, self.env.read_bytes())
+        backups = list(self.root.glob('prod.env.before-upgrade-*'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_bytes(), original)
+        for path in [self.env, backups[0]]:
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertNotIn('private existing value', output.getvalue())
+
+    def test_missing_required_values_are_added_but_block_before_candidate_or_rollout(self):
+        self.contract([self.setting('OBSERVATORY_DB_HOST', required=True),
+                       self.setting('OBSERVATORY_DB_PASSWORD', required=True)])
+        self.server.preflight = lambda: None
+        with patch.object(self.server, 'candidate') as candidate, contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(ValueError, 'OBSERVATORY_DB_HOST, OBSERVATORY_DB_PASSWORD'):
+                self.server.deploy(self.release, 'tester')
+            candidate.assert_not_called()
+        self.assertIn('OBSERVATORY_DB_HOST=\n', self.env.read_text())
+        self.assertFalse((self.root / 'state/pending.json').exists())
+        self.assertFalse((self.root / 'state/deployment.json').exists())
+
+    def test_file_backed_secret_is_accepted_without_copying_secret_values(self):
+        self.env.write_text('OBSERVATORY_DB_PASSWORD_FILE=/run/secrets/private-file\n')
+        self.contract([self.setting('OBSERVATORY_DB_PASSWORD', required=True,
+                                    alternatives=['OBSERVATORY_DB_PASSWORD_FILE'])])
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.server.prepare_environment(self.release)
+        self.assertIn('OBSERVATORY_DB_PASSWORD=\n', self.env.read_text())
+
+    def test_placeholder_or_quoted_empty_required_values_fail_without_exposing_values(self):
+        self.contract([self.setting('REQUIRED', required=True)])
+        for value in ['"" # empty', "'   '", 'replace-with-a-private-host', ' # empty']:
+            self.env.write_text('REQUIRED=' + value + '\n')
+            with self.assertRaisesRegex(ValueError, 'settings need values: REQUIRED') as error:
+                self.server.prepare_environment(self.release)
+            self.assertNotIn(value, str(error.exception))
+
+    def test_contract_never_uses_example_values_and_new_names_are_discovered(self):
+        contract = bundle.build_environment_contract('PASSWORD=private-canary\nHOST=operator-edit\nNEW_NAME=unsafe-placeholder\nPORT=1\n',
+                    {'schema_version': 1, 'defaults': {'PORT': '5432'}, 'required': ['HOST', 'PASSWORD']})
+        self.assertNotIn('private-canary', json.dumps(contract))
+        self.assertNotIn('operator-edit', json.dumps(contract))
+        self.assertNotIn('unsafe-placeholder', json.dumps(contract))
+        self.assertEqual([item['name'] for item in contract['settings']], ['PASSWORD', 'HOST', 'NEW_NAME', 'PORT'])
+        for name, default in [('PASSWORD', 'do-not-leak'), ('HOST', 'bad\nINJECTED=value')]:
+            with self.assertRaises(ValueError):
+                bundle.build_environment_contract(name+'=\n', {'schema_version': 1, 'defaults': {name: default}})
+
+    def test_missing_contract_or_pending_recovery_does_not_modify_private_environment(self):
+        original = self.env.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'contract is missing'):
+            self.server.prepare_environment(self.release)
+        self.contract([self.setting('NEW_NAME')])
+        (self.root / 'state').mkdir()
+        (self.root / 'state/pending.json').write_text('{}')
+        with self.assertRaisesRegex(RuntimeError, 'pending deployment'):
+            self.server.prepare_environment(self.release)
+        self.assertEqual(self.env.read_bytes(), original)
+
+    def test_workflow_propagates_ssh_failure_through_tee(self):
+        workflow = (bundle.ROOT / '.github/workflows/deploy-to-server.yaml').read_text()
+        step = workflow.split('      - name: Pull digests, back up, roll out, verify and automatically roll back on failure\n', 1)[1]
+        step = step.split('      - name:', 1)[0]
+        script = textwrap.dedent(step.split('        run: |\n', 1)[1])
+        ssh = self.root / 'ssh'
+        ssh.write_text('#!/bin/sh\necho deployment-failed\nexit 23\n')
+        ssh.chmod(0o700)
+        env = {**os.environ, 'PATH': str(self.root)+':'+os.environ['PATH'], 'DEPLOY_ACTOR': 'tester',
+               'AUTOMATIC': 'true', 'DEPLOY_PYTHON': 'python3', 'DEPLOY_CONFIG': '/private/config.json',
+               'CD_SSH_CONFIG': '/private/ssh', 'deploy_helper': '/private/helper', 'release_dir': '/private/release'}
+        result = subprocess.run(['bash', '-e', '-c', script], cwd=self.root, env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 23)
+        self.assertIn('deployment-failed', (self.root / 'deployment-result.log').read_text())
 
 
 if __name__ == '__main__':

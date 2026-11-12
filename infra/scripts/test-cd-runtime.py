@@ -116,6 +116,7 @@ CMD ["node", "server.cjs"]
                 scripts.mkdir(parents=True)
                 compose.mkdir()
                 (release / 'deployment.json').write_text(json.dumps(manifest))
+                (release / 'environment-contract.json').write_text(json.dumps({'schema_version': 1, 'settings': []}))
                 (scripts / 'verify-frontend-deployment.mjs').write_bytes((ROOT / 'infra/scripts/verify-frontend-deployment.mjs').read_bytes())
                 services = {component: {'image': 'overridden-by-digest', 'env_file': ['${APP_ENV_FILE}'], 'environment': {'ROLE': component},
                             'healthcheck': {'test': ['CMD', 'wget', '-qO-', f'http://127.0.0.1:{9000 if component == "backend" else 3000}/health/ready'], 'interval': '1s', 'timeout': '2s', 'retries': 10}}
