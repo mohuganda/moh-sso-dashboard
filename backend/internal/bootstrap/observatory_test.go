@@ -98,3 +98,26 @@ func TestObservatoryPingIsCanceledAtShutdown(t *testing.T) {
 		t.Fatal("shutdown failed to cancel ping")
 	}
 }
+
+func TestObservatoryRequiresSuccessfulGeographyRefresh(t *testing.T) {
+	var failRefresh atomic.Bool
+	var initialized atomic.Int32
+	monitor := startObservatoryMonitor(context.Background(), time.Millisecond,
+		func(context.Context) error { return nil },
+		func(context.Context) error { initialized.Add(1); return nil },
+		func(context.Context) error {
+			if failRefresh.Load() {
+				return errors.New("replica not synchronized")
+			}
+			return nil
+		})
+	defer monitor.Close()
+	waitForObservatory(t, monitor.Ready)
+	failRefresh.Store(true)
+	waitForObservatory(t, func() bool { return !monitor.Ready() })
+	failRefresh.Store(false)
+	waitForObservatory(t, monitor.Ready)
+	if initialized.Load() < 2 {
+		t.Fatal("replica recovery skipped initialization")
+	}
+}

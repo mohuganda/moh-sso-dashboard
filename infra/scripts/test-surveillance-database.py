@@ -27,6 +27,8 @@ class ObservatoryDatabaseTest(unittest.TestCase):
   time.sleep(1)
   for migration in sorted((ROOT/'backend/internal/db/surveillance_migrations').glob('*.up.sql')):
    query(migration.read_text())
+  # Model the synchronized shared registry; observation imports cannot own it.
+  query("INSERT INTO regions(name) VALUES('Region A'); INSERT INTO districts(name,region_id) SELECT 'District A',id FROM regions WHERE name='Region A'; INSERT INTO sub_counties(name,district_id) SELECT 'Area A',id FROM districts WHERE name='District A'; INSERT INTO facilities(name,district_id,sub_county_id,region_id) SELECT 'Facility A',d.id,s.id,d.region_id FROM districts d JOIN sub_counties s ON s.district_id=d.id WHERE d.name='District A';")
   with tempfile.TemporaryDirectory() as directory:
    directory=Path(directory)
    def write(name,headers,rows):
@@ -38,7 +40,8 @@ class ObservatoryDatabaseTest(unittest.TestCase):
     ['c','Facility A','Region A','District A','Area A','Measles Cases',3,2026,2],
     ['d','Facility A','Region A','District A','Area A','Measles Cases',4,2026,2],
     ['e','Facility A','Region A','District A','Area A','Cases Tested with RDT',5,2026,1],
-    ['f','Facility A','Region A','District A','Area A','Measles Cases','',2026,3]])
+    ['f','Facility A','Region A','District A','Area A','Measles Cases','',2026,3],
+    ['g','Unknown facility','Unknown region','Unknown district','Unknown area','Measles Cases',5,2026,1]])
    write('eidsr.csv',['created','narrative','district','weeks','submitted_by','disease'],[['2026-01-02','Synthetic fixture','District A',1,'fixture','Measles']])
    write('flags.csv',['weeks','maroon','red','yellow','green'],[[0,"['Measles']",'[]','[]','[]'],[1,"['Measles']",'[]','[]','[]']])
    write('region_flags.csv',['weeks','region','maroon','red','yellow','green'],[[1,'Region A','[]',"['Measles']",'[]','[]']])
@@ -46,6 +49,7 @@ class ObservatoryDatabaseTest(unittest.TestCase):
    command=['python3',str(ROOT/'infra/scripts/load-surveillance.py'),'--container',container,'--db-user','observatory','--directory',str(directory),'--flag-year','2026']
    subprocess.run(command,check=True,stdout=subprocess.DEVNULL)
    self.assertEqual(query('SELECT count(*) FROM facility_weekly_metrics;'),'2')
+   self.assertEqual(query("SELECT count(*) FROM regions WHERE name='Unknown region';"),'0')
    self.assertEqual(query('SELECT count(*) FROM weekly_status;'),'3')
    self.assertEqual(query('SELECT count(*) FROM alerts;'),'1')
 
@@ -60,8 +64,8 @@ class ObservatoryDatabaseTest(unittest.TestCase):
     statement=statement.replace("sqlc.arg('epi_week_id')", "'"+week+"'::uuid").replace('$1', "'"+week+"'::uuid")
     statement=statement.replace("sqlc.arg('allowed_facility_ids')", "ARRAY['"+facility+"']")
     self.assertEqual(query("SELECT count(*) FROM ("+statement+") result WHERE district_name='District A' AND region_name='Region A' AND sub_county_id IS NULL;"),'1')
-   self.assertEqual(query("SELECT count(*) FROM surveillance_import_raw_rows WHERE status='FAILED';"),'4')
-   self.assertEqual(query("SELECT success_rows||'|'||failed_rows FROM surveillance_import_batches WHERE file_name='data.csv';"),'3|3')
+   self.assertEqual(query("SELECT count(*) FROM surveillance_import_raw_rows WHERE status='FAILED';"),'5')
+   self.assertEqual(query("SELECT success_rows||'|'||failed_rows FROM surveillance_import_batches WHERE file_name='data.csv';"),'3|4')
    self.assertEqual(query("SELECT payload->>'weeks' FROM surveillance_import_raw_rows WHERE payload->>'weeks'='0';"),'0')
    self.assertEqual(query("SELECT count(*) FROM information_schema.table_constraints WHERE table_name='surveillance_import_batches' AND constraint_type='FOREIGN KEY';"),'0')
    subprocess.run(command,check=True,stdout=subprocess.DEVNULL)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
+	"github.com/moh-sso-dashboard/internal/geography"
 	kcClientPkg "github.com/moh-sso-dashboard/internal/keycloak"
 	db "github.com/moh-sso-dashboard/internal/migrate"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
@@ -21,6 +22,7 @@ type databases struct {
 	DQA         *sql.DB
 	Observatory *sql.DB
 	observatory *observatoryMonitor
+	registry    *geography.Replicator
 }
 
 func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
@@ -75,10 +77,15 @@ func initDatabases(ctx context.Context, cfg *config.Config) (databases, error) {
 		dbs.Close()
 		return databases{}, err
 	}
+	registry := geography.NewReplicator(dbs.Primary, dbs.Observatory)
+	dbs.registry = registry
 	dbs.observatory = startObservatoryMonitor(ctx, 15*time.Second, dbs.Observatory.PingContext,
 		func(ctx context.Context) error {
-			return db.MigrateDBContext(ctx, dbs.Observatory, "file://internal/db/surveillance_migrations")
-		})
+			if err := db.MigrateDBContext(ctx, dbs.Observatory, "file://internal/db/surveillance_migrations"); err != nil {
+				return err
+			}
+			return registry.Sync(ctx)
+		}, registry.Refresh)
 	return dbs, nil
 }
 

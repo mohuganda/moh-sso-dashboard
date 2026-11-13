@@ -91,7 +91,11 @@ func TestMigrationPaths(t *testing.T) {
 				}
 				defer connection.Close()
 				if upgrade {
-					if err := m.Migrate(previous); err != nil {
+					fixtureVersion := previous
+					if group == "observatory" {
+						fixtureVersion = 2
+					}
+					if err := m.Migrate(fixtureVersion); err != nil {
 						t.Fatal(err)
 					}
 					if group == "primary" {
@@ -147,6 +151,14 @@ func TestMigrationPaths(t *testing.T) {
 					want := group == "observatory" || (group == "primary" && upgrade)
 					if exists != want {
 						t.Errorf("%s exists=%t, want %t", table, exists, want)
+					}
+				}
+				if group == "primary" {
+					for table, want := range map[string]int{"regions": 17, "districts": 146, "sub_counties": 177, "facilities": 6150} {
+						var count int
+						if err := connection.QueryRow("SELECT count(*) FROM geography." + table).Scan(&count); err != nil || count != want {
+							t.Fatalf("offline primary %s=%d want=%d: %v", table, count, want, err)
+						}
 					}
 				}
 				if group == "primary" && upgrade {

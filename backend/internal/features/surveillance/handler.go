@@ -1,11 +1,13 @@
 package surveillance
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/moh-sso-dashboard/internal/geography"
 
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	healthcontext "github.com/moh-sso-dashboard/internal/features/health_context"
@@ -438,6 +440,10 @@ func (h *Handler) DeleteSubcounty(c *gin.Context) {
 	}
 
 	if err := h.locationService.DeleteSubcounty(ctx, id); err != nil {
+		if errors.Is(err, geography.ErrDeletionRestricted) {
+			response.Fail(c, http.StatusConflict, "GEOGRAPHY_DELETE_RESTRICTED", "Shared geography cannot be deleted. Disable its health context instead.")
+			return
+		}
 		response.Fail(c, http.StatusInternalServerError, "failed to delete subcounty", "request failed")
 		return
 	}

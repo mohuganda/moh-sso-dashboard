@@ -15,11 +15,60 @@ changes still require a backend redeployment to load the updated private environ
 During initialization or an outage, surveillance routes return `503` with code
 `OBSERVATORY_UNAVAILABLE` and `Retry-After: 15`. Dashboard and disease pages show a
 clear temporary-unavailability message and retry failed queries automatically.
-Existing primary health contexts remain available while geography synchronization
-waits for Observatory. Core readiness continues to require its existing primary,
-remote, Redis and identity dependencies; Observatory is reported separately as
-`unavailable` in aggregated health, with status `degraded` instead of failing core
-readiness. The primary authentication database remains mandatory.
+Health contexts and their full geography hierarchy read the primary database directly.
+No HTTP health-context operation connects to Observatory. Core readiness continues to
+require its existing primary, remote, Redis and identity dependencies; Observatory
+is reported separately as `unavailable` in aggregated health with status `degraded`.
+
+## Shared geography ownership
+
+Primary migration `000060_primary_geography_registry` creates `geography.regions`,
+`geography.districts`, `geography.sub_counties` and `geography.facilities`. The
+missing-only historical reference snapshot supplies 17 regions, 146 districts,
+177 legacy sub-county/reporting labels and 6,150 facilities even when Observatory
+has never connected. Existing primary health-context aliases are adopted first,
+preserving context UUIDs, assignments and disabled state. Registry row triggers
+maintain context nodes and hierarchy in the same primary transaction.
+
+Observatory retains local geography tables for its fact foreign keys. Its new
+replica metadata maps canonical primary UUIDs to existing local UUIDs; synchronization
+never deletes reference rows, changes existing Observatory UUIDs or rewrites facts.
+`geography-*` context aliases identify canonical rows, while `surveillance-*` aliases
+identify the corresponding Observatory rows. The identifiers can differ safely.
+
+The first successful connection adopts existing Observatory geography and metadata
+into primary once, including custom locations. Its adoption marker commits in primary
+before replica publication, so an interrupted destination update cannot overwrite
+later primary edits by adopting again. Subsequent updates flow only **primary ->
+Observatory**, approximately once per minute and immediately after location writes.
+The 15-second connection monitor retries failures. Surveillance becomes available
+only after migrations, initial synchronization and destination aliases succeed.
+
+Location APIs and transactional metric-import reference creation use a primary-aware
+store. Parent IDs supplied by surveillance are resolved to canonical IDs; responses
+continue to use Observatory IDs. Facts, diseases, indicators, weeks, alerts and import
+staging remain in Observatory. Unknown/ambiguous identities or a replica already
+bound to another primary registry stop synchronization instead of guessing or
+merging unrelated areas. Operators must resolve those conflicts before surveillance
+can be enabled; other portal features remain available.
+
+Shared geography cannot be physically deleted through surveillance APIs: sub-county
+delete returns `409 GEOGRAPHY_DELETE_RESTRICTED`. Disable the associated health
+context to withdraw access while preserving historical records. Assigned or
+registry-backed context nodes cannot be deleted either. This implementation does
+not propagate deletions from either database.
+
+Back up **both databases** before this cutover. Keep primary and Observatory UUIDs,
+replica identity tables and adoption markers together during restores. A primary
+replacement must restore its registry identity; do not manually clear replica origin
+or adoption markers to bypass an ownership conflict. Both new down migrations retain
+data, and reapplying them preserves IDs. Existing applied migrations are unchanged. An older backend image must be supplied
+with these retained migration files before binary rollback; otherwise its migration
+runner cannot recognize the newer database version. Do not force migration history
+backwards or drop geography to make an old image start.
+New geography corrections should be primary migrations, not edits to the historic
+Observatory seed. The historical reference labels are not a verified current
+administrative or facility registry.
 
 ## Relationship to the DQA connection
 
@@ -116,7 +165,7 @@ verification. The PostgreSQL role remains `surveillance`.
 
 ## Table ownership
 
-The isolated schema contains 13 tables: `regions`, `districts`, `sub_counties`,
+The isolated domain schema contains 13 tables (plus three geography-replica bookkeeping tables): `regions`, `districts`, `sub_counties`,
 `facilities`, `diseases`, `indicators`, `disease_indicators`, `epi_weeks`,
 `facility_weekly_metrics`, `weekly_status`, `alerts`, `surveillance_import_batches`
 and `surveillance_import_raw_rows`. It also owns `risk_level` and `alert_status`.
@@ -147,7 +196,7 @@ more reference rows than the baseline. Restarting containers preserves the datab
 startup does not reset the registry or reinsert rows intentionally removed after migration.
 Rolling this migration back also retains its reference rows so dependent reports are safe.
 
-Maintain future additions or verified corrections in a **new Observatory migration**;
+Maintain future shared-geography additions or verified corrections in a **new primary migration**;
 do not edit an already applied snapshot migration. Use external identifiers and existing
 natural keys to preserve identity. Update the baseline assertions in
 `backend/internal/migrate/migrations_integration_test.go` alongside a new version, and run
@@ -171,6 +220,9 @@ The filename, SHA-256 checksum and explicit flag year identify a batch, preventi
 unchanged file from being staged again. `--stage-only` stops before transformation.
 `--reprocess` transactionally rebuilds only the selected loader-owned source batches;
 all source rows remain available for audit. Ordinary retries are idempotent.
+Bulk SQL imports resolve existing replicated geography only. Unknown locations stay
+in failed staging with an explicit message; register them in primary and synchronize
+before retrying. The loader never creates an Observatory-only geography registry.
 
 - `data.csv`: location references and facility disease/indicator metrics. Original
   years are preserved. Exact known indicator names remain indicators; the suffix

@@ -20,7 +20,7 @@ func (m *observatoryMonitor) Ready() bool { return m.ready.Load() }
 func (m *observatoryMonitor) Close()      { m.cancel(); <-m.done }
 
 func startObservatoryMonitor(parent context.Context, interval time.Duration,
-	ping func(context.Context) error, initialize func(context.Context) error) *observatoryMonitor {
+	ping func(context.Context) error, initialize func(context.Context) error, refresh ...func(context.Context) error) *observatoryMonitor {
 	ctx, cancel := context.WithCancel(parent)
 	monitor := &observatoryMonitor{cancel: cancel, done: make(chan struct{})}
 	go func() {
@@ -42,6 +42,12 @@ func startObservatoryMonitor(parent context.Context, interval time.Duration,
 				err = initialize(initCtx)
 				stopInit()
 				initialized = err == nil
+			}
+			if err == nil && initialized && len(refresh) > 0 {
+				phase = "geography replication"
+				syncCtx, stopSync := context.WithTimeout(ctx, 30*time.Second)
+				err = refresh[0](syncCtx)
+				stopSync()
 			}
 			if err != nil {
 				initialized = false

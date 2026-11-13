@@ -772,6 +772,76 @@ type FacilityWeeklyMetric struct {
 	CreatedAt      time.Time      `json:"created_at"`
 }
 
+type GeographyAdoption struct {
+	ReplicaID uuid.UUID `json:"replica_id"`
+	AdoptedAt time.Time `json:"adopted_at"`
+}
+
+type GeographyDistrict struct {
+	ID        uuid.UUID      `json:"id"`
+	Name      string         `json:"name"`
+	RegionID  uuid.NullUUID  `json:"region_id"`
+	Code      sql.NullString `json:"code"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+type GeographyFacility struct {
+	ID             uuid.UUID      `json:"id"`
+	ExternalID     sql.NullString `json:"external_id"`
+	Name           string         `json:"name"`
+	DistrictID     uuid.NullUUID  `json:"district_id"`
+	SubCountyID    uuid.NullUUID  `json:"sub_county_id"`
+	RegionID       uuid.NullUUID  `json:"region_id"`
+	FacilityLevel  sql.NullString `json:"facility_level"`
+	FacilityType   sql.NullString `json:"facility_type"`
+	Dhis2OrgUnitID sql.NullString `json:"dhis2_org_unit_id"`
+	Latitude       sql.NullString `json:"latitude"`
+	Longitude      sql.NullString `json:"longitude"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+type GeographyRegion struct {
+	ID        uuid.UUID      `json:"id"`
+	Name      string         `json:"name"`
+	Code      sql.NullString `json:"code"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+type GeographyRegistry struct {
+	Singleton bool      `json:"singleton"`
+	ID        uuid.UUID `json:"id"`
+}
+
+type GeographyReplicaIdentity struct {
+	Singleton bool      `json:"singleton"`
+	ID        uuid.UUID `json:"id"`
+}
+
+type GeographyReplicaLink struct {
+	Kind     string    `json:"kind"`
+	SourceID uuid.UUID `json:"source_id"`
+	LocalID  uuid.UUID `json:"local_id"`
+}
+
+type GeographyReplicaOrigin struct {
+	Singleton      bool         `json:"singleton"`
+	RegistryID     uuid.UUID    `json:"registry_id"`
+	Adopted        bool         `json:"adopted"`
+	SynchronizedAt sql.NullTime `json:"synchronized_at"`
+}
+
+type GeographySubCounty struct {
+	ID         uuid.UUID      `json:"id"`
+	Name       string         `json:"name"`
+	DistrictID uuid.UUID      `json:"district_id"`
+	Code       sql.NullString `json:"code"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+}
+
 type GroupHealthContextAssignment struct {
 	ID            uuid.UUID      `json:"id"`
 	GroupID       uuid.UUID      `json:"group_id"`

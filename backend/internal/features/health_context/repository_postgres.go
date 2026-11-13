@@ -7,36 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
-type postgresRepository struct {
-	geographyDB        *sql.DB
-	geographyAvailable func() bool
-	geographyMu        sync.Mutex
-	geographySyncedAt  time.Time
-	db                 *sql.DB
-}
+type postgresRepository struct{ db *sql.DB }
 
-func NewRepository(db *sql.DB, geographyDB ...*sql.DB) Repository {
-	r := &postgresRepository{db: db}
-	if len(geographyDB) > 0 {
-		r.geographyDB = geographyDB[0]
-	}
-	return r
-}
-
-// NewRepositoryWithGeographyAvailability keeps primary context administration
-// available while Observatory initializes or reconnects.
-func NewRepositoryWithGeographyAvailability(db, geographyDB *sql.DB, available func() bool) Repository {
-	r := NewRepository(db, geographyDB).(*postgresRepository)
-	r.geographyAvailable = available
-	return r
-}
+func NewRepository(db *sql.DB) Repository { return &postgresRepository{db: db} }
 
 func (r *postgresRepository) CreateNode(ctx context.Context, input CreateNodeInput) (Node, error) {
 	if r.db == nil {
@@ -162,7 +140,8 @@ func (r *postgresRepository) DeleteNode(ctx context.Context, id uuid.UUID) error
 		SELECT
 			(SELECT COUNT(*) FROM health_context_nodes WHERE parent_id = $1) +
 			(SELECT COUNT(*) FROM user_health_context_assignments WHERE context_node_id = $1) +
-			(SELECT COUNT(*) FROM group_health_context_assignments WHERE context_node_id = $1)
+			(SELECT COUNT(*) FROM group_health_context_assignments WHERE context_node_id = $1) +
+			(SELECT COUNT(*) FROM health_context_aliases WHERE context_node_id = $1 AND namespace LIKE 'geography-%')
 	`, id).Scan(&references); err != nil {
 		return err
 	}
@@ -203,10 +182,6 @@ func (r *postgresRepository) ListNodes(
 	contextType ContextType,
 	includeDisabled bool,
 ) ([]Node, error) {
-	if err := r.ensureGeographySync(ctx); err != nil {
-		return nil, err
-	}
-
 	if r.db == nil {
 		return nil, errors.New("health context database is unavailable")
 	}
@@ -322,10 +297,6 @@ func (r *postgresRepository) GetNodeByAlias(
 	namespace string,
 	externalID string,
 ) (Node, error) {
-	if err := r.ensureGeographySync(ctx); err != nil {
-		return Node{}, err
-	}
-
 	if r.db == nil {
 		return Node{}, errors.New("health context database is unavailable")
 	}
@@ -376,10 +347,6 @@ func (r *postgresRepository) ListAliasesInScope(
 	contextID uuid.UUID,
 	includeDescendants bool,
 ) ([]Alias, error) {
-	if err := r.ensureGeographySync(ctx); err != nil {
-		return nil, err
-	}
-
 	if r.db == nil {
 		return nil, errors.New("health context database is unavailable")
 	}
