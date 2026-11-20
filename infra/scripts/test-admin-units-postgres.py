@@ -26,8 +26,9 @@ def main():
             '-e', 'POSTGRES_PASSWORD=' + password,
             '-p', '127.0.0.1::5432', image)
         created = True
+        # The entrypoint's temporary initialization server accepts only socket connections.
         for attempt in range(60):
-            ready = subprocess.run(['docker', 'exec', name, 'pg_isready', '-U', 'postgres'],
+            ready = subprocess.run(['docker', 'exec', name, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres'],
                                    capture_output=True)
             if ready.returncode == 0:
                 break
