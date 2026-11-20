@@ -39,18 +39,14 @@ func (s *Service) TransitionSystem(ctx context.Context, clientID string, input L
 		return System{}, ErrLifecycleForbidden
 	}
 	return s.repository.TransitionSystem(ctx, clientID, input, actor.UserID, func(system System, accessRoles int) error {
-		if !canTransition(system.LifecycleStatus, input.Status) {
+		if !core.CanTransitionApplication(system.LifecycleStatus, input.Status) {
 			return ErrLifecycleConflict
 		}
-		if input.Status == "validated" || input.Status == "approved" || input.Status == "active" {
+		if core.ApplicationTransitionRequiresValidation(input.Status) {
 			return validateApplication(system, accessRoles)
 		}
 		return nil
 	})
-}
-
-func canTransition(from, to string) bool {
-	return core.CanTransitionApplication(from, to)
 }
 
 func validateApplication(system System, accessRoles int) error {

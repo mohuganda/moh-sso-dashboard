@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"github.com/moh-sso-dashboard/core"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -70,7 +71,7 @@ func TestWorkerStopJoinsAndCanRetryAfterDeadline(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var finished atomic.Bool
-	stop := startWorkerGroup(context.Background(), []workerTask{{"blocked", func(ctx context.Context) error {
+	stop := core.StartWorkerGroup(context.Background(), []core.WorkerTask{{Name: "blocked", Run: func(ctx context.Context) error {
 		close(started)
 		<-ctx.Done()
 		<-release
@@ -96,7 +97,7 @@ func TestWorkerStopJoinsAndCanRetryAfterDeadline(t *testing.T) {
 }
 func TestWorkerFailureIsPreservedAtShutdown(t *testing.T) {
 	cause := errors.New("worker failed")
-	stop := startWorkerGroup(context.Background(), []workerTask{{"fixture", func(context.Context) error { return cause }}}, nil)
+	stop := core.StartWorkerGroup(context.Background(), []core.WorkerTask{{Name: "fixture", Run: func(context.Context) error { return cause }}}, nil)
 	if err := stop(context.Background()); !errors.Is(err, cause) {
 		t.Fatal("worker error lost", err)
 	}

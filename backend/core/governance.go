@@ -74,6 +74,17 @@ func CanManageApplicationLifecycle(actor LifecycleActor, target string) bool {
 		((target != "approved" && target != "active") || actor.CanApprove)
 }
 
+// ApplicationTransitionRequiresValidation reports whether a target lifecycle
+// status requires current metadata and host-specific launch/access checks.
+func ApplicationTransitionRequiresValidation(target string) bool {
+	switch target {
+	case "validated", "approved", "active":
+		return true
+	default:
+		return false
+	}
+}
+
 var ErrInvalidApplicationMetadata = errors.New("invalid application metadata")
 
 type ApplicationValidationError struct{ Message string }

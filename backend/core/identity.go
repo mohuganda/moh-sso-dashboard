@@ -83,6 +83,18 @@ func HasAnyPermission[P ~string](permissions []P, requested ...P) bool {
 	}
 	return false
 }
+
+// MissingPermissions returns unmet requirements in their original order.
+func MissingPermissions[P ~string](granted []P, required ...P) []P {
+	var missing []P
+	for _, permission := range required {
+		if !HasPermission(granted, permission) {
+			missing = append(missing, permission)
+		}
+	}
+	return missing
+}
+
 func HasRole(roles []string, role string) bool {
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role == "" {

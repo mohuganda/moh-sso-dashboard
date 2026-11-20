@@ -149,7 +149,7 @@ func buildServices(deps serviceDependencies) services {
 		deps.Config,
 	)
 	reportSchedulerService.SetNotifications(reportNotificationAdapter{notificationsService})
-	reportSchedulerService.SetAudit(auditService)
+	reportSchedulerService.SetAudit(moduleAudit{recorder: auditService})
 	reportSchedulerService.SetPublicBaseURL(deps.Config.AppBaseURL)
 	reportSchedulerService.SetDeliveryLinkTTL(deps.Config.ReportSchedulerDeliveryLinkTTL)
 	reportSchedulerService.SetEmailAttachmentLimit(deps.Config.Email.MaxAttachmentBytes)

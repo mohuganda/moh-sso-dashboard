@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/moh-sso-dashboard/core"
 	"github.com/moh-sso-dashboard/internal/cache"
 	"github.com/moh-sso-dashboard/internal/config"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
@@ -739,4 +740,17 @@ func (a *AuditService) AdminAction(
 	}
 
 	return a.write(ctx, adminID, strings.TrimSpace(action), metadata)
+}
+
+// RecordAudit persists a portable audit event using the existing host recorder.
+func (a *AuditService) RecordAudit(ctx context.Context, event core.AuditEvent) error {
+	var actor uuid.NullUUID
+	if event.Subject != "" {
+		id, err := uuid.Parse(event.Subject)
+		if err != nil {
+			return fmt.Errorf("invalid audit subject: %w", err)
+		}
+		actor = uuid.NullUUID{UUID: id, Valid: true}
+	}
+	return a.write(ctx, actor, event.Action, event.Metadata)
 }

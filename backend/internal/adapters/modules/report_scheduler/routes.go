@@ -2,10 +2,8 @@ package report_scheduler
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/modulehttp"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
 	scheduler "github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler"
@@ -41,15 +39,12 @@ func RegisterPublicRoutes(group *gin.RouterGroup, handler *Handler, limiter *rat
 func newHTTPModule(handler *Handler) *scheduler.HTTPModule {
 	module, err := scheduler.NewHTTPModule(handler.service, scheduler.HTTPOptions{
 		Actor: func(r *http.Request) (scheduler.HTTPActor, bool) {
-			actor, ok := modulehttp.Actor(r)
-			health := modulehttp.HealthContext(r)
+			actor, ok := modulehttp.RequestAccess(r)
 			return scheduler.HTTPActor{
-				UserID:        actor.UserID,
-				HealthContext: scheduler.HealthContext{District: strings.TrimSpace(health["district"]), Facility: strings.TrimSpace(health["facility"])},
+				UserID:        actor.Subject,
+				HealthContext: scheduler.HealthContext{District: actor.HealthScope.District, Facility: actor.HealthScope.Facility},
 				HasSystem:     actor.HasSystem,
-				HasPermission: func(permission string) bool {
-					return actor.HasPermission(authz.Permission(permission))
-				},
+				HasPermission: actor.HasPermission,
 			}, ok
 		},
 		RequestID: modulehttp.RequestID,

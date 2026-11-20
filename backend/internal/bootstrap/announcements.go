@@ -57,15 +57,15 @@ func buildAnnouncementsModule(deps handlerDependencies) *a.Module {
 
 	module, err := a.NewModule(a.Dependencies{
 		Database: deps.Databases.Primary, Settings: settings,
-		Audit: deps.Services.Audit, RequireAdmin: modulehttp.RequireAdmin, AuthorizeAny: modulehttp.AuthorizeAny,
+		Audit: moduleAudit{recorder: deps.Services.Audit}, RequireAdmin: modulehttp.RequireAdmin, AuthorizeAny: modulehttp.AuthorizeAny,
 		Limit:     modulehttp.PerUserLimit(ratelimit.New(deps.Redis)),
 		RequestID: modulehttp.RequestID, StreamError: modulehttp.StreamError,
 		Actor: func(r *http.Request) (a.Actor, error) {
-			verified, valid := modulehttp.Actor(r)
+			verified, valid := modulehttp.RequestAccess(r)
 			if !valid {
 				return a.Actor{}, a.ErrUnauthorized
 			}
-			id, err := uuid.Parse(verified.UserID)
+			id, err := uuid.Parse(verified.Subject)
 			if err != nil || id == uuid.Nil {
 				return a.Actor{}, a.ErrUnauthorized
 			}
@@ -75,9 +75,9 @@ func buildAnnouncementsModule(deps handlerDependencies) *a.Module {
 					actor.ClientIDs = append(actor.ClientIDs, client)
 				}
 			}
-			actor.ClientIDs = append(actor.ClientIDs, verified.AccessibleSystems...)
+			actor.ClientIDs = append(actor.ClientIDs, verified.Systems...)
 			// Both identifiers supplied by the shared identity directory remain usable.
-			assignments, err := users.GetUserClientRoles(r.Context(), verified.UserID)
+			assignments, err := users.GetUserClientRoles(r.Context(), verified.Subject)
 			if err != nil {
 				return a.Actor{}, err
 			}
