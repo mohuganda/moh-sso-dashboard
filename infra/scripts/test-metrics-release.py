@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Verify the pinned Metrics v0.2.0 public artifact and a fresh-cache HTTP consumer."""
+"""Verify the pinned Metrics public artifact and a fresh-cache HTTP consumer."""
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
+from backend_module_pins import module_pins
+
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = 'github.com/mohuganda/moh-sso-dashboard/backend/modules/metrics'
-VERSION = 'v0.2.0'
+VERSION = module_pins()[MODULE]
 CONSUMER = 'example.com/metrics-release-consumer'
 
 def main():
@@ -62,7 +64,7 @@ def main():
         for relative in files:
             assert (local/relative).read_bytes()==(released/relative).read_bytes(), 'Release drift: '+str(relative)
         print(output,flush=True)
-        print('PASS: Metrics v0.2.0 fresh public download/checksums, exact dependency graph, no replacements, independent HTTP consumer and complete artifact parity',flush=True)
+        print(f'PASS: Metrics {VERSION} fresh public download/checksums, exact dependency graph, no replacements, independent HTTP consumer and complete artifact parity',flush=True)
 if __name__=='__main__':
     try:
         main()

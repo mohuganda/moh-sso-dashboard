@@ -6,9 +6,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from backend_module_pins import module_pins
+
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = 'github.com/mohuganda/moh-sso-dashboard/backend/modules/admin-units'
-VERSION = 'v0.2.0'
+VERSION = module_pins()[MODULE]
 CONSUMER = 'example.com/admin-units-release-consumer'
 
 
@@ -77,7 +79,7 @@ def main():
         assert output == 'PASS: standalone Administrative Units HTTP consumer, scoped lookup and package-owned routes', output
         print(output, flush=True)
         assert all((consumer / name).read_bytes() == value for name, value in before.items())
-        print('PASS: published v0.2.0 download/checksums, exact dependency graph, no replacement, fresh-cache HTTP consumer and complete artifact parity', flush=True)
+        print(f'PASS: published {VERSION} download/checksums, exact dependency graph, no replacement, fresh-cache HTTP consumer and complete artifact parity', flush=True)
 
 
 if __name__ == '__main__':

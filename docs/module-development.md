@@ -38,6 +38,16 @@ exercise the selected published dependency. Verify changes with
 nested module tag before updating the host pin. Production builds do not use
 local module replacements.
 
+## Verify published backend versions
+
+Update the exact module pin in `backend/go.mod` and commit both checksums
+recorded in `backend/go.sum`. Run
+`python3 infra/scripts/backend_module_pins.py` with the backend Go toolchain
+available. It checks the selected dependency, rejects replacements, and compares
+the downloaded module and manifest checksums with the reviewed values.
+Distribution metadata, runtime inventory checks, and standalone release
+fixtures all read the expected versions from the backend pins.
+
 ## Add a compiled registry integration
 
 1. Record the feature's dependencies, worker owner, migration owner and next work

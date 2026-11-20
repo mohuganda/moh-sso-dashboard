@@ -20,6 +20,8 @@ import urllib.parse
 import urllib.request
 import uuid
 
+from backend_module_pins import MODULE_PREFIX, module_pins
+
 ROOT = Path(__file__).resolve().parents[2]
 SECRET = 'distribution-auth-fixture-only'
 REALM = 'distribution-fixture'
@@ -110,6 +112,7 @@ def main():
     parser.add_argument('--backend-image', required=True)
     parser.add_argument('--profile', choices=('full', 'core'), default='full')
     args = parser.parse_args()
+    expected_versions = {path.removeprefix(MODULE_PREFIX): version for path, version in module_pins().items()}
     project = 'moh-auth-fixture-' + uuid.uuid4().hex[:10]
     with tempfile.TemporaryDirectory(prefix=project) as tmp:
         tmp = Path(tmp)
@@ -253,8 +256,10 @@ def main():
             request(api + inventory, token=admin, extra_headers=cookie)
             print('Opaque session, bearer precedence, legacy cookie, refresh persistence, logout and expiry checks passed', flush=True)
             modules = request(api + inventory, token=admin)['data']
+            assert {item['id']: item['version'] for item in modules} == expected_versions, modules
+            assert len(modules) == len(expected_versions), modules
+            assert all(item['enabled'] == (args.profile == 'full') for item in modules), modules
             if args.profile == 'core':
-                assert len(modules) == 6 and all(not item['enabled'] for item in modules), modules
                 health = request(api + '/health')['data']
                 assert health['status'] == 'ok' and health['components']['remoteDB'] == 'disabled', health
                 assert not health['components'].get('observatory'), health
@@ -294,12 +299,6 @@ def main():
                       'governance, health context, optional route removal, continued audit recording, '
                       'no optional workers/delivery queue, clean shutdown and restart', flush=True)
                 return
-            assert any(item['id'] == 'metrics' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
-            assert any(item['id'] == 'report-scheduler' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
-            assert any(item['id'] == 'audit' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
-            assert any(item['id'] == 'geojson' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
-            assert any(item['id'] == 'announcements' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
-            assert any(item['id'] == 'admin-units' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
             # The fixture's warehouse uses its isolated backend database. Supply
             # only the dimension contract used by Administrative Units.
             warehouse_sql = '''CREATE SCHEMA IF NOT EXISTS dwh;
@@ -382,7 +381,7 @@ def main():
                       'include_in_email': False})['data']
             request(api + '/api/v1/announcements/' + private['id'] + '/attachments/' + private_attachment['id'] + '/download',
                     token=admin, status=404)
-            print('Announcements v0.2.0 routes, permissions, publication, attachment streams and private-audience isolation passed', flush=True)
+            print('Announcements routes, permissions, publication, attachment streams and private-audience isolation passed', flush=True)
             request(api + '/api/v1/admin/audit-logs/actions', token=admin)
             request(api + '/api/v1/admin/audit-logs/actions', token=viewer, status=403)
             audit_range = 'from=1970-01-01T00:00:00Z&to=2100-01-01T00:00:00Z'
@@ -416,7 +415,7 @@ def main():
             for _ in range(7):
                 request(audit_export + '&format=json', token=admin)
             request(audit_export + '&format=json', token=admin, status=429)
-            print('Audit v0.2.0 read routes, typed cache, CSV/JSON exports and ten-per-user export limit passed', flush=True)
+            print('Audit read routes, typed cache, CSV/JSON exports and ten-per-user export limit passed', flush=True)
 
 
             geo_url = api + '/api/v1/geojson/'
@@ -451,7 +450,7 @@ def main():
                 conditional = error
             with conditional:
                 assert conditional.code == 304 and conditional.read() == b''
-            print('GeoJSON v0.2.0 embedded layers, headers, ranges, conditional reads and permissions passed', flush=True)
+            print('GeoJSON embedded layers, headers, ranges, conditional reads and permissions passed', flush=True)
             document = {'apiVersion': 'portal.moh.go.ug/v1alpha1', 'kind': 'Application',
                 'metadata': {'id': 'fixture-reports', 'name': 'Fixture Reports', 'version': '1.0.0'},
                 'spec': {'environment': 'production', 'owner': {'team': 'Fixtures', 'name': 'Test Owner', 'email': 'owner@fixture.example.org'},
@@ -562,7 +561,7 @@ def main():
             modules = request(api + inventory, token=admin)['data']
             assert any(item['id']=='metrics' and not item['enabled'] for item in modules), modules
             request(api + '/api/v1/admin/rbac/systems', token=admin)
-            print('Metrics v0.2.0: 19 SQL-backed routes, real authentication/admin checks and complete disablement passed', flush=True)
+            print('Metrics: 19 SQL-backed routes, real authentication/admin checks and complete disablement passed', flush=True)
             # Metrics disablement intentionally restarted the still-enabled scheduler.
             # Compare later scheduler disablement with that current worker.
             enabled_runtime = scheduler_runtime()

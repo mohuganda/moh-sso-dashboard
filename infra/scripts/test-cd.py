@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cd_bundle as bundle
+from backend_module_pins import MODULE_PREFIX, module_checksums, module_pins
 from cd_server import Server, atomic_json
 from image_version import image_version
 
@@ -67,12 +68,15 @@ class BundleTests(unittest.TestCase):
         data = bundle.distribution_metadata()
         selection = json.loads((bundle.ROOT / 'frontend/module-sources.json').read_text())['production']
         self.assertEqual(data['frontend']['versions'], selection['versions'])
-        self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/audit'], 'v0.2.0')
-        self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/geojson'], 'v0.2.0')
-        self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/announcements'], 'v0.2.0')
-        self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/admin-units'], 'v0.2.0')
-        self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/metrics'], 'v0.2.0')
-        self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler'], 'v0.2.0')
+        pins = module_pins()
+        self.assertEqual(data['backend']['modules'], pins)
+        self.assertIn(MODULE_PREFIX + 'report-scheduler', pins)
+        for path, version in pins.items():
+            self.assertEqual(set(module_checksums(path, version)), {version, version + '/go.mod'})
+        for name in ('goMod', 'goSum'):
+            filename = {'goMod': 'go.mod', 'goSum': 'go.sum'}[name]
+            self.assertEqual(data['backend'][name + 'Sha256'],
+                             hashlib.sha256((bundle.ROOT / 'backend' / filename).read_bytes()).hexdigest())
         for field in ('version', 'checksum', 'module'):
             changed = json.loads(json.dumps(data))
             if field == 'version':

@@ -7,9 +7,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from backend_module_pins import module_pins
+
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = 'github.com/mohuganda/moh-sso-dashboard/backend/modules/geojson'
-VERSION = 'v0.2.0'
+VERSION = module_pins()[MODULE]
 CONSUMER = 'example.com/geojson-release-consumer'
 
 def main():

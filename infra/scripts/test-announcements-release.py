@@ -6,9 +6,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from backend_module_pins import module_pins
+
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = 'github.com/mohuganda/moh-sso-dashboard/backend/modules/announcements'
-VERSION = 'v0.2.0'
+VERSION = module_pins()[MODULE]
 
 
 def main():
@@ -70,7 +72,7 @@ def main():
         (consumer / 'main.go').write_text((local/'testdata/http-consumer/main.go').read_text())
         run('build', '-race', '-mod=readonly', '-o', str(root/'http-consumer'), '.')
         run('vet', '-mod=readonly', './...')
-        print('PASS: published v0.2.0 download/checksums, fresh-cache consumer, exact graph, HTTP build and complete artifact parity', flush=True)
+        print(f'PASS: published {VERSION} download/checksums, fresh-cache consumer, exact graph, HTTP build and complete artifact parity', flush=True)
 
 
 if __name__ == '__main__':

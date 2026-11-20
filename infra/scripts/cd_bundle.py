@@ -37,6 +37,8 @@ def validate_distribution(data):
 
 
 def distribution_metadata():
+    from backend_module_pins import module_pins
+
     production = json.loads((ROOT / 'frontend/module-sources.json').read_text())['production']
     if production.get('source') != 'npm' or production.get('lockfile') != 'module-locks/production/package-lock.json':
         raise ValueError('Distribution releases require the committed production npm lock')
@@ -50,7 +52,7 @@ def distribution_metadata():
         if item.get('version') != version or not item.get('integrity') or item.get('link') or not item.get('resolved', '').startswith('https://'):
             raise ValueError('Distribution npm artifact lacks registry integrity')
     go_mod = ROOT / 'backend/go.mod'
-    modules = dict(re.findall(r'^\s*(?:require\s+)?(github\.com/mohuganda/moh-sso-dashboard/backend/modules/\S+)\s+(v\S+)', go_mod.read_text(), re.MULTILINE))
+    modules = module_pins(go_mod.parent)
     digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
     return validate_distribution({'schema_version': 1,
         'backend': {'goModSha256': digest(go_mod), 'goSumSha256': digest(ROOT / 'backend/go.sum'), 'modules': modules},

@@ -140,6 +140,9 @@ jobs:
             (cd "$(dirname "$manifest")" && GOWORK=off go mod download && GOWORK=off go list -mod=readonly -m all > /dev/null)
           done
 
+      - name: Verify published backend module pins and checksums
+        run: python3 infra/scripts/backend_module_pins.py
+
       - name: Module coverage catalogue and guide
         run: |
           python3 infra/scripts/check-module-catalog.py
