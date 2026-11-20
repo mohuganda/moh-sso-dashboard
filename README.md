@@ -1411,6 +1411,21 @@ Email attachment payloads should provide exactly one of `path` or `data_base64`.
 
 ## Documentation Map
 
+The [Docusaurus site](documentation/) brings the platform and frontend guides
+together with a shared sidebar, page navigation, and Mermaid diagrams.
+Run it with Node.js 20 or later.
+
+```sh
+npm --prefix documentation ci
+npm --prefix documentation start -- --port 3001
+```
+
+Open http://localhost:3001/moh-sso-dashboard/. Run
+`npm --prefix documentation run build` to validate internal links and generate
+the static site in `documentation/build/`. The Documentation workflow also
+builds the site and uploads it as an artifact. Set `DOCS_URL` and
+`DOCS_BASE_URL` at build time when serving from a different host or path.
+
 Each frontend app and package has its own README:
 
 ```text
