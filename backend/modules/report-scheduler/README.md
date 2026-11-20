@@ -6,8 +6,7 @@ Go package: `reportscheduler`. Requires Go 1.25.4.
 Version `v0.1.0` is the first standalone scheduler release. Its Go module tag is
 `backend/modules/report-scheduler/v0.1.0`. It has independent dependency metadata
 and tests and builds outside the dashboard tree. Hosts select the immutable
-version in their dependency metadata and supply their own HTTP and platform
-adapters.
+version in their dependency metadata and supply platform providers.
 
 ## Public API and responsibilities
 
@@ -20,15 +19,20 @@ adapters.
 | `Notifications`, `Audit` | Host-supplied event recording and failure notifications |
 | `HealthHierarchy`, `NewPostgresHealthHierarchy` | Validate district/facility relationships against the host DWH |
 | `WorkerService`, `Worker` | Explicit readiness, immediate processing, polling, cancellation and joined shutdown |
+| `NewHTTPModule`, `HTTPOptions` | Package-owned protected and public routes, JSON responses and scheduler access policies |
 | Request/result types | Public scheduling, execution, artifact, delivery and recipient models without host types |
 | `CalculateNextRun`, `ResolveReportingPeriod` | Timezone-aware scheduling and reporting-period resolution |
 | `ModulePath`, `Version` | Selected consumer dependency version; local/unversioned builds report `dev` |
 
-The caller owns authentication, HTTP routes, rate limits and permission checks.
-Pass authenticated user IDs, authenticated health scope and an already authorized
-manage/include-all decision to service methods. The dashboard retains its existing
-`data-statistics` system and scheduler permission checks in its HTTP adapters.
-The standalone package imports neither Gin nor dashboard code.
+The HTTP module exposes the existing `/report-scheduler` routes relative to the
+host's API prefix. Mount `ProtectedPatterns()` with `ProtectedHandler()` behind
+the host's authentication middleware. Mount `PublicPatterns()` with
+`PublicHandler()` for anonymous delivery links. Strip the host API prefix from
+the request before dispatch. The package enforces system access and per-route
+permissions and passes verified identity and health scope to the service.
+The host supplies a verified actor resolver and a per-IP download limiter.
+The optional request-ID provider preserves upstream request correlation.
+The package uses Go's standard HTTP library.
 
 Construction does not start background work or run migrations. Construct the
 service with explicit adapters, configure notifications/audit, public download URL,
