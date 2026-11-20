@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	reportScheduler "github.com/moh-sso-dashboard/internal/adapters/modules/report_scheduler"
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/api/handler"
 	adminunits "github.com/mohuganda/moh-sso-dashboard/backend/modules/admin-units"
@@ -77,6 +78,7 @@ func documentationHandlers() router.HandlerSet {
 		}
 	}
 	var err error
+	handlers.ReportScheduler = reportScheduler.NewHandler(reportScheduler.NewService(nil, nil, nil, nil, nil, nil))
 	handlers.GeoJSON, err = geojson.NewModule(geojson.Dependencies{AuthorizeAny: func(*http.Request, ...string) error { return geojson.ErrUnauthorized }})
 	if err != nil {
 		panic(err)
