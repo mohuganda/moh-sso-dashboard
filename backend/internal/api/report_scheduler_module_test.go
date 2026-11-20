@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -64,6 +65,7 @@ func TestSchedulerModuleControlsRoutesAndWorker(t *testing.T) {
 		}
 		for _, identity := range []string{"anonymous", "no-permission", "reader"} {
 			r := gin.New()
+			r.Use(middleware.RequestContext())
 			public := r.Group("/api/v1")
 			protected := r.Group("/api/v1", func(c *gin.Context) {
 				if identity == "anonymous" {
@@ -79,13 +81,30 @@ func TestSchedulerModuleControlsRoutesAndWorker(t *testing.T) {
 			}, middleware.RequireAuth())
 			registry.RegisterRoutes(module.Routes{Public: public, Protected: protected, Admin: protected.Group("/admin")})
 			res := httptest.NewRecorder()
-			r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/v1/report-scheduler", nil))
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/report-scheduler", nil)
+			req.Header.Set("X-Request-ID", "scheduler-trace")
+			r.ServeHTTP(res, req)
 			want := map[string]int{"anonymous": 401, "no-permission": 403, "reader": 200}[identity]
 			if disabled {
 				want = 404
 			}
 			if res.Code != want {
 				t.Fatalf("disabled=%v identity=%s: got %d want %d", disabled, identity, res.Code, want)
+			}
+			if !disabled {
+				var body struct {
+					Meta  struct{ RequestID string }
+					Error struct{ Code string }
+				}
+				if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+					t.Fatal(err)
+				}
+				if body.Meta.RequestID != "scheduler-trace" || res.Header().Get("X-Request-ID") != body.Meta.RequestID {
+					t.Fatalf("request ID not propagated: %s", res.Body.String())
+				}
+				if code := map[string]string{"anonymous": "UNAUTHORIZED", "no-permission": "FORBIDDEN"}[identity]; body.Error.Code != code {
+					t.Fatalf("unexpected error code for %s: %s", identity, res.Body.String())
+				}
 			}
 			res = httptest.NewRecorder()
 			r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/v1/report-scheduler/public/deliveries/invalid/download", nil))

@@ -3,11 +3,12 @@ package modulehttp
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/moh-sso-dashboard/internal/ratelimit"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/moh-sso-dashboard/internal/http/apierror"
+	"github.com/moh-sso-dashboard/internal/ratelimit"
 )
 
 // UserLimiter is a shared rate-store capability, independent of any business module.
@@ -15,18 +16,13 @@ type UserLimiter interface {
 	Available() bool
 	Allow(context.Context, string, int, time.Duration) (bool, int, time.Time, error)
 }
-type throttled struct{ until time.Time }
-
-func (t throttled) Error() string             { return "rate limit exceeded" }
-func (t throttled) StatusCode() int           { return 429 }
-func (t throttled) RetryAfter() time.Duration { return time.Until(t.until) }
 
 // PerUserLimit never infers identity from headers or fails open on store errors.
 func PerUserLimit(limiter UserLimiter) func(*http.Request, string, int, time.Duration) (http.Header, error) {
 	return func(r *http.Request, name string, limit int, window time.Duration) (http.Header, error) {
 		actor, valid := Actor(r)
 		if !valid {
-			return nil, denied(401)
+			return nil, apierror.New(http.StatusUnauthorized, "UNAUTHORIZED", http.StatusText(http.StatusUnauthorized))
 		}
 		if limiter == nil || !limiter.Available() || name == "" || limit <= 0 || window <= 0 {
 			return nil, errors.New("rate enforcement unavailable")
@@ -39,12 +35,9 @@ func PerUserLimit(limiter UserLimiter) func(*http.Request, string, int, time.Dur
 			remaining = 0
 		}
 		headers := http.Header{}
-		headers.Set("X-RateLimit-Policy", name)
-		headers.Set("X-RateLimit-Limit", fmt.Sprint(limit))
-		headers.Set("X-RateLimit-Remaining", fmt.Sprint(remaining))
-		headers.Set("X-RateLimit-Reset", reset.Format(time.RFC3339))
+		ratelimit.SetHeaders(headers, name, limit, remaining, reset)
 		if !allowed {
-			return headers, throttled{reset}
+			return headers, apierror.RateLimitError{Reset: reset}
 		}
 		return headers, nil
 	}

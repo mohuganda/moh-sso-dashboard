@@ -1,8 +1,8 @@
 package ratelimit
 
 import (
-	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,8 +33,8 @@ func Middleware(
 }
 
 func MiddlewareForPolicy(limiter *Limiter, policy Policy) gin.HandlerFunc {
+	policy = policy.withDefaults()
 	return func(c *gin.Context) {
-		policy = policy.withDefaults()
 		if limiter == nil || limiter.redis == nil || policy.Limit <= 0 {
 			c.Next()
 			return
@@ -49,11 +49,7 @@ func MiddlewareForPolicy(limiter *Limiter, policy Policy) gin.HandlerFunc {
 			policy.Window,
 		)
 
-		// headers (nice for frontend)
-		c.Header("X-RateLimit-Policy", policy.Name)
-		c.Header("X-RateLimit-Limit", fmt.Sprint(policy.Limit))
-		c.Header("X-RateLimit-Remaining", fmt.Sprint(remaining))
-		c.Header("X-RateLimit-Reset", reset.Format(time.RFC3339))
+		SetHeaders(c.Writer.Header(), policy.Name, policy.Limit, remaining, reset)
 
 		if err != nil {
 			// fail-open
@@ -69,6 +65,14 @@ func MiddlewareForPolicy(limiter *Limiter, policy Policy) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// SetHeaders applies the platform rate policy metadata to an HTTP response.
+func SetHeaders(header http.Header, policy string, limit, remaining int, reset time.Time) {
+	header.Set("X-RateLimit-Policy", policy)
+	header.Set("X-RateLimit-Limit", strconv.Itoa(limit))
+	header.Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
+	header.Set("X-RateLimit-Reset", reset.Format(time.RFC3339))
 }
 
 func (policy Policy) withDefaults() Policy {

@@ -50,6 +50,12 @@ func TestPerUserLimitRequiresVerifiedIdentityAndFailsClosed(t *testing.T) {
 					w.Header().Add(name, value)
 				}
 			}
+			if mode == "limited" {
+				var retry interface{ RetryAfter() time.Duration }
+				if !errors.As(err, &retry) || retry.RetryAfter() <= 0 {
+					t.Errorf("rate limit error is missing retry timing: %v", err)
+				}
+			}
 			if err != nil {
 				status := 503
 				if v, ok := err.(interface{ StatusCode() int }); ok {

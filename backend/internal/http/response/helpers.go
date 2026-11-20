@@ -2,6 +2,7 @@ package response
 
 import (
 	"github.com/gin-gonic/gin"
+	"net/http"
 
 	"github.com/moh-sso-dashboard/internal/observability"
 )
@@ -31,10 +32,17 @@ func Fail(
 }
 
 func metaFromContext(c *gin.Context) Meta {
-	if c == nil || c.Request == nil {
+	if c == nil {
 		return Meta{}
 	}
-	return Meta{
-		RequestID: observability.RequestIDFromContext(c.Request.Context()),
+	return MetaFromRequest(c.Request)
+}
+
+// MetaFromRequest carries the request ID resolved by host middleware into
+// both host responses and standalone module callbacks.
+func MetaFromRequest(r *http.Request) Meta {
+	if r == nil {
+		return Meta{}
 	}
+	return Meta{RequestID: observability.RequestIDFromContext(r.Context())}
 }

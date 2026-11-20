@@ -1,6 +1,9 @@
 package apierror
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 type APIError struct {
 	Code       string `json:"code"`
@@ -11,6 +14,10 @@ type APIError struct {
 func (e *APIError) Error() string {
 	return e.Message
 }
+
+// StatusCode lets HTTP module adapters consume the error without importing
+// dashboard packages.
+func (e *APIError) StatusCode() int { return e.HTTPStatus }
 
 /* -----------------------------
  * Constructor
@@ -77,6 +84,16 @@ var (
 		"Invalid or unreadable file",
 	)
 )
+
+// RateLimitError exposes the same status and retry information to standalone
+// HTTP modules through their structural error interfaces.
+type RateLimitError struct {
+	Reset time.Time
+}
+
+func (e RateLimitError) Error() string             { return "rate limit exceeded" }
+func (e RateLimitError) StatusCode() int           { return http.StatusTooManyRequests }
+func (e RateLimitError) RetryAfter() time.Duration { return time.Until(e.Reset) }
 
 /* =========================================================
  * Client errors

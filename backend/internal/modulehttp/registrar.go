@@ -11,7 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/authz"
-	"github.com/moh-sso-dashboard/internal/observability"
+	"github.com/moh-sso-dashboard/internal/http/apierror"
+	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type accessKey struct{}
@@ -20,24 +21,20 @@ type access struct {
 	valid         bool
 	healthContext map[string]string
 }
-type denied int
-
-func (d denied) Error() string   { return http.StatusText(int(d)) }
-func (d denied) StatusCode() int { return int(d) }
 
 // AuthorizeAny reads only the verified context supplied by the registrar after
 // the platform authentication middleware. Request headers never create claims.
 func AuthorizeAny(r *http.Request, permissions ...string) error {
 	current, ok := r.Context().Value(accessKey{}).(access)
 	if !ok || !current.valid || current.actor.UserID == "" {
-		return denied(401)
+		return apierror.New(http.StatusUnauthorized, "UNAUTHORIZED", http.StatusText(http.StatusUnauthorized))
 	}
 	for _, permission := range permissions {
 		if current.actor.HasPermission(authz.Permission(permission)) {
 			return nil
 		}
 	}
-	return denied(403)
+	return apierror.New(http.StatusForbidden, "FORBIDDEN", http.StatusText(http.StatusForbidden))
 }
 
 // Actor returns only the identity verified by the platform middleware.
@@ -50,20 +47,20 @@ func Actor(r *http.Request) (authz.Context, bool) {
 func RequireAdmin(r *http.Request) error {
 	actor, valid := Actor(r)
 	if !valid {
-		return denied(401)
+		return apierror.New(http.StatusUnauthorized, "UNAUTHORIZED", http.StatusText(http.StatusUnauthorized))
 	}
 	if !actor.IsAdmin {
-		return denied(403)
+		return apierror.New(http.StatusForbidden, "FORBIDDEN", http.StatusText(http.StatusForbidden))
 	}
 	return nil
 }
 func RequireSystem(r *http.Request, system string) error {
 	actor, valid := Actor(r)
 	if !valid {
-		return denied(401)
+		return apierror.New(http.StatusUnauthorized, "UNAUTHORIZED", http.StatusText(http.StatusUnauthorized))
 	}
 	if !actor.HasSystem(system) {
-		return denied(403)
+		return apierror.New(http.StatusForbidden, "FORBIDDEN", http.StatusText(http.StatusForbidden))
 	}
 	return nil
 }
@@ -74,7 +71,7 @@ func HealthContext(r *http.Request) map[string]string {
 	return current.healthContext
 }
 
-func RequestID(r *http.Request) string { return observability.RequestIDFromContext(r.Context()) }
+func RequestID(r *http.Request) string { return response.MetaFromRequest(r).RequestID }
 
 type HTTPModule interface{ http.Handler }
 type Registrar struct{ group *gin.RouterGroup }
