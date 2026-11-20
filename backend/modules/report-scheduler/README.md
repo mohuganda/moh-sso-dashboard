@@ -34,6 +34,12 @@ The host supplies a verified actor resolver and a per-IP download limiter.
 The optional request-ID provider preserves upstream request correlation.
 The package uses Go's standard HTTP library.
 
+The module also exposes `Patterns()`, `ServeHTTP`, and `OpenAPI()` for shared
+host registration. Paths are relative to the host API prefix. An empty
+operation security array marks public delivery downloads. Protected operations
+inherit host authentication and declare the required system and permission
+groups. An actor must satisfy each group with at least one permission.
+
 Construction does not start background work or run migrations. Construct the
 service with explicit adapters, configure notifications/audit, public download URL,
 delivery-link TTL and attachment limit, then create a worker. `Worker.Initialize`

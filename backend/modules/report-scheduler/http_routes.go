@@ -36,3 +36,7 @@ func (h *httpHandler) endpoints() []endpoint {
 		{"GET", "/public/deliveries/{token}/download", true, nil, h.DownloadDeliveryLink},
 	}
 }
+
+func (e endpoint) fullPath() string { return "/report-scheduler" + e.path }
+
+func (e endpoint) pattern() string { return e.method + " " + e.fullPath() }

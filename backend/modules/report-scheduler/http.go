@@ -51,7 +51,7 @@ func NewHTTPModule(service *Service, options HTTPOptions) (*HTTPModule, error) {
 	h := &httpHandler{service: service}
 	m := &HTTPModule{protected: http.NewServeMux(), public: http.NewServeMux()}
 	for _, route := range h.endpoints() {
-		pattern := route.method + " /report-scheduler" + route.path
+		pattern := route.pattern()
 		serve := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c := &httpRequest{writer: w, request: r}
 			if options.RequestID != nil {
@@ -99,6 +99,21 @@ func NewHTTPModule(service *Service, options HTTPOptions) (*HTTPModule, error) {
 		}
 	}
 	return m, nil
+}
+
+// Patterns lists the module's public and protected HTTP operations.
+func (m *HTTPModule) Patterns() []string {
+	return append(m.ProtectedPatterns(), m.publicPatterns...)
+}
+
+// ServeHTTP dispatches public capability routes to the rate-limited handler.
+// Every other route is served by the protected handler.
+func (m *HTTPModule) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if _, pattern := m.public.Handler(r); pattern != "" {
+		m.public.ServeHTTP(w, r)
+		return
+	}
+	m.protected.ServeHTTP(w, r)
 }
 
 func (m *HTTPModule) ProtectedHandler() http.Handler { return m.protected }
