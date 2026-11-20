@@ -11,18 +11,9 @@ function UtilityPage({ title }: { title: string }) {
   );
 }
 
-function normalizeBasename(basename?: string) {
-  const normalized = basename?.replace(/\/+$/, "");
-
-  if (!normalized || normalized.endsWith("/apps/utilities")) {
-    return "/apps/utilities/self-service";
-  }
-
-  return normalized;
-}
-
 export function UtilitiesRoot(props: MicrofrontendRuntimeProps) {
-  const basename = resolveRuntimeBasename(normalizeBasename(props.basename));
+  const base = resolveRuntimeBasename(props.basename || "/apps/utilities/self-service");
+  const basename = base.endsWith("/apps/utilities") ? `${base}/self-service` : base;
 
   return (
     <div className="moh-microfrontend-root">

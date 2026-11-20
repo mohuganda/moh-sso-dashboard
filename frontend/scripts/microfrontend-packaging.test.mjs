@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { build, loadConfigFromFile } from "vite";
 import { frontendRoot, workspaceModules } from "./module-source.mjs";
+import { resolveRuntimeBasename } from "../packages/microfrontend/src/basename.ts";
 import cssInjectedByJsPlugin from "../build/css-injected-by-js.ts";
 import { closeViteTestServer } from "./vite-test-server.mjs";
 
@@ -95,5 +96,22 @@ test("published lifecycle uses the host React renderer and JSX runtime", async (
     }
   } finally {
     await closeViteTestServer();
+  }
+});
+
+test("embedded router basenames preserve deployment prefixes and path boundaries", (t) => {
+  t.after(() => { delete globalThis.window; });
+  for (const [pathname, basename, deployment, expected] of [
+    ["/portal/apps/eservices/ihris", "/apps/eservices", undefined, "/portal/apps/eservices"],
+    ["/proxy/portal/apps/utilities/self-service/timesheet", "/apps/utilities", undefined, "/proxy/portal/apps/utilities"],
+    ["/apps/reports-archive/apps/reports/run", "/apps/reports", undefined, "/apps/reports-archive/apps/reports"],
+    ["/portal/apps/reports-archive", "/apps/reports", undefined, "/apps/reports"],
+    ["/other/portal/apps/reports", "/portal/apps/reports/", "/portal/", "/portal/apps/reports"],
+    ["/apps/reports", "/apps/reports", "/portal", "/portal/apps/reports"],
+    ["/portal/reports", "/", "/portal/", "/portal"],
+    ["/apps/reports", "/", undefined, "/"],
+  ]) {
+    Object.defineProperty(globalThis, "window", { configurable: true, value: { location: { pathname } } });
+    assert.equal(resolveRuntimeBasename(basename, deployment), expected, pathname);
   }
 });

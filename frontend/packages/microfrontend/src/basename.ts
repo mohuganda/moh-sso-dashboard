@@ -3,43 +3,36 @@ function normalizePath(path: string) {
   return normalized.replace(/\/+$/, "") || "/";
 }
 
-function hasPathBoundary(pathname: string, start: number, length: number) {
-  const before = start === 0 ? "" : pathname[start - 1];
-  const after = pathname[start + length] ?? "";
-
-  return (!before || before === "/") && (!after || after === "/" || after === "?" || after === "#");
+function containsPath(pathname: string, basename: string) {
+  return pathname === basename || pathname.startsWith(`${basename}/`);
 }
 
 export function resolveRuntimeBasename(basename: string, deploymentBase?: string) {
   const normalizedBasename = normalizePath(basename);
-  const normalizedDeploymentBase = deploymentBase ? normalizePath(deploymentBase) : "";
+  const deployment = deploymentBase ? normalizePath(deploymentBase) : "";
 
-  if (
-    normalizedDeploymentBase &&
-    normalizedDeploymentBase !== "/" &&
-    !normalizedBasename.startsWith(`${normalizedDeploymentBase}/`) &&
-    normalizedBasename !== normalizedDeploymentBase
-  ) {
-    return `${normalizedDeploymentBase}${normalizedBasename}`;
+  if (deployment && deployment !== "/") {
+    if (normalizedBasename === "/") {
+      return deployment;
+    }
+    return containsPath(normalizedBasename, deployment)
+      ? normalizedBasename
+      : `${deployment}${normalizedBasename}`;
   }
 
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || normalizedBasename === "/") {
     return normalizedBasename;
   }
 
   const pathname = normalizePath(window.location.pathname);
-
-  if (
-    pathname === normalizedBasename ||
-    pathname.startsWith(`${normalizedBasename}/`)
-  ) {
-    return normalizedBasename;
-  }
-
-  const basenameIndex = pathname.indexOf(normalizedBasename);
-
-  if (basenameIndex > 0 && hasPathBoundary(pathname, basenameIndex, normalizedBasename.length)) {
-    return `${pathname.slice(0, basenameIndex)}${normalizedBasename}`;
+  // The leading slash already establishes the start of a path segment.
+  let index = pathname.indexOf(normalizedBasename);
+  while (index !== -1) {
+    const end = index + normalizedBasename.length;
+    if (end === pathname.length || pathname[end] === "/") {
+      return pathname.slice(0, end);
+    }
+    index = pathname.indexOf(normalizedBasename, index + 1);
   }
 
   return normalizedBasename;

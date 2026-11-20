@@ -11,16 +11,8 @@ import LeaveAbsenceManagementPage from "./pages/leave-absence-management.page";
 import MeetingManagerPage from "./pages/meeting-manager.page";
 import WorkplansPage from "./pages/workplans.page";
 
-function normalizeBasename(basename?: string) {
-  if (!basename || basename === "/apps/eservices") {
-    return "/apps/eservices";
-  }
-
-  return basename.replace(/\/+$/, "");
-}
-
 export function EServicesRoot(props: MicrofrontendRuntimeProps) {
-  const basename = resolveRuntimeBasename(normalizeBasename(props.basename));
+  const basename = resolveRuntimeBasename(props.basename || "/apps/eservices");
 
   return (
     <div className="moh-microfrontend-root">
