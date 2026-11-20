@@ -1,5 +1,28 @@
 # @moh-sso/documents
 
+## 1.5.0
+
+### Minor Changes
+
+- Automatic minor release of all frontend apps and shared packages.
+
+### Patch Changes
+
+- Updated dependencies
+  - @moh-sso/users@1.5.0
+  - @moh-sso/api@1.5.0
+  - @moh-sso/auth@1.5.0
+  - @moh-sso/microfrontend@1.5.0
+  - @moh-sso/ui@1.5.0
+  - @moh-sso/utils@1.5.0
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.4.0`.
+
+- No direct source changes; this release updates version or dependency metadata.
+
 ## 1.4.0
 
 ### Minor Changes
@@ -17,6 +40,7 @@
   - @moh-sso/utils@1.4.0
 
 <!-- scoped-source-changes -->
+
 ### Source changes
 
 Changes since `frontend/v1.3.2`.

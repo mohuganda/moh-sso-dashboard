@@ -1,5 +1,24 @@
 # @moh-sso/api
 
+## 1.5.0
+
+### Minor Changes
+
+- Automatic minor release of all frontend apps and shared packages.
+
+### Patch Changes
+
+- Updated dependencies
+  - @moh-sso/auth@1.5.0
+  - @moh-sso/config@1.5.0
+
+<!-- scoped-source-changes -->
+### Source changes
+
+Changes since `frontend/v1.4.0`.
+
+- fix(frontend): release shared React runtime patch 1.4.1 (#308) (`fdd4fe8`)
+
 ## 1.4.1
 
 ### Patch Changes
