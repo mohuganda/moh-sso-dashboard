@@ -1,42 +1,64 @@
 package report_scheduler
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/moh-sso-dashboard/internal/authz"
-	"github.com/moh-sso-dashboard/internal/middleware"
+	"github.com/moh-sso-dashboard/internal/modulehttp"
 	"github.com/moh-sso-dashboard/internal/ratelimit"
+	scheduler "github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler"
 )
 
-func RegisterProtectedRoutes(protected *gin.RouterGroup, handler *Handler) {
-	scheduler := protected.Group("/report-scheduler", middleware.RequireSystem(authz.SystemDataStatistics))
-	scheduler.GET("", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.GetModule)
-	scheduler.GET("/overview", middleware.RequirePermission(authz.PermissionReportSchedulerHistory), handler.Overview)
-	scheduler.GET("/metrics", middleware.RequirePermission(authz.PermissionMetricsRead), middleware.RequirePermission(authz.PermissionReportSchedulerManage), handler.Overview)
-	scheduler.GET("/reports", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.ListReports)
-	// Query parameters preserve category paths in report IDs through proxies and Gin.
-	scheduler.GET("/report", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.GetReport)
-	scheduler.GET("/report-parameters", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.GetReportParameters)
-	scheduler.GET("/reports/:reportId", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.GetReport)
-	scheduler.GET("/reports/:reportId/parameters", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.GetReportParameters)
-	scheduler.GET("/schedules", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.ListSchedules)
-	scheduler.POST("/schedules", middleware.RequirePermission(authz.PermissionReportSchedulerCreate), handler.CreateSchedule)
-	scheduler.GET("/schedules/:scheduleId", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.GetSchedule)
-	scheduler.PUT("/schedules/:scheduleId", middleware.RequirePermission(authz.PermissionReportSchedulerUpdate), handler.UpdateSchedule)
-	scheduler.DELETE("/schedules/:scheduleId", middleware.RequirePermission(authz.PermissionReportSchedulerDelete), handler.DeleteSchedule)
-	scheduler.POST("/schedules/:scheduleId/pause", middleware.RequirePermission(authz.PermissionReportSchedulerUpdate), handler.PauseSchedule)
-	scheduler.POST("/schedules/:scheduleId/resume", middleware.RequirePermission(authz.PermissionReportSchedulerUpdate), handler.ResumeSchedule)
-	scheduler.POST("/schedules/:scheduleId/duplicate", middleware.RequirePermission(authz.PermissionReportSchedulerCreate), handler.DuplicateSchedule)
-	scheduler.POST("/schedules/:scheduleId/run", middleware.RequirePermission(authz.PermissionReportSchedulerExecute), handler.RunNow)
-	scheduler.GET("/executions", middleware.RequirePermission(authz.PermissionReportSchedulerHistory), handler.ListExecutions)
-	scheduler.GET("/executions/:executionId", middleware.RequirePermission(authz.PermissionReportSchedulerHistory), handler.GetExecution)
-	scheduler.POST("/executions/:executionId/retry", middleware.RequirePermission(authz.PermissionReportSchedulerExecute), handler.RetryExecution)
-	scheduler.GET("/recipients/options", middleware.RequireAnyPermission(authz.PermissionReportSchedulerCreate, authz.PermissionReportSchedulerUpdate), handler.RecipientOptions)
-	scheduler.POST("/recipients/preview", middleware.RequireAnyPermission(authz.PermissionReportSchedulerCreate, authz.PermissionReportSchedulerUpdate), handler.PreviewRecipients)
-	scheduler.GET("/portal-reports", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.ListPortalReports)
-	scheduler.GET("/artifacts/:artifactId/download", middleware.RequirePermission(authz.PermissionReportSchedulerRead), handler.DownloadArtifact)
+type Handler struct{ service *Service }
+
+func NewHandler(service *Service) *Handler { return &Handler{service: service} }
+
+func RegisterProtectedRoutes(group *gin.RouterGroup, handler *Handler) {
+	if handler == nil {
+		return
+	}
+	module := newHTTPModule(handler)
+	registrar := modulehttp.NewRegistrar(group)
+	for _, pattern := range module.ProtectedPatterns() {
+		registrar.Handle(pattern, module.ProtectedHandler())
+	}
 }
 
-func RegisterPublicRoutes(api *gin.RouterGroup, handler *Handler, limiter *ratelimit.Limiter) {
-	scheduler := api.Group("/report-scheduler/public")
-	scheduler.GET("/deliveries/:token/download", ratelimit.MiddlewareForPolicy(limiter, ratelimit.PerIPPolicy("report-delivery-download", 60)), handler.DownloadDeliveryLink)
+func RegisterPublicRoutes(group *gin.RouterGroup, handler *Handler, limiter *ratelimit.Limiter) {
+	if handler == nil {
+		return
+	}
+	module := newHTTPModule(handler)
+	registrar := modulehttp.NewRegistrar(group.Group("", ratelimit.MiddlewareForPolicy(limiter,
+		ratelimit.PerIPPolicy(scheduler.DeliveryDownloadPolicy, scheduler.DeliveryDownloadLimit))))
+	for _, pattern := range module.PublicPatterns() {
+		registrar.Handle(pattern, module.PublicHandler())
+	}
+}
+
+func newHTTPModule(handler *Handler) *scheduler.HTTPModule {
+	module, err := scheduler.NewHTTPModule(handler.service, scheduler.HTTPOptions{
+		Actor: func(r *http.Request) (scheduler.HTTPActor, bool) {
+			actor, ok := modulehttp.Actor(r)
+			health := modulehttp.HealthContext(r)
+			return scheduler.HTTPActor{
+				UserID:        actor.UserID,
+				HealthContext: scheduler.HealthContext{District: strings.TrimSpace(health["district"]), Facility: strings.TrimSpace(health["facility"])},
+				HasSystem:     actor.HasSystem,
+				HasPermission: func(permission string) bool {
+					return actor.HasPermission(authz.Permission(permission))
+				},
+			}, ok
+		},
+		RequestID: modulehttp.RequestID,
+		// RegisterPublicRoutes installs the Gin limiter before dispatch, where
+		// the dashboard's trusted-proxy client IP resolution is available.
+		LimitPublicDownload: func(_ string, _ int, next http.Handler) http.Handler { return next },
+	})
+	if err != nil {
+		panic(err)
+	}
+	return module
 }

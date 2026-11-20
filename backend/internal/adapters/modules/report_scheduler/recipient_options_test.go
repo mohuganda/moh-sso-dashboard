@@ -42,7 +42,7 @@ func TestRecipientOptionsRequireScheduleWritePermission(t *testing.T) {
 			router := gin.New()
 			group := router.Group("/api/v1", func(c *gin.Context) {
 				if tc.authenticated {
-					permissions := authz.Context{Permissions: tc.permissions}
+					permissions := authz.Context{UserID: "user-1", Permissions: tc.permissions}
 					if tc.system {
 						permissions.AccessibleSystems = []string{authz.SystemDataStatistics}
 					}
@@ -61,12 +61,12 @@ func TestRecipientOptionsRequireScheduleWritePermission(t *testing.T) {
 
 func TestRecipientOptionsValidateQueries(t *testing.T) {
 	for _, query := range []string{"kind=admin", "kind=email&limit=0", "kind=email&limit=101", "kind=email&limit=no", "search=" + strings.Repeat("x", 201)} {
-		router := gin.New()
+		group, router := schedulerTestRouter()
 		repo := &recipientOptionsRepository{}
 		handler := NewHandler(NewService(repo, nil, nil, nil, nil, nil))
-		router.GET("/options", handler.RecipientOptions)
+		RegisterProtectedRoutes(group, handler)
 		response := httptest.NewRecorder()
-		router.ServeHTTP(response, httptest.NewRequest("GET", "/options?"+query, nil))
+		router.ServeHTTP(response, httptest.NewRequest("GET", "/api/v1/report-scheduler/recipients/options?"+query, nil))
 		if response.Code != 400 || repo.called {
 			t.Fatalf("invalid query accepted: %s status=%d", query, response.Code)
 		}

@@ -16,8 +16,9 @@ import (
 
 type accessKey struct{}
 type access struct {
-	actor authz.Context
-	valid bool
+	actor         authz.Context
+	valid         bool
+	healthContext map[string]string
 }
 type denied int
 
@@ -67,6 +68,12 @@ func RequireSystem(r *http.Request, system string) error {
 	return nil
 }
 
+// HealthContext returns the district and facility populated by host authentication.
+func HealthContext(r *http.Request) map[string]string {
+	current, _ := r.Context().Value(accessKey{}).(access)
+	return current.healthContext
+}
+
 func RequestID(r *http.Request) string { return observability.RequestIDFromContext(r.Context()) }
 
 type HTTPModule interface{ http.Handler }
@@ -108,7 +115,9 @@ func (r *Registrar) Handle(pattern string, handler http.Handler) {
 	}
 	r.group.Handle(fields[0], route, func(c *gin.Context) {
 		actor, valid := authz.FromGin(c)
-		request := c.Request.WithContext(context.WithValue(c.Request.Context(), accessKey{}, access{actor, valid}))
+		rawHealth, _ := c.Get("health_context")
+		health, _ := rawHealth.(map[string]string)
+		request := c.Request.WithContext(context.WithValue(c.Request.Context(), accessKey{}, access{actor: actor, valid: valid, healthContext: health}))
 		mounted.ServeHTTP(c.Writer, request)
 	})
 }

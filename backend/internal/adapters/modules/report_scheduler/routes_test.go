@@ -1,9 +1,11 @@
 package report_scheduler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -19,8 +21,8 @@ func TestModuleAccess(t *testing.T) {
 		status int
 	}{
 		{"unauthenticated", nil, http.StatusUnauthorized},
-		{"permission without system", &authz.Context{Permissions: []authz.Permission{authz.PermissionReportSchedulerRead}}, http.StatusForbidden},
-		{"system without permission", &authz.Context{AccessibleSystems: []string{authz.SystemDataStatistics}}, http.StatusForbidden},
+		{"permission without system", &authz.Context{UserID: "user-1", Permissions: []authz.Permission{authz.PermissionReportSchedulerRead}}, http.StatusForbidden},
+		{"system without permission", &authz.Context{UserID: "user-1", AccessibleSystems: []string{authz.SystemDataStatistics}}, http.StatusForbidden},
 		{"assigned parent client role", &allowed, http.StatusOK},
 		{"parent access without module permission", contextPtr(authz.NewContext("user-2", nil, map[string][]string{authz.SystemDataStatistics: {authz.DataStatisticsAccess}})), http.StatusForbidden},
 		{"retired standalone client", contextPtr(authz.NewContext("user-3", nil, map[string][]string{"report-scheduler": {authz.ReportSchedulerAccess}})), http.StatusForbidden},
@@ -30,6 +32,7 @@ func TestModuleAccess(t *testing.T) {
 			router := gin.New()
 			group := router.Group("/api/v1", func(c *gin.Context) {
 				if tt.auth != nil {
+					c.Set("health_context", map[string]string{"district": "Kampala"})
 					c.Set(authz.ContextKey, *tt.auth)
 				}
 			})
@@ -47,7 +50,7 @@ func TestModuleAccess(t *testing.T) {
 				if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
 					t.Fatal(err)
 				}
-				if !body.Success || body.Data.SchedulingEnabled || body.Data.HealthBIEnabled || body.Data.Status != "ready" {
+				if !body.Success || body.Data.HealthContext.District != "Kampala" || body.Data.SchedulingEnabled || body.Data.HealthBIEnabled || body.Data.Status != "ready" {
 					t.Fatalf("unexpected module response: %+v", body)
 				}
 			}
@@ -75,12 +78,37 @@ func TestParseListOptionsValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			res := httptest.NewRecorder()
-			ctx, _ := gin.CreateTestContext(res)
-			ctx.Request = httptest.NewRequest(http.MethodGet, tt.target, nil)
-			_, ok := parseListOptions(ctx, tt.allowEnabled)
-			if ok != tt.wantOK {
+			group, router := schedulerTestRouter()
+			RegisterProtectedRoutes(group, NewHandler(NewService(schedulerListRepository{}, nil, nil, nil, nil, nil)))
+			path := "/schedules"
+			if !tt.allowEnabled {
+				path = "/executions"
+			}
+			router.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/v1/report-scheduler"+strings.Replace(tt.target, "/items", path, 1), nil))
+			ok := res.Code == http.StatusOK
+			if ok != tt.wantOK || (!tt.wantOK && res.Code != http.StatusBadRequest) {
 				t.Fatalf("expected ok=%v, got %v; body=%s", tt.wantOK, ok, res.Body.String())
 			}
 		})
 	}
+}
+
+func schedulerTestRouter() (*gin.RouterGroup, *gin.Engine) {
+	router := gin.New()
+	group := router.Group("/api/v1", func(c *gin.Context) {
+		c.Set(authz.ContextKey, authz.NewContext("user-1", nil, map[string][]string{
+			authz.SystemDataStatistics: {authz.ReportSchedulerAccess},
+		}))
+	})
+	return group, router
+}
+
+type schedulerListRepository struct{ Repository }
+
+func (schedulerListRepository) ListSchedules(context.Context, string, bool, HealthContext, ListOptions) ([]Schedule, error) {
+	return nil, nil
+}
+
+func (schedulerListRepository) ListExecutions(context.Context, string, bool, HealthContext, ListOptions) ([]Execution, error) {
+	return nil, nil
 }
