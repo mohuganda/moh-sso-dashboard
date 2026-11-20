@@ -72,7 +72,7 @@ class BundleTests(unittest.TestCase):
         self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/announcements'], 'v0.2.0')
         self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/admin-units'], 'v0.2.0')
         self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/metrics'], 'v0.2.0')
-        self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler'], 'v0.1.0')
+        self.assertEqual(data['backend']['modules']['github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler'], 'v0.2.0')
         for field in ('version', 'checksum', 'module'):
             changed = json.loads(json.dumps(data))
             if field == 'version':

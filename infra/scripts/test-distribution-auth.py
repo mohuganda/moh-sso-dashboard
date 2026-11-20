@@ -295,7 +295,7 @@ def main():
                       'no optional workers/delivery queue, clean shutdown and restart', flush=True)
                 return
             assert any(item['id'] == 'metrics' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
-            assert any(item['id'] == 'report-scheduler' and item['version'] == 'v0.1.0' and item['enabled'] for item in modules), modules
+            assert any(item['id'] == 'report-scheduler' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
             assert any(item['id'] == 'audit' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
             assert any(item['id'] == 'geojson' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
             assert any(item['id'] == 'announcements' and item['version'] == 'v0.2.0' and item['enabled'] for item in modules), modules
