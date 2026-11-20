@@ -6,13 +6,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/moh-sso-dashboard/core"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
 type WorkerHealth struct {
-	Name     string `json:"name"`
-	LastSeen string `json:"lastSeen,omitempty"`
-	Healthy  bool   `json:"healthy"`
+	LocalStatus *core.WorkerSnapshot `json:"localStatus,omitempty"`
+	Name        string               `json:"name"`
+	LastSeen    string               `json:"lastSeen,omitempty"`
+	Healthy     bool                 `json:"healthy"`
 }
 type Readiness struct {
 	Ready   bool           `json:"ready"`
@@ -86,6 +88,10 @@ func (h *Handler) enabledWorkerHealth(ctx context.Context) ([]WorkerHealth, erro
 				item = candidate
 				break
 			}
+		}
+		if status := h.WorkerStatuses[name]; status != nil {
+			snapshot := status.Snapshot()
+			item.LocalStatus = &snapshot
 		}
 		result = append(result, item)
 	}

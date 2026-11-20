@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/moh-sso-dashboard/core"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -18,6 +19,7 @@ import (
 )
 
 type NotificationEmailDeliveryWorker struct {
+	status               *core.WorkerStatus
 	heartbeat            func(context.Context)
 	notificationDelivery notificationDeliveryRepo.NotificationDeliveryRepository
 	emailSvc             service.EmailService
@@ -74,6 +76,8 @@ func (w *NotificationEmailDeliveryWorker) Start(ctx context.Context) error {
 		return errors.New("notification email delivery worker is nil")
 	}
 
+	defer w.status.Stop()
+
 	w.logger.Info(
 		"notification email delivery worker started",
 		"poll_delay", w.pollDelay.String(),
@@ -106,6 +110,9 @@ func (w *NotificationEmailDeliveryWorker) process(ctx context.Context) error {
 		string(model.NotificationChannelEmail),
 		w.batchSize,
 	)
+	if ctx.Err() == nil {
+		w.status.RecordPoll(time.Now(), err)
+	}
 	if err != nil {
 		return fmt.Errorf("claim email notification deliveries: %w", err)
 	}
@@ -332,3 +339,5 @@ func unmarshalNullRawMessage(value pqtype.NullRawMessage, target any) error {
 func (w *NotificationEmailDeliveryWorker) SetHeartbeat(callback func(context.Context)) {
 	w.heartbeat = callback
 }
+
+func (w *NotificationEmailDeliveryWorker) SetStatus(status *core.WorkerStatus) { w.status = status }

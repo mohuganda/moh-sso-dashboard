@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/moh-sso-dashboard/core"
 	"github.com/moh-sso-dashboard/internal/authz"
 	"net/http/httptest"
 	"strings"
@@ -75,8 +76,14 @@ func TestProfileReadinessRequiresOnlyEnabledWorkersAndMandatoryCore(t *testing.T
 		t.Fatal("core-only readiness queried disabled workers", code, repo.calls)
 	}
 	h.RequiredWorkers = []string{"email-outbox"}
-	if code := request(); code != 200 {
-		t.Fatal("disabled notification worker gated readiness", code)
+	local := &core.WorkerStatus{}
+	local.RecordPoll(time.Now(), errors.New("private provider detail"))
+	h.WorkerStatuses = map[string]*core.WorkerStatus{"email-outbox": local}
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/ready", nil))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"degraded"`) ||
+		!strings.Contains(w.Body.String(), `"lastFailure":`) || strings.Contains(w.Body.String(), "private provider detail") {
+		t.Fatalf("unexpected readiness with local worker status: %d %s", w.Code, w.Body.String())
 	}
 	h.RequiredWorkers = []string{"missing-worker"}
 	if code := request(); code != 503 {

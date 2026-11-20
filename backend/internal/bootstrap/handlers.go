@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/moh-sso-dashboard/core"
 	reportschedulerfeature "github.com/moh-sso-dashboard/internal/adapters/modules/report_scheduler"
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/api/handler"
@@ -45,6 +46,7 @@ type handlers struct {
 }
 
 type handlerDependencies struct {
+	WorkerStatuses map[string]*core.WorkerStatus
 	Config         *config.Config
 	Store          storepkg.Store
 	Cache          *cache.RedisCache
@@ -203,6 +205,7 @@ func buildHandlers(deps handlerDependencies) handlers {
 	return handlers{
 		Router: router.HandlerSet{
 			Platform: &platformfeature.Handler{
+				WorkerStatuses:   deps.WorkerStatuses,
 				WorkerStaleAfter: 3 * deps.Config.NotificationDelivery.WorkerInterval,
 				CoreReady:        healthHandler.CheckCore, RequiredWorkers: enabledDeliveryWorkers(deps.Config),
 				Repository: &platformfeature.PostgresRepository{DB: deps.Databases.Primary},

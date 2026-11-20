@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/moh-sso-dashboard/core"
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/authz"
 	"github.com/moh-sso-dashboard/internal/config"
@@ -174,8 +175,13 @@ func Run() {
 	// ==================================================
 	// HANDLERS
 	// ==================================================
+	workerStatuses := make(map[string]*core.WorkerStatus)
+	for _, name := range enabledDeliveryWorkers(cfg) {
+		workerStatuses[name] = &core.WorkerStatus{}
+	}
 	handlers := buildHandlers(handlerDependencies{
 		Config:         cfg,
+		WorkerStatuses: workerStatuses,
 		Store:          store,
 		Cache:          cacheAdapter,
 		Databases:      dbs,
@@ -210,6 +216,7 @@ func Run() {
 	}()
 
 	stopWorkers, err := startBackgroundWorkers(ctx, workerDependencies{
+		Statuses:                       workerStatuses,
 		PrimaryDB:                      dbs.Primary,
 		Config:                         cfg,
 		ProcessRepository:              repos.Processes,

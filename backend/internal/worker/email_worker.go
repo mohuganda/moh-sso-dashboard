@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/moh-sso-dashboard/core"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
 	repository "github.com/moh-sso-dashboard/internal/repository/email"
@@ -15,6 +16,7 @@ type EmailSender interface {
 }
 
 type EmailWorker struct {
+	status     *core.WorkerStatus
 	heartbeat  func(context.Context)
 	repo       repository.EmailRepository
 	sender     EmailSender
@@ -71,6 +73,8 @@ func (w *EmailWorker) Start(ctx context.Context) error {
 		return errors.New("email worker is nil")
 	}
 
+	defer w.status.Stop()
+
 	w.logger.Info("email worker started")
 
 	ticker := time.NewTicker(w.pollEvery)
@@ -98,6 +102,9 @@ func (w *EmailWorker) process(ctx context.Context) {
 	}
 
 	items, err := w.repo.ClaimNextBatch(ctx, w.batchSize)
+	if ctx.Err() == nil {
+		w.status.RecordPoll(time.Now(), err)
+	}
 	if err != nil {
 		w.logger.Error(
 			"email worker failed to claim batch",
@@ -194,3 +201,5 @@ func (w *EmailWorker) process(ctx context.Context) {
 }
 
 func (w *EmailWorker) SetHeartbeat(callback func(context.Context)) { w.heartbeat = callback }
+
+func (w *EmailWorker) SetStatus(status *core.WorkerStatus) { w.status = status }

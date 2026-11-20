@@ -1164,6 +1164,19 @@ components:
         enabled:
           type: boolean
       type: object
+    core.WorkerSnapshot:
+      properties:
+        lastFailure:
+          format: date-time
+          nullable: true
+          type: string
+        lastSuccess:
+          format: date-time
+          nullable: true
+          type: string
+        state:
+          type: string
+      type: object
     data_quality.CompletenessDistrict:
       properties:
         district:
@@ -4269,6 +4282,10 @@ components:
           type: boolean
         lastSeen:
           type: string
+        localStatus:
+          allOf:
+            - $ref: '#/components/schemas/core.WorkerSnapshot'
+          nullable: true
         name:
           type: string
       type: object

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/moh-sso-dashboard/core"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
@@ -32,13 +33,21 @@ func TestNotificationHeartbeatRequiresSuccessfulQueuePoll(t *testing.T) {
 		if failed {
 			repo.claimErr = errors.New("queue unavailable")
 		}
-		worker := &NotificationEmailDeliveryWorker{notificationDelivery: repo, logger: logger.NewLogger(), heartbeat: func(context.Context) { calls++ }}
+		status := &core.WorkerStatus{}
+		worker := &NotificationEmailDeliveryWorker{status: status, notificationDelivery: repo, logger: logger.NewLogger(), heartbeat: func(context.Context) { calls++ }}
 		err := worker.process(context.Background())
 		if failed && (err == nil || calls != 0) {
 			t.Fatal("failed queue poll refreshed health")
 		}
 		if !failed && (err != nil || calls != 1) {
 			t.Fatal("successful queue poll did not refresh health")
+		}
+		snapshot := status.Snapshot()
+		if failed && (snapshot.State != "degraded" || snapshot.LastFailure == nil || snapshot.LastSuccess != nil) {
+			t.Fatalf("failed poll status: %+v", snapshot)
+		}
+		if !failed && (snapshot.State != "ready" || snapshot.LastSuccess == nil || snapshot.LastFailure != nil) {
+			t.Fatalf("successful poll status: %+v", snapshot)
 		}
 	}
 }

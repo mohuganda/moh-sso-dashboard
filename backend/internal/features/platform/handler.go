@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/moh-sso-dashboard/core"
 	"github.com/moh-sso-dashboard/internal/http/response"
 )
 
@@ -21,6 +22,7 @@ type Handler struct {
 	RequiredWorkers []string
 	DeliveryEnabled *bool
 
+	WorkerStatuses   map[string]*core.WorkerStatus
 	WorkerStaleAfter time.Duration
 	Repository       Repository
 	Verifier         TokenVerifier
