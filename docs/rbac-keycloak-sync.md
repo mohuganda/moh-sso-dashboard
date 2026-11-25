@@ -57,11 +57,11 @@ RBAC_STARTUP_SYNC_REALM_EXPORT=true
 RBAC_STARTUP_SYNC_REALM_EXPORT_PATH=
 RBAC_STARTUP_SYNC_LIVE_KEYCLOAK=true
 RBAC_STARTUP_SYNC_USERS=true
-RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true
+RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=false
 RBAC_STARTUP_SYNC_FAIL_ON_ERROR=false
 ```
 
-The shipped environment templates override several of these. `infra/env/dev.env.example`, `infra/env/prod.env.example`, `infra/env/core.env.example` and `infra/env/external-dev.env.example` all set `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=false`. `prod.env.example` also sets `RBAC_STARTUP_SYNC_REALM_EXPORT=false`, and `core.env.example` turns off realm-export, live Keycloak and user sync. Push-to-Keycloak is therefore on only when the variable is left unset.
+The shipped environment templates override several of these. `infra/env/dev.env.example`, `infra/env/prod.env.example`, `infra/env/core.env.example` and `infra/env/external-dev.env.example` all set `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=false`, matching the compiled default. `prod.env.example` also sets `RBAC_STARTUP_SYNC_REALM_EXPORT=false`, and `core.env.example` turns off realm-export, live Keycloak and user sync. Push-to-Keycloak is on only when the variable is explicitly set to `true`.
 
 Startup order (`backend/internal/bootstrap/rbac_sync.go`):
 
@@ -128,7 +128,7 @@ The curated seed maps the `user` realm role to these default system roles (the s
 
 The mappings live in the `ihp_realm_role_system_roles` table, which migration `000030_add_realm_role_system_roles` created. Migration `000053_standard_user_client_role_defaults` replaced the earlier `user` mappings (which included `utilities_access`) with this baseline. The DB authorization resolver (`backend/internal/authz/db_resolver.go`) reads that table, so it exposes these systems to every user carrying the `user` realm role, even before a refreshed Keycloak token contains the composite client roles. See [Standard human-user role defaults](./standard-user-defaults.md) for the reconciliation procedure.
 
-When push-to-Keycloak runs (step 5 above), startup also adds those client roles as composites of the Keycloak `user` realm role. Existing users receive the composite roles on their next login or token refresh. The `user` role in `infra/keycloak/realm-export.json` currently carries only `data-statistics_access`, `document_viewer` and `settings_access` as composites, so a realm imported from that file needs push-to-Keycloak or the reconciliation tool to receive the full baseline.
+When push-to-Keycloak runs (step 5 above), startup also adds those client roles as composites of the Keycloak `user` realm role. Existing users receive the composite roles on their next login or token refresh. The `user` role in `infra/keycloak/realm-export.json` and `infra/keycloak/realm-export-prod.json` carries the full baseline as composites, so a freshly imported realm has it; an existing realm needs push-to-Keycloak or the reconciliation tool to receive it.
 
 The `accessible_systems` attribute in the local realm export is descriptive seed metadata only. Runtime authorization is derived from realm roles, client-role assignments/composites, and the portal RBAC mappings; changing that attribute alone never grants access.
 
@@ -138,7 +138,7 @@ Use these rules to avoid accidental overwrites:
 
 - Assign users to roles in Keycloak or through portal APIs that write to Keycloak.
 - Define what roles can do in portal RBAC.
-- Set `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` only when startup should create missing portal-defined Keycloak clients, realm/client roles, and configured realm-role composites from the RBAC registry, and overwrite the portal attributes on registered clients. It is the compiled default, but every shipped `infra/env/*.env.example` sets it to `false`. With it off, apply Keycloak changes yourself (for example with `infra/scripts/reconcile-keycloak-user-defaults.py` for the `user` composites). Apart from explicitly configured realm-role defaults such as `user`, other systems still require explicit client-role assignments.
+- Set `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` only when startup should create missing portal-defined Keycloak clients, realm/client roles, and configured realm-role composites from the RBAC registry, and overwrite the portal attributes on registered clients. It is off by default (compiled default and every shipped `infra/env/*.env.example`). With it off, apply Keycloak changes yourself (for example with `infra/scripts/reconcile-keycloak-user-defaults.py` for the `user` composites). Apart from explicitly configured realm-role defaults such as `user`, other systems still require explicit client-role assignments.
 - Do not use startup sync to delete Keycloak roles or users.
 - Do not store passwords or credentials in portal RBAC.
 
@@ -408,7 +408,7 @@ In production:
 - Keep seed files source-controlled and reviewed.
 - Keep Keycloak admin credentials restricted to the backend.
 - Prefer drift preview before applying major changes.
-- Set `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` only when the approved operating procedure allows the portal to create missing registry clients and roles in Keycloak. `infra/env/prod.env.example` sets it to `false`. Do not rely on the compiled default (`true`) by leaving the variable unset.
+- Set `RBAC_STARTUP_SYNC_PUSH_TO_KEYCLOAK=true` only when the approved operating procedure allows the portal to create missing registry clients and roles in Keycloak. It is off by default, and `infra/env/prod.env.example` also sets it to `false` explicitly.
 - Use audit logs when changing high-risk role mappings.
 
 ## Troubleshooting

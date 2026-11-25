@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,12 +17,19 @@ import (
 	"github.com/gin-gonic/gin"
 	router "github.com/moh-sso-dashboard/internal/api"
 	"github.com/moh-sso-dashboard/internal/api/handler"
+	healthcontext "github.com/moh-sso-dashboard/internal/features/health_context"
 	adminunits "github.com/mohuganda/moh-sso-dashboard/backend/modules/admin-units"
 	announcements "github.com/mohuganda/moh-sso-dashboard/backend/modules/announcements"
 	audit "github.com/mohuganda/moh-sso-dashboard/backend/modules/audit"
+	dataquality "github.com/mohuganda/moh-sso-dashboard/backend/modules/data-quality"
+	documenttemplates "github.com/mohuganda/moh-sso-dashboard/backend/modules/document-templates"
+	documents "github.com/mohuganda/moh-sso-dashboard/backend/modules/documents"
 	geojson "github.com/mohuganda/moh-sso-dashboard/backend/modules/geojson"
 	metrics "github.com/mohuganda/moh-sso-dashboard/backend/modules/metrics"
 	reportScheduler "github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler"
+	storagelocations "github.com/mohuganda/moh-sso-dashboard/backend/modules/storage-locations"
+	surveillance "github.com/mohuganda/moh-sso-dashboard/backend/modules/surveillance"
+	visualiser "github.com/mohuganda/moh-sso-dashboard/backend/modules/visualiser"
 )
 
 // Routes uses inert handlers: route registration never needs live DB/Redis/SSO.
@@ -78,6 +86,32 @@ func documentationHandlers() router.HandlerSet {
 		}
 	}
 	var err error
+	handlers.StorageLocations, err = storagelocations.NewModule(storagelocations.Dependencies{Database: new(sql.DB)})
+	if err != nil {
+		panic(err)
+	}
+	handlers.Visualiser, err = visualiser.NewModule(visualiser.Dependencies{Database: new(sql.DB), HealthContexts: healthcontext.ModuleDirectory{}})
+	if err != nil {
+		panic(err)
+	}
+	handlers.DocumentTemplates, err = documenttemplates.NewModule(documenttemplates.Dependencies{Database: new(sql.DB), Warehouse: new(sql.DB)})
+	if err != nil {
+		panic(err)
+	}
+	handlers.DataQuality, err = dataquality.NewModule(dataquality.Dependencies{Primary: new(sql.DB), Warehouse: new(sql.DB)})
+	if err != nil {
+		panic(err)
+	}
+	handlers.Documents, err = documents.NewModule(documents.Dependencies{
+		Database: new(sql.DB), StorageLocations: inertDocumentLocations{}, FileStores: inertDocumentStores{},
+	})
+	if err != nil {
+		panic(err)
+	}
+	handlers.Surveillance, err = surveillance.NewModule(surveillance.Dependencies{Database: new(sql.DB), HealthContext: healthcontext.ModuleDirectory{}})
+	if err != nil {
+		panic(err)
+	}
 	handlers.ReportScheduler = router.NewReportSchedulerModule(reportScheduler.NewService(nil, nil, nil, nil, nil, nil))
 	handlers.GeoJSON, err = geojson.NewModule(geojson.Dependencies{AuthorizeAny: func(*http.Request, ...string) error { return geojson.ErrUnauthorized }})
 	if err != nil {
@@ -172,4 +206,16 @@ func moduleOperations(definitions object) (map[string]object, error) {
 		}
 	}
 	return contracts, nil
+}
+
+type inertDocumentLocations struct{}
+
+func (inertDocumentLocations) GetByID(context.Context, string) (documents.Location, error) {
+	return documents.Location{}, errors.New("documentation handler")
+}
+
+type inertDocumentStores struct{}
+
+func (inertDocumentStores) Get(string) (documents.FileStore, error) {
+	return nil, errors.New("documentation handler")
 }

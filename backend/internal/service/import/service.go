@@ -7,26 +7,22 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/moh-sso-dashboard/internal/db/sqlc"
-	documenttemplates "github.com/moh-sso-dashboard/internal/features/document_templates"
-	documentRepo "github.com/moh-sso-dashboard/internal/features/documents"
-	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
+
 	logger "github.com/moh-sso-dashboard/internal/log"
 	"github.com/moh-sso-dashboard/internal/model"
+	documentRepo "github.com/moh-sso-dashboard/internal/repository/document_imports"
 	processRepo "github.com/moh-sso-dashboard/internal/repository/processes"
 
 	"github.com/moh-sso-dashboard/internal/storage"
+	documenttemplates "github.com/mohuganda/moh-sso-dashboard/backend/modules/document-templates"
 )
 
 type Service struct {
-	documentRepo     documentRepo.DocumentRepository
-	processRepo      processRepo.ProcessRepository
-	fileRepository   documentRepo.FileRepository
-	importRepository surveillancefeature.ImportRepository
+	documentRepo   documentRepo.DocumentRepository
+	processRepo    processRepo.ProcessRepository
+	fileRepository documentRepo.FileRepository
 
 	documentTemplateService documenttemplates.Service
-	facilityMetricsService  *surveillancefeature.FacilityWeeklyMetricsService
-	weeklyStatusService     *surveillancefeature.WeeklyStatusService
-	alertsService           *surveillancefeature.AlertService
 
 	registry *Registry
 	storage  storage.Storage
@@ -37,11 +33,8 @@ type Service struct {
 func NewService(documentRepo documentRepo.DocumentRepository,
 	processRepo processRepo.ProcessRepository,
 	fileRepository documentRepo.FileRepository,
-	importRepository surveillancefeature.ImportRepository,
 	documentTemplateService documenttemplates.Service,
-	facilityMetricsService *surveillancefeature.FacilityWeeklyMetricsService,
-	weeklyStatusService *surveillancefeature.WeeklyStatusService,
-	alertsService *surveillancefeature.AlertService,
+	surveillanceJobs SurveillanceJobs,
 	storage storage.Storage, remote *sql.DB) *Service {
 	reg := NewRegistry()
 
@@ -49,7 +42,6 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 		documentRepo:            documentRepo,
 		processRepo:             processRepo,
 		fileRepository:          fileRepository,
-		importRepository:        importRepository,
 		registry:                reg,
 		storage:                 storage,
 		remoteDB:                remote,
@@ -57,12 +49,12 @@ func NewService(documentRepo documentRepo.DocumentRepository,
 	}
 
 	// Register processors
-	reg.Register(model.ProcessTypeSurveillanceBatchProcess, NewSurveillanceBatchProcessor(
-		importRepository,
-		facilityMetricsService,
-		alertsService))
-
-	reg.Register(model.ProcessTypeSurveillanceCSVImport, NewSurveillanceCSVProcessor(documentRepo, processRepo, importRepository, storage))
+	// The surveillance module owns its import jobs; without it (core profile)
+	// they are unsupported process types.
+	if surveillanceJobs != nil {
+		reg.Register(model.ProcessTypeSurveillanceBatchProcess, surveillanceProcessor(surveillanceJobs.ProcessImportBatch))
+		reg.Register(model.ProcessTypeSurveillanceCSVImport, surveillanceProcessor(surveillanceJobs.ImportCSV))
+	}
 
 	reg.Register(model.ProcessTypeCSVImport, NewCSVProcessor(documentRepo, processRepo, fileRepository, storage, remote))
 

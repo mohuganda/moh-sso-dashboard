@@ -9,7 +9,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
-	github.com/mohuganda/moh-sso-dashboard/backend/core v0.0.0
+	github.com/mohuganda/moh-sso-dashboard/backend/core v0.2.0
 	github.com/redis/go-redis/v9 v9.17.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.1
@@ -100,9 +100,29 @@ require (
 	github.com/mohuganda/moh-sso-dashboard/backend/modules/admin-units v0.2.0
 	github.com/mohuganda/moh-sso-dashboard/backend/modules/announcements v0.2.0
 	github.com/mohuganda/moh-sso-dashboard/backend/modules/audit v0.2.0
+	github.com/mohuganda/moh-sso-dashboard/backend/modules/data-quality v0.0.0
+	github.com/mohuganda/moh-sso-dashboard/backend/modules/document-templates v0.0.0
+	github.com/mohuganda/moh-sso-dashboard/backend/modules/documents v0.0.0
 	github.com/mohuganda/moh-sso-dashboard/backend/modules/geojson v0.2.0
 	github.com/mohuganda/moh-sso-dashboard/backend/modules/metrics v0.2.0
 	github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler v0.1.1-0.20261120164120-d9bb6f8c819f
+	github.com/mohuganda/moh-sso-dashboard/backend/modules/storage-locations v0.0.0
+	github.com/mohuganda/moh-sso-dashboard/backend/modules/surveillance v0.0.0
+	github.com/mohuganda/moh-sso-dashboard/backend/modules/visualiser v0.0.0
 )
 
 replace github.com/mohuganda/moh-sso-dashboard/backend/core => ./core
+
+// Modules extracted from the host and built from this repository until their
+// first release tags; each is swapped for a version pin once tagged.
+replace github.com/mohuganda/moh-sso-dashboard/backend/modules/storage-locations => ./modules/storage-locations
+
+replace github.com/mohuganda/moh-sso-dashboard/backend/modules/visualiser => ./modules/visualiser
+
+replace github.com/mohuganda/moh-sso-dashboard/backend/modules/document-templates => ./modules/document-templates
+
+replace github.com/mohuganda/moh-sso-dashboard/backend/modules/data-quality => ./modules/data-quality
+
+replace github.com/mohuganda/moh-sso-dashboard/backend/modules/documents => ./modules/documents
+
+replace github.com/mohuganda/moh-sso-dashboard/backend/modules/surveillance => ./modules/surveillance

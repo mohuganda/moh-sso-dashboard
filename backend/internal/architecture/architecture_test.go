@@ -25,12 +25,6 @@ var allowedFeatureImports = map[string]map[string]string{
 	"auth": {
 		"authsession": "auth owns the authsession backing store as an implementation detail",
 	},
-	"documents": {
-		"storage_locations": "document upload flows validate configured storage locations",
-	},
-	"data_quality": {
-		"health_context": "data-quality issues enforce ownership through the shared contextual scope policy",
-	},
 	"email": {
 		"rbac":           "email group targeting resolves recipients through the RBAC repository port",
 		"users":          "email group targeting filters resolved members through the users repository port",
@@ -38,12 +32,6 @@ var allowedFeatureImports = map[string]map[string]string{
 	},
 	"rbac": {
 		"system_rbac": "RBAC sync applies the system RBAC seed format",
-	},
-	"surveillance": {
-		"health_context": "surveillance resources use aliases and the shared contextual scope policy",
-	},
-	"visualiser": {
-		"health_context": "visualiser queries constrain organisation units through health-context aliases",
 	},
 }
 

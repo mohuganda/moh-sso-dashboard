@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	dataqualitymodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/data-quality"
+	documentsmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/documents"
+	surveillancemodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/surveillance"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	kitadapter "github.com/moh-sso-dashboard/internal/adapters/modulekit"
 	"github.com/moh-sso-dashboard/internal/api/handler"
 	"github.com/moh-sso-dashboard/internal/config"
 	"github.com/moh-sso-dashboard/internal/middleware"
@@ -16,9 +20,12 @@ import (
 	adminunitsmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/admin-units"
 	announcementmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/announcements"
 	auditmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/audit"
+	documenttemplatesmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/document-templates"
 	geojsonmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/geojson"
 	metricsmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/metrics"
 	schedulermodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler"
+	storagelocationsmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/storage-locations"
+	visualisermodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/visualiser"
 )
 
 // NewModuleRegistry is the distribution's explicit composition root. Legacy
@@ -106,6 +113,81 @@ func NewModuleRegistry(handlers HandlerSet, disabled string, limiter *ratelimit.
 		},
 		Register: func(routes module.Routes) {
 			modulehttp.Register(routes.Protected, handlers.AdminUnits)
+		},
+	}, module.Definition{
+		Info: module.Info{ID: storagelocationsmodule.ID, Version: storagelocationsmodule.Version(), Enabled: enabled[storagelocationsmodule.ID]},
+		Initialize: func(context.Context) (module.Stop, error) {
+			if handlers.StorageLocations == nil {
+				return nil, errors.New("storage locations module is required")
+			}
+			return nil, nil
+		},
+		Register: func(routes module.Routes) {
+			modulehttp.Register(routes.Protected, handlers.StorageLocations)
+		},
+	}, module.Definition{
+		Info: module.Info{ID: visualisermodule.ID, Version: visualisermodule.Version(), Enabled: enabled[visualisermodule.ID]},
+		Initialize: func(context.Context) (module.Stop, error) {
+			if handlers.Visualiser == nil {
+				return nil, errors.New("visualiser module is required")
+			}
+			return nil, nil
+		},
+		Register: func(routes module.Routes) {
+			modulehttp.Register(routes.ContextScoped, handlers.Visualiser)
+		},
+	}, module.Definition{
+		Info: module.Info{ID: documenttemplatesmodule.ID, Version: documenttemplatesmodule.Version(), Enabled: enabled[documenttemplatesmodule.ID]},
+		Initialize: func(context.Context) (module.Stop, error) {
+			if handlers.DocumentTemplates == nil {
+				return nil, errors.New("document templates module is required")
+			}
+			return nil, nil
+		},
+		Register: func(routes module.Routes) {
+			// Behind the data-statistics system check and health-context
+			// selection, where the host registered these routes before.
+			modulehttp.Register(routes.ContextScoped, handlers.DocumentTemplates)
+		},
+	}, module.Definition{
+		Info: module.Info{ID: dataqualitymodule.ID, Version: dataqualitymodule.Version(), Enabled: enabled[dataqualitymodule.ID]},
+		Initialize: func(ctx context.Context) (module.Stop, error) {
+			if handlers.DataQuality == nil {
+				return nil, errors.New("data quality module is required")
+			}
+			return handlers.DataQuality.Initialize(ctx)
+		},
+		Register: func(routes module.Routes) {
+			if routes.ContextScoped == nil {
+				return
+			}
+			// The middleware only names the caller for created_by/reported_by fields.
+			modulehttp.Register(routes.ContextScoped.Group("", kitadapter.CallerNameMiddleware()), handlers.DataQuality)
+		},
+	}, module.Definition{
+		Info:     module.Info{ID: documentsmodule.ID, Version: documentsmodule.Version(), Enabled: enabled[documentsmodule.ID]},
+		Requires: []string{storagelocationsmodule.ID},
+		Initialize: func(ctx context.Context) (module.Stop, error) {
+			if handlers.Documents == nil {
+				return nil, errors.New("documents module is required")
+			}
+			// Runs the document processing worker until shutdown.
+			return handlers.Documents.Initialize(ctx)
+		},
+		Register: func(routes module.Routes) {
+			modulehttp.Register(routes.ContextScoped, handlers.Documents)
+		},
+	}, module.Definition{
+		Info: module.Info{ID: surveillancemodule.ID, Version: surveillancemodule.Version(), Enabled: enabled[surveillancemodule.ID]},
+		Initialize: func(context.Context) (module.Stop, error) {
+			if handlers.Surveillance == nil {
+				return nil, errors.New("surveillance module is required")
+			}
+			return nil, nil
+		},
+		Register: func(routes module.Routes) {
+			// Context-scoped: data-statistics system and the selected health context.
+			modulehttp.Register(routes.ContextScoped, handlers.Surveillance)
 		},
 	})
 }

@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	kitadapter "github.com/moh-sso-dashboard/internal/adapters/modulekit"
 	"net/url"
 	"strings"
 
@@ -8,14 +9,10 @@ import (
 	"github.com/moh-sso-dashboard/internal/config"
 	storepkg "github.com/moh-sso-dashboard/internal/db/sqlc"
 	clientfeature "github.com/moh-sso-dashboard/internal/features/clients"
-	documenttemplatefeature "github.com/moh-sso-dashboard/internal/features/document_templates"
-	documentfeature "github.com/moh-sso-dashboard/internal/features/documents"
 	emailfeature "github.com/moh-sso-dashboard/internal/features/email"
 	healthcontextfeature "github.com/moh-sso-dashboard/internal/features/health_context"
 	rbacfeature "github.com/moh-sso-dashboard/internal/features/rbac"
 	sessionfeature "github.com/moh-sso-dashboard/internal/features/sessions"
-	storagelocationfeature "github.com/moh-sso-dashboard/internal/features/storage_locations"
-	surveillancefeature "github.com/moh-sso-dashboard/internal/features/surveillance"
 	userfeature "github.com/moh-sso-dashboard/internal/features/users"
 	"github.com/moh-sso-dashboard/internal/keycloak"
 	logger "github.com/moh-sso-dashboard/internal/log"
@@ -23,7 +20,10 @@ import (
 	importsvc "github.com/moh-sso-dashboard/internal/service/import"
 	"github.com/moh-sso-dashboard/internal/storage"
 	"github.com/moh-sso-dashboard/internal/worker"
+	documenttemplatesmodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/document-templates"
 	reportschedulerfeature "github.com/mohuganda/moh-sso-dashboard/backend/modules/report-scheduler"
+	storagelocationfeature "github.com/mohuganda/moh-sso-dashboard/backend/modules/storage-locations"
+	surveillancemodule "github.com/mohuganda/moh-sso-dashboard/backend/modules/surveillance"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -36,21 +36,12 @@ type services struct {
 	Auth                    service.AuthService
 	Audit                   *service.AuditService
 	StorageLocations        storagelocationfeature.Service
+	StorageLocationsModule  *storagelocationfeature.Module
 	Sessions                sessionfeature.Service
-	Documents               *documentfeature.Service
 	Clients                 *clientfeature.Service
 	Users                   *userfeature.Service
-	Diseases                *surveillancefeature.DiseaseService
-	EpiWeeks                *surveillancefeature.EpiWeekService
-	Locations               *surveillancefeature.LocationService
-	Facilities              *surveillancefeature.FacilityService
-	FacilityWeeklyMetrics   *surveillancefeature.FacilityWeeklyMetricsService
-	WeeklyStatus            *surveillancefeature.WeeklyStatusService
-	SurveillanceImport      *surveillancefeature.ImportService
-	Alerts                  *surveillancefeature.AlertService
-	DocumentTemplates       documenttemplatefeature.Service
-	DocumentTemplateSheets  documenttemplatefeature.SheetService
-	DocumentTemplateColumns documenttemplatefeature.ColumnService
+	SurveillanceModule      *surveillancemodule.Module
+	DocumentTemplatesModule *documenttemplatesmodule.Module
 	Import                  *importsvc.Service
 	RBAC                    *rbacfeature.Service
 	HealthContexts          *healthcontextfeature.Service
@@ -154,21 +145,17 @@ func buildServices(deps serviceDependencies) services {
 	reportSchedulerService.SetDeliveryLinkTTL(deps.Config.ReportSchedulerDeliveryLinkTTL)
 	reportSchedulerService.SetEmailAttachmentLimit(deps.Config.Email.MaxAttachmentBytes)
 
-	storageLocationService := storagelocationfeature.NewService(
-		deps.Repositories.StorageLocations,
-		notificationsService,
-		deps.Config,
-	)
+	storageLocationsModule, err := storagelocationfeature.NewModule(storagelocationfeature.Dependencies{
+		Database: deps.Databases.Primary,
+		Notifier: kitadapter.Notifier{Service: notificationsService},
+		Platform: kitadapter.Platform(deps.Config),
+	})
+	if err != nil {
+		panic(err)
+	}
+	storageLocationService := storageLocationsModule.Service
 
 	sessionService := sessionfeature.NewService(deps.Repositories.Sessions)
-	documentService := documentfeature.NewService(
-		deps.Repositories.Documents,
-		deps.Repositories.Processes,
-		notificationsService,
-		deps.FileStorage,
-		deps.Config,
-	)
-
 	clientService := clientfeature.NewService(
 		deps.Repositories.Clients,
 		notificationsService,
@@ -181,86 +168,21 @@ func buildServices(deps serviceDependencies) services {
 		deps.Config,
 	)
 
-	diseaseService := surveillancefeature.NewDiseaseService(
-		deps.Logger,
-		deps.Repositories.Surveillance.Diseases,
-		notificationsService,
-		deps.Config,
-	)
+	documentTemplatesModule := buildDocumentTemplatesModule(deps, notificationsService)
 
-	epiWeekService := surveillancefeature.NewEpiWeekService(
-		deps.Logger,
-		deps.Repositories.Surveillance.EpiWeeks,
-		notificationsService,
-	)
-
-	locationService := surveillancefeature.NewLocationService(
-		deps.Logger,
-		deps.Repositories.Surveillance.Regions,
-		deps.Repositories.Surveillance.Districts,
-		deps.Repositories.Surveillance.SubCounties,
-		notificationsService,
-		deps.Config,
-	)
-
-	facilityService := surveillancefeature.NewFacilityService(
-		deps.Logger,
-		deps.Repositories.Surveillance.Facilities,
-		notificationsService,
-	)
-
-	facilityWeeklyMetricsService := surveillancefeature.NewFacilityWeeklyMetricsService(
-		deps.Logger,
-		deps.Repositories.Surveillance.FacilityMetrics,
-		deps.Repositories.Surveillance.Imports,
-	)
-
-	weeklyStatusService := surveillancefeature.NewWeeklyStatusService(
-		deps.Logger,
-		deps.Repositories.Surveillance.WeeklyStatus,
-	)
-
-	surveillanceImportService := surveillancefeature.NewImportService(
-		deps.Repositories.Surveillance.Imports,
-	)
-
-	alertsService := surveillancefeature.NewAlertService(
-		deps.Logger,
-		deps.Repositories.Surveillance.Alerts,
-		deps.Repositories.Surveillance.Imports,
-		notificationsService,
-		deps.Config,
-	)
-
-	documentTemplateService := documenttemplatefeature.NewService(
-		deps.Repositories.DocumentTemplates,
-		deps.Repositories.DocumentTemplateSheets,
-		deps.Repositories.DocumentTemplateColumns,
-		notificationsService,
-		deps.Config,
-	)
-
-	documentTemplateSheetService := documenttemplatefeature.NewSheetService(
-		deps.Repositories.DocumentTemplateSheets,
-		notificationsService,
-		deps.Config,
-	)
-
-	documentTemplateColumnService := documenttemplatefeature.NewColumnService(
-		deps.Repositories.DocumentTemplateColumns,
-		notificationsService,
-		deps.Config,
-	)
+	healthContextService := healthcontextfeature.NewService(deps.Repositories.HealthContexts)
+	surveillanceModule := buildSurveillanceModule(deps, notificationsService, healthContextService)
+	var surveillanceJobs importsvc.SurveillanceJobs
+	if surveillanceModule != nil {
+		surveillanceJobs = surveillanceModule
+	}
 
 	importService := importsvc.NewService(
 		deps.Repositories.Documents,
 		deps.Repositories.Processes,
 		deps.Repositories.DocumentFiles,
-		deps.Repositories.Surveillance.Imports,
-		documentTemplateService,
-		facilityWeeklyMetricsService,
-		weeklyStatusService,
-		alertsService,
+		documentTemplatesModule.Service,
+		surveillanceJobs,
 		deps.FileStorage,
 		deps.Databases.Remote,
 	)
@@ -270,7 +192,6 @@ func buildServices(deps serviceDependencies) services {
 	userService.SetAccessRoleRemovalHook(newIdentitySyncRevocationHook(deps.Config, deps.Databases.Primary, deps.AdminKeycloak))
 	rbacService.SetKeycloakGroupMembershipManager(deps.AdminKeycloak)
 	rbacService.SetFrontendBaseURL(deps.Config.FrontendBaseURL)
-	healthContextService := healthcontextfeature.NewService(deps.Repositories.HealthContexts)
 	emailFeatureService.SetHealthContextService(healthContextService)
 
 	return services{
@@ -282,21 +203,12 @@ func buildServices(deps serviceDependencies) services {
 		Auth:                    authService,
 		Audit:                   auditService,
 		StorageLocations:        storageLocationService,
+		StorageLocationsModule:  storageLocationsModule,
 		Sessions:                sessionService,
-		Documents:               documentService,
 		Clients:                 clientService,
 		Users:                   userService,
-		Diseases:                diseaseService,
-		EpiWeeks:                epiWeekService,
-		Locations:               locationService,
-		Facilities:              facilityService,
-		FacilityWeeklyMetrics:   facilityWeeklyMetricsService,
-		WeeklyStatus:            weeklyStatusService,
-		SurveillanceImport:      surveillanceImportService,
-		Alerts:                  alertsService,
-		DocumentTemplates:       documentTemplateService,
-		DocumentTemplateSheets:  documentTemplateSheetService,
-		DocumentTemplateColumns: documentTemplateColumnService,
+		SurveillanceModule:      surveillanceModule,
+		DocumentTemplatesModule: documentTemplatesModule,
 		Import:                  importService,
 		RBAC:                    rbacService,
 		HealthContexts:          healthContextService,
